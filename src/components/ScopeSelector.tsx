@@ -56,7 +56,7 @@ export default function ScopeSelector({ mobile = false }: { mobile?: boolean }) 
                 {canSwitchTenants ? (
                     tenants.map(t => (
                         <optgroup key={t.id} label={`☁ Tenant — ${t.name}`}>
-                            <option value={`${t.id}|All`}>▦ {t.name} (todo)</option>
+                            <option value={`${t.id}|All`}>▦ {t.name} {tc('scope_all')}</option>
                             {/* Only render the subscriptions under the currently active tenant in the tree 
                                 because we only fetch subscriptions for the active tenant */}
                             {t.id === selectedTenant.id && subscriptions.map(s => (
@@ -71,7 +71,7 @@ export default function ScopeSelector({ mobile = false }: { mobile?: boolean }) 
                     ))
                 ) : (
                     <optgroup label={`☁ Tenant — ${selectedTenant.name}`}>
-                        <option value={`${selectedTenant.id}|All`}>▦ {selectedTenant.name} (todo)</option>
+                        <option value={`${selectedTenant.id}|All`}>▦ {selectedTenant.name} {tc('scope_all')}</option>
                         {subscriptions.map(s => (
                             <option
                                 key={s.id}

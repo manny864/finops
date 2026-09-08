@@ -1,6 +1,7 @@
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { isMockTenant } from "@/lib/mockData";
 import { getAdvisorExecutiveData } from "@/services/azureAdvisor.service";
+import { normalizeAdvisorLocale, type AdvisorLocale } from "@/lib/advisorI18n";
 import type { AdvisorCategory, AdvisorRecommendation } from "@/types/azureAdvisor.types";
 import type {
     CoinIndexSummary,
@@ -20,123 +21,228 @@ const WAF_CATEGORIES = [
 ];
 
 /**
+ * Prosa del mock, por locale.
+ *
+ * El mock tiene que traducirse igual que el camino real. El real ya lo hace:
+ * `getAdvisorExecutiveData(tenantId, locale)` resuelve titleTranslated y
+ * descriptionTranslated. El mock devolvia castellano fijo, asi que un tenant
+ * demo en la UI en ingles mostraba "Redimensionar instancias de VM
+ * infrautilizadas" — y las capturas del marketplace salen de ahi.
+ *
+ * Va con trios y no con claves i18n porque esto es un SERVICIO: no tiene acceso
+ * al catalogo de next-intl. Es el mismo patron que `generateMockAdvisorData` en
+ * azureAdvisor.service.ts, y `normalizeAdvisorLocale` es el mismo normalizador
+ * que usa el traductor de Advisor.
+ */
+type Trio = Record<AdvisorLocale, string>;
+
+const MOCK_SUBSCRIPTION: Trio = {
+    es: "Producción Principal",
+    en: "Main Production",
+    "pt-BR": "Produção Principal",
+};
+
+type MockRecSeed = Omit<CoinRecommendationItem, "name" | "description" | "subscriptionName"> & {
+    name: Trio;
+    description: Trio;
+};
+
+const MOCK_REC_SEEDS: MockRecSeed[] = [
+    {
+        id: "rec-mock-01",
+        name: {
+            es: "Eliminar discos no administrados y snapshots huérfanos",
+            en: "Delete unmanaged disks and orphaned snapshots",
+            "pt-BR": "Excluir discos não gerenciados e snapshots órfãos",
+        },
+        description: {
+            es: "Existen 4 discos administrados en estado 'Unattached' sin vincular a ninguna VM activa.",
+            en: "There are 4 managed disks in 'Unattached' state not linked to any active VM.",
+            "pt-BR": "Existem 4 discos gerenciados no estado 'Unattached' sem vínculo com nenhuma VM ativa.",
+        },
+        category: "Cost",
+        impact: "High",
+        impactedResource: "disk-unattached-prod-01",
+        resourceGroup: "rg-finops-production",
+        estimatedMonthlySavingsUsd: 145.0,
+        status: "pending",
+        targetModuleUrl: "/intelligence/almacenamiento",
+        portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/cost",
+    },
+    {
+        id: "rec-mock-02",
+        name: {
+            es: "Redimensionar instancias de VM infrautilizadas (Rightsizing)",
+            en: "Right-size underutilized VM instances (Rightsizing)",
+            "pt-BR": "Redimensionar instâncias de VM subutilizadas (Rightsizing)",
+        },
+        description: {
+            es: "Instancia Standard_D8s_v5 con uso promedio de CPU < 4% durante los últimos 14 días.",
+            en: "Standard_D8s_v5 instance with average CPU usage below 4% over the last 14 days.",
+            "pt-BR": "Instância Standard_D8s_v5 com uso médio de CPU < 4% nos últimos 14 dias.",
+        },
+        category: "Cost",
+        impact: "High",
+        impactedResource: "vm-app-worker-02",
+        resourceGroup: "rg-compute-core",
+        estimatedMonthlySavingsUsd: 95.0,
+        status: "pending",
+        targetModuleUrl: "/intelligence/computo",
+        portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/cost",
+    },
+    {
+        id: "rec-mock-03",
+        name: {
+            es: "Migrar Azure SQL Database a nivel Serverless con auto-pausa",
+            en: "Move Azure SQL Database to the Serverless tier with auto-pause",
+            "pt-BR": "Migrar o Azure SQL Database para o nível Serverless com pausa automática",
+        },
+        description: {
+            es: "Base de datos de reportería con actividad solo en horario comercial 8x5.",
+            en: "Reporting database with activity only during 8x5 business hours.",
+            "pt-BR": "Banco de dados de relatórios com atividade apenas em horário comercial 8x5.",
+        },
+        category: "Cost",
+        impact: "Medium",
+        impactedResource: "sql-db-reporting-shared",
+        resourceGroup: "rg-databases-shared",
+        estimatedMonthlySavingsUsd: 70.0,
+        status: "pending",
+        targetModuleUrl: "/intelligence/bases-de-datos",
+        portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/cost",
+    },
+    {
+        id: "rec-mock-04",
+        name: {
+            es: "Habilitar redundancia de zona (ZRS) en Storage Accounts críticos",
+            en: "Enable zone redundancy (ZRS) on critical storage accounts",
+            "pt-BR": "Habilitar redundância de zona (ZRS) nas contas de armazenamento críticas",
+        },
+        description: {
+            es: "La cuenta almacena copias de seguridad de misión crítica bajo redundancia LRS única.",
+            en: "The account stores mission-critical backups under single LRS redundancy.",
+            "pt-BR": "A conta armazena backups de missão crítica sob redundância LRS única.",
+        },
+        category: "Reliability",
+        impact: "High",
+        impactedResource: "stprodsharedblob01",
+        resourceGroup: "rg-storage-production",
+        estimatedMonthlySavingsUsd: 45.0,
+        status: "pending",
+        targetModuleUrl: "/intelligence/almacenamiento",
+        portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/highavailability",
+    },
+    {
+        id: "rec-mock-05",
+        name: {
+            es: "Optimizar reglas de Azure Front Door y caché perimetral",
+            en: "Optimize Azure Front Door rules and edge caching",
+            "pt-BR": "Otimizar regras do Azure Front Door e cache de borda",
+        },
+        description: {
+            es: "Aumentar tiempo de vida (TTL) de activos estáticos para reducir transferencias de origen.",
+            en: "Increase the TTL of static assets to reduce origin transfers.",
+            "pt-BR": "Aumentar o TTL dos ativos estáticos para reduzir transferências de origem.",
+        },
+        category: "Performance",
+        impact: "Medium",
+        impactedResource: "afd-global-gateway",
+        resourceGroup: "rg-network-perimeter",
+        estimatedMonthlySavingsUsd: 65.0,
+        status: "pending",
+        targetModuleUrl: "/intelligence/redes",
+        portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/performance",
+    },
+    {
+        id: "rec-mock-06",
+        name: {
+            es: "Habilitar Microsoft Defender for SQL Servers",
+            en: "Enable Microsoft Defender for SQL Servers",
+            "pt-BR": "Habilitar o Microsoft Defender for SQL Servers",
+        },
+        description: {
+            es: "Bases de datos sin protección avanzada frente a inyecciones SQL y amenazas perimetrales.",
+            en: "Databases without advanced protection against SQL injection and perimeter threats.",
+            "pt-BR": "Bancos de dados sem proteção avançada contra injeções de SQL e ameaças de perímetro.",
+        },
+        category: "Security",
+        impact: "High",
+        impactedResource: "sql-srv-prod-eastus",
+        resourceGroup: "rg-databases-shared",
+        estimatedMonthlySavingsUsd: 0,
+        status: "pending",
+        targetModuleUrl: "/intelligence/seguridad",
+        portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/security",
+    },
+    {
+        id: "rec-mock-07",
+        name: {
+            es: "Configurar alertas de diagnóstico en Azure Key Vault",
+            en: "Configure diagnostic alerts on Azure Key Vault",
+            "pt-BR": "Configurar alertas de diagnóstico no Azure Key Vault",
+        },
+        description: {
+            es: "Bóveda de claves productiva sin reenvío de logs de acceso a Log Analytics Workspace.",
+            en: "Production key vault without access log forwarding to a Log Analytics workspace.",
+            "pt-BR": "Cofre de chaves em produção sem encaminhamento de logs de acesso ao Log Analytics Workspace.",
+        },
+        category: "OperationalExcellence",
+        impact: "Medium",
+        impactedResource: "kv-finops-production-vault",
+        resourceGroup: "rg-security-core",
+        estimatedMonthlySavingsUsd: 0,
+        status: "pending",
+        targetModuleUrl: "/governance/advisor",
+        portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/operationalexcellence",
+    },
+    {
+        id: "rec-mock-08",
+        name: {
+            es: "Comprar Reserva de Instancia (RI) para máquinas virtuales de producción",
+            en: "Buy reserved instances (RI) for production virtual machines",
+            "pt-BR": "Comprar Instâncias Reservadas (RI) para máquinas virtuais de produção",
+        },
+        description: {
+            es: "Ahorro proyectado del 42% aplicando compromiso a 1 año en familia D4s_v5.",
+            en: "Projected 42% savings by committing to a 1-year term on the D4s_v5 family.",
+            "pt-BR": "Economia projetada de 42% com compromisso de 1 ano na família D4s_v5.",
+        },
+        category: "Cost",
+        impact: "High",
+        impactedResource: "D4s_v5 (East US 2)",
+        resourceGroup: "rg-compute-core",
+        estimatedMonthlySavingsUsd: 110.0,
+        status: "pending",
+        targetModuleUrl: "/intelligence/optimizacion-y-ahorro",
+        portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/cost",
+    },
+];
+
+/** Plantillas del relleno (items 9 a 75). `{svc}` y `{cat}` se sustituyen. */
+const MOCK_FILLER_NAME: Trio = {
+    es: "Optimización en {svc}: ajuste de capacidad y gobernanza",
+    en: "{svc} optimization: capacity and governance tuning",
+    "pt-BR": "Otimização em {svc}: ajuste de capacidade e governança",
+};
+const MOCK_FILLER_DESC: Trio = {
+    es: "Recomendación WAF para mejorar {cat} en el componente {svc}.",
+    en: "WAF recommendation to improve {cat} on the {svc} component.",
+    "pt-BR": "Recomendação WAF para melhorar {cat} no componente {svc}.",
+};
+
+/**
  * Genera la lista mock exhaustiva de recomendaciones para el modo demo.
  */
-function generateMockRecommendations(): CoinRecommendationItem[] {
-    const recs: CoinRecommendationItem[] = [
-        {
-            id: "rec-mock-01",
-            name: "Eliminar discos no administrados y snapshots huérfanos",
-            description: "Existen 4 discos administrados en estado 'Unattached' sin vincular a ninguna VM activa.",
-            category: "Cost",
-            impact: "High",
-            impactedResource: "disk-unattached-prod-01",
-            resourceGroup: "rg-finops-production",
-            subscriptionName: "Producción Principal",
-            estimatedMonthlySavingsUsd: 145.0,
-            status: "pending",
-            targetModuleUrl: "/intelligence/almacenamiento",
-            portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/cost",
-        },
-        {
-            id: "rec-mock-02",
-            name: "Redimensionar instancias de VM infrautilizadas (Rightsizing)",
-            description: "Instancia Standard_D8s_v5 con uso promedio de CPU < 4% durante los últimos 14 días.",
-            category: "Cost",
-            impact: "High",
-            impactedResource: "vm-app-worker-02",
-            resourceGroup: "rg-compute-core",
-            subscriptionName: "Producción Principal",
-            estimatedMonthlySavingsUsd: 95.0,
-            status: "pending",
-            targetModuleUrl: "/intelligence/computo",
-            portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/cost",
-        },
-        {
-            id: "rec-mock-03",
-            name: "Migrar Azure SQL Database a nivel Serverless con auto-pausa",
-            description: "Base de datos de reportería con actividad solo en horario comercial 8x5.",
-            category: "Cost",
-            impact: "Medium",
-            impactedResource: "sql-db-reporting-shared",
-            resourceGroup: "rg-databases-shared",
-            subscriptionName: "Producción Principal",
-            estimatedMonthlySavingsUsd: 70.0,
-            status: "pending",
-            targetModuleUrl: "/intelligence/bases-de-datos",
-            portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/cost",
-        },
-        {
-            id: "rec-mock-04",
-            name: "Habilitar redundancia de zona (ZRS) en Storage Accounts críticos",
-            description: "La cuenta almacena copias de seguridad de misión crítica bajo redundancia LRS única.",
-            category: "Reliability",
-            impact: "High",
-            impactedResource: "stprodsharedblob01",
-            resourceGroup: "rg-storage-production",
-            subscriptionName: "Producción Principal",
-            estimatedMonthlySavingsUsd: 45.0,
-            status: "pending",
-            targetModuleUrl: "/intelligence/almacenamiento",
-            portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/highavailability",
-        },
-        {
-            id: "rec-mock-05",
-            name: "Optimizar reglas de Azure Front Door y caché perimetral",
-            description: "Aumentar tiempo de vida (TTL) de activos estáticos para reducir transferencias de origen.",
-            category: "Performance",
-            impact: "Medium",
-            impactedResource: "afd-global-gateway",
-            resourceGroup: "rg-network-perimeter",
-            subscriptionName: "Producción Principal",
-            estimatedMonthlySavingsUsd: 65.0,
-            status: "pending",
-            targetModuleUrl: "/intelligence/redes",
-            portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/performance",
-        },
-        {
-            id: "rec-mock-06",
-            name: "Habilitar Microsoft Defender for SQL Servers",
-            description: "Bases de datos sin protección avanzada frente a inyecciones SQL y amenazas perimetrales.",
-            category: "Security",
-            impact: "High",
-            impactedResource: "sql-srv-prod-eastus",
-            resourceGroup: "rg-databases-shared",
-            subscriptionName: "Producción Principal",
-            estimatedMonthlySavingsUsd: 0,
-            status: "pending",
-            targetModuleUrl: "/intelligence/seguridad",
-            portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/security",
-        },
-        {
-            id: "rec-mock-07",
-            name: "Configurar alertas de diagnóstico en Azure Key Vault",
-            description: "Bóveda de claves productiva sin reenvío de logs de acceso a Log Analytics Workspace.",
-            category: "OperationalExcellence",
-            impact: "Medium",
-            impactedResource: "kv-finops-production-vault",
-            resourceGroup: "rg-security-core",
-            subscriptionName: "Producción Principal",
-            estimatedMonthlySavingsUsd: 0,
-            status: "pending",
-            targetModuleUrl: "/governance/advisor",
-            portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/operationalexcellence",
-        },
-        {
-            id: "rec-mock-08",
-            name: "Comprar Reserva de Instancia (RI) para máquinas virtuales de producción",
-            description: "Ahorro proyectado del 42% aplicando compromiso a 1 año en familia D4s_v5.",
-            category: "Cost",
-            impact: "High",
-            impactedResource: "D4s_v5 (East US 2)",
-            resourceGroup: "rg-compute-core",
-            subscriptionName: "Producción Principal",
-            estimatedMonthlySavingsUsd: 110.0,
-            status: "pending",
-            targetModuleUrl: "/intelligence/optimizacion-y-ahorro",
-            portalUrl: "https://portal.azure.com/#blade/Microsoft_Azure_Advisor/AdvisorMenuBlade/cost",
-        },
-    ];
+function generateMockRecommendations(locale = "es"): CoinRecommendationItem[] {
+    const L = normalizeAdvisorLocale(locale);
+    const subscriptionName = MOCK_SUBSCRIPTION[L];
+
+    const recs: CoinRecommendationItem[] = MOCK_REC_SEEDS.map((seed) => ({
+        ...seed,
+        name: seed.name[L],
+        description: seed.description[L],
+        subscriptionName,
+    }));
 
     // Expandir con más recomendaciones representativas hasta 75
     const categories = ["Cost", "Security", "Reliability", "Performance", "OperationalExcellence"] as const;
@@ -148,16 +254,19 @@ function generateMockRecommendations(): CoinRecommendationItem[] {
         const isCost = cat === "Cost";
         const savings = isCost ? Math.round((20 + (i * 3.7) % 65) * 100) / 100 : 0;
         const impact = i % 3 === 0 ? "High" : i % 2 === 0 ? "Medium" : "Low";
+        // El label y no la key: interpolar "OperationalExcellence" en una frase
+        // queda mal en los tres idiomas.
+        const catLabel = WAF_CATEGORIES.find((c) => c.key === cat)?.label || cat;
 
         recs.push({
             id: `rec-mock-${i.toString().padStart(2, "0")}`,
-            name: `Optimización en ${svc}: ajuste de capacidad y gobernanza`,
-            description: `Recomendación WAF para mejorar ${cat} en el componente ${svc}.`,
+            name: MOCK_FILLER_NAME[L].replace("{svc}", svc),
+            description: MOCK_FILLER_DESC[L].replace("{cat}", catLabel).replace("{svc}", svc),
             category: cat,
             impact: impact as any,
             impactedResource: `${svc.toLowerCase().replace(/\s+/g, "-")}-instance-${i}`,
             resourceGroup: `rg-${svc.toLowerCase().replace(/\s+/g, "")}-prod`,
-            subscriptionName: "Producción Principal",
+            subscriptionName,
             estimatedMonthlySavingsUsd: savings,
             status: "pending",
             targetModuleUrl: isCost ? "/intelligence/optimizacion-y-ahorro" : "/governance/advisor",
@@ -171,31 +280,74 @@ function generateMockRecommendations(): CoinRecommendationItem[] {
 /**
  * Retorna los datos mock exhaustivos y consistentes para el modo demo.
  */
-function getMockCoinData(days: number): CoinIndexSummary {
-    const mockRecs = generateMockRecommendations();
-    const totalCount = mockRecs.length;
-    const pendingCount = mockRecs.length;
-    const acceptedCount = 0;
-    const implementedCount = 0;
-    const snoozedCount = 0;
-    const dismissedCount = 0;
+/**
+ * Reparto de estados del mock, deterministico.
+ *
+ * Estaba TODO en `pending`, asi que el demo mostraba 0% de COIN y "0 de 75
+ * recomendaciones implementadas" — el peor numero posible en la pantalla que
+ * mide justamente la tasa de ejecucion, y de donde salen las capturas del
+ * marketplace. No se veia porque el navegador recibia otro mock (el de
+ * `getMockDataForRoute('coin')`, interceptado en TenantProvider), que mostraba
+ * 67,3% pero no traia recomendaciones: el modal salia vacio.
+ *
+ * 50/75 = 66,7%, que es basicamente el numero con el que se hicieron las
+ * capturas. Las pendientes van PRIMERO porque `quickWins` toma las cinco
+ * primeras y la tarjeta se llama "Top Quick Wins Pending Implementation".
+ */
+const MOCK_STATUS_PLAN: Array<[CoinRecommendationItem["status"], number]> = [
+    ["pending", 14],
+    ["implemented", 50],
+    ["accepted", 6],
+    ["snoozed", 3],
+    ["dismissed", 2],
+];
 
-    const totalPotentialSavingsUsd = 420.0;
-    const realizedSavingsUsd = 0.0;
+function getMockCoinData(days: number, locale = "es"): CoinIndexSummary {
+    const base = generateMockRecommendations(locale);
+
+    // Se aplica el plan en orden; si el plan no cubre todo, el resto queda
+    // pendiente (nunca implementado: inflar la tasa a la baja es mas honesto).
+    const estados: Array<CoinRecommendationItem["status"]> = [];
+    for (const [estado, n] of MOCK_STATUS_PLAN) {
+        for (let i = 0; i < n; i++) estados.push(estado);
+    }
+    const mockRecs = base.map((r, i) => ({ ...r, status: estados[i] ?? "pending" }));
+
+    const contar = (e: CoinRecommendationItem["status"]) => mockRecs.filter((r) => r.status === e).length;
+    const totalCount = mockRecs.length;
+    const pendingCount = contar("pending");
+    const acceptedCount = contar("accepted");
+    const implementedCount = contar("implemented");
+    const snoozedCount = contar("snoozed");
+    const dismissedCount = contar("dismissed");
+
+    // Derivados de los datos y no fijos: antes eran 420 y 0 a mano, asi que el
+    // COIN financiero salia 0% y no reconciliaba con la lista.
+    const suma = (rs: CoinRecommendationItem[]) =>
+        Math.round(rs.reduce((acc, r) => acc + (r.estimatedMonthlySavingsUsd || 0), 0) * 100) / 100;
+    const totalPotentialSavingsUsd = suma(mockRecs);
+    const realizedSavingsUsd = suma(mockRecs.filter((r) => r.status === "implemented"));
 
     const coinVolumeRate = totalCount > 0 ? Math.round((implementedCount / totalCount) * 1000) / 10 : 0;
     const coinFinancialRate = totalPotentialSavingsUsd > 0
         ? Math.round((realizedSavingsUsd / totalPotentialSavingsUsd) * 1000) / 10
         : 0;
 
-    const breakdown: CategoryCoinBreakdown[] = WAF_CATEGORIES.map((c) => ({
-        category: c.key,
-        implemented: 0,
-        total: c.defaultTotal,
-        coinRate: 0,
-        potentialSavingsUsd: c.defaultSavings,
-        realizedSavingsUsd: 0,
-    }));
+    // Derivado de las recomendaciones y no de `defaultTotal`: con los totales
+    // fijos y `implemented: 0` el radar de los 5 pilares salia todo en cero y no
+    // cerraba con la lista del modal.
+    const breakdown: CategoryCoinBreakdown[] = WAF_CATEGORIES.map((c) => {
+        const delPilar = mockRecs.filter((r) => r.category === c.key);
+        const hechas = delPilar.filter((r) => r.status === "implemented");
+        return {
+            category: c.key,
+            implemented: hechas.length,
+            total: delPilar.length,
+            coinRate: delPilar.length > 0 ? Math.round((hechas.length / delPilar.length) * 1000) / 10 : 0,
+            potentialSavingsUsd: suma(delPilar),
+            realizedSavingsUsd: suma(hechas),
+        };
+    });
 
     // Tendencia mensual últimos 6 meses
     const monthly: CoinMonthlyTrendPoint[] = Array.from({ length: 6 }).map((_, i) => {
@@ -274,7 +426,7 @@ interface DbActionRow {
  */
 export async function getCoinIndexSummary(tenantId: string, days = 90, locale = "es"): Promise<CoinIndexSummary> {
     if (isMockTenant(tenantId)) {
-        return getMockCoinData(days);
+        return getMockCoinData(days, locale);
     }
 
     await initializeDatabase();

@@ -27,14 +27,35 @@ describe('coinIndexService', () => {
         expect(result.mock).toBe(true);
         expect(result.windowDays).toBe(90);
 
-        // Conciliación de 5 estados
+        // Conciliación de 5 estados.
+        //
+        // Antes se afirmaba TODO en pending (75/0/0/0/0). Eso daba 0% de COIN y
+        // "0 de 75 implementadas" justo en la pantalla que mide la tasa de
+        // ejecucion, que es de donde salen las capturas del marketplace. No se
+        // notaba porque el navegador recibia otro mock, interceptado en
+        // TenantProvider, que mostraba 67,3% pero sin recomendaciones (el modal
+        // salia vacio). Al sacar esa intercepcion, este mock pasa a ser el que
+        // se ve, asi que reparte estados de forma realista.
         expect(result.statusBreakdown).toBeDefined();
         expect(result.statusBreakdown.total).toBe(75);
-        expect(result.statusBreakdown.pending).toBe(75);
-        expect(result.statusBreakdown.accepted).toBe(0);
-        expect(result.statusBreakdown.implemented).toBe(0);
-        expect(result.statusBreakdown.snoozed).toBe(0);
-        expect(result.statusBreakdown.dismissed).toBe(0);
+        expect(result.statusBreakdown.pending).toBe(14);
+        expect(result.statusBreakdown.accepted).toBe(6);
+        expect(result.statusBreakdown.implemented).toBe(50);
+        expect(result.statusBreakdown.snoozed).toBe(3);
+        expect(result.statusBreakdown.dismissed).toBe(2);
+
+        // 50/75 = 66,7%: el numero con el que se hicieron las capturas.
+        expect(result.coinVolumeRate).toBe(66.7);
+
+        // El COIN financiero tiene que reconciliar con la lista, no ser 0 fijo.
+        expect(result.totalPotentialSavingsUsd).toBeGreaterThan(0);
+        expect(result.realizedSavingsUsd).toBeGreaterThan(0);
+        expect(result.realizedSavingsUsd).toBeLessThanOrEqual(result.totalPotentialSavingsUsd);
+
+        // Las cinco quick wins son PENDIENTES: la tarjeta se llama
+        // "Top Quick Wins Pending Implementation".
+        expect(result.quickWins?.length).toBe(5);
+        expect(result.quickWins?.every((q: any) => q.status === 'pending')).toBe(true);
 
         // Suma de estados debe ser exactamente igual a total
         const sum =
@@ -45,11 +66,9 @@ describe('coinIndexService', () => {
             result.statusBreakdown.dismissed;
         expect(sum).toBe(result.statusBreakdown.total);
 
-        // Cálculo Dual de COIN
-        expect(result.coinVolumeRate).toBe(0);
-        expect(result.coinFinancialRate).toBe(0);
-        expect(result.totalPotentialSavingsUsd).toBe(420.0);
-        expect(result.realizedSavingsUsd).toBe(0.0);
+        // Cálculo dual de COIN. El financiero se deriva de las recomendaciones
+        // implementadas; antes eran 420 y 0 fijos y no reconciliaban con nada.
+        expect(result.coinFinancialRate).toBeGreaterThan(0);
 
         // 5 Pilares WAF
         expect(result.breakdown).toHaveLength(5);
@@ -208,6 +227,35 @@ describe('coinIndexService', () => {
             await getCoinIndexSummary('tenant-vivo', 90, locale);
             expect(getAdvisorExecutiveData).toHaveBeenCalledWith('tenant-vivo', locale);
         }
+    });
+
+    /**
+     * El mock tambien se traduce.
+     *
+     * Devolvia castellano fijo, asi que un tenant DEMO en la UI en ingles
+     * mostraba "Redimensionar instancias de VM infrautilizadas" — y las capturas
+     * del marketplace salen de los tenants demo.
+     */
+    it('traduce las recomendaciones mock segun el locale', async () => {
+        const en = await getCoinIndexSummary('demo-tenant', 90, 'en');
+        const es = await getCoinIndexSummary('demo-tenant', 90, 'es');
+        const pt = await getCoinIndexSummary('demo-tenant', 90, 'pt-BR');
+
+        const primera = (r: any) => r.recommendations?.find((x: any) => x.id === 'rec-mock-01');
+
+        expect(primera(en)?.name).toBe('Delete unmanaged disks and orphaned snapshots');
+        expect(primera(es)?.name).toBe('Eliminar discos no administrados y snapshots huérfanos');
+        expect(primera(pt)?.name).toBe('Excluir discos não gerenciados e snapshots órfãos');
+
+        // El nombre de la suscripcion tambien, y el relleno generado (items 9-75).
+        expect(primera(en)?.subscriptionName).toBe('Main Production');
+        const relleno = (r: any) => r.recommendations?.find((x: any) => x.id === 'rec-mock-20');
+        expect(relleno(en)?.description).toContain('WAF recommendation to improve');
+        expect(relleno(es)?.description).toContain('Recomendación WAF para mejorar');
+
+        // La estructura no cambia con el idioma: mismo conteo y mismos ids.
+        expect(en.recommendations?.length).toBe(es.recommendations?.length);
+        expect(en.recommendations?.map((r: any) => r.id)).toEqual(es.recommendations?.map((r: any) => r.id));
     });
 
     it('sin locale explicito cae en "es", que es el comportamiento previo', async () => {

@@ -30,9 +30,14 @@ describe('GET /api/intelligence/kpis/coin', () => {
         const json = await res.json();
 
         expect(json.success).toBe(true);
-        expect(json.coinVolumeRate).toBe(0);
-        expect(json.coinFinancialRate).toBe(0);
-        expect(json.statusBreakdown.pending).toBe(75);
+        // El mock reparte estados (50 implementadas de 75) en vez de dejar todo
+        // pendiente. Antes daba 0% de COIN justo en la pantalla que mide la tasa
+        // de ejecucion, que es de donde salen las capturas del marketplace.
+        // Ver el comentario de MOCK_STATUS_PLAN en coinIndexService.ts.
+        expect(json.coinVolumeRate).toBe(66.7);
+        expect(json.coinFinancialRate).toBeGreaterThan(0);
+        expect(json.statusBreakdown.pending).toBe(14);
+        expect(json.statusBreakdown.implemented).toBe(50);
         expect(json.statusBreakdown.total).toBe(75);
         expect(json.breakdown).toHaveLength(5);
         expect(json.monthly).toHaveLength(6);

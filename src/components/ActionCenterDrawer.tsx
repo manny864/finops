@@ -111,7 +111,7 @@ export default function ActionCenterDrawer({ open, onClose }: DrawerProps) {
                 {actions.length > 0 && (
                     <div className="p-4 border-t border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-950 shrink-0">
                         <button onClick={clearActions} className="w-full flex items-center justify-center py-2 px-4 border border-gray-300 dark:border-slate-700 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
-                            <Trash2 className="w-4 h-4 mr-2" /> Limpiar Historial
+                            <Trash2 className="w-4 h-4 mr-2" /> {t("clearHistory")}
                         </button>
                     </div>
                 )}

@@ -530,7 +530,11 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/intelligence/anomalies')) return new Response(JSON.stringify(getMockDataForRoute('anomalies', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/kpis/coin')) {
                   if (init?.method === 'POST') return new Response(JSON.stringify({ success: true, mock: true, expiresAt: null }), {status: 200});
-                  return new Response(JSON.stringify(getMockDataForRoute('coin', mockKey)), {status: 200});
+                  // El GET NO se intercepta: la ruta ya resuelve el modo demo con
+                  // `getMockCoinData`, que trae las 75 recomendaciones y las
+                  // traduce por locale. El mock de `getMockDataForRoute('coin')`
+                  // no tiene `recommendations`, asi que el modal del indice salia
+                  // vacio ("0 of 0") en todos los tenants demo.
               }
               if (url.includes('/api/intelligence/tenant-health')) return new Response(JSON.stringify(getMockDataForRoute('tenant_health', mockKey)), {status: 200});
               // entra-sync ANTES que /api/admin/config/users (substring): trae forma
