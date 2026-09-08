@@ -238,7 +238,7 @@ resource pgServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-12-01-preview'
                 {t("remediationTitle")}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Servidor: <span className="font-semibold text-slate-800 dark:text-slate-200">{server.name}</span> ({server.skuProfile.name} • {server.skuProfile.tier})
+                {t("serverLabel")}: <span className="font-semibold text-slate-800 dark:text-slate-200">{server.name}</span> ({server.skuProfile.name} • {server.skuProfile.tier})
               </p>
             </div>
           </div>

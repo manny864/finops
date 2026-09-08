@@ -92,11 +92,31 @@ export type MySqlRemediationRuleKey =
   | "single_server_migration"
   | "idle_server";
 
+/**
+ * Claves i18n del titulo y la descripcion de cada recomendacion.
+ *
+ * El payload traia la prosa armada en el servidor, en castellano. Mismo motivo y
+ * misma solucion que en Redis y MongoDB: la ruta cachea con
+ * `getDiagnosticsCacheKey(tenantId, ...)`, que NO incluye el locale, asi que
+ * traducir en el servidor sirve el idioma equivocado desde el cache. El payload
+ * lleva la clave y los parametros, que son locale-independientes.
+ *
+ * Record sobre la union cerrada, y exportado para `i18nClavesDinamicas.test.ts`.
+ */
+export const MYSQL_RULE_I18N: Record<MySqlRemediationRuleKey, { title: string; desc: string }> = {
+  downsize_burstable_sku: { title: "rec_downsize_burstable_title", desc: "rec_downsize_burstable_desc" },
+  migrate_to_burstable: { title: "rec_migrate_burstable_title", desc: "rec_migrate_burstable_desc" },
+  storage_overprovisioned: { title: "rec_storage_over_title", desc: "rec_storage_over_desc" },
+  ha_dev_test: { title: "rec_ha_dev_test_title", desc: "rec_ha_dev_test_desc" },
+  single_server_migration: { title: "rec_single_server_title", desc: "rec_single_server_desc" },
+  idle_server: { title: "rec_idle_server_title", desc: "rec_idle_server_desc" },
+};
+
 export interface MySqlRemediationAction {
   id: string;
   ruleKey: MySqlRemediationRuleKey;
-  title: string;
-  description: string;
+  /** Valores a interpolar en el titulo y la descripcion. Numeros y nombres, nunca frases. */
+  params: Record<string, string | number>;
   savingsMonthlyUsd: number;
   risk: "low" | "medium" | "high";
   confidence: "high" | "medium" | "low";

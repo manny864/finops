@@ -37,6 +37,27 @@ import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import FinopsTableControls, { type FinopsTableOption } from "@/components/dashboard/FinopsTableControls";
 import { useTranslations } from "next-intl";
+import { MYSQL_RULE_I18N, type MySqlRemediationAction } from "@/types/azureMySQL";
+import { resolveScriptComments } from "@/lib/scriptComments";
+
+/**
+ * Descripcion de una recomendacion, tolerante a payloads viejos del cache.
+ * Ver el mismo helper en los boards de Redis y MongoDB: si falta `params`,
+ * `t()` tira FORMATTING_ERROR y en un render de React eso tumba el board
+ * entero. La version de la clave de cache subio a v2; esto es la red.
+ */
+function descripcionDeRecomendacion(
+  rec: MySqlRemediationAction,
+  t: (key: string, values?: Record<string, string | number>) => string,
+): string {
+  const clave = MYSQL_RULE_I18N[rec.ruleKey]?.desc;
+  if (!clave) return "";
+  try {
+    return t(clave, rec.params ?? {});
+  } catch {
+    return "";
+  }
+}
 import RiskConfidenceBadges from "@/components/dashboard/RiskConfidenceBadges";
 import DatabaseStateBadge from "@/components/dashboard/DatabaseStateBadge";
 import InfoTooltip from "@/components/InfoTooltip";
@@ -150,6 +171,7 @@ function OptimizationModal({
   format: (v: number) => string;
 }) {
   const t = useTranslations("AzureMySQL");
+  const tScript = useTranslations("ScriptComments");
   const [activeRecIdx, setActiveRecIdx] = useState(0);
   const [activeTab, setActiveTab] = useState<"cli" | "bicep">("cli");
   const [copied, setCopied] = useState(false);
@@ -158,8 +180,8 @@ function OptimizationModal({
   const currentRec = hasRecs ? server.recommendations[activeRecIdx] || server.recommendations[0] : null;
 
   // Fallback snippets si el servidor no tiene alertas críticas
-  const fallbackCli = `# Mantenimiento y optimización de MySQL Flexible Server: ${server.name}
-# 1. Habilitar y configurar Slow Query Log para auditoría de queries:
+  const fallbackCli = `# ${t("fallbackMaintenance", { name: server.name })}
+# 1. ${t("fallbackEnableSlowQueryLog")}
 az mysql flexible-server parameter set \\
   --resource-group "${server.resourceGroup}" \\
   --server-name "${server.name}" \\
@@ -172,13 +194,13 @@ az mysql flexible-server parameter set \\
   --name long_query_time \\
   --value 2
 
-# 2. Verificar auto-crecimiento de almacenamiento:
+# 2. ${t("fallbackCheckAutoGrow")}
 az mysql flexible-server update \\
   --name "${server.name}" \\
   --resource-group "${server.resourceGroup}" \\
   --auto-grow Enabled`;
 
-  const fallbackBicep = `// Template Bicep para configuración estándar de ${server.name}
+  const fallbackBicep = `// ${t("fallbackBicepStandard", { name: server.name })}
 resource mysqlServer 'Microsoft.DBforMySQL/flexibleServers@2023-12-30' = {
   name: '${server.name}'
   location: '${server.region}'
@@ -202,9 +224,14 @@ resource mysqlServer 'Microsoft.DBforMySQL/flexibleServers@2023-12-30' = {
   }
 }`;
 
-  const code = currentRec
-    ? activeTab === "cli" ? currentRec.cliCommand : currentRec.bicepSnippet
-    : activeTab === "cli" ? fallbackCli : fallbackBicep;
+  // Los comentarios de los scripts del servidor llegan como marcadores y se
+  // resuelven aca. Los fallbacks los arma el cliente y ya vienen traducidos.
+  const code = resolveScriptComments(
+    currentRec
+      ? activeTab === "cli" ? currentRec.cliCommand : currentRec.bicepSnippet
+      : activeTab === "cli" ? fallbackCli : fallbackBicep,
+    tScript,
+  );
 
   async function handleCopy() {
     if (!code) return;
@@ -236,7 +263,7 @@ resource mysqlServer 'Microsoft.DBforMySQL/flexibleServers@2023-12-30' = {
                 {t("remediationTitle")}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Servidor: <span className="font-semibold text-slate-800 dark:text-slate-200">{server.name}</span> ({server.skuProfile.name} • {server.skuProfile.tier})
+                {t("serverLabel")}: <span className="font-semibold text-slate-800 dark:text-slate-200">{server.name}</span> ({server.skuProfile.name} • {server.skuProfile.tier})
               </p>
             </div>
           </div>
@@ -265,7 +292,7 @@ resource mysqlServer 'Microsoft.DBforMySQL/flexibleServers@2023-12-30' = {
                           : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50"
                       }`}
                     >
-                      {r.title}
+                      {t(MYSQL_RULE_I18N[r.ruleKey].title, r.params)}
                     </button>
                   ))}
                 </div>
@@ -277,11 +304,11 @@ resource mysqlServer 'Microsoft.DBforMySQL/flexibleServers@2023-12-30' = {
                   <div className="flex items-start justify-between gap-3">
                     <h4 className="text-sm font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
                       <IconBolt size={18} stroke={1.5} className="text-[#0054A6]" />
-                      {currentRec.title}
+                      {t(MYSQL_RULE_I18N[currentRec.ruleKey].title, currentRec.params)}
                     </h4>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    {currentRec.description}
+                    {descripcionDeRecomendacion(currentRec, t)}
                   </p>
 
                   <div className="flex flex-wrap items-center gap-3 pt-2 text-xs">

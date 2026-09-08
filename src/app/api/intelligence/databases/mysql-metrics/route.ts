@@ -140,8 +140,13 @@ function deriveMySqlRecommendations(server: MySqlServerDetail): MySqlRemediation
     actions.push({
       id: `${server.id}-downsize-burstable`,
       ruleKey: "downsize_burstable_sku",
-      title: "Downsize SKU Burstable Sobredimensionado",
-      description: `${server.name} opera en ${server.skuProfile.name} (${vCores} vCores) con CPU promedio ${cpuPercentAvg.toFixed(1)}% y memoria ${memoryPercentAvg.toFixed(1)}%. Un downgrade a Standard_B1ms o Standard_B2ms reduce el costo mensual preservando la capacidad de ráfaga.`,
+      params: {
+        name: server.name,
+        sku: server.skuProfile.name,
+        vCores,
+        cpu: cpuPercentAvg.toFixed(1),
+        mem: memoryPercentAvg.toFixed(1),
+      },
       savingsMonthlyUsd: savings,
       risk: "low",
       confidence: "high",
@@ -175,8 +180,7 @@ function deriveMySqlRecommendations(server: MySqlServerDetail): MySqlRemediation
     actions.push({
       id: `${server.id}-migrate-to-burstable`,
       ruleKey: "migrate_to_burstable",
-      title: "Migración de General Purpose a SKU Burstable (B2ms / B4ms)",
-      description: `${server.name} utiliza un SKU ${server.skuProfile.name} con CPU promedio de solo ${cpuPercentAvg.toFixed(1)}%. Cambiar a un SKU Burstable reduce drásticamente el costo de cómputo manteniendo rendimiento suficiente con ráfagas de CPU.`,
+      params: { name: server.name, sku: server.skuProfile.name, cpu: cpuPercentAvg.toFixed(1) },
       savingsMonthlyUsd: savings,
       risk: "low",
       confidence: "high",
@@ -204,18 +208,24 @@ function deriveMySqlRecommendations(server: MySqlServerDetail): MySqlRemediation
     actions.push({
       id: `${server.id}-storage-overprovisioned`,
       ruleKey: "storage_overprovisioned",
-      title: "Almacenamiento Sobredimensionado",
-      description: `${server.name} tiene ${storageGib} GiB aprovisionados pero usa solo ${storageUsedGib.toFixed(1)} GiB (${storageUsedPct.toFixed(1)}%). Reducir a ${targetGib} GiB ahorra ~$${savings}/mes. Nota: la reducción de storage requiere backup + restore en MySQL Flexible Server.`,
+      params: {
+        name: server.name,
+        provisioned: storageGib,
+        used: storageUsedGib.toFixed(1),
+        pct: storageUsedPct.toFixed(1),
+        target: targetGib,
+        savings,
+      },
       savingsMonthlyUsd: savings,
       risk: "medium",
       confidence: "medium",
       actionType: "manual",
-      cliCommand: `# MySQL Flexible Server no soporta shrink de storage in-place.
-# Procedimiento recomendado:
-# 1. Crear snapshot/backup de ${server.name}
-# 2. Provisionar nuevo servidor con ${targetGib} GiB
-# 3. Migrar datos con mydumper/myloader o Azure DMS
-# 4. Swapear connection strings y eliminar el servidor anterior`,
+      cliCommand: `# {{cmt.mysqlNoInPlaceShrink}}
+# {{cmt.recommendedProcedure}}
+# 1. {{cmt.stepSnapshotBackup}} ${server.name}
+# 2. {{cmt.stepProvisionNewServer}} ${targetGib} GiB
+# 3. {{cmt.stepMigrateData}}
+# 4. {{cmt.stepSwapAndDelete}}`,
     });
   }
 
@@ -225,8 +235,7 @@ function deriveMySqlRecommendations(server: MySqlServerDetail): MySqlRemediation
     actions.push({
       id: `${server.id}-ha-dev-test`,
       ruleKey: "ha_dev_test",
-      title: "Alta Disponibilidad Innecesaria en Dev/Test",
-      description: `${server.name} tiene HA en modo "${haMode}" activo en un entorno de desarrollo/test. Deshabilitar la HA reduce el costo a la mitad ya que elimina el costo del servidor standby.`,
+      params: { name: server.name, haMode },
       savingsMonthlyUsd: haSavings,
       risk: "low",
       confidence: "high",
@@ -252,13 +261,12 @@ function deriveMySqlRecommendations(server: MySqlServerDetail): MySqlRemediation
     actions.push({
       id: `${server.id}-single-server-migration`,
       ruleKey: "single_server_migration",
-      title: "Migración Urgente: Single Server en Retiro",
-      description: `${server.name} es un servidor de tipo "Single Server" que Azure retiró el 16 de septiembre de 2024. Se requiere migración a Azure Database for MySQL – Flexible Server para evitar interrupción del servicio.`,
+      params: { name: server.name },
       savingsMonthlyUsd: 0,
       risk: "high",
       confidence: "high",
       actionType: "guided",
-      cliCommand: `# Usar Azure Database Migration Service (DMS) o la herramienta de migración in-portal:
+      cliCommand: `# {{cmt.useDmsOrInPortal}}
 az mysql flexible-server import create \\
   --data-source-type "mysql_single" \\
   --data-source "${server.name}" \\
@@ -276,19 +284,23 @@ az mysql flexible-server import create \\
     actions.push({
       id: `${server.id}-idle-server`,
       ruleKey: "idle_server",
-      title: "Servidor Ocioso (Candidato a Eliminación)",
-      description: `${server.name} procesa solo ${server.metrics.queriesPerSecond.toFixed(1)} QPS con ${activeConnectionsAvg.toFixed(0)} conexiones promedio. Si no hay cargas pendientes, considerar la eliminación para un ahorro de $${savings}/mes.`,
+      params: {
+        name: server.name,
+        qps: server.metrics.queriesPerSecond.toFixed(1),
+        connections: activeConnectionsAvg.toFixed(0),
+        savings,
+      },
       savingsMonthlyUsd: savings,
       risk: "high",
       confidence: "medium",
       actionType: "manual",
-      cliCommand: `# Verificar que no haya cargas pendientes antes de proceder
-# Crear backup final:
+      cliCommand: `# {{cmt.checkNoPendingWorkloads}}
+# {{cmt.createFinalBackup}}
 az mysql flexible-server backup create \\
   --name ${server.name} \\
   --resource-group ${server.resourceGroup}
 
-# Eliminar servidor:
+# {{cmt.deleteServer}}
 az mysql flexible-server delete \\
   --name ${server.name} \\
   --resource-group ${server.resourceGroup} \\
@@ -662,7 +674,10 @@ export async function GET(request: NextRequest) {
     }
 
     const bustCache = request.nextUrl.searchParams.get("bust") === "1";
-    const cacheKey = getDiagnosticsCacheKey(tenantId, "mysql-finops-v1");
+    // v2: cambio la forma del payload (title/description -> ruleKey + params).
+    // Sin subir la version, las entradas viejas no traen `params` y la UI tira
+    // FORMATTING_ERROR, que en un render tumba el board entero.
+    const cacheKey = getDiagnosticsCacheKey(tenantId, "mysql-finops-v2");
 
     if (!bustCache) {
       const cached = await readDiagnosticsCache<MySqlFinopsSummaryResponse>(cacheKey);
