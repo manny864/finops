@@ -544,12 +544,153 @@ describe("i18n · capa 4: las recomendaciones que viajan en claves", () => {
  * TODO literal visible y se revisa a mano. Si el residuo molesta, el paso
  * siguiente es lista blanca de términos técnicos + prohibir cualquier literal.
  */
+/*
+ * Componentes muertos: cero importaciones en todo `src/`. No se traducen
+ * (gastar claves de catalogo en codigo que nadie renderiza es basura) ni se
+ * borran (esa decision es del dueno del producto, no del guard).
+ *
+ * La exclusion se auto-invalida: el test de abajo exige que sigan muertos. Si
+ * alguien los importa, ese test falla y obliga a decidir —traducir o borrar—
+ * en vez de dejar que la excepcion sobreviva callada al motivo que la creo.
+ */
+const TABLEROS_MUERTOS = [
+    "src/components/dashboard/AnomalyDashboard.tsx",
+    "src/components/dashboard/TrialStatusCard.tsx",
+];
+
 const TABLEROS_LIMPIOS = [
-    "src/components/dashboard/ManagedDisksFinopsDashboard.tsx",
+    "src/components/budgets/BudgetCard.tsx",
+    "src/components/budgets/BudgetMonthlyChart.tsx",
+    "src/components/budgets/KillSwitchConfig.tsx",
+    "src/components/budgets/PlatformBudgetsManager.tsx",
+    "src/components/cleanup/NetworkingZombiesPanel.tsx",
+    "src/components/cleanup/OrphanBackupsPanel.tsx",
+    "src/components/cleanup/TtlEnforcementPanel.tsx",
+    "src/components/cleanup/ZombieAuditPanel.tsx",
+    "src/components/dashboard/AIAnalyticsDashboard.tsx",
+    "src/components/dashboard/AMLDashboard.tsx",
+    "src/components/dashboard/AdfFinopsDashboard.tsx",
+    "src/components/dashboard/AksChargebackCard.tsx",
+    "src/components/dashboard/AksIntelligence.tsx",
+    "src/components/dashboard/AlertRulesManager.tsx",
+    "src/components/dashboard/AllocationManager.tsx",
+    "src/components/dashboard/ApimFinopsDashboard.tsx",
+    "src/components/dashboard/AppServiceFinopsCmpBoard.tsx",
+    "src/components/dashboard/AppServiceRemediationModal.tsx",
+    "src/components/dashboard/AppServiceRightsizingTab.tsx",
+    "src/components/dashboard/AroClusterBoard.tsx",
+    "src/components/dashboard/AzureMongoDbFinopsBoard.tsx",
+    "src/components/dashboard/AzureMySqlFinopsBoard.tsx",
+    "src/components/dashboard/AzurePostgreSqlFinopsBoard.tsx",
+    "src/components/dashboard/AzureSqlFinopsBoard.tsx",
     "src/components/dashboard/BackupsFinopsDashboard.tsx",
+    "src/components/dashboard/BasicNetworkingFinopsDashboard.tsx",
+    "src/components/dashboard/BillingDashboard.tsx",
+    "src/components/dashboard/BudgetBurnChart.tsx",
+    "src/components/dashboard/CapturedSavingsBoard.tsx",
+    "src/components/dashboard/CoinDashboard.tsx",
+    "src/components/dashboard/CoinRecommendationsModal.tsx",
+    "src/components/dashboard/CommitmentSimulatorDashboard.tsx",
+    "src/components/dashboard/Commitments.tsx",
+    "src/components/dashboard/ComputeEfficiencyDashboard.tsx",
+    "src/components/dashboard/ComputeServiceCostBoard.tsx",
+    "src/components/dashboard/ComputeWorkloadBoard.tsx",
+    "src/components/dashboard/ComputeWorkloadFinopsCmpBoard.tsx",
+    "src/components/dashboard/ContainerAppsCard.tsx",
+    "src/components/dashboard/ContainersFinopsCmpBoard.tsx",
+    "src/components/dashboard/ContentSafetyDashboard.tsx",
+    "src/components/dashboard/CosmosDbFinopsBoard.tsx",
+    "src/components/dashboard/CostByCategoryDashboard.tsx",
+    "src/components/dashboard/CostCenterBudgetsBoard.tsx",
+    "src/components/dashboard/CostGroupDetailModal.tsx",
+    "src/components/dashboard/CostGroupsBoard.tsx",
+    "src/components/dashboard/CostHistogramCard.tsx",
+    "src/components/dashboard/CostProjectionCard.tsx",
+    "src/components/dashboard/CostToggle.tsx",
     "src/components/dashboard/DataLakeGen2FinopsDashboard.tsx",
+    "src/components/dashboard/DatabaseFamilyCostBoard.tsx",
+    "src/components/dashboard/DatabaseFinopsCmpBoard.tsx",
+    "src/components/dashboard/DatabaseStateBadge.tsx",
+    "src/components/dashboard/DatabricksDashboard.tsx",
+    "src/components/dashboard/DdosProtectionDashboard.tsx",
+    "src/components/dashboard/EventGridFinopsDashboard.tsx",
+    "src/components/dashboard/EventHubsFinopsDashboard.tsx",
+    "src/components/dashboard/ExecutiveSummaryBoard.tsx",
+    "src/components/dashboard/ExecutiveSummaryCard.tsx",
+    "src/components/dashboard/FinOpsRemediationModal.tsx",
+    "src/components/dashboard/FinancialLeaksBoard.tsx",
+    "src/components/dashboard/FinopsTableControls.tsx",
+    "src/components/dashboard/FocusCostPieChart.tsx",
+    "src/components/dashboard/FocusExecutiveSummaryCard.tsx",
+    "src/components/dashboard/FunctionAppFinopsCmpBoard.tsx",
+    "src/components/dashboard/FunctionAppRemediationModal.tsx",
+    "src/components/dashboard/GlobalPagePinButton.tsx",
+    "src/components/dashboard/HABreakdownCard.tsx",
+    "src/components/dashboard/HistoricalProgressBoard.tsx",
+    "src/components/dashboard/HybridBenefitCard.tsx",
+    "src/components/dashboard/HybridConnectivityFinopsDashboard.tsx",
+    "src/components/dashboard/IntegrationServiceFinopsBoard.tsx",
+    "src/components/dashboard/InteractiveDashboard.tsx",
+    "src/components/dashboard/InternetAccessFinopsDashboard.tsx",
+    "src/components/dashboard/InvoicingReportPanel.tsx",
+    "src/components/dashboard/KubernetesHubDashboard.tsx",
+    "src/components/dashboard/LighthouseDelegationPanel.tsx",
+    "src/components/dashboard/LoadBalancingFinopsDashboard.tsx",
+    "src/components/dashboard/LogAnalyticsCard.tsx",
+    "src/components/dashboard/LogicAppsFinopsDashboard.tsx",
+    "src/components/dashboard/M365CopilotConfigPanel.tsx",
+    "src/components/dashboard/M365UsersBoard.tsx",
+    "src/components/dashboard/MACCTracker.tsx",
+    "src/components/dashboard/ManagedDisksFinopsDashboard.tsx",
+    "src/components/dashboard/MaturityDashboard.tsx",
+    "src/components/dashboard/MonitoringServiceCostBoard.tsx",
+    "src/components/dashboard/MyPinnedWidgets.tsx",
+    "src/components/dashboard/NetworkAnalyticsDashboard.tsx",
+    "src/components/dashboard/NetworkServiceCostBoard.tsx",
+    "src/components/dashboard/NetworkingZombiesPanel.tsx",
+    "src/components/dashboard/OptimizationDashboard.tsx",
+    "src/components/dashboard/PageHeaderTierBadge.tsx",
+    "src/components/dashboard/PartnerMarkup.tsx",
+    "src/components/dashboard/PinButton.tsx",
+    "src/components/dashboard/RatesOptimization.tsx",
+    "src/components/dashboard/RealConsumptionDashboard.tsx",
+    "src/components/dashboard/RedisCacheFinopsBoard.tsx",
+    "src/components/dashboard/ReservationRenewalModal.tsx",
+    "src/components/dashboard/ReservationUtilizationModal.tsx",
+    "src/components/dashboard/ResourcesBoard.tsx",
+    "src/components/dashboard/RightsizingBlade.tsx",
+    "src/components/dashboard/RiskConfidenceBadges.tsx",
+    "src/components/dashboard/SecurityServiceCostBoard.tsx",
+    "src/components/dashboard/ServiceBusFinopsDashboard.tsx",
+    "src/components/dashboard/ShortcutWidget.tsx",
+    "src/components/dashboard/SpeechLanguageDashboard.tsx",
+    "src/components/dashboard/SqlDbRightsizingTab.tsx",
+    "src/components/dashboard/SqlFamilyOverview.tsx",
     "src/components/dashboard/StorageEfficiencyDashboard.tsx",
+    "src/components/dashboard/StorageFinopsCmpBoard.tsx",
     "src/components/dashboard/StorageHistoryModal.tsx",
+    "src/components/dashboard/StorageRightsizingTab.tsx",
+    "src/components/dashboard/StorageServiceCostBoard.tsx",
+    "src/components/dashboard/SustainabilityBoard.tsx",
+    "src/components/dashboard/TagInheritancePanel.tsx",
+    "src/components/dashboard/TenantHealthDashboard.tsx",
+    "src/components/dashboard/TopExpensesBoard.tsx",
+    "src/components/dashboard/TopSpendBoard.tsx",
+    "src/components/dashboard/VisionVideoDashboard.tsx",
+    "src/components/dashboard/VmFinopsCmpBoard.tsx",
+    "src/components/dashboard/VmRemediationModal.tsx",
+    "src/components/dashboard/VmssFinopsCmpBoard.tsx",
+    "src/components/dashboard/VmssRemediationModal.tsx",
+    "src/components/dashboard/VmssRightsizingTab.tsx",
+    "src/components/dashboard/WhiteboardAdvisorWidget.tsx",
+    "src/components/dashboard/WhiteboardBudgetWidget.tsx",
+    "src/components/dashboard/WhiteboardForecastWidget.tsx",
+    "src/components/dashboard/WhiteboardGovernanceWidget.tsx",
+    "src/components/dashboard/WhiteboardPinnedWidget.tsx",
+    "src/components/dashboard/WhiteboardQuickWinsWidget.tsx",
+    "src/components/dashboard/WhiteboardTopServicesWidget.tsx",
+    "src/components/dashboard/ZeroCostInventory.tsx",
+    "src/components/dashboard/widgetRegistry.tsx",
 ];
 
 const ACENTOS = /[áéíóúñ¿¡]/i;
@@ -562,13 +703,49 @@ const pareceCastellano = (t: string) => {
     const s = t.trim();
     if (s.length < 4 || NO_ES_PROSA.test(s)) return false;
     if (!/[a-záéíóúñ]{3}/i.test(s)) return false;
-    // identificadores camelCase en inglés: `capacityUnavailable` termina en -able
-    if (/^[a-z]+([A-Z][a-zA-Z]*)+$/.test(s)) return false;
+    /*
+     * Un token sin espacios y en ASCII puro es un identificador o una clave de
+     * i18n, no una frase. Esto tapa un choque real: el sufijo -able de MORFO
+     * ("optimizable") es identico en ingles, asi que `Available`, `Burstable`,
+     * `DATA_FLOW_CACHE_ENABLE`, `col_available`, `action_disable` y
+     * `tooltip_no_measurable` daban positivo. Cubre camelCase, PascalCase,
+     * snake_case y SCREAMING_SNAKE de una sola vez.
+     *
+     * Lo que se pierde: castellano de UNA palabra y sin acento que solo MORFO
+     * veria ("Optimizable", "Habilitado" sueltos). Es el techo del escaner ya
+     * documentado abajo, no una regresion nueva: sin acento, sin espacio y sin
+     * palabra funcional, un token es indistinguible de una clave. Si lleva
+     * acento ("Configuracion" con o tildada) NO entra aca, porque el patron
+     * exige ASCII: se sigue evaluando.
+     */
+    if (!/\s/.test(s) && /^[A-Za-z][A-Za-z0-9_]*$/.test(s)) return false;
     return ACENTOS.test(s) || FUNCION.test(s) || MORFO.test(s);
 };
 
-// Saca las {interpolaciones} para ver el texto literal que queda.
-const sinInterpolacion = (t: string) => t.replace(/\{[^{}]*\}/g, " ");
+/**
+ * Saca las {interpolaciones} y los `${...}`, incluidos los anidados: se repite
+ * el reemplazo del par mas interno hasta que no cambia mas.
+ *
+ * Antes esto era un `replace` de una sola pasada, y una sola pasada no alcanza:
+ * en `{item.metricsAvailable && x ? \`${item.cpuAvg}%\` : "N/D"}` la pasada
+ * unica solo saca el `${item.cpuAvg}` interno y deja `metricsAvailable` a la
+ * vista, que termina en -able y dispara MORFO.
+ *
+ * Sin esto, el guard leia el CODIGO de la interpolacion como si fuera texto de
+ * interfaz. `${t("x", { action: tituloDeAccion(action) })}` daba positivo por
+ * `tituloDeAccion`, que termina en -cion y dispara la regla morfologica: el
+ * identificador de una funcion, no un rotulo. La cura no es aflojar la regla
+ * morfologica —que es la que encuentra la mayoria de las fugas reales— sino no
+ * pasarle codigo.
+ */
+const sinInterpolacion = (t: string) => {
+    let previo = t;
+    for (;;) {
+        const actual = previo.replace(/\$\{[^{}]*\}/g, " ").replace(/\{[^{}]*\}/g, " ");
+        if (actual === previo) return actual;
+        previo = actual;
+    }
+};
 
 describe("i18n · capa 5: los tableros traducidos no vuelven a tener castellano suelto", () => {
     it.each(TABLEROS_LIMPIOS)("%s no tiene texto literal en castellano", (relativo) => {
@@ -608,14 +785,24 @@ describe("i18n · capa 5: los tableros traducidos no vuelven a tener castellano 
                 }
             }
             // texto JSX que ocupa su propia línea (puede arrancar con {interpolación})
-            if (!/[<>]/.test(s) && !/[,{;(]$/.test(s) && !s.includes("=")) {
+            // Una linea con las llaves desbalanceadas es un pedazo de una
+            // expresion multilinea, no texto: puede ser la apertura
+            // (`{mix.inventoryAvailable` de un ternario) o el cierre
+            // (`: t("inventoryUnavailable")}`). Juzgar un fragmento suelto,
+            // fuera de la expresion que lo contiene, da falsos positivos.
+            const fragmento =
+                (s.match(/\{/g)?.length ?? 0) !== (s.match(/\}/g)?.length ?? 0);
+            if (!fragmento && !/[<>]/.test(s) && !/[,{;(]$/.test(s) && !s.includes("=")) {
                 if (pareceCastellano(sinInterpolacion(s))) hallazgos.push(`${relativo}:${i + 1}  ${s}`);
             }
             // literales dentro de expresiones JSX y props de texto
             for (const m of linea.matchAll(/"([^"\n]{4,140})"|'([^'\n]{4,140})'|`([^`\n]{4,140})`/g)) {
-                const lit = m[1] ?? m[2] ?? m[3];
+                const crudoLit = m[1] ?? m[2] ?? m[3];
+                // Solo en backticks: en comillas no hay interpolacion, y sacar
+                // `${...}` ahi borraria texto de verdad.
+                const lit = m[3] !== undefined ? sinInterpolacion(crudoLit) : crudoLit;
                 if (lit.includes("/") && !lit.includes(" ")) continue; // rutas de import
-                if (pareceCastellano(lit)) hallazgos.push(`${relativo}:${i + 1}  ${lit}`);
+                if (pareceCastellano(lit)) hallazgos.push(`${relativo}:${i + 1}  ${crudoLit}`);
             }
         });
 
@@ -623,6 +810,50 @@ describe("i18n · capa 5: los tableros traducidos no vuelven a tener castellano 
             hallazgos,
             `Texto en castellano sin t() en ${relativo}:\n  ${[...new Set(hallazgos)].join("\n  ")}`
         ).toEqual([]);
+    });
+
+    it.each(TABLEROS_MUERTOS)("%s sigue sin usarse (si no, hay que traducirlo)", (relativo) => {
+        const nombre = relativo.split("/").pop()!.replace(/\.tsx?$/, "");
+        const usos = fuentes("src")
+            .filter((f) => f.replace(/\\/g, "/") !== relativo)
+            .filter((f) => new RegExp(`\\b${nombre}\\b`).test(readFileSync(f, "utf8")));
+
+        expect(
+            usos,
+            `${relativo} esta excluido de la capa 5 por estar muerto, pero ahora lo usa:\n  ${usos.join("\n  ")}\n` +
+                "Decidi: traducilo y moveilo a TABLEROS_LIMPIOS, o borralo."
+        ).toEqual([]);
+    });
+
+    /*
+     * El detector se fue aflojando para sacar falsos positivos. Cada excepcion
+     * es una chance de cegarlo, asi que las dos columnas quedan fijadas: la
+     * izquierda son fugas que DEBE ver, la derecha ruido que NO debe marcar.
+     * Si una excepcion futura se pasa de rosca, la columna izquierda avisa.
+     */
+    it("el detector de castellano no quedo ciego al aflojarlo", () => {
+        const fugas = [
+            "Configuración de red",
+            "Eliminar los respaldos",
+            "Purgar Huérfanos",
+            "Cobertura de Cómputo con Savings Plans",
+            "Nodos Master y Workers estables",
+            "Revisá la configuración antes de aplicar",
+        ];
+        const ruido = [
+            "DATA_FLOW_CACHE_ENABLE",
+            "col_available",
+            "action_disable",
+            "tooltip_no_measurable",
+            "cost_sort_unavailable",
+            "inventoryUnavailable",
+            "Burstable",
+            "Available",
+            "px-4 py-3 text-slate-600",
+        ];
+
+        expect(fugas.filter((f) => !pareceCastellano(f)), "deja pasar castellano").toEqual([]);
+        expect(ruido.filter((r) => pareceCastellano(r)), "marca ruido como castellano").toEqual([]);
     });
 });
 

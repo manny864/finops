@@ -41,15 +41,15 @@ import {
 import { errorMessage } from "@/lib/apiErrors";
 
 const DEFAULT_COLUMNS: TableColumnConfig[] = [
-  { key: "resource", label: "Recurso de Red", isVisible: true, widthPx: 260 },
-  { key: "subscription", label: "Suscripción", isVisible: true, widthPx: 200 },
-  { key: "region", label: "Región", isVisible: true, widthPx: 120 },
-  { key: "type", label: "Tipo de Recurso", isVisible: true, widthPx: 180 },
-  { key: "resourceGroup", label: "Grupo de Recursos", isVisible: true, widthPx: 180 },
-  { key: "reason", label: "Diagnóstico / Motivo", isVisible: true, widthPx: 280 },
-  { key: "idleDays", label: "Inactividad", isVisible: true, widthPx: 110 },
-  { key: "monthlyCost", label: "Costo Mensual", isVisible: true, widthPx: 130 },
-  { key: "actions", label: "Acciones", isVisible: true, widthPx: 200 },
+  { key: "resource", isVisible: true, widthPx: 260 },
+  { key: "subscription", isVisible: true, widthPx: 200 },
+  { key: "region", isVisible: true, widthPx: 120 },
+  { key: "type", isVisible: true, widthPx: 180 },
+  { key: "resourceGroup", isVisible: true, widthPx: 180 },
+  { key: "reason", isVisible: true, widthPx: 280 },
+  { key: "idleDays", isVisible: true, widthPx: 110 },
+  { key: "monthlyCost", isVisible: true, widthPx: 130 },
+  { key: "actions", isVisible: true, widthPx: 200 },
 ];
 
 function getNetworkIcon(type: string) {
@@ -314,7 +314,7 @@ export default function NetworkingZombiesPanel() {
       setExemptionReason("");
       mutate();
     } catch (e) {
-      toast.error(errorMessage(e) || "Error al eximir recurso");
+      toast.error(errorMessage(e) || t("exemptFailed"));
     } finally {
       setIsProcessing(false);
     }
@@ -372,7 +372,7 @@ export default function NetworkingZombiesPanel() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || t("remediateFailed"));
       }
-      toast.success(`Recurso ${remediatingItem.name} remediado exitosamente`);
+      toast.success(t("remediateOk", { name: remediatingItem.name }));
       setRemediatingItem(null);
       mutate();
     } catch (e) {
@@ -395,15 +395,15 @@ export default function NetworkingZombiesPanel() {
             <span className="font-bold text-[#1B2A41] dark:text-white">
               {t("peAccumulationLabel")}
             </span>{" "}
-            Se detectaron{" "}
+            {t("peDetected")}{" "}
             <span className="font-semibold text-[#0054A6] dark:text-blue-400">
               {metrics.activePrivateEndpointsCount} Private Endpoints
             </span>{" "}
-            activos en el tenant con un costo fijo acumulado de{" "}
+            {t("peActiveWithCost")}{" "}
             <span className="font-semibold text-[#0054A6] dark:text-blue-400">
               {money(metrics.privateEndpointsMonthlyCostUSD)}/mes
             </span>{" "}
-            ($7.20/mes c/u). Consolide o desactive endpoints no utilizados para evitar gasto ocioso.
+            {t("peAdvice")}
           </div>
         </div>
         <button
@@ -491,7 +491,7 @@ export default function NetworkingZombiesPanel() {
                               subscriptionId: pe.subscriptionId,
                               subscriptionName: pe.subscriptionName,
                               idleDays: 30,
-                              detectionReason: "Private Endpoint desconectado / rechazado",
+                              detectionReason: t("peDisconnectedReason"),
                               monthlyCostUSD: pe.monthlyCostUSD,
                               isExempted: false,
                             });
@@ -702,7 +702,7 @@ export default function NetworkingZombiesPanel() {
         {selectedIds.size > 0 && (
           <div className="w-full bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-3 flex items-center justify-between text-xs">
             <span className="font-bold text-[#0078D4]">
-              {selectedIds.size} recurso(s) de red seleccionado(s)
+              {t("selectedNetworkResources", { n: selectedIds.size })}
             </span>
             <div className="flex items-center gap-2">
               <button
@@ -1063,7 +1063,7 @@ export default function NetworkingZombiesPanel() {
                 className="px-4 py-2 text-xs font-bold rounded-lg border border-[#0054A6] text-white bg-[#0054A6] hover:bg-[#004182] shadow-sm cursor-pointer inline-flex items-center gap-1.5"
               >
                 {isProcessing ? <IconRefresh className="animate-spin" size={14} /> : <IconCheck size={14} />}
-                Guardar Exención
+                {t("saveExemption")}
               </button>
             </div>
           </div>

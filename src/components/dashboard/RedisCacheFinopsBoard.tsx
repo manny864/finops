@@ -149,7 +149,7 @@ export default function RedisCacheFinopsBoard() {
           }
         }
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "Error al consultar Azure Cache for Redis";
+        const msg = err instanceof Error ? err.message : t("queryFailed");
         setError(msg);
         toast.error(msg);
       } finally {

@@ -49,9 +49,9 @@ export default function AppServiceRemediationModal({
   const getCodeContent = () => {
     switch (activeTab) {
       case "cli":
-        return action.commandCli || `# Comando Azure CLI para ${tituloDeAccion(action)}\naz appservice plan update --name ${resourceName} ...`;
+        return action.commandCli || `${t("fallbackCliComment", { action: tituloDeAccion(action) })}\naz appservice plan update --name ${resourceName} ...`;
       case "terraform":
-        return action.commandTerraform || `# Configuración Terraform HCL para ${tituloDeAccion(action)}\nresource "azurerm_service_plan" "example" {\n  # ...\n}`;
+        return action.commandTerraform || `${t("fallbackTerraformComment", { action: tituloDeAccion(action) })}\nresource "azurerm_service_plan" "example" {\n  # ...\n}`;
       case "arm":
         return action.commandArm || `{\n  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",\n  "contentVersion": "1.0.0.0",\n  "resources": []\n}`;
       default:

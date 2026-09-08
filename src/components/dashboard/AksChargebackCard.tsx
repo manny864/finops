@@ -38,7 +38,7 @@ export default function AksChargebackCard() {
                 });
                 const json = await res.json();
                 if (!cancelled) {
-                    if (!res.ok) setError(json.error || 'Sin acceso');
+                    if (!res.ok) setError(json.error || t("noAccess"));
                     else setData(json);
                 }
             } catch (e) {

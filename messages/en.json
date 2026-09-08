@@ -1907,7 +1907,8 @@
     "healthOptimal": "Optimal",
     "healthImprovable": "Improvable",
     "topNamespacesPerMonth": "{amount} / mo — top namespaces",
-    "noChargebackData": "No chargeback data"
+    "noChargebackData": "No chargeback data",
+    "noAccess": "No access"
   },
   "AlertsManagement": {
     "loadError": "Failed to load Azure Monitor alert rules",
@@ -2483,7 +2484,8 @@
     "tooltip_all_resources": "Detailed CMP inventory of Azure Red Hat OpenShift clusters with cost breakdown and operational metrics.",
     "perMonthSuffix": "/mo",
     "risk": "Risk",
-    "btnActionOptimize": "Optimize"
+    "btnActionOptimize": "Optimize",
+    "na": "N/A"
   },
   "AutoBlockPolicies": {
     "customizeColumns": "Customize Columns",
@@ -3569,7 +3571,8 @@
     "reasonLabel": "Reason / Detailed Justification:",
     "reasonPlaceholder": "Detail the applicable regulatory framework or legal directive...",
     "saveExemption": "Save Exemption",
-    "pageTooltip": "Detection and lifecycle of instances and databases protected in Recovery Services Vaults whose original resource no longer exists in Azure. Lets you purge with Soft Delete retention, move to Archive or exempt for legal compliance."
+    "pageTooltip": "Detection and lifecycle of instances and databases protected in Recovery Services Vaults whose original resource no longer exists in Azure. Lets you purge with Soft Delete retention, move to Archive or exempt for legal compliance.",
+    "lastBackupUnknown": "Unknown"
   },
   "BackupsFinops": {
     "pageTitle": "Azure Backup & Disaster Recovery (Site Recovery)",
@@ -3905,7 +3908,10 @@
     "remediation_sync_running": "Syncing with Azure...",
     "all_subscriptions_healthy": "All subscriptions are within their projected budget limits.",
     "killSwitchSaving": "Saving...",
-    "killSwitchApply": "Apply Kill Switch"
+    "killSwitchApply": "Apply Kill Switch",
+    "perDaySuffix": "/day",
+    "burnLabel": "Burn:",
+    "forecastLabel": "Fcst:"
   },
   "Chargeback": {
     "title": "Showback / Chargeback",
@@ -4676,7 +4682,8 @@
     "disclaimerReqPermissions": "Application permission 'ExternalConnection.ReadWrite.All' (or 'ExternalConnection.ReadWrite.OwnedBy') with admin consent granted in App registrations.",
     "loadConfigError": "Failed to load configuration",
     "graphActionError": "Microsoft Graph action failed",
-    "agentQueryError": "Failed to query the agent"
+    "agentQueryError": "Failed to query the agent",
+    "noAuthAccount": "No authenticated account"
   },
   "CosmosDb": {
     "actionTypeLine": "Action type: <b>{type}</b>",
@@ -4804,7 +4811,8 @@
     "totalInTenant": "in tenant",
     "updatedAt": "Last synchronized",
     "viewScript": "View Script ✨",
-    "cpuMemoryLabel": "CPU / Memory %:"
+    "cpuMemoryLabel": "CPU / Memory %:",
+    "queryFailed": "Could not query Cosmos DB"
   },
   "CostAllocation": {
     "loadError": "Failed to load the allocation",
@@ -6980,7 +6988,11 @@
     "colMarkupAmountUsd": "Markup Amount USD",
     "colCustomer": "Customer",
     "rangeYtd": "Year to date (YTD)",
-    "rangeCurrentMonthNamed": "Current month ({month})"
+    "rangeCurrentMonthNamed": "Current month ({month})",
+    "promptRecipientEmail": "Enter the recipient's email:",
+    "saveMappingFailed": "Could not save the mapping",
+    "unassignedShort": "Unassigned",
+    "unassignedLong": "Unassigned (EA/MCA billing with no CSP customer)"
   },
   "IpaasFinops": {
     "noSession": "No active Microsoft Entra ID session. Sign in to query real telemetry.",
@@ -7727,7 +7739,9 @@
       "ERR_LIGHTHOUSE_NO_TENANT": "The platform's managing directory is not configured. Escalate to infrastructure.",
       "ERR_LIGHTHOUSE_NO_PRINCIPAL": "The group that receives delegated access is not configured. Without it the template deploys successfully and grants access to nobody, so it is blocked beforehand. Escalate to infrastructure.",
       "ERR_LIGHTHOUSE_SELF_DELEGATION": "Azure does not allow delegating a subscription to the directory it already belongs to. The managed tenant ({tenant}) cannot be ours: Lighthouse exists so the customer's directory delegates to ours."
-    }
+    },
+    "noAuthAccount": "No authenticated account",
+    "delegationTitle": "Lighthouse Delegation"
   },
   "LoadBalancingFinops": {
     "pageTitle": "Load Balancing & Ingress FinOps",
@@ -8074,7 +8088,13 @@
     "tooltip_ahub_savings": "Total potential monthly savings by activating Azure Hybrid Benefit on Windows VMs and SQL resources currently paying license-included rates.",
     "tooltip_sku_optimization": "Per-SKU breakdown with utilization progress bars, unassigned pool, inactive user retention risk, and total wasted monthly spend.",
     "genericError": "Error",
-    "networkError": "Network error"
+    "networkError": "Network error",
+    "colStatus": "Status",
+    "colInactivityDays": "Inactivity (days)",
+    "csvName": "Name",
+    "csvType": "Type",
+    "csvLicenses": "Licenses",
+    "csvMonthlyCost": "Monthly Cost (USD)"
   },
   "MACC": {
     "tierLockedFeatureName": "MACC Tracker",
@@ -8667,7 +8687,10 @@
     "page_adm-focus-export_desc": "Export billing in the standard FinOps FOCUS format.",
     "shortcutOpen": "Open dashboard",
     "shortcutFallbackDesc": "Shortcut to this page.",
-    "pinPageLabel": "Pin \"{page}\" to the dashboard"
+    "pinPageLabel": "Pin \"{page}\" to the dashboard",
+    "noAuthAccount": "No authenticated account",
+    "pinToDashboard": "Pin to the dashboard",
+    "unpinFromDashboard": "Remove from the dashboard"
   },
   "Navigation": {
     "superadminOnly": "You need SuperAdmin permissions to view this page.",
@@ -9091,7 +9114,15 @@
     "exemptModalBody": "The resource will be ignored in the waste counts and in future Networking Zombies alerts.",
     "exemptReasonLabel": "Exemption Reason:",
     "exemptReasonPlaceholder": "E.g. DR standby, contingency gateway, reserved IP...",
-    "pageTooltip": "End-to-end audit of zombie network resources: idle VPN / ExpressRoute Gateways, orphaned public IPs, disconnected Private Endpoints, empty NAT Gateways and firewalls with no rules."
+    "pageTooltip": "End-to-end audit of zombie network resources: idle VPN / ExpressRoute Gateways, orphaned public IPs, disconnected Private Endpoints, empty NAT Gateways and firewalls with no rules.",
+    "exemptFailed": "Could not exempt the resource",
+    "remediateOk": "Resource {name} remediated successfully",
+    "peDetected": "We detected",
+    "peActiveWithCost": "active in the tenant with an accrued fixed cost of",
+    "peAdvice": "($7.20/mo each). Consolidate or disable unused endpoints to avoid idle spend.",
+    "peDisconnectedReason": "Disconnected / rejected Private Endpoint",
+    "selectedNetworkResources": "{n} network resource(s) selected",
+    "saveExemption": "Save Exemption"
   },
   "NotFound": {
     "title": "Page not found",
@@ -10150,7 +10181,8 @@
     "updatedAt": "Last sync",
     "nonSslActive": "(Non-SSL Active)",
     "nonSslDisabled": "(Non-SSL Disabled)",
-    "evictionsExpired": "{evicted} evictions · {expired} expired"
+    "evictionsExpired": "{evicted} evictions · {expired} expired",
+    "queryFailed": "Could not query Azure Cache for Redis"
   },
   "RemediationApprovals": {
     "featureName": "Remediation Approvals",
@@ -10323,7 +10355,9 @@
     "copy": "Copy",
     "vmss_manualPolicyNote": "If the Scale Set has a <c>Manual</c> policy, run <c>az vmss update-instances --instance-ids \"*\"</c> to roll the new configuration out to the running instances.",
     "vm_ahubZeroDowntime": "AHUB activation is applied hot with zero downtime. It only requires valid Windows Server Core or Datacenter licenses with active Software Assurance in your licensing agreement.",
-    "tabImpactRisk": "Impact & Risk"
+    "tabImpactRisk": "Impact & Risk",
+    "fallbackCliComment": "# Azure CLI command for {action}",
+    "fallbackTerraformComment": "# Terraform HCL configuration for {action}"
   },
   "Resources": {
     "title": "Resources",
@@ -10458,7 +10492,8 @@
     "emptyState": "Great. No VM is severely underutilized right now.",
     "colVm": "Virtual Machine",
     "colPeakCpu": "Peak Max CPU",
-    "analyzingMetrics": "Analyzing historical Azure Monitor metrics..."
+    "analyzingMetrics": "Analyzing historical Azure Monitor metrics...",
+    "noMsalAccount": "No active MSAL account."
   },
   "RightsizingAppService": {
     "title": "App Service Rightsizing",
@@ -12018,7 +12053,18 @@
     "relDueDays": "Due in {n}d",
     "badgeExpiredWithTime": "Expired ({rel})",
     "badgeDueWithTime": "Due Soon ({rel})",
-    "badgeActiveWithTime": "Active ({rel})"
+    "badgeActiveWithTime": "Active ({rel})",
+    "applyTagFailed": "Could not apply the tag",
+    "applyTagOk": "ExpireOn tag applied to {name}",
+    "extendFailed": "Could not extend",
+    "extendOk": "{days}-day extension applied to {name}",
+    "deprovisionFailed": "Could not deprovision",
+    "deprovisionOk": "Environment {name} deprovisioned successfully",
+    "exemptDefaultReason": "Exempted by the user in TTL Enforcement",
+    "exemptFailed": "Could not exempt",
+    "deletionHistoryTitle": "TTL Deprovisioning History ({count})",
+    "confirmDelete": "Confirm Deletion",
+    "daysSuffix": "{n} days"
   },
   "TabFilters": {
     "placeholder": "Filter by name or service...",
@@ -12924,7 +12970,12 @@
     "tagResourcesTitle": "Tag FinOps Resources ({n})",
     "selectedResources": "{n} resource(s) selected",
     "potentialSavingsValue": "Potential savings: {amount}/mo",
-    "listedResources": "{n} Resources Listed"
+    "listedResources": "{n} Resources Listed",
+    "taggedCount": "{n} resource(s) tagged",
+    "deletedCount": "{n} resource(s) deleted",
+    "failedCount": "{n} failed — {first}",
+    "activeZombiesWithCost": "{n} active zombies with cost",
+    "perMonthSuffix": "/mo"
   },
   "Zombies": {
     "title": "Zombie Resources",

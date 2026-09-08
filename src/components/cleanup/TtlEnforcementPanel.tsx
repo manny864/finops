@@ -43,14 +43,14 @@ import {
 import { errorMessage } from "@/lib/apiErrors";
 
 const DEFAULT_COLUMNS: TableColumnConfig[] = [
-  { key: "resource", label: "Recurso / Entorno", isVisible: true, widthPx: 260 },
-  { key: "type", label: "Tipo de Recurso", isVisible: true, widthPx: 180 },
-  { key: "resourceGroup", label: "Grupo de Recursos", isVisible: true, widthPx: 180 },
-  { key: "subscription", label: "Suscripción", isVisible: true, widthPx: 200 },
-  { key: "expiryDate", label: "Fecha de Expiración", isVisible: true, widthPx: 200 },
-  { key: "status", label: "Estado", isVisible: true, widthPx: 140 },
-  { key: "savings", label: "Ahorro Estimado", isVisible: true, widthPx: 130 },
-  { key: "actions", label: "Acciones", isVisible: true, widthPx: 260 },
+  { key: "resource", isVisible: true, widthPx: 260 },
+  { key: "type", isVisible: true, widthPx: 180 },
+  { key: "resourceGroup", isVisible: true, widthPx: 180 },
+  { key: "subscription", isVisible: true, widthPx: 200 },
+  { key: "expiryDate", isVisible: true, widthPx: 200 },
+  { key: "status", isVisible: true, widthPx: 140 },
+  { key: "savings", isVisible: true, widthPx: 130 },
+  { key: "actions", isVisible: true, widthPx: 260 },
 ];
 
 const RESOURCE_TYPES_CATALOG = [
@@ -344,9 +344,9 @@ export default function TtlEnforcementPanel() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Error al aplicar tag");
+        throw new Error(err.error || t("applyTagFailed"));
       }
-      toast.success(`Etiqueta ExpireOn aplicada a ${resource.name}`);
+      toast.success(t("applyTagOk", { name: resource.name }));
       mutate();
     } catch (err) {
       toast.error(errorMessage(err));
@@ -371,9 +371,9 @@ export default function TtlEnforcementPanel() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Error al prorrogar");
+        throw new Error(err.error || t("extendFailed"));
       }
-      toast.success(`Prórroga de ${extensionDays} días aplicada a ${extendingItem.name}`);
+      toast.success(t("extendOk", { days: extensionDays, name: extendingItem.name }));
       setExtendingItem(null);
       mutate();
     } catch (err) {
@@ -407,9 +407,9 @@ export default function TtlEnforcementPanel() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Error al desaprovisionar");
+        throw new Error(err.error || t("deprovisionFailed"));
       }
-      toast.success(`Entorno ${deletingItem.name} desaprovisionado correctamente`);
+      toast.success(t("deprovisionOk", { name: deletingItem.name }));
       setDeletingItem(null);
       mutate();
     } catch (err) {
@@ -431,12 +431,12 @@ export default function TtlEnforcementPanel() {
           actionType: "EXEMPT",
           resourceId: exemptingItem.id,
           resourceName: exemptingItem.name,
-          reason: exemptionReason.trim() || "Eximido por el usuario en TTL Enforcement",
+          reason: exemptionReason.trim() || t("exemptDefaultReason"),
         }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Error al eximir");
+        throw new Error(err.error || t("exemptFailed"));
       }
       toast.success(t("resourceExempted"));
       setExemptingItem(null);
@@ -570,7 +570,7 @@ export default function TtlEnforcementPanel() {
                       </span>
                     </td>
                     <td className="py-2.5 px-3 font-semibold text-slate-700 dark:text-slate-200">
-                      {p.maxLifespanDays} días
+                      {t("daysSuffix", { n: p.maxLifespanDays })}
                     </td>
                     <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 break-words">
                       {p.description || t("noDescription")}
@@ -1005,7 +1005,7 @@ export default function TtlEnforcementPanel() {
           <div className="flex items-center gap-2">
             <IconClock size={18} className="text-[#0078D4]" stroke={1.5} />
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
-              Histórico de Desaprovisionamiento TTL ({metrics.deletionHistory.length})
+              {t("deletionHistoryTitle", { count: metrics.deletionHistory.length })}
             </h3>
             <InfoTooltip content={t("historyTip")} />
           </div>
@@ -1234,7 +1234,7 @@ export default function TtlEnforcementPanel() {
                 className="px-4 py-2 text-xs font-bold rounded-lg border border-rose-600 text-white bg-rose-600 hover:bg-rose-700 shadow-sm cursor-pointer inline-flex items-center gap-1.5"
               >
                 {isProcessing ? <IconRefresh className="animate-spin" size={14} /> : <IconTrash size={14} />}
-                Confirmar Eliminación
+                {t("confirmDelete")}
               </button>
             </div>
           </div>

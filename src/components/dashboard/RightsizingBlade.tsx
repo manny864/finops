@@ -15,7 +15,7 @@ export default function RightsizingBlade() {
     // quedando pegado en 401 para siempre, ya que acquireTokenSilent lo
     // refresca automáticamente si es necesario pero nunca se vuelve a llamar.
     const fetcher = async (url: string) => {
-        if (accounts.length === 0) throw new Error("No hay cuenta MSAL activa.");
+        if (accounts.length === 0) throw new Error(t("noMsalAccount"));
         const tokenResponse = await instance.acquireTokenSilent({
             scopes: ["User.Read"],
             account: accounts[0]

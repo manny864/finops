@@ -301,7 +301,7 @@ export default function InvoicingReportPanel() {
 
 
     const handleEmailCustomerPdf = async (custId: string) => {
-        const recipientEmail = prompt('Ingrese el correo del destinatario:');
+        const recipientEmail = prompt(t("promptRecipientEmail"));
         if (!recipientEmail) return;
 
         setSendingEmailCustomer(custId);
@@ -372,7 +372,7 @@ export default function InvoicingReportPanel() {
                     customerName: virtualName,
                 }),
             });
-            if (!res.ok) throw new Error('Error al guardar mapeo');
+            if (!res.ok) throw new Error(t("saveMappingFailed"));
             toast.success(t("toastMappingOk"));
             setMappingCustomer(null);
             mutate();
@@ -771,7 +771,7 @@ export default function InvoicingReportPanel() {
                                 const origCost = c.originalCostUSD ?? c.originalCost ?? 0;
                                 const adjCost = c.adjustedCostUSD ?? c.adjustedCost ?? 0;
                                 const isAssigned = c.customerId && c.customerId !== 'unassigned';
-                                const displayName = c.customerDisplayName || c.customerName || (isAssigned ? c.customerId : 'Sin identificar (facturación EA/MCA sin cliente CSP)');
+                                const displayName = c.customerDisplayName || c.customerName || (isAssigned ? c.customerId : t("unassignedLong"));
 
                                 return (
                                     <tr key={c.customerId} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
@@ -1026,7 +1026,7 @@ export default function InvoicingReportPanel() {
                                 const origCost = l.originalCostUSD ?? l.originalCost ?? 0;
                                 const adjCost = l.adjustedCostUSD ?? l.adjustedCost ?? 0;
                                 const lineDate = l.formattedDate || l.date || l.dateIso || '—';
-                                const custName = l.customerName || l.customerDisplayName || (l.customerId === 'unassigned' ? 'Sin identificar' : l.customerId);
+                                const custName = l.customerName || l.customerDisplayName || (l.customerId === 'unassigned' ? t("unassignedShort") : l.customerId);
                                 const serviceName = l.serviceName || l.service || 'Azure General';
 
                                 return (

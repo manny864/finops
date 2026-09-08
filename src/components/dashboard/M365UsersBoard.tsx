@@ -409,7 +409,7 @@ function UserActivityTab() {
     // CSV export
     const exportCSV = () => {
         if (!filtered.length) return;
-        const headers = ["Nombre", "UPN", "Tipo", "Estado", "Inactividad (días)", "MFA", "Licencias", "Costo Mensual (USD)"];
+        const headers = [t("csvName"), "UPN", t("csvType"), t("colStatus"), t("colInactivityDays"), "MFA", t("csvLicenses"), t("csvMonthlyCost")];
         const csvRows = filtered.map((r: any) => [
             r.displayName, r.userPrincipalName, r.userType,
             r.accountEnabled ? t("enabled") : t("disabled"),

@@ -80,8 +80,12 @@ export interface TtlActionPayload {
 }
 
 export interface TableColumnConfig {
+  /**
+   * El rotulo NO viaja aca: la UI lo resuelve con `col_<key>` del catalogo.
+   * Mientras existio un `label: string`, las columnas se declaraban en
+   * castellano y compilaban.
+   */
   key: string;
-  label: string;
   isVisible: boolean;
   widthPx: number;
 }

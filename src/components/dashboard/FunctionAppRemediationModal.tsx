@@ -50,9 +50,9 @@ export default function FunctionAppRemediationModal({
   const getCodeContent = () => {
     switch (activeTab) {
       case "cli":
-        return action.commandCli || `# Comando Azure CLI para ${tituloDeAccion(action)}\naz functionapp update --name ${resourceName} ...`;
+        return action.commandCli || `${t("fallbackCliComment", { action: tituloDeAccion(action) })}\naz functionapp update --name ${resourceName} ...`;
       case "terraform":
-        return action.commandTerraform || `# Configuración Terraform HCL para ${tituloDeAccion(action)}\nresource "azurerm_linux_function_app" "example" {\n  # ...\n}`;
+        return action.commandTerraform || `${t("fallbackTerraformComment", { action: tituloDeAccion(action) })}\nresource "azurerm_linux_function_app" "example" {\n  # ...\n}`;
       case "hostjson":
         return (
           action.commandHostJson ||

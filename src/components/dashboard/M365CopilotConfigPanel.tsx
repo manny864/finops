@@ -187,7 +187,7 @@ export default function M365CopilotConfigPanel() {
     // ── Auth helper ────────────────────────────────────────────────────────────
     const getToken = useCallback(async (): Promise<string> => {
         const account = accounts[0];
-        if (!account) throw new Error("No hay cuenta autenticada");
+        if (!account) throw new Error(t("noAuthAccount"));
         const resp = await instance.acquireTokenSilent({ scopes: ["User.Read"], account });
         return resp.idToken;
     }, [instance, accounts]);

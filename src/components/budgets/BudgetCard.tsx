@@ -495,8 +495,8 @@ export default function BudgetCard() {
 
                                 {realBudget > 0 && subData.dailyBurnRate !== undefined && (
                                     <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 mb-3 bg-slate-50 dark:bg-slate-800/40 p-2 rounded-lg">
-                                        <span>Burn: <strong className="text-slate-900 dark:text-white font-mono">{currencyFormatter.format(subData.dailyBurnRate)}/día</strong></span>
-                                        <span>Proy: <strong className="text-[#0054A6] dark:text-blue-400 font-mono">{currencyFormatter.format(subData.forecastedMonthEndSpend || realSpend)}</strong></span>
+                                        <span>{t("burnLabel")} <strong className="text-slate-900 dark:text-white font-mono">{currencyFormatter.format(subData.dailyBurnRate)}{t("perDaySuffix")}</strong></span>
+                                        <span>{t("forecastLabel")} <strong className="text-[#0054A6] dark:text-blue-400 font-mono">{currencyFormatter.format(subData.forecastedMonthEndSpend || realSpend)}</strong></span>
                                     </div>
                                 )}
 

@@ -1907,7 +1907,8 @@
     "healthOptimal": "Óptimo",
     "healthImprovable": "Mejorable",
     "topNamespacesPerMonth": "{amount} / mes — top namespaces",
-    "noChargebackData": "Sin datos de chargeback"
+    "noChargebackData": "Sin datos de chargeback",
+    "noAccess": "Sin acceso"
   },
   "AlertsManagement": {
     "loadError": "Error al cargar reglas de alerta de Azure Monitor",
@@ -2483,7 +2484,8 @@
     "tooltip_all_resources": "Inventario CMP detallado de clústeres Azure Red Hat OpenShift con desglose de costos y métricas operativas.",
     "perMonthSuffix": "/mes",
     "risk": "Riesgo",
-    "btnActionOptimize": "Optimizar"
+    "btnActionOptimize": "Optimizar",
+    "na": "N/D"
   },
   "AutoBlockPolicies": {
     "customizeColumns": "Personalizar Columnas",
@@ -3569,7 +3571,8 @@
     "reasonLabel": "Motivo / Justificación Detallada:",
     "reasonPlaceholder": "Detalla el marco regulatorio o directiva legal aplicable...",
     "saveExemption": "Guardar Exención",
-    "pageTooltip": "Detección y ciclo de vida de instancias y bases de datos protegidas en Recovery Services Vaults cuyo recurso original ya no existe en Azure. Permite purgar con retención Soft Delete, transferir a Archive o eximir por cumplimiento legal."
+    "pageTooltip": "Detección y ciclo de vida de instancias y bases de datos protegidas en Recovery Services Vaults cuyo recurso original ya no existe en Azure. Permite purgar con retención Soft Delete, transferir a Archive o eximir por cumplimiento legal.",
+    "lastBackupUnknown": "Desconocido"
   },
   "BackupsFinops": {
     "pageTitle": "Azure Backup & Disaster Recovery (Site Recovery)",
@@ -3905,7 +3908,10 @@
     "remediation_sync_running": "Sincronizando con Azure...",
     "all_subscriptions_healthy": "Todas las suscripciones se encuentran dentro de sus límites proyectados.",
     "killSwitchSaving": "Guardando...",
-    "killSwitchApply": "Aplicar Kill Switch"
+    "killSwitchApply": "Aplicar Kill Switch",
+    "perDaySuffix": "/día",
+    "burnLabel": "Consumo:",
+    "forecastLabel": "Proy:"
   },
   "Chargeback": {
     "title": "Showback / Chargeback",
@@ -4676,7 +4682,8 @@
     "disclaimerReqPermissions": "Permiso de aplicación 'ExternalConnection.ReadWrite.All' (o 'ExternalConnection.ReadWrite.OwnedBy') con consentimiento de administrador concedido en Registros de aplicaciones.",
     "loadConfigError": "Error al cargar configuración",
     "graphActionError": "Error en la acción con Microsoft Graph",
-    "agentQueryError": "Error al consultar al agente"
+    "agentQueryError": "Error al consultar al agente",
+    "noAuthAccount": "No hay cuenta autenticada"
   },
   "CosmosDb": {
     "actionTypeLine": "Tipo de acción: <b>{type}</b>",
@@ -4804,7 +4811,8 @@
     "totalInTenant": "en el tenant",
     "updatedAt": "Última sincronización",
     "viewScript": "Ver Script ✨",
-    "cpuMemoryLabel": "CPU / Memoria %:"
+    "cpuMemoryLabel": "CPU / Memoria %:",
+    "queryFailed": "Error al consultar Cosmos DB"
   },
   "CostAllocation": {
     "loadError": "Error al cargar el prorrateo",
@@ -6980,7 +6988,11 @@
     "colMarkupAmountUsd": "Monto Markup USD",
     "colCustomer": "Cliente",
     "rangeYtd": "Año en curso (YTD)",
-    "rangeCurrentMonthNamed": "Mes actual ({month})"
+    "rangeCurrentMonthNamed": "Mes actual ({month})",
+    "promptRecipientEmail": "Ingrese el correo del destinatario:",
+    "saveMappingFailed": "Error al guardar mapeo",
+    "unassignedShort": "Sin identificar",
+    "unassignedLong": "Sin identificar (facturación EA/MCA sin cliente CSP)"
   },
   "IpaasFinops": {
     "noSession": "No hay sesión activa de Microsoft Entra ID. Inicie sesión para consultar telemetría real.",
@@ -7727,7 +7739,9 @@
       "ERR_LIGHTHOUSE_NO_TENANT": "Falta configurar el directorio administrador de la plataforma. Escalá a infraestructura.",
       "ERR_LIGHTHOUSE_NO_PRINCIPAL": "Falta configurar el grupo que recibe el acceso delegado. Sin eso la plantilla se despliega bien y no otorga acceso a nadie, así que se bloquea antes. Escalá a infraestructura.",
       "ERR_LIGHTHOUSE_SELF_DELEGATION": "Azure no permite delegar una suscripción al directorio al que ya pertenece. El tenant administrado ({tenant}) no puede ser el nuestro: Lighthouse existe para que el directorio del cliente delegue en el nuestro."
-    }
+    },
+    "noAuthAccount": "No hay cuenta autenticada",
+    "delegationTitle": "Delegación Lighthouse"
   },
   "LoadBalancingFinops": {
     "pageTitle": "Balanceo y Publicación FinOps",
@@ -8074,7 +8088,13 @@
     "tooltip_ahub_savings": "Ahorro mensual potencial total al activar Azure Hybrid Benefit en VMs Windows y recursos SQL que actualmente pagan tarifas con licencia incluida.",
     "tooltip_sku_optimization": "Desglose por SKU con barras de progreso de utilización, pool sin asignar, riesgo de retención por usuarios inactivos y gasto mensual total desperdiciado.",
     "genericError": "Error",
-    "networkError": "Error de red"
+    "networkError": "Error de red",
+    "colStatus": "Estado",
+    "colInactivityDays": "Inactividad (días)",
+    "csvName": "Nombre",
+    "csvType": "Tipo",
+    "csvLicenses": "Licencias",
+    "csvMonthlyCost": "Costo Mensual (USD)"
   },
   "MACC": {
     "tierLockedFeatureName": "MACC Tracker",
@@ -8667,7 +8687,10 @@
     "page_adm-focus-export_desc": "Exportá billing en formato FinOps FOCUS estándar.",
     "shortcutOpen": "Abrir tablero",
     "shortcutFallbackDesc": "Acceso directo a esta página.",
-    "pinPageLabel": "Pinear \"{page}\" al dashboard"
+    "pinPageLabel": "Pinear \"{page}\" al dashboard",
+    "noAuthAccount": "No hay cuenta autenticada",
+    "pinToDashboard": "Pinear al dashboard",
+    "unpinFromDashboard": "Quitar del dashboard"
   },
   "Navigation": {
     "superadminOnly": "Necesitás permisos de SuperAdmin para ver esta página.",
@@ -9091,7 +9114,15 @@
     "exemptModalBody": "El recurso será ignorado en los conteos de desperdicio y alertas futuras de Networking Zombies.",
     "exemptReasonLabel": "Motivo de la Exención:",
     "exemptReasonPlaceholder": "Ej. Standby para DR, Gateway de contingencia, IP reservada...",
-    "pageTooltip": "Auditoría integral de recursos de red zombis: VPN / ExpressRoute Gateways ociosos, IPs públicas huérfanas, Private Endpoints desconectados, NAT Gateways vacíos y firewalls sin reglas."
+    "pageTooltip": "Auditoría integral de recursos de red zombis: VPN / ExpressRoute Gateways ociosos, IPs públicas huérfanas, Private Endpoints desconectados, NAT Gateways vacíos y firewalls sin reglas.",
+    "exemptFailed": "Error al eximir recurso",
+    "remediateOk": "Recurso {name} remediado exitosamente",
+    "peDetected": "Se detectaron",
+    "peActiveWithCost": "activos en el tenant con un costo fijo acumulado de",
+    "peAdvice": "($7.20/mes c/u). Consolide o desactive endpoints no utilizados para evitar gasto ocioso.",
+    "peDisconnectedReason": "Private Endpoint desconectado / rechazado",
+    "selectedNetworkResources": "{n} recurso(s) de red seleccionado(s)",
+    "saveExemption": "Guardar Exención"
   },
   "NotFound": {
     "title": "Página no encontrada",
@@ -10150,7 +10181,8 @@
     "updatedAt": "Última sincronización",
     "nonSslActive": "(Non-SSL Activo)",
     "nonSslDisabled": "(Non-SSL Desactivado)",
-    "evictionsExpired": "{evicted} evicciones · {expired} expiradas"
+    "evictionsExpired": "{evicted} evicciones · {expired} expiradas",
+    "queryFailed": "Error al consultar Azure Cache for Redis"
   },
   "RemediationApprovals": {
     "featureName": "Aprobaciones de Remediación",
@@ -10323,7 +10355,9 @@
     "copy": "Copiar",
     "vmss_manualPolicyNote": "Si el Scale Set tiene política <c>Manual</c>, ejecute <c>az vmss update-instances --instance-ids \"*\"</c> para desplegar la nueva configuración a las instancias en ejecución.",
     "vm_ahubZeroDowntime": "La activación de AHUB se aplica en caliente sin tiempo de inactividad (Zero Downtime). Solo requiere contar con licencias válidas de Windows Server Core o Datacenter con Software Assurance activo en su contrato de licenciamiento.",
-    "tabImpactRisk": "Impacto y riesgo"
+    "tabImpactRisk": "Impacto y riesgo",
+    "fallbackCliComment": "# Comando Azure CLI para {action}",
+    "fallbackTerraformComment": "# Configuración Terraform HCL para {action}"
   },
   "Resources": {
     "title": "Recursos",
@@ -10458,7 +10492,8 @@
     "emptyState": "Excelente. Ninguna VM está severamente subutilizada en este momento.",
     "colVm": "Máquina Virtual",
     "colPeakCpu": "Pico Máx CPU",
-    "analyzingMetrics": "Analizando métricas históricas de Azure Monitor..."
+    "analyzingMetrics": "Analizando métricas históricas de Azure Monitor...",
+    "noMsalAccount": "No hay cuenta MSAL activa."
   },
   "RightsizingAppService": {
     "title": "Rightsizing de App Service",
@@ -12018,7 +12053,18 @@
     "relDueDays": "Vence en {n}d",
     "badgeExpiredWithTime": "Vencido ({rel})",
     "badgeDueWithTime": "Por Vencer ({rel})",
-    "badgeActiveWithTime": "Activo ({rel})"
+    "badgeActiveWithTime": "Activo ({rel})",
+    "applyTagFailed": "Error al aplicar tag",
+    "applyTagOk": "Etiqueta ExpireOn aplicada a {name}",
+    "extendFailed": "Error al prorrogar",
+    "extendOk": "Prórroga de {days} días aplicada a {name}",
+    "deprovisionFailed": "Error al desaprovisionar",
+    "deprovisionOk": "Entorno {name} desaprovisionado correctamente",
+    "exemptDefaultReason": "Eximido por el usuario en TTL Enforcement",
+    "exemptFailed": "Error al eximir",
+    "deletionHistoryTitle": "Histórico de Desaprovisionamiento TTL ({count})",
+    "confirmDelete": "Confirmar Eliminación",
+    "daysSuffix": "{n} días"
   },
   "TabFilters": {
     "placeholder": "Filtrar por nombre o servicio...",
@@ -12924,7 +12970,12 @@
     "tagResourcesTitle": "Etiquetar Recursos FinOps ({n})",
     "selectedResources": "{n} recurso(s) seleccionado(s)",
     "potentialSavingsValue": "Ahorro potencial: {amount}/mes",
-    "listedResources": "{n} Recursos Listados"
+    "listedResources": "{n} Recursos Listados",
+    "taggedCount": "{n} recurso(s) etiquetados",
+    "deletedCount": "{n} recurso(s) eliminados",
+    "failedCount": "{n} fallaron — {first}",
+    "activeZombiesWithCost": "{n} zombis activos con costo",
+    "perMonthSuffix": "/mes"
   },
   "Zombies": {
     "title": "Recursos Zombis",

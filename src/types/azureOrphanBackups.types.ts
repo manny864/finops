@@ -18,8 +18,13 @@ export interface OrphanBackupItem {
   originalResourceId: string;
   storageConsumedGB: number;
   recoveryPointsCount: number;
+  /**
+   * ISO. El rotulo se arma en el cliente: antes viajaba tambien un
+   * `formattedLastBackup` con `toLocaleDateString('es-ES')` fijo y
+   * "Desconocido" de respaldo, asi que la columna salia en castellano en los
+   * tres idiomas.
+   */
   lastBackupTimestamp?: string;
-  formattedLastBackup?: string;
   isSoftDeleted: boolean;
   monthlyCostUSD: number;
   isExempted: boolean;
@@ -46,8 +51,12 @@ export interface OrphanBackupRemediationPayload {
 }
 
 export interface TableColumnConfig {
+  /**
+   * El rotulo NO viaja aca: la UI lo resuelve con `col_<key>` del catalogo.
+   * Mientras existio un `label: string`, las columnas se declaraban en
+   * castellano y compilaban.
+   */
   key: string;
-  label: string;
   isVisible: boolean;
   widthPx: number;
 }

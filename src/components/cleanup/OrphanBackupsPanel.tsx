@@ -30,7 +30,7 @@ import ResizableTh from "@/components/ResizableTh";
 import Pagination, { usePagination } from "@/components/Pagination";
 import InfoTooltip from "@/components/InfoTooltip";
 import { toast } from "sonner";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import {
   OrphanBackupItem,
   OrphanBackupsSummary,
@@ -40,19 +40,17 @@ import {
 import { errorMessage } from "@/lib/apiErrors";
 
 const DEFAULT_COLUMNS: TableColumnConfig[] = [
-  // `label` queda como documentacion del id; lo que se muestra sale de
-  // `col_<key>` en el catalogo, que es lo unico que cambia de idioma.
-  { key: "resource", label: "Ítem de Backup / Recurso", isVisible: true, widthPx: 260 },
-  { key: "workloadType", label: "Tipo de Respaldo", isVisible: true, widthPx: 160 },
-  { key: "vaultName", label: "Vault de Origen", isVisible: true, widthPx: 180 },
-  { key: "subscription", label: "Suscripción", isVisible: true, widthPx: 200 },
-  { key: "resourceGroup", label: "Grupo de Recursos", isVisible: true, widthPx: 170 },
-  { key: "region", label: "Región", isVisible: true, widthPx: 120 },
-  { key: "storage", label: "Almacenamiento", isVisible: true, widthPx: 140 },
-  { key: "recoveryPoints", label: "Puntos de Rest.", isVisible: true, widthPx: 140 },
-  { key: "lastBackup", label: "Último Respaldo", isVisible: true, widthPx: 150 },
-  { key: "monthlyCost", label: "Costo Mensual", isVisible: true, widthPx: 130 },
-  { key: "actions", label: "Acciones", isVisible: true, widthPx: 270 },
+  { key: "resource", isVisible: true, widthPx: 260 },
+  { key: "workloadType", isVisible: true, widthPx: 160 },
+  { key: "vaultName", isVisible: true, widthPx: 180 },
+  { key: "subscription", isVisible: true, widthPx: 200 },
+  { key: "resourceGroup", isVisible: true, widthPx: 170 },
+  { key: "region", isVisible: true, widthPx: 120 },
+  { key: "storage", isVisible: true, widthPx: 140 },
+  { key: "recoveryPoints", isVisible: true, widthPx: 140 },
+  { key: "lastBackup", isVisible: true, widthPx: 150 },
+  { key: "monthlyCost", isVisible: true, widthPx: 130 },
+  { key: "actions", isVisible: true, widthPx: 270 },
 ];
 
 function formatSubscriptionDisplay(name?: string, id?: string): string {
@@ -99,6 +97,7 @@ function getWorkloadBadge(type: OrphanBackupType) {
 
 export default function OrphanBackupsPanel() {
   const t = useTranslations("BackupOrphans");
+  const locale = useLocale();
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "demo_tenant";
   const isMock = isMockTenant(tenantId);
@@ -623,7 +622,7 @@ export default function OrphanBackupsPanel() {
                           onChange={() => toggleColumnVisibility(col.key)}
                           className="rounded text-[#0054A6] cursor-pointer"
                         />
-                        <span>{col.label}</span>
+                        <span>{t(`col_${col.key}`)}</span>
                       </label>
                     ))}
                   </div>
@@ -820,7 +819,9 @@ export default function OrphanBackupsPanel() {
 
                       {isColVisible("lastBackup") && (
                         <td className="py-3 px-4 text-slate-600 dark:text-slate-300 font-mono text-[11px]">
-                          {res.formattedLastBackup || "N/D"}
+                          {res.lastBackupTimestamp
+                            ? new Date(res.lastBackupTimestamp).toLocaleDateString(locale)
+                            : t("lastBackupUnknown")}
                         </td>
                       )}
 

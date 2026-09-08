@@ -608,7 +608,7 @@ export default function ZombieAuditPanel() {
     try {
       const token = isMock ? "demo" : await getFreshIdToken(instance, accounts[0], ["User.Read"]);
       await postZombieAction(tenantId, token, { action: "TAG", resourceIds: ids, tags });
-      toast.success(`${ids.length} recurso(s) etiquetados`);
+      toast.success(t("taggedCount", { n: ids.length }));
       setSelectedIds(new Set());
     } catch (e) {
       // Revalidar descarta la actualización optimista y devuelve la tabla al
@@ -749,8 +749,8 @@ export default function ZombieAuditPanel() {
     }
 
     const ok = targets.length - failed.length;
-    if (ok > 0) toast.success(`${ok} recurso(s) eliminados`);
-    if (failed.length > 0) toast.error(`${failed.length} fallaron — ${failed[0]}`);
+    if (ok > 0) toast.success(t("deletedCount", { n: ok }));
+    if (failed.length > 0) toast.error(t("failedCount", { n: failed.length, first: failed[0] }));
     setSelectedIds(new Set());
     mutate();
   };
@@ -799,8 +799,8 @@ export default function ZombieAuditPanel() {
           {
             label: t('kpiSavingsLabel'),
             tip: t('kpiSavingsTip'),
-            value: money(metrics?.totalPotentialSavingsUSD ?? 0) + "/mes",
-            sub: `${metrics?.hardWasteZombiesCount ?? 0} zombis activos con costo`,
+            value: money(metrics?.totalPotentialSavingsUSD ?? 0) + t("perMonthSuffix"),
+            sub: t("activeZombiesWithCost", { n: metrics?.hardWasteZombiesCount ?? 0 }),
             Icon: IconTrash,
           },
           {

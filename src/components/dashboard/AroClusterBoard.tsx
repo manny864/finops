@@ -612,13 +612,13 @@ export default function AroClusterBoard() {
                   <span className="font-bold text-slate-900 dark:text-slate-100">
                     {typeof selectedCluster.cpuAvg === "number"
                       ? `${selectedCluster.cpuAvg}% / ${typeof selectedCluster.cpuMax === "number" ? selectedCluster.cpuMax : (selectedCluster.cpuAvg * 1.4).toFixed(1)}%`
-                      : "N/D"}
+                      : t("na")}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500 dark:text-slate-400">{t("labelMemoryUsage")}:</span>
                   <span className="font-medium text-slate-900 dark:text-slate-100">
-                    {typeof selectedCluster.memoryAvgPercent === "number" ? `${selectedCluster.memoryAvgPercent}%` : "N/D"}
+                    {typeof selectedCluster.memoryAvgPercent === "number" ? `${selectedCluster.memoryAvgPercent}%` : t("na")}
                   </span>
                 </div>
                 <div className="flex justify-between items-center border-t border-slate-100 pt-1.5 dark:border-slate-800">
@@ -777,7 +777,7 @@ export default function AroClusterBoard() {
                       <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
                         {renderLifecycleBadge(item.openshiftVersion, item.openShiftLifecycleStatus)}
                       </td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{item.metricsAvailable && item.cpuAvg !== null ? `${item.cpuAvg}%` : "N/D"}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{item.metricsAvailable && item.cpuAvg !== null ? `${item.cpuAvg}%` : t("na")}</td>
                       <td className="px-4 py-3 text-right font-bold text-slate-900 dark:text-white">{format(getClusterMonthlyTotal(item))}</td>
                     </tr>
                   );

@@ -36,7 +36,7 @@ export default function PinButton({ widgetKey, label, compact = false }: PinButt
 
     const fetcher = useCallback(async (url: string) => {
         const account = accounts[0];
-        if (!account) throw new Error("No hay cuenta autenticada");
+        if (!account) throw new Error(t("noAuthAccount"));
         const tok = await instance.acquireTokenSilent({ scopes: ["User.Read"], account });
         const res = await fetch(url, { headers: { Authorization: `Bearer ${tok.idToken}` } });
         if (!res.ok) return { pins: [] };
@@ -98,7 +98,7 @@ export default function PinButton({ widgetKey, label, compact = false }: PinButt
 
     if (!selectedTenant || selectedTenant.id === "default") return null;
 
-    const tooltip = label || (isPinned ? "Quitar del dashboard" : "Pinear al dashboard");
+    const tooltip = label || (isPinned ? t("unpinFromDashboard") : t("pinToDashboard"));
     const sizeCls = compact ? "w-7 h-7" : "w-8 h-8";
     const iconSize = compact ? 16 : 18;
 

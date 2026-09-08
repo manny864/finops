@@ -30,7 +30,7 @@ export default function LighthouseDelegationPanel() {
 
     const fetcher = async (url: string) => {
         const account = accounts[0];
-        if (!account) throw new Error("No hay cuenta autenticada");
+        if (!account) throw new Error(t("noAuthAccount"));
         const tokenResponse = await instance.acquireTokenSilent({ scopes: ["User.Read"], account });
         const res = await fetch(url, { headers: { 'Authorization': `Bearer ${tokenResponse.idToken}` } });
         if (!res.ok) { const j = await res.json(); throw new Error(j.error || "Error"); }
@@ -74,7 +74,7 @@ export default function LighthouseDelegationPanel() {
     if (error) {
         const requiredTier = parseTierRequiredError(error.message);
         if (requiredTier) {
-            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName="Delegación Lighthouse" />;
+            return <TierLockedNotice requiredTier={requiredTier} currentTier={(selectedTenant as any)?.tier} featureName={t("delegationTitle")} />;
         }
         return <div className="bg-red-50 dark:bg-red-900/20 text-red-600 p-4 rounded-lg"><b>{t('error')}:</b> {error.message}</div>;
     }

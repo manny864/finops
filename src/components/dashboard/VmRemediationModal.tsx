@@ -56,7 +56,7 @@ export default function VmRemediationModal({
     
     switch (activeTab) {
       case "cli":
-        return action.commandCli || `# Azure CLI command for ${tituloDeAccion(action)}\naz vm update --name ${resourceName} ...`;
+        return action.commandCli || `${t("fallbackCliComment", { action: tituloDeAccion(action) })}\naz vm update --name ${resourceName} ...`;
       case "terraform":
         return action.commandTerraform || `# Terraform HCL configuration for ${tituloDeAccion(action)}\nresource "azurerm_virtual_machine" "example" {\n  # ...\n}`;
       case "powershell":

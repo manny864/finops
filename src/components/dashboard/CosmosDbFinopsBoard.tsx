@@ -142,7 +142,7 @@ export default function CosmosDbFinopsBoard() {
           }
         }
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "Error al consultar Cosmos DB";
+        const msg = err instanceof Error ? err.message : t("queryFailed");
         setError(msg);
         toast.error(msg);
       } finally {

@@ -48,9 +48,9 @@ export default function VmssRemediationModal({
   const getCodeContent = () => {
     switch (activeTab) {
       case "cli":
-        return action.commandCli || `# Comando Azure CLI para ${tituloDeAccion(action)}\naz vmss update --name ${resourceName} ...`;
+        return action.commandCli || `${t("fallbackCliComment", { action: tituloDeAccion(action) })}\naz vmss update --name ${resourceName} ...`;
       case "terraform":
-        return action.commandTerraform || `# Configuración Terraform HCL para ${tituloDeAccion(action)}\nresource "azurerm_linux_virtual_machine_scale_set" "example" {\n  # ...\n}`;
+        return action.commandTerraform || `${t("fallbackTerraformComment", { action: tituloDeAccion(action) })}\nresource "azurerm_linux_virtual_machine_scale_set" "example" {\n  # ...\n}`;
       case "arm":
         return action.commandArm || `{\n  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",\n  "contentVersion": "1.0.0.0",\n  "resources": []\n}`;
       default:
