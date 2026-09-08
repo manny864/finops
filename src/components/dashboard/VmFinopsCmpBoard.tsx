@@ -503,8 +503,8 @@ export default function VmFinopsCmpBoard() {
                   <span className="text-slate-500 dark:text-slate-400">{t("labelDataDisks")}:</span>
                   <span className="font-medium text-slate-900 dark:text-slate-100">
                     {selectedVm.dataDisksCount > 0
-                      ? `${selectedVm.dataDisksCount} discos (${selectedVm.dataDisksTotalGb} GiB)`
-                      : "0 discos adicionales"}
+                      ? t("disksCountSize", { n: selectedVm.dataDisksCount, gb: selectedVm.dataDisksTotalGb })
+                      : t("noExtraDisks")}
                   </span>
                 </div>
                 <div className="flex justify-between">

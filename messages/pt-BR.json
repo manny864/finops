@@ -11746,7 +11746,9 @@
     "perMonthSuffix": "/mês",
     "risk": "Risco",
     "btnActionOptimize": "Otimizar",
-    "btnActionResizeTo": "Redimensionar para {sku}"
+    "btnActionResizeTo": "Redimensionar para {sku}",
+    "disksCountSize": "{n} discos ({gb} GiB)",
+    "noExtraDisks": "0 discos adicionais"
   },
   "VmssFinopsCmp": {
     "loading": "Carregando cockpit FinOps de VMSS...",
