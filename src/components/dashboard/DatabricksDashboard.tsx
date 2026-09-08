@@ -57,11 +57,12 @@ const CATEGORY_COLORS: Record<string, string> = {
   PURGE_ORPHAN_DISKS: "#38BDF8",
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
+// Vive a nivel de modulo, donde no hay `t`: guarda la clave y se resuelve al renderizar.
+const CATEGORY_LABEL_KEYS: Record<string, string> = {
   MIGRATE_TO_JOBS: "Migrar a Automated Jobs DBU",
   REDUCE_AUTOTERMINATION: "Reducir Auto-Termination a 20 min",
-  SINGLE_NODE_DEV: "Modo Single-Node en Desarrollo",
-  PURGE_ORPHAN_DISKS: "Limpieza de Discos Huérfanos",
+  SINGLE_NODE_DEV: "singleNodeModeDev",
+  PURGE_ORPHAN_DISKS: "orphanedDiskCleanup",
 };
 
 // ─── Fetcher con autenticación OAuth ───
@@ -170,7 +171,7 @@ function EmptyState({ onRefresh, isRefreshing }: { onRefresh: () => void; isRefr
             </h3>
             <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-900/50 px-2 py-0.5 rounded-full">
               <IconCheck className="w-3 h-3" />
-              {t("status_ready") || "Monitoreo activo"}
+              {t("status_ready") || t("activeMonitoring")}
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
@@ -184,7 +185,7 @@ function EmptyState({ onRefresh, isRefreshing }: { onRefresh: () => void; isRefr
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] dark:text-blue-400 hover:bg-[#0078D4] hover:text-white rounded-lg transition-all cursor-pointer disabled:opacity-50"
           >
             <IconRotateClockwise className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} stroke={2} />
-            {t("btn_sync") || "Actualizar telemetría"}
+            {t("btn_sync") || t("refreshTelemetry")}
           </button>
           <a
             href="https://accounts.azuredatabricks.net"
@@ -203,29 +204,29 @@ function EmptyState({ onRefresh, isRefreshing }: { onRefresh: () => void; isRefr
           <IconDatabase className="w-7 h-7" />
         </div>
         <h4 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 mb-1.5">
-          {t("empty_title") || "Sin workspaces de Databricks detectados"}
+          {t("empty_title") || t("noDatabricksDetected")}
         </h4>
         <p className="text-xs text-slate-500 dark:text-slate-400 max-w-lg mx-auto leading-relaxed">
           {t("empty_description") ||
-            "No se detectaron workspaces de Azure Databricks activos en las suscripciones conectadas."}
+            t("noDatabricksWorkspaces")}
         </p>
         <div className="mt-6 pt-6 border-t border-slate-200/70 dark:border-slate-800 text-left">
           <h5 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-4 text-center">
-            {t("quick_guide_title") || "Pasos para comenzar a monitorear este servicio"}
+            {t("quick_guide_title") || t("stepsToStartMonitoring")}
           </h5>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
               {
-                title: "1. Despliegue en Azure",
-                desc: "Aprovisiona un workspace de Azure Databricks (Standard o Premium) en Azure Portal.",
+                title: t("step1Deploy"),
+                desc: t("provisionDatabricks"),
               },
               {
-                title: "2. Permisos de Facturación",
-                desc: "Verifica permisos de Cost Management Reader y Reader en el Service Principal.",
+                title: t("step2BillingPerms"),
+                desc: t("verifyCostMgmtReader"),
               },
               {
-                title: "3. Ingesta Automática",
-                desc: "El consumo de DBUs y el gasto en VMs se desglosará y optimizará automáticamente.",
+                title: t("step3AutoIngest"),
+                desc: t("dbuAutoBreakdown"),
               },
             ].map((step, idx) => (
               <div
@@ -291,7 +292,7 @@ function RemediationModal({
               <p className="text-[11px] text-slate-500">
                 {t("dbx_action_savings")}{" "}
                 <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                  {format(action.estimatedSavingsUSD)}/mes
+                  {t("amountPerMonth", { amount: format(action.estimatedSavingsUSD) })}
                 </span>
               </p>
             </div>
@@ -511,7 +512,7 @@ export default function DatabricksDashboard() {
         <div className="flex items-center gap-3">
           <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-900/50 px-2.5 py-1 rounded-full">
             <IconCheck className="w-3 h-3" />
-            Monitoreo activo
+            {t("activeMonitoring")}
           </span>
           {data.source === "mock" && (
             <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/80 px-2 py-0.5 rounded-full">
@@ -562,19 +563,19 @@ export default function DatabricksDashboard() {
           icon={IconCpu}
           label="DBUs Consumidos"
           value={`${summary.totalDbus.toLocaleString()} DBUs`}
-          sub="Unidades de cómputo Databricks MTD"
+          sub={t("databricksDbuMtd")}
         />
         <KpiCard
           icon={IconChartPie}
           label="Ratio Jobs vs All-Purpose"
           value={`${summary.jobsEfficiencyRatio.toFixed(0)}% Jobs`}
-          sub="Mayor % Jobs = Mayor eficiencia de costos"
+          sub={t("higherJobsPctBetter")}
         />
         <KpiCard
           icon={IconSparkles}
           label={t("dbx_kpi_savings")}
           value={`+${format(summary.potentialSavingsUSD)}`}
-          sub="Migración a Jobs + Auto-Termination"
+          sub={t("migrateToJobsAutoTermination")}
         />
       </div>
 
@@ -701,9 +702,9 @@ export default function DatabricksDashboard() {
             }}
             className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300"
           >
-            {typeOptions.map((t) => (
-              <option key={t} value={t}>
-                {t === "ALL" ? "Todos los Tipos de Cómputo" : t}
+            {typeOptions.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt === "ALL" ? t("allComputeTypes") : opt}
               </option>
             ))}
           </select>
@@ -718,7 +719,7 @@ export default function DatabricksDashboard() {
           >
             {rgOptions.map((rg) => (
               <option key={rg} value={rg}>
-                {rg === "ALL" ? "Todos los Resource Groups" : rg}
+                {rg === "ALL" ? t("allResourceGroups") : rg}
               </option>
             ))}
           </select>
@@ -733,7 +734,7 @@ export default function DatabricksDashboard() {
           >
             {subOptions.map((sub) => (
               <option key={sub} value={sub}>
-                {sub === "ALL" ? "Todas las Suscripciones" : sub}
+                {sub === "ALL" ? t("allSubscriptions") : sub}
               </option>
             ))}
           </select>
@@ -867,7 +868,7 @@ export default function DatabricksDashboard() {
                     <td className="px-4 py-3">
                       {cluster.autoterminationMinutes === 0 ? (
                         <span className="text-[10px] font-bold bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5 rounded">
-                          Desactivado (24/7)
+                          {t("disabled247")}
                         </span>
                       ) : cluster.autoterminationMinutes <= 20 ? (
                         <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded">
@@ -898,7 +899,7 @@ export default function DatabricksDashboard() {
                           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] dark:text-blue-400 hover:bg-[#0078D4] hover:text-white transition-all cursor-pointer shadow-2xs"
                         >
                           <IconSparkles className="w-3.5 h-3.5" stroke={2} />
-                          Optimizar
+                          {t("optimize")}
                         </button>
                       ) : (
                         <span className="text-[11px] text-slate-400 font-medium">{tc("optimal")}</span>
@@ -1001,10 +1002,10 @@ export default function DatabricksDashboard() {
                               : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
                           }`}
                         >
-                          {action.confidence === "HIGH" ? "Alta confianza" : "Media confianza"}
+                          {action.confidence === "HIGH" ? t("highConfidence") : t("mediumConfidence")}
                         </span>
                         <span className="text-[10px] text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
-                          {CATEGORY_LABELS[action.category] || action.category}
+                          {(CATEGORY_LABEL_KEYS[action.category] ? t(CATEGORY_LABEL_KEYS[action.category]) : action.category)}
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 mt-1 line-clamp-2">
@@ -1021,7 +1022,7 @@ export default function DatabricksDashboard() {
                           }
                           className="text-[10px] text-[#0078D4] hover:underline mt-1 cursor-pointer"
                         >
-                          {expandedAction === action.id ? "Mostrar menos" : "Leer más"}
+                          {expandedAction === action.id ? t("showLess") : t("readMore")}
                         </button>
                       )}
                     </div>
@@ -1030,13 +1031,13 @@ export default function DatabricksDashboard() {
                     <p className="text-lg font-extrabold text-[#0078D4]">
                       +{format(action.estimatedSavingsUSD)}
                     </p>
-                    <p className="text-[10px] text-slate-400">/mes ahorro</p>
+                    <p className="text-[10px] text-slate-400">{t("perMonthSavings")}</p>
                     <button
                       onClick={() => setActiveModalAction(action)}
                       className="mt-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] dark:text-blue-400 hover:bg-[#0078D4] hover:text-white transition-all cursor-pointer"
                     >
                       <IconSparkles className="w-3 h-3" stroke={2} />
-                      Optimizar
+                      {t("optimize")}
                     </button>
                   </div>
                 </div>

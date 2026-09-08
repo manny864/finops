@@ -97,7 +97,7 @@ function buildFetcher(
     const res = await fetch(url, { headers });
     if (!res.ok) {
       if (res.status === 401) {
-        throw new Error("No autorizado.");
+        throw new Error(t("unauthorized"));
       }
       throw new Error(`Error ${res.status}: ${res.statusText}`);
     }
@@ -254,7 +254,7 @@ function RemediationModal({
                     {action.currentSku || "Premium"}{" "}
                     {action.currentCapacity ? `(${action.currentCapacity} PUs/CUs)` : ""}
                   </p>
-                  <p className="text-[11px] text-slate-500 mt-1">Capacidad sobredimensionada</p>
+                  <p className="text-[11px] text-slate-500 mt-1">{t("oversizedCapacity")}</p>
                 </div>
                 <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-emerald-300 dark:border-emerald-800">
                   <p className="text-[10px] text-emerald-600 font-bold uppercase">{t("eh_optimalConfig")}</p>
@@ -262,7 +262,7 @@ function RemediationModal({
                     {action.recommendedSku || "Standard"}{" "}
                     {action.recommendedCapacity ? `(${action.recommendedCapacity} TUs/PUs)` : ""}
                   </p>
-                  <p className="text-[11px] text-slate-500 mt-1">Dimensionamiento ajustado a demanda</p>
+                  <p className="text-[11px] text-slate-500 mt-1">{t("demandFittedSizing")}</p>
                 </div>
               </div>
             </div>
@@ -351,7 +351,7 @@ function RemediationModal({
             {copied ? (
               <>
                 <IconCheck className="w-4 h-4 text-emerald-600" />
-                Copiado
+                {t("copied")}
               </>
             ) : (
               <>
@@ -430,8 +430,8 @@ export default function EventHubsFinopsDashboard() {
                 {t("eh_connStatus")}
               </h3>
               <p className="text-sm mt-1 text-slate-600 dark:text-slate-400">
-                {error.message === "No autorizado."
-                  ? "Sesión no autorizada o token de Entra ID expirado. Si utiliza una cuenta de demostración, active el modo demo."
+                {error.message === t("unauthorized")
+                  ? t("unauthorizedDetail")
                   : error.message}
               </p>
               <p className="text-xs text-slate-400 mt-2">
@@ -520,14 +520,14 @@ export default function EventHubsFinopsDashboard() {
     const headers = [
       "Namespace",
       "SKU",
-      "Capacidad (TUs/PUs)",
-      "Región",
-      "Grupo de Recursos",
-      "Suscripción",
-      "Costo MTD (USD)",
-      "Costo Anterior (USD)",
+      t("capacityTusPus"),
+      t("region"),
+      t("resourceGroup"),
+      t("subscription"),
+      t("costMtdUsdParen"),
+      t("prevCostUsdParen"),
       "Forecast (USD)",
-      "Capacidad (%)",
+      t("capacityPctParen"),
       "Ingress Bytes",
       "Egress Bytes",
       "Event Hubs",
@@ -547,7 +547,7 @@ export default function EventHubsFinopsDashboard() {
       i.totalIngressBytes,
       i.totalEgressBytes,
       i.eventHubsCount,
-      i.autoInflateEnabled ? "Habilitado" : "Deshabilitado",
+      i.autoInflateEnabled ? t("enabled") : t("disabled"),
     ]);
     const csvContent =
       "data:text/csv;charset=utf-8," +
@@ -589,7 +589,7 @@ export default function EventHubsFinopsDashboard() {
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg shadow-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <IconDownload className="w-3.5 h-3.5" />
-            Exportar CSV
+            {t("exportCsv")}
           </button>
         </div>
       </div>
@@ -610,7 +610,7 @@ export default function EventHubsFinopsDashboard() {
           >
             {resourceOptions.map((opt) => (
               <option key={opt} value={opt}>
-                {opt === "ALL" ? "Todos los Namespaces" : opt}
+                {opt === "ALL" ? t("allNamespaces") : opt}
               </option>
             ))}
           </select>
@@ -630,7 +630,7 @@ export default function EventHubsFinopsDashboard() {
           >
             {regionOptions.map((opt) => (
               <option key={opt} value={opt}>
-                {opt === "ALL" ? "Todas las Regiones" : opt}
+                {opt === "ALL" ? t("allRegions") : opt}
               </option>
             ))}
           </select>
@@ -650,7 +650,7 @@ export default function EventHubsFinopsDashboard() {
           >
             {skuOptions.map((opt) => (
               <option key={opt} value={opt}>
-                {opt === "ALL" ? "Todos los SKUs" : opt}
+                {opt === "ALL" ? t("allSkus") : opt}
               </option>
             ))}
           </select>
@@ -670,7 +670,7 @@ export default function EventHubsFinopsDashboard() {
           >
             {rgOptions.map((opt) => (
               <option key={opt} value={opt}>
-                {opt === "ALL" ? "Todos los Grupos" : opt}
+                {opt === "ALL" ? t("allGroups") : opt}
               </option>
             ))}
           </select>
@@ -683,11 +683,11 @@ export default function EventHubsFinopsDashboard() {
           icon={IconCash}
           label={t("eh_kpiCost")}
           value={format(summary.costMtdUSD)}
-          sub={`Proyección Fin de Mes: ${format(forecastMonthEnd(summary.costMtdUSD, new Date()))}`}
+          sub={t("monthEndForecastLabel", { amount: format(forecastMonthEnd(summary.costMtdUSD, new Date())) })}
         />
         <KpiCard
           icon={IconLayersIntersect}
-          label="Namespaces Event Hubs"
+          label={t("eventHubsNamespaces")}
           value={String(summary.totalNamespaces)}
           sub={`${summary.totalEventHubs} Event Hubs individuales`}
         />
@@ -701,7 +701,7 @@ export default function EventHubsFinopsDashboard() {
           icon={IconLayersLinked}
           label={t("eh_kpiSavings")}
           value={format(summary.potentialSavingsUSD)}
-          sub={`${remediationActions.length} oportunidades de optimización`}
+          sub={t("optimizationOpportunities", { n: remediationActions.length })}
         />
       </div>
 
@@ -713,7 +713,7 @@ export default function EventHubsFinopsDashboard() {
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
               {t("eh_costBySku")}
             </h3>
-            <span className="text-[11px] text-slate-400">Mensual</span>
+            <span className="text-[11px] text-slate-400">{t("monthly")}</span>
           </div>
 
           <div className="h-64 w-full">
@@ -739,7 +739,7 @@ export default function EventHubsFinopsDashboard() {
                     ))}
                   </Pie>
                   <RechartsTooltip
-                    formatter={(value: any) => [format(Number(value)), "Costo MTD"]}
+                    formatter={(value: any) => [format(Number(value)), t("costMtd")]}
                     contentStyle={{
                       backgroundColor: "#1B2A41",
                       border: "none",
@@ -842,7 +842,7 @@ export default function EventHubsFinopsDashboard() {
         </div>
       </div>
 
-      {/* ─── Fila 2: Tabla CMP "Desglose por Namespace Event Hubs" ─── */}
+      {/* ─── Fila 2: Tabla CMP t("breakdownByEhNamespace") ─── */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -945,7 +945,7 @@ export default function EventHubsFinopsDashboard() {
                     onClick={() => handleSort("avgCapacityPercentage")}
                     className="flex items-center gap-1 font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600"
                   >
-                    % Capacidad
+                    {t("capacityPct")}
                   </button>
                 </ResizableTh>
                 <ResizableTh minWidth={110}>
@@ -1041,7 +1041,7 @@ export default function EventHubsFinopsDashboard() {
                       <td className="p-3">
                         {item.autoInflateEnabled ? (
                           <span className="text-[11px] font-bold text-emerald-600">
-                            Sí (max {item.maximumThroughputUnits || "auto"})
+                            {t("yesMaxUnits", { n: item.maximumThroughputUnits || "auto" })}
                           </span>
                         ) : (
                           <span className="text-[11px] text-slate-400">No</span>
@@ -1054,10 +1054,10 @@ export default function EventHubsFinopsDashboard() {
                             className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-md shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
                           >
                             <IconSparkles className="w-3 h-3" />
-                            Optimizar
+                            {t("optimize")}
                           </button>
                         ) : (
-                          <span className="text-[11px] text-slate-400">Optimizado</span>
+                          <span className="text-[11px] text-slate-400">{t("optimized")}</span>
                         )}
                       </td>
                     </tr>
@@ -1136,7 +1136,7 @@ export default function EventHubsFinopsDashboard() {
                       {action.category.replace(/_/g, " ")}
                     </span>
                     <span className="text-xs font-extrabold text-emerald-600">
-                      +{format(action.estimatedSavingsUSD)}/mes
+                      {t("plusAmountPerMonth", { amount: format(action.estimatedSavingsUSD) })}
                     </span>
                   </div>
 

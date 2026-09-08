@@ -77,7 +77,7 @@ function buildFetcher(
     const res = await fetch(url, { headers });
     if (!res.ok) {
       if (res.status === 401) {
-        throw new Error("No autorizado.");
+        throw new Error(t("unauthorized"));
       }
       throw new Error(`Error ${res.status}: ${res.statusText}`);
     }
@@ -229,9 +229,9 @@ function RemediationModal({
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">Capacidad Actual</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">{t("currentCapacity")}</p>
                   <p className="text-sm font-extrabold text-slate-800 dark:text-slate-200 mt-0.5">
-                    {action.currentCores || 16} Cores / Sin TTL
+                    {t("coresNoTtl", { n: action.currentCores || 16 })}
                   </p>
                   <p className="text-[11px] text-slate-500 mt-1">{t("adf_idleCompute")}</p>
                 </div>
@@ -240,7 +240,7 @@ function RemediationModal({
                   <p className="text-sm font-extrabold text-emerald-600 mt-0.5">
                     {action.recommendedCores || 8} Cores + TTL 10 min
                   </p>
-                  <p className="text-[11px] text-slate-500 mt-1">Escalado bajo demanda</p>
+                  <p className="text-[11px] text-slate-500 mt-1">{t("onDemandScaling")}</p>
                 </div>
               </div>
             </div>
@@ -329,7 +329,7 @@ function RemediationModal({
             {copied ? (
               <>
                 <IconCheck className="w-4 h-4 text-emerald-600" />
-                Copiado
+                {t("copied")}
               </>
             ) : (
               <>
@@ -406,8 +406,8 @@ export default function AdfFinopsDashboard() {
                 {t("adf_connStatus")}
               </h3>
               <p className="text-sm mt-1 text-slate-600 dark:text-slate-400">
-                {error.message === "No autorizado."
-                  ? "Sesión no autorizada o token de Entra ID expirado. Si utiliza una cuenta de demostración, active el modo demo."
+                {error.message === t("unauthorized")
+                  ? t("unauthorizedDetail")
                   : error.message}
               </p>
               <p className="text-xs text-slate-400 mt-2">
@@ -492,16 +492,16 @@ export default function AdfFinopsDashboard() {
   const exportCSV = () => {
     const headers = [
       "Data Factory",
-      "Región",
-      "Grupo de Recursos",
-      "Suscripción",
-      "Costo MTD (USD)",
-      "Costo Anterior (USD)",
+      t("region"),
+      t("resourceGroup"),
+      t("subscription"),
+      t("costMtdUsdParen"),
+      t("prevCostUsdParen"),
       "Forecast (USD)",
-      "Utilización IR (%)",
+      t("irUtilizationPct"),
       "Total Pipelines (MTD)",
-      "Duración Media (min)",
-      "Integration Runtimes",
+      t("avgDurationMin"),
+      t("integrationRuntimes"),
     ];
     const rows = sortedItems.map((i) => [
       i.name,
@@ -556,7 +556,7 @@ export default function AdfFinopsDashboard() {
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg shadow-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <IconDownload className="w-3.5 h-3.5" />
-            Exportar CSV
+            {t("exportCsv")}
           </button>
         </div>
       </div>
@@ -577,7 +577,7 @@ export default function AdfFinopsDashboard() {
           >
             {resourceOptions.map((opt) => (
               <option key={opt} value={opt}>
-                {opt === "ALL" ? "Todas las Factorías" : opt}
+                {opt === "ALL" ? t("allFactories") : opt}
               </option>
             ))}
           </select>
@@ -597,7 +597,7 @@ export default function AdfFinopsDashboard() {
           >
             {regionOptions.map((opt) => (
               <option key={opt} value={opt}>
-                {opt === "ALL" ? "Todas las Regiones" : opt}
+                {opt === "ALL" ? t("allRegions") : opt}
               </option>
             ))}
           </select>
@@ -617,7 +617,7 @@ export default function AdfFinopsDashboard() {
           >
             {rgOptions.map((opt) => (
               <option key={opt} value={opt}>
-                {opt === "ALL" ? "Todos los Grupos" : opt}
+                {opt === "ALL" ? t("allGroups") : opt}
               </option>
             ))}
           </select>
@@ -630,25 +630,25 @@ export default function AdfFinopsDashboard() {
           icon={IconCash}
           label={t("adf_kpiCost")}
           value={format(summary.costMtdUSD)}
-          sub={`Proyección Fin de Mes: ${format(forecastMonthEnd(summary.costMtdUSD, new Date()))}`}
+          sub={t("monthEndForecastLabel", { amount: format(forecastMonthEnd(summary.costMtdUSD, new Date())) })}
         />
         <KpiCard
           icon={IconBuildingFactory2}
-          label="Data Factories Activas"
+          label={t("activeDataFactories")}
           value={String(summary.totalDataFactories)}
-          sub="Instancias en suscripciones activas"
+          sub={t("instancesInActiveSubs")}
         />
         <KpiCard
           icon={IconRepeat}
-          label="Total Pipelines Ejecutados"
+          label={t("totalPipelinesRun")}
           value={summary.totalPipelineRunsMTD.toLocaleString()}
-          sub="Volumen acumulado MTD"
+          sub={t("mtdAccumulatedVolume")}
         />
         <KpiCard
           icon={IconCpu}
-          label="Integration Runtimes"
+          label={t("integrationRuntimes")}
           value={String(summary.totalIntegrationRuntimes)}
-          sub={`Ahorro Identificado: ${format(summary.potentialSavingsUSD)}/mes`}
+          sub={t("identifiedSavingsPerMonth", { amount: format(summary.potentialSavingsUSD) })}
         />
       </div>
 
@@ -660,7 +660,7 @@ export default function AdfFinopsDashboard() {
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
               {t("adf_costByComponent")}
             </h3>
-            <span className="text-[11px] text-slate-400">Mensual</span>
+            <span className="text-[11px] text-slate-400">{t("monthly")}</span>
           </div>
 
           <div className="h-64 w-full">
@@ -686,7 +686,7 @@ export default function AdfFinopsDashboard() {
                     ))}
                   </Pie>
                   <RechartsTooltip
-                    formatter={(value: any) => [format(Number(value)), "Costo MTD"]}
+                    formatter={(value: any) => [format(Number(value)), t("costMtd")]}
                     contentStyle={{
                       backgroundColor: "#1B2A41",
                       border: "none",
@@ -758,7 +758,7 @@ export default function AdfFinopsDashboard() {
                     align="right"
                     formatter={(val) => (
                       <span className="text-xs text-slate-600 dark:text-slate-400">
-                        {val === "successfulRuns" ? "Ejecuciones Exitosas" : "Ejecuciones Fallidas"}
+                        {val === "successfulRuns" ? t("successfulRuns") : t("failedRuns")}
                       </span>
                     )}
                   />
@@ -785,7 +785,7 @@ export default function AdfFinopsDashboard() {
         </div>
       </div>
 
-      {/* ─── Fila 2: Tabla CMP "Desglose por Data Factory" ─── */}
+      {/* ─── Fila 2: Tabla CMP t("breakdownByDataFactory") ─── */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -945,7 +945,7 @@ export default function AdfFinopsDashboard() {
                             </span>
                           ) : (
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                              Activa
+                              {t("active")}
                             </span>
                           )}
                         </div>
@@ -994,10 +994,10 @@ export default function AdfFinopsDashboard() {
                             className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-md shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
                           >
                             <IconSparkles className="w-3 h-3" />
-                            Optimizar
+                            {t("optimize")}
                           </button>
                         ) : (
-                          <span className="text-[11px] text-slate-400">Optimizado</span>
+                          <span className="text-[11px] text-slate-400">{t("optimized")}</span>
                         )}
                       </td>
                     </tr>
@@ -1076,7 +1076,7 @@ export default function AdfFinopsDashboard() {
                       {action.category.replace(/_/g, " ")}
                     </span>
                     <span className="text-xs font-extrabold text-emerald-600">
-                      +{format(action.estimatedSavingsUSD)}/mes
+                      {t("plusAmountPerMonth", { amount: format(action.estimatedSavingsUSD) })}
                     </span>
                   </div>
 

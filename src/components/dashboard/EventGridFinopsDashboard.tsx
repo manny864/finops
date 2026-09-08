@@ -83,7 +83,7 @@ function buildFetcher(
     const res = await fetch(url, { headers });
     if (!res.ok) {
       if (res.status === 401) {
-        throw new Error("No autorizado.");
+        throw new Error(t("unauthorized"));
       }
       throw new Error(`Error ${res.status}: ${res.statusText}`);
     }
@@ -241,11 +241,11 @@ function RemediationModal({
                   <p className="text-[11px] text-slate-500 mt-1">{t("eg_fixedThroughput")}</p>
                 </div>
                 <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-emerald-300 dark:border-emerald-800">
-                  <p className="text-[10px] text-emerald-600 font-bold uppercase">SKU Recomendado</p>
+                  <p className="text-[10px] text-emerald-600 font-bold uppercase">{t("recommendedSku")}</p>
                   <p className="text-sm font-extrabold text-emerald-600 mt-0.5">
                     Basic
                   </p>
-                  <p className="text-[11px] text-slate-500 mt-1">$0.60 / 1M operaciones</p>
+                  <p className="text-[11px] text-slate-500 mt-1">{t("pricePerMillionOps")}</p>
                 </div>
               </div>
             </div>
@@ -318,7 +318,7 @@ function RemediationModal({
             {copied ? (
               <>
                 <IconCheck className="w-4 h-4 text-emerald-600" />
-                Copiado
+                {t("copied")}
               </>
             ) : (
               <>
@@ -398,8 +398,8 @@ export default function EventGridFinopsDashboard() {
                 {t("eg_connStatus")}
               </h3>
               <p className="text-sm mt-1 text-slate-600 dark:text-slate-400">
-                {error.message === "No autorizado."
-                  ? "Sesión no autorizada o token de Entra ID expirado. Si utiliza una cuenta de demostración, active el modo demo."
+                {error.message === t("unauthorized")
+                  ? t("unauthorizedDetail")
                   : error.message}
               </p>
               <p className="text-xs text-slate-400 mt-2">
@@ -482,19 +482,19 @@ export default function EventGridFinopsDashboard() {
 
   const exportCsv = () => {
     const headers = [
-      "Recurso",
+      t("resource"),
       "Tipo",
       "SKU",
-      "Región",
-      "Grupo de Recursos",
-      "Suscripción",
-      "Costo MTD (USD)",
-      "Costo Anterior (USD)",
+      t("region"),
+      t("resourceGroup"),
+      t("subscription"),
+      t("costMtdUsdParen"),
+      t("prevCostUsdParen"),
       "Forecast EOM (USD)",
-      "Eventos Publicados",
-      "Eventos Entregados",
+      t("eventsPublished"),
+      t("eventsDelivered"),
       "Throughput (ops/s)",
-      "Huérfano",
+      t("orphaned"),
     ];
     const rows = sortedItems.map((i) => [
       i.name,
@@ -556,7 +556,7 @@ export default function EventGridFinopsDashboard() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
           >
             <IconDownload className="w-4 h-4" />
-            Exportar CSV
+            {t("exportCsv")}
           </button>
         </div>
       </div>
@@ -567,13 +567,13 @@ export default function EventGridFinopsDashboard() {
           icon={IconCash}
           label={t("eg_kpiCost")}
           value={format(summary.costMtdUSD)}
-          sub={`Ahorro potencial: ${format(summary.potentialSavingsUSD)}`}
+          sub={t("potentialSavingsSub", { amount: format(summary.potentialSavingsUSD) })}
         />
         <KpiCard
           icon={IconTopologyStarRing3}
           label={t("eg_kpiDomains")}
           value={`${summary.totalDomains} Dominios`}
-          sub="Instancias de arquitectura por dominios"
+          sub={t("domainArchInstances")}
         />
         <KpiCard
           icon={IconBroadcast}
@@ -583,13 +583,13 @@ export default function EventGridFinopsDashboard() {
               ? `${(summary.totalEventsMTD / 1_000_000_000).toFixed(2)}B eventos`
               : `${(summary.totalEventsMTD / 1_000_000).toFixed(1)}M eventos`
           }
-          sub="Volumen consolidado procesado"
+          sub={t("consolidatedVolumeProcessed")}
         />
         <KpiCard
           icon={IconLayersLinked}
-          label="Temas Detectados"
+          label={t("topicsDetected")}
           value={`${summary.totalTopics} Temas`}
-          sub="Temas de dominios y temas estándar"
+          sub={t("domainAndStandardTopics")}
         />
       </div>
 
@@ -629,7 +629,7 @@ export default function EventGridFinopsDashboard() {
                   ))}
                 </Pie>
                 <RechartsTooltip
-                  formatter={(value: any) => [format(Number(value)), "Costo MTD"]}
+                  formatter={(value: any) => [format(Number(value)), t("costMtd")]}
                   contentStyle={{
                     backgroundColor: "#1B2A41",
                     borderRadius: "8px",
@@ -693,8 +693,8 @@ export default function EventGridFinopsDashboard() {
                 />
                 <RechartsTooltip
                   formatter={(value: any, name: any) => [
-                    `${(Number(value) / 1_000_000).toFixed(2)}M eventos`,
-                    name === "publishedEvents" ? "Publicados" : "Entregados",
+                    t("millionEvents", { n: (Number(value) / 1_000_000).toFixed(2) }),
+                    name === "publishedEvents" ? t("published") : t("delivered"),
                   ]}
                   contentStyle={{
                     backgroundColor: "#1B2A41",
@@ -770,7 +770,7 @@ export default function EventGridFinopsDashboard() {
             >
               {regionOptions.map((r) => (
                 <option key={r} value={r}>
-                  {r === "ALL" ? "Todas las Regiones" : r}
+                  {r === "ALL" ? t("allRegions") : r}
                 </option>
               ))}
             </select>
@@ -785,7 +785,7 @@ export default function EventGridFinopsDashboard() {
             >
               {rgOptions.map((rg) => (
                 <option key={rg} value={rg}>
-                  {rg === "ALL" ? "Todos los Resource Groups" : rg}
+                  {rg === "ALL" ? t("allResourceGroups") : rg}
                 </option>
               ))}
             </select>
@@ -924,7 +924,7 @@ export default function EventGridFinopsDashboard() {
                             className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
                           >
                             <IconSparkles className="w-3.5 h-3.5 text-[#0078D4]" />
-                            Optimizar
+                            {t("optimize")}
                           </button>
                         ) : (
                           <span className="text-slate-400 text-[11px] font-medium">—</span>
@@ -1029,7 +1029,7 @@ export default function EventGridFinopsDashboard() {
                       className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
                     >
                       <IconSparkles className="w-3.5 h-3.5" />
-                      Optimizar
+                      {t("optimize")}
                     </button>
                   </div>
                 </div>

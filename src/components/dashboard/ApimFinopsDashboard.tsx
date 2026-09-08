@@ -52,10 +52,11 @@ const CATEGORY_COLORS: Record<string, string> = {
   CACHE_ENABLE: "#0284C7",
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  DEV_SKU_DOWNGRADE: "Arbitraje a SKU Developer en Dev/Test",
-  UNITS_RIGHTSIZING: "Rightsizing de Unidades Premium",
-  CACHE_ENABLE: "Habilitar Caché de Respuesta Interna",
+// Vive a nivel de modulo, donde no hay `t`: guarda la clave y se resuelve al renderizar.
+const CATEGORY_LABEL_KEYS: Record<string, string> = {
+  DEV_SKU_DOWNGRADE: "arbitrageDeveloperSku",
+  UNITS_RIGHTSIZING: "premiumUnitsRightsizing",
+  CACHE_ENABLE: "enableInternalResponseCache",
 };
 
 const SKU_BADGE_CLASSES: Record<ApimSkuName, string> = {
@@ -207,7 +208,7 @@ function RemediationModal({
                 {t("apim_simTitle")}
               </h3>
               <p className="text-[11px] text-slate-400">
-                {CATEGORY_LABELS[action.category]}
+                {CATEGORY_LABEL_KEYS[action.category] ? t(CATEGORY_LABEL_KEYS[action.category]) : action.category}
               </p>
             </div>
           </div>
@@ -251,7 +252,7 @@ function RemediationModal({
                   </p>
                 </div>
                 <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-emerald-300 dark:border-emerald-800">
-                  <p className="text-[10px] text-emerald-600 font-bold uppercase">SKU Recomendado</p>
+                  <p className="text-[10px] text-emerald-600 font-bold uppercase">{t("recommendedSku")}</p>
                   <p className="text-sm font-extrabold text-emerald-600 mt-0.5">
                     Developer
                   </p>
@@ -275,21 +276,21 @@ function RemediationModal({
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">Unidades Actuales</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">{t("currentUnits")}</p>
                   <p className="text-sm font-extrabold text-slate-800 dark:text-slate-200 mt-0.5">
-                    {action.currentCapacity || 4} Unidades
+                    {t("unitsCount", { n: action.currentCapacity || 4 })}
                   </p>
                   <p className="text-[11px] text-slate-500 mt-1">
-                    Gasto: {format((action.currentCapacity || 4) * 2800)}/mes
+                    {t("spendPerMonth", { amount: format((action.currentCapacity || 4) * 2800) })}
                   </p>
                 </div>
                 <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-emerald-300 dark:border-emerald-800">
-                  <p className="text-[10px] text-emerald-600 font-bold uppercase">Unidades Optimizadas</p>
+                  <p className="text-[10px] text-emerald-600 font-bold uppercase">{t("optimizedUnits")}</p>
                   <p className="text-sm font-extrabold text-emerald-600 mt-0.5">
-                    {action.recommendedCapacity || 2} Unidades
+                    {t("unitsCount", { n: action.recommendedCapacity || 2 })}
                   </p>
                   <p className="text-[11px] text-slate-500 mt-1">
-                    Gasto: {format((action.recommendedCapacity || 2) * 2800)}/mes
+                    {t("spendPerMonth", { amount: format((action.recommendedCapacity || 2) * 2800) })}
                   </p>
                 </div>
               </div>
@@ -345,7 +346,7 @@ function RemediationModal({
             {copied ? (
               <>
                 <IconCheck className="w-4 h-4 text-emerald-600" />
-                Copiado
+                {t("copied")}
               </>
             ) : (
               <>
@@ -425,8 +426,8 @@ export default function ApimFinopsDashboard() {
                 {t("apim_connStatus")}
               </h3>
               <p className="text-sm mt-1 text-slate-600 dark:text-slate-400">
-                {error.message === "No autorizado."
-                  ? "Sesión no autorizada o token de Entra ID expirado. Si utiliza una cuenta de demostración, active el modo demo."
+                {error.message === t("unauthorized")
+                  ? t("unauthorizedDetail")
                   : error.message}
               </p>
               <p className="text-xs text-slate-400 mt-2">
@@ -511,15 +512,15 @@ export default function ApimFinopsDashboard() {
     const headers = [
       "Instancia",
       "SKU",
-      "Unidades",
-      "Región",
-      "Grupo de Recursos",
-      "Suscripción",
-      "Costo MTD (USD)",
-      "Costo Anterior (USD)",
+      t("units"),
+      t("region"),
+      t("resourceGroup"),
+      t("subscription"),
+      t("costMtdUsdParen"),
+      t("prevCostUsdParen"),
       "Forecast EOM (USD)",
-      "% Capacidad",
-      "Total Llamadas",
+      t("capacityPct"),
+      t("totalCalls"),
       "Latencia Promedio (ms)",
       "Entorno Dev/Test",
     ];
@@ -583,7 +584,7 @@ export default function ApimFinopsDashboard() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
           >
             <IconDownload className="w-4 h-4" />
-            Exportar CSV
+            {t("exportCsv")}
           </button>
         </div>
       </div>
@@ -594,29 +595,29 @@ export default function ApimFinopsDashboard() {
           icon={IconCash}
           label={t("apim_kpiCost")}
           value={format(summary.costMtdUSD)}
-          sub={`Ahorro potencial: ${format(summary.potentialSavingsUSD)}`}
+          sub={t("potentialSavingsSub", { amount: format(summary.potentialSavingsUSD) })}
         />
         <KpiCard
           icon={IconCpu}
-          label="Unidades APIM Activas"
-          value={`${summary.totalUnits} Unidades`}
-          sub={`${items.length} instancias configuradas`}
+          label={t("activeApimUnits")}
+          value={t("unitsCount", { n: summary.totalUnits })}
+          sub={t("configuredInstancesCount", { n: items.length })}
         />
         <KpiCard
           icon={IconActivity}
-          label="Total Llamadas API (MTD)"
+          label={t("totalApiCallsMtd")}
           value={
             summary.totalRequestsMTD >= 1_000_000_000
-              ? `${(summary.totalRequestsMTD / 1_000_000_000).toFixed(2)}B llamadas`
-              : `${(summary.totalRequestsMTD / 1_000_000).toFixed(1)}M llamadas`
+              ? t("billionCalls", { n: (summary.totalRequestsMTD / 1_000_000_000).toFixed(2) })
+              : t("millionCalls", { n: (summary.totalRequestsMTD / 1_000_000).toFixed(1) })
           }
-          sub="Throughput consolidado de gateways"
+          sub={t("gatewayConsolidatedThroughput")}
         />
         <KpiCard
           icon={IconBuildingSkyscraper}
           label={t("apim_kpiNonProd")}
           value={`${summary.nonProdSpendPercentage}%`}
-          sub="Ratio de gasto en instancias de Dev/QA"
+          sub={t("devQaSpendRatio")}
         />
       </div>
 
@@ -656,7 +657,7 @@ export default function ApimFinopsDashboard() {
                   ))}
                 </Pie>
                 <RechartsTooltip
-                  formatter={(value: any) => [format(Number(value)), "Costo MTD"]}
+                  formatter={(value: any) => [format(Number(value)), t("costMtd")]}
                   contentStyle={{
                     backgroundColor: "#1B2A41",
                     borderRadius: "8px",
@@ -717,7 +718,7 @@ export default function ApimFinopsDashboard() {
                 <RechartsTooltip
                   formatter={(value: any, name: any) => [
                     name === "requests"
-                      ? `${(Number(value) / 1_000_000).toFixed(1)}M llamadas`
+                      ? t("millionCalls", { n: (Number(value) / 1_000_000).toFixed(1) })
                       : `${value} ms`,
                     name === "requests" ? "Volumen" : "Latencia",
                   ]}
@@ -787,7 +788,7 @@ export default function ApimFinopsDashboard() {
             >
               {regionOptions.map((r) => (
                 <option key={r} value={r}>
-                  {r === "ALL" ? "Todas las Regiones" : r}
+                  {r === "ALL" ? t("allRegions") : r}
                 </option>
               ))}
             </select>
@@ -802,7 +803,7 @@ export default function ApimFinopsDashboard() {
             >
               {rgOptions.map((rg) => (
                 <option key={rg} value={rg}>
-                  {rg === "ALL" ? "Todos los Resource Groups" : rg}
+                  {rg === "ALL" ? t("allResourceGroups") : rg}
                 </option>
               ))}
             </select>
@@ -844,7 +845,7 @@ export default function ApimFinopsDashboard() {
                     onClick={() => handleSort("skuName")}
                     className="flex items-center gap-1 hover:text-[#0054A6]"
                   >
-                    SKU & Unidades
+                    {t("skuUnits")}
                     {sortKey === "skuName" && (
                       <span>{sortDir === "asc" ? "▲" : "▼"}</span>
                     )}
@@ -871,13 +872,13 @@ export default function ApimFinopsDashboard() {
                     onClick={() => handleSort("avgCapacityPercentage")}
                     className="flex items-center gap-1 hover:text-[#0054A6]"
                   >
-                    % Capacidad
+                    {t("capacityPct")}
                     {sortKey === "avgCapacityPercentage" && (
                       <span>{sortDir === "asc" ? "▲" : "▼"}</span>
                     )}
                   </button>
                 </ResizableTh>
-                <ResizableTh minWidth={120}>Total Llamadas</ResizableTh>
+                <ResizableTh minWidth={120}>{t("totalCalls")}</ResizableTh>
                 <ResizableTh minWidth={110}>Latencia Prom.</ResizableTh>
                 <ResizableTh minWidth={120} className="text-center">
                   Acciones
@@ -971,7 +972,7 @@ export default function ApimFinopsDashboard() {
                             className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
                           >
                             <IconSparkles className="w-3.5 h-3.5" />
-                            Optimizar
+                            {t("optimize")}
                           </button>
                         ) : (
                           <span className="text-[11px] text-slate-400 font-semibold">
@@ -992,7 +993,7 @@ export default function ApimFinopsDashboard() {
           <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
             <span>
               {t("showingRange", { from: Math.min(sortedItems.length, (page - 1) * pageSize + 1), to: Math.min(sortedItems.length, page * pageSize), total: sortedItems.length, unit: t("unitResources") })}
-              {Math.min(sortedItems.length, page * pageSize)} de {sortedItems.length} instancias
+              {t("instancesShownOf", { shown: Math.min(sortedItems.length, page * pageSize), total: sortedItems.length })}
             </span>
             <div className="flex items-center gap-1">
               <button
@@ -1040,10 +1041,10 @@ export default function ApimFinopsDashboard() {
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300 bg-blue-100/60 dark:bg-blue-950/60 px-2 py-0.5 rounded-md">
-                    {CATEGORY_LABELS[action.category]}
+                    {CATEGORY_LABEL_KEYS[action.category] ? t(CATEGORY_LABEL_KEYS[action.category]) : action.category}
                   </span>
                   <span className="text-xs font-extrabold text-emerald-600">
-                    +{format(action.estimatedSavingsUSD)}/mes
+                    {t("plusAmountPerMonth", { amount: format(action.estimatedSavingsUSD) })}
                   </span>
                 </div>
                 <h4 className="font-bold text-xs text-[#1B2A41] dark:text-slate-100 mb-1">
@@ -1056,7 +1057,7 @@ export default function ApimFinopsDashboard() {
 
               <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between">
                 <span className="text-[10px] font-semibold text-slate-400">
-                  Confianza: {action.confidence === "HIGH" ? "Alta" : "Media"}
+                  Confianza: {action.confidence === "HIGH" ? t("high") : t("medium")}
                 </span>
                 <button
                   onClick={() => setActiveModalAction(action)}

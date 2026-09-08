@@ -48,11 +48,12 @@ const CATEGORY_COLORS: Record<string, string> = {
   DISABLE_IDLE: "#94A3B8",
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  MIGRATE_TO_STANDARD: "Arbitraje a Logic Apps Standard (WS1)",
-  DOWNGRADE_TO_CONSUMPTION: "Downgrade a Consumption",
-  FIX_RETRY_LOOP: "Mitigación de Bucle de Reintento",
-  DISABLE_IDLE: "Limpieza de Flujo Inactivo",
+// Vive a nivel de modulo, donde no hay `t`: guarda la clave y se resuelve al renderizar.
+const CATEGORY_LABEL_KEYS: Record<string, string> = {
+  MIGRATE_TO_STANDARD: "migrateToStandardWs1",
+  DOWNGRADE_TO_CONSUMPTION: "downgradeToConsumption",
+  FIX_RETRY_LOOP: "retryLoopMitigation",
+  DISABLE_IDLE: "idleFlowCleanup",
 };
 
 // ─── Fetcher con autenticación OAuth ───
@@ -199,7 +200,7 @@ function RemediationModal({
               <p className="text-[11px] text-slate-500">
                 {t("la_optimizationSavings")}{" "}
                 <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                  {format(action.estimatedSavingsUSD)}/mes
+                  {t("amountPerMonth", { amount: format(action.estimatedSavingsUSD) })}
                 </span>
               </p>
             </div>
@@ -222,12 +223,12 @@ function RemediationModal({
             <div className="grid grid-cols-2 gap-3 p-3 bg-blue-50/50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 rounded-xl text-xs">
               <div>
                 <p className="text-[10px] uppercase font-bold text-slate-400">Escenario Actual (Consumption)</p>
-                <p className="text-base font-extrabold text-red-600 mt-0.5">{format(item.costMtdUSD)}/mes</p>
-                <p className="text-[10px] text-slate-500">{item.totalBillableExecutions.toLocaleString()} acciones + {item.enterpriseExecutions.toLocaleString()} llamadas Enterprise</p>
+                <p className="text-base font-extrabold text-red-600 mt-0.5">{t("amountPerMonth", { amount: format(item.costMtdUSD) })}</p>
+                <p className="text-[10px] text-slate-500">{t("actionsPlusEnterpriseCalls", { actions: item.totalBillableExecutions.toLocaleString(), calls: item.enterpriseExecutions.toLocaleString() })}</p>
               </div>
               <div className="border-l border-blue-200 dark:border-blue-800 pl-3">
-                <p className="text-[10px] uppercase font-bold text-emerald-600">Escenario Proyectado (Standard WS1)</p>
-                <p className="text-base font-extrabold text-emerald-600 mt-0.5">$175.00/mes</p>
+                <p className="text-[10px] uppercase font-bold text-emerald-600">{t("projectedScenarioWs1")}</p>
+                <p className="text-base font-extrabold text-emerald-600 mt-0.5">{t("flatRatePerMonth")}</p>
                 <p className="text-[10px] text-slate-500">{t("la_flatRate")}</p>
               </div>
             </div>
@@ -360,8 +361,8 @@ export default function LogicAppsFinopsDashboard() {
                 {t("la_connStatus")}
               </h3>
               <p className="text-sm mt-1 text-slate-600 dark:text-slate-400">
-                {error.message === "No autorizado."
-                  ? "Sesión no autorizada o token de Entra ID expirado. Si utiliza una cuenta de demostración, active el modo demo."
+                {error.message === t("unauthorized")
+                  ? t("unauthorizedDetail")
                   : error.message}
               </p>
               <p className="text-xs text-slate-400 mt-2">
@@ -455,18 +456,18 @@ export default function LogicAppsFinopsDashboard() {
   // Exportar CSV
   const handleExportCsv = () => {
     const headers = [
-      "Recurso",
+      t("resource"),
       "Plan",
-      "Región",
-      "Grupo de Recursos",
-      "Suscripción",
-      "Costo MTD USD",
-      "Costo Anterior USD",
+      t("region"),
+      t("resourceGroup"),
+      t("subscription"),
+      t("costMtdUsd"),
+      t("prevCostUsd"),
       "Forecast USD",
-      "Runs Iniciados",
+      t("runsStarted"),
       "Runs Fallidos",
-      "Llamadas Enterprise",
-      "Costo Enterprise USD",
+      t("enterpriseCalls"),
+      t("enterpriseCostUsd"),
     ];
     const rows = filteredItems.map((i) => [
       i.name,
@@ -505,7 +506,7 @@ export default function LogicAppsFinopsDashboard() {
         <div className="flex items-center gap-3">
           <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-900/50 px-2.5 py-1 rounded-full">
             <IconCheck className="w-3 h-3" />
-            Monitoreo activo
+            {t("activeMonitoring")}
           </span>
           {data?.source === "mock" && (
             <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/80 px-2 py-0.5 rounded-full">
@@ -528,7 +529,7 @@ export default function LogicAppsFinopsDashboard() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
           >
             <IconDownload className="w-3.5 h-3.5" />
-            Exportar CSV
+            {t("exportCsv")}
           </button>
         </div>
       </div>
@@ -539,19 +540,19 @@ export default function LogicAppsFinopsDashboard() {
           icon={IconCash}
           label={t("costMtd")}
           value={format(summary.costMtdUSD)}
-          sub={`Proyección Cierre: ${format(summary.forecastEomUSD)}`}
+          sub={t("eomForecastLabel", { amount: format(summary.forecastEomUSD) })}
         />
         <KpiCard
           icon={IconHistory}
           label={t("la_kpiPrev")}
           value={format(summary.costPreviousPeriodUSD)}
-          sub={`${costDiff >= 0 ? "+" : ""}${costDiffPct}% vs mes anterior`}
+          sub={t("vsPrevMonthPct", { sign: costDiff >= 0 ? "+" : "", pct: costDiffPct })}
         />
         <KpiCard
           icon={IconTrendingUp}
           label={t("la_kpiForecast")}
           value={format(summary.forecastEomUSD)}
-          sub="Proyección ML Run-rate de flujos"
+          sub={t("mlFlowRunRateForecast")}
         />
         <KpiCard
           icon={IconLayersLinked}
@@ -576,7 +577,7 @@ export default function LogicAppsFinopsDashboard() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-slate-50/50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 rounded-lg p-3">
-            <p className="text-[10px] font-bold uppercase text-slate-400">Llamadas Enterprise MTD</p>
+            <p className="text-[10px] font-bold uppercase text-slate-400">{t("enterpriseCallsMtd")}</p>
             <p className="text-lg font-extrabold text-[#1B2A41] dark:text-slate-100 mt-0.5">
               {summary.totalEnterpriseCalls.toLocaleString()}
             </p>
@@ -627,7 +628,7 @@ export default function LogicAppsFinopsDashboard() {
         >
           {resourceOptions.map((r) => (
             <option key={r} value={r}>
-              {r === "ALL" ? "Todos los Flujos" : r}
+              {r === "ALL" ? t("allFlows") : r}
             </option>
           ))}
         </select>
@@ -640,9 +641,9 @@ export default function LogicAppsFinopsDashboard() {
           }}
           className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300"
         >
-          {typeOptions.map((t) => (
-            <option key={t} value={t}>
-              {t === "ALL" ? "Todos los Planes (Consumption/Standard)" : t}
+          {typeOptions.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt === "ALL" ? t("allPlans") : opt}
             </option>
           ))}
         </select>
@@ -657,7 +658,7 @@ export default function LogicAppsFinopsDashboard() {
         >
           {regionOptions.map((reg) => (
             <option key={reg} value={reg}>
-              {reg === "ALL" ? "Todas las Regiones" : reg}
+              {reg === "ALL" ? t("allRegions") : reg}
             </option>
           ))}
         </select>
@@ -672,7 +673,7 @@ export default function LogicAppsFinopsDashboard() {
         >
           {rgOptions.map((rg) => (
             <option key={rg} value={rg}>
-              {rg === "ALL" ? "Todos los Resource Groups" : rg}
+              {rg === "ALL" ? t("allResourceGroups") : rg}
             </option>
           ))}
         </select>
@@ -682,7 +683,7 @@ export default function LogicAppsFinopsDashboard() {
         </span>
       </div>
 
-      {/* ─── 4. Tabla CMP "Desglose por Logic App y Workflows" (Ancho 100%) ─── */}
+      {/* ─── 4. Tabla CMP t("breakdownByLogicApp") (Ancho 100%) ─── */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs overflow-hidden">
         <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -777,7 +778,7 @@ export default function LogicAppsFinopsDashboard() {
                     className="flex items-center gap-1 cursor-pointer hover:text-[#0078D4]"
                     onClick={() => handleSort("runsStartedCount")}
                   >
-                    Runs Iniciados
+                    {t("runsStarted")}
                     <SortIcon column="runsStartedCount" />
                   </button>
                 </ResizableTh>
@@ -884,7 +885,7 @@ export default function LogicAppsFinopsDashboard() {
                           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] dark:text-blue-400 hover:bg-[#0078D4] hover:text-white transition-all cursor-pointer shadow-2xs"
                         >
                           <IconSparkles className="w-3.5 h-3.5" stroke={2} />
-                          Optimizar
+                          {t("optimize")}
                         </button>
                       ) : (
                         <span className="text-[11px] text-slate-400 font-medium">{tc("optimal")}</span>
@@ -987,10 +988,10 @@ export default function LogicAppsFinopsDashboard() {
                               : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
                           }`}
                         >
-                          {action.confidence === "HIGH" ? "Alta confianza" : "Media confianza"}
+                          {action.confidence === "HIGH" ? t("highConfidence") : t("mediumConfidence")}
                         </span>
                         <span className="text-[10px] text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
-                          {CATEGORY_LABELS[action.category] || action.category}
+                          {CATEGORY_LABEL_KEYS[action.category] ? t(CATEGORY_LABEL_KEYS[action.category]) : action.category}
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 mt-1 line-clamp-2">
@@ -1007,7 +1008,7 @@ export default function LogicAppsFinopsDashboard() {
                           }
                           className="text-[10px] text-[#0078D4] hover:underline mt-1 cursor-pointer"
                         >
-                          {expandedAction === action.id ? "Mostrar menos" : "Leer más"}
+                          {expandedAction === action.id ? t("showLess") : t("readMore")}
                         </button>
                       )}
                     </div>
@@ -1016,13 +1017,13 @@ export default function LogicAppsFinopsDashboard() {
                     <p className="text-lg font-extrabold text-[#0078D4]">
                       +{format(action.estimatedSavingsUSD)}
                     </p>
-                    <p className="text-[10px] text-slate-400">/mes ahorro</p>
+                    <p className="text-[10px] text-slate-400">{t("perMonthSavings")}</p>
                     <button
                       onClick={() => setActiveModalAction(action)}
                       className="mt-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] dark:text-blue-400 hover:bg-[#0078D4] hover:text-white transition-all cursor-pointer"
                     >
                       <IconSparkles className="w-3 h-3" stroke={2} />
-                      Optimizar
+                      {t("optimize")}
                     </button>
                   </div>
                 </div>

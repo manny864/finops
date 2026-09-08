@@ -86,7 +86,7 @@ function buildFetcher(
     const res = await fetch(url, { headers });
     if (!res.ok) {
       if (res.status === 401) {
-        throw new Error("No autorizado.");
+        throw new Error(t("unauthorized"));
       }
       throw new Error(`Error ${res.status}: ${res.statusText}`);
     }
@@ -237,21 +237,21 @@ function RemediationModal({
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">Capacidad Actual</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">{t("currentCapacity")}</p>
                   <p className="text-sm font-extrabold text-slate-800 dark:text-slate-200 mt-0.5">
                     {action.currentCapacity || 4} MUs
                   </p>
                   <p className="text-[11px] text-slate-500 mt-1">
-                    Costo: {format((action.currentCapacity || 4) * 670)}/mes
+                    {t("costPerMonthLabel", { amount: format((action.currentCapacity || 4) * 670) })}
                   </p>
                 </div>
                 <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-emerald-300 dark:border-emerald-800">
-                  <p className="text-[10px] text-emerald-600 font-bold uppercase">Capacidad Optimizada</p>
+                  <p className="text-[10px] text-emerald-600 font-bold uppercase">{t("optimizedCapacity")}</p>
                   <p className="text-sm font-extrabold text-emerald-600 mt-0.5">
                     {action.recommendedCapacity || 2} MUs
                   </p>
                   <p className="text-[11px] text-slate-500 mt-1">
-                    Costo: {format((action.recommendedCapacity || 2) * 670)}/mes
+                    {t("costPerMonthLabel", { amount: format((action.recommendedCapacity || 2) * 670) })}
                   </p>
                 </div>
               </div>
@@ -277,7 +277,7 @@ function RemediationModal({
                   <p className="text-[11px] text-slate-500 mt-1">{t("sb_costPremium")}</p>
                 </div>
                 <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-emerald-300 dark:border-emerald-800">
-                  <p className="text-[10px] text-emerald-600 font-bold uppercase">SKU Recomendado</p>
+                  <p className="text-[10px] text-emerald-600 font-bold uppercase">{t("recommendedSku")}</p>
                   <p className="text-sm font-extrabold text-emerald-600 mt-0.5">
                     Standard
                   </p>
@@ -354,7 +354,7 @@ function RemediationModal({
             {copied ? (
               <>
                 <IconCheck className="w-4 h-4 text-emerald-600" />
-                Copiado
+                {t("copied")}
               </>
             ) : (
               <>
@@ -433,8 +433,8 @@ export default function ServiceBusFinopsDashboard() {
                 {t("sb_connStatus")}
               </h3>
               <p className="text-sm mt-1 text-slate-600 dark:text-slate-400">
-                {error.message === "No autorizado."
-                  ? "Sesión no autorizada o token de Entra ID expirado. Si utiliza una cuenta de demostración, active el modo demo."
+                {error.message === t("unauthorized")
+                  ? t("unauthorizedDetail")
                   : error.message}
               </p>
               <p className="text-xs text-slate-400 mt-2">
@@ -520,19 +520,19 @@ export default function ServiceBusFinopsDashboard() {
     const headers = [
       "Namespace",
       "SKU",
-      "Capacidad (MUs)",
-      "Región",
-      "Grupo de Recursos",
-      "Suscripción",
-      "Costo MTD (USD)",
-      "Costo Anterior (USD)",
+      t("capacityMus"),
+      t("region"),
+      t("resourceGroup"),
+      t("subscription"),
+      t("costMtdUsdParen"),
+      t("prevCostUsdParen"),
       "Forecast EOM (USD)",
-      "% Capacidad",
+      t("capacityPct"),
       "Total Mensajes",
-      "Tamaño (MB)",
+      t("sizeMb"),
       "Colas",
       "Temas",
-      "Huérfano",
+      t("orphaned"),
     ];
     const rows = sortedItems.map((i) => [
       i.name,
@@ -596,7 +596,7 @@ export default function ServiceBusFinopsDashboard() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
           >
             <IconDownload className="w-4 h-4" />
-            Exportar CSV
+            {t("exportCsv")}
           </button>
         </div>
       </div>
@@ -607,29 +607,29 @@ export default function ServiceBusFinopsDashboard() {
           icon={IconCash}
           label={t("sb_kpiCost")}
           value={format(summary.costMtdUSD)}
-          sub={`Ahorro potencial: ${format(summary.potentialSavingsUSD)}`}
+          sub={t("potentialSavingsSub", { amount: format(summary.potentialSavingsUSD) })}
         />
         <KpiCard
           icon={IconMessageDots}
-          label="Namespaces Service Bus"
-          value={`${summary.totalNamespaces} Activos`}
-          sub="Instancias de mensajería configuradas"
+          label={t("serviceBusNamespaces")}
+          value={t("activeCount", { n: summary.totalNamespaces })}
+          sub={t("configuredMessagingInstances")}
         />
         <KpiCard
           icon={IconActivity}
           label="Total Mensajes MTD"
           value={
             summary.totalMessagesMTD >= 1_000_000_000
-              ? `${(summary.totalMessagesMTD / 1_000_000_000).toFixed(2)}B mensajes`
-              : `${(summary.totalMessagesMTD / 1_000_000).toFixed(1)}M mensajes`
+              ? t("billionMessages", { n: (summary.totalMessagesMTD / 1_000_000_000).toFixed(2) })
+              : t("millionMessages", { n: (summary.totalMessagesMTD / 1_000_000).toFixed(1) })
           }
-          sub="Throughput global procesado"
+          sub={t("globalThroughputProcessed")}
         />
         <KpiCard
           icon={IconLayersLinked}
-          label="Colas / Temas Detectados"
+          label={t("queuesTopicsDetected")}
           value={`${summary.totalQueues} colas / ${summary.totalTopics} temas`}
-          sub="Entidades de cola y pub/sub"
+          sub={t("queueAndPubSubEntities")}
         />
       </div>
 
@@ -669,7 +669,7 @@ export default function ServiceBusFinopsDashboard() {
                   ))}
                 </Pie>
                 <RechartsTooltip
-                  formatter={(value: any) => [format(Number(value)), "Costo MTD"]}
+                  formatter={(value: any) => [format(Number(value)), t("costMtd")]}
                   contentStyle={{
                     backgroundColor: "#1B2A41",
                     borderRadius: "8px",
@@ -811,7 +811,7 @@ export default function ServiceBusFinopsDashboard() {
             >
               {regionOptions.map((r) => (
                 <option key={r} value={r}>
-                  {r === "ALL" ? "Todas las Regiones" : r}
+                  {r === "ALL" ? t("allRegions") : r}
                 </option>
               ))}
             </select>
@@ -826,7 +826,7 @@ export default function ServiceBusFinopsDashboard() {
             >
               {rgOptions.map((rg) => (
                 <option key={rg} value={rg}>
-                  {rg === "ALL" ? "Todos los Resource Groups" : rg}
+                  {rg === "ALL" ? t("allResourceGroups") : rg}
                 </option>
               ))}
             </select>
@@ -857,7 +857,7 @@ export default function ServiceBusFinopsDashboard() {
                     onClick={() => handleSort("name")}
                     className="flex items-center gap-1 hover:text-[#0054A6]"
                   >
-                    Namespace Service Bus
+                    {t("serviceBusNamespace")}
                     {sortKey === "name" && (
                       <span>{sortDir === "asc" ? "▲" : "▼"}</span>
                     )}
@@ -868,7 +868,7 @@ export default function ServiceBusFinopsDashboard() {
                     onClick={() => handleSort("skuName")}
                     className="flex items-center gap-1 hover:text-[#0054A6]"
                   >
-                    SKU & Capacidad
+                    {t("skuCapacity")}
                     {sortKey === "skuName" && (
                       <span>{sortDir === "asc" ? "▲" : "▼"}</span>
                     )}
@@ -895,7 +895,7 @@ export default function ServiceBusFinopsDashboard() {
                     onClick={() => handleSort("avgCapacityPercentage")}
                     className="flex items-center gap-1 hover:text-[#0054A6]"
                   >
-                    % Capacidad
+                    {t("capacityPct")}
                     {sortKey === "avgCapacityPercentage" && (
                       <span>{sortDir === "asc" ? "▲" : "▼"}</span>
                     )}
@@ -983,13 +983,13 @@ export default function ServiceBusFinopsDashboard() {
                       </td>
                       <td className="p-[10px_14px] text-slate-700 dark:text-slate-300">
                         {item.totalMessages >= 1_000_000
-                          ? `${(item.totalMessages / 1_000_000).toFixed(1)}M`
+                          ? t("millionShort", { n: (item.totalMessages / 1_000_000).toFixed(1) })
                           : item.totalMessages.toLocaleString()}
                       </td>
                       <td className="p-[10px_14px] text-slate-500">
                         {item.totalMessagingSize >= 1024
-                          ? `${(item.totalMessagingSize / 1024).toFixed(1)} GB`
-                          : `${item.totalMessagingSize} MB`}
+                          ? t("sizeGbValue", { n: (item.totalMessagingSize / 1024).toFixed(1) })
+                          : t("sizeMbValue", { n: item.totalMessagingSize })}
                       </td>
                       <td className="p-[10px_14px] text-center">
                         {matchingAction ? (
@@ -998,7 +998,7 @@ export default function ServiceBusFinopsDashboard() {
                             className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
                           >
                             <IconSparkles className="w-3.5 h-3.5 text-[#0078D4]" />
-                            Optimizar
+                            {t("optimize")}
                           </button>
                         ) : (
                           <span className="text-slate-400 text-[11px] font-medium">—</span>
@@ -1103,7 +1103,7 @@ export default function ServiceBusFinopsDashboard() {
                       className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
                     >
                       <IconSparkles className="w-3.5 h-3.5" />
-                      Optimizar
+                      {t("optimize")}
                     </button>
                   </div>
                 </div>
