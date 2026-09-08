@@ -292,7 +292,7 @@ export default function RateOptimizationPage() {
                 </div>
             </div>
 
-            <div className="bg-brand-soft border border-brand-deep border-opacity-20 rounded-[14px] p-4 flex items-start text-brand-deep shadow-sm">
+            <div className="bg-brand-soft dark:bg-slate-800 border border-brand-deep border-opacity-20 dark:border-slate-700 rounded-[14px] p-4 flex items-start text-brand-deep dark:text-white shadow-sm">
                 <Info className="w-5 h-5 mr-3 mt-0.5 flex-shrink-0" />
                 <div className="text-[13px]">
                     <p className="font-bold mb-1">{t('info_title')}</p>
@@ -358,16 +358,16 @@ export default function RateOptimizationPage() {
 
             {data.length > 0 || reservations.length > 0 ? (
                 <div className="flex flex-col gap-4">
-                    <div className="flex gap-2 bg-slate-100 p-1.5 rounded-xl w-fit self-start shadow-inner">
+                    <div className="flex gap-2 bg-slate-100 dark:bg-slate-900 p-1.5 rounded-xl w-fit self-start shadow-inner">
                         <button
                             onClick={() => setActiveTab('resources')}
-                            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${activeTab === 'resources' ? 'bg-white dark:bg-slate-800 text-brand-deep shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${activeTab === 'resources' ? 'bg-white dark:bg-slate-800 text-brand-deep dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}
                         >
                             {t('tab_resources')}
                         </button>
                         <button
                             onClick={() => setActiveTab('reservations')}
-                            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${activeTab === 'reservations' ? 'bg-white dark:bg-slate-800 text-brand-deep shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${activeTab === 'reservations' ? 'bg-white dark:bg-slate-800 text-brand-deep dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}
                         >
                             {t('tab_reservations')}
                         </button>

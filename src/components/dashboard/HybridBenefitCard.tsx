@@ -77,16 +77,24 @@ export default function HybridBenefitCard() {
 
     return (
         <div className="space-y-6">
-            <div className="bg-white dark:bg-slate-900 rounded-xl p-6 text-[#0054A6] shadow-lg relative overflow-hidden border border-[#D6E6F7]">
-                <div className="absolute top-0 right-0 p-4 opacity-10">
-                    <Cpu className="w-32 h-32 text-[#0054A6]" />
+            {/* Los seis text-[#0054A6] de este bloque no tenian variante dark: el
+                mismo azul de marca sobre slate-900 da ~1.7:1 y quedaba ilegible.
+                En oscuro va blanco, conservando las opacidades relativas (/80,
+                /85) para mantener la jerarquia entre rotulo, cifra y descripcion.
+                El icono de fondo ya salia blanco por la regla global
+                `.dark .lucide` de globals.css; lo que lo hacia ver gris era el
+                opacity-10, asi que en oscuro sube a 20 para leerse como marca de
+                agua y no como una mancha. */}
+            <div className="bg-white dark:bg-slate-900 rounded-xl p-6 text-[#0054A6] dark:text-white shadow-lg relative overflow-hidden border border-[#D6E6F7] dark:border-slate-800">
+                <div className="absolute top-0 right-0 p-4 opacity-10 dark:opacity-20">
+                    <Cpu className="w-32 h-32 text-[#0054A6] dark:text-white" />
                 </div>
-                <h3 className="text-sm font-medium text-[#0054A6]/80 uppercase tracking-widest mb-1">{t('potentialMonthlySavings')}</h3>
+                <h3 className="text-sm font-medium text-[#0054A6]/80 dark:text-white/80 uppercase tracking-widest mb-1">{t('potentialMonthlySavings')}</h3>
                 <div className="flex items-baseline gap-2">
-                    <span className="text-5xl font-black text-[#0054A6]">${payload.totalPotentialSavings.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                    <span className="text-[#0054A6]/80 font-medium">{t('perMonth')}</span>
+                    <span className="text-5xl font-black text-[#0054A6] dark:text-white">${payload.totalPotentialSavings.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                    <span className="text-[#0054A6]/80 dark:text-white/80 font-medium">{t('perMonth')}</span>
                 </div>
-                <p className="mt-4 text-sm text-[#0054A6]/85 max-w-lg">
+                <p className="mt-4 text-sm text-[#0054A6]/85 dark:text-white/85 max-w-lg">
                     {t('reuseLicensesDescription')}
                 </p>
             </div>

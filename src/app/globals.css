@@ -239,6 +239,13 @@ select {
 .vhead .vs{font-size:13px;color:var(--ink-soft);margin-top:3px}
 .vhead .right{margin-left:auto;display:flex;gap:9px;align-items:center}
 .scopechip{font-size:11px;font-weight:700;letter-spacing:.4px;background:#E6F2FB;color:var(--brand-deep);padding:5px 11px;border-radius:8px}
+/* El chip del tenant se veia BLANCO en modo oscuro: #E6F2FB de fondo con texto
+   --brand-deep (#0054A6) y ninguna variante dark, o sea el mismo par de colores
+   claros en los dos temas. Mismo defecto y misma correccion que .vhead .vt .vico
+   de mas arriba: en oscuro va blanco puro sobre una superficie oscura.
+   No lleva borde a proposito: agregarlo cambiaria la caja respecto del tema
+   claro (padding 5/11 + 1px) y correria el header. */
+.dark .scopechip{background:var(--line);color:#FFFFFF}
 
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow); margin-bottom: 20px;}
 .card-h{display:flex;align-items:center;justify-content:space-between;padding:15px 18px;border-bottom:1px solid var(--line)}
