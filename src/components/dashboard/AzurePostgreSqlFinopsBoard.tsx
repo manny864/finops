@@ -37,6 +37,7 @@ import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import FinopsTableControls, { type FinopsTableOption } from "@/components/dashboard/FinopsTableControls";
 import { useTranslations } from "next-intl";
+import DatabaseStateBadge from "@/components/dashboard/DatabaseStateBadge";
 import InfoTooltip from "@/components/InfoTooltip";
 import {
   AzurePostgreSqlResourceDetail,
@@ -48,39 +49,6 @@ const FILTER_ALL = "__all__";
 type SortMode = "cost-desc" | "cost-asc" | "name-asc" | "name-desc";
 
 // ─── State & Badge helpers ──────────────────────────────────────────────────
-function StateBadge({ state, isLegacy }: { state: string; isLegacy: boolean }) {
-  const t = useTranslations("AzurePostgreSQL");
-  if (isLegacy) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400">
-        <IconAlertCircle size={11} stroke={2} />
-        Legacy
-      </span>
-    );
-  }
-  if (state === "Ready" || state === "healthy" || state === "online") {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400">
-        <IconCircleCheck size={11} stroke={2} />
-        Saludable
-      </span>
-    );
-  }
-  if (state === "warning" || state === "Stopped") {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-400">
-        <IconAlertTriangle size={11} stroke={2} />
-        {state === "Stopped" ? "Detenido" : "Advertencia"}
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400">
-      <IconShieldExclamation size={11} stroke={2} />
-      {t("critical")}
-    </span>
-  );
-}
 
 function TierBadge({ tier }: { tier: string }) {
   const colors: Record<string, string> = {
@@ -786,7 +754,7 @@ export default function AzurePostgreSqlFinopsBoard() {
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                   <span className="text-slate-500">{t("colState")}:</span>
-                  <StateBadge state={selectedServer.state} isLegacy={selectedServer.isLegacySingleServer} />
+                  <DatabaseStateBadge state={selectedServer.state} isLegacy={selectedServer.isLegacySingleServer} />
                 </div>
               </div>
             </div>
@@ -1002,7 +970,7 @@ export default function AzurePostgreSqlFinopsBoard() {
                         </td>
                         {/* State */}
                         <td className="p-3 text-center">
-                          <StateBadge state={server.state} isLegacy={server.isLegacySingleServer} />
+                          <DatabaseStateBadge state={server.state} isLegacy={server.isLegacySingleServer} />
                         </td>
                         {/* CPU / RAM */}
                         <td className="p-3 text-right">

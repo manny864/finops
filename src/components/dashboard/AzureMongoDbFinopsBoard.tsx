@@ -37,6 +37,7 @@ import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import FinopsTableControls, { type FinopsTableOption } from "@/components/dashboard/FinopsTableControls";
 import { useTranslations } from "next-intl";
+import DatabaseStateBadge from "@/components/dashboard/DatabaseStateBadge";
 import InfoTooltip from "@/components/InfoTooltip";
 import {
   MongoDbResourceDetail,
@@ -65,31 +66,6 @@ function ArchitectureBadge({ arch }: { arch: string }) {
   );
 }
 
-function StateBadge({ state }: { state: string }) {
-  const t = useTranslations("AzureMongoDB");
-  if (state === "Ready" || state === "healthy") {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400">
-        <IconCircleCheck size={11} stroke={2} />
-        Saludable
-      </span>
-    );
-  }
-  if (state === "warning" || state === "Updating") {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-400">
-        <IconAlertTriangle size={11} stroke={2} />
-        {state === "Updating" ? "Actualizando" : "Advertencia"}
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:text-red-400">
-      <IconShieldExclamation size={11} stroke={2} />
-      {t("critical")}
-    </span>
-  );
-}
 
 // ─── KPI Card (Fondo blanco puro según directiva) ───────────────────────────
 function KpiCard({
@@ -692,7 +668,7 @@ export default function AzureMongoDbFinopsBoard() {
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                   <span className="text-slate-500">{t("colState")}:</span>
-                  <StateBadge state={selectedServer.state} />
+                  <DatabaseStateBadge state={selectedServer.state} />
                 </div>
               </div>
             </div>
@@ -885,8 +861,8 @@ export default function AzureMongoDbFinopsBoard() {
                   <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300">
                     <div className="flex items-center gap-1">{t("colArchitecture")} <InfoTooltip content={t("tooltip_col_arch")} /></div>
                   </ResizableTh>
-                  <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300">SKU / Modo</ResizableTh>
-                  <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300 text-center">HA / Regiones</ResizableTh>
+                  <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300">{t("colSkuMode")}</ResizableTh>
+                  <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300 text-center">{t("colHaRegions")}</ResizableTh>
                   <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300 text-center">{t("colState")}</ResizableTh>
                   <ResizableTh className="p-3 font-bold text-slate-700 dark:text-slate-300 text-right">
                     <div className="flex items-center justify-end gap-1">CPU / RU % <InfoTooltip content={t("tooltip_col_cpu_ru")} /></div>
@@ -976,7 +952,7 @@ export default function AzureMongoDbFinopsBoard() {
                         </td>
                         {/* State */}
                         <td className="p-3 text-center">
-                          <StateBadge state={server.state} />
+                          <DatabaseStateBadge state={server.state} />
                         </td>
                         {/* CPU / RU % */}
                         <td className="p-3 text-right">
