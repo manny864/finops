@@ -9,6 +9,7 @@ import {
     BACKUP_RATES,
 } from "@/services/azureBackups.service";
 import { BackupVaultDetail } from "@/types/backup.types";
+import { esperarQueRindanLasClaves } from "./recomendacionesRinden";
 
 describe("Azure Backups & Business Continuity FinOps Service", () => {
     it("should correctly classify vault environments", () => {
@@ -97,6 +98,7 @@ describe("Azure Backups & Business Continuity FinOps Service", () => {
         };
 
         const recs = buildBackupRemediations([mockVault]);
+        esperarQueRindanLasClaves(recs, "BackupsFinops");
         const orphanRec = recs.find((r) => r.category === "ORPHAN_PURGE");
         expect(orphanRec).toBeDefined();
         expect(orphanRec?.estimatedSavingsUSD).toBe(15.00);
@@ -139,6 +141,7 @@ describe("Azure Backups & Business Continuity FinOps Service", () => {
         };
 
         const recs = buildBackupRemediations([mockVault]);
+        esperarQueRindanLasClaves(recs, "BackupsFinops");
         const redRec = recs.find((r) => r.category === "REDUNDANCY_OPTIMIZATION");
         expect(redRec).toBeDefined();
         // 1000 * 0.045 - 1000 * 0.0225 = 22.50

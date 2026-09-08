@@ -26,13 +26,21 @@ export interface DiskRemediationAction {
     id: string;
     diskId: string;
     diskName: string;
-    title: string;
-    description: string;
+    /**
+     * Claves i18n. Va la clave y no la frase armada porque el payload se cachea
+     * del lado del cliente (SWR) con una clave que no incluye el locale: con el
+     * texto armado en el servidor, cambiar de idioma dejaba las recomendaciones
+     * en el idioma anterior hasta la revalidacion.
+     */
+    titleKey: string;
+    descKey: string;
+    impactKey: string;
+    /** Valores a interpolar. Numeros y nombres de recurso, nunca frases. */
+    params?: Record<string, string | number>;
     category: DiskRemediationCategory;
     estimatedSavingsUSD: number;
     confidence: "high" | "medium" | "low";
     actionType: "manual" | "guided" | "automatic";
-    impact: string;
     risk: "low" | "medium" | "high";
     commandPayload: {
         azureCli: string;

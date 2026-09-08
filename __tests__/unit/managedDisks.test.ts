@@ -10,6 +10,7 @@ import {
     computeSkuDistribution,
 } from "@/services/managedDisks.service";
 import { ManagedDiskDetail } from "@/types/managedDisk.types";
+import { esperarQueRindanLasClaves } from "./recomendacionesRinden";
 
 describe("Managed Disks Service & FinOps Rules", () => {
     it("should correctly extract VM name and Resource ID from managedBy", () => {
@@ -94,6 +95,7 @@ describe("Managed Disks Service & FinOps Rules", () => {
         };
 
         const recs = buildDiskRemediations([orphanDisk]);
+        esperarQueRindanLasClaves(recs, "ManagedDisks");
         expect(recs.length).toBe(1);
         expect(recs[0].category).toBe("ORPHAN");
         expect(recs[0].estimatedSavingsUSD).toBe(19.71);
@@ -144,6 +146,7 @@ describe("Managed Disks Service & FinOps Rules", () => {
         };
 
         const recs = buildDiskRemediations([devDisk]);
+        esperarQueRindanLasClaves(recs, "ManagedDisks");
         expect(recs.length).toBe(1);
         expect(recs[0].category).toBe("TIER_DOWNGRADE");
         expect(recs[0].estimatedSavingsUSD).toBe(10.11); // 19.71 - 9.60 = 10.11

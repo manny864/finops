@@ -388,185 +388,117 @@ describe("i18n · capa 3: las notificaciones persistidas", () => {
     });
 });
 
-describe("i18n · capa 4: las recomendaciones de cómputo", () => {
+describe("i18n · capa 4: las recomendaciones que viajan en claves", () => {
     /**
-     * Mismo truco que la capa 3: descubre los call sites en vez de listarlos, así
-     * una regla nueva queda cubierta sin tocar este archivo.
+     * Cinco familias, un solo escáner. Antes esto eran dos describes casi
+     * idénticos (cómputo y almacenamiento) y agregar disks/backups/adls iba a
+     * hacer un tercero: en vez de copiar, la diferencia se movió a esta tabla.
      *
-     * Estas claves viajan en el payload de `/api/intelligence/compute/workloads`
-     * y del colector de ARO, y las resuelven 5 boards y 4 modales. El texto no se
-     * arma en el servidor porque el payload se cachea en Redis con una clave que
-     * NO incluye el locale: el segundo lector recibiría el idioma del primero.
+     * Todas estas claves viajan en el payload de una API o de un servicio y las
+     * resuelve `useTextoDeRecomendacion` en el render. El texto no se arma en el
+     * servidor porque el payload se cachea sin el locale en la clave —en cómputo
+     * en Redis, en el resto con SWR del lado del cliente— así que el segundo
+     * lector, o el mismo tras cambiar de idioma, veía el idioma equivocado.
      *
-     * El discriminador es el prefijo `rec_` junto al par titleKey/descKey. En los
-     * boards hay otros `titleKey` (`titleKey: "recScaleToZero"`) que no son esto.
+     * Descubre los call sites en vez de listarlos: una regla nueva queda cubierta
+     * sin tocar este archivo.
      */
-    function sitiosDeRecomendacion(): Array<{ archivo: string; titleKey: string; descKey: string; params: string[] }> {
-        // `rec_sto_` queda fuera a propósito: son de storage y viven en el
-        // namespace StorageEfficiency, no en ComputeRecommendations. Las cubre la capa 5.
-        const re = /titleKey:\s*"(rec_(?!sto_)\w+)",\s*descKey:\s*"(rec_\w+)",(?:\s*params:\s*\{([^}]*)\})?/g;
-        const encontrados: Array<{ archivo: string; titleKey: string; descKey: string; params: string[] }> = [];
+    const FAMILIAS = [
+        // prefijo, namespace, piso de call sites
+        { prefijo: "rec_sto_", ns: "StorageEfficiency", piso: 10 },
+        { prefijo: "rec_adls_", ns: "DataLakeFinops", piso: 4 },
+        { prefijo: "rec_disk_", ns: "ManagedDisks", piso: 3 },
+        { prefijo: "rec_bkp_", ns: "BackupsFinops", piso: 4 },
+        // `rec_` es el cajón general de cómputo; excluye a los de arriba.
+        { prefijo: "rec_", ns: "ComputeRecommendations", piso: 43 },
+    ] as const;
 
-        for (const archivo of fuentes("src")) {
-            const codigo = readFileSync(archivo, "utf8").replace(/^[ \t]*\/\/[^\n]*$/gm, "");
-            for (const m of codigo.matchAll(re)) {
-                const cuerpo = m[3] ?? "";
-                encontrados.push({
-                    archivo,
-                    titleKey: m[1],
-                    descKey: m[2],
-                    // Acepta forma abreviada (`{ targetSku, sku }`) además de `nombre: valor`.
-                    params: [...cuerpo.matchAll(/(?:^|[{,])\s*(\w+)\s*(?=[:,}]|$)/g)].map((p) => p[1]),
-                });
-            }
-        }
-        return encontrados;
-    }
+    const OTRAS_FAMILIAS = /"rec_(sto|adls|disk|bkp)_/;
 
-    const sitios = sitiosDeRecomendacion();
-
-    it("el escáner encuentra los call sites (si esto falla, se rompió el escáner)", () => {
-        // 38 en la ruta compartida de workloads (VMSS, App Service, Function Apps
-        // y VMs, mock + camino real de Azure) + 5 en el colector de ARO. Piso
-        // exacto y no holgado: con holgura, un call site que el regex deja de ver
-        // pasa desapercibido, que es justo lo que este test cuida.
-        expect(sitios.length).toBeGreaterThanOrEqual(43);
-    });
-
-    it("cada clave existe en los tres catálogos", () => {
-        const faltantes: string[] = [];
-        for (const { archivo, titleKey, descKey } of sitios) {
-            for (const locale of LOCALES) {
-                for (const clave of [titleKey, descKey]) {
-                    if (typeof catalogos[locale].ComputeRecommendations?.[clave] !== "string") {
-                        faltantes.push(`${locale} · ComputeRecommendations.${clave} (${archivo})`);
-                    }
-                }
-            }
-        }
-        expect(faltantes, faltantes.join("\n")).toEqual([]);
-    });
-
-    it("los params del call site cubren lo que el texto interpola, en los tres idiomas", () => {
-        const huecos: string[] = [];
-        for (const { archivo, titleKey, descKey, params } of sitios) {
-            for (const locale of LOCALES) {
-                for (const clave of [titleKey, descKey]) {
-                    const icu = catalogos[locale].ComputeRecommendations?.[clave];
-                    if (typeof icu !== "string") continue; // ya lo reporta el test de arriba
-                    for (const arg of placeholdersICU(icu)) {
-                        if (!params.includes(arg)) {
-                            huecos.push(`${locale} · ComputeRecommendations.${clave} pide {${arg}} y el call site no lo manda (${archivo})`);
-                        }
-                    }
-                }
-            }
-        }
-        expect(huecos, huecos.join("\n")).toEqual([]);
-    });
-
-    it("con sus params, cada clave rinde una frase sin marcadores sueltos", () => {
-        for (const { titleKey, descKey, params } of sitios) {
-            const valores = Object.fromEntries(params.map((p) => [p, 1]));
-            for (const locale of LOCALES) {
-                const t = traducir(locale, "ComputeRecommendations");
-                for (const clave of [titleKey, descKey]) {
-                    const texto = t(clave, valores);
-                    expect(texto, `${locale} · ComputeRecommendations.${clave}`).not.toContain(clave);
-                    expect(texto, `${locale} · ComputeRecommendations.${clave}`).not.toMatch(/[{}]/);
-                }
-            }
-        }
-    });
-});
-
-
-describe("i18n · capa 5: las recomendaciones de almacenamiento", () => {
     /**
-     * Hermana de la capa 4, pero storage no encaja en aquel escáner por dos
-     * motivos: sus claves viven en `StorageEfficiency` (no en un namespace
-     * propio) y cada acción trae cuatro campos de texto en vez de dos —
-     * titleKey, descKey, impactKey y un array stepKeys.
-     *
-     * Además `descKey` puede ser un ternario: el hardening de seguridad tiene dos
-     * causas (acceso público / TLS viejo) y cada una es una frase distinta. Por
-     * eso el escáner no lee campo por campo sino que barre el bloque entero de la
-     * acción y junta TODO literal `rec_sto_*` que encuentre hasta el `params`.
-     *
-     * Igual que las capas 3 y 4: descubre en vez de listar, así una regla nueva
-     * queda cubierta sin tocar este archivo.
+     * Barre por ventana de líneas en vez de con un regex de bloque. Es más aburrido
+     * pero aguanta las tres formas que existen hoy: con `impactKey`, con `stepKeys`,
+     * y sin `params` (varias acciones de cómputo no interpolan nada). Un `descKey`
+     * puede además ser un ternario, así que se juntan TODAS las claves de la ventana
+     * en vez de leer campo por campo.
      */
-    const NS = "StorageEfficiency";
-
-    function sitiosDeStorage(): Array<{ archivo: string; claves: string[]; params: string[] }> {
-        const bloque = /titleKey:\s*"rec_sto_\w+"[\s\S]{0,800}?params:\s*\{([^}]*)\}/g;
+    function sitios(prefijo: string) {
+        const reTitulo = new RegExp(`titleKey:\\s*"(${prefijo}\\w+)"`);
+        const reClaves = new RegExp(`"(${prefijo}\\w+)"`, "g");
         const encontrados: Array<{ archivo: string; claves: string[]; params: string[] }> = [];
 
         for (const archivo of fuentes("src")) {
-            const codigo = readFileSync(archivo, "utf8").replace(/^[ \t]*\/\/[^\n]*$/gm, "");
-            for (const m of codigo.matchAll(bloque)) {
+            const lineas = readFileSync(archivo, "utf8").split("\n");
+            for (let i = 0; i < lineas.length; i++) {
+                if (!reTitulo.test(lineas[i])) continue;
+                if (prefijo === "rec_" && OTRAS_FAMILIAS.test(lineas[i])) continue;
+
+                const ventana = lineas.slice(i, i + 12).join("\n");
+                const params = ventana.match(/params:\s*\{([^}]*)\}/);
                 encontrados.push({
                     archivo,
-                    claves: [...new Set([...m[0].matchAll(/"(rec_sto_\w+)"/g)].map((k) => k[1]))],
-                    params: [...m[1].matchAll(/(?:^|[{,])\s*(\w+)\s*(?=[:,}]|$)/g)].map((p) => p[1]),
+                    claves: [...new Set([...ventana.matchAll(reClaves)].map((m) => m[1]))],
+                    // Acepta forma abreviada (`{ targetSku, sku }`) además de `nombre: valor`.
+                    params: params ? [...params[1].matchAll(/(?:^|[,{])\s*(\w+)\s*(?=[:,}]|$)/g)].map((m) => m[1]) : [],
                 });
             }
         }
         return encontrados;
     }
 
-    const sitios = sitiosDeStorage();
+    describe.each(FAMILIAS)("$ns", ({ prefijo, ns, piso }) => {
+        const encontrados = sitios(prefijo);
 
-    it("el escáner encuentra los call sites (si esto falla, se rompió el escáner)", () => {
-        // 5 reglas en el servicio real + las 5 espejadas en el mock de demo.
-        // Piso exacto, no holgado: con holgura, un call site que el regex deja de
-        // ver pasa desapercibido, que es justo lo que este test cuida.
-        expect(sitios.length).toBeGreaterThanOrEqual(10);
-    });
+        it("el escáner encuentra los call sites (si esto falla, se rompió el escáner)", () => {
+            // Piso exacto y no holgado: con holgura, un call site que el escáner
+            // deja de ver pasa desapercibido, que es justo lo que esto cuida.
+            expect(encontrados.length).toBeGreaterThanOrEqual(piso);
+        });
 
-    it("cada clave existe en los tres catálogos", () => {
-        const faltantes: string[] = [];
-        for (const { archivo, claves } of sitios) {
-            for (const locale of LOCALES) {
-                for (const clave of claves) {
-                    if (typeof catalogos[locale][NS]?.[clave] !== "string") {
-                        faltantes.push(`${locale} · ${NS}.${clave} (${archivo})`);
-                    }
-                }
-            }
-        }
-        expect(faltantes, faltantes.join("\n")).toEqual([]);
-    });
-
-    it("los params del call site cubren lo que el texto interpola, en los tres idiomas", () => {
-        const huecos: string[] = [];
-        for (const { archivo, claves, params } of sitios) {
-            for (const locale of LOCALES) {
-                for (const clave of claves) {
-                    const icu = catalogos[locale][NS]?.[clave];
-                    if (typeof icu !== "string") continue; // ya lo reporta el test de arriba
-                    for (const arg of placeholdersICU(icu)) {
-                        if (!params.includes(arg)) {
-                            huecos.push(`${locale} · ${NS}.${clave} pide {${arg}} y el call site no lo manda (${archivo})`);
+        it("cada clave existe en los tres catálogos", () => {
+            const faltantes: string[] = [];
+            for (const { archivo, claves } of encontrados) {
+                for (const locale of LOCALES) {
+                    for (const clave of claves) {
+                        if (typeof catalogos[locale][ns]?.[clave] !== "string") {
+                            faltantes.push(`${locale} · ${ns}.${clave} (${archivo})`);
                         }
                     }
                 }
             }
-        }
-        expect(huecos, huecos.join("\n")).toEqual([]);
-    });
+            expect(faltantes, faltantes.join("\n")).toEqual([]);
+        });
 
-    it("con sus params, cada clave rinde una frase sin marcadores sueltos", () => {
-        for (const { claves, params } of sitios) {
-            const valores = Object.fromEntries(params.map((p) => [p, 1]));
-            for (const locale of LOCALES) {
-                const t = traducir(locale, NS);
-                for (const clave of claves) {
-                    const texto = t(clave, valores);
-                    expect(texto, `${locale} · ${NS}.${clave}`).not.toContain(clave);
-                    expect(texto, `${locale} · ${NS}.${clave}`).not.toMatch(/[{}]/);
+        it("los params del call site cubren lo que el texto interpola, en los tres idiomas", () => {
+            const huecos: string[] = [];
+            for (const { archivo, claves, params } of encontrados) {
+                for (const locale of LOCALES) {
+                    for (const clave of claves) {
+                        const icu = catalogos[locale][ns]?.[clave];
+                        if (typeof icu !== "string") continue; // ya lo reporta el test de arriba
+                        for (const arg of placeholdersICU(icu)) {
+                            if (!params.includes(arg)) {
+                                huecos.push(`${locale} · ${ns}.${clave} pide {${arg}} y el call site no lo manda (${archivo})`);
+                            }
+                        }
+                    }
                 }
             }
-        }
+            expect(huecos, huecos.join("\n")).toEqual([]);
+        });
+
+        it("con sus params, cada clave rinde una frase sin marcadores sueltos", () => {
+            for (const { claves, params } of encontrados) {
+                const valores = Object.fromEntries(params.map((p) => [p, 1]));
+                for (const locale of LOCALES) {
+                    const t = traducir(locale, ns);
+                    for (const clave of claves) {
+                        const texto = t(clave, valores);
+                        expect(texto, `${locale} · ${ns}.${clave}`).not.toContain(clave);
+                        expect(texto, `${locale} · ${ns}.${clave}`).not.toMatch(/[{}]/);
+                    }
+                }
+            }
+        });
     });
 });

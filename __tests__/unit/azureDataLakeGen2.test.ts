@@ -7,6 +7,7 @@ import {
     aggregateDataLakeStorage,
 } from "@/services/azureDataLakeGen2.service";
 import { DataLakeAccountDetail } from "@/types/dataLakeGen2.types";
+import { esperarQueRindanLasClaves } from "./recomendacionesRinden";
 
 describe("Azure Data Lake Storage Gen2 FinOps Service", () => {
     it("should correctly detect Data Lake redundancy model from SKU", () => {
@@ -77,6 +78,7 @@ describe("Azure Data Lake Storage Gen2 FinOps Service", () => {
         };
 
         const recs = buildDataLakeRemediations([mockAccount]);
+        esperarQueRindanLasClaves(recs, "DataLakeFinops");
         const lifecycleRec = recs.find((r) => r.category === "LIFECYCLE_TIERING");
         expect(lifecycleRec).toBeDefined();
         expect(lifecycleRec?.estimatedSavingsUSD).toBeGreaterThan(0);
@@ -136,6 +138,7 @@ describe("Azure Data Lake Storage Gen2 FinOps Service", () => {
         };
 
         const recs = buildDataLakeRemediations([mockDevAccount]);
+        esperarQueRindanLasClaves(recs, "DataLakeFinops");
         const redRec = recs.find((r) => r.category === "REDUNDANCY_OPTIMIZATION");
         expect(redRec).toBeDefined();
         expect(redRec?.estimatedSavingsUSD).toBe(38.00); // 50% of $76
@@ -194,6 +197,7 @@ describe("Azure Data Lake Storage Gen2 FinOps Service", () => {
         };
 
         const recs = buildDataLakeRemediations([mockProdFleet]);
+        esperarQueRindanLasClaves(recs, "DataLakeFinops");
         const resRec = recs.find((r) => r.category === "STORAGE_RESERVATION");
         expect(resRec).toBeDefined();
         expect(resRec?.estimatedSavingsUSD).toBeCloseTo(2280.00 * 0.35, 1);

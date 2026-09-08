@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
+import { useTextoDeRecomendacion } from "@/lib/recommendationText";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
@@ -36,6 +37,7 @@ import {
 
 export default function DataLakeGen2FinopsDashboard() {
     const t = useTranslations("DataLakeFinops");
+    const { texto } = useTextoDeRecomendacion("DataLakeFinops");
     const { selectedTenant } = useTenant();
     const { instance, accounts: msalAccounts } = useMsal();
     const tenantId = selectedTenant?.id || "demo-tenant-id";
@@ -232,7 +234,7 @@ export default function DataLakeGen2FinopsDashboard() {
                     <p className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
                         {format(kpis?.totalMtdCost ?? 0)}
                     </p>
-                    <span className="text-[11px] text-slate-400">gasto acumulado mes actual</span>
+                    <span className="text-[11px] text-slate-400">{t("currentMonthAccrued")}</span>
                 </div>
 
                 {/* 2. Forecast Fin de Mes */}
@@ -261,7 +263,7 @@ export default function DataLakeGen2FinopsDashboard() {
                     </div>
                     <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 font-['Montserrat']">
                         {format(kpis?.potentialMonthlySavings ?? 0)}
-                        <span className="text-xs font-normal text-slate-500 ml-1">/mes</span>
+                        <span className="text-xs font-normal text-slate-500 ml-1">{t("perMonthSuffix")}</span>
                     </p>
                     <span className="text-[11px] text-slate-500">
                         {t("optimizationActionsCount", { n: remediations.length })}
@@ -282,7 +284,7 @@ export default function DataLakeGen2FinopsDashboard() {
                             {(kpis?.momVariationPercent ?? 0) > 0 ? `+${kpis?.momVariationPercent}%` : `${kpis?.momVariationPercent ?? 0}%`}
                         </p>
                     </div>
-                    <span className="text-[11px] text-slate-400">vs. mes anterior</span>
+                    <span className="text-[11px] text-slate-400">{t("vsPreviousMonth")}</span>
                 </div>
 
                 {/* 5. Recursos Evaluados */}
@@ -311,7 +313,7 @@ export default function DataLakeGen2FinopsDashboard() {
                     </div>
                     <p className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
                         ${kpis?.costPerTbManaged ?? 0}
-                        <span className="text-xs font-normal text-slate-500 ml-1">/TB-mes</span>
+                        <span className="text-xs font-normal text-slate-500 ml-1">{t("perTbMonthSuffix")}</span>
                     </p>
                     <span className="text-[11px] text-slate-400">{t("avgLakeCost")}</span>
                 </div>
@@ -487,21 +489,21 @@ export default function DataLakeGen2FinopsDashboard() {
                                                 )}
                                             </span>
                                             <div>
-                                                <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100">{rem.title}</h4>
+                                                <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100">{texto(rem.titleKey, rem.params)}</h4>
                                                 <span className="text-[10px] text-slate-400">{rem.accountName}</span>
                                             </div>
                                         </div>
                                         <span className="px-2 py-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-md shrink-0">
-                                            +{format(rem.estimatedSavingsUSD)}/mes
+                                            +{format(rem.estimatedSavingsUSD)}{t("perMonthSuffix")}
                                         </span>
                                     </div>
-                                    <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2">{rem.description}</p>
+                                    <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2">{texto(rem.descKey, rem.params)}</p>
                                 </div>
 
                                 <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                                     <span className="text-[11px] text-slate-500 flex items-center gap-1">
                                         <span className="w-2 h-2 rounded-full bg-blue-500" />
-                                        Impacto: {rem.impact}
+                                        {t("impactLabel")} {texto(rem.impactKey, rem.params)}
                                     </span>
                                     <button
                                         onClick={() => {
@@ -775,7 +777,7 @@ export default function DataLakeGen2FinopsDashboard() {
                                                     onClick={() => setSelectedAccount(account)}
                                                     className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors shadow-2xs"
                                                 >
-                                                    Detalles
+                                                    {t("details")}
                                                 </button>
                                             </td>
                                         </tr>
@@ -853,7 +855,7 @@ export default function DataLakeGen2FinopsDashboard() {
                                 </span>
                                 <div>
                                     <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
-                                        {activeRemediation.title}
+                                        {texto(activeRemediation.titleKey, activeRemediation.params)}
                                     </h3>
                                     <p className="text-xs text-slate-400">{activeRemediation.accountName}</p>
                                 </div>
@@ -867,7 +869,7 @@ export default function DataLakeGen2FinopsDashboard() {
                         </div>
 
                         <div className="p-5 space-y-4">
-                            <p className="text-xs text-slate-600 dark:text-slate-300">{activeRemediation.description}</p>
+                            <p className="text-xs text-slate-600 dark:text-slate-300">{texto(activeRemediation.descKey, activeRemediation.params)}</p>
 
                             {/* Script / Policy Tabs */}
                             <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
@@ -920,7 +922,7 @@ export default function DataLakeGen2FinopsDashboard() {
                                     className="absolute right-3 top-3 px-2 py-1 text-[11px] rounded bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center gap-1 border border-slate-700"
                                 >
                                     {copied ? <IconCheck className="w-3 h-3 text-emerald-400" /> : <IconCopy className="w-3 h-3" />}
-                                    <span>{copied ? "Copiado" : "Copiar"}</span>
+                                    <span>{copied ? t("copied") : t("copy")}</span>
                                 </button>
                                 <pre className="whitespace-pre-wrap">
                                     {activeScriptTab === "json" && activeRemediation.commandPayload.jsonPolicy
@@ -992,17 +994,17 @@ export default function DataLakeGen2FinopsDashboard() {
                                 </div>
                                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
                                     <span className="text-slate-400">{t("storageCost")}</span>
-                                    <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{format(selectedAccount.metrics.storageCostUSD)}/mes</p>
+                                    <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{format(selectedAccount.metrics.storageCostUSD)}{t("perMonthSuffix")}</p>
                                 </div>
                                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
                                     <span className="text-slate-400">{t("transactionCost")}</span>
-                                    <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{format(selectedAccount.metrics.transactionsCostUSD)}/mes</p>
+                                    <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{format(selectedAccount.metrics.transactionsCostUSD)}{t("perMonthSuffix")}</p>
                                 </div>
                             </div>
 
                             {/* Storage Temperature Detail */}
                             <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
-                                <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100">Desglose de Capacidad ({selectedAccount.storageBreakdown.totalStorageTB} TB)</h4>
+                                <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100">{t("capacityBreakdown", { tb: selectedAccount.storageBreakdown.totalStorageTB })}</h4>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                     <div className="p-2 bg-blue-50/50 dark:bg-blue-950/30 rounded-lg">
                                         <span className="text-[11px] text-[#0078D4] font-semibold">Hot Tier</span>

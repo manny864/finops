@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
+import { useTextoDeRecomendacion } from "@/lib/recommendationText";
 import { useTenant } from "@/components/TenantProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useMsal } from "@azure/msal-react";
@@ -39,6 +40,7 @@ type SortDirection = "asc" | "desc";
 
 export default function ManagedDisksFinopsDashboard() {
     const t = useTranslations("ManagedDisks");
+    const { texto } = useTextoDeRecomendacion("ManagedDisks");
     const { selectedTenant } = useTenant();
     const { format } = useCurrency();
     const { instance, accounts } = useMsal();
@@ -202,7 +204,7 @@ export default function ManagedDisksFinopsDashboard() {
                         {format(kpis?.totalMtdCost ?? 0)}
                     </p>
                     <span className="text-[11px] text-slate-400">
-                        {kpis?.totalProvisionedGB ?? 0} GiB provisionados
+                        {t("provisionedGib", { n: kpis?.totalProvisionedGB ?? 0 })}
                     </span>
                 </div>
 
@@ -219,7 +221,7 @@ export default function ManagedDisksFinopsDashboard() {
                         {format(kpis?.projectedEndOfMonthCost ?? 0)}
                     </p>
                     <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">
-                        Cierre proyectado mes
+                        {t("projectedMonthClose")}
                     </span>
                 </div>
 
@@ -234,7 +236,7 @@ export default function ManagedDisksFinopsDashboard() {
                     </div>
                     <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 font-['Montserrat']">
                         {format(kpis?.potentialMonthlySavings ?? 0)}
-                        <span className="text-xs font-normal text-slate-500 ml-1">/mes</span>
+                        <span className="text-xs font-normal text-slate-500 ml-1">{t("perMonthSuffix")}</span>
                     </p>
                     <span className="text-[11px] text-slate-500">
                         {remediations.length} acciones optimizables
@@ -255,7 +257,7 @@ export default function ManagedDisksFinopsDashboard() {
                             +{kpis?.momVariationPercent ?? 0}%
                         </p>
                     </div>
-                    <span className="text-[11px] text-slate-400">vs. mes anterior</span>
+                    <span className="text-[11px] text-slate-400">{t("vsPreviousMonth")}</span>
                 </div>
 
                 {/* 5. Recursos Evaluados */}
@@ -349,7 +351,7 @@ export default function ManagedDisksFinopsDashboard() {
                         <InfoTooltip content={t("tooltipSkuDistribution")} />
                     </h3>
                     <span className="text-xs text-slate-500">
-                        Total {kpis?.totalProvisionedGB ?? 0} GiB provisionados
+                        {t("totalProvisionedGib", { n: kpis?.totalProvisionedGB ?? 0 })}
                     </span>
                 </div>
 
@@ -384,7 +386,7 @@ export default function ManagedDisksFinopsDashboard() {
                                         {item.skuName}
                                     </p>
                                     <p className="text-[11px] text-slate-500">
-                                        {item.count} discos ({item.totalSizeGB} GiB)
+                                        {t("disksCountSize", { n: item.count, gb: item.totalSizeGB })}
                                     </p>
                                 </div>
                             </div>
@@ -407,7 +409,7 @@ export default function ManagedDisksFinopsDashboard() {
                             </h3>
                         </div>
                         <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-950 px-2.5 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
-                            Ahorro Total: {format(kpis?.potentialMonthlySavings ?? 0)}/mes
+                            {t("totalSavingsLabel")} {format(kpis?.potentialMonthlySavings ?? 0)}{t("perMonthSuffix")}
                         </span>
                     </div>
 
@@ -427,10 +429,10 @@ export default function ManagedDisksFinopsDashboard() {
                                         </span>
                                     </div>
                                     <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 mb-1 line-clamp-2">
-                                        {rec.title}
+                                        {texto(rec.titleKey, rec.params)}
                                     </h4>
                                     <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-3 mb-3">
-                                        {rec.description}
+                                        {texto(rec.descKey, rec.params)}
                                     </p>
                                 </div>
 
@@ -810,7 +812,7 @@ export default function ManagedDisksFinopsDashboard() {
                                 </div>
                                 <div>
                                     <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
-                                        {selectedActionForModal.title}
+                                        {texto(selectedActionForModal.titleKey, selectedActionForModal.params)}
                                     </h3>
                                     <p className="text-xs text-slate-500">
                                         Disco: <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{selectedActionForModal.diskName}</span>
@@ -828,9 +830,9 @@ export default function ManagedDisksFinopsDashboard() {
                         {/* Body */}
                         <div className="p-6 overflow-y-auto space-y-4 flex-1 text-xs">
                             <div className="p-3.5 rounded-xl bg-blue-50/50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 text-slate-700 dark:text-slate-300">
-                                <p className="font-medium">{selectedActionForModal.description}</p>
+                                <p className="font-medium">{texto(selectedActionForModal.descKey, selectedActionForModal.params)}</p>
                                 <p className="mt-2 text-emerald-700 dark:text-emerald-400 font-bold">
-                                    Impacto: {selectedActionForModal.impact}
+                                    {t("impactLabel")} {texto(selectedActionForModal.impactKey, selectedActionForModal.params)}
                                 </p>
                             </div>
 
@@ -873,7 +875,7 @@ export default function ManagedDisksFinopsDashboard() {
                                         {copiedText ? (
                                             <>
                                                 <IconCheck className="w-3.5 h-3.5 text-emerald-500" stroke={2} />
-                                                Copiado
+                                                {t("copied")}
                                             </>
                                         ) : (
                                             <>
