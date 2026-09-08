@@ -569,7 +569,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Falta parámetro tenantId" }, { status: 400 });
     }
 
-    await requireTenantAccess(request, tenantId);
+    // El guard NO corre para tenants demo, igual que en mysql-metrics,
+    // postgres-metrics y mongo-metrics. Corria siempre, asi que un tenant demo
+    // recibia 401 y la pantalla mostraba "No autorizado." en vez de los datos
+    // simulados que el propio branch de `isMockTenant` de mas abajo ya tenia
+    // armados. Los datos mock son sinteticos: no hay nada de un cliente real
+    // detras de este camino.
+    if (!isMockTenant(tenantId)) {
+      await requireTenantAccess(request, tenantId);
+    }
 
     const bustCache = request.nextUrl.searchParams.get("bust") === "1";
     const cacheKey = getDiagnosticsCacheKey(tenantId, "cosmos-db-finops-v2");
