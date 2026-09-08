@@ -17,7 +17,7 @@
 import dynamic from "next/dynamic";
 import { Loader2 } from "lucide-react";
 import React from "react";
-import { parsePageWidgetKey, type PageEntry } from "@/lib/pageRegistry";
+import { parsePageWidgetKey, pageTitleKey, pageDescKey, type PageEntry } from "@/lib/pageRegistry";
 
 const Loading = () => (
     <div className="flex items-center justify-center h-40">
@@ -42,16 +42,19 @@ const whiteboardWidget = (kind: "budgets" | "forecast" | "services" | "governanc
 export interface WidgetDef {
     key: string;
     /**
-     * Clave de catalogo, no texto. El registro es de nivel de modulo y ahi no
-     * existe `t`; ademas los pines se guardan por `key` en UserDashboardPins, no
-     * por rotulo, asi que el texto puede cambiar de idioma sin tocar los datos.
-     * Los atajos de pagina (`page:<id>`) todavia traen prosa desde pageRegistry
-     * y usan `title`/`description`; por eso conviven los dos.
+     * Clave de catalogo, no texto, y obligatoria. El registro es de nivel de
+     * modulo y ahi no existe `t`; ademas los pines se guardan por `key` en
+     * UserDashboardPins, no por rotulo, asi que el texto puede cambiar de idioma
+     * sin tocar los datos. Los atajos de pagina (`page:<id>`) derivan la suya
+     * del id de la ruta.
+     *
+     * Antes esto convivia con un `title?: string` de prosa suelta. Mientras el
+     * campo existio, agregar un widget en castellano compilaba: por eso es
+     * obligatoria y no opcional — que el compilador pida la clave es mas barato
+     * que un test que revise que nadie use el atajo.
      */
-    titleKey?: string;
-    descriptionKey?: string;
-    title?: string;
-    description?: string;
+    titleKey: string;
+    descriptionKey: string;
     sourcePage: string;
     Component: React.ComponentType<any>;
     minHeightRem?: number;
@@ -163,8 +166,8 @@ function buildShortcutDef(entry: PageEntry): WidgetDef {
     Wrapped.displayName = `Shortcut(${entry.id})`;
     return {
         key: `page:${entry.id}`,
-        title: entry.title,
-        description: entry.description,
+        titleKey: pageTitleKey(entry.id),
+        descriptionKey: pageDescKey(entry.id),
         sourcePage: entry.path,
         Component: Wrapped,
         minHeightRem: 11,

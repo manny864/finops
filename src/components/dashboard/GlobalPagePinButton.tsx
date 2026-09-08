@@ -2,7 +2,8 @@
 import React from "react";
 import { usePathname } from "next/navigation";
 import PinButton from "./PinButton";
-import { findPageForPath, pageWidgetKeyForPath } from "@/lib/pageRegistry";
+import { useTranslations } from "next-intl";
+import { findPageForPath, pageTitleKey, pageWidgetKeyForPath } from "@/lib/pageRegistry";
 import { useTenant } from "@/components/TenantProvider";
 
 /**
@@ -14,6 +15,7 @@ import { useTenant } from "@/components/TenantProvider";
  * la misma SWR cache key (`/api/dashboard/pins?tenantId=...`).
  */
 export default function GlobalPagePinButton() {
+    const t = useTranslations("MyDashboard");
     const pathname = usePathname() || "/";
     const { selectedTenant } = useTenant();
 
@@ -26,7 +28,7 @@ export default function GlobalPagePinButton() {
 
     const entry = findPageForPath(pathname);
     const widgetKey = pageWidgetKeyForPath(pathname);
-    const labelTitle = entry?.title || normalized.replace("/intelligence/", "").replace("/governance/", "").replace("/cleanup/", "").replace("/overview/", "").replace("/admin/", "").replaceAll("-", " ");
+    const labelTitle = entry ? t(pageTitleKey(entry.id)) : normalized.replace("/intelligence/", "").replace("/governance/", "").replace("/cleanup/", "").replace("/overview/", "").replace("/admin/", "").replaceAll("-", " ");
 
-    return <PinButton widgetKey={widgetKey} label={`Pinear "${labelTitle}" al dashboard`} />;
+    return <PinButton widgetKey={widgetKey} label={t("pinPageLabel", { page: labelTitle })} />;
 }

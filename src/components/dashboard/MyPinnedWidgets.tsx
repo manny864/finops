@@ -124,8 +124,8 @@ export default function MyPinnedWidgets() {
                                 <div key={pin.widgetKey} className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm overflow-hidden">
                                     <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30">
                                         <div className="min-w-0">
-                                            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{def.titleKey ? t(def.titleKey) : def.title}</h3>
-                                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{def.descriptionKey ? t(def.descriptionKey) : def.description}</p>
+                                            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{t(def.titleKey)}</h3>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{t(def.descriptionKey)}</p>
                                         </div>
                                         <button
                                             type="button"
@@ -138,7 +138,7 @@ export default function MyPinnedWidgets() {
                                     </div>
                                     <div className="p-3" style={{ minHeight: `${def.minHeightRem || 20}rem` }}>
                                         {requiredTier ? (
-                                            <FeatureGuard requiredTier={requiredTier} featureName={def.titleKey ? t(def.titleKey) : def.title}>
+                                            <FeatureGuard requiredTier={requiredTier} featureName={t(def.titleKey)}>
                                                 <W />
                                             </FeatureGuard>
                                         ) : <W />}

@@ -12,6 +12,7 @@ import { MYSQL_RULE_I18N } from "@/types/azureMySQL";
 import { POSTGRES_RULE_I18N } from "@/types/azurePostgreSQL";
 import { COSMOS_RULE_I18N } from "@/types/cosmosDb";
 import { FABRIC_RULE_I18N } from "@/types/azureFabric";
+import { PAGES, pageTitleKey, pageDescKey } from "@/lib/pageRegistry";
 
 /**
  * Descubre las claves de comentario de script leyendo los marcadores
@@ -190,6 +191,23 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
             que: "pasos del waterfall del simulador (WATERFALL_STEP_KEYS)",
             ns: "WhatIfSimulator",
             claves: WATERFALL_STEP_KEYS.map((k) => `waterfall_${k}`),
+        },
+        {
+            // Los atajos de pagina no guardan prosa: PageEntry solo tiene el id
+            // y la UI arma `page_<id>_title` / `page_<id>_desc` al renderizar.
+            // Nadie escribe estas claves a mano, asi que si alguien suma una
+            // ruta a PAGES y se olvida del catalogo, el unico que se entera es
+            // este test — en la pantalla se ve el id crudo.
+            que: "atajos de pagina (PAGES)",
+            ns: "MyDashboard",
+            claves: PAGES.flatMap((p) => [pageTitleKey(p.id), pageDescKey(p.id)]),
+        },
+        {
+            // ShortcutWidget muestra la categoria de la ruta como rotulo y la
+            // resuelve contra el vocabulario del sidebar.
+            que: "categorias de las rutas pineables (PAGES[].category)",
+            ns: "Navigation",
+            claves: [...new Set(PAGES.map((p) => p.category))],
         },
         {
             // OptimizationTarget.riskLevel es la union "low" | "medium" | "high".

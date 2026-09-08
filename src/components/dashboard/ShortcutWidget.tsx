@@ -3,7 +3,8 @@ import React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import * as LucideIcons from "lucide-react";
-import type { PageEntry } from "@/lib/pageRegistry";
+import { useTranslations } from "next-intl";
+import { pageTitleKey, pageDescKey, type PageEntry } from "@/lib/pageRegistry";
 
 interface Props {
     entry: PageEntry;
@@ -14,6 +15,8 @@ interface Props {
  * Muestra título, descripción y CTA al destino.
  */
 export default function ShortcutWidget({ entry }: Props) {
+    const t = useTranslations("MyDashboard");
+    const tNav = useTranslations("Navigation");
     const params = useParams();
     const locale = (params?.locale as string) || "es";
     const href = `/${locale}${entry.path}`;
@@ -29,13 +32,13 @@ export default function ShortcutWidget({ entry }: Props) {
                     <Icon className="w-5 h-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">{entry.category}</div>
-                    <div className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{entry.title}</div>
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">{tNav(entry.category)}</div>
+                    <div className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{entry.titleFallback ?? t(pageTitleKey(entry.id))}</div>
                 </div>
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-3 mb-3">{entry.description}</p>
+            <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-3 mb-3">{entry.titleFallback ? t("shortcutFallbackDesc") : t(pageDescKey(entry.id))}</p>
             <div className="mt-auto inline-flex items-center gap-1 text-xs font-semibold text-brand-deep group-hover:underline">
-                Abrir tablero <LucideIcons.ArrowRight className="w-3.5 h-3.5" />
+                {t("shortcutOpen")} <LucideIcons.ArrowRight className="w-3.5 h-3.5" />
             </div>
         </Link>
     );
