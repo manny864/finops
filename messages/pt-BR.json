@@ -4053,7 +4053,8 @@
     "view_demo": "Ver Demo Interativo",
     "copy": "Copiar",
     "copied": "Copiado",
-    "open": "Abrir"
+    "open": "Abrir",
+    "validatingSession": "Validando sessão..."
   },
   "ComputeContainersFinops": {
     "selectTenant": "Selecione um tenant para ver o cockpit FinOps/CMP de contêineres.",

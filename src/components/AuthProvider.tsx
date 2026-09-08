@@ -7,6 +7,7 @@ import { isMockTenant } from "@/lib/mockData";
 import { exitDemoSession } from "@/app/_actions/demoAuth";
 import UserProfileMenu from "./UserProfileMenu";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 
 const pca = new PublicClientApplication({
     auth: {
@@ -27,6 +28,7 @@ export const AuthLoadingContext = createContext({ isInitializing: true });
 export const useAuthLoading = () => useContext(AuthLoadingContext);
 
 export function AuthButton() {
+    const t = useTranslations("Common");
     const { instance, accounts, inProgress } = useMsal();
     const isAuthenticated = useIsAuthenticated();
     const { selectedTenant } = useTenant();
@@ -45,7 +47,7 @@ export function AuthButton() {
     }
 
     if (inProgress === "startup" || inProgress === "handleRedirect") {
-        return <span className="text-gray-400 text-sm font-medium animate-pulse px-4">Validando sesión...</span>;
+        return <span className="text-gray-400 text-sm font-medium animate-pulse px-4">{t("validatingSession")}</span>;
     }
 
     if (selectedTenant && isMockTenant(selectedTenant.id)) {
@@ -72,6 +74,7 @@ export function AuthButton() {
 }
 
 export default function AuthProvider({ children }: { children: ReactNode }) {
+    const t = useTranslations("Common");
     const [msalInitialized, setMsalInitialized] = useState(false);
 
     useEffect(() => {
@@ -148,7 +151,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
                 <div className="min-h-screen w-full flex items-center justify-center bg-surface">
                     <div className="flex flex-col items-center gap-3 text-ink-soft animate-pulse">
                         <div className="h-7 w-7 border-2 border-brand-deep border-t-transparent rounded-full animate-spin" />
-                        <span className="text-xs font-semibold">Validando sesión...</span>
+                        <span className="text-xs font-semibold">{t("validatingSession")}</span>
                     </div>
                 </div>
             </AuthLoadingContext.Provider>
