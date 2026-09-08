@@ -3541,7 +3541,18 @@
     "rec_bkp_redundancy_impact": "Economia mensal de 50% em armazenamento (${savings}/mês).",
     "rec_bkp_asr_title": "Auditar Licenças ASR em Cargas {env} ({count} VMs)",
     "rec_bkp_asr_desc": "Foram detectadas {count} réplicas ativas do Azure Site Recovery em ambiente não produtivo. Cada réplica fatura $25 USD/mês de licença de replicação contínua.",
-    "rec_bkp_asr_impact": "Economia potencial de ${savings}/mês desabilitando réplicas secundárias em Dev."
+    "rec_bkp_asr_impact": "Economia potencial de ${savings}/mês desabilitando réplicas secundárias em Dev.",
+    "gibInStorage": "{n} GiB em armazenamento",
+    "optimizableActions": "{n} ações otimizáveis",
+    "activeAsrReplicas": "{n} réplicas ASR ativas",
+    "orphanedTooltip": "Órfão: {gb} GiB",
+    "purgeOrphans": "Limpar Órfãos",
+    "viewCliCommand": "Ver Comando CLI",
+    "activeWithDays": "Ativo ({days}d)",
+    "inactive": "Inativo",
+    "immutability": "Imutabilidade",
+    "badgeProtected": "Protegido",
+    "azureResourceId": "Resource ID do Azure"
   },
   "BasicNetworkingFinops": {
     "title": "Redes Básicas",
@@ -5274,7 +5285,16 @@
     "rec_adls_redundancy_impact": "Economia mensal direta de ${savings}/mês no custo de armazenamento.",
     "rec_adls_smallfiles_title": "Otimizar Operações de Arquivos Pequenos (Small Files Anomaly)",
     "rec_adls_smallfiles_desc": "O custo de transações da conta \"{account}\" representa {pct}% do gasto total (${txCost}/mês) devido a escritas/listagens de alta frequência. Recomenda-se compactar tabelas Delta/Parquet (OPTIMIZE / Bin-Packing).",
-    "rec_adls_smallfiles_impact": "Economia estimada de ${savings}/mês reduzindo o volume de transações de API."
+    "rec_adls_smallfiles_impact": "Economia estimada de ${savings}/mês reduzindo o volume de transações de API.",
+    "unexpectedError": "Ocorreu um erro inesperado ao conectar com o Azure Resource Graph.",
+    "tbManaged": "{tb} TB gerenciados",
+    "viewJsonPolicy": "Ver Política JSON",
+    "viewScript": "Ver Script",
+    "hnsEnabled": "Habilitada (Data Lake Gen2)",
+    "configuredCount": "{n} configurados",
+    "blockedSecure": "Bloqueado (Seguro)",
+    "accessEnabled": "Habilitado",
+    "retry": "Tentar novamente"
   },
   "DatabaseFamilies": {
     "loading": "Carregando custos de bancos de dados...",
@@ -7847,7 +7867,20 @@
     "rec_disk_downgrade_impact": "Economia estimada de ${savings}/mês sem degradação perceptível do serviço.",
     "rec_disk_deallocated_title": "Otimização em VM Desligada ({vm})",
     "rec_disk_deallocated_desc": "A VM \"{vm}\" está desligada (Deallocated), mas seu disco Premium continua cobrando provisionamento completo. Converter para Standard HDD enquanto estiver inativa.",
-    "rec_disk_deallocated_impact": "Economia de ${savings}/mês enquanto a VM permanecer desligada."
+    "rec_disk_deallocated_impact": "Economia de ${savings}/mês enquanto a VM permanecer desligada.",
+    "optimizableActions": "{n} ações otimizáveis",
+    "activeManagedDisks": "Discos gerenciados ativos",
+    "optimizableAmount": "{amount}/mês otimizável",
+    "createSnapshotAndDelete": "Criar Snapshot e Excluir",
+    "viewCliCommand": "Ver Comando CLI",
+    "unattachedDash": "- Desvinculado -",
+    "noneOrphan": "Nenhuma (Órfão)",
+    "peakShort": "Pico: {n}",
+    "avgIops": "IOPS Média",
+    "peakIops": "IOPS de Pico",
+    "avgThroughput": "Throughput Méd.",
+    "peakThroughput": "Throughput de Pico",
+    "azureResourceId": "Resource ID do Azure"
   },
   "MarketplaceAzureLanding": {
     "errorConfigMissing": "Azure Marketplace não está configurado (falta AAD_APP_ID)",
@@ -10554,7 +10587,9 @@
     "softDeleteRetention": "Retenção de Soft Delete",
     "apiOperations": "Operações de API",
     "egress": "Egress (Saída)",
-    "ingress": "Ingress (Entrada)"
+    "ingress": "Ingress (Entrada)",
+    "accountsWithHot": "{n} contas ({gb} em Hot)",
+    "redundancyZrsLrs": "{zrs} com Redundância ZRS / {lrs} LRS"
   },
   "StorageFamilies": {
     "loading": "Carregando custos de armazenamento...",

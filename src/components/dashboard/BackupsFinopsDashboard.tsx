@@ -210,7 +210,7 @@ export default function BackupsFinopsDashboard() {
                         {format(kpis?.totalMtdCost ?? 0)}
                     </p>
                     <span className="text-[11px] text-slate-400">
-                        {kpis?.totalStorageGB ?? 0} GiB en almacenamiento
+                        {t("gibInStorage", { n: kpis?.totalStorageGB ?? 0 })}
                     </span>
                 </div>
 
@@ -245,7 +245,7 @@ export default function BackupsFinopsDashboard() {
                         <span className="text-xs font-normal text-slate-500 ml-1">{t("perMonthSuffix")}</span>
                     </p>
                     <span className="text-[11px] text-slate-500">
-                        {remediations.length} acciones optimizables
+                        {t("optimizableActions", { n: remediations.length })}
                     </span>
                 </div>
 
@@ -294,7 +294,7 @@ export default function BackupsFinopsDashboard() {
                         {kpis?.totalProtectedItemsCount ?? 0}
                     </p>
                     <span className="text-[11px] text-slate-400">
-                        {kpis?.asrInstancesCount ?? 0} réplicas ASR activas
+                        {t("activeAsrReplicas", { n: kpis?.asrInstancesCount ?? 0 })}
                     </span>
                 </div>
 
@@ -387,7 +387,7 @@ export default function BackupsFinopsDashboard() {
                             <div
                                 style={{ width: `${(storageBreakdown.orphanedStorageGB / storageBreakdown.totalStorageGB) * 100}%` }}
                                 className="bg-[#94A3B8] h-full transition-all hover:opacity-85"
-                                title={`Huérfano: ${storageBreakdown.orphanedStorageGB} GiB`}
+                                title={t("orphanedTooltip", { gb: storageBreakdown.orphanedStorageGB })}
                             />
                         </>
                     ) : (
@@ -482,7 +482,7 @@ export default function BackupsFinopsDashboard() {
                                     className="w-full inline-flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-semibold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg hover:bg-blue-50/60 dark:hover:bg-slate-800 transition-colors"
                                 >
                                     <IconTerminal2 className="w-3.5 h-3.5" stroke={1.5} />
-                                    {rec.category === "ORPHAN_PURGE" ? "Purgar Huérfanos" : "Ver Comando CLI"}
+                                    {rec.category === "ORPHAN_PURGE" ? t("purgeOrphans") : t("viewCliCommand")}
                                 </button>
                             </div>
                         ))}
@@ -987,11 +987,11 @@ export default function BackupsFinopsDashboard() {
                                 <div className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
                                     <span className="text-slate-400 font-medium">Soft Delete</span>
                                     <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
-                                        {selectedVaultForDetail.softDeleteEnabled ? `Activo (${selectedVaultForDetail.softDeleteRetentionDays}d)` : "Inactivo"}
+                                        {selectedVaultForDetail.softDeleteEnabled ? t("activeWithDays", { days: selectedVaultForDetail.softDeleteRetentionDays }) : t("inactive")}
                                     </p>
                                 </div>
                                 <div className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
-                                    <span className="text-slate-400 font-medium">Inmutabilidad</span>
+                                    <span className="text-slate-400 font-medium">{t("immutability")}</span>
                                     <p className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-0.5">
                                         {selectedVaultForDetail.immutabilityState}
                                     </p>
@@ -1040,7 +1040,7 @@ export default function BackupsFinopsDashboard() {
                                                                 </span>
                                                             ) : (
                                                                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                                                                    Protegido
+                                                                    {t("badgeProtected")}
                                                                 </span>
                                                             )}
                                                         </td>
@@ -1063,7 +1063,7 @@ export default function BackupsFinopsDashboard() {
 
                             {/* Resource ID */}
                             <div className="space-y-1.5">
-                                <span className="text-slate-400 font-medium">Resource ID Azure</span>
+                                <span className="text-slate-400 font-medium">{t("azureResourceId")}</span>
                                 <p className="p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono text-[10px] break-all select-all">
                                     {selectedVaultForDetail.id}
                                 </p>

@@ -239,7 +239,7 @@ export default function ManagedDisksFinopsDashboard() {
                         <span className="text-xs font-normal text-slate-500 ml-1">{t("perMonthSuffix")}</span>
                     </p>
                     <span className="text-[11px] text-slate-500">
-                        {remediations.length} acciones optimizables
+                        {t("optimizableActions", { n: remediations.length })}
                     </span>
                 </div>
 
@@ -272,7 +272,7 @@ export default function ManagedDisksFinopsDashboard() {
                     <p className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
                         {kpis?.totalDisksCount ?? 0}
                     </p>
-                    <span className="text-[11px] text-slate-400">Discos administrados activos</span>
+                    <span className="text-[11px] text-slate-400">{t("activeManagedDisks")}</span>
                 </div>
 
                 {/* 6. Discos Huérfanos / Desconectados */}
@@ -314,7 +314,7 @@ export default function ManagedDisksFinopsDashboard() {
                         {kpis?.underutilizedDisksCount ?? 0}
                     </p>
                     <span className="text-[11px] text-slate-400">
-                        {format(kpis?.underutilizedDisksCost ?? 0)}/m optimizable
+                        {t("optimizableAmount", { amount: format(kpis?.underutilizedDisksCost ?? 0) })}
                     </span>
                 </div>
 
@@ -441,7 +441,7 @@ export default function ManagedDisksFinopsDashboard() {
                                     className="w-full inline-flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-semibold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg hover:bg-blue-50/60 dark:hover:bg-slate-800 transition-colors"
                                 >
                                     <IconTerminal2 className="w-3.5 h-3.5" stroke={1.5} />
-                                    {rec.category === "ORPHAN" ? "Crear Snapshot & Eliminar" : "Ver Comando CLI"}
+                                    {rec.category === "ORPHAN" ? t("createSnapshotAndDelete") : t("viewCliCommand")}
                                 </button>
                             </div>
                         ))}
@@ -667,7 +667,7 @@ export default function ManagedDisksFinopsDashboard() {
                                                             </span>
                                                         </div>
                                                     ) : (
-                                                        <span className="text-slate-400 italic text-[11px]">- Desvinculado -</span>
+                                                        <span className="text-slate-400 italic text-[11px]">{t("unattachedDash")}</span>
                                                     )}
                                                 </td>
 
@@ -695,7 +695,7 @@ export default function ManagedDisksFinopsDashboard() {
                                                             {disk.metrics.avgIops} IOPS
                                                         </span>
                                                         <p className="text-[10px] text-slate-400">
-                                                            Pico: {disk.metrics.peakIops}
+                                                            {t("peakShort", { n: disk.metrics.peakIops })}
                                                         </p>
                                                     </div>
                                                 </td>
@@ -960,7 +960,7 @@ export default function ManagedDisksFinopsDashboard() {
                                 <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
                                     <span className="text-slate-400 font-medium">{t("associatedVm")}</span>
                                     <p className="text-sm font-bold text-slate-900 dark:text-slate-100 mt-0.5">
-                                        {selectedDiskForDetail.managedByVmName || "Ninguna (Huérfano)"}
+                                        {selectedDiskForDetail.managedByVmName || t("noneOrphan")}
                                     </p>
                                 </div>
                             </div>
@@ -973,25 +973,25 @@ export default function ManagedDisksFinopsDashboard() {
                                 </h4>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-center font-mono">
                                     <div className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                                        <span className="text-[10px] text-slate-400 block font-sans">IOPS Promedio</span>
+                                        <span className="text-[10px] text-slate-400 block font-sans">{t("avgIops")}</span>
                                         <span className="font-bold text-slate-900 dark:text-slate-100">
                                             {selectedDiskForDetail.metrics.avgIops}
                                         </span>
                                     </div>
                                     <div className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                                        <span className="text-[10px] text-slate-400 block font-sans">IOPS Pico</span>
+                                        <span className="text-[10px] text-slate-400 block font-sans">{t("peakIops")}</span>
                                         <span className="font-bold text-slate-900 dark:text-slate-100">
                                             {selectedDiskForDetail.metrics.peakIops}
                                         </span>
                                     </div>
                                     <div className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                                        <span className="text-[10px] text-slate-400 block font-sans">Throughput Prom.</span>
+                                        <span className="text-[10px] text-slate-400 block font-sans">{t("avgThroughput")}</span>
                                         <span className="font-bold text-slate-900 dark:text-slate-100">
                                             {selectedDiskForDetail.metrics.avgThroughputMbps} MB/s
                                         </span>
                                     </div>
                                     <div className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                                        <span className="text-[10px] text-slate-400 block font-sans">Throughput Pico</span>
+                                        <span className="text-[10px] text-slate-400 block font-sans">{t("peakThroughput")}</span>
                                         <span className="font-bold text-slate-900 dark:text-slate-100">
                                             {selectedDiskForDetail.metrics.peakThroughputMbps} MB/s
                                         </span>
@@ -1001,7 +1001,7 @@ export default function ManagedDisksFinopsDashboard() {
 
                             {/* Resource ID and Encryption */}
                             <div className="space-y-1.5">
-                                <span className="text-slate-400 font-medium">Resource ID Azure</span>
+                                <span className="text-slate-400 font-medium">{t("azureResourceId")}</span>
                                 <p className="p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono text-[10px] break-all select-all">
                                     {selectedDiskForDetail.id}
                                 </p>

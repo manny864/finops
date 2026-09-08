@@ -183,12 +183,12 @@ export default function DataLakeGen2FinopsDashboard() {
                     <IconAlertTriangle className="w-5 h-5 text-rose-600" />
                     <span>{t("loadError")}</span>
                 </div>
-                <p className="text-sm mt-1">{error?.message || "Ocurrió un error inesperado al conectar con Azure Resource Graph."}</p>
+                <p className="text-sm mt-1">{error?.message || t("unexpectedError")}</p>
                 <button
                     onClick={() => mutate()}
                     className="mt-3 px-4 py-1.5 text-xs font-medium bg-white dark:bg-slate-900 border border-rose-300 dark:border-rose-700 text-rose-700 dark:text-rose-300 rounded-lg hover:bg-rose-100/50"
                 >
-                    Reintentar
+                    {t("retry")}
                 </button>
             </div>
         );
@@ -299,7 +299,7 @@ export default function DataLakeGen2FinopsDashboard() {
                     <p className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
                         {kpis?.totalAccountsCount ?? 0}
                     </p>
-                    <span className="text-[11px] text-slate-400">{storageBreakdown.totalStorageTB} TB gestionados</span>
+                    <span className="text-[11px] text-slate-400">{t("tbManaged", { tb: storageBreakdown.totalStorageTB })}</span>
                 </div>
 
                 {/* 6. Eficiencia ($/TB) */}
@@ -513,7 +513,7 @@ export default function DataLakeGen2FinopsDashboard() {
                                         className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors shadow-2xs"
                                     >
                                         <IconCode className="w-3.5 h-3.5" stroke={1.5} />
-                                        <span>{rem.commandPayload.jsonPolicy ? "Ver Política JSON" : "Ver Script"}</span>
+                                        <span>{rem.commandPayload.jsonPolicy ? t("viewJsonPolicy") : t("viewScript")}</span>
                                     </button>
                                 </div>
                             </div>
@@ -982,15 +982,15 @@ export default function DataLakeGen2FinopsDashboard() {
                                 </div>
                                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
                                     <span className="text-slate-400">{t("hnsHierarchy")}</span>
-                                    <p className="font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">Habilitada (Data Lake Gen2)</p>
+                                    <p className="font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">{t("hnsEnabled")}</p>
                                 </div>
                                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
                                     <span className="text-slate-400">Private Endpoints</span>
-                                    <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{selectedAccount.privateEndpointsCount} configurados</p>
+                                    <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{t("configuredCount", { n: selectedAccount.privateEndpointsCount })}</p>
                                 </div>
                                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
                                     <span className="text-slate-400">{t("publicAccess")}</span>
-                                    <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{selectedAccount.publicAccessBlocked ? "Bloqueado (Seguro)" : "Habilitado"}</p>
+                                    <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{selectedAccount.publicAccessBlocked ? t("blockedSecure") : t("accessEnabled")}</p>
                                 </div>
                                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
                                     <span className="text-slate-400">{t("storageCost")}</span>

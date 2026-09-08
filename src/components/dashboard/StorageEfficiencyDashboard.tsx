@@ -319,7 +319,7 @@ export default function StorageEfficiencyDashboard() {
                     </p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 flex items-center gap-1">
                         <IconBox className="w-3.5 h-3.5 text-blue-600" stroke={1.5} />
-                        {data.accountsCount || rawAccountsList.length} cuentas ({formatStorageSize(tiers.hot.gb)} en Hot)
+                        {t("accountsWithHot", { n: data.accountsCount || rawAccountsList.length, gb: formatStorageSize(tiers.hot.gb) })}
                     </p>
                 </div>
 
@@ -349,7 +349,7 @@ export default function StorageEfficiencyDashboard() {
                     </p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 flex items-center gap-1">
                         <IconLayersLinked className="w-3.5 h-3.5 text-purple-600" stroke={1.5} />
-                        {data.redundancyCounts?.zrs ?? 0} con Redundancia ZRS / {data.redundancyCounts?.lrs ?? 0} LRS
+                        {t("redundancyZrsLrs", { zrs: data.redundancyCounts?.zrs ?? 0, lrs: data.redundancyCounts?.lrs ?? 0 })}
                     </p>
                 </div>
             </div>

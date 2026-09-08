@@ -502,3 +502,88 @@ describe("i18n · capa 4: las recomendaciones que viajan en claves", () => {
         });
     });
 });
+
+/**
+ * Capa 5 — castellano hardcodeado en los tableros ya traducidos.
+ *
+ * Las capas 1 a 4 verifican que las claves EXISTAN y RINDAN. Ninguna ve el caso
+ * inverso, que es el que se escapó cuatro veces seguidas: el texto que nunca
+ * pasó por `t()` y quedó literal en el JSX. Salía en la UI en castellano en los
+ * tres idiomas y ningún test se enteraba; lo encontraba el usuario mirando la
+ * pantalla.
+ *
+ * Estos archivos ya están limpios. La capa los congela: si alguien agrega
+ * `<span>Discos activos</span>` en vez de `t("...")`, esto falla nombrando el
+ * archivo y la línea.
+ *
+ * ponytail: detecta castellano por acentos + palabras funcionales + morfología.
+ * Techo medido rompiéndolo a propósito:
+ *   "Purgar Huérfanos"       -> lo ve (acento)
+ *   "Eliminar los respaldos" -> lo ve (palabra funcional "los")
+ *   "Purgar Huerfanos"       -> CIEGO (sin acento, sin funcional, sin sufijo)
+ *   "Reintentar"             -> CIEGO (idem, palabra sola)
+ * Para ese resto está `scan_es2.py --todo` en los archivos de sesión, que marca
+ * TODO literal visible y se revisa a mano. Si el residuo molesta, el paso
+ * siguiente es lista blanca de términos técnicos + prohibir cualquier literal.
+ */
+const TABLEROS_LIMPIOS = [
+    "src/components/dashboard/ManagedDisksFinopsDashboard.tsx",
+    "src/components/dashboard/BackupsFinopsDashboard.tsx",
+    "src/components/dashboard/DataLakeGen2FinopsDashboard.tsx",
+    "src/components/dashboard/StorageEfficiencyDashboard.tsx",
+    "src/components/dashboard/StorageHistoryModal.tsx",
+];
+
+const ACENTOS = /[áéíóúñ¿¡]/i;
+const FUNCION = /(?<![\w-])(de|del|la|el|los|las|en|por|para|con|sin|un|una|al|es|son|no|se|su|sus|que|mas|este|esta|estos|estas|cada|entre|sobre|desde|hasta|segun|donde|cuando)(?![\w-])/i;
+const MORFO = /(?<![\w-])\w{3,}(cion|ciones|dad|dades|able|ables|miento|mientos|ado|ada|ados|adas|ando|iendo|ivo|iva|ivos|ivas)(?![\w-])/i;
+// Clases de Tailwind y tokens que no son prosa.
+const NO_ES_PROSA = /(^|\s)(text|bg|border|flex|grid|px|py|pt|pb|pl|pr|mx|my|mt|mb|ml|mr|w|h|min|max|rounded|shadow|gap|space|items|justify|hover|dark|sm|md|lg|xl|font|leading|tracking|overflow|absolute|relative|z|opacity|transition|duration|ring)-/;
+
+const pareceCastellano = (t: string) => {
+    const s = t.trim();
+    if (s.length < 4 || NO_ES_PROSA.test(s)) return false;
+    if (!/[a-záéíóúñ]{3}/i.test(s)) return false;
+    // identificadores camelCase en inglés: `capacityUnavailable` termina en -able
+    if (/^[a-z]+([A-Z][a-zA-Z]*)+$/.test(s)) return false;
+    return ACENTOS.test(s) || FUNCION.test(s) || MORFO.test(s);
+};
+
+// Saca las {interpolaciones} para ver el texto literal que queda.
+const sinInterpolacion = (t: string) => t.replace(/\{[^{}]*\}/g, " ");
+
+describe("i18n · capa 5: los tableros traducidos no vuelven a tener castellano suelto", () => {
+    it.each(TABLEROS_LIMPIOS)("%s no tiene texto literal en castellano", (relativo) => {
+        const fuente = readFileSync(join(process.cwd(), relativo), "utf-8").split("\n");
+        const hallazgos: string[] = [];
+
+        fuente.forEach((lineaCruda, i) => {
+            // corta el comentario al final de línea, que no es texto de interfaz
+            const linea = lineaCruda.replace(/\s\/\/(?!\/).*$/, "");
+            const s = linea.trim();
+            if (s.startsWith("//") || s.startsWith("*") || s.startsWith("/*")) return;
+
+            // texto JSX en una línea: >texto<
+            for (const m of linea.matchAll(/>([^<>\n]{3,140})</g)) {
+                if (pareceCastellano(sinInterpolacion(m[1]))) {
+                    hallazgos.push(`${relativo}:${i + 1}  ${m[1].trim()}`);
+                }
+            }
+            // texto JSX que ocupa su propia línea (puede arrancar con {interpolación})
+            if (!/[<>]/.test(s) && !/[,{;(]$/.test(s) && !s.includes("=")) {
+                if (pareceCastellano(sinInterpolacion(s))) hallazgos.push(`${relativo}:${i + 1}  ${s}`);
+            }
+            // literales dentro de expresiones JSX y props de texto
+            for (const m of linea.matchAll(/"([^"\n]{4,140})"|'([^'\n]{4,140})'|`([^`\n]{4,140})`/g)) {
+                const lit = m[1] ?? m[2] ?? m[3];
+                if (lit.includes("/") && !lit.includes(" ")) continue; // rutas de import
+                if (pareceCastellano(lit)) hallazgos.push(`${relativo}:${i + 1}  ${lit}`);
+            }
+        });
+
+        expect(
+            hallazgos,
+            `Texto en castellano sin t() en ${relativo}:\n  ${[...new Set(hallazgos)].join("\n  ")}`
+        ).toEqual([]);
+    });
+});
