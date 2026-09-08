@@ -763,7 +763,7 @@ export default function BackupsFinopsDashboard() {
                                                                 title={t("optimizeVault")}
                                                             >
                                                                 <IconSparkles className="w-3.5 h-3.5 text-[#0054A6]" stroke={1.5} />
-                                                                <span>Optimizar</span>
+                                                                <span>{t("optimize")}</span>
                                                             </button>
                                                         )}
                                                     </div>
@@ -977,7 +977,7 @@ export default function BackupsFinopsDashboard() {
                                     </p>
                                 </div>
                                 <div className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
-                                    <span className="text-slate-400 font-medium">Redundancia</span>
+                                    <span className="text-slate-400 font-medium">{t("redundancy")}</span>
                                     <p className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-0.5">
                                         {selectedVaultForDetail.redundancy}
                                     </p>

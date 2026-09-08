@@ -69,9 +69,23 @@ export type StorageRemediationActionType =
 
 export interface StorageRemediationAction {
     id: string;
-    title: string;
-    description: string;
-    impactDescription?: string;
+    /**
+     * Claves i18n en el namespace `StorageEfficiency`. Van claves y no la frase
+     * armada: SWR cachea el payload del lado del cliente y `LanguageSwitcher`
+     * navega por SPA, así que con texto armado en el servidor un cambio de idioma
+     * dejaba las recomendaciones en el idioma anterior hasta la revalidación.
+     *
+     * `descKey` varía por instancia y no sólo por `actionType`: el hardening de
+     * seguridad tiene dos causas (acceso público / TLS viejo) y cada una es una
+     * frase distinta.
+     */
+    titleKey: string;
+    descKey: string;
+    impactKey?: string;
+    /** Pasos de implementación, en orden. */
+    stepKeys?: string[];
+    /** Valores a interpolar. Números y nombres de recurso, nunca frases. */
+    params?: Record<string, string | number>;
     category: "Cost" | "Governance" | "Security" | "Performance";
     actionType: StorageRemediationActionType;
     severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
@@ -84,7 +98,6 @@ export interface StorageRemediationAction {
     jsonPayload?: string;
     cliCommand?: string;
     powershellCommand?: string;
-    implementationSteps?: string[];
 }
 
 export interface StorageTierDistribution {

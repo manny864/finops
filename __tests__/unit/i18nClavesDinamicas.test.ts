@@ -402,7 +402,9 @@ describe("i18n · capa 4: las recomendaciones de cómputo", () => {
      * boards hay otros `titleKey` (`titleKey: "recScaleToZero"`) que no son esto.
      */
     function sitiosDeRecomendacion(): Array<{ archivo: string; titleKey: string; descKey: string; params: string[] }> {
-        const re = /titleKey:\s*"(rec_\w+)",\s*descKey:\s*"(rec_\w+)",(?:\s*params:\s*\{([^}]*)\})?/g;
+        // `rec_sto_` queda fuera a propósito: son de storage y viven en el
+        // namespace StorageEfficiency, no en ComputeRecommendations. Las cubre la capa 5.
+        const re = /titleKey:\s*"(rec_(?!sto_)\w+)",\s*descKey:\s*"(rec_\w+)",(?:\s*params:\s*\{([^}]*)\})?/g;
         const encontrados: Array<{ archivo: string; titleKey: string; descKey: string; params: string[] }> = [];
 
         for (const archivo of fuentes("src")) {
@@ -472,6 +474,97 @@ describe("i18n · capa 4: las recomendaciones de cómputo", () => {
                     const texto = t(clave, valores);
                     expect(texto, `${locale} · ComputeRecommendations.${clave}`).not.toContain(clave);
                     expect(texto, `${locale} · ComputeRecommendations.${clave}`).not.toMatch(/[{}]/);
+                }
+            }
+        }
+    });
+});
+
+
+describe("i18n · capa 5: las recomendaciones de almacenamiento", () => {
+    /**
+     * Hermana de la capa 4, pero storage no encaja en aquel escáner por dos
+     * motivos: sus claves viven en `StorageEfficiency` (no en un namespace
+     * propio) y cada acción trae cuatro campos de texto en vez de dos —
+     * titleKey, descKey, impactKey y un array stepKeys.
+     *
+     * Además `descKey` puede ser un ternario: el hardening de seguridad tiene dos
+     * causas (acceso público / TLS viejo) y cada una es una frase distinta. Por
+     * eso el escáner no lee campo por campo sino que barre el bloque entero de la
+     * acción y junta TODO literal `rec_sto_*` que encuentre hasta el `params`.
+     *
+     * Igual que las capas 3 y 4: descubre en vez de listar, así una regla nueva
+     * queda cubierta sin tocar este archivo.
+     */
+    const NS = "StorageEfficiency";
+
+    function sitiosDeStorage(): Array<{ archivo: string; claves: string[]; params: string[] }> {
+        const bloque = /titleKey:\s*"rec_sto_\w+"[\s\S]{0,800}?params:\s*\{([^}]*)\}/g;
+        const encontrados: Array<{ archivo: string; claves: string[]; params: string[] }> = [];
+
+        for (const archivo of fuentes("src")) {
+            const codigo = readFileSync(archivo, "utf8").replace(/^[ \t]*\/\/[^\n]*$/gm, "");
+            for (const m of codigo.matchAll(bloque)) {
+                encontrados.push({
+                    archivo,
+                    claves: [...new Set([...m[0].matchAll(/"(rec_sto_\w+)"/g)].map((k) => k[1]))],
+                    params: [...m[1].matchAll(/(?:^|[{,])\s*(\w+)\s*(?=[:,}]|$)/g)].map((p) => p[1]),
+                });
+            }
+        }
+        return encontrados;
+    }
+
+    const sitios = sitiosDeStorage();
+
+    it("el escáner encuentra los call sites (si esto falla, se rompió el escáner)", () => {
+        // 5 reglas en el servicio real + las 5 espejadas en el mock de demo.
+        // Piso exacto, no holgado: con holgura, un call site que el regex deja de
+        // ver pasa desapercibido, que es justo lo que este test cuida.
+        expect(sitios.length).toBeGreaterThanOrEqual(10);
+    });
+
+    it("cada clave existe en los tres catálogos", () => {
+        const faltantes: string[] = [];
+        for (const { archivo, claves } of sitios) {
+            for (const locale of LOCALES) {
+                for (const clave of claves) {
+                    if (typeof catalogos[locale][NS]?.[clave] !== "string") {
+                        faltantes.push(`${locale} · ${NS}.${clave} (${archivo})`);
+                    }
+                }
+            }
+        }
+        expect(faltantes, faltantes.join("\n")).toEqual([]);
+    });
+
+    it("los params del call site cubren lo que el texto interpola, en los tres idiomas", () => {
+        const huecos: string[] = [];
+        for (const { archivo, claves, params } of sitios) {
+            for (const locale of LOCALES) {
+                for (const clave of claves) {
+                    const icu = catalogos[locale][NS]?.[clave];
+                    if (typeof icu !== "string") continue; // ya lo reporta el test de arriba
+                    for (const arg of placeholdersICU(icu)) {
+                        if (!params.includes(arg)) {
+                            huecos.push(`${locale} · ${NS}.${clave} pide {${arg}} y el call site no lo manda (${archivo})`);
+                        }
+                    }
+                }
+            }
+        }
+        expect(huecos, huecos.join("\n")).toEqual([]);
+    });
+
+    it("con sus params, cada clave rinde una frase sin marcadores sueltos", () => {
+        for (const { claves, params } of sitios) {
+            const valores = Object.fromEntries(params.map((p) => [p, 1]));
+            for (const locale of LOCALES) {
+                const t = traducir(locale, NS);
+                for (const clave of claves) {
+                    const texto = t(clave, valores);
+                    expect(texto, `${locale} · ${NS}.${clave}`).not.toContain(clave);
+                    expect(texto, `${locale} · ${NS}.${clave}`).not.toMatch(/[{}]/);
                 }
             }
         }

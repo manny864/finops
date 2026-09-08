@@ -4,6 +4,7 @@ import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
+import { useTextoDeRecomendacion } from "@/lib/recommendationText";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useCurrency } from "@/components/CurrencyProvider";
 import {
@@ -79,6 +80,7 @@ function formatLocalDate(date: Date): string {
 
 export default function StorageEfficiencyDashboard() {
     const t = useTranslations("StorageEfficiency");
+    const { texto } = useTextoDeRecomendacion("StorageEfficiency");
     const tm = useTranslations("Mock");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
@@ -276,7 +278,7 @@ export default function StorageEfficiencyDashboard() {
                         title={t("refreshData")}
                     >
                         <IconRefresh className="w-4 h-4" stroke={1.5} />
-                        Refrescar
+                        {t("refresh")}
                     </button>
                     <button
                         onClick={() => setIsHistoryModalOpen(true)}
@@ -343,7 +345,7 @@ export default function StorageEfficiencyDashboard() {
                         <InfoTooltip content={t("tooltip_kpi_accounts")} position="bottom" align="left" />
                     </div>
                     <p className="text-2xl font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
-                        {data.accountsCount || rawAccountsList.length} Cuentas
+                        {data.accountsCount || rawAccountsList.length} {t("accountsSuffix")}
                     </p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 flex items-center gap-1">
                         <IconLayersLinked className="w-3.5 h-3.5 text-purple-600" stroke={1.5} />
@@ -474,7 +476,7 @@ export default function StorageEfficiencyDashboard() {
                                                 {rem.category.toUpperCase()}
                                             </span>
                                             <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
-                                                {rem.title}
+                                                {texto(rem.titleKey, rem.params)}
                                             </h4>
                                             {rem.targetAccountName && (
                                                 <span className="text-[11px] font-mono text-slate-500 bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
@@ -483,11 +485,11 @@ export default function StorageEfficiencyDashboard() {
                                             )}
                                         </div>
                                         <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                                            {rem.description}
+                                            {texto(rem.descKey, rem.params)}
                                         </p>
-                                        {rem.impactDescription && (
+                                        {rem.impactKey && (
                                             <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                                                💡 {rem.impactDescription}
+                                                💡 {texto(rem.impactKey, rem.params)}
                                             </p>
                                         )}
                                     </div>
@@ -497,7 +499,7 @@ export default function StorageEfficiencyDashboard() {
                                             <div className="text-right">
                                                 <span className="text-[10px] text-slate-400 block">{t("colEstimatedSavings")}</span>
                                                 <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                                                    {format(rem.estimatedSavingsUSD)}/mes
+                                                    {format(rem.estimatedSavingsUSD)}{t("perMonthSuffix")}
                                                 </span>
                                             </div>
                                         )}
@@ -844,7 +846,7 @@ export default function StorageEfficiencyDashboard() {
                             onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                             disabled={currentPage === 1}
                             className="p-1.5 rounded-md border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                            title="Anterior"
+                            title={t("previous")}
                         >
                             <IconChevronLeft className="w-4 h-4" stroke={1.5} />
                         </button>
@@ -855,7 +857,7 @@ export default function StorageEfficiencyDashboard() {
                             onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
                             disabled={currentPage === totalPages}
                             className="p-1.5 rounded-md border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                            title="Siguiente"
+                            title={t("next")}
                         >
                             <IconChevronRight className="w-4 h-4" stroke={1.5} />
                         </button>
@@ -874,7 +876,7 @@ export default function StorageEfficiencyDashboard() {
                                 </span>
                                 <div>
                                     <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
-                                        {selectedRemediation.title}
+                                        {texto(selectedRemediation.titleKey, selectedRemediation.params)}
                                     </h3>
                                     <p className="text-xs text-slate-500 font-mono">
                                         {selectedRemediation.targetAccountName} ({selectedRemediation.targetResourceGroup})
@@ -890,18 +892,18 @@ export default function StorageEfficiencyDashboard() {
                         </div>
 
                         <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                            {selectedRemediation.description}
+                            {texto(selectedRemediation.descKey, selectedRemediation.params)}
                         </p>
 
                         {/* Implementation Steps */}
-                        {selectedRemediation.implementationSteps && (
+                        {selectedRemediation.stepKeys && (
                             <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1.5">
                                 <h4 className="text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
                                     {t("implementationProtocol")}
                                 </h4>
                                 <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1 list-disc list-inside">
-                                    {selectedRemediation.implementationSteps.map((step, idx) => (
-                                        <li key={idx}>{step}</li>
+                                    {selectedRemediation.stepKeys.map((clave) => (
+                                        <li key={clave}>{texto(clave, selectedRemediation.params)}</li>
                                     ))}
                                 </ul>
                             </div>
@@ -1027,13 +1029,13 @@ export default function StorageEfficiencyDashboard() {
                         {/* Grid of properties */}
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                             <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/40">
-                                <span className="text-slate-400 text-[10px] block">SKU / Redundancia</span>
+                                <span className="text-slate-400 text-[10px] block">{t("skuRedundancy")}</span>
                                 <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
                                     {selectedAccountForDetail.skuName}
                                 </span>
                             </div>
                             <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/40">
-                                <span className="text-slate-400 text-[10px] block">Tier Principal</span>
+                                <span className="text-slate-400 text-[10px] block">{t("mainTier")}</span>
                                 <span className="font-bold text-slate-800 dark:text-slate-200">
                                     {selectedAccountForDetail.tier}
                                 </span>
@@ -1041,7 +1043,7 @@ export default function StorageEfficiencyDashboard() {
                             <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/40">
                                 <span className="text-slate-400 text-[10px] block">Data Lake Gen2 (HNS)</span>
                                 <span className="font-bold text-slate-800 dark:text-slate-200">
-                                    {selectedAccountForDetail.isHnsEnabled ? "Habilitado" : "Deshabilitado"}
+                                    {selectedAccountForDetail.isHnsEnabled ? t("enabled") : t("disabled")}
                                 </span>
                             </div>
                             <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/40">
@@ -1057,7 +1059,7 @@ export default function StorageEfficiencyDashboard() {
                                 </span>
                             </div>
                             <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/40">
-                                <span className="text-slate-400 text-[10px] block">Soft Delete Retention</span>
+                                <span className="text-slate-400 text-[10px] block">{t("softDeleteRetention")}</span>
                                 <span className="font-bold text-slate-800 dark:text-slate-200">
                                     {selectedAccountForDetail.deleteRetentionEnabled ? t("retentionDays", { n: selectedAccountForDetail.deleteRetentionDays }) : t("disabled")}
                                 </span>
@@ -1073,19 +1075,19 @@ export default function StorageEfficiencyDashboard() {
                                 </h4>
                                 <div className="grid grid-cols-3 gap-2 text-xs pt-1">
                                     <div>
-                                        <span className="text-[10px] text-slate-400 block">Operaciones API</span>
+                                        <span className="text-[10px] text-slate-400 block">{t("apiOperations")}</span>
                                         <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
                                             {selectedAccountForDetail.metrics.transactionsCount.toLocaleString()}
                                         </span>
                                     </div>
                                     <div>
-                                        <span className="text-[10px] text-slate-400 block">Egress (Salida)</span>
+                                        <span className="text-[10px] text-slate-400 block">{t("egress")}</span>
                                         <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
                                             {formatStorageSize(selectedAccountForDetail.metrics.egressBytes / (1024 * 1024 * 1024))}
                                         </span>
                                     </div>
                                     <div>
-                                        <span className="text-[10px] text-slate-400 block">Ingress (Entrada)</span>
+                                        <span className="text-[10px] text-slate-400 block">{t("ingress")}</span>
                                         <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
                                             {formatStorageSize(selectedAccountForDetail.metrics.ingressBytes / (1024 * 1024 * 1024))}
                                         </span>

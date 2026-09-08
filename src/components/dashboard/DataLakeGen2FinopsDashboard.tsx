@@ -975,7 +975,7 @@ export default function DataLakeGen2FinopsDashboard() {
                             {/* Architecture & Security Grid */}
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                                    <span className="text-slate-400">SKU & Redundancia</span>
+                                    <span className="text-slate-400">{t("skuRedundancy")}</span>
                                     <p className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">{selectedAccount.skuName} ({selectedAccount.redundancyType})</p>
                                 </div>
                                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">

@@ -138,7 +138,7 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
     // Export history to CSV
     const exportCSV = () => {
         if (!filteredHistory.length) return;
-        const headers = ["Mes", "Almacenamiento (GB)", "Costo Mensual (USD)", "Costo por GB", "Variacion MoM %"];
+        const headers = [t("hist_col_month"), t("hist_csv_storage_gb"), t("hist_csv_monthly_cost"), t("hist_col_cost_gb"), t("hist_csv_mom")];
         const rows = filteredHistory.map((h) => [
             h.month,
             h.totalGb.toFixed(4),
@@ -151,7 +151,8 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `historico_storage_${tenantId}_${timeRangeMonths}m.csv`);
+        // Nombre de archivo neutro: no depende del idioma de la sesion.
+        link.setAttribute("download", `storage_history_${tenantId}_${timeRangeMonths}m.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -189,7 +190,7 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-800 border border-[#0054A6] rounded-lg hover:bg-blue-50/50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
                         >
                             <IconDownload className="w-3.5 h-3.5" stroke={1.5} />
-                            Exportar CSV
+                            {t("hist_export_csv")}
                         </button>
                         <button
                             onClick={onClose}
@@ -211,11 +212,11 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
                         </div>
                         <div className="flex items-center gap-1.5 flex-wrap">
                             {[
-                                { label: "3 Meses", value: 3 },
-                                { label: "6 Meses", value: 6 },
-                                { label: "12 Meses", value: 12 },
-                                { label: "13 Meses", value: 13 },
-                                { label: "Personalizado", value: "custom" },
+                                { label: t("hist_range_months", { n: 3 }), value: 3 },
+                                { label: t("hist_range_months", { n: 6 }), value: 6 },
+                                { label: t("hist_range_months", { n: 12 }), value: 12 },
+                                { label: t("hist_range_months", { n: 13 }), value: 13 },
+                                { label: t("hist_range_custom"), value: "custom" },
                             ].map((r) => (
                                 <button
                                     key={String(r.value)}
@@ -266,19 +267,19 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
                             {/* Summary KPI Cards */}
                             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                                 <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800">
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Gasto Acumulado ({timeRangeMonths}M)</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t("hist_kpi_accrued", { n: timeRangeMonths })}</p>
                                     <p className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
                                         {format(stats.totalCost)}
                                     </p>
                                 </div>
                                 <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800">
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Promedio Mensual</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t("hist_kpi_avg")}</p>
                                     <p className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
                                         {format(stats.avgCost)}
                                     </p>
                                 </div>
                                 <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800">
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Pico de Gasto ({stats.peakMonth})</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{t("hist_kpi_peak", { month: stats.peakMonth })}</p>
                                     <p className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat']">
                                         {format(stats.peakCost)}
                                     </p>
@@ -330,19 +331,19 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
                                                 <div className="absolute -top-12 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-[10px] py-1.5 px-2.5 rounded-lg shadow-xl pointer-events-none z-30 whitespace-nowrap border border-slate-700">
                                                     <div className="font-bold border-b border-slate-700 pb-1 mb-1">{h.month}</div>
                                                     <div>{t("hist_cost")} <span className="font-semibold text-blue-400">{format(h.totalCost)}</span></div>
-                                                    <div>Capacidad: <span className="font-semibold text-emerald-400">{formatStorageSize(h.totalGb)}</span></div>
+                                                    <div>{t("hist_capacity")} <span className="font-semibold text-emerald-400">{formatStorageSize(h.totalGb)}</span></div>
                                                 </div>
 
                                                 <div className="w-full flex items-end justify-center gap-1 h-full">
                                                     <div 
                                                         className="w-1/2 max-w-[16px] bg-blue-500 hover:bg-blue-400 rounded-t-sm transition-all shadow-sm"
                                                         style={{ height: costHeight }}
-                                                        title={`Costo: ${format(h.totalCost)}`}
+                                                        title={`${t("hist_cost")} ${format(h.totalCost)}`}
                                                     />
                                                     <div 
                                                         className="w-1/2 max-w-[16px] bg-emerald-400 hover:bg-emerald-300 rounded-t-sm transition-all shadow-sm"
                                                         style={{ height: gbHeight }}
-                                                        title={`Capacidad: ${formatStorageSize(h.totalGb)}`}
+                                                        title={`${t("hist_capacity")} ${formatStorageSize(h.totalGb)}`}
                                                     />
                                                 </div>
                                             </div>
@@ -364,7 +365,7 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
                                 <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                                     <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 uppercase tracking-wider font-['Montserrat'] flex items-center gap-2">
                                         <IconDatabase className="w-4 h-4 text-[#0054A6]" stroke={1.5} />
-                                        Desglose Mes a Mes ({filteredHistory.length} Meses)
+                                        {t("hist_breakdown_title", { n: filteredHistory.length })}
                                     </h4>
                                 </div>
                                 <div className="overflow-x-auto">
@@ -412,7 +413,7 @@ export default function StorageHistoryModal({ isOpen, onClose, tenantId }: Stora
 
                                 {/* Table Pagination Footer */}
                                 <div className="px-4 py-2.5 bg-slate-50/60 dark:bg-slate-800/40 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
-                                    <span>Página {tablePage} de {totalTablePages} ({filteredHistory.length} meses)</span>
+                                    <span>{t("hist_pagination", { page: tablePage, total: totalTablePages, n: filteredHistory.length })}</span>
                                     <div className="flex items-center gap-1">
                                         <button
                                             onClick={() => setTablePage((p) => Math.max(1, p - 1))}

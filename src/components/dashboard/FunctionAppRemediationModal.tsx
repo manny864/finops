@@ -1,6 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useTextoDeRecomendacion } from "@/lib/computeRecommendationText";
+import { useTextoDeRecomendacion } from "@/lib/recommendationText";
 
 import React, { useState } from "react";
 import {

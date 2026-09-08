@@ -93,9 +93,11 @@ export function buildStorageRemediations(accounts: StorageAccountDetail[]): Stor
 
             remediations.push({
                 id: `remediation-lifecycle-${acc.name}`,
-                title: `Implementación de Lifecycle Management Policy`,
-                description: `La cuenta '${acc.name}' está en capa Hot sin reglas de ciclo de vida automáticas. Mover blobs con antigüedad > 60 días a Cool optimiza el costo de almacenamiento en hasta un 45%.`,
-                impactDescription: `Ahorro potencial mensual de ~$${estimatedSavings} USD sin pérdida de disponibilidad ni disrupción de aplicaciones.`,
+                titleKey: "rec_sto_lifecycle_title",
+                descKey: "rec_sto_lifecycle_desc",
+                impactKey: "rec_sto_lifecycle_impact",
+                stepKeys: ["rec_sto_lifecycle_step1", "rec_sto_lifecycle_step2", "rec_sto_lifecycle_step3", "rec_sto_lifecycle_step4"],
+                params: { account: acc.name, savings: estimatedSavings },
                 category: "Cost",
                 actionType: "LIFECYCLE_POLICY_CREATE",
                 severity: "HIGH",
@@ -108,12 +110,6 @@ export function buildStorageRemediations(accounts: StorageAccountDetail[]): Stor
                 jsonPayload,
                 cliCommand,
                 powershellCommand,
-                implementationSteps: [
-                    `Crear la regla de ciclo de vida (Management Policy) en Azure Storage.`,
-                    `Configurar transición automática de blobs a nivel 'Cool' a los 60 días.`,
-                    `Configurar transición a nivel 'Archive' a los 180 días si aplica para registros históricos.`,
-                    `Verificar que las transacciones de lectura sean bajas para maximizar el ROI.`,
-                ],
             });
         }
 
@@ -126,9 +122,11 @@ export function buildStorageRemediations(accounts: StorageAccountDetail[]): Stor
 
             remediations.push({
                 id: `remediation-redundancy-${acc.name}`,
-                title: `Optimización de Redundancia en ${env.toUpperCase()} (${redundancy} → Standard_LRS)`,
-                description: `La cuenta de no-producción '${acc.name}' está configurada con redundancia ${redundancy}, generando un sobrecosto del ${savingsPct}% en capacidad que no es necesario para entornos de desarrollo o pruebas.`,
-                impactDescription: `Ahorro inmediato de ~$${estimatedSavings} USD/mes al migrar a Standard_LRS.`,
+                titleKey: "rec_sto_redundancy_title",
+                descKey: "rec_sto_redundancy_desc",
+                impactKey: "rec_sto_redundancy_impact",
+                stepKeys: ["rec_sto_redundancy_step1", "rec_sto_redundancy_step2", "rec_sto_redundancy_step3"],
+                params: { account: acc.name, env: env.toUpperCase(), redundancy, pct: savingsPct, savings: estimatedSavings },
                 category: "Cost",
                 actionType: "REDUNDANCY_OPTIMIZE_LRS",
                 severity: "MEDIUM",
@@ -140,11 +138,6 @@ export function buildStorageRemediations(accounts: StorageAccountDetail[]): Stor
                 targetResourceGroup: acc.resourceGroup,
                 cliCommand,
                 powershellCommand,
-                implementationSteps: [
-                    `Verificar que la cuenta pertenezca a un entorno de desarrollo o preproducción.`,
-                    `Ejecutar el cambio de SKU a Standard_LRS de forma no disruptiva en Azure.`,
-                    `Monitorear la facturación en el próximo ciclo para confirmar la reducción de costo.`,
-                ],
             });
         }
 
@@ -155,9 +148,11 @@ export function buildStorageRemediations(accounts: StorageAccountDetail[]): Stor
 
             remediations.push({
                 id: `remediation-zombie-${acc.name}`,
-                title: `Detección de Cuenta Zombie / Vacía (0 GB)`,
-                description: `La cuenta '${acc.name}' no registra datos almacenados (0 MB) ni tráfico/transacciones activas en los últimos 30 días, representando un recurso huérfano.`,
-                impactDescription: `Limpieza de inventario y reducción de superficie de ataque y costos residuales.`,
+                titleKey: "rec_sto_zombie_title",
+                descKey: "rec_sto_zombie_desc",
+                impactKey: "rec_sto_zombie_impact",
+                stepKeys: ["rec_sto_zombie_step1", "rec_sto_zombie_step2", "rec_sto_zombie_step3"],
+                params: { account: acc.name },
                 category: "Governance",
                 actionType: "ZOMBIE_ACCOUNT_PURGE",
                 severity: "LOW",
@@ -168,11 +163,6 @@ export function buildStorageRemediations(accounts: StorageAccountDetail[]): Stor
                 targetResourceGroup: acc.resourceGroup,
                 cliCommand,
                 powershellCommand,
-                implementationSteps: [
-                    `Auditar si la cuenta es requerida por alguna infraestructura como código (Terraform/Bicep).`,
-                    `Confirmar con los propietarios del recurso antes de proceder con la eliminación.`,
-                    `Eliminar la cuenta huérfana de forma segura.`,
-                ],
             });
         }
 
@@ -184,9 +174,11 @@ export function buildStorageRemediations(accounts: StorageAccountDetail[]): Stor
 
             remediations.push({
                 id: `remediation-softdelete-${acc.name}`,
-                title: `Ajuste de Retención de Soft Delete (${acc.deleteRetentionDays}d → 7 días)`,
-                description: `La retención de blobs eliminados (Soft Delete) está configurada en ${acc.deleteRetentionDays} días. Los datos borrados continúan facturando almacenamiento durante todo el periodo.`,
-                impactDescription: `Reduce la acumulación de datos fantasma y ahorra hasta un 18% en costos de capacidad innecesaria.`,
+                titleKey: "rec_sto_softdelete_title",
+                descKey: "rec_sto_softdelete_desc",
+                impactKey: "rec_sto_softdelete_impact",
+                stepKeys: ["rec_sto_softdelete_step1", "rec_sto_softdelete_step2", "rec_sto_softdelete_step3"],
+                params: { days: acc.deleteRetentionDays },
                 category: "Cost",
                 actionType: "SOFT_DELETE_RETENTION_ADJUST",
                 severity: "MEDIUM",
@@ -198,11 +190,6 @@ export function buildStorageRemediations(accounts: StorageAccountDetail[]): Stor
                 targetResourceGroup: acc.resourceGroup,
                 cliCommand,
                 powershellCommand,
-                implementationSteps: [
-                    `Evaluar la política de cumplimiento y recuperación de desastres interna.`,
-                    `Reducir el periodo de retención de Soft Delete a 7 días recomendados por FinOps.`,
-                    `Aplicar la actualización en las propiedades del servicio de blobs.`,
-                ],
             });
         }
 
@@ -213,9 +200,12 @@ export function buildStorageRemediations(accounts: StorageAccountDetail[]): Stor
 
             remediations.push({
                 id: `remediation-security-${acc.name}`,
-                title: `Hardening de Seguridad (Public Access & TLS 1.2)`,
-                description: `La cuenta '${acc.name}' tiene ${acc.publicAccessAllowed ? "acceso público anónimo habilitado" : "versión TLS desactualizada"}. Es imperativo cerrar el acceso anónimo y forzar TLS 1.2.`,
-                impactDescription: `Asegura el cumplimiento de normativas de seguridad cloud y gobernanza corporativa.`,
+                titleKey: "rec_sto_security_title",
+                // Dos causas, dos frases: la clave se elige por instancia, no por actionType.
+                descKey: acc.publicAccessAllowed ? "rec_sto_security_desc_public" : "rec_sto_security_desc_tls",
+                impactKey: "rec_sto_security_impact",
+                stepKeys: ["rec_sto_security_step1", "rec_sto_security_step2", "rec_sto_security_step3"],
+                params: { account: acc.name },
                 category: "Security",
                 actionType: "SECURITY_HARDENING_PUBLIC_ACCESS",
                 severity: "HIGH",
@@ -226,11 +216,6 @@ export function buildStorageRemediations(accounts: StorageAccountDetail[]): Stor
                 targetResourceGroup: acc.resourceGroup,
                 cliCommand,
                 powershellCommand,
-                implementationSteps: [
-                    `Verificar que ningún servicio legítimo requiera lectura pública sin autenticación.`,
-                    `Deshabilitar allowBlobPublicAccess a nivel de cuenta de almacenamiento.`,
-                    `Establecer el protocolo mínimo a TLS 1.2.`,
-                ],
             });
         }
     }

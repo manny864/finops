@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { useTextoDeRecomendacion } from "@/lib/computeRecommendationText";
+import { useTextoDeRecomendacion } from "@/lib/recommendationText";
 import {
   IconRefresh,
   IconServer2,

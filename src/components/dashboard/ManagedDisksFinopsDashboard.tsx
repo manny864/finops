@@ -728,10 +728,10 @@ export default function ManagedDisksFinopsDashboard() {
                                                             <button
                                                                 onClick={() => setSelectedActionForModal(disk.recommendations[0])}
                                                                 className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-md hover:bg-blue-50/60 dark:hover:bg-slate-800 transition-colors"
-                                                                title="Optimizar Disco"
+                                                                title={t("optimizeDisk")}
                                                             >
                                                                 <IconSparkles className="w-3.5 h-3.5 text-[#0054A6]" stroke={1.5} />
-                                                                <span>Optimizar</span>
+                                                                <span>{t("optimize")}</span>
                                                             </button>
                                                         )}
                                                     </div>

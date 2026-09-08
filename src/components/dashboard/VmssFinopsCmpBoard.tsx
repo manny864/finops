@@ -13,7 +13,7 @@ import {
   IconCloudUpload,
 } from "@tabler/icons-react";
 import { useTranslations } from "next-intl";
-import { useTextoDeRecomendacion } from "@/lib/computeRecommendationText";
+import { useTextoDeRecomendacion } from "@/lib/recommendationText";
 import { useTenant } from "@/components/TenantProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useMsal } from "@azure/msal-react";
