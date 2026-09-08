@@ -410,7 +410,15 @@ export async function GET(request: NextRequest) {
     }
 
     const bustCache = request.nextUrl.searchParams.get("bust") === "1";
-    const cacheKey = getDiagnosticsCacheKey(tenantId, "redis-finops-v2");
+    // v3 y no v2: el payload cambio de forma. Las entradas guardadas antes de
+    // este cambio traen `title`/`description` armados y NO traen
+    // `descriptionParams`, asi que la UI --que ahora interpola-- tiraba
+    // FORMATTING_ERROR y se llevaba puesto el board entero. Subir la version
+    // invalida esas entradas de una.
+    //
+    // REGLA para las cinco rutas que faltan convertir: al cambiar la forma del
+    // payload, subir la version de la clave. No es opcional.
+    const cacheKey = getDiagnosticsCacheKey(tenantId, "redis-finops-v3");
 
     if (!bustCache) {
       const cached = await readDiagnosticsCache<RedisFinopsSummaryResponse>(cacheKey);

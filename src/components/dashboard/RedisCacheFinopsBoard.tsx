@@ -39,8 +39,34 @@ import {
   RedisFinopsSummaryResponse,
   RedisRemediationAction,
 } from "@/types/redisCache";
-import { REDIS_RULE_I18N } from "@/types/redisCache";
+import { REDIS_RULE_I18N, type RedisRuleKey } from "@/types/redisCache";
 import { resolveScriptComments } from "@/lib/scriptComments";
+
+/**
+ * Descripcion de una recomendacion, tolerante a payloads viejos del cache.
+ *
+ * `descriptionParams` es nuevo. Una entrada de cache guardada antes del cambio
+ * trae la descripcion ya armada y NO trae los params, y entonces `t()` tira
+ * `FORMATTING_ERROR: The intl string context variable "hitRate" was not
+ * provided` — que en un render de React **tumba el board entero**, no solo esa
+ * linea.
+ *
+ * La version de la clave de cache subio a v3, asi que esas entradas ya no se
+ * leen. Esto es la red por si aparece una igual: preferimos la tarjeta sin su
+ * parrafo antes que la pantalla en blanco.
+ */
+function descripcionDeRecomendacion(
+  rec: { ruleKey: RedisRuleKey; descriptionParams?: Record<string, string | number> },
+  t: (key: string, values?: Record<string, string | number>) => string,
+): string {
+  const clave = REDIS_RULE_I18N[rec.ruleKey]?.desc;
+  if (!clave) return "";
+  try {
+    return t(clave, rec.descriptionParams ?? {});
+  } catch {
+    return "";
+  }
+}
 import { toast } from "sonner";
 
 const FILTER_ALL = "__all__";
@@ -655,7 +681,7 @@ export default function RedisCacheFinopsBoard() {
                         </span>
                       </div>
                       <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-3">
-                        {t(REDIS_RULE_I18N[rec.ruleKey].desc, rec.descriptionParams)}
+                        {descripcionDeRecomendacion(rec, t)}
                       </p>
                     </div>
                     <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -967,7 +993,7 @@ export default function RedisCacheFinopsBoard() {
                     {t("estSavingsValue", { amount: format(activeRemediation.action.savingsMonthlyUsd) })}
                   </span>
                 </div>
-                <p>{t(REDIS_RULE_I18N[activeRemediation.action.ruleKey].desc, activeRemediation.action.descriptionParams)}</p>
+                <p>{descripcionDeRecomendacion(activeRemediation.action, t)}</p>
                 <div className="pt-2 flex items-center gap-4 text-xs font-semibold text-slate-500 border-t border-slate-100 dark:border-slate-800">
                   <span className="inline-flex items-center gap-1">
                     <IconShield size={16} stroke={1.5} className="text-[#0078D4]" />
