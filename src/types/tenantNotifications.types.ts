@@ -9,12 +9,27 @@ export interface TenantNotificationItem {
     id: string | number;
     tenantId: string;
     type: NotificationEventType;
+    /**
+     * Texto guardado, en castellano. Es el **fallback** desde el 2026-09-08: la
+     * UI muestra `titleKey`/`messageKey` cuando la fila las trae. Las filas
+     * previas sólo tienen esto y no hay con qué retraducirlas.
+     */
     title: string;
     message: string;
+    /** Claves i18n de la fila (`title_key`/`message_key`) y sus valores. */
+    titleKey?: string | null;
+    messageKey?: string | null;
+    params?: Record<string, string | number> | string | null;
     actionUrl?: string;
     isRead: boolean;
     readAtIso?: string | null;
     createdAtIso: string;
+    /**
+     * "Hace 5 min" armado en el servidor, en castellano. Queda como respaldo:
+     * la campanita formatea `createdAtIso` con el formatter de next-intl, que sí
+     * conoce el locale del lector. El servidor no lo conoce y la respuesta se
+     * cachea, así que armar la frase acá congela el idioma.
+     */
     formattedTimeAgo: string;
     severity?: 'info' | 'warning' | 'critical';
 }

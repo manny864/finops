@@ -1,5 +1,5 @@
 "use client";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
@@ -23,8 +23,22 @@ import type {
   NotificationEventType,
   TenantNotificationItem,
 } from "@/types/tenantNotifications.types";
+import { textoDeNotificacion } from "@/lib/notificationText";
 
 type FilterTab = "ALL" | "REPORTS" | "ANOMALIES" | "SECURITY";
+
+/**
+ * "Hace 5 min" en el idioma del lector. `formattedTimeAgo` viene del servidor
+ * armado en castellano y queda sólo como respaldo si la fecha no parsea.
+ */
+function hace(
+  item: TenantNotificationItem,
+  format: ReturnType<typeof useFormatter>,
+): string {
+  const fecha = new Date(item.createdAtIso);
+  if (Number.isNaN(fecha.getTime())) return item.formattedTimeAgo;
+  return format.relativeTime(fecha, new Date());
+}
 
 export function NotificationBellDropdown() {
   const router = useRouter();
@@ -44,6 +58,7 @@ export function NotificationBellDropdown() {
     deleteNotification,
   } = useTenantNotifications(tenantId);
   const t = useTranslations("Notifications");
+  const format = useFormatter();
 
   // Auto-cerrar al hacer clic fuera del dropdown
   useEffect(() => {
@@ -141,7 +156,7 @@ export function NotificationBellDropdown() {
               </h3>
               {unreadCount > 0 && (
                 <span className="text-[10px] font-bold bg-blue-100 dark:bg-blue-950/80 text-[#0078D4] px-1.5 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
-                  {unreadCount} nuevas
+                  {t("newCount", { count: unreadCount })}
                 </span>
               )}
             </div>
@@ -216,17 +231,17 @@ export function NotificationBellDropdown() {
                   <div className="flex-1 min-w-0 pr-4">
                     <div className="flex items-center gap-1.5 mb-0.5">
                       <p className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 truncate">
-                        {item.title}
+                        {textoDeNotificacion(item.titleKey, item.params, item.title, t)}
                       </p>
                       {!item.isRead && (
                         <span className="w-2 h-2 rounded-full bg-[#0078D4] shrink-0" />
                       )}
                     </div>
                     <p className="text-[11px] text-slate-600 dark:text-slate-300 line-clamp-2 leading-relaxed">
-                      {item.message}
+                      {textoDeNotificacion(item.messageKey, item.params, item.message, t)}
                     </p>
                     <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 block">
-                      {item.formattedTimeAgo}
+                      {hace(item, format)}
                     </span>
                   </div>
 

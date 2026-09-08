@@ -441,6 +441,17 @@ export async function persistAndNotifyAnomalies(
                 tenantId,
                 title: `🚨 Anomalía de gasto — $${a.amount.toFixed(2)} el ${a.date}`,
                 message,
+                titleKey: "notif_anomaly_title",
+                // El `message` de arriba lleva markdown y un <a> para el email y
+                // el webhook. La UI in-app necesita una frase suelta, asi que la
+                // clave es propia y no una traduccion de ese cuerpo.
+                messageKey: "notif_anomaly_msg",
+                params: {
+                    amount: a.amount.toFixed(2),
+                    date: a.date,
+                    expected: a.expected_amount.toFixed(2),
+                    zScore: a.z_score.toFixed(2),
+                },
                 href: "/intelligence/anomalies",
                 severity: "warning",
                 source: "anomaly_detection",

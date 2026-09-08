@@ -34,6 +34,13 @@ function createPool(): mysql.Pool {
     queueLimit: DB_QUEUE_LIMIT,
     enableKeepAlive: true,
     keepAliveInitialDelay: 10000,
+    // Los servidores (Azure MySQL Flexible y el del VPS) corren en UTC, pero
+    // mysql2 sin este flag interpreta lo que devuelve un DATETIME/TIMESTAMP en
+    // la zona del PROCESO. En prod da igual —la Container App tambien es UTC—,
+    // pero en la maquina de desarrollo (UTC-3) toda fecha leida quedaba 3 horas
+    // en el futuro. Se veia recien al formatear el "hace X" en el cliente: el
+    // formateo viejo era server-side y un delta negativo caia en "Ahora".
+    timezone: "Z",
     // Azure MySQL Flexible corre con require_secure_transport=ON y rechaza
     // cualquier conexión en claro:
     //   ER_SECURE_TRANSPORT_REQUIRED "Connections using insecure transport are

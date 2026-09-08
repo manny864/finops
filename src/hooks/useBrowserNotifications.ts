@@ -4,6 +4,8 @@ import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import { useActionLogStore } from "@/store/actionLogStore";
+import { useTranslations } from "next-intl";
+import { textoDeNotificacion, type NotificacionCruda } from "@/lib/notificationText";
 
 const POLL_MS = 60_000;
 const LAST_SEEN_KEY_PREFIX = "finops_notifications_last_seen_";
@@ -23,8 +25,28 @@ const LAST_SEEN_KEY_PREFIX = "finops_notifications_last_seen_";
  */
 export function useBrowserNotifications(tenantId: string | undefined) {
     const { instance, accounts } = useMsal();
+    const t = useTranslations("Notifications");
     const addAction = useActionLogStore((s) => s.addAction);
     const lastSeenIdRef = useRef<number>(0);
+
+    /**
+     * `t` por ref y no en las deps del efecto.
+     *
+     * El efecto arma un `setInterval`, asi que su closure se congela cuando corre.
+     * `LanguageSwitcher` cambia de idioma con `router.replace(..., { locale })` --
+     * navegacion SPA, sin recarga-- y `ClientShell`, que monta este hook, no se
+     * desmonta: el efecto no se vuelve a correr y el poll seguiria traduciendo con
+     * el `t` del idioma anterior hasta un F5. Seria el mismo bug que este trabajo
+     * arregla, escondido un nivel mas abajo.
+     *
+     * Va por ref en vez de sumarlo a las deps porque agregarlo reinicia el
+     * intervalo, y que no lo haga depende de que next-intl memorice `t` -- un
+     * detalle de implementacion suyo, no un contrato.
+     */
+    const tRef = useRef(t);
+    useEffect(() => {
+        tRef.current = t;
+    }, [t]);
 
     useEffect(() => {
         if (!tenantId || tenantId === "default" || isMockTenant(tenantId)) return;
@@ -44,18 +66,20 @@ export function useBrowserNotifications(tenantId: string | undefined) {
                 });
                 if (!res.ok) return;
                 const data = await res.json();
-                const items: Array<{ id: number; title: string; message: string; href: string | null; severity: string }> = data.notifications || [];
+                const items: NotificacionCruda[] = data.notifications || [];
                 if (cancelled || items.length === 0) return;
 
                 // La API devuelve más nuevo primero; procesamos en orden cronológico.
                 for (const n of [...items].reverse()) {
+                    const titulo = textoDeNotificacion(n.title_key, n.params_json, n.title, tRef.current);
+                    const cuerpo = textoDeNotificacion(n.message_key, n.params_json, n.message, tRef.current);
                     addAction({
-                        message: n.title,
+                        message: titulo,
                         status: n.severity === "critical" ? "error" : n.severity === "warning" ? "info" : "info",
                         href: n.href || undefined,
                     });
                     if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-                        const browserNotif = new Notification(n.title, { body: n.message, tag: `finops-notif-${n.id}` });
+                        const browserNotif = new Notification(titulo, { body: cuerpo, tag: `finops-notif-${n.id}` });
                         if (n.href) {
                             browserNotif.onclick = () => {
                                 window.focus();

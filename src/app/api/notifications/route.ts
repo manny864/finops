@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       // filtraba sólo por tenant, así que le habría mostrado a cualquiera los
       // avisos dirigidos a otro.
       const [rows] = await pool.query(
-        `SELECT id, title, message, href, severity, source, created_at
+        `SELECT id, title, message, title_key, message_key, params_json, href, severity, source, created_at
          FROM Notifications
          WHERE tenant_id = ? AND id > ? AND (user_email IS NULL OR user_email = ?)
          ORDER BY id DESC LIMIT 20`,

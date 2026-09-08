@@ -11,8 +11,27 @@ export type NotificationSeverity = "info" | "warning" | "critical";
  */
 export async function createNotification(params: {
     tenantId: string;
+    /**
+     * Texto de respaldo, en castellano. **Sigue siendo obligatorio** y no es
+     * redundante con `titleKey`: es lo que consumen los caminos que NO son la UI
+     * localizada --el push del navegador, los webhooks, el email-- y es el
+     * fallback si faltara la clave. Una fila de Notifications es permanente:
+     * cuando se muestre dentro de un año, esto es lo unico seguro que hay.
+     */
     title: string;
     message: string;
+    /**
+     * Claves i18n para la UI. Sin ellas la fila se muestra con `title`/`message`
+     * tal cual, que es el comportamiento de las filas historicas.
+     *
+     * Van claves y no la frase traducida porque **la fila no expira**. Un payload
+     * cacheado se rearma cuando vence; esto queda para siempre, asi que traducir
+     * al insertar congela el idioma del momento en que ocurrio el evento.
+     */
+    titleKey?: string;
+    messageKey?: string;
+    /** Valores a interpolar en las dos claves. Numeros y nombres, nunca frases. */
+    params?: Record<string, string | number>;
     href?: string;
     severity?: NotificationSeverity;
     source: string;
@@ -26,8 +45,20 @@ export async function createNotification(params: {
 }): Promise<void> {
     try {
         await pool.query(
-            `INSERT INTO Notifications (tenant_id, title, message, href, severity, source, user_email) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [params.tenantId, params.title, params.message, params.href || null, params.severity || "info", params.source, params.userEmail || null]
+            `INSERT INTO Notifications (tenant_id, title, message, title_key, message_key, params_json, href, severity, source, user_email)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                params.tenantId,
+                params.title,
+                params.message,
+                params.titleKey || null,
+                params.messageKey || null,
+                params.params ? JSON.stringify(params.params) : null,
+                params.href || null,
+                params.severity || "info",
+                params.source,
+                params.userEmail || null,
+            ]
         );
     } catch (e) {
         // Nunca debe romper el flujo de alerta principal (email/webhook) por un

@@ -267,3 +267,123 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
         });
     }
 });
+
+/**
+ * Capa 3 — las claves de las notificaciones, que no las ve NINGUNA de las otras dos.
+ *
+ * `i18nKeyIntegrity` sólo mira literales dentro de un `t()`, y estas claves nunca
+ * pasan por uno en el fuente: se escriben en un `createNotification({ titleKey })`,
+ * se guardan en una fila de `Notifications` y recién en el cliente
+ * `textoDeNotificacion` las resuelve. La capa 1 tampoco, porque descubre familias
+ * leyendo `` t(`prefijo_${x}`) `` y acá no hay template literal que leer.
+ *
+ * Y el modo de falla es peor que el de siempre. Cuando falta una clave normal,
+ * next-intl escupe el nombre crudo en pantalla: feo, pero se ve. Acá
+ * `textoDeNotificacion` atrapa el error y cae al texto guardado, que está **en
+ * castellano** — o sea que una clave rota no se manifiesta como un texto roto sino
+ * como el bug original intacto, en silencio, y encima sólo para el que lee en otro
+ * idioma. Nadie lo va a reportar.
+ *
+ * Por eso son dos afirmaciones y no una: que la clave exista en los tres catálogos,
+ * y que los parámetros que el mensaje pide sean los que el call site manda. Un
+ * `{scope}` en el catálogo contra un `params: { scopeName }` en el código falla de
+ * esta misma forma muda.
+ */
+describe("i18n · capa 3: las notificaciones persistidas", () => {
+    /**
+     * Descubre los call sites en vez de listarlos: una notificación nueva queda
+     * cubierta sin tocar este archivo.
+     *
+     * El discriminador es el prefijo `notif_` y no el nombre del campo, porque
+     * `titleKey` está usado para otra cosa en los boards de recomendaciones
+     * (`titleKey: "recScaleToZero"`), que no son notificaciones ni viven en este
+     * namespace.
+     */
+    function callSites(): Array<{ archivo: string; titleKey: string; messageKey: string; params: string[] }> {
+        // ponytail: regex, no un parser de TS. Aguanta la forma que tienen hoy los
+        // 9 call sites (las tres props juntas, comentarios en el medio). Si alguna
+        // vez se arma el objeto en pedazos, esto deja de verlo -- y el test avisa,
+        // porque el conteo de abajo baja.
+        const re = /titleKey:\s*"(notif_\w+)",\s*messageKey:\s*"(notif_\w+)",(?:\s*params:\s*\{([^}]*)\})?/g;
+        const encontrados: Array<{ archivo: string; titleKey: string; messageKey: string; params: string[] }> = [];
+
+        for (const archivo of fuentes("src")) {
+            // Los comentarios se sacan antes: en anomalyDetectionService hay dos
+            // líneas de `//` entre `titleKey` y `messageKey`.
+            const codigo = readFileSync(archivo, "utf8").replace(/^[ \t]*\/\/[^\n]*$/gm, "");
+            for (const m of codigo.matchAll(re)) {
+                const cuerpo = m[3] ?? "";
+                encontrados.push({
+                    archivo,
+                    titleKey: m[1],
+                    messageKey: m[2],
+                    // Nombre de propiedad = lo que abre un segmento del objeto.
+                    params: [...cuerpo.matchAll(/(?:^|[{,])\s*(\w+)\s*:/g)].map((p) => p[1]),
+                });
+            }
+        }
+        return encontrados;
+    }
+
+    /** Args que una cadena ICU exige: `{scope}` y `{count, plural, ...}` → scope, count. */
+    function placeholders(icu: string): string[] {
+        return [...new Set([...icu.matchAll(/\{\s*(\w+)/g)].map((m) => m[1]))];
+    }
+
+    const sitios = callSites();
+
+    it("el escáner encuentra los call sites (si esto falla, se rompió el escáner)", () => {
+        // 7 `createNotification` reales + los 3 del tenant de demo. El piso es el
+        // total de hoy y no un número holgado: con holgura, un call site que el
+        // regex deja de ver pasa desapercibido, que es justo lo que este test cuida.
+        expect(sitios.length).toBeGreaterThanOrEqual(10);
+    });
+
+    it("cada clave existe en los tres catálogos", () => {
+        const faltantes: string[] = [];
+        for (const { archivo, titleKey, messageKey } of sitios) {
+            for (const locale of LOCALES) {
+                for (const clave of [titleKey, messageKey]) {
+                    if (typeof catalogos[locale].Notifications?.[clave] !== "string") {
+                        faltantes.push(`${locale} · Notifications.${clave} (${archivo})`);
+                    }
+                }
+            }
+        }
+        expect(faltantes, faltantes.join("\n")).toEqual([]);
+    });
+
+    it("los params del call site cubren lo que el mensaje interpola, en los tres idiomas", () => {
+        const huecos: string[] = [];
+        for (const { archivo, titleKey, messageKey, params } of sitios) {
+            for (const locale of LOCALES) {
+                for (const clave of [titleKey, messageKey]) {
+                    const icu = catalogos[locale].Notifications?.[clave];
+                    if (typeof icu !== "string") continue; // ya lo reporta el test de arriba
+                    for (const arg of placeholders(icu)) {
+                        if (!params.includes(arg)) {
+                            huecos.push(`${locale} · Notifications.${clave} pide {${arg}} y el call site no lo manda (${archivo})`);
+                        }
+                    }
+                }
+            }
+        }
+        expect(huecos, huecos.join("\n")).toEqual([]);
+    });
+
+    it("con sus params, cada clave rinde una frase sin marcadores sueltos", () => {
+        for (const { titleKey, messageKey, params } of sitios) {
+            // Valor numérico: sirve para `{count, plural, ...}` y también donde el
+            // arg es texto. Al revés no: un string en un plural revienta.
+            const valores = Object.fromEntries(params.map((p) => [p, 1]));
+            for (const locale of LOCALES) {
+                const t = traducir(locale, "Notifications");
+                for (const clave of [titleKey, messageKey]) {
+                    const texto = t(clave, valores);
+                    expect(texto, `${locale} · Notifications.${clave}`).not.toContain(clave);
+                    expect(texto, `${locale} · Notifications.${clave}`).not.toMatch(/[{}]/);
+                }
+            }
+        }
+    });
+});
