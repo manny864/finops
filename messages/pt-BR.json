@@ -9807,6 +9807,16 @@
       "reason": "Motivo"
     }
   },
+  "RiskConfidence": {
+    "confidenceHigh": "Alta",
+    "confidenceLabel": "Confiança",
+    "confidenceLow": "Baixa",
+    "confidenceMedium": "Média",
+    "riskHigh": "Alto",
+    "riskLabel": "Risco",
+    "riskLow": "Baixo",
+    "riskMedium": "Médio"
+  },
   "ScorecardPanel": {
     "loadError": "Falha ao carregar o scorecard",
     "scorecardPoints": "+{points} pts no Scorecard",

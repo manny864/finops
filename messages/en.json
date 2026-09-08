@@ -9807,6 +9807,16 @@
       "reason": "Reason"
     }
   },
+  "RiskConfidence": {
+    "confidenceHigh": "High",
+    "confidenceLabel": "Confidence",
+    "confidenceLow": "Low",
+    "confidenceMedium": "Medium",
+    "riskHigh": "High",
+    "riskLabel": "Risk",
+    "riskLow": "Low",
+    "riskMedium": "Medium"
+  },
   "ScorecardPanel": {
     "loadError": "Failed to load the scorecard",
     "scorecardPoints": "+{points} pts on the Scorecard",

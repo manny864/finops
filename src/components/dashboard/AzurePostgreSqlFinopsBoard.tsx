@@ -37,6 +37,7 @@ import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import FinopsTableControls, { type FinopsTableOption } from "@/components/dashboard/FinopsTableControls";
 import { useTranslations } from "next-intl";
+import RiskConfidenceBadges from "@/components/dashboard/RiskConfidenceBadges";
 import DatabaseStateBadge from "@/components/dashboard/DatabaseStateBadge";
 import InfoTooltip from "@/components/InfoTooltip";
 import {
@@ -219,11 +220,6 @@ resource pgServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-12-01-preview'
     }
   }
 
-  const riskColor: Record<string, string> = {
-    low: "text-emerald-700 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400",
-    medium: "text-amber-700 bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400",
-    high: "text-red-700 bg-red-50 border-red-200 dark:bg-red-950/30 dark:text-red-400",
-  };
 
   return createPortal(
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" onClick={onClose}>
@@ -295,12 +291,7 @@ resource pgServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-12-01-preview'
                         {t("estSavingsValue", { amount: format(currentRec.savingsMonthlyUsd) })}
                       </span>
                     )}
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${riskColor[currentRec.risk] || ""}`}>
-                      Riesgo: {currentRec.risk === "low" ? "Bajo" : currentRec.risk === "medium" ? "Medio" : "Alto"}
-                    </span>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300">
-                      Confianza: {currentRec.confidence === "high" ? "Alta" : currentRec.confidence === "medium" ? "Media" : "Baja"}
-                    </span>
+                    <RiskConfidenceBadges risk={currentRec.risk} confidence={currentRec.confidence} />
                   </div>
                 </div>
               )}
