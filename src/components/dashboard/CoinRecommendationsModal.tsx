@@ -323,7 +323,19 @@ export default function CoinRecommendationsModal({
                 {/* Tabla de Recomendaciones */}
                 <div className="flex-1 overflow-y-auto overflow-x-auto min-h-[320px]">
                     <table className="w-full text-left text-xs border-collapse">
-                        <thead className="sticky top-0 bg-slate-50 dark:bg-slate-850 z-10 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[11px]">
+                        {/* Aca decia un paso 850 de slate, que NO EXISTE: la escala de Tailwind salta de 800 a 900
+                            y el proyecto no define un 850 en su @theme. Tailwind no generaba
+                            nada, asi que en oscuro quedaba el `bg-slate-50` del tema claro y la
+                            barra de columnas salia BLANCA sobre la tabla oscura.
+
+                            Es la misma trampa que el `\b` del barrido de modo oscuro: una clase
+                            que se lee bien y no hace nada. Sin error, sin warning.
+
+                            slate-800/90 + backdrop-blur es la convencion de los thead STICKY del
+                            repo (2 de 3, y es lo que usa el modal hermano de commitments). La
+                            opacidad alta importa aca: con /50 --que es lo mas comun en los thead
+                            NO sticky-- las filas se ven pasar por debajo del encabezado. */}
+                        <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/90 backdrop-blur-xs z-10 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[11px]">
                             <tr>
                                 <th className="py-3 px-4 md:px-6">{t("colRecommendation")}</th>
                                 <th className="py-3 px-3">{t("colPillar")}</th>
