@@ -14,6 +14,16 @@
  */
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
+
+/**
+ * "2026-03" -> "mar 2026" en el idioma del lector. El servicio manda solo el
+ * monthKey porque su payload se cachea sin el locale.
+ */
+function rotuloDeMes(monthKey: string, locale: string): string {
+    const [y, m] = (monthKey || '').split('-').map(Number);
+    if (!y || !m) return monthKey;
+    return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString(locale, { month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import CostPieChart from '@/components/CostPieChart';
@@ -415,7 +425,6 @@ export default function ExecutiveReportPanel() {
             const fallbackCost = isMock ? new Decimal(590000 + idx * 15000) : new Decimal(0);
             return {
                 monthKey,
-                monthLabel: base.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }),
                 cost: monthTotals.get(monthKey) || fallbackCost,
             };
         });
@@ -720,7 +729,7 @@ export default function ExecutiveReportPanel() {
                                     <tbody>
                                         {historicalFinanceKpi.months.map((row) => (
                                             <tr key={row.monthKey} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/60 dark:hover:bg-slate-800">
-                                                {histCols.isVisible('month') && <td className="p-2.5 font-medium border border-slate-200 dark:border-slate-700">{row.monthLabel}</td>}
+                                                {histCols.isVisible('month') && <td className="p-2.5 font-medium border border-slate-200 dark:border-slate-700">{rotuloDeMes(row.monthKey, locale)}</td>}
                                                 {histCols.isVisible('monthlyCost') && <td className="p-2.5 text-right font-mono font-bold text-[#0078D4] border border-slate-200 dark:border-slate-700">{fmtUSD(row.cost.toNumber())}</td>}
                                                 {histCols.isVisible('comparison') && (
                                                     <td className="p-2.5 text-right font-mono border border-slate-200 dark:border-slate-700">

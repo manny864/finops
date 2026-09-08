@@ -30,7 +30,6 @@ export interface TenantNotificationItem {
      * conoce el locale del lector. El servidor no lo conoce y la respuesta se
      * cachea, así que armar la frase acá congela el idioma.
      */
-    formattedTimeAgo: string;
     severity?: 'info' | 'warning' | 'critical';
 }
 

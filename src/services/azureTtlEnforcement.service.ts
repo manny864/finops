@@ -15,7 +15,7 @@ import {
 } from "@/types/azureTtlEnforcement.types";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 
-export function formatRelativeTime(targetDate: Date, now = new Date()): { status: "CRITICAL" | "WARNING" | "ACTIVE"; text: string; daysDiff: number } {
+export function formatRelativeTime(targetDate: Date, now = new Date()): { status: "CRITICAL" | "WARNING" | "ACTIVE"; key: TtlTrackedResourceItem["relativeTimeKey"]; value: number; daysDiff: number } {
   const diffMs = targetDate.getTime() - now.getTime();
   const diffHours = Math.round(diffMs / (1000 * 60 * 60));
   const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
@@ -24,19 +24,19 @@ export function formatRelativeTime(targetDate: Date, now = new Date()): { status
     const absDays = Math.abs(diffDays);
     const absHours = Math.abs(diffHours);
     if (absDays === 0) {
-      return { status: "CRITICAL", text: `Vencido hace ${absHours}h`, daysDiff: diffDays };
+      return { status: "CRITICAL", key: "relExpiredHours", value: absHours, daysDiff: diffDays };
     }
-    return { status: "CRITICAL", text: `Vencido hace ${absDays}d`, daysDiff: diffDays };
+    return { status: "CRITICAL", key: "relExpiredDays", value: absDays, daysDiff: diffDays };
   }
 
   if (diffDays <= 3) {
     if (diffDays === 0) {
-      return { status: "WARNING", text: `Vence en ${Math.max(1, diffHours)}h`, daysDiff: diffDays };
+      return { status: "WARNING", key: "relDueHours", value: Math.max(1, diffHours), daysDiff: diffDays };
     }
-    return { status: "WARNING", text: `Vence en ${diffDays}d`, daysDiff: diffDays };
+    return { status: "WARNING", key: "relDueDays", value: diffDays, daysDiff: diffDays };
   }
 
-  return { status: "ACTIVE", text: `Vence en ${diffDays}d`, daysDiff: diffDays };
+  return { status: "ACTIVE", key: "relDueDays", value: diffDays, daysDiff: diffDays };
 }
 
 export function formatDateIsoToLocal(isoString: string): string {
@@ -156,7 +156,8 @@ export function getMockTtlSummaryMetrics(tenantId: string): TtlSummaryMetrics {
       subscriptionName: "CSCS-LandingZone-Production",
       expirationDateIso: dMinus5,
       formattedExpirationDate: formatDateIsoToLocal(dMinus5),
-      relativeTimeText: "Vencido hace 5d",
+      relativeTimeKey: "relExpiredDays",
+      relativeTimeValue: 5,
       status: "CRITICAL",
       monthlySavingsUSD: 185.5,
       isExempted: false,
@@ -171,7 +172,8 @@ export function getMockTtlSummaryMetrics(tenantId: string): TtlSummaryMetrics {
       subscriptionName: "CSCS-LandingZone-Production",
       expirationDateIso: dMinus2,
       formattedExpirationDate: formatDateIsoToLocal(dMinus2),
-      relativeTimeText: "Vencido hace 2d",
+      relativeTimeKey: "relExpiredDays",
+      relativeTimeValue: 2,
       status: "CRITICAL",
       monthlySavingsUSD: 142.0,
       isExempted: false,
@@ -186,7 +188,8 @@ export function getMockTtlSummaryMetrics(tenantId: string): TtlSummaryMetrics {
       subscriptionName: "CSCS-DataPlatform-Analytics",
       expirationDateIso: dPlus1,
       formattedExpirationDate: formatDateIsoToLocal(dPlus1),
-      relativeTimeText: "Vence en 1d",
+      relativeTimeKey: "relDueDays",
+      relativeTimeValue: 1,
       status: "WARNING",
       monthlySavingsUSD: 290.0,
       isExempted: false,
@@ -201,7 +204,8 @@ export function getMockTtlSummaryMetrics(tenantId: string): TtlSummaryMetrics {
       subscriptionName: "CSCS-DataPlatform-Analytics",
       expirationDateIso: dPlus2,
       formattedExpirationDate: formatDateIsoToLocal(dPlus2),
-      relativeTimeText: "Vence en 2d",
+      relativeTimeKey: "relDueDays",
+      relativeTimeValue: 2,
       status: "WARNING",
       monthlySavingsUSD: 120.0,
       isExempted: false,
@@ -216,7 +220,8 @@ export function getMockTtlSummaryMetrics(tenantId: string): TtlSummaryMetrics {
       subscriptionName: "CSCS-LandingZone-Production",
       expirationDateIso: dPlus10,
       formattedExpirationDate: formatDateIsoToLocal(dPlus10),
-      relativeTimeText: "Vence en 10d",
+      relativeTimeKey: "relDueDays",
+      relativeTimeValue: 10,
       status: "ACTIVE",
       monthlySavingsUSD: 65.0,
       isExempted: false,
@@ -231,7 +236,8 @@ export function getMockTtlSummaryMetrics(tenantId: string): TtlSummaryMetrics {
       subscriptionName: "CSCS-LandingZone-Production",
       expirationDateIso: dPlus20,
       formattedExpirationDate: formatDateIsoToLocal(dPlus20),
-      relativeTimeText: "Vence en 20d",
+      relativeTimeKey: "relDueDays",
+      relativeTimeValue: 20,
       status: "ACTIVE",
       monthlySavingsUSD: 110.0,
       isExempted: true,
@@ -320,7 +326,7 @@ export async function assembleLiveTtlSummary(input: {
     const expDate = new Date(expIso);
     const validExpDate = isNaN(expDate.getTime()) ? now : expDate;
 
-    const { status, text, daysDiff } = formatRelativeTime(validExpDate, now);
+    const { status, key: relKey, value: relValue, daysDiff } = formatRelativeTime(validExpDate, now);
 
     return {
       id: resId,
@@ -331,7 +337,8 @@ export async function assembleLiveTtlSummary(input: {
       subscriptionName: resolveSubscriptionName(subId, subNameMap),
       expirationDateIso: validExpDate.toISOString(),
       formattedExpirationDate: formatDateIsoToLocal(validExpDate.toISOString()),
-      relativeTimeText: text,
+      relativeTimeKey: relKey,
+      relativeTimeValue: relValue,
       status,
       monthlySavingsUSD: Number(r.monthlyCost || r.monthlyCostUSD || 85.0),
       isExempted,

@@ -3,7 +3,6 @@ import {
   getTenantNotifications,
   markNotificationAsRead,
   deleteNotification,
-  formatTimeAgo,
 } from "@/services/tenantNotifications.service";
 import pool from "@/modules/storage/db";
 
@@ -17,19 +16,6 @@ vi.mock("@/modules/storage/db", () => ({
 describe("Tenant Notifications Service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  describe("formatTimeAgo", () => {
-    it("should format recent dates correctly", () => {
-      const now = new Date();
-      expect(formatTimeAgo(now.toISOString())).toBe("Ahora");
-
-      const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
-      expect(formatTimeAgo(fiveMinsAgo.toISOString())).toBe("Hace 5 min");
-
-      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
-      expect(formatTimeAgo(twoHoursAgo.toISOString())).toBe("Hace 2 h");
-    });
   });
 
   describe("getTenantNotifications", () => {

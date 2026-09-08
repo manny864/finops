@@ -12011,7 +12011,14 @@
     "exemptReasonLabel": "Exemption Reason:",
     "exemptReasonPlaceholder": "E.g. permanent CI/CD environment, reference database...",
     "saveExemption": "Save Exemption",
-    "pageTooltip": "Governance of ephemeral resources and sandboxes: define maximum lifecycle policies, detect resources about to expire or already expired through ExpireOn tags, and deprovision with an audit record."
+    "pageTooltip": "Governance of ephemeral resources and sandboxes: define maximum lifecycle policies, detect resources about to expire or already expired through ExpireOn tags, and deprovision with an audit record.",
+    "relExpiredHours": "Expired {n}h ago",
+    "relExpiredDays": "Expired {n}d ago",
+    "relDueHours": "Due in {n}h",
+    "relDueDays": "Due in {n}d",
+    "badgeExpiredWithTime": "Expired ({rel})",
+    "badgeDueWithTime": "Due Soon ({rel})",
+    "badgeActiveWithTime": "Active ({rel})"
   },
   "TabFilters": {
     "placeholder": "Filter by name or service...",

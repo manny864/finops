@@ -12011,7 +12011,14 @@
     "exemptReasonLabel": "Motivo da Isenção:",
     "exemptReasonPlaceholder": "Ex.: Ambiente permanente de CI/CD, banco de dados de referência...",
     "saveExemption": "Salvar Isenção",
-    "pageTooltip": "Governança de recursos efêmeros e sandboxes: define políticas de ciclo de vida máximo, detecta recursos a vencer ou vencidos por meio de tags ExpireOn e desprovisiona com registro de auditoria."
+    "pageTooltip": "Governança de recursos efêmeros e sandboxes: define políticas de ciclo de vida máximo, detecta recursos a vencer ou vencidos por meio de tags ExpireOn e desprovisiona com registro de auditoria.",
+    "relExpiredHours": "Vencido há {n}h",
+    "relExpiredDays": "Vencido há {n}d",
+    "relDueHours": "Vence em {n}h",
+    "relDueDays": "Vence em {n}d",
+    "badgeExpiredWithTime": "Vencido ({rel})",
+    "badgeDueWithTime": "A Vencer ({rel})",
+    "badgeActiveWithTime": "Ativo ({rel})"
   },
   "TabFilters": {
     "placeholder": "Filtrar por nome ou serviço...",

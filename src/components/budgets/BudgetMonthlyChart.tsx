@@ -6,7 +6,7 @@
  * horizontal en el monto del presupuesto.
  */
 import React from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, ReferenceLine } from 'recharts';
 
 export interface BudgetMonthlyChartPoint {
@@ -25,14 +25,15 @@ interface BudgetMonthlyChartProps {
 
 const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-function formatMonthLabel(month: string): string {
+function formatMonthLabel(month: string, locale: string): string {
     const [y, m] = month.split('-').map(Number);
     if (!y || !m) return month;
-    return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString('es-AR', { month: 'short', timeZone: 'UTC' }).replace('.', '');
+    return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString(locale, { month: 'short', timeZone: 'UTC' }).replace('.', '');
 }
 
 export default function BudgetMonthlyChart({ data, budgetAmount, forecastedSpend, loading, height = 140 }: BudgetMonthlyChartProps) {
     const t = useTranslations('Budgets');
+    const locale = useLocale();
 
     if (loading) {
         return (
@@ -52,7 +53,7 @@ export default function BudgetMonthlyChart({ data, budgetAmount, forecastedSpend
 
     const chartData = data.map((d, idx) => ({
         ...d,
-        label: formatMonthLabel(d.month),
+        label: formatMonthLabel(d.month, locale),
         isCurrent: idx === data.length - 1,
     }));
 

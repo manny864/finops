@@ -35,7 +35,13 @@ export interface TtlTrackedResourceItem {
   subscriptionName: string;
   expirationDateIso: string;
   formattedExpirationDate: string;
-  relativeTimeText: string;
+  /**
+   * Clave de catalogo + su valor, no texto armado: el servicio no conoce el
+   * locale del lector y su payload se cachea sin el, asi que traducir aca
+   * serviria el idioma equivocado desde el cache.
+   */
+  relativeTimeKey: "relExpiredHours" | "relExpiredDays" | "relDueHours" | "relDueDays";
+  relativeTimeValue: number;
   status: "CRITICAL" | "WARNING" | "ACTIVE";
   monthlySavingsUSD: number;
   isExempted: boolean;

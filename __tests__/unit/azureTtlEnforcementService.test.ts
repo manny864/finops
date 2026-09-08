@@ -22,14 +22,18 @@ describe("Azure TTL Enforcement Service", () => {
 
     const pastResult = formatRelativeTime(pastDate, now);
     expect(pastResult.status).toBe("CRITICAL");
-    expect(pastResult.text).toContain("Vencido hace 5d");
+    // Clave + valor en vez del texto armado: el servicio no traduce, y asi la
+    // asercion fija el numero exacto en lugar de un substring.
+    expect(pastResult.key).toBe("relExpiredDays");
+    expect(pastResult.value).toBe(5);
 
     const warnResult = formatRelativeTime(warningDate, now);
     expect(warnResult.status).toBe("WARNING");
 
     const futureResult = formatRelativeTime(futureDate, now);
     expect(futureResult.status).toBe("ACTIVE");
-    expect(futureResult.text).toContain("Vence en 10d");
+    expect(futureResult.key).toBe("relDueDays");
+    expect(futureResult.value).toBe(10);
   });
 
   it("computeTtlSummaryMetrics accurately sums counts and potential savings", () => {
@@ -64,7 +68,8 @@ describe("Azure TTL Enforcement Service", () => {
         subscriptionName: "Sub 1",
         expirationDateIso: "2026-08-10T00:00:00Z",
         formattedExpirationDate: "10/08/2026",
-        relativeTimeText: "Vencido hace 10d",
+        relativeTimeKey: "relExpiredDays",
+        relativeTimeValue: 10,
         status: "CRITICAL",
         monthlySavingsUSD: 100.0,
         isExempted: false,
@@ -78,7 +83,8 @@ describe("Azure TTL Enforcement Service", () => {
         subscriptionName: "Sub 1",
         expirationDateIso: "2026-08-21T00:00:00Z",
         formattedExpirationDate: "21/08/2026",
-        relativeTimeText: "Vence en 1d",
+        relativeTimeKey: "relDueDays",
+        relativeTimeValue: 1,
         status: "WARNING",
         monthlySavingsUSD: 50.0,
         isExempted: false,
@@ -92,7 +98,8 @@ describe("Azure TTL Enforcement Service", () => {
         subscriptionName: "Sub 1",
         expirationDateIso: "2026-08-01T00:00:00Z",
         formattedExpirationDate: "01/08/2026",
-        relativeTimeText: "Vencido hace 20d",
+        relativeTimeKey: "relExpiredDays",
+        relativeTimeValue: 20,
         status: "CRITICAL",
         monthlySavingsUSD: 80.0,
         isExempted: true, // Should be excluded from savings

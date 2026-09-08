@@ -5,8 +5,12 @@
 export type ExecutiveReportScope = 'TENANT_ALL' | 'SUBSCRIPTION' | 'RESOURCE_GROUP';
 
 export interface HistoricalMonthCost {
+    /**
+     * "YYYY-MM". El rotulo del mes se arma en el cliente: antes venia listo
+     * desde el servicio con `toLocaleDateString('es-ES')` fijo, asi que el
+     * reporte mostraba los meses en castellano en los tres idiomas.
+     */
     monthKey: string;
-    monthLabel: string;
     costUSD: number;
     comparisonVsPreviousMonthPercent?: number | null;
     trend: 'BULLISH' | 'BEARISH' | 'STABLE';

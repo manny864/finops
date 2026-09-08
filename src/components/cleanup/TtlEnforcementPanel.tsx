@@ -902,7 +902,7 @@ export default function TtlEnforcementPanel() {
                       {isColVisible("expiryDate") && (
                         <td className="py-3 px-4">
                           <div className="font-mono text-slate-700 dark:text-slate-200">{res.formattedExpirationDate}</div>
-                          <div className="text-[11px] font-semibold text-slate-500">{res.relativeTimeText}</div>
+                          <div className="text-[11px] font-semibold text-slate-500">{t(res.relativeTimeKey, { n: res.relativeTimeValue })}</div>
                         </td>
                       )}
 
@@ -914,15 +914,15 @@ export default function TtlEnforcementPanel() {
                             </span>
                           ) : res.status === "CRITICAL" ? (
                             <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                              Vencido ({res.relativeTimeText})
+                              {t("badgeExpiredWithTime", { rel: t(res.relativeTimeKey, { n: res.relativeTimeValue }) })}
                             </span>
                           ) : res.status === "WARNING" ? (
                             <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                              Por Vencer ({res.relativeTimeText})
+                              {t("badgeDueWithTime", { rel: t(res.relativeTimeKey, { n: res.relativeTimeValue }) })}
                             </span>
                           ) : (
                             <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 text-[#0078D4] border border-blue-200">
-                              Activo ({res.relativeTimeText})
+                              {t("badgeActiveWithTime", { rel: t(res.relativeTimeKey, { n: res.relativeTimeValue }) })}
                             </span>
                           )}
                         </td>

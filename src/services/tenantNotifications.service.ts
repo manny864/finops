@@ -16,24 +16,6 @@ import type {
   NotificationEventType,
 } from "@/types/tenantNotifications.types";
 
-export function formatTimeAgo(dateInput: string | Date | null | undefined): string {
-  if (!dateInput) return "Hace un momento";
-  const date = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / (1000 * 60));
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffMins < 1) return "Ahora";
-  if (diffMins < 60) return `Hace ${diffMins} min`;
-  if (diffHours === 1) return "Hace 1 hora";
-  if (diffHours < 24) return `Hace ${diffHours} h`;
-  if (diffDays === 1) return "Ayer";
-  if (diffDays < 7) return `Hace ${diffDays} días`;
-  return date.toLocaleDateString("es-AR", { month: "short", day: "numeric" });
-}
-
 // Almacén en memoria para estado de lectura en tenants Demo
 const demoMockState: Record<string, TenantNotificationItem[]> = {};
 
@@ -52,7 +34,6 @@ function getDemoNotifications(tenantId: string): TenantNotificationItem[] {
         isRead: false,
         readAtIso: null,
         createdAtIso: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-        formattedTimeAgo: "Hace 5 min",
         severity: "info",
       },
       {
@@ -68,7 +49,6 @@ function getDemoNotifications(tenantId: string): TenantNotificationItem[] {
         isRead: false,
         readAtIso: null,
         createdAtIso: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-        formattedTimeAgo: "Hace 45 min",
         severity: "warning",
       },
       {
@@ -84,7 +64,6 @@ function getDemoNotifications(tenantId: string): TenantNotificationItem[] {
         isRead: false,
         readAtIso: null,
         createdAtIso: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-        formattedTimeAgo: "Hace 3 h",
         severity: "critical",
       },
     ];
@@ -195,7 +174,6 @@ export async function getTenantNotifications(
         isRead,
         readAtIso: r.read_at || r.readAt ? new Date(r.read_at || r.readAt).toISOString() : null,
         createdAtIso: new Date(r.created_at || Date.now()).toISOString(),
-        formattedTimeAgo: formatTimeAgo(r.created_at),
         severity: r.severity || "info",
       };
     });

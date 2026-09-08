@@ -95,15 +95,8 @@ export async function aggregateExecutiveTelemetry(
             }
             prevCost = cost;
 
-            const [year, month] = (row.monthKey || '').split('-');
-            const monthDate = new Date(Number(year), Number(month) - 1, 1);
-            const monthLabel = !isNaN(monthDate.getTime())
-                ? monthDate.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' })
-                : row.monthKey;
-
             return {
                 monthKey: row.monthKey,
-                monthLabel,
                 costUSD: cost.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber(),
                 comparisonVsPreviousMonthPercent,
                 trend,
@@ -240,12 +233,12 @@ function getMockExecutiveReportFullData(tenantId: string, scope: ExecutiveReport
             budgetBurnPercent: 68.5,
         },
         historicalTrends: [
-            { monthKey: '2026-03', monthLabel: 'Mar 2026', costUSD: 590420.10, comparisonVsPreviousMonthPercent: null, trend: 'STABLE' },
-            { monthKey: '2026-04', monthLabel: 'Abr 2026', costUSD: 615200.00, comparisonVsPreviousMonthPercent: 4.2, trend: 'BULLISH' },
-            { monthKey: '2026-05', monthLabel: 'May 2026', costUSD: 630150.50, comparisonVsPreviousMonthPercent: 2.4, trend: 'BULLISH' },
-            { monthKey: '2026-06', monthLabel: 'Jun 2026', costUSD: 610900.00, comparisonVsPreviousMonthPercent: -3.1, trend: 'BEARISH' },
-            { monthKey: '2026-07', monthLabel: 'Jul 2026', costUSD: 641425.54, comparisonVsPreviousMonthPercent: 5.0, trend: 'BULLISH' },
-            { monthKey: '2026-08', monthLabel: 'Ago 2026', costUSD: 675840.00, comparisonVsPreviousMonthPercent: 5.4, trend: 'BULLISH' },
+            { monthKey: '2026-03', costUSD: 590420.10, comparisonVsPreviousMonthPercent: null, trend: 'STABLE' },
+            { monthKey: '2026-04', costUSD: 615200.00, comparisonVsPreviousMonthPercent: 4.2, trend: 'BULLISH' },
+            { monthKey: '2026-05', costUSD: 630150.50, comparisonVsPreviousMonthPercent: 2.4, trend: 'BULLISH' },
+            { monthKey: '2026-06', costUSD: 610900.00, comparisonVsPreviousMonthPercent: -3.1, trend: 'BEARISH' },
+            { monthKey: '2026-07', costUSD: 641425.54, comparisonVsPreviousMonthPercent: 5.0, trend: 'BULLISH' },
+            { monthKey: '2026-08', costUSD: 675840.00, comparisonVsPreviousMonthPercent: 5.4, trend: 'BULLISH' },
         ],
         inefficiencyDistribution: [
             { categoryName: 'Discos Desasociados', affectedResourcesCount: 14, monthlyWasteUSD: 3120.00, percentageOfTotalWaste: 31.4 },

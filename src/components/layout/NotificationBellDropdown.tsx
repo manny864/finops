@@ -28,15 +28,17 @@ import { textoDeNotificacion } from "@/lib/notificationText";
 type FilterTab = "ALL" | "REPORTS" | "ANOMALIES" | "SECURITY";
 
 /**
- * "Hace 5 min" en el idioma del lector. `formattedTimeAgo` viene del servidor
- * armado en castellano y queda sólo como respaldo si la fecha no parsea.
+ * "Hace 5 min" en el idioma del lector. El servidor manda `createdAtIso` y nada
+ * mas: antes viajaba tambien un `formattedTimeAgo` armado en castellano como
+ * respaldo, pero el servicio siempre construye la fecha con `.toISOString()`,
+ * asi que la rama nunca corria — y si corria, mostraba castellano.
  */
 function hace(
   item: TenantNotificationItem,
   format: ReturnType<typeof useFormatter>,
 ): string {
   const fecha = new Date(item.createdAtIso);
-  if (Number.isNaN(fecha.getTime())) return item.formattedTimeAgo;
+  if (Number.isNaN(fecha.getTime())) return "";
   return format.relativeTime(fecha, new Date());
 }
 
