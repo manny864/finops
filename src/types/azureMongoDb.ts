@@ -74,11 +74,33 @@ export type MongoRemediationRuleKey =
   | "reserved_capacity"
   | "storage_index_optimization";
 
+/**
+ * Claves i18n del titulo y la descripcion de cada recomendacion.
+ *
+ * El payload traia `title` y `description` armados en el servidor, en
+ * castellano, con los numeros ya interpolados. Mismo motivo y misma solucion que
+ * en Redis (ver `REDIS_RULE_I18N`): las rutas de bases de datos cachean con
+ * `getDiagnosticsCacheKey(tenantId, ...)`, que NO incluye el locale, asi que
+ * traducir en el servidor sirve el idioma equivocado desde el cache. El payload
+ * lleva la clave y los parametros, que son locale-independientes.
+ *
+ * Record sobre la union cerrada, y exportado para que
+ * `i18nClavesDinamicas.test.ts` pueda afirmar que las claves existen: la UI arma
+ * la clave en runtime y `i18nKeyIntegrity` no la ve.
+ */
+export const MONGO_RULE_I18N: Record<MongoRemediationRuleKey, { title: string; desc: string }> = {
+  vcore_downsize: { title: "rec_vcore_downsize_title", desc: "rec_vcore_downsize_desc" },
+  vcore_ha_dev_test: { title: "rec_vcore_ha_title", desc: "rec_vcore_ha_desc" },
+  ru_manual_to_autoscale_serverless: { title: "rec_ru_autoscale_title", desc: "rec_ru_autoscale_desc" },
+  reserved_capacity: { title: "rec_reserved_capacity_title", desc: "rec_reserved_capacity_desc" },
+  storage_index_optimization: { title: "rec_storage_index_title", desc: "rec_storage_index_desc" },
+};
+
 export interface MongoRemediationAction {
   id: string;
   ruleKey: MongoRemediationRuleKey;
-  title: string;
-  description: string;
+  /** Valores a interpolar en el titulo y la descripcion. Numeros y nombres, nunca frases. */
+  params: Record<string, string | number>;
   savingsMonthlyUsd: number;
   risk: "low" | "medium" | "high";
   confidence: "high" | "medium" | "low";

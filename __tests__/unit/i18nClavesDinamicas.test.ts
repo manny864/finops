@@ -7,6 +7,7 @@ import { ALL_MODULES } from "@/types/tenantUsers.types";
 import { WEEKDAY_KEYS } from "@/types/azurePowerManagement.types";
 import { WATERFALL_STEP_KEYS } from "@/types/azureWhatIf.types";
 import { REDIS_RULE_I18N } from "@/types/redisCache";
+import { MONGO_RULE_I18N } from "@/types/azureMongoDb";
 
 /**
  * Descubre las claves de comentario de script leyendo los marcadores
@@ -201,6 +202,14 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
             // forma y no porque falte. Inventarle valores probaria que el test
             // sabe inventar valores, no que el catalogo este completo.
             claves: Object.values(REDIS_RULE_I18N).map((v) => v.title),
+        },
+        {
+            // Igual que Redis: `ruleKey` en vez del titulo armado.
+            que: "recomendaciones de MongoDB (MONGO_RULE_I18N)",
+            ns: "AzureMongoDB",
+            // Solo los titulos SIN parametros: `rec_vcore_downsize_title` lleva
+            // {sku} y {target}, y esta capa resuelve la clave sin valores.
+            claves: [MONGO_RULE_I18N.vcore_ha_dev_test.title, MONGO_RULE_I18N.reserved_capacity.title, MONGO_RULE_I18N.storage_index_optimization.title],
         },
         {
             // Los comentarios de los scripts CLI/Bicep viajan como marcadores

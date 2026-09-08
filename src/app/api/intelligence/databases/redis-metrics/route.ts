@@ -160,7 +160,7 @@ function deriveRedisRecommendations(instance: RedisCacheDetail): RedisRemediatio
     actions.push({
       id: `${instance.id}-staging-overkill`,
       ruleKey: "staging_overkill_rightsizing",
-      descriptionParams: {
+      params: {
         name: instance.name,
         sku: instance.skuProfile.name,
         usedMb: instance.metrics.usedMemoryMb.toFixed(2),
@@ -199,7 +199,7 @@ function deriveRedisRecommendations(instance: RedisCacheDetail): RedisRemediatio
     actions.push({
       id: `${instance.id}-zombie-cache`,
       ruleKey: "idle_zombie_instance",
-      descriptionParams: { clients: instance.metrics.connectedClients },
+      params: { clients: instance.metrics.connectedClients },
       savingsMonthlyUsd: round2(cost),
       risk: "medium",
       confidence: "high",
@@ -221,7 +221,7 @@ az redis delete \\
     actions.push({
       id: `${instance.id}-hit-rate-inefficient`,
       ruleKey: "inefficient_hit_rate",
-      descriptionParams: {
+      params: {
         hitRate: (instance.metrics.hitRatePercentage ?? 0).toFixed(2),
         missRate: (instance.metrics.missRatePercentage ?? 0).toFixed(2),
       },
@@ -257,7 +257,7 @@ az redis update \\
     actions.push({
       id: `${instance.id}-reserved-capacity`,
       ruleKey: "reserved_capacity_coverage",
-      descriptionParams: {},
+      params: {},
       savingsMonthlyUsd: savings,
       risk: "low",
       confidence: "high",
@@ -412,7 +412,7 @@ export async function GET(request: NextRequest) {
     const bustCache = request.nextUrl.searchParams.get("bust") === "1";
     // v3 y no v2: el payload cambio de forma. Las entradas guardadas antes de
     // este cambio traen `title`/`description` armados y NO traen
-    // `descriptionParams`, asi que la UI --que ahora interpola-- tiraba
+    // `params`, asi que la UI --que ahora interpola-- tiraba
     // FORMATTING_ERROR y se llevaba puesto el board entero. Subir la version
     // invalida esas entradas de una.
     //

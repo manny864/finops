@@ -98,8 +98,14 @@ function deriveMongoRecommendations(server: MongoDbResourceDetail): MongoRemedia
       actions.push({
         id: `${server.id}-vcore-downsize`,
         ruleKey: "vcore_downsize",
-        title: `Rightsizing de Clúster vCore (${skuName} → ${lowerSku})`,
-        description: `El clúster '${server.name}' opera en SKU ${skuName} (${vCores} vCores) con CPU promedio de ${vMetrics.cpuPercentAvg.toFixed(1)}% y memoria en ${vMetrics.memoryPercentAvg.toFixed(1)}%. Reducir a ${lowerSku} mantiene rendimiento óptimo y ahorra ~45% mensual.`,
+        params: {
+          name: server.name,
+          sku: skuName,
+          target: lowerSku,
+          vCores,
+          cpu: vMetrics.cpuPercentAvg.toFixed(1),
+          mem: vMetrics.memoryPercentAvg.toFixed(1),
+        },
         savingsMonthlyUsd: savings,
         risk: "low",
         confidence: "high",
@@ -129,8 +135,7 @@ function deriveMongoRecommendations(server: MongoDbResourceDetail): MongoRemedia
       actions.push({
         id: `${server.id}-vcore-ha-dev-test`,
         ruleKey: "vcore_ha_dev_test",
-        title: "Desactivar Alta Disponibilidad (HA) en vCore Dev/Test",
-        description: `El clúster '${server.name}' tiene habilitada Alta Disponibilidad (${haMode}) en un entorno no productivo ('${server.resourceGroup}'). Desactivar el nodo standby reduce la facturación del clúster en un 50%.`,
+        params: { name: server.name, haMode, rg: server.resourceGroup },
         savingsMonthlyUsd: haSavings,
         risk: "low",
         confidence: "high",
@@ -165,8 +170,12 @@ function deriveMongoRecommendations(server: MongoDbResourceDetail): MongoRemedia
       actions.push({
         id: `${server.id}-ru-autoscale`,
         ruleKey: "ru_manual_to_autoscale_serverless",
-        title: `Migración de Throughput Manual a ${targetMode}`,
-        description: `La cuenta '${server.name}' tiene ${provisionedRu} RU/s aprovisionadas estáticamente con un consumo promedio normalizado de solo ${ruMetrics.normalizedRuPercentAvg.toFixed(1)}%. Migrar a ${targetMode} evita pagar por capacidad no utilizada en valles de tráfico.`,
+        params: {
+          name: server.name,
+          target: targetMode,
+          ru: provisionedRu,
+          pct: ruMetrics.normalizedRuPercentAvg.toFixed(1),
+        },
         savingsMonthlyUsd: savings,
         risk: "low",
         confidence: "high",
@@ -196,17 +205,21 @@ function deriveMongoRecommendations(server: MongoDbResourceDetail): MongoRemedia
       actions.push({
         id: `${server.id}-storage-index`,
         ruleKey: "storage_index_optimization",
-        title: "Auditoría y Purga de Índices No Utilizados",
-        description: `En la cuenta '${server.name}', los índices ocupan ${ruMetrics.indexUsageGb.toFixed(1)} GB frente a ${ruMetrics.dataUsageGb.toFixed(1)} GB de datos (${Math.round((ruMetrics.indexUsageGb / ruMetrics.dataUsageGb) * 100)}% del espacio). Eliminar índices redundantes reduce el costo de almacenamiento y optimiza el consumo de RU/s en escrituras.`,
+        params: {
+          name: server.name,
+          indexGb: ruMetrics.indexUsageGb.toFixed(1),
+          dataGb: ruMetrics.dataUsageGb.toFixed(1),
+          pct: Math.round((ruMetrics.indexUsageGb / ruMetrics.dataUsageGb) * 100),
+        },
         savingsMonthlyUsd: savings,
         risk: "medium",
         confidence: "medium",
         actionType: "manual",
-        cliCommand: `# Conectar vía mongosh y listar tamaños de índices por colección:
+        cliCommand: `# {{cmt.mongoshListIndexSizes}}
 # db.collection.stats().indexSizes
-# Eliminar índices redundantes:
+# {{cmt.dropRedundantIndexes}}
 # db.collection.dropIndex("index_name_1")`,
-        bicepSnippet: `// Revisar y optimizar la política de indexación en la definición de colecciones Bicep`,
+        bicepSnippet: `// {{cmt.reviewIndexingPolicy}}`,
       });
     }
   }
@@ -217,15 +230,14 @@ function deriveMongoRecommendations(server: MongoDbResourceDetail): MongoRemedia
     actions.push({
       id: `${server.id}-reserved-capacity`,
       ruleKey: "reserved_capacity",
-      title: "Adquisición de Capacidad Reservada (1 o 3 años)",
-      description: `El recurso '${server.name}' opera en producción de forma ininterrumpida con un gasto mensual sostenido de ~$${cost.toFixed(0)}/mes. Adquirir Azure Cosmos DB Reserved Capacity otorga entre 35% y 55% de descuento sobre la tarifa bajo demanda.`,
+      params: { name: server.name, cost: cost.toFixed(0) },
       savingsMonthlyUsd: riSavings,
       risk: "low",
       confidence: "high",
       actionType: "guided",
-      cliCommand: `# Consultar ofertas de capacidad reservada en Azure Portal:
+      cliCommand: `# {{cmt.quoteReservedCapacityPortal}}
 # Azure Portal > Cost Management + Billing > Reservations > Purchase Reservations > Azure Cosmos DB`,
-      bicepSnippet: `// Las reservas se adquieren a nivel de suscripción / Billing Account en Azure Portal`,
+      bicepSnippet: `// {{cmt.reservationsAreBillingScope}}`,
     });
   }
 
@@ -536,7 +548,10 @@ export async function GET(request: NextRequest) {
     }
 
     const bustCache = request.nextUrl.searchParams.get("bust") === "1";
-    const cacheKey = getDiagnosticsCacheKey(tenantId, "mongo-finops-v1");
+    // v2: el payload cambio de forma (title/description -> ruleKey + params).
+    // Sin subir la version, las entradas viejas no traen `params` y la UI tira
+    // FORMATTING_ERROR, que en un render tumba el board entero.
+    const cacheKey = getDiagnosticsCacheKey(tenantId, "mongo-finops-v2");
 
     if (!bustCache) {
       const cached = await readDiagnosticsCache<MongoDbFinopsSummaryResponse>(cacheKey);

@@ -37,6 +37,30 @@ import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import FinopsTableControls, { type FinopsTableOption } from "@/components/dashboard/FinopsTableControls";
 import { useTranslations } from "next-intl";
+import { MONGO_RULE_I18N, type MongoRemediationAction } from "@/types/azureMongoDb";
+import { resolveScriptComments } from "@/lib/scriptComments";
+
+/**
+ * Descripcion de una recomendacion, tolerante a payloads viejos del cache.
+ *
+ * `params` es nuevo: una entrada guardada antes del cambio no lo trae y `t()`
+ * tira FORMATTING_ERROR, que en un render de React tumba el board entero. La
+ * version de la clave de cache subio a v2 para que esas entradas no se lean;
+ * esto es la red. Preferimos la tarjeta sin su parrafo antes que la pantalla en
+ * blanco.
+ */
+function descripcionDeRecomendacion(
+  rec: MongoRemediationAction,
+  t: (key: string, values?: Record<string, string | number>) => string,
+): string {
+  const clave = MONGO_RULE_I18N[rec.ruleKey]?.desc;
+  if (!clave) return "";
+  try {
+    return t(clave, rec.params ?? {});
+  } catch {
+    return "";
+  }
+}
 import RiskConfidenceBadges from "@/components/dashboard/RiskConfidenceBadges";
 import DatabaseStateBadge from "@/components/dashboard/DatabaseStateBadge";
 import InfoTooltip from "@/components/InfoTooltip";
@@ -119,6 +143,7 @@ function OptimizationModal({
 }) {
   const [activeRecIdx, setActiveRecIdx] = useState(0);
   const t = useTranslations("AzureMongoDB");
+  const tScript = useTranslations("ScriptComments");
   const [activeTab, setActiveTab] = useState<"cli" | "bicep">("cli");
   const [copied, setCopied] = useState(false);
 
@@ -126,25 +151,31 @@ function OptimizationModal({
   const currentRec = hasRecs ? server.recommendations[activeRecIdx] || server.recommendations[0] : null;
 
   const fallbackCli = server.architecture === "vCore"
-    ? `# Diagnóstico y configuración recomendada para MongoDB vCore: ${server.name}
+    ? `# ${t("fallbackDiagVCore", { name: server.name })}
 az cosmosdb mongocluster update \\
   --cluster-name "${server.name}" \\
   --resource-group "${server.resourceGroup}"`
-    : `# Diagnóstico y configuración recomendada para Cosmos DB MongoDB RU: ${server.name}
+    : `# ${t("fallbackDiagRu", { name: server.name })}
 az cosmosdb mongodb database throughput show \\
   --account-name "${server.name}" \\
   --resource-group "${server.resourceGroup}" \\
   --name "maindb"`;
 
-  const fallbackBicep = `// Template Bicep de referencia para ${server.name}
+  const fallbackBicep = `// ${t("fallbackBicepTemplate", { name: server.name })}
 resource mongoResource 'Microsoft.DocumentDB/${server.architecture === "vCore" ? "mongoClusters" : "databaseAccounts"}@2024-03-01-preview' = {
   name: '${server.name}'
   location: '${server.region}'
 }`;
 
-  const code = currentRec
-    ? activeTab === "cli" ? currentRec.cliCommand : currentRec.bicepSnippet
-    : activeTab === "cli" ? fallbackCli : fallbackBicep;
+  // Los comentarios de los scripts del servidor llegan como marcadores y se
+  // resuelven aca. Los fallbacks los arma el cliente, asi que ya vienen
+  // traducidos y el resolver los deja intactos (no tienen marcador).
+  const code = resolveScriptComments(
+    currentRec
+      ? activeTab === "cli" ? currentRec.cliCommand : currentRec.bicepSnippet
+      : activeTab === "cli" ? fallbackCli : fallbackBicep,
+    tScript,
+  );
 
   async function handleCopy() {
     if (!code) return;
@@ -204,7 +235,7 @@ resource mongoResource 'Microsoft.DocumentDB/${server.architecture === "vCore" ?
                           : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50"
                       }`}
                     >
-                      {r.title}
+                      {t(MONGO_RULE_I18N[r.ruleKey].title, r.params)}
                     </button>
                   ))}
                 </div>
@@ -215,11 +246,11 @@ resource mongoResource 'Microsoft.DocumentDB/${server.architecture === "vCore" ?
                   <div className="flex items-start justify-between gap-3">
                     <h4 className="text-sm font-bold text-[#1B2A41] dark:text-white flex items-center gap-2">
                       <IconBolt size={18} stroke={1.5} className="text-[#0054A6]" />
-                      {currentRec.title}
+                      {t(MONGO_RULE_I18N[currentRec.ruleKey].title, currentRec.params)}
                     </h4>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    {currentRec.description}
+                    {descripcionDeRecomendacion(currentRec, t)}
                   </p>
 
                   <div className="flex flex-wrap items-center gap-3 pt-2 text-xs">

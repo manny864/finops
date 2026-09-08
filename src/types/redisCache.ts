@@ -88,8 +88,8 @@ export const REDIS_RULE_I18N: Record<RedisRuleKey, { title: string; desc: string
 export interface RedisRemediationAction {
   id: string;
   ruleKey: RedisRuleKey;
-  /** Valores a interpolar en la descripcion. Numeros y nombres, nunca frases. */
-  descriptionParams: Record<string, string | number>;
+  /** Valores a interpolar en el titulo y la descripcion. Numeros y nombres, nunca frases. */
+  params: Record<string, string | number>;
   savingsMonthlyUsd: number;
   risk: "low" | "medium" | "high";
   confidence: "high" | "medium" | "low";

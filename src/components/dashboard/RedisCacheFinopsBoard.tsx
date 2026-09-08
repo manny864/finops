@@ -45,7 +45,7 @@ import { resolveScriptComments } from "@/lib/scriptComments";
 /**
  * Descripcion de una recomendacion, tolerante a payloads viejos del cache.
  *
- * `descriptionParams` es nuevo. Una entrada de cache guardada antes del cambio
+ * `params` es nuevo. Una entrada de cache guardada antes del cambio
  * trae la descripcion ya armada y NO trae los params, y entonces `t()` tira
  * `FORMATTING_ERROR: The intl string context variable "hitRate" was not
  * provided` — que en un render de React **tumba el board entero**, no solo esa
@@ -56,13 +56,13 @@ import { resolveScriptComments } from "@/lib/scriptComments";
  * parrafo antes que la pantalla en blanco.
  */
 function descripcionDeRecomendacion(
-  rec: { ruleKey: RedisRuleKey; descriptionParams?: Record<string, string | number> },
+  rec: { ruleKey: RedisRuleKey; params?: Record<string, string | number> },
   t: (key: string, values?: Record<string, string | number>) => string,
 ): string {
   const clave = REDIS_RULE_I18N[rec.ruleKey]?.desc;
   if (!clave) return "";
   try {
-    return t(clave, rec.descriptionParams ?? {});
+    return t(clave, rec.params ?? {});
   } catch {
     return "";
   }
@@ -861,7 +861,7 @@ export default function RedisCacheFinopsBoard() {
                                   {
                                     id: `${acc.id}-default-tuning`,
                                     ruleKey: "default_memory_policy_tuning" as const,
-                                    descriptionParams: {},
+                                    params: {},
                                     savingsMonthlyUsd: 5,
                                     risk: "low" as const,
                                     confidence: "high" as const,
