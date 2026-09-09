@@ -35,6 +35,7 @@ import { CONTENT_SAFETY_REMEDIATION_CATEGORIES } from "@/types/azureContentSafet
 import { DATABRICKS_REMEDIATION_CATEGORIES } from "@/types/azureDatabricks.types";
 import { EVENT_HUBS_REMEDIATION_CATEGORIES } from "@/types/azureEventHubs.types";
 import { ENTRA_REMEDIATION_CATEGORIES, ENTRA_WASTE_REASON_KEYS } from "@/types/azureEntraId.types";
+import { WAF_REMEDIATION_CATEGORIES } from "@/types/azureWaf.types";
 import {
     UNIT_ECONOMICS_REMEDIATION_CATEGORIES,
     UNIT_METRIC_CATALOG,
@@ -209,6 +210,28 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
             ns: "AzureAI",
             params: { cost: "1500.00", rate: 12.5, deployment: "gpt-35-turbo-legacy", model: "gpt-4", count: 2, apps: "app-a, app-b" },
             claves: FOUNDRY_REMEDIATION_CATEGORIES.flatMap((c) => [`rem_FOUNDRY_${c}_title`, `rem_FOUNDRY_${c}_desc`]),
+        },
+        {
+            que: "recomendaciones de WAF (WAF_REMEDIATION_CATEGORIES)",
+            ns: "WafSecurity",
+            params: {
+                name: "waf-prod",
+                platform: "ApplicationGateway",
+                hasEndpoints: 2,
+                endpoints: "app.contoso.com",
+                detected: 18400,
+                top: "CN, RU, BR",
+                ratio: 30,
+                millions: "4.2",
+                ip: "203.0.113.7",
+                blocked: "12.4K",
+                origin: "China",
+            },
+            claves: WAF_REMEDIATION_CATEGORIES.flatMap((c) => [
+                `rem_${c}_title`,
+                `rem_${c}_desc`,
+                `cat_${c}`,
+            ]),
         },
         {
             que: "recomendaciones de Entra ID (ENTRA_REMEDIATION_CATEGORIES)",
@@ -621,6 +644,17 @@ describe("i18n · capa 2b: las ramas de los select de ICU", () => {
         expect(configurado).not.toBe(apagado);
     });
 
+    it.each(LOCALES)("%s: sin endpoints asociados, ENABLE_PREVENTION no imprime la lista vacia", (locale) => {
+        const t = traducir(locale, "WafSecurity");
+        const base = { name: "waf-prod", detected: 18400 };
+        const sin = t("rem_ENABLE_PREVENTION_desc", { ...base, hasEndpoints: 0, endpoints: "" });
+        const con = t("rem_ENABLE_PREVENTION_desc", { ...base, hasEndpoints: 2, endpoints: "app.contoso.com" });
+        // Si la rama `0` se rompe, `other` interpola la cadena vacia y queda
+        // "protege  pero solo": se comprueba que no haya doble espacio.
+        expect(sin).not.toMatch(/ {2}/);
+        expect(con).toContain("app.contoso.com");
+    });
+
     it.each(LOCALES)("%s: sin cuentas deshabilitadas, la reclamacion no habla de ellas", (locale) => {
         const t = traducir(locale, "EntraIdPanel");
         const base = { count: 12, sku: "Microsoft 365 E5", days: 90, price: "57.00" };
@@ -649,6 +683,41 @@ describe("i18n · capa 2b: las ramas de los select de ICU", () => {
         expect(sin).not.toContain("NINGUNO");
         expect(sin.length).toBeLessThan(con.length);
         expect(con).toContain("Azure SQL");
+    });
+});
+
+// Estas advertencias vivian como assertions de substring en el test del
+// servicio de WAF. Al mover el texto al catalogo se movieron aca, que es donde
+// esta el texto — y de paso pasaron de cubrir un idioma a cubrir los tres.
+describe("i18n · las advertencias de WAF sobreviven a la traduccion", () => {
+    const ADVERTENCIAS: Array<[string, Record<string, string>]> = [
+        ["rem_ENABLE_PREVENTION_desc", { es: "falsos positivos", en: "false positives", "pt-BR": "falsos positivos" }],
+        ["rem_GEO_FILTER_RULE_desc", { es: "CERO", en: "ZERO", "pt-BR": "ZERO" }],
+        ["rem_RATE_LIMITING_desc", { es: "NAT corporativo", en: "corporate NAT", "pt-BR": "NAT corporativo" }],
+    ];
+    const PARAMS = {
+        name: "waf-prod",
+        platform: "FrontDoor",
+        hasEndpoints: 1,
+        endpoints: "app.contoso.com",
+        detected: 61480,
+        top: "CN",
+        ratio: 30,
+        millions: "5.0",
+    };
+
+    it.each(LOCALES)("%s: la frase sigue advirtiendo el riesgo", (locale) => {
+        const t = traducir(locale, "WafSecurity");
+        for (const [clave, esperado] of ADVERTENCIAS) {
+            expect(t(clave, PARAMS)).toContain(esperado[locale]);
+        }
+    });
+
+    it.each(LOCALES)("%s: en Application Gateway el geo-filtro habla de Capacity Units", (locale) => {
+        const t = traducir(locale, "WafSecurity");
+        const texto = t("rem_GEO_FILTER_RULE_desc", { ...PARAMS, platform: "ApplicationGateway" });
+        expect(texto).toContain("Capacity Unit");
+        expect(texto).toContain("30");
     });
 });
 
@@ -902,6 +971,7 @@ const TABLEROS_LIMPIOS = [
     "src/components/monitoring/ActionGroupsBoard.tsx",
     "src/components/analytics/CostAllocationEngine.tsx",
     "src/components/security/EntraIdPanel.tsx",
+    "src/components/security/WafSecurityPanel.tsx",
     "src/components/analytics/UnitEconomicsPanel.tsx",
     "src/components/dashboard/ContentSafetyDashboard.tsx",
     "src/components/dashboard/DatabricksDashboard.tsx",

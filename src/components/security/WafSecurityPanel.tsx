@@ -1,5 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -33,6 +34,7 @@ import Pagination, { usePagination } from "@/components/Pagination";
 import InfoTooltip from "@/components/InfoTooltip";
 import {
   WAF_COUNTRY_SCALE,
+  GEO_FILTER_CU_SAVING_RATIO,
   type WafPayload,
   type WafPolicyResourceItem,
   type WafRemediationAction,
@@ -91,6 +93,7 @@ function WafRemediationModal({
   onClose: () => void;
 }) {
   const t = useTranslations("WafSecurity");
+  const textoRem = useTextoPorCategoria("WafSecurity");
   const [copied, setCopied] = useState<"cli" | "ps" | null>(null);
   if (!action) return null;
 
@@ -123,8 +126,8 @@ function WafRemediationModal({
             <IconTerminal2 className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
           )}
           <div className="pr-8">
-            <h2 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">{action.title}</h2>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{action.description}</p>
+            <h2 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">{textoRem(action, "title")}</h2>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{textoRem(action, "desc")}</p>
           </div>
         </div>
 
@@ -181,6 +184,7 @@ function WafRemediationModal({
 // ─── Componente Principal ───
 export default function WafSecurityPanel() {
   const t = useTranslations("WafSecurity");
+  const textoRem = useTextoPorCategoria("WafSecurity");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -399,14 +403,14 @@ export default function WafSecurityPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Solicitudes Inspeccionadas</span>
+              <span>{t("kpiRequests")}</span>
               <InfoTooltip content={t("kpiRequestsTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {formatCount(summary.totalRequestsMTD)}
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              {summary.totalThroughputGB} GB procesados
+              {t("gbProcessed", { gb: summary.totalThroughputGB })}
             </div>
           </div>
           <IconWorld className="w-8 h-8 text-[#0078D4]" stroke={1.5} />
@@ -415,14 +419,14 @@ export default function WafSecurityPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Ataques Bloqueados</span>
+              <span>{t("kpiBlocked")}</span>
               <InfoTooltip content={t("kpiBlockedTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {formatCount(summary.totalBlockedRequests)}
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              {summary.blockRatePercentage}% del tráfico
+              {t("pctOfTraffic", { pct: summary.blockRatePercentage })}
               {summary.totalDetectedRequests > 0 && (
                 <span className="block text-amber-600 dark:text-amber-400 font-semibold">
                   {t("onlyDetected", { count: formatCount(summary.totalDetectedRequests) })}
@@ -436,14 +440,14 @@ export default function WafSecurityPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Falsos Positivos (est.)</span>
+              <span>{t("kpiFalsePositives")}</span>
               <InfoTooltip content={t("kpiFalsePositivesTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {summary.falsePositiveRatePercentage}%
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              {summary.falsePositiveRatePercentage < 1 ? "Estado óptimo" : "Revisar exclusiones"}
+              {summary.falsePositiveRatePercentage < 1 ? t("fpOptimal") : t("fpReviewExclusions")}
             </div>
           </div>
           <IconChecklist className="w-8 h-8 text-[#0078D4]" stroke={1.5} />
@@ -458,10 +462,10 @@ export default function WafSecurityPanel() {
         </h3>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            ["Costo por Aplicación", formatCurrency(summary.costPerAppUSD), "/ app"],
-            ["Costo por 1M Requests", formatCurrency(summary.costPerMillionRequestsUSD), "/ millón"],
-            ["Costo por GB Procesado", formatCurrency(summary.costPerGbUSD), "/ GB"],
-            ["Throughput Inspeccionado", `${summary.totalThroughputGB}`, "GB MTD"],
+            [t("costPerApp"), formatCurrency(summary.costPerAppUSD), "/ app"],
+            [t("costPerMillion"), formatCurrency(summary.costPerMillionRequestsUSD), t("unitPerMillion")],
+            [t("costPerGb"), formatCurrency(summary.costPerGbUSD), "/ GB"],
+            [t("throughputInspected"), `${summary.totalThroughputGB}`, "GB MTD"],
           ].map(([label, value, unit]) => (
             <div
               key={label}
@@ -541,8 +545,8 @@ export default function WafSecurityPanel() {
                     <IconShieldLock className="w-7 h-7 text-[#0078D4] mx-auto mb-2" stroke={1.5} />
                     <p className="text-xs font-medium">
                       {policiesList.length === 0
-                        ? "Azure no reporta políticas WAF en las suscripciones visibles."
-                        : "Ninguna política coincide con los filtros aplicados."}
+                        ? t("emptyNoPolicies")
+                        : t("emptyNoMatches")}
                     </p>
                   </td>
                 </tr>
@@ -606,7 +610,7 @@ export default function WafSecurityPanel() {
                         {p.managedRuleSet}
                       </span>
                       <span className="text-[10px] text-slate-400">
-                        {p.customRulesCount} personalizada(s)
+                        {t("customRulesCount", { count: p.customRulesCount })}
                         {p.hasGeoFilterRule && " · geo"}
                         {p.hasRateLimitRule && " · rate-limit"}
                       </span>
@@ -636,8 +640,12 @@ export default function WafSecurityPanel() {
                                 id: `manual-prevention-${p.id}`,
                                 policyId: p.id,
                                 policyName: p.name,
-                                title: `Cambiar ${p.name} a Prevention`,
-                                description: `Protege ${p.associatedEndpoints.join(", ")} pero solo registra los ataques.`,
+                                params: {
+                                  name: p.name,
+                                  hasEndpoints: p.associatedEndpoints.length,
+                                  endpoints: p.associatedEndpoints.join(", "),
+                                  detected: p.detectedRequestsCount,
+                                },
                                 category: "ENABLE_PREVENTION",
                                 estimatedSavingsUSD: 0,
                                 confidence: "HIGH",
@@ -656,8 +664,13 @@ export default function WafSecurityPanel() {
                               id: `manual-rules-${p.id}`,
                               policyId: p.id,
                               policyName: p.name,
-                              title: `Editar reglas de ${p.name}`,
-                              description: `${p.customRulesCount} regla(s) personalizada(s) sobre ${p.managedRuleSet}.`,
+                              params: {
+                                name: p.name,
+                                platform: p.hostPlatform,
+                                top: p.managedRuleSet,
+                                ratio: Math.round(GEO_FILTER_CU_SAVING_RATIO * 100),
+                                millions: (p.totalRequestsMTD / 1_000_000).toFixed(1),
+                              },
                               category: p.hasGeoFilterRule ? "RATE_LIMITING" : "GEO_FILTER_RULE",
                               estimatedSavingsUSD: 0,
                               confidence: "MEDIUM",
@@ -700,7 +713,6 @@ export default function WafSecurityPanel() {
         {summary.threatsBreakdown.length === 0 ? (
           <p className="text-xs text-slate-500 dark:text-slate-400 py-6 text-center">
             {t("noThreatEvents")}
-            mostrar datos fabricados.
           </p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
@@ -751,7 +763,7 @@ export default function WafSecurityPanel() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 mb-3 flex items-center gap-1.5">
-            Top IPs Bloqueadas
+            {t("topBlockedIps")}
             <InfoTooltip content={t("sourcesTooltip")} />
           </h3>
           {summary.topIps.length === 0 ? (
@@ -778,11 +790,12 @@ export default function WafSecurityPanel() {
                         id: `blockip-${ip.identifier}`,
                         policyId: policiesList[0]?.id || "",
                         policyName: policiesList[0]?.name || "wafPolicy",
-                        title: `Bloquear ${ip.identifier} en el perímetro`,
-                        description: `${formatCount(ip.blockedCount)} bloqueos desde ${
-                          ip.countryName || ip.countryCode || "origen desconocido"
-                        }. Una regla de IPMatch la descarta antes de la matriz CRS. Verificar que no sea un NAT compartido antes de bloquear.`,
-                        category: "GEO_FILTER_RULE",
+                        params: {
+                          ip: ip.identifier,
+                          blocked: formatCount(ip.blockedCount),
+                          origin: ip.countryName || ip.countryCode || "UNKNOWN",
+                        },
+                        category: "BLOCK_IP",
                         estimatedSavingsUSD: 0,
                         confidence: "MEDIUM",
                         actionType: "ADD_IP_BLOCK_RULE",
@@ -881,7 +894,7 @@ export default function WafSecurityPanel() {
                             : "border-blue-200 dark:border-blue-800 text-[#0054A6]"
                         }`}
                       >
-                        {isRisk ? "RIESGO" : action.category}
+                        {isRisk ? t("riskLabel") : t(`cat_${action.category}`)}
                       </span>
                       {action.estimatedSavingsUSD > 0 && (
                         <span className="text-xs font-extrabold text-emerald-600">
@@ -890,10 +903,10 @@ export default function WafSecurityPanel() {
                       )}
                     </div>
                     <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 leading-snug">
-                      {action.title}
+                      {textoRem(action, "title")}
                     </h4>
                     <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-4 leading-relaxed">
-                      {action.description}
+                      {textoRem(action, "desc")}
                     </p>
                   </div>
                   <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">

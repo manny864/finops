@@ -241,9 +241,7 @@ describe("WAF — recomendaciones", () => {
     ).find((r) => r.category === "ENABLE_PREVENTION");
     expect(rec).toBeDefined();
     expect(rec!.estimatedSavingsUSD).toBe(0);
-    expect(rec!.title).toContain("RIESGO");
-    // Debe advertir que pasar en frio puede bloquear trafico legitimo.
-    expect(rec!.description).toContain("falsos positivos");
+    expect(rec!.params).toMatchObject({ detected: 61_480, hasEndpoints: 1 });
   });
 
   it("Detection fuera de produccion NO dispara la alerta", () => {
@@ -263,7 +261,7 @@ describe("WAF — recomendaciones", () => {
     ).find((r) => r.category === "GEO_FILTER_RULE");
     expect(rec).toBeDefined();
     expect(rec!.estimatedSavingsUSD).toBe(0);
-    expect(rec!.description).toContain("CERO");
+    expect(rec!.params).toMatchObject({ platform: "FrontDoor" });
   });
 
   it("el geo-filtro en Application Gateway si reclama ahorro de Capacity Units", () => {
@@ -272,7 +270,7 @@ describe("WAF — recomendaciones", () => {
       [{ identifier: "CN", countryName: "China", blockedCount: 100, percentage: 100 }]
     ).find((r) => r.category === "GEO_FILTER_RULE");
     expect(rec!.estimatedSavingsUSD).toBeGreaterThan(0);
-    expect(rec!.description).toContain("Capacity Units");
+    expect(rec!.params).toMatchObject({ platform: "ApplicationGateway", ratio: 30 });
   });
 
   it("no propone geo-filtro si la politica ya lo tiene", () => {
@@ -299,7 +297,7 @@ describe("WAF — recomendaciones", () => {
       (r) => r.category === "RATE_LIMITING"
     );
     expect(rec).toBeDefined();
-    expect(rec!.description).toContain("NAT corporativo");
+    expect(rec!.params).toMatchObject({ millions: "5.0" });
     // Con poco volumen no aplica.
     expect(
       generateWafRecommendations([policy({ totalRequestsMTD: 100_000 })], []).some(

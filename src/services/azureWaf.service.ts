@@ -256,10 +256,7 @@ export function generateWafRecommendations(
         id: `orphan-${p.id}`,
         policyId: p.id,
         policyName: p.name,
-        title: `Eliminar politica WAF huerfana: ${p.name}`,
-        description: `No tiene ningun ${
-          p.hostPlatform === "FrontDoor" ? "endpoint de Front Door" : "Application Gateway"
-        } asociado, asi que no inspecciona nada. No factura computo, pero ensucia el inventario y sus reglas personalizadas se pierden de vista: alguien puede asociarla mas tarde creyendo que esta probada.`,
+        params: { name: p.name, platform: p.hostPlatform },
         category: "PURGE_ORPHAN_POLICY",
         // Sin plano de datos no hay gasto que recortar: el valor es de higiene.
         estimatedSavingsUSD: 0,
@@ -276,10 +273,14 @@ export function generateWafRecommendations(
         id: `prevention-${p.id}`,
         policyId: p.id,
         policyName: p.name,
-        title: `RIESGO: ${p.name} esta en modo Detection sobre produccion`,
-        description: `La politica protege ${p.associatedEndpoints.join(", ") || "endpoints productivos"} pero solo REGISTRA los ataques, no los bloquea: ${p.detectedRequestsCount.toLocaleString(
-          "es-AR"
-        )} solicitudes maliciosas llegaron a la aplicacion este mes. Se paga el WAF sin obtener mitigacion. Antes de cambiar a Prevention, revisar los eventos detectados para identificar falsos positivos y crear exclusiones: pasar en frio puede bloquear trafico legitimo.`,
+        // El separador de miles lo pone ICU con el locale del lector; el
+        // `toLocaleString("es-AR")` de antes lo dejaba en formato argentino.
+        params: {
+          name: p.name,
+          hasEndpoints: p.associatedEndpoints.length,
+          endpoints: p.associatedEndpoints.join(", "),
+          detected: p.detectedRequestsCount,
+        },
         category: "ENABLE_PREVENTION",
         estimatedSavingsUSD: 0,
         confidence: "HIGH",
@@ -300,13 +301,12 @@ export function generateWafRecommendations(
         id: `geo-${p.id}`,
         policyId: p.id,
         policyName: p.name,
-        title: `Regla de geo-filtro temprano en ${p.name}`,
-        description:
-          p.hostPlatform === "ApplicationGateway"
-            ? `Los origenes mas bloqueados (${top}) atraviesan la matriz CRS completa antes de ser rechazados. Una regla personalizada de geo-match con prioridad alta los descarta antes, y las Capacity Units escalan con el trabajo de inspeccion: se estima hasta un ${Math.round(
-                GEO_FILTER_CU_SAVING_RATIO * 100
-              )}% menos de CU. Verificar primero que no haya usuarios legitimos en esos paises.`
-            : `Los origenes mas bloqueados (${top}) se pueden rechazar con una regla de geo-match de alta prioridad, lo que reduce ruido y latencia. En Front Door el ahorro economico es CERO: el cargo por solicitud se paga igual se bloquee o se permita, asi que esta accion es de higiene, no de costo.`,
+        params: {
+          name: p.name,
+          platform: p.hostPlatform,
+          top,
+          ratio: Math.round(GEO_FILTER_CU_SAVING_RATIO * 100),
+        },
         category: "GEO_FILTER_RULE",
         estimatedSavingsUSD: geoSaving,
         confidence: p.hostPlatform === "ApplicationGateway" ? "MEDIUM" : "MEDIUM",
@@ -321,10 +321,7 @@ export function generateWafRecommendations(
         id: `ratelimit-${p.id}`,
         policyId: p.id,
         policyName: p.name,
-        title: `Rate limiting por IP en ${p.name}`,
-        description: `${(p.totalRequestsMTD / 1_000_000).toFixed(
-          1
-        )}M solicitudes mensuales sin ninguna regla de limite por cliente. Un umbral por IP (p. ej. 1000 req/min) corta el scraping abusivo y el credential stuffing antes de que consuman inspeccion. Empezar en modo Log para calibrar el umbral con trafico real: un limite mal elegido bloquea a los usuarios detras de un NAT corporativo.`,
+        params: { name: p.name, millions: (p.totalRequestsMTD / 1_000_000).toFixed(1) },
         category: "RATE_LIMITING",
         estimatedSavingsUSD: 0,
         confidence: "MEDIUM",

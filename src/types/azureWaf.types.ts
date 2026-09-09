@@ -46,11 +46,15 @@ export type WafMode = "Prevention" | "Detection";
 export type WafState = "Enabled" | "Disabled";
 export type WafThreatSeverity = "High" | "Medium" | "Low";
 
-export type WafRemediationCategory =
-  | "ENABLE_PREVENTION"
-  | "GEO_FILTER_RULE"
-  | "RATE_LIMITING"
-  | "PURGE_ORPHAN_POLICY";
+export const WAF_REMEDIATION_CATEGORIES = [
+  "ENABLE_PREVENTION",
+  "GEO_FILTER_RULE",
+  "RATE_LIMITING",
+  "PURGE_ORPHAN_POLICY",
+  "BLOCK_IP",
+] as const;
+
+export type WafRemediationCategory = (typeof WAF_REMEDIATION_CATEGORIES)[number];
 
 export interface WafPolicyResourceItem {
   id: string;
@@ -130,8 +134,8 @@ export interface WafRemediationAction {
   id: string;
   policyId: string;
   policyName: string;
-  title: string;
-  description: string;
+  /** Valores a interpolar en `rem_<category>_title` / `_desc`. */
+  params?: Record<string, string | number>;
   category: WafRemediationCategory;
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM";
