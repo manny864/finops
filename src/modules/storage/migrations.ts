@@ -13,6 +13,7 @@ const IDEMPOTENT_ERRORS = new Set([
     'ER_TABLE_EXISTS_ERROR', // CREATE TABLE existente (sin IF NOT EXISTS)
     'ER_DUP_ENTRY',         // INSERT duplicado en seed
     'ER_CANT_DROP_FIELD_OR_KEY', // DROP INDEX inexistente
+    'ER_FK_DUP_NAME',       // ALTER ADD CONSTRAINT ... FOREIGN KEY ya existente
 ]);
 
 export interface MigrationResult {

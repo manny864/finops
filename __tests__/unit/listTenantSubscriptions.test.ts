@@ -61,6 +61,21 @@ describe("listTenantSubscriptions", () => {
         expect(await listTenantSubscriptions("", credFalsa)).toEqual([]);
     });
 
+    // Forma exacta del ejemplo de la doc de ARM (`Subscriptions - List`): un solo
+    // tenant administrador y dos clientes distintos. Si alguien "arregla"
+    // Lighthouse filtrando por `managedByTenants`, los dos clientes vuelven a
+    // mezclarse; esto lo deja en rojo.
+    it("con Lighthouse corta por el directorio del cliente, no por el que administra", async () => {
+        const OTRO_CLIENTE = "2a0ff0de-96b2-4859-bb7c-a430d07a3e0c";
+        const NOSOTROS = "8f70baf1-1f6e-46a2-a1ff-238dac1ebfb7";
+        armResponde([
+            { subscriptionId: "del-cliente", tenantId: PROPIO, managedByTenants: [{ tenantId: NOSOTROS }] },
+            { subscriptionId: "de-otro-cliente", tenantId: OTRO_CLIENTE, managedByTenants: [{ tenantId: NOSOTROS }] },
+            { subscriptionId: "nuestra-propia", tenantId: NOSOTROS },
+        ]);
+        expect((await listar()).map((s) => s.subscriptionId)).toEqual(["del-cliente"]);
+    });
+
     it("un 403 sube como AccessDenied: falta el rol de Lector, no faltan suscripciones", async () => {
         vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 403, json: async () => ({}) })));
         await expect(listar()).rejects.toThrow(/AccessDenied/);

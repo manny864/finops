@@ -41,9 +41,15 @@ export type ArmSubscription = {
  * El dato para cortar ya venía en la respuesta: cada suscripción trae su
  * `tenantId`, que es su directorio de origen. Nadie lo miraba.
  *
- * Con Lighthouse vale lo mismo: el token sale de NUESTRO directorio, pero la
- * suscripción delegada sigue declarando el tenant del cliente, así que filtrar
- * por el tenant pedido es correcto en los dos modelos de acceso.
+ * Con Lighthouse vale lo mismo, y no es una suposición. El token sale de
+ * NUESTRO directorio y ARM devuelve las suscripciones de TODOS los clientes que
+ * nos delegaron, pero cada una sigue declarando en `tenantId` el directorio del
+ * cliente; el nuestro aparece aparte, en `managedByTenants`. El ejemplo de la
+ * documentación de ARM (`Subscriptions - List`) es justo el caso MSP: dos
+ * suscripciones con `tenantId` distinto (`31c75423…` y `2a0ff0de…`) y el mismo
+ * `managedByTenants` (`8f70baf1…`). Filtrar por `tenantId` es correcto en los
+ * dos modelos; hacerlo por `managedByTenants` mezclaría a todos los clientes
+ * delegados, que es exactamente el bug que esto arregla.
  *
  * Se descarta lo que no coincide en vez de confiar: una suscripción sin
  * `tenantId` no se puede atribuir, y ante la duda no entra. Cruzar el límite de
