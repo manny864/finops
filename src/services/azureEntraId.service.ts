@@ -218,10 +218,15 @@ export function generateEntraIdRecommendations(
         id: `reclaim-${sku}`,
         targetId: sku,
         targetName: resolveSkuName(sku),
-        title: `Reclamar ${affected.length} licencia(s) ${resolveSkuName(sku)}`,
-        description: `${affected.length} cuenta(s) retienen ${resolveSkuName(sku)} sin usarlo${
-          disabled > 0 ? `, de las cuales ${disabled} estan deshabilitadas — desperdicio puro` : ` (sin logon hace mas de ${INACTIVE_USER_DAYS} dias)`
-        }. A ${price} USD por licencia/mes, revocarlas libera la cuota para asignarla a alguien que la necesite. Verificar antes las cuentas de servicio o de break-glass, que por diseño no inician sesion.`,
+        // El inciso sobre las deshabilitadas es una frase, no un dato: va como
+        // `select` de ICU sobre `disabled` en vez de armarse aca.
+        params: {
+          count: affected.length,
+          sku: resolveSkuName(sku),
+          disabled,
+          days: INACTIVE_USER_DAYS,
+          price,
+        },
         category: "RECLAIM_USER_LICENSE",
         estimatedSavingsUSD: Number((affected.length * price).toFixed(2)),
         confidence: disabled > 0 ? "HIGH" : "MEDIUM",
@@ -239,9 +244,13 @@ export function generateEntraIdRecommendations(
         id: `unassigned-${sku.skuPartNumber}`,
         targetId: sku.skuPartNumber,
         targetName: sku.displayName,
-        title: `${sku.unassignedUnits} licencia(s) ${sku.displayName} compradas sin asignar`,
-        description: `Se compraron ${sku.prepaidUnits} unidades y hay ${sku.consumedUnits} asignadas: ${sku.unassignedUnits} se facturan sin proteger a nadie. Ajustar la cantidad en el proximo ciclo del acuerdo de licenciamiento, o asignarlas si hay demanda pendiente.`,
-        category: "RECLAIM_USER_LICENSE",
+        params: {
+          count: sku.unassignedUnits,
+          sku: sku.displayName,
+          prepaid: sku.prepaidUnits,
+          consumed: sku.consumedUnits,
+        },
+        category: "ADJUST_PREPAID_UNITS",
         estimatedSavingsUSD: Number((sku.unassignedUnits * sku.unitPriceUSD).toFixed(2)),
         confidence: "HIGH",
         actionType: "ADJUST_PREPAID_UNITS",
@@ -257,10 +266,12 @@ export function generateEntraIdRecommendations(
         id: `eds-${eds.id}`,
         targetId: eds.id,
         targetName: eds.name,
-        title: `Bajar ${eds.name} de ${eds.skuTier} a Standard`,
-        description: `Instancia de Entra Domain Services en SKU ${eds.skuTier} (${calcDomainServicesCost(
-          eds.skuTier as "Enterprise" | "Premium"
-        )} USD/mes) en un scope no productivo. Standard cuesta ${EDS_SKU_MONTHLY_USD.Standard} USD/mes; lo que se pierde son los trusts de bosque y el respaldo diario, que rara vez se necesitan fuera de produccion. Ojo: el cambio de SKU requiere recrear la instancia si se baja desde Premium.`,
+        params: {
+          name: eds.name,
+          tier: eds.skuTier,
+          currentCost: calcDomainServicesCost(eds.skuTier as "Enterprise" | "Premium"),
+          standardCost: EDS_SKU_MONTHLY_USD.Standard,
+        },
         category: "DOWNGRADE_DOMAIN_SERVICES",
         estimatedSavingsUSD: Number(Math.max(0, saving).toFixed(2)),
         confidence: "MEDIUM",
@@ -281,8 +292,7 @@ export function generateEntraIdRecommendations(
       id: "purge-workload-ids",
       targetId: "WORKLOAD_IDENTITIES",
       targetName: "Microsoft Entra Workload ID",
-      title: `Desasignar Workload ID Premium en ${idleSps.length} service principal(es) sin actividad`,
-      description: `${idleSps.length} identidad(es) de carga de trabajo pagan ${ENTRA_LICENSE_USD.WORKLOAD_IDENTITIES} USD/mes sin registrar autenticaciones recientes. Antes de desasignar, confirmar que no sean integraciones estacionales o de recuperacion ante desastres: un SP sin trafico no siempre es un SP muerto.`,
+      params: { count: idleSps.length, price: ENTRA_LICENSE_USD.WORKLOAD_IDENTITIES },
       category: "PURGE_WORKLOAD_LICENSE",
       estimatedSavingsUSD: Number((idleSps.length * ENTRA_LICENSE_USD.WORKLOAD_IDENTITIES).toFixed(2)),
       confidence: "MEDIUM",
@@ -299,9 +309,7 @@ export function generateEntraIdRecommendations(
         id: `mfa-${ext.id}`,
         targetId: ext.id,
         targetName: ext.name,
-        title: `Racionalizar MFA por SMS en ${ext.name}`,
-        description:
-          "Los flujos de MFA por SMS en External ID son el vector del fraude de bombeo telefonico (toll fraud): un atacante dispara registros masivos contra numeros premium y el tenant paga cada mensaje. Activar Conditional Access con proteccion contra fraude telefonico y preferir autenticador o email OTP sobre SMS. El ahorro no se puede cuantificar sin datos de fraude, asi que se reporta en cero.",
+        params: { name: ext.name },
         category: "MFA_FRAUD_PREVENTION",
         estimatedSavingsUSD: 0,
         confidence: "MEDIUM",
@@ -347,11 +355,11 @@ function userResource(
     potentialSavingsUSD: wasteful ? Number(cost.toFixed(2)) : 0,
     isWasteful: wasteful,
     wasteReason: !accountEnabled
-      ? "Cuenta deshabilitada reteniendo licencias"
+      ? { key: "waste_DISABLED_WITH_LICENSE" as const }
       : status === "Inactive"
         ? inactiveDays === null
-          ? "Nunca inicio sesion"
-          : `Sin logon hace ${inactiveDays} dias`
+          ? { key: "waste_NEVER_SIGNED_IN" as const }
+          : { key: "waste_NO_LOGON_DAYS" as const, params: { days: inactiveDays } }
         : undefined,
   };
 }
@@ -384,7 +392,7 @@ function spResource(
     monthlyCostUSD: Number(cost.toFixed(2)),
     potentialSavingsUSD: wasteful ? Number(cost.toFixed(2)) : 0,
     isWasteful: wasteful,
-    wasteReason: wasteful ? `Sin autenticaciones hace ${inactiveDays} dias` : undefined,
+    wasteReason: wasteful ? { key: "waste_NO_AUTH_DAYS", params: { days: inactiveDays ?? 0 } } : undefined,
   };
 }
 
@@ -409,7 +417,7 @@ export function getMockEntraIdPayload(tenantId: string): EntraIdPayload {
       monthlyCostUSD: calcDomainServicesCost("Enterprise"),
       potentialSavingsUSD: calcDomainServicesCost("Enterprise") - EDS_SKU_MONTHLY_USD.Standard,
       isWasteful: true,
-      wasteReason: "SKU Enterprise en un scope no productivo",
+      wasteReason: { key: "waste_NONPROD_SKU", params: { sku: "Enterprise" } },
     },
     // Usuarios activos, con licencia justificada.
     userResource("Ana Herrera", "ana.herrera@contoso.com", ["AAD_PREMIUM_P2"], 1),
@@ -668,7 +676,7 @@ export async function fetchLiveEntraIdData(tenantId: string): Promise<EntraIdPay
           monthlyCostUSD: cost,
           potentialSavingsUSD: wasteful ? cost - EDS_SKU_MONTHLY_USD.Standard : 0,
           isWasteful: wasteful,
-          wasteReason: wasteful ? `SKU ${sku} en un scope no productivo` : undefined,
+          wasteReason: wasteful ? { key: "waste_NONPROD_SKU", params: { sku } } : undefined,
         });
       }
     } catch (error) {
@@ -713,11 +721,11 @@ export async function fetchLiveEntraIdData(tenantId: string): Promise<EntraIdPay
         potentialSavingsUSD: wasteful ? Number(cost.toFixed(2)) : 0,
         isWasteful: wasteful,
         wasteReason: !accountEnabled
-          ? "Cuenta deshabilitada reteniendo licencias"
+          ? { key: "waste_DISABLED_WITH_LICENSE" as const }
           : status === "Inactive"
             ? inactiveDays === null
-              ? "Nunca inicio sesion"
-              : `Sin logon hace ${inactiveDays} dias`
+              ? { key: "waste_NEVER_SIGNED_IN" as const }
+              : { key: "waste_NO_LOGON_DAYS" as const, params: { days: inactiveDays } }
             : undefined,
       });
     }

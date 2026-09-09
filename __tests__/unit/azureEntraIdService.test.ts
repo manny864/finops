@@ -15,6 +15,7 @@ import {
 } from "@/services/azureEntraId.service";
 import { buildEntraIdRemediationCommand } from "@/lib/aiRemediations";
 import type { EntraIdResourceItem, EntraLicenseSkuSummary } from "@/types/azureEntraId.types";
+import { EDS_SKU_MONTHLY_USD } from "@/types/azureEntraId.types";
 
 const user = (over: Partial<EntraIdResourceItem> = {}): EntraIdResourceItem => ({
   id: "user-a@x.com",
@@ -131,7 +132,7 @@ describe("Entra ID — recomendaciones", () => {
     expect(reclaim!.confidence).toBe("HIGH"); // hay una deshabilitada
     expect(reclaim!.affectedPrincipals).toEqual(["u1@x.com", "u2@x.com"]);
     // Debe advertir sobre las cuentas que no inician sesion por diseño.
-    expect(reclaim!.description).toContain("break-glass");
+    expect(reclaim!.params).toMatchObject({ disabled: 1, days: 90 });
   });
 
   it("sin signInActivity NO se recomienda revocar licencias por inactividad", () => {
@@ -168,7 +169,7 @@ describe("Entra ID — recomendaciones", () => {
     expect(rec).toBeDefined();
     expect(rec!.estimatedSavingsUSD).toBe(180); // 290 - 110
     // Debe advertir que bajar desde Premium exige recrear la instancia.
-    expect(rec!.description).toContain("recrear");
+    expect(rec!.params).toMatchObject({ name: "aadds", standardCost: EDS_SKU_MONTHLY_USD.Standard });
 
     expect(
       generateEntraIdRecommendations([eds("Standard", true)], [], true).some(
@@ -197,7 +198,7 @@ describe("Entra ID — recomendaciones", () => {
     expect(rec).toBeDefined();
     expect(rec!.estimatedSavingsUSD).toBe(6); // 2 x $3
     // Debe advertir sobre integraciones estacionales o de DR.
-    expect(rec!.description).toContain("estacionales");
+    expect(rec!.params).toMatchObject({ count: 2 });
   });
 
   it("MFA_FRAUD_PREVENTION no reclama ahorro cuantificable", () => {
@@ -215,7 +216,7 @@ describe("Entra ID — recomendaciones", () => {
     );
     expect(rec).toBeDefined();
     expect(rec!.estimatedSavingsUSD).toBe(0);
-    expect(rec!.description).toContain("toll fraud");
+    expect(rec!.params).toMatchObject({ name: "a@x.com" });
   });
 
   it("un directorio sano no genera recomendaciones", () => {

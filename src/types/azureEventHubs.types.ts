@@ -32,13 +32,34 @@ export interface EventHubsSummaryMetrics {
   potentialSavingsUSD: number;
 }
 
+// SKU_DOWNGRADE cubria tres recomendaciones distintas (Dedicated -> Premium,
+// rightsizing de PUs y Premium -> Standard), asi que no servia para derivar el
+// texto de ninguna. El comparador de SKUs del tablero sigue cubriendo las tres
+// via EH_MUESTRA_SKUS.
+export const EVENT_HUBS_REMEDIATION_CATEGORIES = [
+  "DEDICATED_TO_PREMIUM",
+  "RIGHTSIZE_PUS",
+  "PREMIUM_TO_STANDARD",
+  "AUTO_INFLATE_OPTIMIZE",
+  "ORPHAN_PURGE",
+] as const;
+
+export type EventHubsRemediationCategory = (typeof EVENT_HUBS_REMEDIATION_CATEGORIES)[number];
+
+/** Las tres que salieron de partir SKU_DOWNGRADE: comparten comando y comparador. */
+export const EH_SKU_CATEGORIES = new Set<EventHubsRemediationCategory>([
+  "DEDICATED_TO_PREMIUM",
+  "RIGHTSIZE_PUS",
+  "PREMIUM_TO_STANDARD",
+]);
+
 export interface EventHubsRemediationAction {
   id: string;
   resourceId: string;
   resourceName?: string;
-  title: string;
-  description: string;
-  category: "SKU_DOWNGRADE" | "AUTO_INFLATE_OPTIMIZE" | "ORPHAN_PURGE";
+  /** Valores a interpolar en `rem_EH_<category>_title` / `_desc`. */
+  params?: Record<string, string | number>;
+  category: EventHubsRemediationCategory;
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM";
   actionType: string;

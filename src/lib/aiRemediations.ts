@@ -8,6 +8,7 @@ import type { ApimRemediationAction } from "@/types/azureApim.types";
 import type { ServiceBusRemediationAction } from "@/types/azureServiceBus.types";
 import type { EventGridRemediationAction } from "@/types/azureEventGrid.types";
 import type { EventHubsRemediationAction } from "@/types/azureEventHubs.types";
+import { EH_SKU_CATEGORIES } from "@/types/azureEventHubs.types";
 import type { AdfRemediationAction } from "@/types/azureDataFactory.types";
 import type { AppInsightsRemediationAction } from "@/types/azureAppInsights.types";
 import type { LogAnalyticsRemediationAction } from "@/types/azureLogAnalytics.types";
@@ -191,7 +192,7 @@ export function buildEventHubsRemediationCommand(action: EventHubsRemediationAct
   const resourceName = action.resourceName || action.resourceId.split("/").pop() || "eh-namespace";
   const rg = action.resourceId.split("/")[4] || "rg-eventhubs";
 
-  if (action.category === "SKU_DOWNGRADE") {
+  if (EH_SKU_CATEGORIES.has(action.category)) {
     if (action.actionType === "REDUCE_UNITS" && action.recommendedCapacity) {
       const cap = action.recommendedCapacity;
       return {

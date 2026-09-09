@@ -35,6 +35,16 @@ export const AUDITED_ENTRA_SKUS = [
 ] as const;
 
 /** Dias sin logon a partir de los cuales la licencia se considera desperdiciada. */
+export const ENTRA_WASTE_REASON_KEYS = [
+  "waste_DISABLED_WITH_LICENSE",
+  "waste_NEVER_SIGNED_IN",
+  "waste_NO_LOGON_DAYS",
+  "waste_NO_AUTH_DAYS",
+  "waste_NONPROD_SKU",
+] as const;
+
+export type EntraWasteReasonKey = (typeof ENTRA_WASTE_REASON_KEYS)[number];
+
 export const INACTIVE_USER_DAYS = 90;
 
 /** MAU incluidos sin cargo en Entra External ID antes de facturar. */
@@ -51,11 +61,18 @@ export type EntraResourceType =
 
 export type EntraActivityStatus = "Active" | "Inactive" | "Disabled" | "Unknown";
 
-export type EntraRemediationCategory =
-  | "RECLAIM_USER_LICENSE"
-  | "DOWNGRADE_DOMAIN_SERVICES"
-  | "PURGE_WORKLOAD_LICENSE"
-  | "MFA_FRAUD_PREVENTION";
+// RECLAIM_USER_LICENSE cubria dos recomendaciones distintas --revocar licencias
+// asignadas y ajustar las compradas sin asignar-- asi que no servia para derivar
+// el texto de ninguna. Se parte en dos.
+export const ENTRA_REMEDIATION_CATEGORIES = [
+  "RECLAIM_USER_LICENSE",
+  "ADJUST_PREPAID_UNITS",
+  "DOWNGRADE_DOMAIN_SERVICES",
+  "PURGE_WORKLOAD_LICENSE",
+  "MFA_FRAUD_PREVENTION",
+] as const;
+
+export type EntraRemediationCategory = (typeof ENTRA_REMEDIATION_CATEGORIES)[number];
 
 export interface EntraIdResourceItem {
   id: string;
@@ -78,7 +95,12 @@ export interface EntraIdResourceItem {
   monthlyCostUSD: number;
   potentialSavingsUSD: number;
   isWasteful: boolean;
-  wasteReason?: string;
+  /**
+   * Motivo del desperdicio como clave + valores, no como frase: el payload se
+   * cachea sin el locale, asi que armarlo en el servidor lo congela en el
+   * idioma del primer lector.
+   */
+  wasteReason?: { key: EntraWasteReasonKey; params?: Record<string, string | number> };
 }
 
 /** Estado de un SKU comprado frente a lo realmente asignado. */
@@ -122,8 +144,8 @@ export interface EntraIdRemediationAction {
   id: string;
   targetId: string;
   targetName: string;
-  title: string;
-  description: string;
+  /** Valores a interpolar en `rem_<category>_title` / `_desc`. */
+  params?: Record<string, string | number>;
   category: EntraRemediationCategory;
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM";

@@ -33,6 +33,8 @@ import { PAGES, pageTitleKey, pageDescKey } from "@/lib/pageRegistry";
 import { SAAS_COMPONENT_KEYS, CRON_JOB_KEYS } from "@/types/saasOperations.types";
 import { CONTENT_SAFETY_REMEDIATION_CATEGORIES } from "@/types/azureContentSafety.types";
 import { DATABRICKS_REMEDIATION_CATEGORIES } from "@/types/azureDatabricks.types";
+import { EVENT_HUBS_REMEDIATION_CATEGORIES } from "@/types/azureEventHubs.types";
+import { ENTRA_REMEDIATION_CATEGORIES, ENTRA_WASTE_REASON_KEYS } from "@/types/azureEntraId.types";
 import {
     UNIT_ECONOMICS_REMEDIATION_CATEGORIES,
     UNIT_METRIC_CATALOG,
@@ -207,6 +209,53 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
             ns: "AzureAI",
             params: { cost: "1500.00", rate: 12.5, deployment: "gpt-35-turbo-legacy", model: "gpt-4", count: 2, apps: "app-a, app-b" },
             claves: FOUNDRY_REMEDIATION_CATEGORIES.flatMap((c) => [`rem_FOUNDRY_${c}_title`, `rem_FOUNDRY_${c}_desc`]),
+        },
+        {
+            que: "recomendaciones de Entra ID (ENTRA_REMEDIATION_CATEGORIES)",
+            ns: "EntraIdPanel",
+            params: {
+                count: 12,
+                sku: "Microsoft 365 E5",
+                disabled: 4,
+                days: 90,
+                price: "57.00",
+                prepaid: 200,
+                consumed: 188,
+                name: "eds-corp",
+                tier: "Premium",
+                currentCost: "1642.00",
+                standardCost: "109.50",
+            },
+            claves: ENTRA_REMEDIATION_CATEGORIES.flatMap((c) => [
+                `rem_${c}_title`,
+                `rem_${c}_desc`,
+                `cat_${c}`,
+            ]),
+        },
+        {
+            que: "motivos de desperdicio de Entra ID (ENTRA_WASTE_REASON_KEYS)",
+            ns: "EntraIdPanel",
+            params: { days: 120, sku: "Enterprise" },
+            claves: [...ENTRA_WASTE_REASON_KEYS],
+        },
+        {
+            que: "recomendaciones de Event Hubs (EVENT_HUBS_REMEDIATION_CATEGORIES)",
+            ns: "IpaasFinops",
+            params: {
+                name: "eh-prod",
+                capacity: "18.4",
+                savings: "1200.00",
+                current: 4,
+                recommended: 2,
+                cost: "980.00",
+                gb: "12.5",
+                hubs: 3,
+            },
+            claves: EVENT_HUBS_REMEDIATION_CATEGORIES.flatMap((c) => [
+                `rem_EH_${c}_title`,
+                `rem_EH_${c}_desc`,
+                `cat_EH_${c}`,
+            ]),
         },
         {
             que: "recomendaciones de Databricks (DATABRICKS_REMEDIATION_CATEGORIES)",
@@ -572,6 +621,20 @@ describe("i18n · capa 2b: las ramas de los select de ICU", () => {
         expect(configurado).not.toBe(apagado);
     });
 
+    it.each(LOCALES)("%s: sin cuentas deshabilitadas, la reclamacion no habla de ellas", (locale) => {
+        const t = traducir(locale, "EntraIdPanel");
+        const base = { count: 12, sku: "Microsoft 365 E5", days: 90, price: "57.00" };
+        const sin = t("rem_RECLAIM_USER_LICENSE_desc", { ...base, disabled: 0 });
+        const con = t("rem_RECLAIM_USER_LICENSE_desc", { ...base, disabled: 4 });
+        // La rama de 0 habla del tiempo sin logon; la otra, de las cuentas
+        // deshabilitadas. Si el nombre de la rama se rompe, `other` la tapa y
+        // sale "de las cuales 0 estan deshabilitadas": de ahi el chequeo del 0.
+        expect(sin).not.toMatch(/\b0\b/);
+        expect(sin).toContain("90");
+        expect(con).toContain("4");
+        expect(con).not.toBe(sin);
+    });
+
     it.each(LOCALES)("%s: sin culpable, SCALING_MISMATCH no menciona ningun servicio", (locale) => {
         const t = traducir(locale, "UnitEconomics");
         const base = {
@@ -838,9 +901,11 @@ const TABLEROS_MUERTOS = [
 const TABLEROS_LIMPIOS = [
     "src/components/monitoring/ActionGroupsBoard.tsx",
     "src/components/analytics/CostAllocationEngine.tsx",
+    "src/components/security/EntraIdPanel.tsx",
     "src/components/analytics/UnitEconomicsPanel.tsx",
     "src/components/dashboard/ContentSafetyDashboard.tsx",
     "src/components/dashboard/DatabricksDashboard.tsx",
+    "src/components/dashboard/EventHubsFinopsDashboard.tsx",
     "src/components/superadmin/SaasOperationsPanel.tsx",
     "src/app/[locale]/intelligence/azure-ai/components/AzureAISearch.tsx",
     "src/app/[locale]/intelligence/azure-ai/components/AzureFoundryDetail.tsx",

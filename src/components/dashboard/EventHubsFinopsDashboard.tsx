@@ -1,6 +1,8 @@
 "use client";
 import { ERROR_401 } from "@/lib/errorSentinels";
 import { useTranslations } from "next-intl";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
+import { EH_SKU_CATEGORIES } from "@/types/azureEventHubs.types";
 
 import React, { useState, useMemo, useRef } from "react";
 import useSWR from "swr";
@@ -118,6 +120,7 @@ function ResizableTh({
   className?: string;
 }) {
   const t = useTranslations("IpaasFinops");
+  const textoRem = useTextoPorCategoria("IpaasFinops", "EH");
   const [width, setWidth] = useState(minWidth);
   const startXRef = useRef(0);
   const startWidthRef = useRef(minWidth);
@@ -167,6 +170,7 @@ function KpiCard({
   sub: string;
 }) {
   const t = useTranslations("IpaasFinops");
+  const textoRem = useTextoPorCategoria("IpaasFinops", "EH");
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs p-4 flex items-center gap-3">
       <Icon className="w-6 h-6 text-[#0078D4] shrink-0" stroke={1.5} />
@@ -192,6 +196,7 @@ function RemediationModal({
   onClose: () => void;
 }) {
   const t = useTranslations("IpaasFinops");
+  const textoRem = useTextoPorCategoria("IpaasFinops", "EH");
   const { format } = useCurrency();
   const [activeTab, setActiveTab] = useState<"CLI" | "POWERSHELL">("CLI");
   const [copied, setCopied] = useState(false);
@@ -230,15 +235,15 @@ function RemediationModal({
         <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
           <div>
             <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100 mb-1">
-              {action.title}
+              {textoRem(action, "title")}
             </h4>
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              {action.description}
+              {textoRem(action, "desc")}
             </p>
           </div>
 
           {/* Comparador de SKUs / Capacidad */}
-          {action.category === "SKU_DOWNGRADE" && (
+          {EH_SKU_CATEGORIES.has(action.category) && (
             <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-xl p-4">
               <div className="flex items-center justify-between text-xs mb-3">
                 <span className="font-bold text-blue-900 dark:text-blue-300">
@@ -370,6 +375,7 @@ function RemediationModal({
 // ─── Componente Principal EventHubsFinopsDashboard ───
 export default function EventHubsFinopsDashboard() {
   const t = useTranslations("IpaasFinops");
+  const textoRem = useTextoPorCategoria("IpaasFinops", "EH");
   const { selectedTenant } = useTenant();
   const { instance, accounts, inProgress } = useMsal();
   const { format } = useCurrency();
@@ -1127,14 +1133,14 @@ export default function EventHubsFinopsDashboard() {
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <span
                       className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase border ${
-                        action.category === "SKU_DOWNGRADE"
+                        EH_SKU_CATEGORIES.has(action.category)
                           ? "bg-blue-50 text-blue-700 border-blue-200"
                           : action.category === "AUTO_INFLATE_OPTIMIZE"
                           ? "bg-indigo-50 text-indigo-700 border-indigo-200"
                           : "bg-amber-50 text-amber-700 border-amber-200"
                       }`}
                     >
-                      {action.category.replace(/_/g, " ")}
+                      {t(`cat_EH_${action.category}`)}
                     </span>
                     <span className="text-xs font-extrabold text-emerald-600">
                       {t("plusAmountPerMonth", { amount: format(action.estimatedSavingsUSD) })}
@@ -1142,10 +1148,10 @@ export default function EventHubsFinopsDashboard() {
                   </div>
 
                   <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 mb-1">
-                    {action.title}
+                    {textoRem(action, "title")}
                   </h4>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-3">
-                    {action.description}
+                    {textoRem(action, "desc")}
                   </p>
                 </div>
 

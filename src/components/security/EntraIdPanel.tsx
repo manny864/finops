@@ -1,5 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
+import { EDS_SKU_MONTHLY_USD, INACTIVE_USER_DAYS } from "@/types/azureEntraId.types";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -75,11 +77,12 @@ const TYPE_ICONS: Record<EntraResourceType, React.ComponentType<{ className?: st
   ExternalID_Tenant: IconWorldWww,
 };
 
+// Claves, no rotulos: el mapa vive fuera del componente y no tiene `t`.
 const TYPE_LABELS: Record<EntraResourceType, string> = {
-  UserLicense: "Usuario Corporativo",
-  ServicePrincipal: "Service Principal",
-  DomainServices: "Entra Domain Services",
-  ExternalID_Tenant: "External ID",
+  UserLicense: "type_UserLicense",
+  ServicePrincipal: "type_ServicePrincipal",
+  DomainServices: "type_DomainServices",
+  ExternalID_Tenant: "type_ExternalID_Tenant",
 };
 
 // `t` entra por parametro: buildFetcher no es un componente ni un hook y no
@@ -107,26 +110,26 @@ function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[
 function ActivityBadge({ item }: { item: EntraIdResourceItem }) {
   const t = useTranslations("EntraIdPanel");
   const map = {
-    Active: { label: "Activo (<90d)", cls: "border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400" },
-    Inactive: { label: "Inactivo (>90d)", cls: "border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400" },
-    Disabled: { label: "Deshabilitado", cls: "border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400" },
-    Unknown: { label: "Sin telemetría", cls: "border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-500" },
+    Active: { cls: "border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400" },
+    Inactive: { cls: "border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400" },
+    Disabled: { cls: "border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400" },
+    Unknown: { cls: "border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-500" },
   } as const;
   const cfg = map[item.activityStatus];
   const title =
     item.activityStatus === "Unknown"
-      ? "Microsoft Graph no expone signInActivity para este tenant (requiere AuditLog.Read.All y licencia Entra ID P1)"
+      ? t("actTip_Unknown")
       : item.inactiveDays === null
-        ? "Nunca inició sesión"
+        ? t("actTip_never")
         : item.inactiveDays !== undefined
-          ? `Último logon hace ${item.inactiveDays} días`
+          ? t("actTip_lastLogon", { days: item.inactiveDays })
           : undefined;
   return (
     <span
       title={title}
       className={`text-[10px] font-bold px-2 py-0.5 rounded-md border bg-white dark:bg-slate-900 whitespace-nowrap ${cfg.cls}`}
     >
-      {cfg.label}
+      {t(`act_${item.activityStatus}`)}
     </span>
   );
 }
@@ -142,6 +145,7 @@ function LicenseAuditDrawer({
   onOpenCommands: (a: EntraIdRemediationAction) => void;
 }) {
   const t = useTranslations("EntraIdPanel");
+  const textoRem = useTextoPorCategoria("EntraIdPanel");
   if (!action) return null;
 
   const principals = action.affectedPrincipals || [];
@@ -170,7 +174,7 @@ function LicenseAuditDrawer({
           <div className="min-w-0">
             <h2 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconUserExclamation className="w-5 h-5 text-[#0078D4] shrink-0" stroke={1.5} />
-              <span className="truncate">{action.title}</span>
+              <span className="truncate">{textoRem(action, "title")}</span>
             </h2>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
               {t("estSavingsPerMonth", { amount: formatCurrency(action.estimatedSavingsUSD) })}
@@ -186,7 +190,7 @@ function LicenseAuditDrawer({
         </div>
 
         <div className="p-5 space-y-4">
-          <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">{action.description}</p>
+          <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">{textoRem(action, "desc")}</p>
 
           <div className="p-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-900 flex items-start gap-2">
             <IconAlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" stroke={2} />
@@ -201,7 +205,7 @@ function LicenseAuditDrawer({
           {principals.length > 0 && (
             <div>
               <h3 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 mb-2">
-                Principales afectados ({principals.length})
+                {t("affectedPrincipals", { count: principals.length })}
               </h3>
               <div className="max-h-72 overflow-y-auto space-y-1 pr-1">
                 {principals.map((p) => (
@@ -250,6 +254,7 @@ function EntraRemediationModal({
   onClose: () => void;
 }) {
   const t = useTranslations("EntraIdPanel");
+  const textoRem = useTextoPorCategoria("EntraIdPanel");
   const [copied, setCopied] = useState<"cli" | "ps" | null>(null);
   if (!action) return null;
 
@@ -277,8 +282,8 @@ function EntraRemediationModal({
         <div className="flex items-center gap-3 mb-4">
           <IconTerminal2 className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
           <div className="pr-8">
-            <h2 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">{action.title}</h2>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{action.description}</p>
+            <h2 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">{textoRem(action, "title")}</h2>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{textoRem(action, "desc")}</p>
           </div>
         </div>
 
@@ -333,6 +338,7 @@ function EntraRemediationModal({
 // ─── Componente Principal ───
 export default function EntraIdPanel() {
   const t = useTranslations("EntraIdPanel");
+  const textoRem = useTextoPorCategoria("EntraIdPanel");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -420,7 +426,7 @@ export default function EntraIdPanel() {
     const rows = filteredResources.map((r) => [
       `"${r.name}"`,
       `"${r.displayName}"`,
-      `"${TYPE_LABELS[r.resourceType]}"`,
+      `"${t(TYPE_LABELS[r.resourceType])}"`,
       `"${r.principalIdentifier || ""}"`,
       `"${r.subscriptionName}"`,
       `"${r.skuTier}"`,
@@ -464,7 +470,7 @@ export default function EntraIdPanel() {
     const bucket = (type: EntraResourceType) => {
       const items = resourcesList.filter((r) => r.resourceType === type);
       return {
-        name: TYPE_LABELS[type],
+        name: t(TYPE_LABELS[type]),
         Activas: items.filter((r) => r.activityStatus === "Active").length,
         Inactivas: items.filter((r) => r.activityStatus === "Inactive").length,
         Deshabilitadas: items.filter((r) => r.activityStatus === "Disabled").length,
@@ -473,7 +479,7 @@ export default function EntraIdPanel() {
     return [bucket("UserLicense"), bucket("ServicePrincipal")].filter(
       (b) => b.Activas + b.Inactivas + b.Deshabilitadas > 0
     );
-  }, [resourcesList]);
+  }, [resourcesList, t]);
 
   return (
     <div className="w-full max-w-full px-4 sm:px-6 lg:px-8 space-y-6">
@@ -548,7 +554,7 @@ export default function EntraIdPanel() {
               {formatCurrency(summary.totalArmCostUSD)}
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              {summary.domainServicesCount} instancia(s) de Domain Services
+              {t("domainServicesCount", { count: summary.domainServicesCount })}
             </div>
           </div>
           <IconCash className="w-8 h-8 text-[#0078D4]" stroke={1.5} />
@@ -570,7 +576,7 @@ export default function EntraIdPanel() {
               {formatCurrency(summary.totalLicenseWasteUSD)}
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              sobre {formatCurrency(summary.totalLicenseSpendUSD)} facturados
+              {t("overBilled", { amount: formatCurrency(summary.totalLicenseSpendUSD) })}
             </div>
           </div>
           <IconUserExclamation className="w-8 h-8 text-[#0078D4]" stroke={1.5} />
@@ -579,7 +585,7 @@ export default function EntraIdPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Identidades Administradas</span>
+              <span>{t("kpiManagedIdentities")}</span>
               <InfoTooltip content={t("kpiIdentitiesTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
@@ -674,7 +680,7 @@ export default function EntraIdPanel() {
       {summary.licenseSkus.length > 0 && (
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 mb-3 flex items-center gap-1.5">
-            Licencias Compradas vs Asignadas
+            {t("purchasedVsAssigned")}
             <InfoTooltip content={t("purchasedTooltip")} />
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -700,7 +706,7 @@ export default function EntraIdPanel() {
                 </div>
                 {sku.wastedMonthlyUSD > 0 && (
                   <div className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold mt-1.5">
-                    {formatCurrency(sku.wastedMonthlyUSD)}/mes desperdiciado
+                    {t("wastedPerMonth", { amount: formatCurrency(sku.wastedMonthlyUSD) })}
                   </div>
                 )}
               </div>
@@ -778,8 +784,8 @@ export default function EntraIdPanel() {
                     <IconId className="w-7 h-7 text-[#0078D4] mx-auto mb-2" stroke={1.5} />
                     <p className="text-xs font-medium">
                       {resourcesList.length === 0
-                        ? "Microsoft Graph no reporta identidades con licencias de Entra auditadas."
-                        : "Ningún registro coincide con los filtros aplicados."}
+                        ? t("emptyNoIdentities")
+                        : t("emptyNoMatches")}
                     </p>
                   </td>
                 </tr>
@@ -809,14 +815,14 @@ export default function EntraIdPanel() {
                             {r.isWasteful && r.wasteReason && (
                               <span className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-semibold mt-0.5">
                                 <IconAlertTriangle className="w-3 h-3" stroke={2} />
-                                <span className="truncate">{r.wasteReason}</span>
+                                <span className="truncate">{t(r.wasteReason.key, r.wasteReason.params ?? {})}</span>
                               </span>
                             )}
                           </span>
                         </div>
                       </td>
                       <td className="px-3 py-2.5 text-slate-600 dark:text-slate-400">
-                        {TYPE_LABELS[r.resourceType]}
+                        {t(TYPE_LABELS[r.resourceType])}
                       </td>
                       <td
                         className="px-3 py-2.5 text-slate-600 dark:text-slate-400 min-w-[120px] max-w-[240px] truncate"
@@ -854,8 +860,16 @@ export default function EntraIdPanel() {
                                   id: `manual-reclaim-${r.id}`,
                                   targetId: r.assignedLicenses[0] || "AAD_PREMIUM",
                                   targetName: r.skuTier,
-                                  title: `Reclamar licencia de ${r.displayName}`,
-                                  description: r.wasteReason || "Cuenta sin actividad reciente con licencia asignada.",
+                                  // Misma categoria que la recomendacion del
+                                  // servicio, con los datos de esta unica
+                                  // cuenta: el texto sale del mismo lugar.
+                                  params: {
+                                    count: 1,
+                                    sku: r.skuTier,
+                                    disabled: r.activityStatus === "Disabled" ? 1 : 0,
+                                    days: INACTIVE_USER_DAYS,
+                                    price: r.potentialSavingsUSD,
+                                  },
                                   category: "RECLAIM_USER_LICENSE",
                                   estimatedSavingsUSD: r.potentialSavingsUSD,
                                   confidence: "MEDIUM",
@@ -866,7 +880,7 @@ export default function EntraIdPanel() {
                               className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition cursor-pointer whitespace-nowrap flex items-center gap-1"
                             >
                               <IconSparkles size={13} stroke={1.5} className="text-[#0054A6]" />
-                              Reclamar Licencia
+                              {t("btnReclaimLicense")}
                             </button>
                           )}
                           {r.resourceType === "DomainServices" && r.isWasteful && (
@@ -876,8 +890,12 @@ export default function EntraIdPanel() {
                                   id: `manual-eds-${r.id}`,
                                   targetId: r.id,
                                   targetName: r.name,
-                                  title: `Optimizar SKU de ${r.name}`,
-                                  description: r.wasteReason || `Instancia en SKU ${r.skuTier}.`,
+                                  params: {
+                                    name: r.name,
+                                    tier: r.skuTier,
+                                    currentCost: EDS_SKU_MONTHLY_USD[r.skuTier] ?? 0,
+                                    standardCost: EDS_SKU_MONTHLY_USD.Standard,
+                                  },
                                   category: "DOWNGRADE_DOMAIN_SERVICES",
                                   estimatedSavingsUSD: r.potentialSavingsUSD,
                                   confidence: "MEDIUM",
@@ -887,7 +905,7 @@ export default function EntraIdPanel() {
                               className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#00AEEF] bg-white dark:bg-slate-900 text-[#00AEEF] dark:text-cyan-400 hover:bg-sky-50/50 dark:hover:bg-sky-950/40 transition cursor-pointer whitespace-nowrap flex items-center gap-1"
                             >
                               <IconSparkles size={13} stroke={1.5} className="text-[#00AEEF]" />
-                              Optimizar Tier
+                              {t("btnOptimizeTier")}
                             </button>
                           )}
                           {!r.isWasteful && <span className="text-[11px] text-slate-400">{t("noActionRequired")}</span>}
@@ -939,7 +957,7 @@ export default function EntraIdPanel() {
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-start gap-2">
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800 text-[#0054A6] bg-white dark:bg-slate-900 uppercase">
-                      {action.category}
+                      {t(`cat_${action.category}`)}
                     </span>
                     {action.estimatedSavingsUSD > 0 && (
                       <span className="text-xs font-extrabold text-emerald-600">
@@ -948,10 +966,10 @@ export default function EntraIdPanel() {
                     )}
                   </div>
                   <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 leading-snug">
-                    {action.title}
+                    {textoRem(action, "title")}
                   </h4>
                   <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-4 leading-relaxed">
-                    {action.description}
+                    {textoRem(action, "desc")}
                   </p>
                 </div>
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center gap-2">

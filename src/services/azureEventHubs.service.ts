@@ -16,6 +16,7 @@ import type {
   EventHubsPayload,
   EventHubsSkuName,
 } from "@/types/azureEventHubs.types";
+import { EH_SKU_CATEGORIES } from "@/types/azureEventHubs.types";
 
 export const EVENTHUBS_SKU_BASE_COST: Record<EventHubsSkuName, number> = {
   Basic: 11.0, // ~$11/month per Throughput Unit (TU)
@@ -73,13 +74,12 @@ export function generateEventHubsRecommendations(
         id: `rem-eh-dedicated-${item.id}`,
         resourceId: item.id,
         resourceName: item.name,
-        title: `Migración de Cluster Dedicated a Tier Premium/Standard en '${item.name}'`,
-        description: `El cluster Dedicated genera un costo fijo de ~$5,500.00 USD/mes pero su capacidad promedio es de ${item.avgCapacityPercentage.toFixed(
-          1
-        )}%. Migrar las cargas a Standard/Premium multi-inquilino genera ahorros estimados de $${estimatedSavings.toFixed(
-          2
-        )} USD/mes con SLAs idénticos.`,
-        category: "SKU_DOWNGRADE",
+        params: {
+          name: item.name,
+          capacity: item.avgCapacityPercentage.toFixed(1),
+          savings: estimatedSavings.toFixed(2),
+        },
+        category: "DEDICATED_TO_PREMIUM",
         estimatedSavingsUSD: Number(estimatedSavings.toFixed(2)),
         confidence: "HIGH",
         actionType: "DOWNGRADE_DEDICATED",
@@ -95,15 +95,15 @@ export function generateEventHubsRecommendations(
           id: `rem-eh-pu-${item.id}`,
           resourceId: item.id,
           resourceName: item.name,
-          title: `Rightsizing de PUs Premium en '${item.name}' (${item.skuCapacity} -> ${reducedPUs} PUs)`,
-          description: `El namespace cuenta con ${item.skuCapacity} Processing Units ($${item.costMtdUSD.toFixed(
-            2
-          )}/mes) pero su capacidad promedio es de solo ${item.avgCapacityPercentage.toFixed(
-            1
-          )}%. Reducir a ${reducedPUs} PU optimiza la reserva ahorrando $${unitSavings.toFixed(
-            2
-          )} USD/mes.`,
-          category: "SKU_DOWNGRADE",
+          params: {
+            name: item.name,
+            current: item.skuCapacity,
+            recommended: reducedPUs,
+            cost: item.costMtdUSD.toFixed(2),
+            capacity: item.avgCapacityPercentage.toFixed(1),
+            savings: unitSavings.toFixed(2),
+          },
+          category: "RIGHTSIZE_PUS",
           estimatedSavingsUSD: unitSavings,
           confidence: "HIGH",
           actionType: "REDUCE_UNITS",
@@ -119,16 +119,13 @@ export function generateEventHubsRecommendations(
           id: `rem-eh-std-${item.id}`,
           resourceId: item.id,
           resourceName: item.name,
-          title: `Arbitraje de SKU Premium -> Standard en '${item.name}'`,
-          description: `El namespace Premium procesa bajo volumen (${(
-            item.totalIngressBytes /
-            (1024 * 1024 * 1024)
-          ).toFixed(1)} GB/mes) con ${item.avgCapacityPercentage.toFixed(
-            1
-          )}% de capacidad. Migrar a Standard con 2 TUs reduce el costo mensual a ~$44 USD/mes ahorrando $${savings.toFixed(
-            2
-          )} USD/mes.`,
-          category: "SKU_DOWNGRADE",
+          params: {
+            name: item.name,
+            gb: (item.totalIngressBytes / (1024 * 1024 * 1024)).toFixed(1),
+            capacity: item.avgCapacityPercentage.toFixed(1),
+            savings: savings.toFixed(2),
+          },
+          category: "PREMIUM_TO_STANDARD",
           estimatedSavingsUSD: Number(savings.toFixed(2)),
           confidence: "HIGH",
           actionType: "DOWNGRADE_TO_STANDARD",
@@ -152,12 +149,13 @@ export function generateEventHubsRecommendations(
         id: `rem-eh-autoinflate-${item.id}`,
         resourceId: item.id,
         resourceName: item.name,
-        title: `Optimización de Auto-inflate y Capacidad Base en '${item.name}'`,
-        description: `El namespace tiene Auto-inflate activado con ${item.skuCapacity} TUs fijas y utilización media de ${item.avgCapacityPercentage.toFixed(
-          1
-        )}%. Reducir la capacidad base a ${reducedTUs} TU con auto-escalado hasta 5 TUs previene el pago por capacidad ociosa ($${savings.toFixed(
-          2
-        )} USD/mes de ahorro).`,
+        params: {
+          name: item.name,
+          current: item.skuCapacity,
+          recommended: reducedTUs,
+          capacity: item.avgCapacityPercentage.toFixed(1),
+          savings: savings.toFixed(2),
+        },
         category: "AUTO_INFLATE_OPTIMIZE",
         estimatedSavingsUSD: Number(savings.toFixed(2)),
         confidence: "MEDIUM",
@@ -174,10 +172,11 @@ export function generateEventHubsRecommendations(
         id: `rem-eh-orphan-${item.id}`,
         resourceId: item.id,
         resourceName: item.name,
-        title: `Purga de Namespace/Instancia Huérfana '${item.name}'`,
-        description: `El namespace '${item.name}' no ha registrado eventos de Ingress ni Egress en los últimos 30 días (${item.eventHubsCount} Event Hubs inactivos). Se recomienda su eliminación para eliminar costos fijos ($${item.costMtdUSD.toFixed(
-          2
-        )} USD/mes).`,
+        params: {
+          name: item.name,
+          hubs: item.eventHubsCount,
+          cost: item.costMtdUSD.toFixed(2),
+        },
         category: "ORPHAN_PURGE",
         estimatedSavingsUSD: item.costMtdUSD > 0 ? item.costMtdUSD : 22.0,
         confidence: "HIGH",
@@ -509,7 +508,7 @@ export function buildEventHubsRemediationCommand(action: EventHubsRemediationAct
   const resourceName = action.resourceName || action.resourceId.split("/").pop() || "eh-namespace";
   const rg = action.resourceId.split("/")[4] || "rg-eventhubs";
 
-  if (action.category === "SKU_DOWNGRADE") {
+  if (EH_SKU_CATEGORIES.has(action.category)) {
     if (action.actionType === "REDUCE_UNITS" && action.recommendedCapacity) {
       const cap = action.recommendedCapacity;
       return {
