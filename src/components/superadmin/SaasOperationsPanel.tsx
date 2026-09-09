@@ -34,17 +34,18 @@ import {
 
 interface ColumnConfig {
     id: string;
-    label: string;
     visible: boolean;
     width: number;
 }
 
+// Sin `label`: este mapa vive fuera del componente, donde no hay `t`. El rotulo
+// se resuelve en el render como `col_<id>`.
 const DEFAULT_CRON_COLUMNS: ColumnConfig[] = [
-    { id: "cron", label: "Cron", visible: true, width: 190 },
-    { id: "status", label: "Estado", visible: true, width: 120 },
-    { id: "lastRun", label: "Última Ejecución", visible: true, width: 170 },
-    { id: "summary", label: "Resumen", visible: true, width: 340 },
-    { id: "actions", label: "Acciones", visible: true, width: 150 },
+    { id: "cron", visible: true, width: 190 },
+    { id: "status", visible: true, width: 120 },
+    { id: "lastRun", visible: true, width: 170 },
+    { id: "summary", visible: true, width: 340 },
+    { id: "actions", visible: true, width: 150 },
 ];
 
 export default function SaasOperationsPanel() {
@@ -130,7 +131,7 @@ export default function SaasOperationsPanel() {
             const json = await res.json();
 
             if (!res.ok || !json.success) {
-                throw new Error(json.error || "Error al cargar la telemetría operativa");
+                throw new Error(json.error || t("loadError"));
             }
 
             setSummary(json);
@@ -160,7 +161,7 @@ export default function SaasOperationsPanel() {
             const json = await res.json();
 
             if (!res.ok || !json.success) {
-                throw new Error(json.error || `Error al ejecutar el cron '${cronKey}'`);
+                throw new Error(json.error || t("triggerError", { name: cronKey }));
             }
 
             // Actualización optimista de estado
@@ -172,15 +173,15 @@ export default function SaasOperationsPanel() {
                             ? {
                                   ...c,
                                   status: "HEALTHY",
-                                  formattedLastRun: "Hace unos instantes",
-                                  summaryText: "Ejecución manual forzada completada exitosamente.",
+                                  formattedLastRun: t("justNow"),
+                                  summaryText: t("manualRunDone"),
                               }
                             : c
                     ),
                 });
             }
 
-            setSuccessMessage(t("triggerSuccess", { name: cronKey }) || `Cron job '${cronKey}' ejecutado exitosamente.`);
+            setSuccessMessage(t("triggerSuccess", { name: cronKey }));
             setTimeout(() => setSuccessMessage(null), 4000);
         } catch (e: any) {
             setError(errorMessage(e));
@@ -205,14 +206,14 @@ export default function SaasOperationsPanel() {
                 headers,
                 body: JSON.stringify({
                     severity: notifySeverity,
-                    title: notifyTitle.trim() || t("dispatchTitle") || "Alerta operativa de plataforma",
-                    message: notifyMessage.trim() || t("dispatchMessage") || "Se detectó una degradación operativa.",
+                    title: notifyTitle.trim() || t("dispatchTitle"),
+                    message: notifyMessage.trim() || t("dispatchMessage"),
                 }),
             });
             const json = await res.json();
 
             if (!res.ok || !json.success) {
-                throw new Error(json.error || "Error al enviar la notificación");
+                throw new Error(json.error || t("broadcastError"));
             }
 
             setIsNotifyModalOpen(false);
@@ -220,7 +221,7 @@ export default function SaasOperationsPanel() {
             setNotifyMessage("");
             setSuccessMessage(
                 t("dispatchSuccess", { delivered: json.delivered || 1, failed: json.failed || 0 }) ||
-                    `Notificaciones enviadas. Entregadas: ${json.delivered || 1}.`
+                    t("broadcastSent", { count: json.delivered || 1 })
             );
             setTimeout(() => setSuccessMessage(null), 4000);
         } catch (e: any) {
@@ -272,17 +273,15 @@ export default function SaasOperationsPanel() {
                 <div>
                     <h1 className="text-xl sm:text-2xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center font-['Montserrat',sans-serif]">
                         <IconActivity size={26} stroke={1.5} className="text-[#0078D4] inline mr-2.5" />
-                        {t("title") || "Operaciones SaaS (Global)"}
+                        {t("title")}
                         <InfoTooltip
                             content={
-                                t("tooltipTitle") ||
-                                "Centro global de operaciones SaaS, salud de microservicios, latencia y ejecución en tiempo real de cron jobs de Azure."
+                                t("tooltipTitle")
                             }
                         />
                     </h1>
                     <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-4xl leading-relaxed">
-                        {t("subtitle") ||
-                            "Estado de crons Azure, salud de componentes y envío de alertas para SuperAdmin."}
+                        {t("subtitle")}
                     </p>
                 </div>
 
@@ -299,21 +298,21 @@ export default function SaasOperationsPanel() {
                         className="inline-flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 px-4 py-2 rounded-lg text-xs font-semibold transition-colors shadow-sm disabled:opacity-50"
                     >
                         <IconRefresh size={14} className={`text-[#0078D4] ${loading ? "animate-spin" : ""}`} />
-                        <span>{t("refresh") || "Actualizar Estado"}</span>
+                        <span>{t("refresh")}</span>
                     </button>
 
                     {/* Botón 2: Notificar Superadmins */}
                     <button
                         type="button"
                         onClick={() => {
-                            setNotifyTitle(t("dispatchTitle") || "Alerta operativa de plataforma");
-                            setNotifyMessage(t("dispatchMessage") || "Se detectó un estado degradado en la plataforma.");
+                            setNotifyTitle(t("dispatchTitle"));
+                            setNotifyMessage(t("dispatchMessage"));
                             setIsNotifyModalOpen(true);
                         }}
                         className="inline-flex items-center gap-1.5 bg-[#0078D4] hover:bg-[#0060AA] text-white px-4 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all"
                     >
                         <IconBellRinging size={14} stroke={1.5} className="text-white" />
-                        <span>{t("dispatch") || "Notificar superadmins"}</span>
+                        <span>{t("dispatch")}</span>
                     </button>
                 </div>
             </div>
@@ -338,7 +337,7 @@ export default function SaasOperationsPanel() {
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm flex items-center justify-between">
                     <div>
                         <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                            {t("overall") || "Estado General"}
+                            {t("overall")}
                         </span>
                         <div className="text-2xl font-bold text-[#0078D4] mt-1 font-['Montserrat',sans-serif]">
                             {summary?.generalStatus === "OPERATIONAL" ? "Operacional" : "Degradado"}
@@ -356,13 +355,13 @@ export default function SaasOperationsPanel() {
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm flex items-center justify-between">
                     <div>
                         <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                            {t("alerts") || "Alertas Activas"}
+                            {t("alerts")}
                         </span>
                         <div className="text-2xl font-bold text-[#2563EB] mt-1 font-['Montserrat',sans-serif]">
                             {summary?.unacknowledgedAlertsCount ?? 0}
                         </div>
                         <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                            {t("pendingAlerts") || "Alertas sin reconocer"}
+                            {t("pendingAlerts")}
                         </div>
                     </div>
                     <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-[#2563EB]">
@@ -374,13 +373,13 @@ export default function SaasOperationsPanel() {
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm flex items-center justify-between">
                     <div>
                         <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                            {t("tenantsSync") || "Sync de Tenants"}
+                            {t("tenantsSync")}
                         </span>
                         <div className="text-2xl font-bold text-[#0284C7] mt-1 font-['Montserrat',sans-serif]">
                             {summary?.syncedTenantsRatio || "3/4"}
                         </div>
                         <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                            {t("azureSyncRatio", { value: "1.0" }) || "Ratio de sync Azure: 1.0"}
+                            {t("azureSyncRatio", { value: "1.0" })}
                         </div>
                     </div>
                     <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-[#0284C7]">
@@ -392,7 +391,7 @@ export default function SaasOperationsPanel() {
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm flex items-center justify-between">
                     <div>
                         <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                            {t("channels") || "Canales Activos"}
+                            {t("channels")}
                         </span>
                         <div className="text-2xl font-bold text-[#0054A6] mt-1 font-['Montserrat',sans-serif]">
                             {summary?.activeChannelsCount ?? 2}
@@ -412,8 +411,7 @@ export default function SaasOperationsPanel() {
                 <div className="bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-4 rounded-2xl text-xs text-slate-700 dark:text-slate-300 flex items-center gap-3">
                     <IconShieldExclamation size={20} stroke={1.5} className="text-[#0078D4] shrink-0" />
                     <span>
-                        {t("degradedBanner") ||
-                            "Se detectó degradación en la sincronización de telemetría. Revisá el estado de componentes y crons para identificar la causa raíz."}
+                        {t("degradedBanner")}
                     </span>
                 </div>
             )}
@@ -424,7 +422,7 @@ export default function SaasOperationsPanel() {
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm space-y-4">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                         <h2 className="font-bold text-sm text-[#1B2A41] dark:text-slate-100 font-['Montserrat',sans-serif]">
-                            {t("componentsTitle") || "Estado de componentes del SaaS"}
+                            {t("componentsTitle")}
                         </h2>
                     </div>
 
@@ -433,16 +431,16 @@ export default function SaasOperationsPanel() {
                             <thead>
                                 <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
                                     <th className="px-3 py-2.5 font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[11px]">
-                                        {t("colComponent") || "Componente"}
+                                        {t("colComponent")}
                                     </th>
                                     <th className="px-3 py-2.5 font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[11px]">
-                                        {t("colStatus") || "Estado"}
+                                        {t("colStatus")}
                                     </th>
                                     <th className="px-3 py-2.5 font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[11px]">
-                                        {t("colLatency") || "Latencia"}
+                                        {t("colLatency")}
                                     </th>
                                     <th className="px-3 py-2.5 font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[11px]">
-                                        {t("colUptime") || "Uptime (30d)"}
+                                        {t("colUptime")}
                                     </th>
                                 </tr>
                             </thead>
@@ -452,7 +450,7 @@ export default function SaasOperationsPanel() {
                                         <td colSpan={4} className="px-4 py-8 text-center text-slate-500">
                                             <div className="inline-flex items-center gap-2">
                                                 <IconLoader2 size={16} className="animate-spin text-[#0078D4]" />
-                                                <span>Cargando componentes...</span>
+                                                <span>{t("loadingComponents")}</span>
                                             </div>
                                         </td>
                                     </tr>
@@ -460,7 +458,7 @@ export default function SaasOperationsPanel() {
                                     (summary?.components || []).map((comp) => (
                                         <tr key={comp.key} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
                                             <td className="px-3 py-2.5 font-medium text-slate-900 dark:text-slate-100">
-                                                {comp.name}
+                                                {t(`comp_${comp.key}`)}
                                             </td>
                                             <td className="px-3 py-2.5 whitespace-nowrap">
                                                 <span
@@ -493,7 +491,7 @@ export default function SaasOperationsPanel() {
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm space-y-4">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                         <h2 className="font-bold text-sm text-[#1B2A41] dark:text-slate-100 font-['Montserrat',sans-serif]">
-                            {t("cronTitle") || "Estado de ejecución de crons"}
+                            {t("cronTitle")}
                         </h2>
 
                         {/* Selector de Columnas (z-[100]) */}
@@ -530,7 +528,7 @@ export default function SaasOperationsPanel() {
                                                     onChange={() => toggleColumnVisibility(col.id)}
                                                     className="rounded border-slate-300 text-[#0078D4] focus:ring-[#0078D4]"
                                                 />
-                                                <span>{col.label}</span>
+                                                <span>{t(`col_${col.id}`)}</span>
                                             </label>
                                         ))}
                                     </div>
@@ -552,7 +550,7 @@ export default function SaasOperationsPanel() {
                                                 style={{ width: `${col.width}px` }}
                                                 className="relative px-3 py-2.5 font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[11px] select-none"
                                             >
-                                                <span>{col.label}</span>
+                                                <span>{t(`col_${col.id}`)}</span>
                                                 <div
                                                     onMouseDown={(e) => handleResizeMouseDown(col.id, e)}
                                                     className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[#0078D4] transition-colors"
@@ -567,7 +565,7 @@ export default function SaasOperationsPanel() {
                                         <td colSpan={columns.filter((c) => c.visible).length} className="px-4 py-8 text-center text-slate-500">
                                             <div className="inline-flex items-center gap-2">
                                                 <IconLoader2 size={16} className="animate-spin text-[#0078D4]" />
-                                                <span>Cargando crons...</span>
+                                                <span>{t("loadingCrons")}</span>
                                             </div>
                                         </td>
                                     </tr>
@@ -577,7 +575,7 @@ export default function SaasOperationsPanel() {
                                             {/* Cron Key */}
                                             {columns.find((c) => c.id === "cron")?.visible && (
                                                 <td className="px-3 py-2.5 font-mono text-[11px] font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
-                                                    <span title={cron.name}>{cron.key}</span>
+                                                    <span title={t(`cron_${cron.key}`)}>{cron.key}</span>
                                                 </td>
                                             )}
 
@@ -610,8 +608,8 @@ export default function SaasOperationsPanel() {
                                             {/* Resumen */}
                                             {columns.find((c) => c.id === "summary")?.visible && (
                                                 <td className="px-3 py-2.5 text-[11px] text-slate-600 dark:text-slate-300">
-                                                    <span className="line-clamp-2" title={cron.summaryText}>
-                                                        {cron.summaryText}
+                                                    <span className="line-clamp-2" title={cron.summaryText || t(`cron_${cron.key}_summary`)}>
+                                                        {cron.summaryText || t(`cron_${cron.key}_summary`)}
                                                     </span>
                                                 </td>
                                             )}
@@ -631,7 +629,7 @@ export default function SaasOperationsPanel() {
                                                         ) : (
                                                             <IconPlayerPlay size={13} stroke={1.5} className="text-[#0078D4]" />
                                                         )}
-                                                        <span>{t("btnTriggerCron") || "Forzar Ejecución"}</span>
+                                                        <span>{t("btnTriggerCron")}</span>
                                                     </button>
                                                 </td>
                                             )}
@@ -651,11 +649,10 @@ export default function SaasOperationsPanel() {
                         <div className="flex items-start justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                             <div>
                                 <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat',sans-serif]">
-                                    {t("modalBroadcastTitle") || "Difundir Alerta de Incidente a Superadmins"}
+                                    {t("modalBroadcastTitle")}
                                 </h3>
                                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                    {t("modalBroadcastSubtitle") ||
-                                        "Envío inmediato multicanal a todos los administradores registrados."}
+                                    {t("modalBroadcastSubtitle")}
                                 </p>
                             </div>
                             <button
@@ -670,21 +667,21 @@ export default function SaasOperationsPanel() {
                         <form onSubmit={handleSendBroadcast} className="space-y-4">
                             <div className="space-y-1">
                                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                                    {t("severityLabel") || "Severidad del Incidente"}
+                                    {t("severityLabel")}
                                 </label>
                                 <select
                                     value={notifySeverity}
                                     onChange={(e) => setNotifySeverity(e.target.value as "warning" | "error")}
                                     className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-[#0078D4]"
                                 >
-                                    <option value="warning">{t("severityWarning") || "Advertencia (Warning)"}</option>
-                                    <option value="error">{t("severityError") || "Crítico (Error / Outage)"}</option>
+                                    <option value="warning">{t("severityWarning")}</option>
+                                    <option value="error">{t("severityError")}</option>
                                 </select>
                             </div>
 
                             <div className="space-y-1">
                                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                                    {t("alertTitleLabel") || "Título del Incidente"}
+                                    {t("alertTitleLabel")}
                                 </label>
                                 <input
                                     type="text"
@@ -698,7 +695,7 @@ export default function SaasOperationsPanel() {
 
                             <div className="space-y-1">
                                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                                    {t("alertMessageLabel") || "Mensaje / Instrucciones"}
+                                    {t("alertMessageLabel")}
                                 </label>
                                 <textarea
                                     rows={3}
@@ -716,7 +713,7 @@ export default function SaasOperationsPanel() {
                                     onClick={() => setIsNotifyModalOpen(false)}
                                     className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                                 >
-                                    {t("close") || "Cerrar"}
+                                    {t("close")}
                                 </button>
                                 <button
                                     type="submit"
@@ -728,7 +725,7 @@ export default function SaasOperationsPanel() {
                                     ) : (
                                         <IconSend size={14} stroke={1.5} className="text-white" />
                                     )}
-                                    <span>{t("btnSendAlert") || "Enviar Notificación"}</span>
+                                    <span>{t("btnSendAlert")}</span>
                                 </button>
                             </div>
                         </form>

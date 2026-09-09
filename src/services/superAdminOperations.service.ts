@@ -17,42 +17,36 @@ import {
 const MOCK_COMPONENTS: SaaSComponentStatus[] = [
     {
         key: "database-mysql",
-        name: "Base de Datos MySQL (Azure Database for MySQL)",
         status: "HEALTHY",
         latencyMs: 8,
         uptimePercent: 99.98,
     },
     {
         key: "redis-cache",
-        name: "Caché Distribuida (Azure Managed Redis)",
         status: "HEALTHY",
         latencyMs: 2,
         uptimePercent: 100.0,
     },
     {
         key: "azure-arm-api",
-        name: "Azure ARM / Resource Graph Gateway",
         status: "HEALTHY",
         latencyMs: 45,
         uptimePercent: 99.95,
     },
     {
         key: "azure-openai-gateway",
-        name: "Gateway de Inteligencia Artificial (Azure OpenAI)",
         status: "HEALTHY",
         latencyMs: 120,
         uptimePercent: 99.9,
     },
     {
         key: "blob-storage",
-        name: "Almacenamiento de Telemetría (Azure Blob / FOCUS)",
         status: "HEALTHY",
         latencyMs: 15,
         uptimePercent: 100.0,
     },
     {
         key: "email-smtp-service",
-        name: "Servicio de Notificaciones y SMTP",
         status: "HEALTHY",
         latencyMs: 30,
         uptimePercent: 100.0,
@@ -62,92 +56,72 @@ const MOCK_COMPONENTS: SaaSComponentStatus[] = [
 const MOCK_CRON_JOBS: SaaSCronJobStatus[] = [
     {
         key: "anomaly-detection",
-        name: "Detección de Anomalías 3-Sigma",
         status: "HEALTHY",
         lastRunAtIso: "2026-08-23T09:10:00.000Z",
         formattedLastRun: "23/08/2026 09:10:00",
-        summaryText: "Anomalías 3-Sigma escaneadas en 4 tenants. 0 anomalías críticas detectadas.",
         durationMs: 320,
     },
     {
         key: "cost-sync-staleness-check",
-        name: "Chequeo de Frescura de Costos",
         status: "HEALTHY",
         lastRunAtIso: "2026-08-23T08:45:00.000Z",
         formattedLastRun: "23/08/2026 08:45:00",
-        summaryText: "Verificación de staleness completada. 3/4 tenants sincronizados en las últimas 24h.",
         durationMs: 1100,
     },
     {
         key: "credential-expiry-alerts",
-        name: "Auditoría de Expiración de Credenciales",
         status: "HEALTHY",
         lastRunAtIso: "2026-08-23T07:00:00.000Z",
         formattedLastRun: "23/08/2026 07:00:00",
-        summaryText: "Auditoría de expiración de credenciales finalizada. Ningún secret próximo a vencer.",
         durationMs: 450,
     },
     {
         key: "focus-export-daily",
-        name: "Exportación Diaria FOCUS 1.0",
         status: "HEALTHY",
         lastRunAtIso: "2026-08-23T03:00:00.000Z",
         formattedLastRun: "23/08/2026 03:00:00",
-        summaryText: "Export diario FOCUS 1.0 generado exitosamente para todos los tenants activos.",
         durationMs: 2800,
     },
     {
         key: "historical-gap-backfill",
-        name: "Backfill de Huecos Históricos",
         status: "HEALTHY",
         lastRunAtIso: "2026-08-23T01:00:00.000Z",
         formattedLastRun: "23/08/2026 01:00:00",
-        summaryText: "Backfill histórico ejecutado: 0 huecos de facturación detectados.",
         durationMs: 5400,
     },
     {
         key: "open-data",
-        name: "Catálogo de Precios Open Data",
         status: "HEALTHY",
         lastRunAtIso: "2026-08-22T08:00:00.000Z",
         formattedLastRun: "22/08/2026 08:00:00",
-        summaryText: "Catálogo de precios y Open Data sincronizado desde Microsoft Retail API.",
         durationMs: 890,
     },
     {
         key: "partner-link-retry",
-        name: "Reintentos de Enlace de Partner (MPN)",
         status: "HEALTHY",
         lastRunAtIso: "2026-08-23T06:00:00.000Z",
         formattedLastRun: "23/08/2026 06:00:00",
-        summaryText: "Reintentos de enlace con Microsoft Partner Network completados.",
         durationMs: 620,
     },
     {
         key: "power-schedules",
-        name: "Políticas de Power Schedules (VMs)",
         status: "HEALTHY",
         lastRunAtIso: "2026-08-23T09:14:00.000Z",
         formattedLastRun: "23/08/2026 09:14:00",
-        summaryText: "Políticas de apagado/encendido de VMs evaluadas en 4 tenants.",
         durationMs: 210,
     },
     {
         key: "storage-retention-cleanup",
-        name: "Purga de Retención de Reportes (Azure Blobs)",
         status: "HEALTHY",
         lastRunAtIso: "2026-08-23T04:00:00.000Z",
         formattedLastRun: "23/08/2026 04:00:00",
-        summaryText: "Purga automática de reportes ejecutivos por Tier completada sin incidencias.",
         durationMs: 420,
     },
     {
         key: "prewarm-daily",
-        name: "Pre-cálculo y Calentamiento Diario en Redis (4:00 AM)",
         status: "HEALTHY",
         lastRunAtIso: "2026-08-26T07:00:00.000Z",
         formattedLastRun: "26/08/2026 04:00:00",
-        summaryText: "Pre-cálculo diario de auditorías KQL, whiteboard, costos e inventario en Redis completado.",
         durationMs: 14500,
     },
 ];
@@ -239,42 +213,36 @@ export async function getSaaSOperationsHealth(isMock = false): Promise<SaaSOpera
         const parsedComponents: SaaSComponentStatus[] = [
             {
                 key: "database-mysql",
-                name: "Base de Datos MySQL (Azure Database for MySQL)",
                 status: "HEALTHY",
                 latencyMs: snapshotRow?.db_latency_ms || dbLatency || 8,
                 uptimePercent: uptime30d,
             },
             {
                 key: "redis-cache",
-                name: "Caché Distribuida (Azure Managed Redis)",
                 status: "HEALTHY",
                 latencyMs: 2,
                 uptimePercent: 100.0,
             },
             {
                 key: "azure-arm-api",
-                name: "Azure ARM / Resource Graph Gateway",
                 status: "HEALTHY",
                 latencyMs: 45,
                 uptimePercent: 99.95,
             },
             {
                 key: "azure-openai-gateway",
-                name: "Gateway de Inteligencia Artificial (Azure OpenAI)",
                 status: "HEALTHY",
                 latencyMs: 120,
                 uptimePercent: 99.9,
             },
             {
                 key: "blob-storage",
-                name: "Almacenamiento de Telemetría (Azure Blob / FOCUS)",
                 status: "HEALTHY",
                 latencyMs: 15,
                 uptimePercent: 100.0,
             },
             {
                 key: "email-smtp-service",
-                name: "Servicio de Notificaciones y SMTP",
                 status: "HEALTHY",
                 latencyMs: 30,
                 uptimePercent: 100.0,
@@ -321,7 +289,6 @@ export async function getSaaSOperationsHealth(isMock = false): Promise<SaaSOpera
                         name: key,
                         status: "NEVER_RUN",
                         formattedLastRun: "Nunca ejecutado",
-                        summaryText: "Sin corridas registradas.",
                     }
                 );
             }
@@ -336,11 +303,10 @@ export async function getSaaSOperationsHealth(isMock = false): Promise<SaaSOpera
 
             return {
                 key,
-                name: mockFallback?.name || key,
                 status,
                 lastRunAtIso: found.run_at ? new Date(found.run_at).toISOString() : undefined,
                 formattedLastRun: formatDate(found.run_at),
-                summaryText: found.summary || mockFallback?.summaryText || "Ejecución completada.",
+                summaryText: found.summary || undefined,
                 durationMs: found.duration_ms || mockFallback?.durationMs,
             };
         });
@@ -390,7 +356,9 @@ export async function triggerCronJob(
         jobId,
         cronKey,
         triggeredAtIso,
-        message: `El cron job '${cronKey}' se ha puesto en cola de ejecución manual con ID de tarea ${jobId}.`,
+        // El panel arma su propio aviso con t("triggerSuccess"); esto es para los
+        // consumidores no-UI de la API (scripts, curl), asi que se queda literal.
+        message: `Cron job '${cronKey}' queued for manual execution with task ID ${jobId}.`,
     };
 }
 
@@ -424,6 +392,11 @@ export async function notifySuperAdmins(
         const notifyResults = await Promise.all(
             tenantIds.map(async (tenantId) => {
                 const result = await notifyTenant(tenantId, {
+                    // notifyTenant despacha a Slack/Teams/email, no a la campana
+                    // de la app: no hay render con t() del otro lado. Estos
+                    // defaults son texto de integracion saliente, misma categoria
+                    // que las plantillas de emailHelper, y se quedan en castellano.
+                    // El panel igual manda siempre su propio t("dispatchTitle").
                     title: title || "Alerta Operativa SuperAdmin — CSCloudSolutions",
                     message: message || "Se detectó una degradación operativa en componentes del SaaS.",
                     severity,

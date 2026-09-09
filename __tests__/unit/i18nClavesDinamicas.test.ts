@@ -30,6 +30,7 @@ import { POSTGRES_RULE_I18N } from "@/types/azurePostgreSQL";
 import { COSMOS_RULE_I18N } from "@/types/cosmosDb";
 import { FABRIC_RULE_I18N } from "@/types/azureFabric";
 import { PAGES, pageTitleKey, pageDescKey } from "@/lib/pageRegistry";
+import { SAAS_COMPONENT_KEYS, CRON_JOB_KEYS } from "@/types/saasOperations.types";
 import {
     UNIT_ECONOMICS_REMEDIATION_CATEGORIES,
     UNIT_METRIC_CATALOG,
@@ -204,6 +205,14 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
             ns: "AzureAI",
             params: { cost: "1500.00", rate: 12.5, deployment: "gpt-35-turbo-legacy", model: "gpt-4", count: 2, apps: "app-a, app-b" },
             claves: FOUNDRY_REMEDIATION_CATEGORIES.flatMap((c) => [`rem_FOUNDRY_${c}_title`, `rem_FOUNDRY_${c}_desc`]),
+        },
+        {
+            que: "componentes y crons de Operaciones SaaS (SAAS_COMPONENT_KEYS / CRON_JOB_KEYS)",
+            ns: "SuperAdminOps",
+            claves: [
+                ...SAAS_COMPONENT_KEYS.map((k) => `comp_${k}`),
+                ...CRON_JOB_KEYS.flatMap((k) => [`cron_${k}`, `cron_${k}_summary`]),
+            ],
         },
         {
             que: "recomendaciones de Unit Economics (UNIT_ECONOMICS_REMEDIATION_CATEGORIES)",
@@ -774,6 +783,7 @@ const TABLEROS_LIMPIOS = [
     "src/components/monitoring/ActionGroupsBoard.tsx",
     "src/components/analytics/CostAllocationEngine.tsx",
     "src/components/analytics/UnitEconomicsPanel.tsx",
+    "src/components/superadmin/SaasOperationsPanel.tsx",
     "src/app/[locale]/intelligence/azure-ai/components/AzureAISearch.tsx",
     "src/app/[locale]/intelligence/azure-ai/components/AzureFoundryDetail.tsx",
     "src/components/monitoring/AppInsightsDashboard.tsx",

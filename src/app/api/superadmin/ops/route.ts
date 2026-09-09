@@ -32,8 +32,10 @@ export async function GET(request: NextRequest) {
                     total: parseInt(summary.syncedTenantsRatio.split("/")[1] || "4", 10),
                     syncOk: parseInt(summary.syncedTenantsRatio.split("/")[0] || "3", 10),
                 },
+                // Endpoint legado sin consumidor en el repo: el nombre visible ya
+                // no viaja en el payload, asi que se expone la clave.
                 components: summary.components.map((c) => ({
-                    name: c.name,
+                    name: c.key,
                     status: c.status.toLowerCase(),
                     latency_ms: c.latencyMs,
                     uptimePercent: c.uptimePercent,
@@ -41,7 +43,7 @@ export async function GET(request: NextRequest) {
             },
             crons: summary.cronJobs.map((c) => ({
                 name: c.key,
-                displayName: c.name,
+                displayName: c.key,
                 state: c.status === "HEALTHY" ? "ok" : c.status === "RUNNING" ? "running" : c.status === "ERROR" ? "error" : "unknown",
                 status: c.status.toLowerCase(),
                 runAt: c.lastRunAtIso || null,
