@@ -63,6 +63,11 @@ export interface WhatIfSimulationResult {
 }
 
 export interface SavedWhatIfScenario {
+  /**
+   * Los escenarios los nombra el usuario, asi que `name` sigue siendo texto
+   * libre. Solo el seed de demo trae clave: si viene, gana sobre `name`.
+   */
+  nameKey?: string;
   id: string;
   name: string;
   baseCostUSD: number;

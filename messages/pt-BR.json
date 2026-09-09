@@ -519,7 +519,8 @@
     "cancelHint": "Ao cancelar, você mantém o acesso às suas funções FinOps até o fim do período de faturamento atual. Esta ação não pode ser desfeita.",
     "pageOf": "Página {page} de {total}",
     "cancelConfirm": "Tem certeza de que deseja cancelar sua assinatura?",
-    "cancelKeepAccess": "Você manterá o acesso a todas as capacidades do seu plano até o fim do ciclo de faturamento atual ("
+    "cancelKeepAccess": "Você manterá o acesso a todas as capacidades do seu plano até o fim do ciclo de faturamento atual (",
+    "cancelScheduled": "Cancelamento agendado para o fim do período."
   },
   "AdminCapacityAddons": {
     "selfServeUnavailable": "A contratação online não está disponível para esta conta (sem assinatura ativa no Paddle, ou add-ons não habilitados neste ambiente). Fale com vendas para ampliar sua capacidade.",
@@ -762,7 +763,8 @@
     "invalidGuid": "Formato de GUID inválido (ex.: 8b41364f-581a-4e43-b7cb-13138dac5517).",
     "companyLabel": "Nome da Empresa / Ambiente",
     "companyPlaceholder": "Ex.: Filial Brasil, Ambiente de Produção 2, etc.",
-    "adminNote": "Ao registrar o tenant, sua conta é vinculada automaticamente como Administrador e você pode alternar de ambiente pelo seletor no topo."
+    "adminNote": "Ao registrar o tenant, sua conta é vinculada automaticamente como Administrador e você pode alternar de ambiente pelo seletor no topo.",
+    "tenantAdded": "Tenant adicionado com sucesso ao contrato."
   },
   "AdminDataResidency": {
     "pageTitle": "Residência de Dados",
@@ -2244,7 +2246,8 @@
       "SNOOZED": "Adiada",
       "DISMISSED": "Descartada",
       "RESOLVED": "Concluída"
-    }
+    },
+    "anomalyTitle": "{service, select, DESCONOCIDO {Pico de Custo detectado} other {Pico de Custo em {service}}}"
   },
   "AppInsights": {
     "page_title": "Application Insights",
@@ -7647,7 +7650,13 @@
     "rem_EG_ORPHAN_PURGE_title": "Purga de tópico órfão sem eventos “{name}”",
     "rem_EG_ORPHAN_PURGE_desc": "O recurso “{name}” registra 0 eventos publicados e 0 entregas nos últimos 30 dias. Eliminar tópicos órfãos evita dispersão e mantém limpa a arquitetura pub/sub.",
     "cat_EG_SKU_DOWNGRADE": "Arbitragem de SKU",
-    "cat_EG_ORPHAN_PURGE": "Purga de órfãos"
+    "cat_EG_ORPHAN_PURGE": "Purga de órfãos",
+    "rem_APIM_DEV_SKU_DOWNGRADE_title": "Arbitragem para SKU Developer em {name}",
+    "rem_APIM_DEV_SKU_DOWNGRADE_desc": "A instância roda no nível {sku} (${cost}/mês) em ambiente não produtivo ({rg}). Migrar para o SKU Developer ($50/mês) economiza ~${savings, number} USD/mês sem afetar os testes funcionais.",
+    "rem_APIM_UNITS_RIGHTSIZING_title": "Rightsizing de Unidades Premium em {name} ({current} → {recommended} uds)",
+    "rem_APIM_UNITS_RIGHTSIZING_desc": "A instância Premium conta com {current} unidades provisionadas (${cost}/mês) mas sua capacidade média em 30 dias é de {usage}%. Reduzir para {recommended} unidade(s) economiza ${savings, number} USD/mês mantendo o SLA de alta disponibilidade.",
+    "rem_APIM_CACHE_ENABLE_title": "Habilitar Cache de Resposta Interna em {name}",
+    "rem_APIM_CACHE_ENABLE_desc": "O gateway processa {millions}M de chamadas com latência de {latency}ms. Habilitar cache de resposta interna no APIM reduz a carga nos backends e a latência em até 70%."
   },
   "KeyVaultPanel": {
     "loadError": "Erro ao carregar o Azure Key Vault",
@@ -7705,7 +7714,22 @@
     "vaultsWithoutRbac": "{count, plural, one {# cofre sem Azure RBAC} other {# cofres sem Azure RBAC}}",
     "hsmIrreversibleNote": "<b>Operação irreversível.</b> Sem o <b>security domain</b> exportado, as chaves de um Managed HSM excluído são irrecuperáveis — não existe suporte da Microsoft que possa restaurá-las. Execute os passos em ordem e verifique o destino antes da baixa.",
     "throttled429": "{n} respostas 429",
-    "noThrottling": "Sem throttling registrado"
+    "noThrottling": "Sem throttling registrado",
+    "rem_DOWNGRADE_MANAGED_HSM_title": "Migrar Managed HSM para Key Vault Premium: {name}",
+    "rem_DOWNGRADE_MANAGED_HSM_desc": "Pool de Managed HSM dedicado em {rg} ({subscription}), um escopo não produtivo. O pool cobra {hourly} USD/hora só por existir, com tráfego ou sem ele. O Key Vault Premium mantém o respaldo HSM validado FIPS 140-2 Nível 2 por {monthly} USD/chave/mês; o único que se perde é o isolamento de inquilino único, que raramente se justifica fora de produção.",
+    "rem_POLLING_CACHE_OPTIMIZATION_title": "Cachear segredos no cliente: {name} ({millions}M ops MTD)",
+    "rem_POLLING_CACHE_OPTIMIZATION_desc": "{hits, number} operações no mês indicam leituras repetidas do mesmo segredo em cada request em vez de um cache em memória com TTL. {throttled, select, 0 {Ainda sem 429, mas a margem contra os limites de serviço se estreita a cada novo deploy.} other {Já se registram {throttled} respostas 429: o cofre está batendo nos limites rígidos do serviço e a aplicação está falhando, não apenas gastando.}} A economia na fatura é modesta (as transações custam {price} USD a cada 10.000); o benefício principal é de disponibilidade e latência.",
+    "rem_PURGE_EXPIRED_OBJECTS_title": "{expired, select, 0 {Cofre sem uso: {name}} other {Auditar {expired} objeto(s) vencido(s) em {name}}}",
+    "rem_PURGE_EXPIRED_OBJECTS_desc": "{name} {idle, select, NUNCA {não registra nenhuma transação} other {não registra tráfego há {days} dias}}{expired, select, 0 {} other { e tem {expired} segredo(s)/certificado(s) vencidos}}. Um certificado vencido em um cofre ativo quebra a aplicação que o consome; um cofre sem tráfego costuma ser resíduo de um projeto encerrado. {purge, select, ON {Tem purge protection ativa: não pode ser excluído até vencer o período de retenção, então planeje a baixa com antecedência.} other {Sem purge protection: verifique que nada o consuma antes de excluí-lo, porque a exclusão será reversível apenas durante o período de soft delete.}}",
+    "rem_ENABLE_RBAC_title": "Migrar para Azure RBAC: {name}",
+    "rem_ENABLE_RBAC_desc": "O cofre autoriza por Access Policies, um modelo plano que não distingue quem acessou qual objeto nem permite atribuições no nível de segredo individual. O Azure RBAC habilita auditoria granular no log de atividade e papéis por objeto. Migrar é uma mudança de plano de controle: revise cada política existente e mapeie-a ao papel equivalente ANTES de ativar enableRbacAuthorization, porque a mudança invalida as policies de uma vez e pode deixar aplicações sem acesso.",
+    "kpiOps": "Transações de API MTD",
+    "kpiObjects": "Objetos Armazenados",
+    "colOpsMtd": "Transações MTD",
+    "colActions": "Ações",
+    "transactionCost": "Transações de API",
+    "emptyNoVaults": "O Azure não reporta Key Vaults nas assinaturas visíveis.",
+    "emptyNoMatches": "Nenhum cofre corresponde aos filtros aplicados."
   },
   "LegalDpa": {
     "title": "Acordo de Tratamento de Dados (DPA)",
@@ -12006,7 +12030,9 @@
     "activeMode": "Modo de Impersonação Ativo:",
     "browsingAs": "Você está navegando como Administrador dentro de <tenant></tenant> <id></id>.",
     "exit": "Sair da sessão do cliente",
-    "exiting": "Saindo…"
+    "exiting": "Saindo…",
+    "impersonateStopped": "Sessão de personificação encerrada. Você voltou ao painel de SuperAdmin.",
+    "impersonateStopError": "Erro ao sair da sessão de personificação"
   },
   "SuperAdminOps": {
     "title": "Operações SaaS (Global)",
@@ -12253,7 +12279,9 @@
     "step4": "O webhook ativa o tenant como Enterprise/ACTIVE com seu ID de assinatura oficial.",
     "noTenantsFound": "Nenhum tenant corresponde à busca.",
     "pageOf": "Página {page} de {total}",
-    "checkoutUrl": "URL do Checkout Paddle:"
+    "checkoutUrl": "URL do Checkout Paddle:",
+    "impersonateStarting": "Entrando em {tenant}...",
+    "impersonateStartError": "Erro ao iniciar a personificação"
   },
   "SuperAdminUsers": {
     "title": "Gestão de Equipe Interna",
@@ -13326,7 +13354,10 @@
     "waterfall_ahb": "Economia AHB (lic.)",
     "waterfall_spot": "Economia Spot",
     "waterfall_offHours": "Economia off-hours",
-    "waterfall_net": "Custo líquido projetado"
+    "waterfall_net": "Custo líquido projetado",
+    "mockScenarioInertial": "Cenário de Crescimento Inercial (+30% Computação)",
+    "mockScenarioAggressive": "Otimização Agressiva 3Y + AHB + Spot (Recomendado)",
+    "mockScenarioOffHours": "Adoção de Desligamento Off-Hours (Dev/Test 50%)"
   },
   "WhiteBoard": {
     "title": "Resumo Executivo",

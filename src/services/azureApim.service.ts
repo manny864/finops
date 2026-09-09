@@ -76,10 +76,13 @@ export function generateApimRecommendations(
         id: `rem-dev-${item.id}`,
         resourceId: item.id,
         resourceName: item.name,
-        title: `Arbitraje a SKU Developer en ${item.name}`,
-        description: `La instancia corre en nivel ${item.skuName} ($${item.costMtdUSD.toFixed(
-          2
-        )}/mes) en ambiente no productivo (${item.resourceGroup}). Migrar al SKU Developer ($50/mes) para ahorrar ~$${devSavings.toLocaleString()} USD/mes sin afectar pruebas funcionales.`,
+        params: {
+          name: item.name,
+          sku: item.skuName,
+          cost: item.costMtdUSD.toFixed(2),
+          rg: item.resourceGroup,
+          savings: devSavings,
+        },
         category: "DEV_SKU_DOWNGRADE",
         estimatedSavingsUSD: devSavings,
         confidence: "HIGH",
@@ -98,12 +101,14 @@ export function generateApimRecommendations(
         id: `rem-units-${item.id}`,
         resourceId: item.id,
         resourceName: item.name,
-        title: `Rightsizing de Unidades Premium en ${item.name} (${item.skuCapacity} -> ${reducedUnits} uds)`,
-        description: `La instancia Premium cuenta con ${item.skuCapacity} unidades aprovisionadas ($${item.costMtdUSD.toFixed(
-          2
-        )}/mes) pero su capacidad promedio en 30 días es de ${item.avgCapacityPercentage.toFixed(
-          1
-        )}%. Reducir a ${reducedUnits} unidad(es) optimiza el gasto ahorrando $${unitSavings.toLocaleString()} USD/mes manteniendo SLA de alta disponibilidad.`,
+        params: {
+          name: item.name,
+          current: item.skuCapacity,
+          recommended: reducedUnits,
+          cost: item.costMtdUSD.toFixed(2),
+          usage: item.avgCapacityPercentage.toFixed(1),
+          savings: unitSavings,
+        },
         category: "UNITS_RIGHTSIZING",
         estimatedSavingsUSD: unitSavings,
         confidence: "HIGH",
@@ -120,12 +125,11 @@ export function generateApimRecommendations(
         id: `rem-cache-${item.id}`,
         resourceId: item.id,
         resourceName: item.name,
-        title: `Habilitar Caché de Respuesta Interna en ${item.name}`,
-        description: `El gateway procesa ${(item.totalRequests / 1_000_000).toFixed(
-          1
-        )}M de llamadas con latencia de ${item.avgLatencyMs.toFixed(
-          1
-        )}ms. Habilitar caché de respuesta interna en APIM reduce carga en backends y latencia hasta en un 70%.`,
+        params: {
+          name: item.name,
+          millions: (item.totalRequests / 1_000_000).toFixed(1),
+          latency: item.avgLatencyMs.toFixed(1),
+        },
         category: "CACHE_ENABLE",
         estimatedSavingsUSD: 85.0,
         confidence: "MEDIUM",

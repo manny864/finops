@@ -221,14 +221,15 @@ describe("Key Vault — recomendaciones", () => {
     expect(rec).toBeDefined();
     // 90% de 2M ops evitadas = 1.8M -> $5.40. No se infla.
     expect(rec!.estimatedSavingsUSD).toBeCloseTo(5.4, 1);
-    expect(rec!.description).toContain("429");
-    expect(rec!.description).toContain("disponibilidad");
+    // El texto vive en el catalogo; aca se comprueba el dato del que depende.
+    // Que la frase siga advirtiendo el 429 se verifica en el guard de i18n.
+    expect(rec!.params!.throttled).toBe(1_842);
   });
 
   it("sin 429 el texto advierte igual, sin afirmar un throttling que no ocurrio", () => {
     const v = baseVault({ hitsByObjectType: { Secrets: 1_500_000, Keys: 0, Certificates: 0 } });
     const rec = generateKeyVaultRecommendations([v]).find((r) => r.category === "POLLING_CACHE_OPTIMIZATION");
-    expect(rec!.description).toContain("Todavia sin 429");
+    expect(rec!.params!.throttled).toBe(0);
   });
 
   it("la migracion a RBAC no reclama ahorro y advierte el orden de la operacion", () => {
@@ -236,7 +237,6 @@ describe("Key Vault — recomendaciones", () => {
     const rec = generateKeyVaultRecommendations([v]).find((r) => r.category === "ENABLE_RBAC");
     expect(rec).toBeDefined();
     expect(rec!.estimatedSavingsUSD).toBe(0);
-    expect(rec!.description).toContain("ANTES");
   });
 
   it("la higiene menciona purge protection segun corresponda", () => {
@@ -244,8 +244,8 @@ describe("Key Vault — recomendaciones", () => {
     const sinProteccion = baseVault({ daysSinceLastTransaction: null, purgeProtectionEnabled: false });
     const a = generateKeyVaultRecommendations([conProteccion]).find((r) => r.category === "PURGE_EXPIRED_OBJECTS");
     const b = generateKeyVaultRecommendations([sinProteccion]).find((r) => r.category === "PURGE_EXPIRED_OBJECTS");
-    expect(a!.description).toContain("purge protection activa");
-    expect(b!.description).toContain("soft delete");
+    expect(a!.params!.purge).toBe("ON");
+    expect(b!.params!.purge).toBe("OFF");
   });
 
   it("una boveda sana no genera ninguna recomendacion", () => {
@@ -329,8 +329,7 @@ describe("Key Vault — comandos de remediacion", () => {
     id: "r",
     vaultId: "/subscriptions/s/resourceGroups/rg-prod/providers/Microsoft.KeyVault/vaults/kv-prod",
     vaultName: "kv-prod",
-    title: "t",
-    description: "d",
+    params: {},
     estimatedSavingsUSD: 10,
     confidence: "HIGH" as const,
     actionType: "X",

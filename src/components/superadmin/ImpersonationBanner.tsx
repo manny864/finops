@@ -46,7 +46,7 @@ export function ImpersonationBanner() {
       }
 
       const data = await res.json();
-      toast.success(data.message || "Sesión de impersonación finalizada. Has regresado al panel de SuperAdmin.");
+      toast.success(t("impersonateStopped"));
       setSession(null);
 
       // Redirección inmediata al panel de tenants de SuperAdmin
@@ -55,7 +55,7 @@ export function ImpersonationBanner() {
         window.location.href = "/superadmin/tenants";
       }, 300);
     } catch (err: any) {
-      toast.error(err?.message || "Error al salir de la sesión de impersonación");
+      toast.error(t("impersonateStopError"));
     } finally {
       setIsStopping(false);
     }

@@ -519,7 +519,8 @@
     "cancelHint": "If you cancel, you keep access to your FinOps features until the end of the current billing period. This action cannot be undone.",
     "pageOf": "Page {page} of {total}",
     "cancelConfirm": "Are you sure you want to cancel your subscription?",
-    "cancelKeepAccess": "You will keep access to all your plan's capabilities until the end of the current billing cycle ("
+    "cancelKeepAccess": "You will keep access to all your plan's capabilities until the end of the current billing cycle (",
+    "cancelScheduled": "Cancellation scheduled for the end of the period."
   },
   "AdminCapacityAddons": {
     "selfServeUnavailable": "Online purchasing is not available for this account (no active Paddle subscription, or add-ons are not enabled in this environment). Contact sales to expand your capacity.",
@@ -762,7 +763,8 @@
     "invalidGuid": "Invalid GUID format (e.g. 8b41364f-581a-4e43-b7cb-13138dac5517).",
     "companyLabel": "Company / Environment Name",
     "companyPlaceholder": "e.g. Brazil Branch, Production Environment 2, etc.",
-    "adminNote": "When the tenant is registered, your account is linked automatically as Administrator and you can switch environments from the selector at the top."
+    "adminNote": "When the tenant is registered, your account is linked automatically as Administrator and you can switch environments from the selector at the top.",
+    "tenantAdded": "Tenant successfully added to the contract."
   },
   "AdminDataResidency": {
     "pageTitle": "Data Residency",
@@ -2244,7 +2246,8 @@
       "SNOOZED": "Snoozed",
       "DISMISSED": "Dismissed",
       "RESOLVED": "Completed"
-    }
+    },
+    "anomalyTitle": "{service, select, DESCONOCIDO {Cost spike detected} other {Cost spike in {service}}}"
   },
   "AppInsights": {
     "page_title": "Application Insights",
@@ -7647,7 +7650,13 @@
     "rem_EG_ORPHAN_PURGE_title": "Purge orphaned topic with no events “{name}”",
     "rem_EG_ORPHAN_PURGE_desc": "Resource “{name}” records 0 published events and 0 deliveries in the last 30 days. Removing orphaned topics prevents sprawl and keeps the pub/sub architecture clean.",
     "cat_EG_SKU_DOWNGRADE": "SKU arbitrage",
-    "cat_EG_ORPHAN_PURGE": "Orphan purge"
+    "cat_EG_ORPHAN_PURGE": "Orphan purge",
+    "rem_APIM_DEV_SKU_DOWNGRADE_title": "Arbitrage to the Developer SKU on {name}",
+    "rem_APIM_DEV_SKU_DOWNGRADE_desc": "The instance runs on the {sku} tier (${cost}/mo) in a non-production environment ({rg}). Moving to the Developer SKU ($50/mo) saves ~${savings, number} USD/mo without affecting functional testing.",
+    "rem_APIM_UNITS_RIGHTSIZING_title": "Premium unit rightsizing on {name} ({current} → {recommended} units)",
+    "rem_APIM_UNITS_RIGHTSIZING_desc": "The Premium instance has {current} provisioned units (${cost}/mo) but its 30-day average capacity is {usage}%. Cutting to {recommended} unit(s) saves ${savings, number} USD/mo while keeping the high-availability SLA.",
+    "rem_APIM_CACHE_ENABLE_title": "Enable internal response caching on {name}",
+    "rem_APIM_CACHE_ENABLE_desc": "The gateway handles {millions}M calls at {latency}ms latency. Enabling internal response caching in APIM cuts backend load and latency by up to 70%."
   },
   "KeyVaultPanel": {
     "loadError": "Failed to load Azure Key Vault",
@@ -7705,7 +7714,22 @@
     "vaultsWithoutRbac": "{count, plural, one {# vault without Azure RBAC} other {# vaults without Azure RBAC}}",
     "hsmIrreversibleNote": "<b>Irreversible operation.</b> Without the exported <b>security domain</b>, the keys of a deleted Managed HSM are unrecoverable — no Microsoft support can restore them. Run the steps in order and verify the destination before decommissioning.",
     "throttled429": "{n} 429 responses",
-    "noThrottling": "No throttling recorded"
+    "noThrottling": "No throttling recorded",
+    "rem_DOWNGRADE_MANAGED_HSM_title": "Migrate Managed HSM to Key Vault Premium: {name}",
+    "rem_DOWNGRADE_MANAGED_HSM_desc": "Dedicated Managed HSM pool in {rg} ({subscription}), a non-production scope. The pool bills {hourly} USD/hour just for existing, traffic or not. Key Vault Premium keeps the FIPS 140-2 Level 2 validated HSM backing for {monthly} USD/key/mo; the only thing lost is single-tenant isolation, which is rarely justified outside production.",
+    "rem_POLLING_CACHE_OPTIMIZATION_title": "Cache secrets on the client: {name} ({millions}M ops MTD)",
+    "rem_POLLING_CACHE_OPTIMIZATION_desc": "{hits, number} operations this month indicate repeated reads of the same secret on every request instead of an in-memory cache with a TTL. {throttled, select, 0 {No 429s yet, but the margin against the service limits narrows with every new deployment.} other {{throttled} 429 responses already recorded: the vault is hitting the service hard limits and the application is failing, not just spending.}} The savings on the bill are modest (transactions cost {price} USD per 10,000); the main benefit is availability and latency.",
+    "rem_PURGE_EXPIRED_OBJECTS_title": "{expired, select, 0 {Unused vault: {name}} other {Audit {expired} expired object(s) in {name}}}",
+    "rem_PURGE_EXPIRED_OBJECTS_desc": "{name} {idle, select, NUNCA {records no transactions at all} other {has recorded no traffic for {days} days}}{expired, select, 0 {} other { and holds {expired} expired secret(s)/certificate(s)}}. An expired certificate in an active vault breaks the application consuming it; a vault with no traffic is usually leftover from a closed project. {purge, select, ON {Purge protection is enabled: it cannot be deleted until the retention period expires, so plan the decommission with lead time.} other {No purge protection: verify nothing consumes it before deleting, because the deletion is reversible only during the soft-delete period.}}",
+    "rem_ENABLE_RBAC_title": "Migrate to Azure RBAC: {name}",
+    "rem_ENABLE_RBAC_desc": "The vault authorizes through Access Policies, a flat model that neither distinguishes who accessed which object nor allows per-secret assignments. Azure RBAC enables granular auditing in the activity log and per-object roles. Migrating is a control-plane change: review every existing policy and map it to its equivalent role BEFORE enabling enableRbacAuthorization, because the change invalidates the policies at once and can leave applications without access.",
+    "kpiOps": "API Transactions MTD",
+    "kpiObjects": "Stored Objects",
+    "colOpsMtd": "Transactions MTD",
+    "colActions": "Actions",
+    "transactionCost": "API transactions",
+    "emptyNoVaults": "Azure reports no Key Vaults in the visible subscriptions.",
+    "emptyNoMatches": "No vault matches the applied filters."
   },
   "LegalDpa": {
     "title": "Data Processing Agreement (DPA)",
@@ -12006,7 +12030,9 @@
     "activeMode": "Impersonation Mode Active:",
     "browsingAs": "You are browsing as Administrator inside <tenant></tenant> <id></id>.",
     "exit": "Exit customer session",
-    "exiting": "Exiting…"
+    "exiting": "Exiting…",
+    "impersonateStopped": "Impersonation session ended. You are back on the SuperAdmin panel.",
+    "impersonateStopError": "Could not exit the impersonation session"
   },
   "SuperAdminOps": {
     "title": "SaaS Operations (Global)",
@@ -12253,7 +12279,9 @@
     "step4": "The webhook activates the tenant as Enterprise/ACTIVE with its official subscription ID.",
     "noTenantsFound": "No tenants matched the search.",
     "pageOf": "Page {page} of {total}",
-    "checkoutUrl": "Paddle Checkout URL:"
+    "checkoutUrl": "Paddle Checkout URL:",
+    "impersonateStarting": "Entering {tenant}...",
+    "impersonateStartError": "Could not start impersonation"
   },
   "SuperAdminUsers": {
     "title": "Internal Staff Management",
@@ -13326,7 +13354,10 @@
     "waterfall_ahb": "AHB savings (lic.)",
     "waterfall_spot": "Spot savings",
     "waterfall_offHours": "Off-hours savings",
-    "waterfall_net": "Net projected cost"
+    "waterfall_net": "Net projected cost",
+    "mockScenarioInertial": "Inertial Growth Scenario (+30% Compute)",
+    "mockScenarioAggressive": "Aggressive Optimization 3Y + AHB + Spot (Recommended)",
+    "mockScenarioOffHours": "Off-Hours Shutdown Adoption (Dev/Test 50%)"
   },
   "WhiteBoard": {
     "title": "Executive Summary",

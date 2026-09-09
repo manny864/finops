@@ -190,8 +190,13 @@ export function generateKeyVaultRecommendations(
         id: `hsm-${v.id}`,
         vaultId: v.id,
         vaultName: v.name,
-        title: `Migrar Managed HSM a Key Vault Premium: ${v.name}`,
-        description: `Pool de Managed HSM dedicado en ${v.resourceGroup} (${v.subscriptionName}), un scope no productivo. El pool factura ${KV_MANAGED_HSM_USD_HOUR} USD/hora por existir, con trafico o sin el. Key Vault Premium conserva el respaldo HSM validado FIPS 140-2 Nivel 2 por ${KV_PREMIUM_HSM_KEY_USD_MONTH} USD/clave/mes; lo unico que se pierde es el aislamiento de inquilino unico, que rara vez se justifica fuera de produccion.`,
+        params: {
+          name: v.name,
+          rg: v.resourceGroup,
+          subscription: v.subscriptionName,
+          hourly: KV_MANAGED_HSM_USD_HOUR,
+          monthly: KV_PREMIUM_HSM_KEY_USD_MONTH,
+        },
         category: "DOWNGRADE_MANAGED_HSM",
         estimatedSavingsUSD: Number(Math.max(0, v.managedHsmPoolCostUSD - premiumEquivalent).toFixed(2)),
         confidence: "HIGH",
@@ -205,16 +210,19 @@ export function generateKeyVaultRecommendations(
       // Cachear en el cliente elimina tipicamente la gran mayoria de las
       // lecturas repetidas del mismo secreto.
       const avoidableHits = v.totalApiHitsMTD * 0.9;
-      const throttleNote =
-        v.throttledHits429 > 0
-          ? ` Ya se registran ${v.throttledHits429} respuestas 429: la boveda esta chocando contra los limites duros del servicio y la aplicacion esta fallando, no solo gastando.`
-          : " Todavia sin 429, pero el margen contra los limites de servicio se estrecha con cada despliegue nuevo.";
       out.push({
         id: `polling-${v.id}`,
         vaultId: v.id,
         vaultName: v.name,
-        title: `Cachear secretos en el cliente: ${v.name} (${(v.totalApiHitsMTD / 1_000_000).toFixed(1)}M ops MTD)`,
-        description: `${v.totalApiHitsMTD.toLocaleString("es-AR")} operaciones en el mes indican lecturas repetidas del mismo secreto en cada request en vez de una cache en memoria con TTL.${throttleNote} El ahorro en factura es modesto (las transacciones cuestan ${KV_TRANSACTION_USD_PER_10K} USD cada 10.000); el beneficio principal es de disponibilidad y latencia.`,
+        // El `toLocaleString("es-AR")` fijaba el formato de miles al de un
+        // solo idioma: con `{hits, number}` lo decide el locale del lector.
+        params: {
+          name: v.name,
+          millions: (v.totalApiHitsMTD / 1_000_000).toFixed(1),
+          hits: v.totalApiHitsMTD,
+          throttled: v.throttledHits429,
+          price: KV_TRANSACTION_USD_PER_10K,
+        },
         category: "POLLING_CACHE_OPTIMIZATION",
         estimatedSavingsUSD: calcTransactionCost(avoidableHits),
         confidence: "HIGH",
@@ -224,25 +232,19 @@ export function generateKeyVaultRecommendations(
 
     // Regla 3 — higiene: objetos vencidos o boveda sin trafico.
     if (v.expiredObjectsCount > 0 || v.daysSinceLastTransaction === null || v.daysSinceLastTransaction > IDLE_VAULT_DAYS) {
-      const idleText =
-        v.daysSinceLastTransaction === null
-          ? "no registra ninguna transaccion"
-          : `no registra trafico hace ${v.daysSinceLastTransaction} dias`;
       out.push({
         id: `hygiene-${v.id}`,
         vaultId: v.id,
         vaultName: v.name,
-        title:
-          v.expiredObjectsCount > 0
-            ? `Auditar ${v.expiredObjectsCount} objeto(s) vencido(s) en ${v.name}`
-            : `Boveda sin uso: ${v.name}`,
-        description: `${v.name} ${idleText}${
-          v.expiredObjectsCount > 0 ? ` y tiene ${v.expiredObjectsCount} secreto(s)/certificado(s) vencidos` : ""
-        }. Un certificado vencido en una boveda activa rompe la aplicacion que lo consume; una boveda sin trafico suele ser residuo de un proyecto cerrado. ${
-          v.purgeProtectionEnabled
-            ? "Tiene purge protection activa: no se puede eliminar hasta que venza el periodo de retencion, asi que planificar la baja con tiempo."
-            : "Sin purge protection: verificar que nada la consuma antes de eliminarla, porque el borrado sera reversible solo durante el periodo de soft delete."
-        }`,
+        // Tres ternarios que armaban la frase en el servidor: ahora son tres
+        // `select` de ICU, uno por rama.
+        params: {
+          name: v.name,
+          expired: v.expiredObjectsCount,
+          idle: v.daysSinceLastTransaction === null ? "NUNCA" : "DIAS",
+          days: v.daysSinceLastTransaction ?? 0,
+          purge: v.purgeProtectionEnabled ? "ON" : "OFF",
+        },
         category: "PURGE_EXPIRED_OBJECTS",
         // Higiene y riesgo operativo: el ahorro es marginal salvo que la boveda
         // sea Premium o HSM, asi que solo se cuenta lo que realmente se libera.
@@ -262,9 +264,7 @@ export function generateKeyVaultRecommendations(
         id: `rbac-${v.id}`,
         vaultId: v.id,
         vaultName: v.name,
-        title: `Migrar a Azure RBAC: ${v.name}`,
-        description:
-          "La boveda autoriza por Access Policies, un modelo plano que no distingue quien accedio a que objeto ni permite asignaciones a nivel de secreto individual. Azure RBAC habilita auditoria granular en el log de actividad y roles por objeto. Migrar es un cambio de plano de control: revisar cada politica existente y mapearla a su rol equivalente ANTES de activar enableRbacAuthorization, porque el cambio invalida las policies de golpe y puede dejar aplicaciones sin acceso.",
+        params: { name: v.name },
         category: "ENABLE_RBAC",
         estimatedSavingsUSD: 0,
         confidence: "MEDIUM",

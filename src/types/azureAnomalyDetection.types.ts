@@ -24,7 +24,12 @@ export interface CostAnomalyItem {
   zScore: number;
   severity: AnomalySeverity;
   state: AnomalyState;
-  title: string;
+  /**
+   * El titulo era siempre "Pico de Costo en <servicio>", asi que del servidor
+   * viaja solo el servicio dominante y la frase sale de `anomalyTitle`.
+   * `DESCONOCIDO` es el centinela de la rama sin causa raiz identificada.
+   */
+  titleService: string;
   rootCauses: AnomalyRootCauseItem[];
   snoozedUntilDate?: string;
   resolutionNotes?: string;

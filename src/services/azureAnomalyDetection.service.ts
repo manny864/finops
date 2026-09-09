@@ -198,7 +198,7 @@ export function getMockAnomalyPayload(tenantId: string): AnomalyPayload {
       zScore: 3.32,
       severity: "CRITICAL",
       state: "OPEN",
-      title: "Pico de Costo en Foundry Models / Azure OpenAI",
+      titleService: "Foundry Models / Azure OpenAI",
       rootCauses: rootCausesSpike,
     },
   ];
@@ -214,7 +214,7 @@ export function getMockAnomalyPayload(tenantId: string): AnomalyPayload {
       zScore: 3.12,
       severity: "HIGH",
       state: "RESOLVED",
-      title: "Pico de Costo en Azure Databricks Cluster",
+      titleService: "Azure Databricks Cluster",
       rootCauses: [
         {
           serviceName: "Azure Databricks",
@@ -290,7 +290,7 @@ export function assembleLiveAnomalies(input: {
     const zScore = Number(row.z_score) || 0;
     const delta = Math.max(0, actual - expected);
 
-    const dominant = rootCauses[0]?.serviceName || "Servicio Cloud";
+    const dominant = rootCauses[0]?.serviceName || "DESCONOCIDO";
 
     return {
       id: String(row.id),
@@ -301,7 +301,7 @@ export function assembleLiveAnomalies(input: {
       zScore: Number(zScore.toFixed(2)),
       severity: zScore >= 4 ? "CRITICAL" : zScore >= 3 ? "HIGH" : "MEDIUM",
       state,
-      title: `Pico de Costo en ${dominant}`,
+      titleService: dominant,
       rootCauses,
       resolvedAtDate: row.resolved_at || undefined,
       resolutionNotes: row.resolution_notes || undefined,

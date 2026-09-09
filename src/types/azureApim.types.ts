@@ -31,13 +31,21 @@ export interface ApimSummaryMetrics {
   potentialSavingsUSD: number;
 }
 
+export const APIM_REMEDIATION_CATEGORIES = [
+  "DEV_SKU_DOWNGRADE",
+  "UNITS_RIGHTSIZING",
+  "CACHE_ENABLE",
+] as const;
+
+export type ApimRemediationCategory = (typeof APIM_REMEDIATION_CATEGORIES)[number];
+
 export interface ApimRemediationAction {
   id: string;
   resourceId: string;
   resourceName?: string;
-  title: string;
-  description: string;
-  category: "DEV_SKU_DOWNGRADE" | "UNITS_RIGHTSIZING" | "CACHE_ENABLE";
+  /** Valores a interpolar en `rem_APIM_<category>_title` / `_desc`. */
+  params?: Record<string, string | number>;
+  category: ApimRemediationCategory;
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM";
   actionType: string;

@@ -297,13 +297,15 @@ export default function AnomalyDetectionPanel() {
       if (activeTab !== "ALL" && a.state !== activeTab) return false;
       if (searchTerm) {
         const query = searchTerm.toLowerCase();
-        const matchesTitle = a.title.toLowerCase().includes(query);
+        // El titulo ya no viene del servidor: se busca sobre el texto que
+        // el lector ve, no sobre la clave.
+        const matchesTitle = t("anomalyTitle", { service: a.titleService }).toLowerCase().includes(query);
         const matchesService = a.rootCauses.some((rc) => rc.serviceName.toLowerCase().includes(query));
         if (!matchesTitle && !matchesService) return false;
       }
       return true;
     });
-  }, [anomalies, activeTab, searchTerm]);
+  }, [anomalies, activeTab, searchTerm, t]);
 
   const { paged, page, totalPages, pageSize, setPage, setPageSize, total } = usePagination(filtered, 15);
 
@@ -676,7 +678,7 @@ export default function AnomalyDetectionPanel() {
                     {t('csvDate')}: <span className="font-mono text-[#1B2A41] dark:text-slate-200">{anomaly.detectionDate}</span>
                   </span>
                   <span className="text-xs font-bold text-[#1B2A41] dark:text-slate-100">
-                    {anomaly.title}
+                    {t("anomalyTitle", { service: anomaly.titleService })}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">

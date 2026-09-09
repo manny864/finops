@@ -1,5 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -50,6 +51,7 @@ import type {
   KeyVaultRemediationAction,
   KeyVaultResourceItem,
 } from "@/types/azureKeyVault.types";
+import { KV_TRANSACTION_USD_PER_10K } from "@/types/azureKeyVault.types";
 
 /**
  * Scrollbar horizontal siempre visible. En macOS los scrollbars son overlay y
@@ -163,7 +165,7 @@ function LinkedConsumersDrawer({
           {/* Postura de la bóveda */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
-              <div className="text-[10px] text-slate-500 dark:text-slate-400">Transacciones MTD</div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400">{t("colOpsMtd")}</div>
               <div className="text-lg font-extrabold text-[#1B2A41] dark:text-slate-100">
                 {formatOps(vault.totalApiHitsMTD)}
               </div>
@@ -202,7 +204,7 @@ function LinkedConsumersDrawer({
             </h3>
             <div className="space-y-1 text-[11px]">
               <div className="flex justify-between">
-                <span className="text-slate-600 dark:text-slate-400">Transacciones API</span>
+                <span className="text-slate-600 dark:text-slate-400">{t("transactionCost")}</span>
                 <span className="font-semibold text-[#1B2A41] dark:text-slate-200">
                   {formatCurrency(vault.transactionCostUSD)}
                 </span>
@@ -328,6 +330,7 @@ function KeyVaultRemediationModal({
   onClose: () => void;
 }) {
   const t = useTranslations("KeyVaultPanel");
+  const textoRem = useTextoPorCategoria("KeyVaultPanel");
   const [copied, setCopied] = useState<"cli" | "ps" | null>(null);
   if (!action) return null;
 
@@ -356,8 +359,8 @@ function KeyVaultRemediationModal({
         <div className="flex items-center gap-3 mb-4">
           <IconTerminal2 className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
           <div className="pr-8">
-            <h2 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">{action.title}</h2>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{action.description}</p>
+            <h2 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">{textoRem(action, "title")}</h2>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{textoRem(action, "desc")}</p>
           </div>
         </div>
 
@@ -421,6 +424,7 @@ function KeyVaultRemediationModal({
 // ─── Componente Principal ───
 export default function KeyVaultPanel() {
   const t = useTranslations("KeyVaultPanel");
+  const textoRem = useTextoPorCategoria("KeyVaultPanel");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -665,7 +669,7 @@ export default function KeyVaultPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Transacciones API MTD</span>
+              <span>{t("kpiOps")}</span>
               <InfoTooltip content={t("kpiOpsTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
@@ -687,7 +691,7 @@ export default function KeyVaultPanel() {
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
-              <span>Objetos Almacenados</span>
+              <span>{t("kpiObjects")}</span>
               <InfoTooltip content={t("kpiObjectsTooltip")} />
             </div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
@@ -892,9 +896,9 @@ export default function KeyVaultPanel() {
                 <ResizableTh minWidth={170}>{t("colSubscription")}</ResizableTh>
                 <ResizableTh minWidth={170}>{t("colLinked")}</ResizableTh>
                 <ResizableTh minWidth={150}>{t("colObjects")}</ResizableTh>
-                <ResizableTh minWidth={130}>Transacciones MTD</ResizableTh>
+                <ResizableTh minWidth={130}>{t("colOpsMtd")}</ResizableTh>
                 <ResizableTh minWidth={120}>{t("colMonthlyCost")}</ResizableTh>
-                <ResizableTh minWidth={240}>Acciones</ResizableTh>
+                <ResizableTh minWidth={240}>{t("colActions")}</ResizableTh>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -904,8 +908,8 @@ export default function KeyVaultPanel() {
                     <IconKey className="w-7 h-7 text-[#0078D4] mx-auto mb-2" stroke={1.5} />
                     <p className="text-xs font-medium">
                       {vaultsList.length === 0
-                        ? "Azure no reporta Key Vaults en las suscripciones visibles."
-                        : "Ninguna bóveda coincide con los filtros aplicados."}
+                        ? t("emptyNoVaults")
+                        : t("emptyNoMatches")}
                     </p>
                   </td>
                 </tr>
@@ -1007,10 +1011,13 @@ export default function KeyVaultPanel() {
                               id: `audit-manual-${v.id}`,
                               vaultId: v.id,
                               vaultName: v.name,
-                              title: `Auditar objetos de ${v.name}`,
-                              description: `${v.secretsCount} secretos, ${v.keysCount} claves y ${v.certificatesCount} certificados${
-                                v.expiredObjectsCount > 0 ? `, con ${v.expiredObjectsCount} vencido(s)` : ""
-                              }.`,
+                              params: {
+                                name: v.name,
+                                expired: v.expiredObjectsCount,
+                                idle: v.daysSinceLastTransaction === null ? "NUNCA" : "DIAS",
+                                days: v.daysSinceLastTransaction ?? 0,
+                                purge: v.purgeProtectionEnabled ? "ON" : "OFF",
+                              },
                               category: "PURGE_EXPIRED_OBJECTS",
                               estimatedSavingsUSD: 0,
                               confidence: "MEDIUM",
@@ -1029,10 +1036,13 @@ export default function KeyVaultPanel() {
                                 id: `polling-manual-${v.id}`,
                                 vaultId: v.id,
                                 vaultName: v.name,
-                                title: `Optimizar polling en ${v.name}`,
-                                description: `${v.totalApiHitsMTD.toLocaleString("es-AR")} operaciones MTD${
-                                  v.throttledHits429 > 0 ? ` y ${v.throttledHits429} respuestas 429` : ""
-                                }.`,
+                                params: {
+                                  name: v.name,
+                                  millions: (v.totalApiHitsMTD / 1_000_000).toFixed(1),
+                                  hits: v.totalApiHitsMTD,
+                                  throttled: v.throttledHits429,
+                                  price: KV_TRANSACTION_USD_PER_10K,
+                                },
                                 category: "POLLING_CACHE_OPTIMIZATION",
                                 estimatedSavingsUSD: 0,
                                 confidence: "HIGH",
@@ -1108,10 +1118,10 @@ export default function KeyVaultPanel() {
                     )}
                   </div>
                   <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 leading-snug">
-                    {action.title}
+                    {textoRem(action, "title")}
                   </h4>
                   <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-4 leading-relaxed">
-                    {action.description}
+                    {textoRem(action, "desc")}
                   </p>
                 </div>
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">

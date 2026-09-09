@@ -84,7 +84,7 @@ export default function AddContractTenantModal({
             const json = await res.json();
 
             if (res.ok) {
-                toast.success(json.message || "Tenant agregado exitosamente al contrato.");
+                toast.success(t("tenantAdded"));
                 setNewEntraId("");
                 setOrganizationName("");
                 onClose();

@@ -214,7 +214,7 @@ export default function BillingPanel() {
                 throw new Error(json.error || "No se pudo procesar la cancelación");
             }
 
-            setCanceledMessage(json.message || "Cancelación programada para fin de período.");
+            setCanceledMessage(t("cancelScheduled"));
             setShowCancelModal(false);
             await loadBilling();
         } catch (e: any) {

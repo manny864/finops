@@ -519,7 +519,8 @@
     "cancelHint": "Al cancelar, conservarás el acceso a tus funciones FinOps hasta el final del período de facturación actual. Esta acción no se puede deshacer.",
     "pageOf": "Página {page} de {total}",
     "cancelConfirm": "¿Estás seguro de cancelar tu suscripción?",
-    "cancelKeepAccess": "Conservarás el acceso a todas las capacidades de tu plan hasta el final del ciclo de facturación actual ("
+    "cancelKeepAccess": "Conservarás el acceso a todas las capacidades de tu plan hasta el final del ciclo de facturación actual (",
+    "cancelScheduled": "Cancelación programada para fin de período."
   },
   "AdminCapacityAddons": {
     "selfServeUnavailable": "La contratación en línea no está disponible para esta cuenta (sin suscripción de Paddle activa o add-ons no habilitados en este entorno). Contactá a ventas para ampliar tu capacidad.",
@@ -762,7 +763,8 @@
     "invalidGuid": "Formato GUID inválido (ej: 8b41364f-581a-4e43-b7cb-13138dac5517).",
     "companyLabel": "Nombre de la Empresa / Entorno",
     "companyPlaceholder": "Ej: Sucursal Brasil, Entorno Producción 2, etc.",
-    "adminNote": "Al registrar el tenant, tu cuenta quedará vinculada automáticamente como Administrador y podrás conmutar de entorno desde el selector superior."
+    "adminNote": "Al registrar el tenant, tu cuenta quedará vinculada automáticamente como Administrador y podrás conmutar de entorno desde el selector superior.",
+    "tenantAdded": "Tenant agregado exitosamente al contrato."
   },
   "AdminDataResidency": {
     "pageTitle": "Residencia de Datos",
@@ -2244,7 +2246,8 @@
       "SNOOZED": "Pospuesta",
       "DISMISSED": "Descartada",
       "RESOLVED": "Completada"
-    }
+    },
+    "anomalyTitle": "{service, select, DESCONOCIDO {Pico de Costo detectado} other {Pico de Costo en {service}}}"
   },
   "AppInsights": {
     "page_title": "Application Insights",
@@ -7647,7 +7650,13 @@
     "rem_EG_ORPHAN_PURGE_title": "Purga de tema huérfano sin eventos “{name}”",
     "rem_EG_ORPHAN_PURGE_desc": "El recurso “{name}” registra 0 eventos publicados y 0 entregas en los últimos 30 días. Eliminar temas huérfanos previene dispersión y mantiene limpia la arquitectura pub/sub.",
     "cat_EG_SKU_DOWNGRADE": "Arbitraje de SKU",
-    "cat_EG_ORPHAN_PURGE": "Purga de huérfanos"
+    "cat_EG_ORPHAN_PURGE": "Purga de huérfanos",
+    "rem_APIM_DEV_SKU_DOWNGRADE_title": "Arbitraje a SKU Developer en {name}",
+    "rem_APIM_DEV_SKU_DOWNGRADE_desc": "La instancia corre en nivel {sku} (${cost}/mes) en ambiente no productivo ({rg}). Migrar al SKU Developer ($50/mes) para ahorrar ~${savings, number} USD/mes sin afectar pruebas funcionales.",
+    "rem_APIM_UNITS_RIGHTSIZING_title": "Rightsizing de Unidades Premium en {name} ({current} → {recommended} uds)",
+    "rem_APIM_UNITS_RIGHTSIZING_desc": "La instancia Premium cuenta con {current} unidades aprovisionadas (${cost}/mes) pero su capacidad promedio en 30 días es de {usage}%. Reducir a {recommended} unidad(es) optimiza el gasto ahorrando ${savings, number} USD/mes manteniendo SLA de alta disponibilidad.",
+    "rem_APIM_CACHE_ENABLE_title": "Habilitar Caché de Respuesta Interna en {name}",
+    "rem_APIM_CACHE_ENABLE_desc": "El gateway procesa {millions}M de llamadas con latencia de {latency}ms. Habilitar caché de respuesta interna en APIM reduce carga en backends y latencia hasta en un 70%."
   },
   "KeyVaultPanel": {
     "loadError": "Error al cargar Azure Key Vault",
@@ -7705,7 +7714,22 @@
     "vaultsWithoutRbac": "{count, plural, one {# bóveda sin Azure RBAC} other {# bóvedas sin Azure RBAC}}",
     "hsmIrreversibleNote": "<b>Operación irreversible.</b> Sin el <b>security domain</b> exportado, las claves de un Managed HSM eliminado son irrecuperables — no existe soporte de Microsoft que pueda restaurarlas. Ejecutar los pasos en orden y verificar el destino antes de la baja.",
     "throttled429": "{n} respuestas 429",
-    "noThrottling": "Sin throttling registrado"
+    "noThrottling": "Sin throttling registrado",
+    "rem_DOWNGRADE_MANAGED_HSM_title": "Migrar Managed HSM a Key Vault Premium: {name}",
+    "rem_DOWNGRADE_MANAGED_HSM_desc": "Pool de Managed HSM dedicado en {rg} ({subscription}), un scope no productivo. El pool factura {hourly} USD/hora por existir, con tráfico o sin él. Key Vault Premium conserva el respaldo HSM validado FIPS 140-2 Nivel 2 por {monthly} USD/clave/mes; lo único que se pierde es el aislamiento de inquilino único, que rara vez se justifica fuera de producción.",
+    "rem_POLLING_CACHE_OPTIMIZATION_title": "Cachear secretos en el cliente: {name} ({millions}M ops MTD)",
+    "rem_POLLING_CACHE_OPTIMIZATION_desc": "{hits, number} operaciones en el mes indican lecturas repetidas del mismo secreto en cada request en vez de una caché en memoria con TTL. {throttled, select, 0 {Todavía sin 429, pero el margen contra los límites de servicio se estrecha con cada despliegue nuevo.} other {Ya se registran {throttled} respuestas 429: la bóveda está chocando contra los límites duros del servicio y la aplicación está fallando, no solo gastando.}} El ahorro en factura es modesto (las transacciones cuestan {price} USD cada 10.000); el beneficio principal es de disponibilidad y latencia.",
+    "rem_PURGE_EXPIRED_OBJECTS_title": "{expired, select, 0 {Bóveda sin uso: {name}} other {Auditar {expired} objeto(s) vencido(s) en {name}}}",
+    "rem_PURGE_EXPIRED_OBJECTS_desc": "{name} {idle, select, NUNCA {no registra ninguna transacción} other {no registra tráfico hace {days} días}}{expired, select, 0 {} other { y tiene {expired} secreto(s)/certificado(s) vencidos}}. Un certificado vencido en una bóveda activa rompe la aplicación que lo consume; una bóveda sin tráfico suele ser residuo de un proyecto cerrado. {purge, select, ON {Tiene purge protection activa: no se puede eliminar hasta que venza el período de retención, así que planificar la baja con tiempo.} other {Sin purge protection: verificar que nada la consuma antes de eliminarla, porque el borrado será reversible solo durante el período de soft delete.}}",
+    "rem_ENABLE_RBAC_title": "Migrar a Azure RBAC: {name}",
+    "rem_ENABLE_RBAC_desc": "La bóveda autoriza por Access Policies, un modelo plano que no distingue quién accedió a qué objeto ni permite asignaciones a nivel de secreto individual. Azure RBAC habilita auditoría granular en el log de actividad y roles por objeto. Migrar es un cambio de plano de control: revisar cada política existente y mapearla a su rol equivalente ANTES de activar enableRbacAuthorization, porque el cambio invalida las policies de golpe y puede dejar aplicaciones sin acceso.",
+    "kpiOps": "Transacciones API MTD",
+    "kpiObjects": "Objetos Almacenados",
+    "colOpsMtd": "Transacciones MTD",
+    "colActions": "Acciones",
+    "transactionCost": "Transacciones API",
+    "emptyNoVaults": "Azure no reporta Key Vaults en las suscripciones visibles.",
+    "emptyNoMatches": "Ninguna bóveda coincide con los filtros aplicados."
   },
   "LegalDpa": {
     "title": "Acuerdo de Tratamiento de Datos (DPA)",
@@ -12006,7 +12030,9 @@
     "activeMode": "Modo Impersonación Activo:",
     "browsingAs": "Estás navegando como Administrador dentro de <tenant></tenant> <id></id>.",
     "exit": "Salir de la sesión de cliente",
-    "exiting": "Saliendo..."
+    "exiting": "Saliendo...",
+    "impersonateStopped": "Sesión de impersonación finalizada. Has regresado al panel de SuperAdmin.",
+    "impersonateStopError": "Error al salir de la sesión de impersonación"
   },
   "SuperAdminOps": {
     "title": "Operaciones SaaS (Global)",
@@ -12253,7 +12279,9 @@
     "step4": "El webhook activa el tenant como Enterprise/ACTIVE con su ID de suscripción oficial.",
     "noTenantsFound": "No se encontraron tenants que coincidan con la búsqueda.",
     "pageOf": "Página {page} de {total}",
-    "checkoutUrl": "URL del Checkout Paddle:"
+    "checkoutUrl": "URL del Checkout Paddle:",
+    "impersonateStarting": "Ingresando a {tenant}...",
+    "impersonateStartError": "Error al iniciar impersonación"
   },
   "SuperAdminUsers": {
     "title": "Gestión de Staff Interno",
@@ -13326,7 +13354,10 @@
     "waterfall_ahb": "Ahorro AHB (lic.)",
     "waterfall_spot": "Ahorro Spot",
     "waterfall_offHours": "Ahorro off-hours",
-    "waterfall_net": "Costo neto proyectado"
+    "waterfall_net": "Costo neto proyectado",
+    "mockScenarioInertial": "Escenario Crecimiento Inercial (+30% Cómputo)",
+    "mockScenarioAggressive": "Optimización Agresiva 3Y + AHB + Spot (Recomendado)",
+    "mockScenarioOffHours": "Adopción de Apagado Off-Hours (Dev/Test 50%)"
   },
   "WhiteBoard": {
     "title": "Resumen Ejecutivo",

@@ -325,12 +325,12 @@ export default function TenantManagementPanel() {
                 throw new Error(data.error || "No se pudo iniciar la sesión de impersonación");
             }
 
-            toast.success(data.message || `Ingresando a ${targetTenant.organizationName || targetTenant.tenantId}...`);
+            toast.success(t("impersonateStarting", { tenant: targetTenant.organizationName || targetTenant.tenantId }));
             setTimeout(() => {
                 window.location.href = data.redirectUrl || "/";
             }, 300);
         } catch (err: any) {
-            toast.error(err?.message || "Error al iniciar impersonación");
+            toast.error(t("impersonateStartError"));
             setImpersonatingId(null);
         }
     };

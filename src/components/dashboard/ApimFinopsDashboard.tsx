@@ -1,6 +1,7 @@
 "use client";
 import { ERROR_401 } from "@/lib/errorSentinels";
 import { useTranslations } from "next-intl";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
 
 import React, { useState, useMemo, useRef } from "react";
 import useSWR from "swr";
@@ -181,6 +182,7 @@ function RemediationModal({
   onClose: () => void;
 }) {
   const t = useTranslations("IpaasFinops");
+  const textoRem = useTextoPorCategoria("IpaasFinops", "APIM");
   const [copied, setCopied] = useState(false);
   const [cmdTab, setCmdTab] = useState<"cli" | "powershell">("cli");
   const { format } = useCurrency();
@@ -224,10 +226,10 @@ function RemediationModal({
         <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
           <div>
             <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100 mb-1">
-              {action.title}
+              {textoRem(action, "title")}
             </h4>
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              {action.description}
+              {textoRem(action, "desc")}
             </p>
           </div>
 
@@ -365,6 +367,7 @@ function RemediationModal({
 // ─── Componente Principal ApimFinopsDashboard ───
 export default function ApimFinopsDashboard() {
   const t = useTranslations("IpaasFinops");
+  const textoRem = useTextoPorCategoria("IpaasFinops", "APIM");
   const tc = useTranslations("Common");
   const { selectedTenant } = useTenant();
   const { instance, accounts, inProgress } = useMsal();
@@ -1049,10 +1052,10 @@ export default function ApimFinopsDashboard() {
                   </span>
                 </div>
                 <h4 className="font-bold text-xs text-[#1B2A41] dark:text-slate-100 mb-1">
-                  {action.title}
+                  {textoRem(action, "title")}
                 </h4>
                 <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                  {action.description}
+                  {textoRem(action, "desc")}
                 </p>
               </div>
 

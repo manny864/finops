@@ -36,11 +36,14 @@ export type KeyVaultAuthModel = "AzureRBAC" | "AccessPolicies";
 
 export type KeyVaultObjectType = "Secrets" | "Keys" | "Certificates";
 
-export type KeyVaultRemediationCategory =
-  | "POLLING_CACHE_OPTIMIZATION"
-  | "DOWNGRADE_MANAGED_HSM"
-  | "PURGE_EXPIRED_OBJECTS"
-  | "ENABLE_RBAC";
+export const KEY_VAULT_REMEDIATION_CATEGORIES = [
+  "POLLING_CACHE_OPTIMIZATION",
+  "DOWNGRADE_MANAGED_HSM",
+  "PURGE_EXPIRED_OBJECTS",
+  "ENABLE_RBAC",
+] as const;
+
+export type KeyVaultRemediationCategory = (typeof KEY_VAULT_REMEDIATION_CATEGORIES)[number];
 
 /** Un recurso de computo que consume la boveda. */
 export interface KeyVaultConsumer {
@@ -128,8 +131,8 @@ export interface KeyVaultRemediationAction {
   id: string;
   vaultId: string;
   vaultName: string;
-  title: string;
-  description: string;
+  /** Valores a interpolar en `rem_<category>_title` / `_desc`. */
+  params?: Record<string, string | number>;
   category: KeyVaultRemediationCategory;
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM";

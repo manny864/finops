@@ -34,6 +34,8 @@ import { SAAS_COMPONENT_KEYS, CRON_JOB_KEYS } from "@/types/saasOperations.types
 import { CONTENT_SAFETY_REMEDIATION_CATEGORIES } from "@/types/azureContentSafety.types";
 import { DATABRICKS_REMEDIATION_CATEGORIES } from "@/types/azureDatabricks.types";
 import { EVENT_HUBS_REMEDIATION_CATEGORIES } from "@/types/azureEventHubs.types";
+import { APIM_REMEDIATION_CATEGORIES } from "@/types/azureApim.types";
+import { KEY_VAULT_REMEDIATION_CATEGORIES } from "@/types/azureKeyVault.types";
 import { DATA_FACTORY_REMEDIATION_CATEGORIES } from "@/types/azureDataFactory.types";
 import { EVENT_GRID_REMEDIATION_CATEGORIES } from "@/types/azureEventGrid.types";
 import { WORKBOOK_REMEDIATION_CATEGORIES } from "@/types/azureWorkbooks.types";
@@ -318,6 +320,60 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
             ns: "EntraIdPanel",
             params: { days: 120, sku: "Enterprise" },
             claves: [...ENTRA_WASTE_REASON_KEYS],
+        },
+        {
+            que: "recomendaciones de APIM (APIM_REMEDIATION_CATEGORIES)",
+            ns: "IpaasFinops",
+            params: {
+                name: "apim-prod",
+                sku: "Premium",
+                cost: "2750.00",
+                rg: "rg-dev",
+                savings: 2750,
+                current: 4,
+                recommended: 2,
+                usage: "22.0",
+                millions: "58.4",
+                latency: "44.1",
+            },
+            claves: APIM_REMEDIATION_CATEGORIES.flatMap((c) => [
+                `rem_APIM_${c}_title`,
+                `rem_APIM_${c}_desc`,
+            ]),
+        },
+        {
+            que: "recomendaciones de Key Vault (KEY_VAULT_REMEDIATION_CATEGORIES)",
+            ns: "KeyVaultPanel",
+            params: {
+                name: "kv-prod",
+                rg: "rg-core",
+                subscription: "Sub Productiva",
+                hourly: 3.2,
+                monthly: 1,
+                millions: "2.4",
+                hits: 2400000,
+                throttled: 12,
+                price: 0.03,
+                expired: 3,
+                idle: "DIAS",
+                days: 90,
+                purge: "ON",
+            },
+            claves: KEY_VAULT_REMEDIATION_CATEGORIES.flatMap((c) => [
+                `rem_${c}_title`,
+                `rem_${c}_desc`,
+            ]),
+        },
+        {
+            que: "titulo de anomalia de costo (AnomalyPanel.anomalyTitle)",
+            ns: "AnomalyPanel",
+            params: { service: "Azure Databricks" },
+            claves: ["anomalyTitle"],
+        },
+        {
+            que: "escenarios de demo del simulador What-If",
+            ns: "WhatIfSimulator",
+            claves: ["mockScenarioInertial", "mockScenarioAggressive", "mockScenarioOffHours"],
         },
         {
             que: "recomendaciones de Data Factory (DATA_FACTORY_REMEDIATION_CATEGORIES)",
@@ -773,6 +829,38 @@ describe("i18n · capa 2b: las ramas de los select de ICU", () => {
         expect(configurado).not.toBe(apagado);
     });
 
+    it.each(LOCALES)("%s: sin 429 registrados, el cacheo no habla de respuestas 429", (locale) => {
+        const t = traducir(locale, "KeyVaultPanel");
+        const base = { name: "kv", millions: "2.4", hits: 2400000, price: 0.03 };
+        const sin = t("rem_POLLING_CACHE_OPTIMIZATION_desc", { ...base, throttled: 0 });
+        const con = t("rem_POLLING_CACHE_OPTIMIZATION_desc", { ...base, throttled: 12 });
+        // El texto ya trae "0.03" y "10.000", asi que buscar un 0 suelto no
+        // sirve: se compara contra la rama `other` con el numero cambiado, que
+        // es exactamente lo que saldria si el nombre de la rama se rompiera.
+        expect(sin).not.toBe(con.replace(/12/g, "0"));
+        expect(con).toContain("12");
+        expect(con).not.toBe(sin);
+    });
+
+    it.each(LOCALES)("%s: la boveda sin transacciones no dice 'hace 0 dias'", (locale) => {
+        const t = traducir(locale, "KeyVaultPanel");
+        const base = { name: "kv", expired: 0, purge: "OFF" };
+        const nunca = t("rem_PURGE_EXPIRED_OBJECTS_desc", { ...base, idle: "NUNCA", days: 0 });
+        const conDias = t("rem_PURGE_EXPIRED_OBJECTS_desc", { ...base, idle: "DIAS", days: 90 });
+        expect(nunca).not.toMatch(/\b0\b/);
+        expect(conDias).toContain("90");
+        expect(nunca).not.toBe(conDias);
+    });
+
+    it.each(LOCALES)("%s: sin causa raiz, el titulo de la anomalia no imprime el centinela", (locale) => {
+        const t = traducir(locale, "AnomalyPanel");
+        const sin = t("anomalyTitle", { service: "DESCONOCIDO" });
+        const con = t("anomalyTitle", { service: "Azure Databricks" });
+        expect(sin).not.toContain("DESCONOCIDO");
+        expect(con).toContain("Azure Databricks");
+        expect(sin).not.toBe(con);
+    });
+
     it.each(LOCALES)("%s: sin workspaces faltantes, el workbook huerfano habla del sourceId", (locale) => {
         const t = traducir(locale, "WorkbooksManagement");
         const sin = t("rem_PURGE_ORPHAN_desc", { missing: 0 });
@@ -859,6 +947,47 @@ describe("i18n · las advertencias de WAF sobreviven a la traduccion", () => {
         const texto = t("rem_GEO_FILTER_RULE_desc", { ...PARAMS, platform: "ApplicationGateway" });
         expect(texto).toContain("Capacity Unit");
         expect(texto).toContain("30");
+    });
+});
+
+describe("i18n · las advertencias de Key Vault sobreviven a la traduccion", () => {
+    // Estas frases estaban en el test del servicio, donde solo cubrian el
+    // castellano. Ahora que el texto vive en el catalogo, se comprueban en los
+    // tres idiomas: lo que importa es que el riesgo llegue al lector.
+    const PARAMS = {
+        name: "kv-prod",
+        rg: "rg-core",
+        subscription: "Sub",
+        hourly: 3.2,
+        monthly: 1,
+        millions: "2.4",
+        hits: 2_400_000,
+        price: 0.03,
+        expired: 0,
+        idle: "DIAS",
+        days: 90,
+    };
+
+    it.each(LOCALES)("%s: el cacheo nombra el 429 y la disponibilidad", (locale) => {
+        const t = traducir(locale, "KeyVaultPanel");
+        const texto = t("rem_POLLING_CACHE_OPTIMIZATION_desc", { ...PARAMS, throttled: 1842 });
+        expect(texto).toContain("429");
+        expect(texto).toMatch(/disponibilidad|availability/i);
+    });
+
+    it.each(LOCALES)("%s: la migracion a RBAC advierte el orden de la operacion", (locale) => {
+        const t = traducir(locale, "KeyVaultPanel");
+        const texto = t("rem_ENABLE_RBAC_desc", PARAMS);
+        expect(texto).toMatch(/ANTES|BEFORE/);
+    });
+
+    it.each(LOCALES)("%s: la higiene distingue purge protection de soft delete", (locale) => {
+        const t = traducir(locale, "KeyVaultPanel");
+        const con = t("rem_PURGE_EXPIRED_OBJECTS_desc", { ...PARAMS, purge: "ON" });
+        const sin = t("rem_PURGE_EXPIRED_OBJECTS_desc", { ...PARAMS, purge: "OFF" });
+        expect(con).toMatch(/purge protection/i);
+        expect(sin).toMatch(/soft[- ]delete/i);
+        expect(con).not.toBe(sin);
     });
 });
 
@@ -1109,6 +1238,8 @@ const TABLEROS_MUERTOS = [
 ];
 
 const TABLEROS_LIMPIOS = [
+    "src/components/security/KeyVaultPanel.tsx",
+    "src/components/analytics/AnomalyDetectionPanel.tsx",
     "src/components/monitoring/WorkbooksManagementPanel.tsx",
     "src/components/analytics/TenantHealthPanel.tsx",
     "src/components/monitoring/ActionGroupsBoard.tsx",

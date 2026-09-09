@@ -219,6 +219,7 @@ export function getMockWhatIfPayload(tenantId: string): WhatIfPayload {
     {
       id: "scen-01",
       name: "Escenario Crecimiento Inercial (+30% Cómputo)",
+      nameKey: "mockScenarioInertial",
       baseCostUSD,
       projectedCostUSD: simulateScenario(scenario1Params).netProjectedCostUSD,
       deltaPercentage: simulateScenario(scenario1Params).deltaPercentage,
@@ -229,6 +230,7 @@ export function getMockWhatIfPayload(tenantId: string): WhatIfPayload {
     {
       id: "scen-02",
       name: "Optimización Agresiva 3Y + AHB + Spot (Recomendado)",
+      nameKey: "mockScenarioAggressive",
       baseCostUSD,
       projectedCostUSD: simulateScenario(scenario2Params).netProjectedCostUSD,
       deltaPercentage: simulateScenario(scenario2Params).deltaPercentage,
@@ -239,6 +241,7 @@ export function getMockWhatIfPayload(tenantId: string): WhatIfPayload {
     {
       id: "scen-03",
       name: "Adopción de Apagado Off-Hours (Dev/Test 50%)",
+      nameKey: "mockScenarioOffHours",
       baseCostUSD,
       projectedCostUSD: defaultResult.netProjectedCostUSD,
       deltaPercentage: defaultResult.deltaPercentage,

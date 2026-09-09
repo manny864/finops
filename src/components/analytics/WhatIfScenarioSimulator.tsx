@@ -151,7 +151,7 @@ function ScenarioComparisonModal({ scenarios, onClose }: ComparisonModalProps) {
                 <th className="p-3 font-bold text-slate-700 dark:text-slate-200">{t("colMetric")}</th>
                 {scenarios.map((s) => (
                   <th key={s.id} className="p-3 font-bold text-[#0054A6] dark:text-sky-400 min-w-[160px]">
-                    {s.name}
+                    {s.nameKey ? t(s.nameKey) : s.name}
                   </th>
                 ))}
               </tr>
@@ -478,7 +478,7 @@ export default function WhatIfScenarioSimulator() {
     ];
     const rows = savedScenariosList.map((s) => [
       s.id,
-      `"${s.name}"`,
+      `"${s.nameKey ? t(s.nameKey) : s.name}"`,
       s.baseCostUSD.toFixed(2),
       s.projectedCostUSD.toFixed(2),
       s.deltaPercentage,
@@ -1001,8 +1001,8 @@ export default function WhatIfScenarioSimulator() {
                     </td>
                     <td className="p-3 font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
                       <IconBookmark className="w-4 h-4 text-[#0078D4] shrink-0" stroke={1.5} />
-                      <span className="truncate max-w-[200px]" title={scen.name}>
-                        {scen.name}
+                      <span className="truncate max-w-[200px]" title={scen.nameKey ? t(scen.nameKey) : scen.name}>
+                        {scen.nameKey ? t(scen.nameKey) : scen.name}
                       </span>
                     </td>
                     <td className="p-3 font-mono font-semibold">{money(scen.baseCostUSD)}</td>
