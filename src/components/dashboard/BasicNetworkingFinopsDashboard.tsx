@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
 import { useTenant } from "@/components/TenantProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useMsal } from "@azure/msal-react";
@@ -54,6 +55,7 @@ import {
 
 export default function BasicNetworkingFinopsDashboard() {
     const t = useTranslations("BasicNetworkingFinops");
+    const textoRem = useTextoPorCategoria("BasicNetworkingFinops");
     const { selectedTenant } = useTenant();
     const { format } = useCurrency();
     const { instance, accounts: msalAccounts } = useMsal();
@@ -756,7 +758,7 @@ export default function BasicNetworkingFinopsDashboard() {
                                                 {rem.category === "PE_OPTIMIZATION" && <IconTopologyStarRing3 className="w-4 h-4" stroke={1.5} />}
                                             </span>
                                             <span className="text-xs font-bold text-[#1B2A41] dark:text-white line-clamp-1">
-                                                {rem.title}
+                                                {textoRem(rem, "title")}
                                             </span>
                                         </div>
                                         <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-[#0054A6] dark:text-sky-400 border border-blue-200 dark:border-blue-900">
@@ -765,12 +767,12 @@ export default function BasicNetworkingFinopsDashboard() {
                                     </div>
 
                                     <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-3">
-                                        {rem.description}
+                                        {textoRem(rem, "desc")}
                                     </p>
 
                                     <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 mb-4">
                                         <span className="font-semibold text-slate-700 dark:text-slate-300">{t("impactLabel")} </span>
-                                        {rem.commandPayload.impactSummary}
+                                        {textoRem(rem, "impact")}
                                     </div>
                                 </div>
 
@@ -965,7 +967,7 @@ export default function BasicNetworkingFinopsDashboard() {
                                         {t("modalRemediationTitle")}
                                     </h3>
                                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                                        {activeRemediation.title}
+                                        {textoRem(activeRemediation, "title")}
                                     </p>
                                 </div>
                             </div>
@@ -979,7 +981,7 @@ export default function BasicNetworkingFinopsDashboard() {
 
                         <div className="text-xs text-slate-600 dark:text-slate-400 bg-blue-50/60 dark:bg-blue-950/30 p-3.5 rounded-xl border border-blue-100 dark:border-blue-900/60">
                             <span className="font-bold text-[#0054A6] dark:text-sky-300">{t("operationalSummaryLabel")} </span>
-                            {activeRemediation.commandPayload.impactSummary}
+                            {textoRem(activeRemediation, "impact")}
                         </div>
 
                         {/* Script Tabs */}

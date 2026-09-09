@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
 import { useTenant } from "@/components/TenantProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useMsal } from "@azure/msal-react";
@@ -71,20 +72,7 @@ const STATUS_LABEL_KEYS: Record<string, string> = {
 
 export default function DdosProtectionDashboard() {
     const t = useTranslations("DdosProtection");
-    /**
-     * `category` identifica de forma unica a cada recomendacion, asi que la
-     * clave sale de ahi en vez de viajar en el payload. El try/catch no es
-     * decorativo: si una respuesta cacheada vieja no trae los `params` que la
-     * clave interpola, `t()` tira FORMATTING_ERROR, y adentro de un render de
-     * React eso tumba el tablero entero.
-     */
-    const textoRem = (rem: DdosRemediationAction, campo: "title" | "desc" | "impact") => {
-        try {
-            return t(`rem_${rem.category}_${campo}`, rem.params ?? {});
-        } catch {
-            return "";
-        }
-    };
+    const textoRem = useTextoPorCategoria("DdosProtection");
     const { selectedTenant } = useTenant();
     const { format } = useCurrency();
     const { instance, accounts: msalAccounts } = useMsal();

@@ -52,3 +52,38 @@ export function useTextoDeRecomendacion(namespace: string = "ComputeRecommendati
         descripcion: (accion) => texto(accion.descKey, accion.params),
     };
 }
+
+/**
+ * Forma de las recomendaciones que NO guardan sus claves: las de red (DDoS,
+ * basic networking, hybrid, load balancing, internet access). Su `category` ya
+ * identifica de forma unica a cada recomendacion, asi que la clave se deriva de
+ * ella y el payload solo lleva los valores a interpolar. Una lista menos que
+ * mantener sincronizada, y el catalogo es el unico lugar donde vive el texto.
+ */
+export interface AccionPorCategoria {
+    category: string;
+    params?: Record<string, string | number>;
+}
+
+/**
+ * Resuelve `rem_<category>_title` / `_desc` / `_impact` en el namespace dado.
+ *
+ * Mismo motivo que `useTextoDeRecomendacion` para no armar la frase en el
+ * servidor: la respuesta se cachea con una clave que no incluye el locale, asi
+ * que el segundo lector recibiria el idioma del primero.
+ *
+ * El try/catch tampoco es decorativo aca: si un payload cacheado viejo no trae
+ * los `params` que la clave interpola, `t()` tira FORMATTING_ERROR, y como esto
+ * corre dentro de un render de React eso tumba el tablero entero (`eb33f2e`).
+ */
+export function useTextoPorCategoria(namespace: string) {
+    const t = useTranslations(namespace);
+
+    return (accion: AccionPorCategoria, campo: "title" | "desc" | "impact"): string => {
+        try {
+            return t(`rem_${accion.category}_${campo}`, accion.params ?? {});
+        } catch {
+            return "";
+        }
+    };
+}

@@ -3764,7 +3764,19 @@
     "devicesCount": "{n} devices",
     "linkedServiceLabel": "Linked Service:",
     "privateIpLabel": "Private IP:",
-    "operationalSummaryLabel": "Operational Summary:"
+    "operationalSummaryLabel": "Operational Summary:",
+    "rem_ORPHAN_NSG_title": "Delete Orphaned NSG ({name})",
+    "rem_ORPHAN_NSG_desc": "Network Security Group \"{name}\" in RG \"{rg}\" is not associated with any resource.",
+    "rem_ORPHAN_NSG_impact": "Hygiene cleanup with no traffic impact: reduces administrative waste and attack surface.",
+    "rem_UNUSED_UDR_title": "Delete Orphaned Route Table ({name})",
+    "rem_UNUSED_UDR_desc": "Route table \"{name}\" is not associated with any active subnet.",
+    "rem_UNUSED_UDR_impact": "Removes idle routes that have no receiving subnets.",
+    "rem_EMPTY_VNET_title": "Audit/Delete Empty VNet ({name})",
+    "rem_EMPTY_VNET_desc": "Virtual network \"{name}\" ({cidr}) in RG \"{rg}\" has no connected devices.",
+    "rem_EMPTY_VNET_impact": "Frees IP address space and reduces topology complexity.",
+    "rem_PE_OPTIMIZATION_title": "Optimize Private Endpoint in {env} Environment ({name})",
+    "rem_PE_OPTIMIZATION_desc": "Private Endpoint \"{name}\" incurs a fixed monthly cost of ~${cost} USD in a non-production environment. Consider using Service Endpoints (free).",
+    "rem_PE_OPTIMIZATION_impact": "Direct savings by removing unnecessary private links in development."
   },
   "Billing": {
     "title": "Real Consumption",

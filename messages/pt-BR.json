@@ -3764,7 +3764,19 @@
     "devicesCount": "{n} dispositivos",
     "linkedServiceLabel": "Serviço Vinculado:",
     "privateIpLabel": "IP Privado:",
-    "operationalSummaryLabel": "Resumo Operacional:"
+    "operationalSummaryLabel": "Resumo Operacional:",
+    "rem_ORPHAN_NSG_title": "Excluir NSG Órfão ({name})",
+    "rem_ORPHAN_NSG_desc": "O Network Security Group \"{name}\" no RG \"{rg}\" não está associado a nenhum recurso.",
+    "rem_ORPHAN_NSG_impact": "Limpeza higiênica sem impacto no tráfego: reduz desperdício administrativo e superfície de ataque.",
+    "rem_UNUSED_UDR_title": "Excluir Tabela de Rotas Órfã ({name})",
+    "rem_UNUSED_UDR_desc": "A tabela de rotas \"{name}\" não está associada a nenhuma sub-rede ativa.",
+    "rem_UNUSED_UDR_impact": "Remove rotas ociosas que não têm sub-redes receptoras.",
+    "rem_EMPTY_VNET_title": "Auditar/Excluir VNet Vazia ({name})",
+    "rem_EMPTY_VNET_desc": "A rede virtual \"{name}\" ({cidr}) no RG \"{rg}\" não tem dispositivos conectados.",
+    "rem_EMPTY_VNET_impact": "Libera espaço de endereçamento IP e reduz a complexidade da topologia.",
+    "rem_PE_OPTIMIZATION_title": "Otimizar Private Endpoint no Ambiente {env} ({name})",
+    "rem_PE_OPTIMIZATION_desc": "O Private Endpoint \"{name}\" gera um custo fixo mensal de ~${cost} USD em um ambiente não produtivo. Avalie o uso de Service Endpoints (gratuitos).",
+    "rem_PE_OPTIMIZATION_impact": "Economia direta ao remover links privados desnecessários em desenvolvimento."
   },
   "Billing": {
     "title": "Consumo Real",

@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { BASIC_NETWORK_REMEDIATION_CATEGORIES } from "@/types/basicNetworking.types";
 import {
     getMockBasicNetworkingResponse,
     BASIC_NETWORK_COLORS,
@@ -53,8 +54,12 @@ describe("Azure Basic Networking Service", () => {
         for (const rem of data.remediations) {
             expect(rem.commandPayload.cli).toBeTruthy();
             expect(rem.commandPayload.powershell).toBeTruthy();
-            expect(rem.commandPayload.impactSummary).toBeTruthy();
-            expect(["ORPHAN_NSG", "EMPTY_VNET", "UNUSED_UDR", "PE_OPTIMIZATION"]).toContain(rem.category);
+            // El texto ya no viaja en el payload: se resuelve del catalogo con
+            // `rem_<category>_...`, asi que lo que hay que exigir es que la
+            // categoria sea una de las conocidas. Se usa la constante exportada
+            // en vez de repetir la lista: antes estaba escrita a mano aca y
+            // podia quedar vieja sin que nada avisara.
+            expect(BASIC_NETWORK_REMEDIATION_CATEGORIES as readonly string[]).toContain(rem.category);
             expect(["DELETE", "DISASSOCIATE", "RIGHTSIZE", "AUDIT"]).toContain(rem.actionType);
         }
     });

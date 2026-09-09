@@ -6,6 +6,7 @@ import { createTranslator } from "next-intl";
 import { ALL_MODULES } from "@/types/tenantUsers.types";
 import { WEEKDAY_KEYS } from "@/types/azurePowerManagement.types";
 import { DDOS_REMEDIATION_CATEGORIES } from "@/types/ddosProtection.types";
+import { BASIC_NETWORK_REMEDIATION_CATEGORIES } from "@/types/basicNetworking.types";
 import { WATERFALL_STEP_KEYS } from "@/types/azureWhatIf.types";
 import { REDIS_RULE_I18N } from "@/types/redisCache";
 import { MONGO_RULE_I18N } from "@/types/azureMongoDb";
@@ -172,6 +173,21 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
          */
         params?: Record<string, string | number>;
     }> = [
+        {
+            // Mismo caso que DDoS, y el mismo molde: los cinco servicios de red
+            // se escribieron a partir de la misma plantilla. El mock y la ruta
+            // real generaban el mismo consejo con dos redacciones distintas por
+            // copiar y pegar; ahora comparten clave y el mock manda sus nombres
+            // de demo como params.
+            que: "recomendaciones de red basica (BASIC_NETWORK_REMEDIATION_CATEGORIES)",
+            ns: "BasicNetworkingFinops",
+            params: { name: "nsg-01", rg: "rg-dev", cidr: "10.0.0.0/16", env: "DEV", cost: 7.3 },
+            claves: BASIC_NETWORK_REMEDIATION_CATEGORIES.flatMap((c) => [
+                `rem_${c}_title`,
+                `rem_${c}_desc`,
+                `rem_${c}_impact`,
+            ]),
+        },
         {
             // Las recomendaciones de DDoS ya no viajan con el texto armado: el
             // servidor no conoce el locale del lector y la respuesta se cachea
