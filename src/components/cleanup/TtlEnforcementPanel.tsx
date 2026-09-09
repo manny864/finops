@@ -562,7 +562,7 @@ export default function TtlEnforcementPanel() {
                 metrics.policies.map((p) => (
                   <tr key={p.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition">
                     <td className="py-2.5 px-3">
-                      <span className="font-bold text-[#1B2A41] dark:text-slate-100 break-words">{p.name}</span>
+                      <span className="font-bold text-[#1B2A41] dark:text-slate-100 break-words">{p.nameKey ? t(p.nameKey) : p.name}</span>
                     </td>
                     <td className="py-2.5 px-3">
                       <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 text-[#0078D4] border border-blue-200 dark:bg-blue-950/40 dark:border-blue-800 uppercase">
@@ -573,7 +573,7 @@ export default function TtlEnforcementPanel() {
                       {t("daysSuffix", { n: p.maxLifespanDays })}
                     </td>
                     <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 break-words">
-                      {p.description || t("noDescription")}
+                      {p.descriptionKey ? t(p.descriptionKey) : p.description || t("noDescription")}
                     </td>
                     <td className="py-2.5 px-3 text-right">
                       <button

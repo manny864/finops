@@ -31,7 +31,14 @@ export interface AlertChannelConfig {
 
 export interface SelfServiceAlertRule {
   id: string;
+  /**
+   * Las reglas las nombra el usuario en el formulario del panel, asi que es
+   * texto libre. Solo el seed de demo trae `nameKey`; cuando esta, el panel lo
+   * prefiere. La clave cuelga del id y no de `alertType` porque `alertType` se
+   * repite entre reglas (dos son FIXED_THRESHOLD) y no alcanza para distinguir.
+   */
   name: string;
+  nameKey?: string;
   alertType: AlertRuleType;
   scopeType: AlertScopeType;
   scopeValue: string;

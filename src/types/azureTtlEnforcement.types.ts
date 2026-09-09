@@ -6,10 +6,17 @@
 
 export interface TtlPolicyItem {
   id: string | number;
+  /**
+   * Las politicas reales las escribe el usuario en el formulario del panel, asi
+   * que el rotulo es texto libre y no se puede traducir. Solo el seed de demo
+   * trae *Key: cuando esta, el panel lo prefiere sobre el texto.
+   */
   name: string;
+  nameKey?: string;
   targetResourceType: string;
   maxLifespanDays: number;
   description: string;
+  descriptionKey?: string;
   isEnabled: boolean;
   notifyDaysBefore: number;
   createdAt?: string;

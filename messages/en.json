@@ -525,7 +525,11 @@
   "AdminCapacityAddons": {
     "selfServeUnavailable": "Online purchasing is not available for this account (no active Paddle subscription, or add-ons are not enabled in this environment). Contact sales to expand your capacity.",
     "extraSubscriptions": "Additional Azure subscriptions",
-    "prorationNote": "The change is prorated on your next invoice. Capacity is enabled a few seconds after Paddle confirms the payment."
+    "prorationNote": "The change is prorated on your next invoice. Capacity is enabled a few seconds after Paddle confirms the payment.",
+    "addon_additional_tenant_slot": "additional tenant",
+    "addon_additional_subscription_slot": "additional subscription",
+    "addonApplied": "{qty, plural, =0 {The {addon} add-on was cancelled.} other {Add-on updated to # {addon}. Capacity is enabled within seconds.}}",
+    "addonError": "The add-on could not be purchased."
   },
   "AdminCloudAccounts": {
     "pageTitle": "Cloud Accounts — Azure",
@@ -6595,7 +6599,10 @@
     "policyDepartmentDesc": "Team or department that owns the resource, for alerts and governance.",
     "understood": "Got it",
     "pageTooltip": "End-to-end audit of mandatory tags on resources and resource groups, automatic inheritance from Resource Groups, AI suggestions and FinOps policy compliance.",
-    "pageSubtitle": "Metadata control, cost centers and compliance with financial allocation policies."
+    "pageSubtitle": "Metadata control, cost centers and compliance with financial allocation policies.",
+    "tagsAppliedPartial": "Tags applied in Azure to {ok} of {total} resources ({fail} failed)",
+    "tagsPropagatedPartial": "Tags propagated in Azure to {ok} of {total} resources ({fail} failed)",
+    "tagsPersistError": "Failed to persist tags"
   },
   "HA": {
     "tierLockedFeatureName": "High Availability Recommendations",
@@ -11355,7 +11362,13 @@
     "saveRule": "Save Alert Rule",
     "demoEnv": "Demo Environment",
     "liveProd": "Live Production",
-    "pageSubtitle": "Governance of financial notifications to Microsoft Teams, Slack, Webhooks, Email and ServiceNow"
+    "pageSubtitle": "Governance of financial notifications to Microsoft Teams, Slack, Webhooks, Email and ServiceNow",
+    "ruleMock01_name": "Overall Budget Consumption > 80%",
+    "ruleMock02_name": "Landing Zone Daily Cap ($500 USD)",
+    "ruleMock03_name": "ML Statistical Anomaly (+25% Deviation)",
+    "ruleMock04_name": "Month-End Forecast Exceeds 110%",
+    "ruleMock05_name": "Cost Overrun on Production AKS Cluster",
+    "deliveryTestTitle": "Delivery Test: {name}"
   },
   "SentinelPanel": {
     "loadError": "Failed to load Microsoft Sentinel FinOps",
@@ -12654,7 +12667,15 @@
     "exemptFailed": "Could not exempt",
     "deletionHistoryTitle": "TTL Deprovisioning History ({count})",
     "confirmDelete": "Confirm Deletion",
-    "daysSuffix": "{n} days"
+    "daysSuffix": "{n} days",
+    "pol_VIRTUALMACHINES_name": "Testing & Sandbox VMs",
+    "pol_VIRTUALMACHINES_desc": "Ephemeral virtual machines created for integration testing",
+    "pol_MANAGEDCLUSTERS_name": "Ephemeral AKS Clusters",
+    "pol_MANAGEDCLUSTERS_desc": "Temporary development and staging Kubernetes environments",
+    "pol_FLEXIBLESERVERS_name": "Flexible Databases",
+    "pol_FLEXIBLESERVERS_desc": "PostgreSQL / MySQL instances for migration and smoke testing",
+    "pol_RESOURCEGROUPS_name": "Sandbox Resource Groups",
+    "pol_RESOURCEGROUPS_desc": "Resource Groups assigned to architecture labs"
   },
   "TabFilters": {
     "placeholder": "Filter by name or service...",

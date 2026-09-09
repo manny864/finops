@@ -252,6 +252,7 @@ export function getMockSelfServiceAlertsPayload(
     {
       id: "rule-mock-01",
       name: "Consumo Presupuesto General > 80%",
+      nameKey: "ruleMock01_name",
       alertType: "BUDGET",
       scopeType: "TENANT",
       scopeValue: "Tenant Completo",
@@ -272,6 +273,7 @@ export function getMockSelfServiceAlertsPayload(
     {
       id: "rule-mock-02",
       name: "Tope Diario Landing Zone ($500 USD)",
+      nameKey: "ruleMock02_name",
       alertType: "FIXED_THRESHOLD",
       scopeType: "SUBSCRIPTION",
       scopeValue: "CSCS-LandingZone-Prod",
@@ -292,6 +294,7 @@ export function getMockSelfServiceAlertsPayload(
     {
       id: "rule-mock-03",
       name: "Anomalía Estadística ML (+25% Desvío)",
+      nameKey: "ruleMock03_name",
       alertType: "ANOMALY_PERCENT",
       scopeType: "RESOURCE_GROUP",
       scopeValue: "rg-finops-analytics",
@@ -312,6 +315,7 @@ export function getMockSelfServiceAlertsPayload(
     {
       id: "rule-mock-04",
       name: "Forecast Fin de Mes Supera 110%",
+      nameKey: "ruleMock04_name",
       alertType: "FORECAST_OVERRUN",
       scopeType: "TENANT",
       scopeValue: "Tenant Completo",
@@ -335,6 +339,7 @@ export function getMockSelfServiceAlertsPayload(
     mockRules.push({
       id: "rule-mock-05",
       name: "Desborde de Costo en Cluster AKS Producción",
+      nameKey: "ruleMock05_name",
       alertType: "FIXED_THRESHOLD",
       scopeType: "RESOURCE_GROUP",
       scopeValue: "rg-aks-production-eastus",

@@ -1223,6 +1223,102 @@ describe("i18n · capa 4: las recomendaciones que viajan en claves", () => {
  * TODO literal visible y se revisa a mano. Si el residuo molesta, el paso
  * siguiente es lista blanca de términos técnicos + prohibir cualquier literal.
  */
+describe("i18n · capa 4c: ningún toast muestra el `message` del servidor", () => {
+    /*
+     * El `message` de una API viaja en un solo idioma —el que escribio quien hizo
+     * la ruta— y la respuesta no lleva el locale. Mostrarlo en un toast daba
+     * castellano con la UI en ingles. El cliente siempre sabe que accion disparo,
+     * asi que el rotulo sale de su propia clave; el `message` queda en la
+     * respuesta para consumidores de la API que no son la UI.
+     *
+     * Se congela la forma, no una lista de archivos: el patron volvia a aparecer
+     * cada vez que alguien sumaba un panel.
+     */
+    const RE_TOAST = /toast\.\w+\(\s*[\w.]*\b(?:json|data|res|result|payload)\.\w*\.?message\b/;
+
+    const infractores: string[] = [];
+    for (const archivo of fuentes("src")) {
+        readFileSync(archivo, "utf8")
+            .split("\n")
+            .forEach((linea, i) => {
+                if (RE_TOAST.test(linea)) infractores.push(`${archivo.replace(/\\/g, "/")}:${i + 1}  ${linea.trim()}`);
+            });
+    }
+
+    it("no queda ningún toast con prosa del servidor", () => {
+        expect(
+            infractores,
+            `Estos toasts muestran texto que el servidor arma en un solo idioma:\n  ${infractores.join("\n  ")}\n` +
+                "Usá la clave del cliente e interpolá los conteos que devuelve la API."
+        ).toEqual([]);
+    });
+});
+
+describe("i18n · capa 4b: las claves sueltas de los seeds existen en los tres catálogos", () => {
+    /*
+     * La capa 4 sólo cubre las familias `rec_*`. El resto de los seeds de demo
+     * viaja en campos `*Key` con la clave escrita a mano: `nameKey: "pol_..."`,
+     * `descriptionKey: "hist_..."`, `titleKey: "notif_..."`. TypeScript no ayuda
+     * —son `string`— y la capa 5 tampoco, porque el literal es una clave, no
+     * castellano. Resultado: agregar la clave a es.json y olvidarla en pt-BR
+     * pasaba los 276 tests y salía como "TTL.pol_X" en pantalla.
+     *
+     * No exige un namespace fijo por archivo: mantener ese mapa a mano sería otra
+     * cosa que se desincroniza. Exige que la clave aparezca en el MISMO conjunto
+     * de namespaces en los tres idiomas, que es justo el modo en que falla.
+     *
+     * `reasonKey` queda afuera a propósito: ahí el valor NO es una clave sino un
+     * discriminador que `ZeroCostInventory` pasa por `REASON_LABEL_KEYS` para
+     * sacar el rótulo ("freeTier" -> "reasonFreeTier"). Es la separación token /
+     * texto bien hecha, no una fuga. `statusKey` sí entra porque ahí el valor es
+     * la clave entera ("status_BUDGET_none").
+     */
+    const RE_CLAVE = /\b(?:name|description|desc|title|message|label|status)Key:\s*"([A-Za-z0-9_.]+)"/g;
+
+    function namespacesDe(locale: Locale, clave: string): string[] {
+        const partes = clave.split(".");
+        return Object.keys(catalogos[locale])
+            .filter((ns) => {
+                let nodo: any = catalogos[locale][ns];
+                for (const p of partes) {
+                    if (nodo == null || typeof nodo !== "object") return false;
+                    nodo = nodo[p];
+                }
+                return typeof nodo === "string";
+            })
+            .sort();
+    }
+
+    const sitios: Array<{ archivo: string; clave: string }> = [];
+    for (const archivo of fuentes("src")) {
+        if (!/[\\/](services|lib)[\\/]/.test(archivo)) continue;
+        const texto = readFileSync(archivo, "utf8");
+        for (const m of texto.matchAll(RE_CLAVE)) {
+            sitios.push({ archivo: archivo.replace(/\\/g, "/"), clave: m[1] });
+        }
+    }
+
+    it("hay seeds con claves sueltas para revisar", () => {
+        // Si esto baja, alguien borró los seeds o cambió el nombre del campo y el
+        // barrido quedó mirando al vacío sin que nada avise.
+        expect(sitios.length).toBeGreaterThanOrEqual(50);
+    });
+
+    const unicas = [...new Set(sitios.map((s) => s.clave))].sort();
+
+    it.each(unicas)("%s está en los tres catálogos, en los mismos namespaces", (clave) => {
+        const porIdioma = LOCALES.map((l) => [l, namespacesDe(l, clave)] as const);
+        const [, base] = porIdioma[0];
+        const donde = sitios.find((s) => s.clave === clave)!.archivo;
+
+        expect(base, `"${clave}" (${donde}) no está en ningún namespace de es.json`).not.toEqual([]);
+
+        for (const [locale, nss] of porIdioma.slice(1)) {
+            expect(nss, `"${clave}" (${donde}) está en es ${JSON.stringify(base)} pero en ${locale} ${JSON.stringify(nss)}`).toEqual(base);
+        }
+    });
+});
+
 /*
  * Componentes muertos: cero importaciones en todo `src/`. No se traducen
  * (gastar claves de catalogo en codigo que nadie renderiza es basura) ni se
@@ -1235,6 +1331,9 @@ describe("i18n · capa 4: las recomendaciones que viajan en claves", () => {
 const TABLEROS_MUERTOS = [
     "src/components/dashboard/AnomalyDashboard.tsx",
     "src/components/dashboard/TrialStatusCard.tsx",
+    // docs/signup-trial-funnel.md lo describe como implementado, pero nadie lo
+    // monta. No se borra por eso mismo: el embudo esta a medio cablear.
+    "src/components/TrialBanner.tsx",
 ];
 
 const TABLEROS_LIMPIOS = [

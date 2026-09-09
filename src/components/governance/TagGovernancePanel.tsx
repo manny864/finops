@@ -392,15 +392,24 @@ export default function TagGovernancePanel() {
       });
       const json = await res.json().catch(() => ({} as any));
       if (!res.ok) {
-        throw new Error(json.details ? `${json.error} ${json.details}` : json.error || "Error al persistir etiquetas");
+        throw new Error(json.details ? `${json.error} ${json.details}` : json.error || t("tagsPersistError"));
       }
-      // El mensaje lo manda el servidor con el conteo real aplicado en Azure.
-      // Antes era un literal fijo, así que decía "aplicadas exitosamente"
-      // incluso cuando no se había etiquetado nada.
+      // El conteo real lo manda el servidor (`updatedCount`/`failedCount`), pero
+      // la frase la arma el cliente: el `message` del servidor viene en un solo
+      // idioma y se veia en castellano con la UI en ingles. Antes de eso era un
+      // literal fijo que decia "aplicadas" aun sin etiquetar nada, asi que el
+      // conteo no se pierde, se interpola.
       if (json.failedCount > 0) {
-        toast.warning(json.message, { description: json.failures?.[0]?.error });
+        toast.warning(
+          t("tagsAppliedPartial", {
+            ok: json.updatedCount ?? 0,
+            total: (json.updatedCount ?? 0) + json.failedCount,
+            fail: json.failedCount,
+          }),
+          { description: json.failures?.[0]?.error }
+        );
       } else {
-        toast.success(json.message || t("tagsApplied"));
+        toast.success(t("tagsApplied", { n: json.updatedCount ?? 0 }));
       }
       setEditingItem(null);
       mutate();
@@ -437,9 +446,16 @@ export default function TagGovernancePanel() {
         throw new Error(json.details ? `${json.error} ${json.details}` : json.error || t("inheritError"));
       }
       if (json.failedCount > 0) {
-        toast.warning(json.message, { description: json.failures?.[0]?.error });
+        toast.warning(
+          t("tagsPropagatedPartial", {
+            ok: json.inheritedCount ?? 0,
+            total: (json.inheritedCount ?? 0) + json.failedCount,
+            fail: json.failedCount,
+          }),
+          { description: json.failures?.[0]?.error }
+        );
       } else {
-        toast.success(json.message || t("tagsPropagated"));
+        toast.success(t("tagsPropagated", { n: json.inheritedCount ?? 0 }));
       }
       closeInheritModal();
       mutate();

@@ -525,7 +525,11 @@
   "AdminCapacityAddons": {
     "selfServeUnavailable": "La contratación en línea no está disponible para esta cuenta (sin suscripción de Paddle activa o add-ons no habilitados en este entorno). Contactá a ventas para ampliar tu capacidad.",
     "extraSubscriptions": "Suscripciones de Azure adicionales",
-    "prorationNote": "El cambio se prorratea en tu próxima factura. La capacidad se habilita unos segundos después de que Paddle confirme el pago."
+    "prorationNote": "El cambio se prorratea en tu próxima factura. La capacidad se habilita unos segundos después de que Paddle confirme el pago.",
+    "addon_additional_tenant_slot": "tenant adicional",
+    "addon_additional_subscription_slot": "suscripción adicional",
+    "addonApplied": "{qty, plural, =0 {Se dio de baja el add-on de {addon}.} other {Add-on actualizado a # de {addon}. La capacidad se habilita en unos segundos.}}",
+    "addonError": "No se pudo contratar el add-on."
   },
   "AdminCloudAccounts": {
     "pageTitle": "Cuentas Cloud — Azure",
@@ -6595,7 +6599,10 @@
     "policyDepartmentDesc": "Equipo o departamento propietario del recurso para alertas y gobernanza.",
     "understood": "Entendido",
     "pageTooltip": "Auditoría integral de etiquetas obligatorias en recursos y grupos de recursos, herencia automática desde Resource Groups, sugerencias con IA y cumplimiento de políticas FinOps.",
-    "pageSubtitle": "Control de metadatos, centros de costo y cumplimiento de políticas de asignación financiera."
+    "pageSubtitle": "Control de metadatos, centros de costo y cumplimiento de políticas de asignación financiera.",
+    "tagsAppliedPartial": "Etiquetas aplicadas en Azure a {ok} de {total} recursos ({fail} fallaron)",
+    "tagsPropagatedPartial": "Etiquetas propagadas en Azure a {ok} de {total} recursos ({fail} fallaron)",
+    "tagsPersistError": "Error al persistir etiquetas"
   },
   "HA": {
     "tierLockedFeatureName": "Recomendaciones de Alta Disponibilidad",
@@ -11355,7 +11362,13 @@
     "saveRule": "Guardar Regla de Alerta",
     "demoEnv": "Entorno Demo",
     "liveProd": "Producción Live",
-    "pageSubtitle": "Gobernanza de notificaciones financieras hacia Microsoft Teams, Slack, Webhooks, Email y ServiceNow"
+    "pageSubtitle": "Gobernanza de notificaciones financieras hacia Microsoft Teams, Slack, Webhooks, Email y ServiceNow",
+    "ruleMock01_name": "Consumo Presupuesto General > 80%",
+    "ruleMock02_name": "Tope Diario Landing Zone ($500 USD)",
+    "ruleMock03_name": "Anomalía Estadística ML (+25% Desvío)",
+    "ruleMock04_name": "Forecast Fin de Mes Supera 110%",
+    "ruleMock05_name": "Desborde de Costo en Cluster AKS Producción",
+    "deliveryTestTitle": "Prueba de Entrega: {name}"
   },
   "SentinelPanel": {
     "loadError": "Error al cargar Microsoft Sentinel FinOps",
@@ -12654,7 +12667,15 @@
     "exemptFailed": "Error al eximir",
     "deletionHistoryTitle": "Histórico de Desaprovisionamiento TTL ({count})",
     "confirmDelete": "Confirmar Eliminación",
-    "daysSuffix": "{n} días"
+    "daysSuffix": "{n} días",
+    "pol_VIRTUALMACHINES_name": "VMs de Testing & Sandbox",
+    "pol_VIRTUALMACHINES_desc": "Máquinas virtuales efímeras creadas para pruebas de integración",
+    "pol_MANAGEDCLUSTERS_name": "Clústeres AKS Efímeros",
+    "pol_MANAGEDCLUSTERS_desc": "Ambientes de Kubernetes de desarrollo y staging temporal",
+    "pol_FLEXIBLESERVERS_name": "Bases de Datos Flexibles",
+    "pol_FLEXIBLESERVERS_desc": "Instancias PostgreSQL / MySQL para migración y smoke testing",
+    "pol_RESOURCEGROUPS_name": "Grupos de Recursos Sandbox",
+    "pol_RESOURCEGROUPS_desc": "Resource Groups asignados a laboratorios de arquitectura"
   },
   "TabFilters": {
     "placeholder": "Filtrar por nombre o servicio...",

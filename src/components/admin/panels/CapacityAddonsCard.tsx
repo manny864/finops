@@ -79,8 +79,11 @@ export default function CapacityAddonsCard({ tenantId, isMock }: { tenantId: str
         body: JSON.stringify({ tenantId, addonType, quantity }),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error || "No se pudo contratar el add-on.");
-      toast.success(json.message);
+      if (!res.ok || !json.success) throw new Error(json.error || t("addonError"));
+      // El `message` del servidor arma la frase con un ternario y un ADDON_LABEL
+      // en castellano. El cliente ya tiene `addonType` y `quantity`, asi que la
+      // frase se arma aca y el `message` queda para consumidores de la API.
+      toast.success(t("addonApplied", { qty: quantity, addon: t(`addon_${addonType}`) }));
       // Se recarga tras un momento: la capacidad la escribe el webhook.
       setTimeout(load, 3000);
     } catch (e) {

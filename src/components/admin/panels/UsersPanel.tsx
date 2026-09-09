@@ -270,7 +270,7 @@ export default function UsersPanel() {
             });
             const json = await res.json();
             if (!res.ok) throw new Error(json.error);
-            toast.success(json.message || t("defaultUserDeletedMessage"));
+            toast.success(t("defaultUserDeletedMessage"));
             await loadUsers();
         } catch (e) {
             setPayload(previous);
@@ -386,7 +386,7 @@ export default function UsersPanel() {
             });
             const json = await res.json();
             if (!res.ok) throw new Error(json.error);
-            toast.success(json.message || t("defaultUsersProvisionedMessage"));
+            toast.success(t("defaultUsersProvisionedMessage", { n: toProvision.length }));
             setShowEntraModal(false);
             await loadUsers();
         } catch (e) {

@@ -361,7 +361,7 @@ export default function OrphanBackupsPanel() {
         throw new Error(err.error || t("purgeError"));
       }
       const json = await res.json();
-      toast.success(json.message || t("purgeOk"));
+      toast.success(t("purgeOk"));
       setPurgingItem(null);
       setPurgeInputName("");
       mutate();
@@ -391,7 +391,7 @@ export default function OrphanBackupsPanel() {
         throw new Error(err.error || t("archiveError"));
       }
       const json = await res.json();
-      toast.success(json.message || t("archiveOk"));
+      toast.success(t("archiveOk"));
       setArchivingItem(null);
       mutate();
     } catch (err) {

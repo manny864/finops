@@ -60,7 +60,7 @@ export default function DeleteTenantModal({ tenantId, tenantName, onDeleted, tri
             const json = await res.json();
 
             if (res.ok) {
-                toast.success(json.message || t("successToast"));
+                toast.success(t("successToast"));
                 setIsOpen(false);
                 setConfirmationName('');
                 setIsDeleting(false);

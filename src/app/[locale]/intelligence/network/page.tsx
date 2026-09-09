@@ -99,7 +99,7 @@ export default function NetworkAnalyticsPage() {
                 if (json.data.length === 0) toast.info(t('no_data_toast'));
                 else toast.success(t('analysis_complete'));
             } else {
-                toast.error(json.message || t('analysis_error'));
+                toast.error(t('analysis_error'));
             }
         } catch (e) {
             console.error(e);

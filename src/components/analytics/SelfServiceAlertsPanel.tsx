@@ -564,7 +564,7 @@ function TestResultModal({ rule, onClose, tenantId }: TestModalProps) {
           <div className="flex items-center gap-2">
             <IconSend className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-              Prueba de Entrega: {rule.name}
+              {t("deliveryTestTitle", { name: rule.nameKey ? t(rule.nameKey) : rule.name })}
             </h3>
           </div>
           <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer">
@@ -980,7 +980,7 @@ export default function SelfServiceAlertsPanel() {
                       <td className="py-3 px-4">
                         <div className="font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
                           <IconBellRinging className="w-4 h-4 text-[#0078D4] shrink-0" stroke={1.5} />
-                          <span>{rule.name}</span>
+                          <span>{rule.nameKey ? t(rule.nameKey) : rule.name}</span>
                         </div>
                         <div className="text-[11px] text-slate-400 pl-5">
                           {rule.scopeType}: {rule.scopeValue}
