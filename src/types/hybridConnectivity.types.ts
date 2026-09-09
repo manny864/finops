@@ -48,7 +48,8 @@ export interface HybridNetworkResource {
     id: string;
     name: string;
     serviceType: HybridNetworkServiceType;
-    serviceLabel: string;
+    /** Clave del catalogo: `serviceType` no discrimina (ExpressRoute es circuito y gateway). */
+    serviceLabelKey: string;
     skuTier: string;
     connectionStatus: HybridConnectionStatus;
     publicIpOrEndpoint: string;
@@ -60,10 +61,22 @@ export interface HybridNetworkResource {
     location: string;
     monthlyCostUSD: number;
     isOrphan: boolean;
-    orphanReason?: string;
+    /**
+     * Clave del catalogo, no la frase: la respuesta se cachea con una clave que
+     * no incluye el locale, asi que una frase armada en el servidor le llega al
+     * segundo lector en el idioma del primero.
+     */
+    orphanReasonKey?: string;
+    orphanParams?: Record<string, string | number>;
     activeConnectionsCount: number;
     throughputMbps: number;
-    costBreakdownReason?: string;
+    /**
+     * Clave del catalogo, no la frase: la respuesta se cachea con una clave que
+     * no incluye el locale, asi que una frase armada en el servidor le llega al
+     * segundo lector en el idioma del primero.
+     */
+    costBreakdownReasonKey?: string;
+    costBreakdownParams?: Record<string, string | number>;
     targetResourceId?: string;
     tags?: Record<string, string>;
     details?: HybridNetworkResourceDetails;

@@ -275,7 +275,7 @@ function getMockDdosProtectionData(tenantId: string): DdosProtectionResponse {
   const breakdown: DdosTierBreakdown[] = [
     {
       tierName: "NetworkProtection",
-      tierLabel: "DDoS Network Protection",
+      tierLabelKey: "tier_NETWORK_PROTECTION",
       costUSD: Number(networkCost.toFixed(2)),
       percentage: Number(((networkCost / grandTotal) * 100).toFixed(1)),
       color: DDOS_PROTECTION_COLORS.NetworkProtection,
@@ -283,7 +283,7 @@ function getMockDdosProtectionData(tenantId: string): DdosProtectionResponse {
     },
     {
       tierName: "IpProtection",
-      tierLabel: "DDoS IP Protection",
+      tierLabelKey: "tier_IP_PROTECTION",
       costUSD: Number(ipProtCost.toFixed(2)),
       percentage: Number(((ipProtCost / grandTotal) * 100).toFixed(1)),
       color: DDOS_PROTECTION_COLORS.IpProtection,
@@ -291,7 +291,7 @@ function getMockDdosProtectionData(tenantId: string): DdosProtectionResponse {
     },
     {
       tierName: "Basic",
-      tierLabel: "DDoS Basic / Sin Protección",
+      tierLabelKey: "tier_BASIC",
       costUSD: 0,
       percentage: 0,
       color: DDOS_PROTECTION_COLORS.Basic,
@@ -302,7 +302,7 @@ function getMockDdosProtectionData(tenantId: string): DdosProtectionResponse {
   if (orphanCost > 0) {
     breakdown.push({
       tierName: "NetworkProtection",
-      tierLabel: "Planes Huérfanos (Desperdicio)",
+      tierLabelKey: "tier_ORPHAN",
       costUSD: Number(orphanCost.toFixed(2)),
       percentage: Number(((orphanCost / grandTotal) * 100).toFixed(1)),
       color: DDOS_ORPHAN_COLOR,
@@ -734,7 +734,7 @@ export async function getAzureDdosProtection(tenantId: string): Promise<DdosProt
     const breakdown: DdosTierBreakdown[] = [
       {
         tierName: "NetworkProtection",
-        tierLabel: "DDoS Network Protection",
+        tierLabelKey: "tier_NETWORK_PROTECTION",
         costUSD: Number(networkCost.toFixed(2)),
         percentage: Number(((networkCost / grandTotal) * 100).toFixed(1)),
         color: DDOS_PROTECTION_COLORS.NetworkProtection,
@@ -742,7 +742,7 @@ export async function getAzureDdosProtection(tenantId: string): Promise<DdosProt
       },
       {
         tierName: "IpProtection",
-        tierLabel: "DDoS IP Protection",
+        tierLabelKey: "tier_IP_PROTECTION",
         costUSD: Number(ipProtCost.toFixed(2)),
         percentage: Number(((ipProtCost / grandTotal) * 100).toFixed(1)),
         color: DDOS_PROTECTION_COLORS.IpProtection,
@@ -750,7 +750,7 @@ export async function getAzureDdosProtection(tenantId: string): Promise<DdosProt
       },
       {
         tierName: "Basic",
-        tierLabel: "DDoS Basic / Sin Protección",
+        tierLabelKey: "tier_BASIC",
         costUSD: 0,
         percentage: 0,
         color: DDOS_PROTECTION_COLORS.Basic,
@@ -761,7 +761,7 @@ export async function getAzureDdosProtection(tenantId: string): Promise<DdosProt
     if (orphanCost > 0) {
       breakdown.push({
         tierName: "NetworkProtection",
-        tierLabel: "Planes Huérfanos (Desperdicio)",
+        tierLabelKey: "tier_ORPHAN",
         costUSD: Number(orphanCost.toFixed(2)),
         percentage: Number(((orphanCost / grandTotal) * 100).toFixed(1)),
         color: DDOS_ORPHAN_COLOR,

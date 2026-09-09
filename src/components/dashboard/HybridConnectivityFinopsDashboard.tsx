@@ -296,7 +296,7 @@ export default function HybridConnectivityFinopsDashboard() {
                         </div>
                     </div>
                     <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
-                        <span>{kpis?.totalCircuitsCount || 0} Circuitos ER</span>
+                        <span>{t("erCircuitsCount", { n: kpis?.totalCircuitsCount || 0 })}</span>
                         <span>{resources.filter((r) => r.serviceType === "Virtual WAN").length} vHubs</span>
                     </div>
                 </div>
@@ -328,7 +328,7 @@ export default function HybridConnectivityFinopsDashboard() {
                     </div>
                     <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
                         <span>{t("downTunnels", { count: kpis?.disconnectedTunnelsCount || 0 })}</span>
-                        <span>{kpis?.orphanedGatewaysCount || 0} GWs ociosos</span>
+                        <span>{t("idleGatewaysCount", { n: kpis?.orphanedGatewaysCount || 0 })}</span>
                     </div>
                 </div>
 
@@ -435,7 +435,7 @@ export default function HybridConnectivityFinopsDashboard() {
                                         {item.serviceLabel}
                                     </span>
                                     <span className="text-[11px] text-slate-400">
-                                        ({item.count} {item.count === 1 ? "recurso" : "recursos"})
+                                        {t("resourcesCountParen", { n: item.count })}
                                     </span>
                                 </div>
                                 <div className="text-right">
@@ -632,7 +632,7 @@ export default function HybridConnectivityFinopsDashboard() {
                                         <td className="py-3 px-3.5 font-semibold text-slate-800 dark:text-slate-200">
                                             <div className="flex items-center gap-2">
                                                 {getServiceIcon(res.serviceType)}
-                                                <span>{res.serviceLabel}</span>
+                                                <span>{t(res.serviceLabelKey)}</span>
                                             </div>
                                         </td>
 
@@ -844,7 +844,7 @@ export default function HybridConnectivityFinopsDashboard() {
                                     <h3 className="text-base font-bold text-[#1B2A41] dark:text-white">
                                         {selectedResource.name}
                                     </h3>
-                                    <p className="text-xs text-slate-400">{selectedResource.serviceLabel}</p>
+                                    <p className="text-xs text-slate-400">{t(selectedResource.serviceLabelKey)}</p>
                                 </div>
                             </div>
                             <button
@@ -867,7 +867,7 @@ export default function HybridConnectivityFinopsDashboard() {
                                 </span>
                             </div>
                             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60">
-                                <span className="text-slate-400 block mb-0.5">Endpoint / IP / Peering:</span>
+                                <span className="text-slate-400 block mb-0.5">{t("labelEndpointPeering")}</span>
                                 <span className="font-mono text-[11px] font-semibold text-slate-800 dark:text-slate-200">{selectedResource.publicIpOrEndpoint}</span>
                             </div>
                             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60">
@@ -906,10 +906,10 @@ export default function HybridConnectivityFinopsDashboard() {
                                             <span className="font-mono text-[11px]">{selectedResource.details.remoteNetworkAddressSpace.join(", ")}</span>
                                         </div>
                                     )}
-                                    {selectedResource.costBreakdownReason && (
+                                    {selectedResource.costBreakdownReasonKey && (
                                         <div className="pt-2 border-t border-slate-200 dark:border-slate-700 text-slate-500">
                                             <span className="font-semibold">{t("detailFinops")} </span>
-                                            {selectedResource.costBreakdownReason}
+                                            {t(selectedResource.costBreakdownReasonKey, selectedResource.costBreakdownParams ?? {})}
                                         </div>
                                     )}
                                 </div>

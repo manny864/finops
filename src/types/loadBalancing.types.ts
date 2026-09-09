@@ -67,11 +67,23 @@ export interface LoadBalancingResource {
     location: string;
     monthlyCostUSD: number;
     isOrphan: boolean;
-    orphanReason?: string;
+    /**
+     * Clave del catalogo, no la frase: la respuesta se cachea con una clave que
+     * no incluye el locale, asi que una frase armada en el servidor le llega al
+     * segundo lector en el idioma del primero.
+     */
+    orphanReasonKey?: string;
+    orphanParams?: Record<string, string | number>;
     backendPoolsCount: number;
     rulesCount: number;
     requestCountMonth: number;
-    costBreakdownReason?: string;
+    /**
+     * Clave del catalogo, no la frase: la respuesta se cachea con una clave que
+     * no incluye el locale, asi que una frase armada en el servidor le llega al
+     * segundo lector en el idioma del primero.
+     */
+    costBreakdownReasonKey?: string;
+    costBreakdownParams?: Record<string, string | number>;
     tags?: Record<string, string>;
     details?: LoadBalancingResourceDetails;
 }

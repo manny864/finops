@@ -245,7 +245,7 @@ export default function NetworkAnalyticsDashboard() {
                     <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
                         <span>{t("activeServicesLabel")}</span>
                         <span className="font-semibold text-slate-700 dark:text-slate-300">
-                            {serviceBreakdown.length} familias
+                            {t("familiesCount", { n: serviceBreakdown.length })}
                         </span>
                     </div>
                 </div>
@@ -335,7 +335,7 @@ export default function NetworkAnalyticsDashboard() {
                                                         <p className="font-bold">{item.serviceName}</p>
                                                         <p className="mt-1">{t("costValue", { amount: format(item.totalCostUSD) })}</p>
                                                         <p className="text-sky-300">{t("shareValue", { pct: item.percentage })}</p>
-                                                        <p className="text-slate-300 text-[11px]">{item.resourceCount} recursos</p>
+                                                        <p className="text-slate-300 text-[11px]">{t("resourcesCount", { n: item.resourceCount })}</p>
                                                     </div>
                                                 );
                                             }
@@ -345,7 +345,7 @@ export default function NetworkAnalyticsDashboard() {
                                 </PieChart>
                             </ResponsiveContainer>
                             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                <span className="text-xs text-slate-400">Total Red</span>
+                                <span className="text-xs text-slate-400">{t("networkTotal")}</span>
                                 <span className="text-base font-bold text-slate-900 dark:text-slate-100">
                                     {format(kpis?.totalMonthlyCostUSD || 0)}
                                 </span>
@@ -546,7 +546,7 @@ export default function NetworkAnalyticsDashboard() {
                                 </ResizableTh>
 
                                 <ResizableTh minWidth={120}>
-                                    <span>Acciones</span>
+                                    <span>{t("colActions")}</span>
                                 </ResizableTh>
                             </tr>
                         </thead>
@@ -852,7 +852,7 @@ export default function NetworkAnalyticsDashboard() {
 
                         <div className="space-y-3 text-xs divide-y divide-slate-100 dark:divide-slate-800">
                             <div className="grid grid-cols-2 gap-2 pt-2">
-                                <span className="text-slate-500">Servicio:</span>
+                                <span className="text-slate-500">{t("labelService")}</span>
                                 <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedResource.serviceLabel}</span>
                             </div>
                             <div className="grid grid-cols-2 gap-2 pt-2">
@@ -877,14 +877,14 @@ export default function NetworkAnalyticsDashboard() {
                             </div>
                             {selectedResource.details.sku && (
                                 <div className="grid grid-cols-2 gap-2 pt-2">
-                                    <span className="text-slate-500">SKU / Tier:</span>
+                                    <span className="text-slate-500">{t("labelSkuTier")}</span>
                                     <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedResource.details.sku}</span>
                                 </div>
                             )}
-                            {selectedResource.orphanReason && (
+                            {selectedResource.orphanReasonKey && (
                                 <div className="pt-2 text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-lg border border-amber-200 dark:border-amber-800">
                                     <span className="font-bold block">{t("detailAlert")}</span>
-                                    <span>{t(selectedResource.orphanReason)}</span>
+                                    <span>{t(selectedResource.orphanReasonKey)}</span>
                                 </div>
                             )}
                         </div>

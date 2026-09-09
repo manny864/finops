@@ -190,13 +190,13 @@ export default function DdosProtectionDashboard() {
     const donutData = useMemo(() => {
         if (!summary?.breakdown?.length) return [];
         return summary.breakdown.map((b) => ({
-            name: b.tierLabel,
+            name: t(b.tierLabelKey),
             value: b.costUSD,
             color: b.color,
             count: b.count,
             percentage: b.percentage,
         }));
-    }, [summary]);
+    }, [summary, t]);
 
     // ── Render Helpers ─────────────────────────────────────────────────
     const getResourceIcon = (resource: DdosResourceDetail) => {

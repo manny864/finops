@@ -74,7 +74,15 @@ export interface DdosResourceDetail {
 
 export interface DdosTierBreakdown {
   tierName: string;
-  tierLabel: string;
+  /**
+   * Clave del catalogo, no texto: la respuesta se cachea sin el locale, asi que
+   * una etiqueta armada aca le llega al segundo lector en el idioma del primero.
+   *
+   * No se deriva de `tierName` porque `tierName` no es discriminante: la fila de
+   * planes huerfanos reusa "NetworkProtection" para conservar su color y su
+   * agrupacion, y dos filas con el mismo nombre necesitan dos etiquetas.
+   */
+  tierLabelKey: string;
   costUSD: number;
   percentage: number;
   color: string;

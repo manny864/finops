@@ -311,14 +311,14 @@ export async function computeLiveNetworkAnalytics(tenantId: string, subscription
         monthlyCostUSD = Number(monthlyCostUSD.toFixed(2));
 
         let isOrphan = false;
-        let orphanReason: string | undefined;
+        let orphanReasonKey: string | undefined;
 
         // Detección 1: IPs Públicas Huérfanas
         if (serviceType === "Public IP") {
             const hasIpConfig = Boolean(raw.ipConfig && (raw.ipConfig.id || typeof raw.ipConfig === "string"));
             if (!hasIpConfig) {
                 isOrphan = true;
-                orphanReason = "orphan_PIP_NO_NIC";
+                orphanReasonKey = "orphan_PIP_NO_NIC";
                 remediations.push({
                     id: `rem-pip-${name}`,
                     resourceId: id,
@@ -343,7 +343,7 @@ export async function computeLiveNetworkAnalytics(tenantId: string, subscription
             const backendCount = Array.isArray(backendPools) ? backendPools.length : 0;
             if (backendCount === 0) {
                 isOrphan = true;
-                orphanReason = "orphan_LB_NO_POOL";
+                orphanReasonKey = "orphan_LB_NO_POOL";
                 remediations.push({
                     id: `rem-lb-${name}`,
                     resourceId: id,
@@ -397,7 +397,7 @@ export async function computeLiveNetworkAnalytics(tenantId: string, subscription
             location,
             monthlyCostUSD,
             isOrphan,
-            orphanReason,
+            orphanReasonKey,
             details: {
                 sku: raw.skuName || raw.skuTier || undefined,
                 provisioningState: raw.provisioningState || undefined,

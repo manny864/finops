@@ -347,7 +347,7 @@ export default function InternetAccessFinopsDashboard() {
                     </div>
                     <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
                         <span>Azure Firewall + DDoS</span>
-                        <span className="font-semibold text-slate-700 dark:text-slate-300">Defensa Perimetral</span>
+                        <span className="font-semibold text-slate-700 dark:text-slate-300">{t("perimeterDefense")}</span>
                     </div>
                 </div>
             </div>
@@ -429,7 +429,7 @@ export default function InternetAccessFinopsDashboard() {
                                         {item.serviceLabel}
                                     </span>
                                     <span className="text-[11px] text-slate-400">
-                                        ({item.count} {item.count === 1 ? "recurso" : "recursos"})
+                                        {t("resourcesCountParen", { n: item.count })}
                                     </span>
                                 </div>
                                 <div className="text-right">
@@ -875,16 +875,16 @@ export default function InternetAccessFinopsDashboard() {
                                     <span className="text-slate-400">{t("detailTraffic")}</span>
                                     <span className="font-semibold">{selectedResource.bytesProcessedGB} GB</span>
                                 </div>
-                                {selectedResource.orphanReason && (
+                                {selectedResource.orphanReasonKey && (
                                     <div className="pt-2 border-t border-amber-200 dark:border-amber-900/60 text-amber-700 dark:text-amber-400">
                                         <span className="font-semibold">{t("detailDiagnosis")} </span>
-                                        {selectedResource.orphanReason}
+                                        {t(selectedResource.orphanReasonKey, selectedResource.orphanParams ?? {})}
                                     </div>
                                 )}
-                                {selectedResource.costBreakdownReason && (
+                                {selectedResource.costBreakdownReasonKey && (
                                     <div className="pt-2 border-t border-slate-200 dark:border-slate-700 text-slate-500">
                                         <span className="font-semibold">{t("rateStructure")} </span>
-                                        {selectedResource.costBreakdownReason}
+                                        {t(selectedResource.costBreakdownReasonKey, selectedResource.costBreakdownParams ?? {})}
                                     </div>
                                 )}
                             </div>

@@ -615,7 +615,7 @@ export default function BasicNetworkingFinopsDashboard() {
                                                 {res.isOrphan && (
                                                     <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-0.5">
                                                         <IconAlertTriangle className="w-3 h-3 text-amber-500 shrink-0" stroke={1.5} />
-                                                        {res.orphanReason ? res.orphanReason.slice(0, 45) + "..." : t("badgeOrphan")}
+                                                        {res.orphanReasonKey ? t(res.orphanReasonKey, res.orphanParams ?? {}) : t("badgeOrphan")}
                                                     </span>
                                                 )}
                                             </div>
@@ -645,13 +645,13 @@ export default function BasicNetworkingFinopsDashboard() {
 
                                         <td className="py-3 px-3.5 text-slate-700 dark:text-slate-300">
                                             {res.serviceType === "Virtual Networks" && (
-                                                <span className="font-semibold">{res.subnetsCount} subredes</span>
+                                                <span className="font-semibold">{t("subnetsCount", { n: res.subnetsCount })}</span>
                                             )}
                                             {res.serviceType === "Private DNS Zones" && (
                                                 <span className="font-semibold">{res.linkedVnetsCount} VNets</span>
                                             )}
                                             {res.serviceType === "Private Endpoints" && (
-                                                <span className="text-slate-500">1 endpoint</span>
+                                                <span className="text-slate-500">{t("endpointsCount", { n: 1 })}</span>
                                             )}
                                             {(res.serviceType === "Network Security Group" || res.serviceType === "Route Table") && (
                                                 <span className={res.subnetsCount > 0 ? "text-slate-700 dark:text-slate-300 font-semibold" : "text-amber-600 font-bold"}>
@@ -936,7 +936,7 @@ export default function BasicNetworkingFinopsDashboard() {
                                         <span className="font-mono">{selectedResource.cidrOrPrivateIp}</span>
                                     </p>
                                     <p className="text-slate-500 dark:text-slate-400 text-[11px]">
-                                        {selectedResource.costBreakdownReason}
+                                        {selectedResource.costBreakdownReasonKey ? t(selectedResource.costBreakdownReasonKey, selectedResource.costBreakdownParams ?? {}) : ""}
                                     </p>
                                 </div>
                             </div>

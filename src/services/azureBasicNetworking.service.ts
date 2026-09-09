@@ -208,7 +208,7 @@ export function getMockBasicNetworkingResponse(tenantId: string = "demo-tenant-i
             isOrphan: false,
             subnetsCount: 4,
             linkedVnetsCount: 6,
-            costBreakdownReason: "VNet Peering Data Transfer & Diagnostic Logs",
+            costBreakdownReasonKey: "cbr_PEERING_TRANSFER_LOGS",
             details: {
                 addressPrefixes: ["10.100.0.0/16"],
                 subnets: [
@@ -240,7 +240,7 @@ export function getMockBasicNetworkingResponse(tenantId: string = "demo-tenant-i
             isOrphan: false,
             subnetsCount: 3,
             linkedVnetsCount: 1,
-            costBreakdownReason: "VNet Peering Ingress/Egress",
+            costBreakdownReasonKey: "cbr_PEERING_INGRESS_EGRESS",
             details: {
                 addressPrefixes: ["10.101.0.0/16"],
                 subnets: [
@@ -270,7 +270,7 @@ export function getMockBasicNetworkingResponse(tenantId: string = "demo-tenant-i
             isOrphan: false,
             subnetsCount: 2,
             linkedVnetsCount: 1,
-            costBreakdownReason: "VNet Peering Inter-Spoke Traffic",
+            costBreakdownReasonKey: "cbr_PEERING_INTER_SPOKE",
             details: {
                 addressPrefixes: ["10.102.0.0/16"],
                 subnets: [
@@ -294,10 +294,10 @@ export function getMockBasicNetworkingResponse(tenantId: string = "demo-tenant-i
             location: "centralus",
             monthlyCostUSD: 0.00,
             isOrphan: true,
-            orphanReason: "VNet vacía sin subredes con recursos conectados (Desperdicio administrativo).",
+            orphanReasonKey: "orph_VNET_EMPTY",
             subnetsCount: 0,
             linkedVnetsCount: 0,
-            costBreakdownReason: "Costo $0.00 (VNet desocupada / Higiene)",
+            costBreakdownReasonKey: "cbr_VNET_EMPTY_ZERO",
             details: {
                 addressPrefixes: ["172.16.0.0/16"],
                 subnets: [],
@@ -322,7 +322,7 @@ export function getMockBasicNetworkingResponse(tenantId: string = "demo-tenant-i
             isOrphan: false,
             subnetsCount: 2,
             linkedVnetsCount: 1,
-            costBreakdownReason: "VNet Peering Base",
+            costBreakdownReasonKey: "cbr_PEERING_BASE",
             details: {
                 addressPrefixes: [`10.${110 + i}.0.0/16`],
                 subnets: [
@@ -350,7 +350,8 @@ export function getMockBasicNetworkingResponse(tenantId: string = "demo-tenant-i
             isOrphan: false,
             subnetsCount: 1,
             linkedVnetsCount: 0,
-            costBreakdownReason: "Costo fijo PE ($0.01/h) + 124 GB procesados",
+            costBreakdownReasonKey: "cbr_PE_FIXED_GB",
+            costBreakdownParams: { gb: 124 },
             targetResourceId: "/subscriptions/11111111-2222-3333-4444-555555555555/resourceGroups/rg-data-prod/providers/Microsoft.Sql/servers/sql-srv-prod-primary",
             details: {
                 privateIp: "10.100.20.4",
@@ -376,7 +377,8 @@ export function getMockBasicNetworkingResponse(tenantId: string = "demo-tenant-i
             isOrphan: false,
             subnetsCount: 1,
             linkedVnetsCount: 0,
-            costBreakdownReason: "Costo fijo PE ($0.01/h) + 85 GB procesados",
+            costBreakdownReasonKey: "cbr_PE_FIXED_GB",
+            costBreakdownParams: { gb: 85 },
             targetResourceId: "/subscriptions/11111111-2222-3333-4444-555555555555/resourceGroups/rg-storage-prod/providers/Microsoft.Storage/storageAccounts/stgprodanalyticslake",
             details: {
                 privateIp: "10.100.20.5",
@@ -402,7 +404,8 @@ export function getMockBasicNetworkingResponse(tenantId: string = "demo-tenant-i
             isOrphan: false,
             subnetsCount: 1,
             linkedVnetsCount: 0,
-            costBreakdownReason: "Costo fijo PE ($0.01/h) + 12 GB procesados",
+            costBreakdownReasonKey: "cbr_PE_FIXED_GB",
+            costBreakdownParams: { gb: 12 },
             targetResourceId: "/subscriptions/11111111-2222-3333-4444-555555555555/resourceGroups/rg-sec-prod/providers/Microsoft.KeyVault/vaults/kv-prod-enterprise-01",
             details: {
                 privateIp: "10.100.20.6",
@@ -428,7 +431,7 @@ export function getMockBasicNetworkingResponse(tenantId: string = "demo-tenant-i
             isOrphan: false,
             subnetsCount: 1,
             linkedVnetsCount: 0,
-            costBreakdownReason: "Costo fijo PE ($0.01/h) con bajo tráfico (<0.5 GB/mes)",
+            costBreakdownReasonKey: "cbr_PE_LOW_TRAFFIC",
             targetResourceId: "/subscriptions/22222222-3333-4444-5555-666666666666/resourceGroups/rg-dev-microservices/providers/Microsoft.DocumentDB/databaseAccounts/cosmos-dev-mock-01",
             details: {
                 privateIp: "10.200.10.12",
@@ -454,7 +457,8 @@ export function getMockBasicNetworkingResponse(tenantId: string = "demo-tenant-i
             isOrphan: false,
             subnetsCount: 1,
             linkedVnetsCount: 0,
-            costBreakdownReason: "Costo fijo PE ($0.01/h) + 310 GB procesados",
+            costBreakdownReasonKey: "cbr_PE_FIXED_GB",
+            costBreakdownParams: { gb: 310 },
             targetResourceId: "/subscriptions/11111111-2222-3333-4444-555555555555/resourceGroups/rg-apps-prod/providers/Microsoft.Cache/Redis/redis-cache-prod-c3",
             details: {
                 privateIp: "10.100.20.7",
@@ -480,7 +484,8 @@ export function getMockBasicNetworkingResponse(tenantId: string = "demo-tenant-i
             isOrphan: false,
             subnetsCount: 1,
             linkedVnetsCount: 0,
-            costBreakdownReason: "Costo fijo PE ($0.01/h) + 45 GB procesados",
+            costBreakdownReasonKey: "cbr_PE_FIXED_GB",
+            costBreakdownParams: { gb: 45 },
             targetResourceId: "/subscriptions/11111111-2222-3333-4444-555555555555/resourceGroups/rg-data-prod/providers/Microsoft.ContainerRegistry/registries/acrfinopsprod",
             details: {
                 privateIp: "10.100.20.8",
@@ -508,7 +513,7 @@ export function getMockBasicNetworkingResponse(tenantId: string = "demo-tenant-i
             isOrphan: false,
             subnetsCount: 0,
             linkedVnetsCount: 4,
-            costBreakdownReason: "Costo fijo zona hospedada ($0.50/mes) + consultas DNS",
+            costBreakdownReasonKey: "cbr_DNS_ZONE_QUERIES",
             details: {
                 virtualNetworkLinksCount: 4,
                 environment: "prod",
@@ -530,7 +535,7 @@ export function getMockBasicNetworkingResponse(tenantId: string = "demo-tenant-i
             isOrphan: false,
             subnetsCount: 0,
             linkedVnetsCount: 4,
-            costBreakdownReason: "Costo fijo zona hospedada ($0.50/mes) + consultas DNS",
+            costBreakdownReasonKey: "cbr_DNS_ZONE_QUERIES",
             details: {
                 virtualNetworkLinksCount: 4,
                 environment: "prod",
@@ -552,7 +557,7 @@ export function getMockBasicNetworkingResponse(tenantId: string = "demo-tenant-i
             isOrphan: false,
             subnetsCount: 0,
             linkedVnetsCount: 3,
-            costBreakdownReason: "Costo fijo zona hospedada ($0.50/mes)",
+            costBreakdownReasonKey: "cbr_DNS_ZONE_FIXED",
             details: {
                 virtualNetworkLinksCount: 3,
                 environment: "prod",
@@ -580,7 +585,7 @@ export function getMockBasicNetworkingResponse(tenantId: string = "demo-tenant-i
             isOrphan: false,
             subnetsCount: 0,
             linkedVnetsCount: 2,
-            costBreakdownReason: "Costo fijo zona hospedada ($0.50/mes)",
+            costBreakdownReasonKey: "cbr_DNS_ZONE_FIXED",
             details: {
                 virtualNetworkLinksCount: 2,
                 environment: "prod" as const,
@@ -604,7 +609,7 @@ export function getMockBasicNetworkingResponse(tenantId: string = "demo-tenant-i
             isOrphan: false,
             subnetsCount: 2,
             linkedVnetsCount: 0,
-            costBreakdownReason: "Incluido en plataforma ($0.00)",
+            costBreakdownReasonKey: "cbr_PLATFORM_INCLUDED",
             details: {
                 securityRulesCount: 12,
                 hasAssociatedSubnets: true,
@@ -626,10 +631,10 @@ export function getMockBasicNetworkingResponse(tenantId: string = "demo-tenant-i
             location: "eastus2",
             monthlyCostUSD: 0.00,
             isOrphan: true,
-            orphanReason: "NSG huérfano sin subredes ni interfaces de red (NICs) asociadas.",
+            orphanReasonKey: "orph_NSG_UNUSED",
             subnetsCount: 0,
             linkedVnetsCount: 0,
-            costBreakdownReason: "Recurso huérfano / Higiene administrativa",
+            costBreakdownReasonKey: "cbr_ORPHAN_HYGIENE",
             details: {
                 securityRulesCount: 6,
                 hasAssociatedSubnets: false,
@@ -651,10 +656,10 @@ export function getMockBasicNetworkingResponse(tenantId: string = "demo-tenant-i
             location: "eastus2",
             monthlyCostUSD: 0.00,
             isOrphan: true,
-            orphanReason: "NSG huérfano sin subredes ni interfaces de red asociadas tras eliminación de VM.",
+            orphanReasonKey: "orph_NSG_AFTER_VM_DELETE",
             subnetsCount: 0,
             linkedVnetsCount: 0,
-            costBreakdownReason: "Recurso huérfano / Higiene administrativa",
+            costBreakdownReasonKey: "cbr_ORPHAN_HYGIENE",
             details: {
                 securityRulesCount: 4,
                 hasAssociatedSubnets: false,
@@ -678,7 +683,7 @@ export function getMockBasicNetworkingResponse(tenantId: string = "demo-tenant-i
             isOrphan: false,
             subnetsCount: 3,
             linkedVnetsCount: 0,
-            costBreakdownReason: "Incluido en plataforma ($0.00)",
+            costBreakdownReasonKey: "cbr_PLATFORM_INCLUDED",
             details: {
                 routesCount: 5,
                 hasAssociatedSubnets: true,
@@ -699,10 +704,10 @@ export function getMockBasicNetworkingResponse(tenantId: string = "demo-tenant-i
             location: "eastus2",
             monthlyCostUSD: 0.00,
             isOrphan: true,
-            orphanReason: "Tabla de ruteo (UDR) sin ninguna subred asociada.",
+            orphanReasonKey: "orph_UDR_NO_SUBNET",
             subnetsCount: 0,
             linkedVnetsCount: 0,
-            costBreakdownReason: "Recurso huérfano / Higiene administrativa",
+            costBreakdownReasonKey: "cbr_ORPHAN_HYGIENE",
             details: {
                 routesCount: 2,
                 hasAssociatedSubnets: false,
@@ -725,7 +730,7 @@ export function getMockBasicNetworkingResponse(tenantId: string = "demo-tenant-i
             isOrphan: false,
             subnetsCount: 1,
             linkedVnetsCount: 0,
-            costBreakdownReason: "Incluido en plataforma ($0.00)",
+            costBreakdownReasonKey: "cbr_PLATFORM_INCLUDED",
             details: {
                 securityRulesCount: 8,
                 routesCount: 3,
@@ -905,13 +910,13 @@ export async function computeLiveBasicNetworking(tenantId: string, subscriptionI
 
         let monthlyCostUSD = costByResourceId.get(normId) || 0;
         let isOrphan = false;
-        let orphanReason: string | undefined;
+        let orphanReasonKey: string | undefined;
         let serviceType: BasicNetworkServiceType = "Virtual Networks";
         let serviceLabel = "Virtual Network";
         let cidrOrPrivateIp = "-";
         let subnetsCount = 0;
         let linkedVnetsCount = 0;
-        let costBreakdownReason = "Recurso de red base";
+        let costBreakdownReasonKey = "cbr_BASE_NETWORK_RESOURCE";
         let targetResourceId: string | undefined;
         const details: any = { environment: env };
 
@@ -943,8 +948,8 @@ export async function computeLiveBasicNetworking(tenantId: string, subscriptionI
             const totalConnected = details.subnets.reduce((sum: number, s: any) => sum + (s.connectedDevicesCount || 0), 0);
             if (subnetsCount === 0 || (subnetsCount > 0 && totalConnected === 0)) {
                 isOrphan = true;
-                orphanReason = "VNet vacía sin subredes con dispositivos conectados.";
-                costBreakdownReason = "VNet desocupada (Higiene administrativa)";
+                orphanReasonKey = "orph_VNET_NO_DEVICES";
+                costBreakdownReasonKey = "cbr_VNET_EMPTY_HYGIENE";
                 remediations.push({
                     id: `rem-empty-vnet-${name}`,
                     resourceId: id,
@@ -960,7 +965,7 @@ export async function computeLiveBasicNetworking(tenantId: string, subscriptionI
                     },
                 });
             } else {
-                costBreakdownReason = linkedVnetsCount > 0 ? "Tráfico de peering y telemetría de red" : "Infraestructura base de red";
+                costBreakdownReasonKey = linkedVnetsCount > 0 ? "cbr_PEERING_TELEMETRY" : "cbr_BASE_INFRA";
             }
         } else if (armType === "microsoft.network/privateendpoints") {
             serviceType = "Private Endpoints";
@@ -984,7 +989,7 @@ export async function computeLiveBasicNetworking(tenantId: string, subscriptionI
                 // Base cost per PE: ~$7.30/mo ($0.01/hr)
                 monthlyCostUSD = 7.30;
             }
-            costBreakdownReason = `Costo fijo PE ($0.01/h) + procesamiento de datos`;
+            costBreakdownReasonKey = "cbr_PE_FIXED_PROCESSING";
 
             if (env === "dev" || env === "staging" || env === "qa") {
                 remediations.push({
@@ -1010,7 +1015,7 @@ export async function computeLiveBasicNetworking(tenantId: string, subscriptionI
             if (monthlyCostUSD === 0) {
                 monthlyCostUSD = 0.50; // Standard $0.50/mo hosted zone
             }
-            costBreakdownReason = "Zona DNS Privada Hospedada ($0.50/mes)";
+            costBreakdownReasonKey = "cbr_DNS_PRIVATE_ZONE";
             details.virtualNetworkLinksCount = linkedVnetsCount;
         } else if (armType === "microsoft.network/networksecuritygroups") {
             serviceType = "Network Security Group";
@@ -1029,8 +1034,8 @@ export async function computeLiveBasicNetworking(tenantId: string, subscriptionI
 
             if (subnetsCount === 0 && nicsCount === 0) {
                 isOrphan = true;
-                orphanReason = "NSG huérfano sin subredes ni interfaces de red (NICs) asociadas.";
-                costBreakdownReason = "Recurso huérfano / Higiene administrativa";
+                orphanReasonKey = "orph_NSG_UNUSED";
+                costBreakdownReasonKey = "cbr_ORPHAN_HYGIENE";
                 remediations.push({
                     id: `rem-orphan-nsg-${name}`,
                     resourceId: id,
@@ -1046,7 +1051,7 @@ export async function computeLiveBasicNetworking(tenantId: string, subscriptionI
                     },
                 });
             } else {
-                costBreakdownReason = "Incluido en plataforma Azure ($0.00)";
+                costBreakdownReasonKey = "cbr_PLATFORM_INCLUDED";
             }
         } else if (armType === "microsoft.network/routetables") {
             serviceType = "Route Table";
@@ -1061,8 +1066,8 @@ export async function computeLiveBasicNetworking(tenantId: string, subscriptionI
 
             if (subnetsCount === 0) {
                 isOrphan = true;
-                orphanReason = "Tabla de ruteo (UDR) sin ninguna subred asociada.";
-                costBreakdownReason = "Recurso huérfano / Higiene administrativa";
+                orphanReasonKey = "orph_UDR_NO_SUBNET";
+                costBreakdownReasonKey = "cbr_ORPHAN_HYGIENE";
                 remediations.push({
                     id: `rem-orphan-udr-${name}`,
                     resourceId: id,
@@ -1078,7 +1083,7 @@ export async function computeLiveBasicNetworking(tenantId: string, subscriptionI
                     },
                 });
             } else {
-                costBreakdownReason = "Incluido en plataforma Azure ($0.00)";
+                costBreakdownReasonKey = "cbr_PLATFORM_INCLUDED";
             }
         }
 
@@ -1098,10 +1103,10 @@ export async function computeLiveBasicNetworking(tenantId: string, subscriptionI
             location,
             monthlyCostUSD,
             isOrphan,
-            orphanReason,
+            orphanReasonKey,
             subnetsCount,
             linkedVnetsCount,
-            costBreakdownReason,
+            costBreakdownReasonKey,
             targetResourceId,
             tags,
             details,

@@ -144,22 +144,22 @@ export async function getAzureHybridConnectivity(tenantId: string): Promise<Hybr
             const skuObj = row.sku || {};
 
             let serviceType: HybridNetworkServiceType = "VPN Gateway";
-            let serviceLabel = "VPN Gateway";
+            let serviceLabelKey = "svc_VPN_GATEWAY";
             let skuTier = skuObj.name || skuObj.tier || "Standard";
             let connectionStatus: "Connected" | "Connecting" | "NotConnected" | "ConfigOnly" = "Connected";
             let publicIpOrEndpoint = "10.0.0.1";
             let monthlyCostUSD = Number(costMap.get(resId.toLowerCase()) || 0);
             let isOrphan = false;
-            let orphanReason: string | undefined = undefined;
+            let orphanReasonKey: string | undefined = undefined;
             let activeConnectionsCount = 0;
             let throughputMbps = 0;
-            let costBreakdownReason = "";
+            let costBreakdownReasonKey = "";
 
             if (rawType === "microsoft.network/virtualnetworkgateways") {
                 const gwType = (props.gatewayType || "Vpn").toLowerCase();
                 const isErGw = gwType.includes("expressroute");
                 serviceType = isErGw ? "ExpressRoute" : "VPN Gateway";
-                serviceLabel = isErGw ? "ExpressRoute Gateway" : "VPN Gateway";
+                serviceLabelKey = isErGw ? "svc_ER_GATEWAY" : "svc_VPN_GATEWAY";
                 skuTier = `${skuObj.name || "VpnGw1"} (${props.vpnType || "RouteBased"}${props.activeActive ? " / HA" : ""})`;
                 publicIpOrEndpoint = props.bgpSettings?.bgpPeeringAddress || props.ipConfigurations?.[0]?.properties?.publicIPAddress?.id?.split("/").pop() || "Dynamic IP";
                 activeConnectionsCount = gatewayConnectionCountMap.get(resId.toLowerCase()) || 0;
@@ -181,13 +181,13 @@ export async function getAzureHybridConnectivity(tenantId: string): Promise<Hybr
                 // FinOps Hygiene: Orphan Gateway Check (No connections attached)
                 if (activeConnectionsCount === 0) {
                     isOrphan = true;
-                    orphanReason = "Virtual Network Gateway sin conexiones IPSec o ExpressRoute asociadas (Fuga de costo fijo por hora).";
+                    orphanReasonKey = "orph_VNG_NO_CONNECTIONS";
                     remediations.push({
                         id: `rem-orphan-gw-${resName}`,
                         resourceId: resId,
                         resourceName: resName,
                         category: "ORPHAN_GATEWAY",
-                        params: { name: resName, service: serviceLabel, savings: monthlyCostUSD.toFixed(2) },
+                        params: { name: resName, service: isErGw ? "ExpressRoute Gateway" : "VPN Gateway", savings: monthlyCostUSD.toFixed(2) },
                         estimatedSavingsUSD: monthlyCostUSD,
                         confidence: "HIGH",
                         actionType: "DELETE",
@@ -218,7 +218,7 @@ export async function getAzureHybridConnectivity(tenantId: string): Promise<Hybr
                 }
             } else if (rawType === "microsoft.network/connections") {
                 serviceType = "Connection";
-                serviceLabel = "Conexión Híbrida / IPSec";
+                serviceLabelKey = "svc_CONN_IPSEC";
                 skuTier = props.connectionType || "IPsec";
                 const rawStatus = (props.connectionStatus || "Connected").toLowerCase();
                 if (rawStatus.includes("notconnected")) connectionStatus = "NotConnected";
@@ -231,7 +231,7 @@ export async function getAzureHybridConnectivity(tenantId: string): Promise<Hybr
                 // FinOps Hygiene: Disconnected Connection
                 if (connectionStatus === "NotConnected") {
                     isOrphan = true;
-                    orphanReason = "Túnel VPN / Conexión IPSec en estado Caído / Desconectado sostenido.";
+                    orphanReasonKey = "orph_TUNNEL_DOWN";
                     remediations.push({
                         id: `rem-disconn-${resName}`,
                         resourceId: resId,
@@ -249,7 +249,7 @@ export async function getAzureHybridConnectivity(tenantId: string): Promise<Hybr
                 }
             } else if (rawType === "microsoft.network/expressroutecircuits") {
                 serviceType = "ExpressRoute";
-                serviceLabel = "Circuito ExpressRoute";
+                serviceLabelKey = "svc_ER_CIRCUIT";
                 const bw = props.serviceProviderProperties?.bandwidthInMbps || props.bandwidthInMbps || 1000;
                 skuTier = `${skuObj.tier || "Standard"} / ${skuObj.family || "MeteredData"} (${bw >= 1000 ? `${bw / 1000} Gbps` : `${bw} Mbps`})`;
                 publicIpOrEndpoint = props.serviceProviderProperties?.peeringLocation || "Equinix Ashburn";
@@ -277,25 +277,25 @@ export async function getAzureHybridConnectivity(tenantId: string): Promise<Hybr
                 }
             } else if (rawType === "microsoft.network/virtualwans" || rawType === "microsoft.network/virtualhubs") {
                 serviceType = "Virtual WAN";
-                serviceLabel = rawType.includes("virtualhub") ? "Virtual Hub (vWAN)" : "Virtual WAN";
+                serviceLabelKey = rawType.includes("virtualhub") ? "svc_VHUB" : "svc_VWAN";
                 skuTier = rawType.includes("virtualhub") ? `Scale Unit: ${props.virtualHubRouteTableV2s?.length || 1}` : (skuObj.type || "Standard");
                 publicIpOrEndpoint = "Hub Mesh (Any-to-Any)";
                 monthlyCostUSD = Number(costMap.get(resId.toLowerCase()) || (rawType.includes("virtualhub") ? 182.50 : 0.0));
             } else if (rawType === "microsoft.network/localnetworkgateways") {
                 serviceType = "Local Network Gateway";
-                serviceLabel = "Local Network Gateway";
+                serviceLabelKey = "svc_LNG";
                 skuTier = "Config Metadata";
                 connectionStatus = "ConfigOnly";
                 publicIpOrEndpoint = props.gatewayIpAddress || "On-Premises Endpoint";
                 monthlyCostUSD = 0.0; // Local Network Gateways have ZERO base cost in Azure
-                costBreakdownReason = "Metadatos de configuración en Azure (Sin costo base de facturación).";
+                costBreakdownReasonKey = "cbr_CONFIG_METADATA";
             }
 
             resources.push({
                 id: resId,
                 name: resName,
                 serviceType,
-                serviceLabel,
+                serviceLabelKey,
                 skuTier,
                 connectionStatus,
                 publicIpOrEndpoint,
@@ -307,10 +307,10 @@ export async function getAzureHybridConnectivity(tenantId: string): Promise<Hybr
                 location: loc,
                 monthlyCostUSD: Number(monthlyCostUSD.toFixed(2)),
                 isOrphan,
-                orphanReason,
+                orphanReasonKey,
                 activeConnectionsCount,
                 throughputMbps,
-                costBreakdownReason,
+                costBreakdownReasonKey,
                 tags,
                 details: {
                     gatewayType: props.gatewayType,
@@ -441,7 +441,7 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             id: "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-net-core-prod/providers/Microsoft.Network/expressRouteCircuits/erc-primary-ashburn",
             name: "erc-primary-ashburn",
             serviceType: "ExpressRoute",
-            serviceLabel: "Circuito ExpressRoute",
+            serviceLabelKey: "svc_ER_CIRCUIT",
             skuTier: "Premium / Unlimited (10 Gbps)",
             connectionStatus: "Connected",
             publicIpOrEndpoint: "Equinix Ashburn (DC-01)",
@@ -455,7 +455,7 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             isOrphan: false,
             activeConnectionsCount: 4,
             throughputMbps: 10000,
-            costBreakdownReason: "Puerto 10 Gbps Premium Unlimited + Peering Privado BGP.",
+            costBreakdownReasonKey: "cbr_ER_10G_PREMIUM",
             details: {
                 bandwidthMbps: 10000,
                 meteredFamily: "UnlimitedData",
@@ -469,7 +469,7 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             id: "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-net-dr-prod/providers/Microsoft.Network/expressRouteCircuits/erc-dr-chicago",
             name: "erc-dr-chicago",
             serviceType: "ExpressRoute",
-            serviceLabel: "Circuito ExpressRoute",
+            serviceLabelKey: "svc_ER_CIRCUIT",
             skuTier: "Standard / Unlimited (1 Gbps)",
             connectionStatus: "Connected",
             publicIpOrEndpoint: "Coresite Chicago (DR-02)",
@@ -483,7 +483,7 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             isOrphan: false,
             activeConnectionsCount: 2,
             throughputMbps: 1000,
-            costBreakdownReason: "Circuito de contingencia subutilizado (<10 TB/mes).",
+            costBreakdownReasonKey: "cbr_ER_STANDBY_UNDERUSED",
             details: {
                 bandwidthMbps: 1000,
                 meteredFamily: "UnlimitedData",
@@ -497,7 +497,7 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             id: "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-vwan-mesh/providers/Microsoft.Network/virtualHubs/vhub-eastus-prod",
             name: "vhub-eastus-prod",
             serviceType: "Virtual WAN",
-            serviceLabel: "Virtual Hub (vWAN)",
+            serviceLabelKey: "svc_VHUB",
             skuTier: "Scale Unit: 2 (Any-to-Any)",
             connectionStatus: "Connected",
             publicIpOrEndpoint: "Hub East US Mesh",
@@ -511,7 +511,7 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             isOrphan: false,
             activeConnectionsCount: 12,
             throughputMbps: 4000,
-            costBreakdownReason: "Virtual Hub 2 unidades de escalado + enrutamiento centralizado.",
+            costBreakdownReasonKey: "cbr_VHUB_2SU_ROUTING",
             details: {
                 virtualHubScaleUnits: 2,
                 environment: "prod",
@@ -522,7 +522,7 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             id: "/subscriptions/00000000-0000-0000-0000-000000000002/resourceGroups/rg-vwan-eu/providers/Microsoft.Network/virtualHubs/vhub-westeurope-prod",
             name: "vhub-westeurope-prod",
             serviceType: "Virtual WAN",
-            serviceLabel: "Virtual Hub (vWAN)",
+            serviceLabelKey: "svc_VHUB",
             skuTier: "Scale Unit: 1 (Any-to-Any)",
             connectionStatus: "Connected",
             publicIpOrEndpoint: "Hub West Europe Mesh",
@@ -536,7 +536,7 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             isOrphan: false,
             activeConnectionsCount: 6,
             throughputMbps: 2000,
-            costBreakdownReason: "Virtual Hub 1 unidad de escalado para sucursales EMEA.",
+            costBreakdownReasonKey: "cbr_VHUB_1SU_EMEA",
             details: {
                 virtualHubScaleUnits: 1,
                 environment: "prod",
@@ -547,7 +547,7 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             id: "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-branch-vpn/providers/Microsoft.Network/virtualNetworkGateways/vgw-hq-branches",
             name: "vgw-hq-branches",
             serviceType: "VPN Gateway",
-            serviceLabel: "VPN Gateway",
+            serviceLabelKey: "svc_VPN_GATEWAY",
             skuTier: "VpnGw3 (RouteBased / HA)",
             connectionStatus: "Connected",
             publicIpOrEndpoint: "20.84.142.66 (Active-Active)",
@@ -561,7 +561,7 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             isOrphan: false,
             activeConnectionsCount: 8,
             throughputMbps: 75,
-            costBreakdownReason: "Costo fijo base VpnGw3 ($0.70/hora). Tráfico promedio < 100 Mbps.",
+            costBreakdownReasonKey: "cbr_VPNGW3_BASE",
             details: {
                 gatewayType: "Vpn",
                 vpnType: "RouteBased",
@@ -575,7 +575,7 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             id: "/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/rg-dev-sandbox/providers/Microsoft.Network/virtualNetworkGateways/vgw-dev-legacy-sandbox",
             name: "vgw-dev-legacy-sandbox",
             serviceType: "VPN Gateway",
-            serviceLabel: "VPN Gateway",
+            serviceLabelKey: "svc_VPN_GATEWAY",
             skuTier: "VpnGw1 (RouteBased)",
             connectionStatus: "NotConnected",
             publicIpOrEndpoint: "52.168.99.12",
@@ -587,10 +587,10 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             location: "eastus2",
             monthlyCostUSD: Number((138.70 * multiplier).toFixed(2)),
             isOrphan: true,
-            orphanReason: "Virtual Network Gateway sin conexiones IPSec vinculadas tras el cierre de sprint.",
+            orphanReasonKey: "orph_VNG_SPRINT_END",
             activeConnectionsCount: 0,
             throughputMbps: 0,
-            costBreakdownReason: "Costo fijo de aprovisionamiento continuo sin uso activo.",
+            costBreakdownReasonKey: "cbr_IDLE_PROVISIONING",
             details: {
                 gatewayType: "Vpn",
                 vpnType: "RouteBased",
@@ -603,7 +603,7 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             id: "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-net-core-prod/providers/Microsoft.Network/virtualNetworkGateways/ergw-core-eastus",
             name: "ergw-core-eastus",
             serviceType: "ExpressRoute",
-            serviceLabel: "ExpressRoute Gateway",
+            serviceLabelKey: "svc_ER_GATEWAY",
             skuTier: "ErGw2AZ (Zone Redundant)",
             connectionStatus: "Connected",
             publicIpOrEndpoint: "20.190.45.101",
@@ -617,7 +617,7 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             isOrphan: false,
             activeConnectionsCount: 2,
             throughputMbps: 2000,
-            costBreakdownReason: "Gateway de terminación ExpressRoute redundante por zonas.",
+            costBreakdownReasonKey: "cbr_ERGW_ZONE_REDUNDANT",
             details: {
                 gatewayType: "ExpressRoute",
                 activeActive: true,
@@ -629,7 +629,7 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             id: "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-branch-vpn/providers/Microsoft.Network/connections/conn-ipsec-hq-primary",
             name: "conn-ipsec-hq-primary",
             serviceType: "Connection",
-            serviceLabel: "Conexión Híbrida / IPSec",
+            serviceLabelKey: "svc_CONN_IPSEC",
             skuTier: "IPsec (BGP / IKEv2)",
             connectionStatus: "Connected",
             publicIpOrEndpoint: "vgw-hq-branches -> lgw-hq-cisco",
@@ -643,7 +643,7 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             isOrphan: false,
             activeConnectionsCount: 1,
             throughputMbps: 45,
-            costBreakdownReason: "Cargo por túnel adicional + egress data transfer.",
+            costBreakdownReasonKey: "cbr_EXTRA_TUNNEL_EGRESS",
             details: {
                 bgpEnabled: true,
                 asn: 65001,
@@ -655,7 +655,7 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             id: "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-branch-vpn/providers/Microsoft.Network/connections/conn-ipsec-hq-backup-tunnel",
             name: "conn-ipsec-hq-backup-tunnel",
             serviceType: "Connection",
-            serviceLabel: "Conexión Híbrida / IPSec",
+            serviceLabelKey: "svc_CONN_IPSEC",
             skuTier: "IPsec (IKEv2)",
             connectionStatus: "NotConnected",
             publicIpOrEndpoint: "vgw-hq-branches -> lgw-hq-backup",
@@ -667,10 +667,10 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             location: "eastus",
             monthlyCostUSD: Number((18.20 * multiplier).toFixed(2)),
             isOrphan: true,
-            orphanReason: "Conexión IPSec en estado NotConnected desde hace >45 días.",
+            orphanReasonKey: "orph_IPSEC_NOTCONNECTED",
             activeConnectionsCount: 0,
             throughputMbps: 0,
-            costBreakdownReason: "Cargo residual por conexión configurada en gateway.",
+            costBreakdownReasonKey: "cbr_RESIDUAL_CONNECTION",
             details: {
                 environment: "prod",
             },
@@ -680,7 +680,7 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             id: "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-branch-vpn/providers/Microsoft.Network/localNetworkGateways/lgw-hq-cisco",
             name: "lgw-hq-cisco",
             serviceType: "Local Network Gateway",
-            serviceLabel: "Local Network Gateway",
+            serviceLabelKey: "svc_LNG",
             skuTier: "Config Metadata",
             connectionStatus: "ConfigOnly",
             publicIpOrEndpoint: "198.51.100.45",
@@ -694,7 +694,7 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             isOrphan: false,
             activeConnectionsCount: 1,
             throughputMbps: 0,
-            costBreakdownReason: "Metadatos de configuración en Azure (Sin costo base de facturación).",
+            costBreakdownReasonKey: "cbr_CONFIG_METADATA",
             details: {
                 localGatewayIp: "198.51.100.45",
                 remoteNetworkAddressSpace: ["192.168.0.0/16", "172.16.0.0/12"],
@@ -707,7 +707,7 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             id: "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-branch-vpn/providers/Microsoft.Network/localNetworkGateways/lgw-hq-backup",
             name: "lgw-hq-backup",
             serviceType: "Local Network Gateway",
-            serviceLabel: "Local Network Gateway",
+            serviceLabelKey: "svc_LNG",
             skuTier: "Config Metadata",
             connectionStatus: "ConfigOnly",
             publicIpOrEndpoint: "203.0.113.88",
@@ -721,7 +721,7 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             isOrphan: false,
             activeConnectionsCount: 1,
             throughputMbps: 0,
-            costBreakdownReason: "Metadatos de configuración en Azure (Sin costo base de facturación).",
+            costBreakdownReasonKey: "cbr_CONFIG_METADATA",
             details: {
                 localGatewayIp: "203.0.113.88",
                 remoteNetworkAddressSpace: ["192.168.50.0/24"],
@@ -733,7 +733,7 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             id: "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-net-core-prod/providers/Microsoft.Network/connections/conn-er-ashburn-core",
             name: "conn-er-ashburn-core",
             serviceType: "Connection",
-            serviceLabel: "Conexión Híbrida / ExpressRoute",
+            serviceLabelKey: "svc_CONN_ER",
             skuTier: "ExpressRoute Gateway Connection",
             connectionStatus: "Connected",
             publicIpOrEndpoint: "ergw-core-eastus -> erc-primary-ashburn",
@@ -747,7 +747,7 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             isOrphan: false,
             activeConnectionsCount: 1,
             throughputMbps: 2000,
-            costBreakdownReason: "Egress data transfer y tránsito de red hacia on-premises.",
+            costBreakdownReasonKey: "cbr_EGRESS_ONPREM",
             details: {
                 environment: "prod",
             },

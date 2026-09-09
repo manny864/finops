@@ -71,14 +71,14 @@ describe("Azure Basic Networking Service", () => {
 
         const orphanNsg = orphans.find((r) => r.serviceType === "Network Security Group");
         expect(orphanNsg).toBeDefined();
-        expect(orphanNsg?.orphanReason).toContain("sin subredes ni interfaces");
+        expect(orphanNsg?.orphanReasonKey).toBe("orph_NSG_UNUSED");
 
         const orphanUdr = orphans.find((r) => r.serviceType === "Route Table");
         expect(orphanUdr).toBeDefined();
-        expect(orphanUdr?.orphanReason).toContain("sin ninguna subred");
+        expect(orphanUdr?.orphanReasonKey).toBe("orph_UDR_NO_SUBNET");
 
         const emptyVnet = orphans.find((r) => r.serviceType === "Virtual Networks");
         expect(emptyVnet).toBeDefined();
-        expect(emptyVnet?.orphanReason).toContain("VNet vacía");
+        expect(emptyVnet?.orphanReasonKey).toBe("orph_VNET_EMPTY");
     });
 });

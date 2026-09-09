@@ -148,9 +148,9 @@ export async function getAzureInternetAccess(tenantId: string): Promise<Internet
             let associatedResourceName = "Unattached";
             let monthlyCostUSD = Number(costMap.get(resId.toLowerCase()) || 0);
             let isOrphan = false;
-            let orphanReason: string | undefined = undefined;
+            let orphanReasonKey: string | undefined = undefined;
             let bytesProcessedGB = 0;
-            let costBreakdownReason = "";
+            let costBreakdownReasonKey = "";
 
             if (rawType === "microsoft.network/publicipaddresses") {
                 serviceType = "Public IP";
@@ -163,7 +163,7 @@ export async function getAzureInternetAccess(tenantId: string): Promise<Internet
                 if (!ipConfigId) {
                     associationStatus = "Unattached";
                     isOrphan = true;
-                    orphanReason = "IP pública estándar sin asociar a ninguna NIC, Load Balancer ni Firewall (100% de costo ocioso).";
+                    orphanReasonKey = "orph_PIP_UNATTACHED";
                     associatedResourceName = "None (Desasociada)";
                     if (monthlyCostUSD === 0) monthlyCostUSD = 3.65; // Fixed unassociated IP standard fee
                     remediations.push({
@@ -268,7 +268,7 @@ export async function getAzureInternetAccess(tenantId: string): Promise<Internet
                 if (monthlyCostUSD === 0) {
                     monthlyCostUSD = 2944.0; // Standard monthly flat fee for DDoS Network Protection Plan
                 }
-                costBreakdownReason = "Tarifa fija plana de DDoS Network Protection ($2,944.00/mes) que cubre hasta 100 IPs públicas.";
+                costBreakdownReasonKey = "cbr_DDOS_PLAN_FLAT";
             }
 
             resources.push({
@@ -288,9 +288,9 @@ export async function getAzureInternetAccess(tenantId: string): Promise<Internet
                 location: loc,
                 monthlyCostUSD: Number(monthlyCostUSD.toFixed(2)),
                 isOrphan,
-                orphanReason,
+                orphanReasonKey,
                 bytesProcessedGB,
-                costBreakdownReason,
+                costBreakdownReasonKey,
                 tags,
                 details: {
                     skuName: skuObj.name,
@@ -459,7 +459,7 @@ export function getMockInternetAccessData(tenantId: string): InternetAccessRespo
             monthlyCostUSD: Number((965.80 * multiplier).toFixed(2)),
             isOrphan: false,
             bytesProcessedGB: 3340,
-            costBreakdownReason: "Tarifa base Azure Firewall Standard ($912.50) + inspección L3-L7 y Threat Intelligence.",
+            costBreakdownReasonKey: "cbr_FW_STANDARD_BASE",
             details: {
                 skuName: "AZFW_VNet",
                 skuTier: "Standard",
@@ -487,7 +487,7 @@ export function getMockInternetAccessData(tenantId: string): InternetAccessRespo
             monthlyCostUSD: Number((918.40 * multiplier).toFixed(2)),
             isOrphan: false,
             bytesProcessedGB: 370,
-            costBreakdownReason: "Firewall Standard sobredimensionado en ambiente de pruebas con bajo tráfico (<400 GB/mes).",
+            costBreakdownReasonKey: "cbr_FW_OVERSIZED_TEST",
             details: {
                 skuName: "AZFW_VNet",
                 skuTier: "Standard",
@@ -515,7 +515,7 @@ export function getMockInternetAccessData(tenantId: string): InternetAccessRespo
             monthlyCostUSD: Number((2944.00 * multiplier).toFixed(2)),
             isOrphan: false,
             bytesProcessedGB: 18400,
-            costBreakdownReason: "Tarifa fija plana de $2,944 USD/mes para solo 6 direcciones IP públicas activas.",
+            costBreakdownReasonKey: "cbr_DDOS_FLAT_FEW_IPS",
             details: {
                 skuName: "NetworkProtection",
                 virtualNetworksProtectedCount: 4,
@@ -542,7 +542,7 @@ export function getMockInternetAccessData(tenantId: string): InternetAccessRespo
             monthlyCostUSD: Number((84.50 * multiplier).toFixed(2)),
             isOrphan: false,
             bytesProcessedGB: 1148,
-            costBreakdownReason: "Cuota fija de NAT Gateway ($32.85) + 1.15 TB de procesamiento de tráfico de salida.",
+            costBreakdownReasonKey: "cbr_NATGW_QUOTA_EGRESS",
             details: {
                 skuName: "Standard",
                 subnetsCount: 2,
@@ -569,9 +569,9 @@ export function getMockInternetAccessData(tenantId: string): InternetAccessRespo
             location: "eastus2",
             monthlyCostUSD: Number((32.85 * multiplier).toFixed(2)),
             isOrphan: true,
-            orphanReason: "NAT Gateway en Dev sin subredes asociadas facturando tarifa horaria fija ($32.85/mes).",
+            orphanReasonKey: "orph_NATGW_NO_SUBNETS",
             bytesProcessedGB: 0,
-            costBreakdownReason: "Tarifa fija por hora de NAT Gateway sin tráfico ni subredes vinculadas.",
+            costBreakdownReasonKey: "cbr_NATGW_IDLE",
             details: {
                 skuName: "Standard",
                 subnetsCount: 0,
@@ -598,9 +598,9 @@ export function getMockInternetAccessData(tenantId: string): InternetAccessRespo
             location: "eastus2",
             monthlyCostUSD: Number((3.65 * multiplier).toFixed(2)),
             isOrphan: true,
-            orphanReason: "Dirección IP pública estándar desvinculada de toda NIC o Balanceador.",
+            orphanReasonKey: "orph_PIP_UNLINKED",
             bytesProcessedGB: 0,
-            costBreakdownReason: "Cobro fijo mensual por reserva de IPv4 estática desasociada.",
+            costBreakdownReasonKey: "cbr_PIP_RESERVED_IDLE",
             details: {
                 skuName: "Standard",
                 ipAddress: "20.84.212.99",
@@ -626,7 +626,7 @@ export function getMockInternetAccessData(tenantId: string): InternetAccessRespo
             monthlyCostUSD: Number((3.65 * multiplier).toFixed(2)),
             isOrphan: false,
             bytesProcessedGB: 4850,
-            costBreakdownReason: "IPv4 pública Standard asociada a Application Gateway WAF v2.",
+            costBreakdownReasonKey: "cbr_PIP_APPGW_WAF",
             details: {
                 skuName: "Standard",
                 ipAddress: "20.190.14.88",

@@ -323,7 +323,7 @@ export default function LoadBalancingFinopsDashboard() {
                     </div>
                     <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
                         <span>{t("kpiOrphanLbs")}</span>
-                        <span className="font-semibold text-amber-600">{kpis?.orphanedCount || 0} recursos</span>
+                        <span className="font-semibold text-amber-600">{t("resourcesCount", { n: kpis?.orphanedCount || 0 })}</span>
                     </div>
                 </div>
 
@@ -345,8 +345,8 @@ export default function LoadBalancingFinopsDashboard() {
                         </div>
                     </div>
                     <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
-                        <span>Ingress & WAF Processing</span>
-                        <span className="font-semibold text-slate-700 dark:text-slate-300">Global Edge</span>
+                        <span>{t("ingressWafProcessing")}</span>
+                        <span className="font-semibold text-slate-700 dark:text-slate-300">{t("globalEdge")}</span>
                     </div>
                 </div>
             </div>
@@ -428,7 +428,7 @@ export default function LoadBalancingFinopsDashboard() {
                                         {item.serviceLabel}
                                     </span>
                                     <span className="text-[11px] text-slate-400">
-                                        ({item.count} {item.count === 1 ? "recurso" : "recursos"})
+                                        {t("resourcesCountParen", { n: item.count })}
                                     </span>
                                 </div>
                                 <div className="text-right">
@@ -857,7 +857,7 @@ export default function LoadBalancingFinopsDashboard() {
                                 </span>
                             </div>
                             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60">
-                                <span className="text-slate-400 block mb-0.5">Endpoint / IP / FQDN:</span>
+                                <span className="text-slate-400 block mb-0.5">{t("labelEndpointFqdn")}</span>
                                 <span className="font-mono text-[11px] font-semibold text-slate-800 dark:text-slate-200">{selectedResource.publicIpOrFqdn}</span>
                             </div>
                             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60">
@@ -894,10 +894,10 @@ export default function LoadBalancingFinopsDashboard() {
                                         <span className="text-slate-400">{t("detailRequests")}</span>
                                         <span className="font-semibold">{(selectedResource.requestCountMonth / 1000000).toFixed(1)}M requests</span>
                                     </div>
-                                    {selectedResource.costBreakdownReason && (
+                                    {selectedResource.costBreakdownReasonKey && (
                                         <div className="pt-2 border-t border-slate-200 dark:border-slate-700 text-slate-500">
                                             <span className="font-semibold">{t("detailFinops")} </span>
-                                            {selectedResource.costBreakdownReason}
+                                            {t(selectedResource.costBreakdownReasonKey, selectedResource.costBreakdownParams ?? {})}
                                         </div>
                                     )}
                                 </div>

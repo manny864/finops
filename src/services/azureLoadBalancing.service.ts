@@ -144,11 +144,11 @@ export async function getAzureLoadBalancing(tenantId: string): Promise<LoadBalan
             let publicIpOrFqdn = "20.42.18.90";
             let monthlyCostUSD = Number(costMap.get(resId.toLowerCase()) || 0);
             let isOrphan = false;
-            let orphanReason: string | undefined = undefined;
+            let orphanReasonKey: string | undefined = undefined;
             let backendPoolsCount = 0;
             let rulesCount = 0;
             let requestCountMonth = 0;
-            let costBreakdownReason = "";
+            let costBreakdownReasonKey = "";
 
             if (rawType === "microsoft.network/applicationgateways") {
                 serviceType = "Application Gateway";
@@ -243,7 +243,7 @@ export async function getAzureLoadBalancing(tenantId: string): Promise<LoadBalan
                 if (!hasBackends) {
                     isOrphan = true;
                     operationalState = "Orphan";
-                    orphanReason = "Standard Load Balancer sin pools de backend ni máquinas virtuales asignadas (100% de desperdicio fijo).";
+                    orphanReasonKey = "orph_SLB_NO_BACKEND";
                     remediations.push({
                         id: `rem-orphan-lb-${resName}`,
                         resourceId: resId,
@@ -272,7 +272,7 @@ export async function getAzureLoadBalancing(tenantId: string): Promise<LoadBalan
                 if (monthlyCostUSD === 0) {
                     monthlyCostUSD = Number((0.54 * 5.2 + (props.endpoints?.length || 2) * 0.75).toFixed(2));
                 }
-                costBreakdownReason = "Resolución DNS global calibrada ($0.54/millón de consultas) + Health Probes.";
+                costBreakdownReasonKey = "cbr_TM_DNS_PROBES";
             }
 
             resources.push({
@@ -294,11 +294,11 @@ export async function getAzureLoadBalancing(tenantId: string): Promise<LoadBalan
                 location: loc,
                 monthlyCostUSD: Number(monthlyCostUSD.toFixed(2)),
                 isOrphan,
-                orphanReason,
+                orphanReasonKey,
                 backendPoolsCount,
                 rulesCount,
                 requestCountMonth,
-                costBreakdownReason,
+                costBreakdownReasonKey,
                 tags,
                 details: {
                     skuName: skuObj.name,
@@ -444,7 +444,7 @@ export function getMockLoadBalancingData(tenantId: string): LoadBalancingRespons
             backendPoolsCount: 6,
             rulesCount: 14,
             requestCountMonth: 48500000,
-            costBreakdownReason: "Tarifa fija gateway-hour ($189.80) + 3-8 Capacity Units activas + reglas OWASP 3.2.",
+            costBreakdownReasonKey: "cbr_APPGW_HOUR_CU_OWASP",
             details: {
                 minCapacity: 3,
                 maxCapacity: 20,
@@ -478,7 +478,7 @@ export function getMockLoadBalancingData(tenantId: string): LoadBalancingRespons
             backendPoolsCount: 3,
             rulesCount: 6,
             requestCountMonth: 1200000,
-            costBreakdownReason: "Capacidad mínima sobredimensionada (minCapacity=4) para carga de QA reducida.",
+            costBreakdownReasonKey: "cbr_APPGW_OVERSIZED_QA",
             details: {
                 minCapacity: 4,
                 maxCapacity: 10,
@@ -509,7 +509,7 @@ export function getMockLoadBalancingData(tenantId: string): LoadBalancingRespons
             backendPoolsCount: 4,
             rulesCount: 8,
             requestCountMonth: 68000000,
-            costBreakdownReason: "Tarifa base Premium ($330.00/mes) + 22.4 TB Egress CDN Edge + WAF bot protection.",
+            costBreakdownReasonKey: "cbr_AFD_PREMIUM_EGRESS",
             details: {
                 skuName: "Premium_AzureFrontDoor",
                 wafEnabled: true,
@@ -539,7 +539,7 @@ export function getMockLoadBalancingData(tenantId: string): LoadBalancingRespons
             backendPoolsCount: 2,
             rulesCount: 3,
             requestCountMonth: 850000,
-            costBreakdownReason: "Perfil Premium innecesario en ambiente Dev (Sin tráfico ni bots que justifiquen $330/mes).",
+            costBreakdownReasonKey: "cbr_AFD_PREMIUM_DEV",
             details: {
                 skuName: "Premium_AzureFrontDoor",
                 wafEnabled: true,
@@ -568,7 +568,7 @@ export function getMockLoadBalancingData(tenantId: string): LoadBalancingRespons
             backendPoolsCount: 2,
             rulesCount: 8,
             requestCountMonth: 32000000,
-            costBreakdownReason: "Reglas de balanceo de servicios Kubernetes + procesamiento de datos interno.",
+            costBreakdownReasonKey: "cbr_SLB_K8S_RULES",
             details: {
                 skuName: "Standard",
                 backendPoolsCount: 2,
@@ -594,11 +594,11 @@ export function getMockLoadBalancingData(tenantId: string): LoadBalancingRespons
             location: "eastus2",
             monthlyCostUSD: Number((22.50 * multiplier).toFixed(2)),
             isOrphan: true,
-            orphanReason: "Standard Load Balancer sin instancias en backendAddressPools (100% cuota fija ociosa).",
+            orphanReasonKey: "orph_SLB_EMPTY_POOL",
             backendPoolsCount: 0,
             rulesCount: 2,
             requestCountMonth: 0,
-            costBreakdownReason: "Facturación de reglas fijas e IP pública Standard sin tráfico ni VMs.",
+            costBreakdownReasonKey: "cbr_SLB_IDLE_RULES",
             details: {
                 skuName: "Standard",
                 backendPoolsCount: 0,
@@ -627,7 +627,7 @@ export function getMockLoadBalancingData(tenantId: string): LoadBalancingRespons
             backendPoolsCount: 2,
             rulesCount: 2,
             requestCountMonth: 8200000,
-            costBreakdownReason: "Resolución DNS global calibrada ($0.54/millón de consultas) + Health Probes periódicos.",
+            costBreakdownReasonKey: "cbr_TM_DNS_PROBES_PERIODIC",
             details: {
                 trafficRoutingMethod: "Priority",
                 endpointsCount: 2,
@@ -655,7 +655,7 @@ export function getMockLoadBalancingData(tenantId: string): LoadBalancingRespons
             backendPoolsCount: 2,
             rulesCount: 4,
             requestCountMonth: 18400000,
-            costBreakdownReason: "Balanceo de carga de capa 4 para cluster de aplicaciones web en West Europe.",
+            costBreakdownReasonKey: "cbr_SLB_L4_WEBCLUSTER",
             details: {
                 skuName: "Standard",
                 backendPoolsCount: 2,

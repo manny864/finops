@@ -90,7 +90,7 @@ export function getMockNetworkAnalyticsResponse(tierParam?: string | number): Ne
             location: "westeurope",
             monthlyCostUSD: Number((3.65 * (multiplier > 1 ? multiplier * 0.25 : 1)).toFixed(2)),
             isOrphan: true,
-            orphanReason: "orphan_PIP_NULL_IPCONFIG",
+            orphanReasonKey: "orphan_PIP_NULL_IPCONFIG",
             details: {
                 sku: "Standard",
                 provisioningState: "Succeeded",
@@ -153,7 +153,7 @@ export function getMockNetworkAnalyticsResponse(tierParam?: string | number): Ne
                 location: "eastus2",
                 monthlyCostUSD: 3.65,
                 isOrphan: true,
-                orphanReason: "orphan_PIP_DECOMMISSIONED_VM",
+                orphanReasonKey: "orphan_PIP_DECOMMISSIONED_VM",
                 details: {
                     sku: "Standard",
                     provisioningState: "Succeeded",

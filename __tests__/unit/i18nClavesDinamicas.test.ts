@@ -1694,6 +1694,139 @@ describe("i18n · capa 5: los tableros traducidos no vuelven a tener castellano 
 });
 
 /**
+ * Capa 5b — en los tableros de red, NINGUN texto JSX literal.
+ *
+ * La capa 5 juzga si un literal "parece castellano". Los seis tableros de red
+ * estaban en TABLEROS_LIMPIOS, en verde, y aun asi mostraban "familias",
+ * "Circuitos ER", "GWs ociosos", "Defensa Perimetral" y "Servicio:". Ninguno
+ * tiene acento, ni palabra funcional, ni sufijo castellano: para el detector
+ * eran indistinguibles de un identificador. Verde no probaba nada.
+ *
+ * Por eso aca la pregunta cambia. No es "¿esto parece castellano?" —una
+ * heuristica que siempre va a tener un borde— sino "¿esto es texto?". Todo
+ * literal visible en el JSX es una fuga salvo que este en la lista blanca, que
+ * son marcas y siglas que no se traducen en ningun idioma. Invertir la carga de
+ * la prueba saca la heuristica del camino critico.
+ *
+ * Arranca por los seis tableros donde el agujero se demostro. Sumar un tablero
+ * a esta lista es mas fuerte que sumarlo a TABLEROS_LIMPIOS.
+ */
+const TABLEROS_SIN_LITERALES = [
+    "src/components/dashboard/NetworkAnalyticsDashboard.tsx",
+    "src/components/dashboard/BasicNetworkingFinopsDashboard.tsx",
+    "src/components/dashboard/HybridConnectivityFinopsDashboard.tsx",
+    "src/components/dashboard/LoadBalancingFinopsDashboard.tsx",
+    "src/components/dashboard/InternetAccessFinopsDashboard.tsx",
+    "src/components/dashboard/DdosProtectionDashboard.tsx",
+];
+
+/*
+ * Marcas, siglas y unidades: iguales en es, en y pt-BR, asi que dejarlas
+ * literales no es una fuga. La lista es de terminos sueltos y se compara contra
+ * el texto entero una vez sacados numeros y simbolos; si aparece una palabra de
+ * mas, el literal se marca igual. Esa es la idea: la excepcion tiene que ser
+ * cara de ampliar.
+ */
+const TERMINOS_TECNICOS = new Set(
+    [
+        "AFD", "AKS", "AMD", "APIM", "ARM", "ASR", "AppGW", "AppGWs", "Azure", "BGP", "ASN",
+        "CDN", "CLI", "CU", "DDoS", "DNS", "ER", "FQDN", "FW", "GB", "GiB", "GW", "GWs",
+        "HNS", "IP", "IPs", "IPSec", "IPv4", "IPv6", "Intel", "K8s", "KQL", "L4", "L7",
+        "LB", "LBs", "MTD", "Mbps", "NAT", "NIC", "NICs", "NSG", "PE", "PEs", "PaaS",
+        "PowerShell", "Premium", "SKU", "SLA", "SSD", "Standard", "TB", "TM", "Tier",
+        "UDR", "USD", "VM", "VMs", "VNet", "VNets", "WAF", "vWAN", "Endpoint", "Peering",
+        "Peerings", "BW",
+        "Egress", "Ingress", "Requests", "Basic", "Hub", "Gateway", "Firewall", "Front",
+        "M", "K", "requests",
+        "Door", "Load", "Balancer", "Traffic", "Manager", "Network", "Protection", "Total",
+    ].map((s) => s.toLowerCase())
+);
+
+const esTecnico = (texto: string) => {
+    // numeros, moneda y separadores no son texto traducible por si solos
+    const limpio = texto.replace(/[\d.,:%$/()·+&|#*—–-]/g, " ").trim();
+    if (!limpio) return true;
+    return limpio.split(/\s+/).every((p) => TERMINOS_TECNICOS.has(p.toLowerCase()));
+};
+
+/** Devuelve los literales de texto visibles en el JSX de un archivo. */
+export const literalesVisibles = (fuente: string): { linea: number; texto: string }[] => {
+    const sinComentarios = fuente
+        .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, "\n")
+        .replace(/\/\*[\s\S]*?\*\//g, "\n")
+        .replace(/^\s*\/\/.*$/gm, "")
+        .replace(/^import[\s\S]*?from\s+"[^"]+";/gm, "");
+
+    const salida: { linea: number; texto: string }[] = [];
+    sinComentarios.split("\n").forEach((cruda, i) => {
+        // los atributos se sacan antes: className y aria-* no son texto visible
+        const linea = cruda
+            .replace(/\s[\w.]+=\{(?:[^{}]|\{[^{}]*\})*\}/g, " ")
+            .replace(/\s[\w.]+="[^"]*"/g, " ")
+            .replace(/\s[\w.]+='[^']*'/g, " ");
+        // una linea con `=`, `;` o una palabra clave de control es codigo, no
+        // marcado. Sin esto entra `if (error)` por el patron `texto{`.
+        if (/[=;`_]/.test(linea)) return;
+        if (/\b(const|let|return|function|export|if|else|switch|case|for|while|typeof|new)\b/.test(linea)) return;
+        const candidatos = [
+            ...linea.matchAll(/>([^<>{}]+)</g),
+            ...linea.matchAll(/\}([^<>{}]+)</g),
+            ...linea.matchAll(/>([^<>{}]+)\{/g),
+            ...linea.matchAll(/\}([^<>{}]+)\{/g),
+            ...linea.matchAll(/\}([^<>{}]+)$/g),
+        ];
+        for (const m of candidatos) {
+            const texto = m[1].trim();
+            if (/["?]/.test(texto)) continue; // pedazo de una expresion multilinea
+            if (texto && /[A-Za-zÁÉÍÓÚÑáéíóúñ]/.test(texto)) salida.push({ linea: i + 1, texto });
+        }
+    });
+    return salida;
+};
+
+describe("i18n · capa 5b: los tableros de red no tienen ningún literal visible", () => {
+    it.each(TABLEROS_SIN_LITERALES)("%s pasa todo su texto por t()", (relativo) => {
+        const fuente = readFileSync(join(process.cwd(), relativo), "utf-8");
+        const fugas = literalesVisibles(fuente)
+            .filter(({ texto }) => !esTecnico(texto))
+            .map(({ linea, texto }) => `${relativo}:${linea}  ${texto}`);
+
+        expect(
+            [...new Set(fugas)],
+            `Texto literal en el JSX de ${relativo}:\n  ${[...new Set(fugas)].join("\n  ")}\n` +
+                "Pasalo por t(). Si es una marca o una sigla que no se traduce, sumala a TERMINOS_TECNICOS."
+        ).toEqual([]);
+    });
+
+    /*
+     * El detector nuevo tambien puede cegarse. Se fija con las fugas reales que
+     * la capa 5 dejo pasar: si una excepcion futura las vuelve invisibles, esto
+     * avisa antes de que el usuario las encuentre en pantalla.
+     */
+    it("ve las fugas que la capa 5 dejó pasar", () => {
+        const ciegas = [
+            "{n} familias",
+            "{kpis?.totalCircuitsCount || 0} Circuitos ER",
+            "{kpis?.orphanedGatewaysCount || 0} GWs ociosos",
+            "Defensa Perimetral",
+            "Servicio:",
+            "{res.subnetsCount} subredes",
+        ];
+        // la capa 5 es ciega a estas: por eso existe la 5b
+        expect(ciegas.filter((c) => pareceCastellano(sinInterpolacion(c)))).toEqual([]);
+
+        const vistas = ciegas.filter(
+            (c) => literalesVisibles(`<span>${c}</span>`).some(({ texto }) => !esTecnico(texto))
+        );
+        expect(vistas, "la capa 5b tiene que ver todas").toEqual(ciegas);
+
+        // y no puede marcar como fuga lo que es marca o sigla
+        const tecnico = ["DDoS", "NAT GWs", "SKU / Tier:", "IPs ·", "M requests", "Azure Firewall"];
+        expect(tecnico.filter((s) => !esTecnico(s)), "marca términos técnicos").toEqual([]);
+    });
+});
+
+/**
  * Capa 6 — toda clave literal `t("x")` existe en los tres catálogos.
  *
  * Esta capa nace de un hallazgo concreto. Había 31 llamadas de la forma
