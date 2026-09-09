@@ -6451,7 +6451,19 @@
     "goal": "Objetivo",
     "skuCapacityLabel": "SKU / Capacidade:",
     "noBaseCost": "$0,00 (Sem Custo Base)",
-    "estimatedImpactLabel": "Impacto Estimado:"
+    "estimatedImpactLabel": "Impacto Estimado:",
+    "rem_ORPHAN_GATEWAY_title": "Excluir {service} Órfão ({name})",
+    "rem_ORPHAN_GATEWAY_desc": "O gateway {name} não tem conexões ativas vinculadas e fatura de $140 a $1.750 USD/mês de custo fixo base.",
+    "rem_ORPHAN_GATEWAY_impact": "Economia mensal imediata de ~${savings} USD/mês ao desativar o gateway ocioso.",
+    "rem_GATEWAY_RIGHTSIZING_title": "Rightsizing do VPN Gateway ({name}) para VpnGw2",
+    "rem_GATEWAY_RIGHTSIZING_desc": "O gateway {name} usa o SKU {sku}. Seu throughput histórico é < 100 Mbps, portanto um SKU VpnGw2 oferece a mesma resiliência com 55% de economia.",
+    "rem_GATEWAY_RIGHTSIZING_impact": "Economia estimada de ~${savings} USD/mês mantendo a capacidade de 1,25 Gbps.",
+    "rem_DISCONNECTED_TUNNEL_title": "Limpar Conexão IPSec Inativa ({name})",
+    "rem_DISCONNECTED_TUNNEL_desc": "A conexão {name} reporta status \"NotConnected\" contínuo. Valide com o endpoint on-premises ou remova a configuração se não for mais necessária.",
+    "rem_DISCONNECTED_TUNNEL_impact": "Limpeza higiênica de túneis inativos e remoção de cobranças de conexão residual.",
+    "rem_EXPRESSROUTE_ARBITRAGE_title": "Arbitragem de Tarifa ExpressRoute ({name}) para Metered Data",
+    "rem_EXPRESSROUTE_ARBITRAGE_desc": "O circuito {name} tem plano UnlimitedData contratado ($1.800+/mês). O tráfego médio é < 15 TB/mês, portanto mudar para MeteredData ($450/mês + egress) reduziria o custo fixo mensal.",
+    "rem_EXPRESSROUTE_ARBITRAGE_impact": "Economia direta de ~${savings} USD/mês na tarifa de porta."
   },
   "IntegrationServicesFinops": {
     "allOption": "Todos",
@@ -6915,7 +6927,19 @@
     "unassociatedCount": "{n} desassociadas",
     "amountPerMonth": "{amount}/mês",
     "goal": "Objetivo",
-    "estimatedImpactLabel": "Impacto Estimado:"
+    "estimatedImpactLabel": "Impacto Estimado:",
+    "rem_ORPHAN_IP_title": "Excluir IP Público Órfão ({name})",
+    "rem_ORPHAN_IP_desc": "O endereço IP público \"{ip}\" não está vinculado a nenhum recurso ativo e gera cobranças contínuas por reserva de endereço.",
+    "rem_ORPHAN_IP_impact": "Economia mensal direta de ~${savings} USD/mês ao excluir o IP desassociado.",
+    "rem_NAT_RIGHTSIZING_title": "Racionalizar o NAT Gateway no Ambiente \"{env}\" ({name})",
+    "rem_NAT_RIGHTSIZING_desc": "O NAT Gateway em {env} não tem sub-redes vinculadas ou processa <10 GB/mês. Substituí-lo por saída direta ou associá-lo a sub-redes ativas evita ~$32,85/mês de taxa fixa ociosa.",
+    "rem_NAT_RIGHTSIZING_impact": "Economia mensal de ~${savings} USD/mês na taxa fixa do NAT Gateway.",
+    "rem_FIREWALL_RIGHTSIZING_title": "Rebaixar o Azure Firewall para o SKU Basic em \"{env}\" ({name})",
+    "rem_FIREWALL_RIGHTSIZING_desc": "Firewall \"{tier}\" no ambiente não produtivo \"{env}\". Migrar para o Azure Firewall Basic ($288,35/mês) mantém a filtragem L3-L7 e o Threat Intelligence com economia mensal de ~${savings} USD.",
+    "rem_FIREWALL_RIGHTSIZING_impact": "Economia mensal de ~${savings} USD/mês na taxa base do Firewall.",
+    "rem_DDOS_ARBITRAGE_title": "Arbitragem DDoS: Migrar Network Protection para DDoS IP Protection",
+    "rem_DDOS_ARBITRAGE_desc": "O tenant tem {ips} IPs públicos protegidos por um plano Network Protection de $2.944 USD/mês. Migrar para \"DDoS IP Protection\" ($199 USD/IP/mês) mantém a mesma mitigação L3-L7 com economia direta de ~${savings} USD/mês.",
+    "rem_DDOS_ARBITRAGE_impact": "Economia mensal direta de ~${savings} USD/mês ao reduzir a taxa fixa de DDoS."
   },
   "Invoicing": {
     "pageTitle": "Relatório de Faturamento",
@@ -7845,7 +7869,19 @@
     "skuCapacityLabel": "SKU / Capacidade:",
     "wafEnabled": "Ativado (WAF)",
     "wafDisabled": "Desativado",
-    "estimatedImpactLabel": "Impacto Estimado:"
+    "estimatedImpactLabel": "Impacto Estimado:",
+    "rem_ORPHAN_LB_title": "Excluir Load Balancer Órfão ({name})",
+    "rem_ORPHAN_LB_desc": "O Load Balancer {name} não tem VMs nem NICs associadas ao backend pool e continua faturando regras e IP público reservado.",
+    "rem_ORPHAN_LB_impact": "Economia mensal de ~${savings} USD/mês ao excluir o recurso ocioso.",
+    "rem_FRONTDOOR_SKU_DOWNGRADE_title": "Arbitragem Front Door Premium para Standard ({name})",
+    "rem_FRONTDOOR_SKU_DOWNGRADE_desc": "Perfil do Front Door Premium implantado no ambiente não produtivo \"{env}\". Migrar para Standard_AzureFrontDoor mantém CDN global e SSL personalizado com economia de $295 USD/mês.",
+    "rem_FRONTDOOR_SKU_DOWNGRADE_impact": "Economia mensal direta de ~${savings} USD/mês na taxa base do CDN Edge.",
+    "rem_APP_GATEWAY_AUTOSCALE_title": "Reduzir o minCapacity do Autoscale em {name}",
+    "rem_APP_GATEWAY_AUTOSCALE_desc": "O Application Gateway no ambiente \"{env}\" tem minCapacity={minCap}. Reduzi-lo para minCapacity=1 mantém a alta disponibilidade durante os testes e reduz as Capacity Units fixas.",
+    "rem_APP_GATEWAY_AUTOSCALE_impact": "Economia estimada de ~${savings} USD/mês em Capacity Units inativas.",
+    "rem_IDLE_INGRESS_title": "Auditar Regras de Roteamento Inativas no WAF ({name})",
+    "rem_IDLE_INGRESS_desc": "Foram detectadas regras de roteamento HTTP associadas a microsserviços obsoletos. Removê-las reduz o consumo de Capacity Units de processamento.",
+    "rem_IDLE_INGRESS_impact": "Otimização de desempenho e redução das métricas de processamento no WAF."
   },
   "LogAnalytics": {
     "title": "Log Analytics",

@@ -90,18 +90,26 @@ export interface HybridConnectivitySummary {
     breakdown: HybridNetworkServiceBreakdown[];
 }
 
-export type HybridRemediationCategory =
-    | "ORPHAN_GATEWAY"
-    | "EXPRESSROUTE_ARBITRAGE"
-    | "GATEWAY_RIGHTSIZING"
-    | "DISCONNECTED_TUNNEL";
+/**
+ * Lista en tiempo de ejecucion, no solo un tipo: el texto de cada recomendacion
+ * se resuelve con `rem_<category>_title` / `_desc` / `_impact`, asi que el test
+ * de claves necesita poder recorrer las categorias. El tipo se deriva de la
+ * lista para que no puedan separarse.
+ */
+export const HYBRID_REMEDIATION_CATEGORIES = [
+  "ORPHAN_GATEWAY",
+  "EXPRESSROUTE_ARBITRAGE",
+  "GATEWAY_RIGHTSIZING",
+  "DISCONNECTED_TUNNEL",
+] as const;
+
+export type HybridRemediationCategory = (typeof HYBRID_REMEDIATION_CATEGORIES)[number];
 
 export interface HybridRemediationAction {
     id: string;
     resourceId: string;
     resourceName: string;
-    title: string;
-    description: string;
+    params?: Record<string, string | number>;
     category: HybridRemediationCategory;
     estimatedSavingsUSD: number;
     confidence: "HIGH" | "MEDIUM" | "LOW";
@@ -109,7 +117,6 @@ export interface HybridRemediationAction {
     commandPayload: {
         cli: string;
         powershell: string;
-        impactSummary: string;
     };
 }
 

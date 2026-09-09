@@ -170,16 +170,14 @@ export async function getAzureInternetAccess(tenantId: string): Promise<Internet
                         id: `rem-orphan-pip-${resName}`,
                         resourceId: resId,
                         resourceName: resName,
-                        title: `Eliminar IP Pública Huérfana (${resName})`,
-                        description: `La dirección IP pública '${ipAddressOrPrefix}' no está vinculada a ningún recurso activo y genera cargos continuos por reserva de dirección.`,
                         category: "ORPHAN_IP",
+                        params: { name: resName, ip: ipAddressOrPrefix, savings: monthlyCostUSD.toFixed(2) },
                         estimatedSavingsUSD: monthlyCostUSD,
                         confidence: "HIGH",
                         actionType: "DELETE",
                         commandPayload: {
                             cli: `az network public-ip delete --name "${resName}" --resource-group "${rg}" --subscription "${subId}"`,
                             powershell: `Remove-AzPublicIpAddress -Name "${resName}" -ResourceGroupName "${rg}" -Force`,
-                            impactSummary: `Ahorro mensual directo de ~$${monthlyCostUSD.toFixed(2)} USD/mes eliminando la IP desasociada.`,
                         },
                     });
                 } else {
@@ -208,16 +206,14 @@ export async function getAzureInternetAccess(tenantId: string): Promise<Internet
                         id: `rem-nat-rightsize-${resName}`,
                         resourceId: resId,
                         resourceName: resName,
-                        title: `Racionalizar NAT Gateway en Ambiente '${env}' (${resName})`,
-                        description: `El NAT Gateway en ${env} no tiene subredes vinculadas o procesa <10 GB/mes. Reemplazarlo por salida directa o asociarlo a subredes activas evitará ~$32.85/mes de tarifa fija ociosa.`,
                         category: "NAT_RIGHTSIZING",
+                        params: { name: resName, env, savings: monthlyCostUSD.toFixed(2) },
                         estimatedSavingsUSD: Number(monthlyCostUSD.toFixed(2)),
                         confidence: "HIGH",
                         actionType: "DELETE",
                         commandPayload: {
                             cli: `az network nat gateway delete --name "${resName}" --resource-group "${rg}"`,
                             powershell: `Remove-AzNatGateway -Name "${resName}" -ResourceGroupName "${rg}" -Force`,
-                            impactSummary: `Ahorro mensual de ~$${monthlyCostUSD.toFixed(2)} USD/mes en cuota fija de NAT Gateway.`,
                         },
                     });
                 }
@@ -244,16 +240,14 @@ export async function getAzureInternetAccess(tenantId: string): Promise<Internet
                         id: `rem-fw-rightsize-${resName}`,
                         resourceId: resId,
                         resourceName: resName,
-                        title: `Degradar Azure Firewall a SKU Basic en '${env}' (${resName})`,
-                        description: `Firewall '${fwTier}' en entorno no productivo '${env}'. Migrar a Azure Firewall Basic ($288.35/mes) mantiene filtrado L3-L7 y Threat Intelligence con un ahorro mensual de ~$${savings.toFixed(2)} USD.`,
                         category: "FIREWALL_RIGHTSIZING",
+                        params: { name: resName, env, tier: fwTier, savings: savings.toFixed(2) },
                         estimatedSavingsUSD: savings,
                         confidence: "HIGH",
                         actionType: "RIGHTSIZE",
                         commandPayload: {
                             cli: `az network firewall update --name "${resName}" --resource-group "${rg}" --set sku.tier=Basic`,
                             powershell: `Set-AzFirewall -AzureFirewall (Get-AzFirewall -Name "${resName}" -ResourceGroupName "${rg}" | Set-AzFirewallSku -Tier Basic)`,
-                            impactSummary: `Ahorro mensual de ~$${savings.toFixed(2)} USD/mes en cuota base del Firewall.`,
                         },
                     });
                 }
@@ -321,16 +315,14 @@ export async function getAzureInternetAccess(tenantId: string): Promise<Internet
                     id: `rem-ddos-arbitrage-${ddosNetworkPlanName}`,
                     resourceId: ddosNetworkPlanId,
                     resourceName: ddosNetworkPlanName,
-                    title: `Arbitraje DDoS: Migrar Network Protection a DDoS IP Protection`,
-                    description: `El tenant cuenta con ${totalPublicIpsCount} IPs públicas protegidas con un plan Network Protection de $2,944 USD/mes. Migrar a 'DDoS IP Protection' ($199 USD/IP/mes) mantiene la misma mitigación L3-L7 con un ahorro directo de ~$${netSavings.toFixed(2)} USD/mes.`,
                     category: "DDOS_ARBITRAGE",
+                    params: { ips: totalPublicIpsCount, savings: netSavings.toFixed(2) },
                     estimatedSavingsUSD: Number(netSavings.toFixed(2)),
                     confidence: "HIGH",
                     actionType: "RECONFIGURE",
                     commandPayload: {
                         cli: `az network ddos-protection delete --name "${ddosNetworkPlanName}" --resource-group "${ddosNetworkPlanRg}" --subscription "${ddosNetworkPlanSub}"`,
                         powershell: `Remove-AzDdosProtectionPlan -Name "${ddosNetworkPlanName}" -ResourceGroupName "${ddosNetworkPlanRg}" -Force`,
-                        impactSummary: `Ahorro mensual directo de ~$${netSavings.toFixed(2)} USD/mes reduciendo la cuota fija de DDoS.`,
                     },
                 });
             }
@@ -691,8 +683,7 @@ export function getMockInternetAccessData(tenantId: string): InternetAccessRespo
             id: "rem-orphan-pip-dev",
             resourceId: "/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/rg-dev-sandbox/providers/Microsoft.Network/publicIPAddresses/pip-dev-unattached-legacy",
             resourceName: "pip-dev-unattached-legacy",
-            title: "Eliminar IP Pública Huérfana en Sandbox",
-            description: "La dirección IP pública estática 20.84.212.99 no está vinculada a ninguna máquina virtual ni balanceador y continúa devengando cobros por reserva horaria.",
+            params: { name: "pip-dev-unattached-legacy", ip: "20.84.212.99", savings: (3.65 * multiplier).toFixed(2) },
             category: "ORPHAN_IP",
             estimatedSavingsUSD: Number((3.65 * multiplier).toFixed(2)),
             confidence: "HIGH",
@@ -700,15 +691,13 @@ export function getMockInternetAccessData(tenantId: string): InternetAccessRespo
             commandPayload: {
                 cli: `az network public-ip delete --name "pip-dev-unattached-legacy" --resource-group "rg-dev-sandbox" --subscription "00000000-0000-0000-0000-000000000003"`,
                 powershell: `Remove-AzPublicIpAddress -Name "pip-dev-unattached-legacy" -ResourceGroupName "rg-dev-sandbox" -Force`,
-                impactSummary: `Ahorro mensual del 100% de la tarifa fija de reserva de IP (~$${(3.65 * multiplier).toFixed(2)} USD/mes).`,
             },
         },
         {
             id: "rem-ddos-arbitrage-corp",
             resourceId: "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-hub-security-prod/providers/Microsoft.Network/ddosProtectionPlans/ddos-global-network-plan",
             resourceName: "ddos-global-network-plan",
-            title: "Arbitraje DDoS: Migrar a DDoS IP Protection",
-            description: "El tenant solo tiene 6 IPs públicas expuestas a Internet pero paga la cuota plana completa de DDoS Network Protection ($2,944/mes). Al migrar a DDoS IP Protection ($199/IP/mes = $1,194/mes), se obtiene la misma mitigación L3-L7 con un ahorro de $1,750 USD/mes.",
+            params: { ips: 6, savings: (1750.00 * multiplier).toFixed(2) },
             category: "DDOS_ARBITRAGE",
             estimatedSavingsUSD: Number((1750.00 * multiplier).toFixed(2)),
             confidence: "HIGH",
@@ -716,15 +705,13 @@ export function getMockInternetAccessData(tenantId: string): InternetAccessRespo
             commandPayload: {
                 cli: `az network ddos-protection delete --name "ddos-global-network-plan" --resource-group "rg-hub-security-prod" --subscription "00000000-0000-0000-0000-000000000001"`,
                 powershell: `Remove-AzDdosProtectionPlan -Name "ddos-global-network-plan" -ResourceGroupName "rg-hub-security-prod" -Force`,
-                impactSummary: `Ahorro mensual neto de ~$${(1750.00 * multiplier).toFixed(2)} USD/mes optimizando el modelo de protección anti-DDoS.`,
             },
         },
         {
             id: "rem-fw-rightsize-qa",
             resourceId: "/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/rg-qa-security/providers/Microsoft.Network/azureFirewalls/fw-qa-sandbox-eastus",
             resourceName: "fw-qa-sandbox-eastus",
-            title: "Degradar Azure Firewall Standard a Basic en QA",
-            description: "El Azure Firewall en QA procesa menos de 400 GB/mes pero factura como SKU Standard ($912.50/mes). Migrar a Azure Firewall Basic ($288.35/mes) mantiene las políticas de filtrado con un ahorro de $624.15 USD/mes.",
+            params: { name: "fw-qa-sandbox-eastus", env: "qa", tier: "Standard", savings: (624.15 * multiplier).toFixed(2) },
             category: "FIREWALL_RIGHTSIZING",
             estimatedSavingsUSD: Number((624.15 * multiplier).toFixed(2)),
             confidence: "HIGH",
@@ -732,15 +719,13 @@ export function getMockInternetAccessData(tenantId: string): InternetAccessRespo
             commandPayload: {
                 cli: `az network firewall update --name "fw-qa-sandbox-eastus" --resource-group "rg-qa-security" --set sku.tier=Basic`,
                 powershell: `Set-AzFirewall -AzureFirewall (Get-AzFirewall -Name "fw-qa-sandbox-eastus" -ResourceGroupName "rg-qa-security" | Set-AzFirewallSku -Tier Basic)`,
-                impactSummary: `Ahorro directo de ~$${(624.15 * multiplier).toFixed(2)} USD/mes en la cuota base del firewall de pruebas.`,
             },
         },
         {
             id: "rem-nat-rightsize-dev",
             resourceId: "/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/rg-dev-sandbox/providers/Microsoft.Network/natGateways/natgw-dev-legacy-sandbox",
             resourceName: "natgw-dev-legacy-sandbox",
-            title: "Eliminar NAT Gateway sin Subredes en Sandbox",
-            description: "El NAT Gateway en Sandbox no tiene subredes conectadas y continúa facturando su tarifa horaria ($32.85 USD/mes) sin proveer salida a Internet.",
+            params: { name: "natgw-dev-legacy-sandbox", env: "sandbox", savings: (32.85 * multiplier).toFixed(2) },
             category: "NAT_RIGHTSIZING",
             estimatedSavingsUSD: Number((32.85 * multiplier).toFixed(2)),
             confidence: "HIGH",
@@ -748,7 +733,6 @@ export function getMockInternetAccessData(tenantId: string): InternetAccessRespo
             commandPayload: {
                 cli: `az network nat gateway delete --name "natgw-dev-legacy-sandbox" --resource-group "rg-dev-sandbox"`,
                 powershell: `Remove-AzNatGateway -Name "natgw-dev-legacy-sandbox" -ResourceGroupName "rg-dev-sandbox" -Force`,
-                impactSummary: `Ahorro del 100% de la tarifa fija de NAT Gateway (~$${(32.85 * multiplier).toFixed(2)} USD/mes).`,
             },
         },
     ];

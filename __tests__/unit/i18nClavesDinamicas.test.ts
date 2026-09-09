@@ -7,6 +7,9 @@ import { ALL_MODULES } from "@/types/tenantUsers.types";
 import { WEEKDAY_KEYS } from "@/types/azurePowerManagement.types";
 import { DDOS_REMEDIATION_CATEGORIES } from "@/types/ddosProtection.types";
 import { BASIC_NETWORK_REMEDIATION_CATEGORIES } from "@/types/basicNetworking.types";
+import { HYBRID_REMEDIATION_CATEGORIES } from "@/types/hybridConnectivity.types";
+import { LOAD_BALANCING_REMEDIATION_CATEGORIES } from "@/types/loadBalancing.types";
+import { INTERNET_ACCESS_REMEDIATION_CATEGORIES } from "@/types/internetAccess.types";
 import { WATERFALL_STEP_KEYS } from "@/types/azureWhatIf.types";
 import { REDIS_RULE_I18N } from "@/types/redisCache";
 import { MONGO_RULE_I18N } from "@/types/azureMongoDb";
@@ -173,6 +176,39 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
          */
         params?: Record<string, string | number>;
     }> = [
+        {
+            // Mismo molde que las otras familias de red.
+            que: "recomendaciones de conectividad hibrida (HYBRID_REMEDIATION_CATEGORIES)",
+            ns: "HybridConnectivityFinops",
+            params: { name: "vgw-hq", service: "VPN Gateway", sku: "VpnGw3", savings: 248.2 },
+            claves: HYBRID_REMEDIATION_CATEGORIES.flatMap((c) => [
+                `rem_${c}_title`,
+                `rem_${c}_desc`,
+                `rem_${c}_impact`,
+            ]),
+        },
+        {
+            // Mismo molde que las otras familias de red.
+            que: "recomendaciones de balanceo de carga (LOAD_BALANCING_REMEDIATION_CATEGORIES)",
+            ns: "LoadBalancingFinops",
+            params: { name: "lb-dev", env: "dev", minCap: 4, savings: 295 },
+            claves: LOAD_BALANCING_REMEDIATION_CATEGORIES.flatMap((c) => [
+                `rem_${c}_title`,
+                `rem_${c}_desc`,
+                `rem_${c}_impact`,
+            ]),
+        },
+        {
+            // Mismo molde que las otras familias de red.
+            que: "recomendaciones de salida a internet (INTERNET_ACCESS_REMEDIATION_CATEGORIES)",
+            ns: "InternetAccessFinops",
+            params: { name: "pip-dev", ip: "20.84.212.99", env: "qa", tier: "Standard", ips: 6, savings: 1750 },
+            claves: INTERNET_ACCESS_REMEDIATION_CATEGORIES.flatMap((c) => [
+                `rem_${c}_title`,
+                `rem_${c}_desc`,
+                `rem_${c}_impact`,
+            ]),
+        },
         {
             // Mismo caso que DDoS, y el mismo molde: los cinco servicios de red
             // se escribieron a partir de la misma plantilla. El mock y la ruta

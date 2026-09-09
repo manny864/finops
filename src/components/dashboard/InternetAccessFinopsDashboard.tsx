@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
 import { useTenant } from "@/components/TenantProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useMsal } from "@azure/msal-react";
@@ -50,6 +51,7 @@ import {
 
 export default function InternetAccessFinopsDashboard() {
     const t = useTranslations("InternetAccessFinops");
+    const textoRem = useTextoPorCategoria("InternetAccessFinops");
     const { selectedTenant } = useTenant();
     const { format } = useCurrency();
     const { instance, accounts: msalAccounts } = useMsal();
@@ -768,7 +770,7 @@ export default function InternetAccessFinopsDashboard() {
                                                 {rem.category === "NAT_RIGHTSIZING" && <IconArrowsSplit className="w-4 h-4" stroke={1.5} />}
                                             </span>
                                             <span className="text-xs font-bold text-[#1B2A41] dark:text-white line-clamp-1">
-                                                {rem.title}
+                                                {textoRem(rem, "title")}
                                             </span>
                                         </div>
                                         <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-[#0054A6] dark:text-sky-400 border border-blue-200 dark:border-blue-900">
@@ -777,7 +779,7 @@ export default function InternetAccessFinopsDashboard() {
                                     </div>
 
                                     <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-3">
-                                        {rem.description}
+                                        {textoRem(rem, "desc")}
                                     </p>
                                 </div>
 
@@ -909,7 +911,7 @@ export default function InternetAccessFinopsDashboard() {
                                 <IconTerminal2 className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
                                 <div>
                                     <h3 className="text-base font-bold text-[#1B2A41] dark:text-white">
-                                        {activeRemediation.title}
+                                        {textoRem(activeRemediation, "title")}
                                     </h3>
                                     <p className="text-xs text-slate-400">{activeRemediation.resourceName}</p>
                                 </div>
@@ -923,7 +925,7 @@ export default function InternetAccessFinopsDashboard() {
                         </div>
 
                         <div className="p-3 rounded-lg bg-blue-50/50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                            {activeRemediation.description}
+                            {textoRem(activeRemediation, "desc")}
                         </div>
 
                         {/* CLI / PowerShell Tabs */}
@@ -989,7 +991,7 @@ export default function InternetAccessFinopsDashboard() {
 
                         <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900 text-xs text-emerald-800 dark:text-emerald-300">
                             <span className="font-bold">{t("estimatedImpactLabel")} </span>
-                            {activeRemediation.commandPayload.impactSummary}
+                            {textoRem(activeRemediation, "impact")}
                         </div>
 
                         <div className="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-800">

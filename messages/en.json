@@ -6451,7 +6451,19 @@
     "goal": "Goal",
     "skuCapacityLabel": "SKU / Capacity:",
     "noBaseCost": "$0.00 (No Base Cost)",
-    "estimatedImpactLabel": "Estimated Impact:"
+    "estimatedImpactLabel": "Estimated Impact:",
+    "rem_ORPHAN_GATEWAY_title": "Delete Orphaned {service} ({name})",
+    "rem_ORPHAN_GATEWAY_desc": "Gateway {name} has no active linked connections and bills $140 to $1,750 USD/mo in fixed base cost.",
+    "rem_ORPHAN_GATEWAY_impact": "Immediate monthly savings of ~${savings} USD/mo by decommissioning the idle gateway.",
+    "rem_GATEWAY_RIGHTSIZING_title": "Rightsize VPN Gateway ({name}) to VpnGw2",
+    "rem_GATEWAY_RIGHTSIZING_desc": "Gateway {name} runs SKU {sku}. Its historical throughput is < 100 Mbps, so a VpnGw2 SKU delivers the same resilience with 55% savings.",
+    "rem_GATEWAY_RIGHTSIZING_impact": "Estimated savings of ~${savings} USD/mo while keeping 1.25 Gbps capacity.",
+    "rem_DISCONNECTED_TUNNEL_title": "Purge Down IPSec Connection ({name})",
+    "rem_DISCONNECTED_TUNNEL_desc": "Connection {name} continuously reports \"NotConnected\" status. Validate with the on-premises endpoint or purge the configuration if it is no longer needed.",
+    "rem_DISCONNECTED_TUNNEL_impact": "Hygiene cleanup of down tunnels and removal of residual connection charges.",
+    "rem_EXPRESSROUTE_ARBITRAGE_title": "ExpressRoute Rate Arbitrage ({name}) to Metered Data",
+    "rem_EXPRESSROUTE_ARBITRAGE_desc": "Circuit {name} is on an UnlimitedData plan ($1,800+/mo). Average traffic is < 15 TB/mo, so switching to MeteredData ($450/mo + egress) would cut the fixed monthly cost.",
+    "rem_EXPRESSROUTE_ARBITRAGE_impact": "Direct savings of ~${savings} USD/mo on port fees."
   },
   "IntegrationServicesFinops": {
     "allOption": "All",
@@ -6915,7 +6927,19 @@
     "unassociatedCount": "{n} unassociated",
     "amountPerMonth": "{amount}/mo",
     "goal": "Goal",
-    "estimatedImpactLabel": "Estimated Impact:"
+    "estimatedImpactLabel": "Estimated Impact:",
+    "rem_ORPHAN_IP_title": "Delete Orphaned Public IP ({name})",
+    "rem_ORPHAN_IP_desc": "Public IP address \"{ip}\" is not linked to any active resource and keeps incurring address reservation charges.",
+    "rem_ORPHAN_IP_impact": "Direct monthly savings of ~${savings} USD/mo by deleting the unassociated IP.",
+    "rem_NAT_RIGHTSIZING_title": "Rationalize NAT Gateway in \"{env}\" Environment ({name})",
+    "rem_NAT_RIGHTSIZING_desc": "The NAT Gateway in {env} has no linked subnets or processes <10 GB/mo. Replacing it with direct egress or attaching it to active subnets avoids ~$32.85/mo of idle fixed fees.",
+    "rem_NAT_RIGHTSIZING_impact": "Monthly savings of ~${savings} USD/mo on NAT Gateway fixed fees.",
+    "rem_FIREWALL_RIGHTSIZING_title": "Downgrade Azure Firewall to Basic SKU in \"{env}\" ({name})",
+    "rem_FIREWALL_RIGHTSIZING_desc": "\"{tier}\" firewall in the non-production \"{env}\" environment. Migrating to Azure Firewall Basic ($288.35/mo) keeps L3-L7 filtering and Threat Intelligence with ~${savings} USD in monthly savings.",
+    "rem_FIREWALL_RIGHTSIZING_impact": "Monthly savings of ~${savings} USD/mo on the Firewall base fee.",
+    "rem_DDOS_ARBITRAGE_title": "DDoS Arbitrage: Migrate Network Protection to DDoS IP Protection",
+    "rem_DDOS_ARBITRAGE_desc": "The tenant has {ips} public IPs protected by a $2,944 USD/mo Network Protection plan. Migrating to \"DDoS IP Protection\" ($199 USD/IP/mo) keeps the same L3-L7 mitigation with ~${savings} USD/mo in direct savings.",
+    "rem_DDOS_ARBITRAGE_impact": "Direct monthly savings of ~${savings} USD/mo by cutting the fixed DDoS fee."
   },
   "Invoicing": {
     "pageTitle": "Invoicing Report",
@@ -7845,7 +7869,19 @@
     "skuCapacityLabel": "SKU / Capacity:",
     "wafEnabled": "Enabled (WAF)",
     "wafDisabled": "Disabled",
-    "estimatedImpactLabel": "Estimated Impact:"
+    "estimatedImpactLabel": "Estimated Impact:",
+    "rem_ORPHAN_LB_title": "Delete Orphaned Load Balancer ({name})",
+    "rem_ORPHAN_LB_desc": "Load Balancer {name} has no VMs or NICs in its backend pool and keeps billing rules and a reserved public IP.",
+    "rem_ORPHAN_LB_impact": "Monthly savings of ~${savings} USD/mo by deleting the idle resource.",
+    "rem_FRONTDOOR_SKU_DOWNGRADE_title": "Front Door Premium to Standard Arbitrage ({name})",
+    "rem_FRONTDOOR_SKU_DOWNGRADE_desc": "Front Door Premium profile deployed in the non-production \"{env}\" environment. Migrating to Standard_AzureFrontDoor keeps global CDN and custom SSL with $295 USD/mo in savings.",
+    "rem_FRONTDOOR_SKU_DOWNGRADE_impact": "Direct monthly savings of ~${savings} USD/mo on the CDN Edge base fee.",
+    "rem_APP_GATEWAY_AUTOSCALE_title": "Reduce Autoscale minCapacity on {name}",
+    "rem_APP_GATEWAY_AUTOSCALE_desc": "The Application Gateway in the \"{env}\" environment has minCapacity={minCap}. Lowering it to minCapacity=1 keeps high availability during testing and cuts fixed Capacity Units.",
+    "rem_APP_GATEWAY_AUTOSCALE_impact": "Estimated savings of ~${savings} USD/mo on idle Capacity Units.",
+    "rem_IDLE_INGRESS_title": "Audit Idle Routing Rules on WAF ({name})",
+    "rem_IDLE_INGRESS_desc": "HTTP routing rules bound to obsolete microservices were detected. Purging them reduces processing Capacity Unit consumption.",
+    "rem_IDLE_INGRESS_impact": "Performance optimization and lower processing metrics on the WAF."
   },
   "LogAnalytics": {
     "title": "Log Analytics",

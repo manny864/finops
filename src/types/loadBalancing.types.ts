@@ -97,18 +97,26 @@ export interface LoadBalancingSummary {
     breakdown: LoadBalancingServiceBreakdown[];
 }
 
-export type LoadBalancingRemediationCategory =
-    | "ORPHAN_LB"
-    | "APP_GATEWAY_AUTOSCALE"
-    | "FRONTDOOR_SKU_DOWNGRADE"
-    | "IDLE_INGRESS";
+/**
+ * Lista en tiempo de ejecucion, no solo un tipo: el texto de cada recomendacion
+ * se resuelve con `rem_<category>_title` / `_desc` / `_impact`, asi que el test
+ * de claves necesita poder recorrer las categorias. El tipo se deriva de la
+ * lista para que no puedan separarse.
+ */
+export const LOAD_BALANCING_REMEDIATION_CATEGORIES = [
+  "ORPHAN_LB",
+  "APP_GATEWAY_AUTOSCALE",
+  "FRONTDOOR_SKU_DOWNGRADE",
+  "IDLE_INGRESS",
+] as const;
+
+export type LoadBalancingRemediationCategory = (typeof LOAD_BALANCING_REMEDIATION_CATEGORIES)[number];
 
 export interface LoadBalancingRemediationAction {
     id: string;
     resourceId: string;
     resourceName: string;
-    title: string;
-    description: string;
+    params?: Record<string, string | number>;
     category: LoadBalancingRemediationCategory;
     estimatedSavingsUSD: number;
     confidence: "HIGH" | "MEDIUM" | "LOW";
@@ -116,7 +124,6 @@ export interface LoadBalancingRemediationAction {
     commandPayload: {
         cli: string;
         powershell: string;
-        impactSummary: string;
     };
 }
 

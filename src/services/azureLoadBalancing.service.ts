@@ -180,16 +180,14 @@ export async function getAzureLoadBalancing(tenantId: string): Promise<LoadBalan
                         id: `rem-appgw-autoscale-${resName}`,
                         resourceId: resId,
                         resourceName: resName,
-                        title: `Reducir Autoscale minCapacity en ${resName}`,
-                        description: `El Application Gateway en ambiente '${env}' tiene minCapacity=${minCap}. Reducirlo a minCapacity=1 mantendrá alta disponibilidad durante pruebas y reducirá Capacity Units fijas.`,
                         category: "APP_GATEWAY_AUTOSCALE",
+                        params: { name: resName, env, minCap, savings: potentialSavings.toFixed(2) },
                         estimatedSavingsUSD: Number(potentialSavings.toFixed(2)),
                         confidence: "HIGH",
                         actionType: "RIGHTSIZE",
                         commandPayload: {
                             cli: `az network application-gateway update --name "${resName}" --resource-group "${rg}" --set autoscaleConfiguration.minCapacity=1`,
                             powershell: `Set-AzApplicationGateway -ApplicationGateway (Get-AzApplicationGateway -Name "${resName}" -ResourceGroupName "${rg}" | Set-AzApplicationGatewayAutoscaleConfiguration -MinCapacity 1)`,
-                            impactSummary: `Ahorro estimado de ~$${potentialSavings.toFixed(2)} USD/mes en Capacity Units inactivas.`,
                         },
                     });
                 }
@@ -215,16 +213,14 @@ export async function getAzureLoadBalancing(tenantId: string): Promise<LoadBalan
                         id: `rem-fd-downgrade-${resName}`,
                         resourceId: resId,
                         resourceName: resName,
-                        title: `Arbitraje Front Door Premium a Standard (${resName})`,
-                        description: `Perfil de Front Door Premium desplegado en entorno no productivo '${env}'. Migrar a Standard_AzureFrontDoor mantiene CDN global y SSL personalizado con un ahorro de $295 USD/mes.`,
                         category: "FRONTDOOR_SKU_DOWNGRADE",
+                        params: { name: resName, env, savings: "295.00" },
                         estimatedSavingsUSD: diffSavings,
                         confidence: "HIGH",
                         actionType: "RECONFIGURE",
                         commandPayload: {
                             cli: `az afd profile update --profile-name "${resName}" --resource-group "${rg}" --sku Standard_AzureFrontDoor`,
                             powershell: `Update-AzFrontDoorCdnProfile -ProfileName "${resName}" -ResourceGroupName "${rg}" -SkuName Standard_AzureFrontDoor`,
-                            impactSummary: `Ahorro de $295.00 USD/mes reduciendo la tarifa base de perfil de $330 a $35.`,
                         },
                     });
                 }
@@ -252,16 +248,14 @@ export async function getAzureLoadBalancing(tenantId: string): Promise<LoadBalan
                         id: `rem-orphan-lb-${resName}`,
                         resourceId: resId,
                         resourceName: resName,
-                        title: `Eliminar Load Balancer Huérfano (${resName})`,
-                        description: `El Load Balancer ${resName} no tiene VMs ni NICs asociadas en su backend pool y continúa facturando reglas e IP pública reservada.`,
                         category: "ORPHAN_LB",
+                        params: { name: resName, savings: monthlyCostUSD.toFixed(2) },
                         estimatedSavingsUSD: monthlyCostUSD,
                         confidence: "HIGH",
                         actionType: "DELETE",
                         commandPayload: {
                             cli: `az network lb delete --name "${resName}" --resource-group "${rg}" --subscription "${subId}"`,
                             powershell: `Remove-AzLoadBalancer -Name "${resName}" -ResourceGroupName "${rg}" -Force`,
-                            impactSummary: `Ahorro mensual de ~$${monthlyCostUSD.toFixed(2)} USD/mes eliminando el recurso ocioso.`,
                         },
                     });
                 }
@@ -714,8 +708,7 @@ export function getMockLoadBalancingData(tenantId: string): LoadBalancingRespons
             id: "rem-orphan-lb-dev",
             resourceId: "/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/rg-dev-sandbox/providers/Microsoft.Network/loadBalancers/lb-dev-legacy-frontend",
             resourceName: "lb-dev-legacy-frontend",
-            title: "Eliminar Load Balancer Huérfano en Sandbox",
-            description: "El Load Balancer lb-dev-legacy-frontend no cuenta con máquinas virtuales ni pods asignados en su pool de backend y continúa facturando reglas e IP pública reservada.",
+            params: { name: "lb-dev-legacy-frontend", savings: (22.50 * multiplier).toFixed(2) },
             category: "ORPHAN_LB",
             estimatedSavingsUSD: Number((22.50 * multiplier).toFixed(2)),
             confidence: "HIGH",
@@ -723,15 +716,13 @@ export function getMockLoadBalancingData(tenantId: string): LoadBalancingRespons
             commandPayload: {
                 cli: `az network lb delete --name "lb-dev-legacy-frontend" --resource-group "rg-dev-sandbox" --subscription "00000000-0000-0000-0000-000000000003"`,
                 powershell: `Remove-AzLoadBalancer -Name "lb-dev-legacy-frontend" -ResourceGroupName "rg-dev-sandbox" -Force`,
-                impactSummary: `Ahorro del 100% de la tarifa fija del balanceador ocioso (~$${(22.50 * multiplier).toFixed(2)} USD/mes).`,
             },
         },
         {
             id: "rem-fd-downgrade-dev",
             resourceId: "/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/rg-dev-sandbox/providers/Microsoft.Cdn/profiles/afd-dev-test-edge",
             resourceName: "afd-dev-test-edge",
-            title: "Arbitraje Front Door Premium a Standard en Dev",
-            description: "El perfil de Front Door en Dev utiliza SKU Premium ($330/mes). Al degradarlo a Standard_AzureFrontDoor ($35/mes) se mantienen el enrutamiento global y certificados SSL con un ahorro de $295 USD/mes.",
+            params: { name: "afd-dev-test-edge", env: "dev", savings: (295.0 * multiplier).toFixed(2) },
             category: "FRONTDOOR_SKU_DOWNGRADE",
             estimatedSavingsUSD: Number((295.0 * multiplier).toFixed(2)),
             confidence: "HIGH",
@@ -739,15 +730,13 @@ export function getMockLoadBalancingData(tenantId: string): LoadBalancingRespons
             commandPayload: {
                 cli: `az afd profile update --profile-name "afd-dev-test-edge" --resource-group "rg-dev-sandbox" --sku Standard_AzureFrontDoor`,
                 powershell: `Update-AzFrontDoorCdnProfile -ProfileName "afd-dev-test-edge" -ResourceGroupName "rg-dev-sandbox" -SkuName Standard_AzureFrontDoor`,
-                impactSummary: `Ahorro mensual directo de ~$${(295.0 * multiplier).toFixed(2)} USD/mes en la cuota base de CDN Edge.`,
             },
         },
         {
             id: "rem-appgw-autoscale-qa",
             resourceId: "/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/rg-qa-services/providers/Microsoft.Network/applicationGateways/appgw-qa-services",
             resourceName: "appgw-qa-services",
-            title: "Ajustar Capacidad Mínima de Autoscale en QA",
-            description: "El Application Gateway en QA tiene configurado minCapacity=4. Ajustarlo a minCapacity=1 permite a Azure escalar dinámicamente según demanda, ahorrando Capacity Units ociosas.",
+            params: { name: "appgw-qa-services", env: "qa", minCap: 4, savings: (175.20 * multiplier).toFixed(2) },
             category: "APP_GATEWAY_AUTOSCALE",
             estimatedSavingsUSD: Number((175.20 * multiplier).toFixed(2)),
             confidence: "HIGH",
@@ -755,15 +744,13 @@ export function getMockLoadBalancingData(tenantId: string): LoadBalancingRespons
             commandPayload: {
                 cli: `az network application-gateway update --name "appgw-qa-services" --resource-group "rg-qa-services" --set autoscaleConfiguration.minCapacity=1`,
                 powershell: `Set-AzApplicationGateway -ApplicationGateway (Get-AzApplicationGateway -Name "appgw-qa-services" -ResourceGroupName "rg-qa-services" | Set-AzApplicationGatewayAutoscaleConfiguration -MinCapacity 1)`,
-                impactSummary: `Ahorro de ~$${(175.20 * multiplier).toFixed(2)} USD/mes en Capacity Units inactivas.`,
             },
         },
         {
             id: "rem-idle-ingress-audit",
             resourceId: "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-ingress-prod/providers/Microsoft.Network/applicationGateways/appgw-core-waf-prod",
             resourceName: "appgw-core-waf-prod",
-            title: "Auditoría de Reglas de Enrutamiento Inactivas en WAF",
-            description: "Se detectaron 3 reglas de ruteo HTTP asociadas a microservicios obsoletos. Purgar estas reglas reduce el consumo de Capacity Units de procesamiento.",
+            params: { name: "appgw-core-waf-prod" },
             category: "IDLE_INGRESS",
             estimatedSavingsUSD: Number((48.50 * multiplier).toFixed(2)),
             confidence: "MEDIUM",
@@ -771,7 +758,6 @@ export function getMockLoadBalancingData(tenantId: string): LoadBalancingRespons
             commandPayload: {
                 cli: `az network application-gateway http-listener list --gateway-name "appgw-core-waf-prod" --resource-group "rg-ingress-prod" --query "[?requestRoutingRules==null]"`,
                 powershell: `Get-AzApplicationGateway -Name "appgw-core-waf-prod" -ResourceGroupName "rg-ingress-prod" | Select-Object -ExpandProperty HttpListeners`,
-                impactSummary: `Optimización de rendimiento y reducción de métricas de procesamiento en WAF.`,
             },
         },
     ];

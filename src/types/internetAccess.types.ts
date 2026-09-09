@@ -85,18 +85,26 @@ export interface InternetAccessSummary {
     breakdown: InternetAccessServiceBreakdown[];
 }
 
-export type InternetAccessRemediationCategory =
-    | "ORPHAN_IP"
-    | "DDOS_ARBITRAGE"
-    | "NAT_RIGHTSIZING"
-    | "FIREWALL_RIGHTSIZING";
+/**
+ * Lista en tiempo de ejecucion, no solo un tipo: el texto de cada recomendacion
+ * se resuelve con `rem_<category>_title` / `_desc` / `_impact`, asi que el test
+ * de claves necesita poder recorrer las categorias. El tipo se deriva de la
+ * lista para que no puedan separarse.
+ */
+export const INTERNET_ACCESS_REMEDIATION_CATEGORIES = [
+  "ORPHAN_IP",
+  "DDOS_ARBITRAGE",
+  "NAT_RIGHTSIZING",
+  "FIREWALL_RIGHTSIZING",
+] as const;
+
+export type InternetAccessRemediationCategory = (typeof INTERNET_ACCESS_REMEDIATION_CATEGORIES)[number];
 
 export interface InternetAccessRemediationAction {
     id: string;
     resourceId: string;
     resourceName: string;
-    title: string;
-    description: string;
+    params?: Record<string, string | number>;
     category: InternetAccessRemediationCategory;
     estimatedSavingsUSD: number;
     confidence: "HIGH" | "MEDIUM" | "LOW";
@@ -104,7 +112,6 @@ export interface InternetAccessRemediationAction {
     commandPayload: {
         cli: string;
         powershell: string;
-        impactSummary: string;
     };
 }
 

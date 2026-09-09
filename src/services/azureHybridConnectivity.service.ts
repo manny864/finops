@@ -186,16 +186,14 @@ export async function getAzureHybridConnectivity(tenantId: string): Promise<Hybr
                         id: `rem-orphan-gw-${resName}`,
                         resourceId: resId,
                         resourceName: resName,
-                        title: `Eliminar ${serviceLabel} Huérfano (${resName})`,
-                        description: `El gateway ${resName} no tiene conexiones activas vinculadas y factura de $140 a $1,750 USD/mes de costo fijo base.`,
                         category: "ORPHAN_GATEWAY",
+                        params: { name: resName, service: serviceLabel, savings: monthlyCostUSD.toFixed(2) },
                         estimatedSavingsUSD: monthlyCostUSD,
                         confidence: "HIGH",
                         actionType: "DELETE",
                         commandPayload: {
                             cli: `az network vnet-gateway delete --name "${resName}" --resource-group "${rg}" --subscription "${subId}"`,
                             powershell: `Remove-AzVirtualNetworkGateway -Name "${resName}" -ResourceGroupName "${rg}" -Force`,
-                            impactSummary: `Ahorro mensual inmediato de ~$${monthlyCostUSD.toFixed(2)} USD/mes al dar de baja el gateway ocioso.`,
                         },
                     });
                 }
@@ -207,16 +205,14 @@ export async function getAzureHybridConnectivity(tenantId: string): Promise<Hybr
                         id: `rem-rightsize-gw-${resName}`,
                         resourceId: resId,
                         resourceName: resName,
-                        title: `Rightsizing de VPN Gateway (${resName}) a VpnGw2`,
-                        description: `El gateway ${resName} cuenta con SKU ${skuObj.name}. Su throughput histórico es < 100 Mbps, por lo que un SKU VpnGw2 ofrece la misma resiliencia con 55% de ahorro.`,
                         category: "GATEWAY_RIGHTSIZING",
+                        params: { name: resName, sku: skuObj.name ?? "", savings: potentialSavings.toFixed(2) },
                         estimatedSavingsUSD: potentialSavings,
                         confidence: "MEDIUM",
                         actionType: "RIGHTSIZE",
                         commandPayload: {
                             cli: `az network vnet-gateway update --name "${resName}" --resource-group "${rg}" --sku VpnGw2`,
                             powershell: `Resize-AzVirtualNetworkGateway -VirtualNetworkGateway (Get-AzVirtualNetworkGateway -Name "${resName}" -ResourceGroupName "${rg}") -GatewaySku "VpnGw2"`,
-                            impactSummary: `Ahorro estimado de ~$${potentialSavings.toFixed(2)} USD/mes manteniendo capacidad de 1.25 Gbps.`,
                         },
                     });
                 }
@@ -240,16 +236,14 @@ export async function getAzureHybridConnectivity(tenantId: string): Promise<Hybr
                         id: `rem-disconn-${resName}`,
                         resourceId: resId,
                         resourceName: resName,
-                        title: `Purgar Conexión IPSec Caída (${resName})`,
-                        description: `La conexión ${resName} reporta estado 'NotConnected' continuo. Se recomienda validar con el extremo on-premises o purgar la configuración si ya no es necesaria.`,
                         category: "DISCONNECTED_TUNNEL",
+                        params: { name: resName },
                         estimatedSavingsUSD: monthlyCostUSD,
                         confidence: "HIGH",
                         actionType: "DELETE",
                         commandPayload: {
                             cli: `az network vpn-connection delete --name "${resName}" --resource-group "${rg}" --subscription "${subId}"`,
                             powershell: `Remove-AzVirtualNetworkGatewayConnection -Name "${resName}" -ResourceGroupName "${rg}" -Force`,
-                            impactSummary: `Limpieza higiénica de túneles caídos y eliminación de cargos por conexión residual.`,
                         },
                     });
                 }
@@ -270,16 +264,14 @@ export async function getAzureHybridConnectivity(tenantId: string): Promise<Hybr
                         id: `rem-er-arbitrage-${resName}`,
                         resourceId: resId,
                         resourceName: resName,
-                        title: `Arbitraje de Tarifa ExpressRoute (${resName}) a Metered Data`,
-                        description: `El circuito ${resName} tiene contratado plan UnlimitedData ($1,800+/mes). El tráfico promedio es < 15 TB/mes, por lo que cambiar a MeteredData ($450/mes + egress) reduciría el costo fijo mensual.`,
                         category: "EXPRESSROUTE_ARBITRAGE",
+                        params: { name: resName, savings: arbitrageSavings.toFixed(2) },
                         estimatedSavingsUSD: arbitrageSavings,
                         confidence: "HIGH",
                         actionType: "RECONFIGURE",
                         commandPayload: {
                             cli: `az network express-route update --name "${resName}" --resource-group "${rg}" --sku-family MeteredData`,
                             powershell: `Set-AzExpressRouteCircuit -ExpressRouteCircuit (Get-AzExpressRouteCircuit -Name "${resName}" -ResourceGroupName "${rg}" | Set-AzExpressRouteCircuit -SkuFamily "MeteredData")`,
-                            impactSummary: `Ahorro directo de ~$${arbitrageSavings.toFixed(2)} USD/mes en tarifa de puerto.`,
                         },
                     });
                 }
@@ -806,8 +798,7 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             id: "rem-orphan-gw-dev",
             resourceId: "/subscriptions/00000000-0000-0000-0000-000000000003/resourceGroups/rg-dev-sandbox/providers/Microsoft.Network/virtualNetworkGateways/vgw-dev-legacy-sandbox",
             resourceName: "vgw-dev-legacy-sandbox",
-            title: "Eliminar VPN Gateway Huérfano en Sandbox",
-            description: "El gateway vgw-dev-legacy-sandbox no tiene conexiones IPSec activas y sigue facturando $138.70 USD/mes de costo fijo base ininterrumpido.",
+            params: { name: "vgw-dev-legacy-sandbox", service: "VPN Gateway", savings: (138.70 * multiplier).toFixed(2) },
             category: "ORPHAN_GATEWAY",
             estimatedSavingsUSD: Number((138.70 * multiplier).toFixed(2)),
             confidence: "HIGH",
@@ -815,15 +806,13 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             commandPayload: {
                 cli: `az network vnet-gateway delete --name "vgw-dev-legacy-sandbox" --resource-group "rg-dev-sandbox" --subscription "00000000-0000-0000-0000-000000000003"`,
                 powershell: `Remove-AzVirtualNetworkGateway -Name "vgw-dev-legacy-sandbox" -ResourceGroupName "rg-dev-sandbox" -Force`,
-                impactSummary: `Ahorro mensual inmediato de ~$${(138.70 * multiplier).toFixed(2)} USD/mes eliminando el recurso ocioso.`,
             },
         },
         {
             id: "rem-er-arbitrage-chicago",
             resourceId: "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-net-dr-prod/providers/Microsoft.Network/expressRouteCircuits/erc-dr-chicago",
             resourceName: "erc-dr-chicago",
-            title: "Arbitraje de Plan ExpressRoute (DR Chicago) a Metered Data",
-            description: "El circuito secundario erc-dr-chicago tiene contratado plan UnlimitedData ($1,800/mes). Con un tráfico de DR < 5 TB/mes, el plan MeteredData ($450/mes + egress) ofrece un ahorro neto de ~$1,200 USD/mes.",
+            params: { name: "erc-dr-chicago", savings: (1200.0 * multiplier).toFixed(2) },
             category: "EXPRESSROUTE_ARBITRAGE",
             estimatedSavingsUSD: Number((1200.0 * multiplier).toFixed(2)),
             confidence: "HIGH",
@@ -831,15 +820,13 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             commandPayload: {
                 cli: `az network express-route update --name "erc-dr-chicago" --resource-group "rg-net-dr-prod" --sku-family MeteredData`,
                 powershell: `Set-AzExpressRouteCircuit -ExpressRouteCircuit (Get-AzExpressRouteCircuit -Name "erc-dr-chicago" -ResourceGroupName "rg-net-dr-prod" | Set-AzExpressRouteCircuit -SkuFamily "MeteredData")`,
-                impactSummary: `Ahorro recurrente de ~$${(1200.0 * multiplier).toFixed(2)} USD/mes en tarifa de puerto sin afectar SLA ni ancho de banda.`,
             },
         },
         {
             id: "rem-gw-rightsize-hq",
             resourceId: "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-branch-vpn/providers/Microsoft.Network/virtualNetworkGateways/vgw-hq-branches",
             resourceName: "vgw-hq-branches",
-            title: "Rightsizing de VPN Gateway (vgw-hq-branches) a VpnGw2",
-            description: "El gateway cuenta con SKU VpnGw3 (2.5 Gbps / $511/mes). El throughput promedio observado es de 75 Mbps, por lo que un downgrade a VpnGw2 (1.25 Gbps / $262.80/mes) reduce el gasto a la mitad con margen holgado.",
+            params: { name: "vgw-hq-branches", sku: "VpnGw3", savings: (248.20 * multiplier).toFixed(2) },
             category: "GATEWAY_RIGHTSIZING",
             estimatedSavingsUSD: Number((248.20 * multiplier).toFixed(2)),
             confidence: "MEDIUM",
@@ -847,15 +834,13 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             commandPayload: {
                 cli: `az network vnet-gateway update --name "vgw-hq-branches" --resource-group "rg-branch-vpn" --sku VpnGw2`,
                 powershell: `Resize-AzVirtualNetworkGateway -VirtualNetworkGateway (Get-AzVirtualNetworkGateway -Name "vgw-hq-branches" -ResourceGroupName "rg-branch-vpn") -GatewaySku "VpnGw2"`,
-                impactSummary: `Ahorro mensual de ~$${(248.20 * multiplier).toFixed(2)} USD/mes sin interrupción de túneles existentes.`,
             },
         },
         {
             id: "rem-purge-disconn-tunnel",
             resourceId: "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-branch-vpn/providers/Microsoft.Network/connections/conn-ipsec-hq-backup-tunnel",
             resourceName: "conn-ipsec-hq-backup-tunnel",
-            title: "Purgar Conexión IPSec Desconectada (Backup Tunnel)",
-            description: "La conexión reporta estado NotConnected sostenido desde hace más de 45 días. Se recomienda purgar la configuración residual para mantener la higiene de red y eliminar cargos residuales.",
+            params: { name: "conn-ipsec-hq-backup-tunnel" },
             category: "DISCONNECTED_TUNNEL",
             estimatedSavingsUSD: Number((18.20 * multiplier).toFixed(2)),
             confidence: "HIGH",
@@ -863,7 +848,6 @@ export function getMockHybridConnectivityData(tenantId: string): HybridConnectiv
             commandPayload: {
                 cli: `az network vpn-connection delete --name "conn-ipsec-hq-backup-tunnel" --resource-group "rg-branch-vpn" --subscription "00000000-0000-0000-0000-000000000001"`,
                 powershell: `Remove-AzVirtualNetworkGatewayConnection -Name "conn-ipsec-hq-backup-tunnel" -ResourceGroupName "rg-branch-vpn" -Force`,
-                impactSummary: `Eliminación higiénica de túnel caído en la topología de red híbrida.`,
             },
         },
     ];
