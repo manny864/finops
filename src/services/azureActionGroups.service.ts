@@ -18,6 +18,7 @@ import type {
   ActionGroupsPayload,
   ActionGroupDailyTrendPoint,
   ActionGroupHealthStatus,
+  ActionGroupChannel,
 } from "@/types/azureActionGroups.types";
 
 export const ACTION_TYPE_COLORS: Record<string, string> = {
@@ -61,16 +62,16 @@ export function deriveActionType(
   logicApps: number,
   functions: number,
   sms: number = 0
-): string {
+): ActionGroupChannel {
   const totalTypes = (emails > 0 ? 1 : 0) + (webhooks > 0 ? 1 : 0) + (logicApps > 0 ? 1 : 0) + (functions > 0 ? 1 : 0) + (sms > 0 ? 1 : 0);
-  if (totalTypes === 0) return "Sin Destinatarios";
-  if (totalTypes > 1) return "Multi-Canal";
-  if (emails > 0) return "Email";
-  if (webhooks > 0) return "Webhook";
-  if (logicApps > 0) return "Logic App";
-  if (functions > 0) return "Azure Function";
-  if (sms > 0) return "SMS / Voz";
-  return "Email";
+  if (totalTypes === 0) return "NO_RECIPIENTS";
+  if (totalTypes > 1) return "MULTI";
+  if (emails > 0) return "EMAIL";
+  if (webhooks > 0) return "WEBHOOK";
+  if (logicApps > 0) return "LOGIC_APP";
+  if (functions > 0) return "AZURE_FUNCTION";
+  if (sms > 0) return "SMS_VOICE";
+  return "EMAIL";
 }
 
 /**
@@ -150,8 +151,7 @@ export function generateActionGroupsRecommendations(
         id: `rem-ag-orphan-${ag.id.split("/").pop()}`,
         resourceId: ag.id,
         resourceName: ag.name,
-        title: `Eliminar Action Group huérfano '${ag.name}'`,
-        description: `El grupo de acción '${ag.name}' no está vinculado a ninguna regla de alerta activa en Azure Monitor. Depurar recursos huérfanos mejora la higiene de observabilidad y reduce riesgo de configuración.`,
+        params: { name: ag.name },
         category: "ORPHAN_PURGE",
         estimatedSavingsUSD: ag.specializedCostUSD || 0.00,
         confidence: "HIGH",
@@ -172,9 +172,8 @@ export function generateActionGroupsRecommendations(
         id: `rem-ag-empty-${ag.id.split("/").pop()}`,
         resourceId: ag.id,
         resourceName: ag.name,
-        title: `Configurar destinatarios en '${ag.name}' (${ag.associatedAlertsCount} alertas vinculadas)`,
-        description: `El Action Group está asociado a ${ag.associatedAlertsCount} regla(s) de alerta pero carece de destinatarios de email, webhooks o funciones. Las alertas se disparan en silencio desperdiciando el 100% de su costo de evaluación.`,
-        category: "FIX_NOTIFICATION",
+        params: { name: ag.name, alerts: ag.associatedAlertsCount },
+        category: "ADD_RECEIVERS",
         estimatedSavingsUSD: Number((ag.associatedAlertsCount * 0.10).toFixed(2)),
         confidence: "HIGH",
         actionType: "ADD_RECEIVERS_TO_ACTION_GROUP",
@@ -188,9 +187,8 @@ export function generateActionGroupsRecommendations(
         id: `rem-ag-bounce-${ag.id.split("/").pop()}`,
         resourceId: ag.id,
         resourceName: ag.name,
-        title: `Depurar emails rebotados en '${ag.name}' (${ag.bouncedEmailCount} rebotes)`,
-        description: `Se detectaron ${ag.bouncedEmailCount} rebotes permanentes (Hard Bounces) en destinatarios del grupo. Reemplazar cuentas individuales por listas de distribución activas para garantizar la entrega de incidentes.`,
-        category: "FIX_NOTIFICATION",
+        params: { name: ag.name, bounces: ag.bouncedEmailCount },
+        category: "FIX_BOUNCED_EMAILS",
         estimatedSavingsUSD: 0,
         confidence: "HIGH",
         actionType: "CLEAN_BOUNCED_EMAILS",
@@ -204,8 +202,7 @@ export function generateActionGroupsRecommendations(
         id: `rem-ag-failed-webhook-${ag.id.split("/").pop()}`,
         resourceId: ag.id,
         resourceName: ag.name,
-        title: `Inspeccionar fallas de entrega webhook en '${ag.name}' (${ag.failedWebhookCount} fallas MTD)`,
-        description: `Los endpoints webhooks/Logic Apps configurados reportaron errores HTTP 4xx/5xx en las respuestas automatizadas de alertas. Verificar tokens de autenticación o URLs expiradas.`,
+        params: { name: ag.name, failures: ag.failedWebhookCount },
         category: "ENDPOINT_DEBUG",
         estimatedSavingsUSD: Number((ag.failedWebhookCount * 0.001).toFixed(2)),
         confidence: "MEDIUM",
@@ -220,8 +217,7 @@ export function generateActionGroupsRecommendations(
         id: `rem-ag-consolidate-${ag.id.split("/").pop()}`,
         resourceId: ag.id,
         resourceName: ag.name,
-        title: `Consolidar ${ag.emailReceiversCount} destinatarios individuales en lista de distribución`,
-        description: `El grupo contiene ${ag.emailReceiversCount} direcciones de correo directas. Consolidar en una lista o grupo M365 ('alerts-oncall@domain.com') simplifica la gobernanza y evita límites de tasa de Azure Monitor.`,
+        params: { receivers: ag.emailReceiversCount },
         category: "EMAIL_CONSOLIDATE",
         estimatedSavingsUSD: 0,
         confidence: "MEDIUM",
@@ -263,7 +259,7 @@ export function getMockActionGroupsPayload(tenantId: string): ActionGroupsPayloa
       logicAppReceiversCount: 0,
       functionReceiversCount: 0,
       smsReceiversCount: 1,
-      specializedActionType: "Multi-Canal",
+      specializedActionType: "MULTI",
       healthStatus: "Valid",
       specializedCostUSD: 1.20,
       totalRealCostUSD: 1.20,
@@ -297,7 +293,7 @@ export function getMockActionGroupsPayload(tenantId: string): ActionGroupsPayloa
       logicAppReceiversCount: 1,
       functionReceiversCount: 0,
       smsReceiversCount: 2,
-      specializedActionType: "Logic App",
+      specializedActionType: "LOGIC_APP",
       healthStatus: "Valid",
       specializedCostUSD: 4.80,
       totalRealCostUSD: 4.80,
@@ -331,7 +327,7 @@ export function getMockActionGroupsPayload(tenantId: string): ActionGroupsPayloa
       logicAppReceiversCount: 0,
       functionReceiversCount: 1,
       smsReceiversCount: 0,
-      specializedActionType: "Azure Function",
+      specializedActionType: "AZURE_FUNCTION",
       healthStatus: "Valid",
       specializedCostUSD: 0.85,
       totalRealCostUSD: 0.85,
@@ -365,7 +361,7 @@ export function getMockActionGroupsPayload(tenantId: string): ActionGroupsPayloa
       logicAppReceiversCount: 0,
       functionReceiversCount: 0,
       smsReceiversCount: 0,
-      specializedActionType: "Email",
+      specializedActionType: "EMAIL",
       healthStatus: "Orphan",
       specializedCostUSD: 0.00,
       totalRealCostUSD: 0.00,
@@ -399,7 +395,7 @@ export function getMockActionGroupsPayload(tenantId: string): ActionGroupsPayloa
       logicAppReceiversCount: 0,
       functionReceiversCount: 0,
       smsReceiversCount: 0,
-      specializedActionType: "Webhook",
+      specializedActionType: "WEBHOOK",
       healthStatus: "Invalid_Bounces",
       specializedCostUSD: 0.40,
       totalRealCostUSD: 0.40,
@@ -433,7 +429,7 @@ export function getMockActionGroupsPayload(tenantId: string): ActionGroupsPayloa
       logicAppReceiversCount: 0,
       functionReceiversCount: 0,
       smsReceiversCount: 0,
-      specializedActionType: "Webhook",
+      specializedActionType: "WEBHOOK",
       healthStatus: "Invalid_Endpoint_Error",
       specializedCostUSD: 0.35,
       totalRealCostUSD: 0.35,
@@ -467,7 +463,7 @@ export function getMockActionGroupsPayload(tenantId: string): ActionGroupsPayloa
       logicAppReceiversCount: 0,
       functionReceiversCount: 0,
       smsReceiversCount: 0,
-      specializedActionType: "Sin Destinatarios",
+      specializedActionType: "NO_RECIPIENTS",
       healthStatus: "Orphan",
       specializedCostUSD: 0.00,
       totalRealCostUSD: 0.00,
@@ -501,7 +497,7 @@ export function getMockActionGroupsPayload(tenantId: string): ActionGroupsPayloa
       logicAppReceiversCount: 0,
       functionReceiversCount: 0,
       smsReceiversCount: 0,
-      specializedActionType: "Email",
+      specializedActionType: "EMAIL",
       healthStatus: "Orphan",
       specializedCostUSD: 0.00,
       totalRealCostUSD: 0.00,
@@ -537,7 +533,7 @@ export function getMockActionGroupsPayload(tenantId: string): ActionGroupsPayloa
       logicAppReceiversCount: 1,
       functionReceiversCount: 0,
       smsReceiversCount: 2,
-      specializedActionType: "Multi-Canal",
+      specializedActionType: "MULTI",
       healthStatus: "Valid",
       specializedCostUSD: 2.40,
       totalRealCostUSD: 2.40,

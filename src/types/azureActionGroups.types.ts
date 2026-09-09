@@ -8,11 +8,42 @@ export type ActionGroupHealthStatus =
   | "Invalid_Bounces"
   | "Invalid_Endpoint_Error";
 
-export type ActionGroupRemediationCategory =
-  | "ORPHAN_PURGE"
-  | "FIX_NOTIFICATION"
-  | "ENDPOINT_DEBUG"
-  | "EMAIL_CONSOLIDATE";
+/**
+ * FIX_NOTIFICATION cubria dos recomendaciones distintas (grupo sin
+ * destinatarios y grupo con emails rebotados), asi que no servia como
+ * discriminador: dos textos no pueden colgar de la misma clave. Separadas,
+ * cada una tiene la suya. El comando que emite aiRemediations no cambia.
+ *
+ * Lista en runtime, no solo un tipo: el test de claves necesita recorrerla.
+ */
+/**
+ * El canal viaja como token y se pinta con `channel_<token>`: antes viajaba
+ * como texto ("Sin Destinatarios", "Multi-Canal") y se renderizaba tal cual,
+ * asi que en /en y /pt-BR se veia castellano. El token ademas es lo que
+ * comparan el filtro y el mapeo de iconos, que con texto traducible se
+ * habrian roto al cambiar de idioma.
+ */
+export const ACTION_GROUP_CHANNELS = [
+  "EMAIL",
+  "WEBHOOK",
+  "LOGIC_APP",
+  "AZURE_FUNCTION",
+  "SMS_VOICE",
+  "MULTI",
+  "NO_RECIPIENTS",
+] as const;
+
+export type ActionGroupChannel = (typeof ACTION_GROUP_CHANNELS)[number];
+
+export const ACTION_GROUP_REMEDIATION_CATEGORIES = [
+  "ORPHAN_PURGE",
+  "ADD_RECEIVERS",
+  "FIX_BOUNCED_EMAILS",
+  "ENDPOINT_DEBUG",
+  "EMAIL_CONSOLIDATE",
+] as const;
+
+export type ActionGroupRemediationCategory = (typeof ACTION_GROUP_REMEDIATION_CATEGORIES)[number];
 
 export interface ActionGroupReceiverSummary {
   emails: string[];
@@ -42,7 +73,7 @@ export interface ActionGroupResource {
   logicAppReceiversCount: number;
   functionReceiversCount: number;
   smsReceiversCount?: number;
-  specializedActionType: string;
+  specializedActionType: ActionGroupChannel;
   healthStatus: ActionGroupHealthStatus;
   specializedCostUSD: number;
   totalRealCostUSD: number;
@@ -90,8 +121,7 @@ export interface ActionGroupRemediationAction {
   id: string;
   resourceId: string;
   resourceName?: string;
-  title: string;
-  description: string;
+  params?: Record<string, string | number>;
   category: ActionGroupRemediationCategory;
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM";

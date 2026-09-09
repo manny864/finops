@@ -1,5 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
+import { ACTION_GROUP_CHANNELS } from "@/types/azureActionGroups.types";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -103,6 +105,7 @@ function ActionGroupAuditModal({
   potentialSavings: number;
 }) {
   const t = useTranslations("ActionGroups");
+  const textoRem = useTextoPorCategoria("ActionGroups");
   const [saving, setSaving] = useState(false);
   const [completed, setCompleted] = useState(false);
 
@@ -144,7 +147,7 @@ function ActionGroupAuditModal({
 
         <div className="space-y-3 mb-6">
           <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 flex justify-between items-center text-sm">
-            <span className="text-slate-600 dark:text-slate-300">Total Action Groups Evaluados:</span>
+            <span className="text-slate-600 dark:text-slate-300">{t("totalEvaluated")}</span>
             <span className="font-bold text-[#1B2A41] dark:text-slate-100">{totalGroups}</span>
           </div>
           <div className="p-3 bg-blue-50/50 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-800 flex justify-between items-center text-sm">
@@ -182,7 +185,7 @@ function ActionGroupAuditModal({
             {saving ? (
               <>
                 <IconLoader2 className="w-4 h-4 animate-spin text-[#0054A6]" />
-                Auditando...
+                {t("auditing")}
               </>
             ) : completed ? (
               <>
@@ -212,6 +215,7 @@ function ActionGroupReceiversModal({
 }) {
   const [copied, setCopied] = useState<string | null>(null);
   const t = useTranslations("ActionGroups");
+  const textoRem = useTextoPorCategoria("ActionGroups");
 
   if (!actionGroup) return null;
 
@@ -268,7 +272,7 @@ function ActionGroupReceiversModal({
                     <button
                       onClick={() => handleCopy(email, `email-${idx}`)}
                       className="text-slate-400 hover:text-[#0054A6] cursor-pointer"
-                      title="Copiar email"
+                      title={t("copyEmail")}
                     >
                       {copied === `email-${idx}` ? <IconCheck className="w-3.5 h-3.5 text-emerald-500" /> : <IconCopy className="w-3.5 h-3.5" />}
                     </button>
@@ -284,7 +288,7 @@ function ActionGroupReceiversModal({
           <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <IconWebhook className="w-4 h-4 text-[#2563EB]" />
-              Webhooks & Integraciones Externas ({receivers.webhooks.length})
+              {t("webhooksSection", { count: receivers.webhooks.length })}
             </div>
             {receivers.webhooks.length > 0 ? (
               <ul className="space-y-1.5">
@@ -388,6 +392,7 @@ function ActionGroupAlertsModal({
   onClose: () => void;
 }) {
   const t = useTranslations("ActionGroups");
+  const textoRem = useTextoPorCategoria("ActionGroups");
   if (!actionGroup) return null;
 
   const alerts = actionGroup.associatedAlertRuleNames || [];
@@ -406,7 +411,7 @@ function ActionGroupAlertsModal({
           <IconLayersLinked className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
           <div>
             <h2 className="text-lg font-bold text-[#1B2A41] dark:text-slate-100">
-              Reglas de Alerta Vinculadas: {actionGroup.name}
+              {t("linkedAlertRulesTitle", { name: actionGroup.name })}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {t("totalSubscribedRules")} <span className="font-bold text-[#0054A6]">{actionGroup.associatedAlertsCount}</span>
@@ -461,6 +466,7 @@ function ActionGroupRemediationModal({
 }) {
   const [tab, setTab] = useState<"cli" | "powershell">("cli");
   const t = useTranslations("ActionGroups");
+  const textoRem = useTextoPorCategoria("ActionGroups");
   const [copied, setCopied] = useState(false);
 
   if (!action) return null;
@@ -488,7 +494,7 @@ function ActionGroupRemediationModal({
           <IconSparkles className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
           <div>
             <h2 className="text-lg font-bold text-[#1B2A41] dark:text-slate-100">
-              {t("remediationTitle", { title: action.title })}
+              {t("remediationTitle", { title: textoRem(action, "title") })}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {t("estSavingsLabel")} <span className="font-bold text-emerald-600">{formatCurrency(action.estimatedSavingsUSD)}/mes</span>
@@ -497,7 +503,7 @@ function ActionGroupRemediationModal({
         </div>
 
         <p className="text-sm text-slate-600 dark:text-slate-300 mb-4 leading-relaxed">
-          {action.description}
+          {textoRem(action, "desc")}
         </p>
 
         {/* Tab Selector */}
@@ -534,7 +540,7 @@ function ActionGroupRemediationModal({
           <button
             onClick={handleCopy}
             className="absolute top-2.5 right-2.5 p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition cursor-pointer"
-            title="Copiar comando"
+            title={t("copyCommandTitle")}
           >
             {copied ? <IconCheck className="w-4 h-4 text-emerald-400" /> : <IconCopy className="w-4 h-4" />}
           </button>
@@ -556,6 +562,7 @@ function ActionGroupRemediationModal({
 // ─── Componente Principal ───
 export default function ActionGroupsBoard() {
   const t = useTranslations("ActionGroups");
+  const textoRem = useTextoPorCategoria("ActionGroups");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -758,7 +765,7 @@ export default function ActionGroupsBoard() {
       `"${ag.shortName || ""}"`,
       `"${ag.resourceGroup}"`,
       `"${ag.subscriptionName}"`,
-      `"${ag.specializedActionType}"`,
+      `"${t(`channel_${ag.specializedActionType}`)}"`,
       `"${ag.state}"`,
       `"${ag.healthStatus}"`,
       ag.emailReceiversCount,
@@ -874,7 +881,7 @@ export default function ActionGroupsBoard() {
               {formatCurrency(summary.specializedCostUSD)}
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              {summary.totalNotificationsMTD} orquestaciones MTD
+              {t("orchestrationsMtd", { count: summary.totalNotificationsMTD })}
             </div>
           </div>
           <IconCash className="w-8 h-8 text-[#0078D4]" stroke={1.5} />
@@ -935,7 +942,7 @@ export default function ActionGroupsBoard() {
                 </span>
               ) : (
                 <span className="text-xs font-bold px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800 text-emerald-600 bg-white dark:bg-slate-900">
-                  100% Entregados
+                  {t("allDelivered")}
                 </span>
               )}
             </div>
@@ -977,7 +984,7 @@ export default function ActionGroupsBoard() {
                   ))}
                 </Pie>
                 <RechartsTooltip
-                  formatter={(val: any) => [`${val} grupos`, "Cantidad"]}
+                  formatter={(val: any) => [t("groupsValue", { count: val }), t("chartCount")]}
                   contentStyle={{
                     backgroundColor: "#1B2A41",
                     color: "#FFFFFF",
@@ -1037,8 +1044,8 @@ export default function ActionGroupsBoard() {
                   }}
                 />
                 <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "6px" }} />
-                <Area type="monotone" dataKey="notificationsCount" name="Notificaciones Exitosas" stroke="#0078D4" strokeWidth={2} fillOpacity={1} fill="url(#colorNotifs)" />
-                <Area type="monotone" dataKey="failedCount" name="Fallas / Rebotes" stroke="#EF4444" strokeWidth={2} fillOpacity={1} fill="url(#colorFailed)" />
+                <Area type="monotone" dataKey="notificationsCount" name={t("seriesSuccessfulNotifications")} stroke="#0078D4" strokeWidth={2} fillOpacity={1} fill="url(#colorNotifs)" />
+                <Area type="monotone" dataKey="failedCount" name={t("seriesFailuresBounces")} stroke="#EF4444" strokeWidth={2} fillOpacity={1} fill="url(#colorFailed)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -1068,13 +1075,11 @@ export default function ActionGroupsBoard() {
               className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
             >
               <option value="ALL">{t("filterChannelAll")}</option>
-              <option value="Email">Email</option>
-              <option value="Webhook">Webhook</option>
-              <option value="Logic App">Logic App</option>
-              <option value="Azure Function">Azure Function</option>
-              <option value="SMS / Voz">{t("filterChannelSmsVoice")}</option>
-              <option value="Multi-Canal">{t("filterChannelMulti")}</option>
-              <option value="Sin Destinatarios">{t("filterChannelNoRecipients")}</option>
+              {ACTION_GROUP_CHANNELS.map((canal) => (
+                <option key={canal} value={canal}>
+                  {t(`channel_${canal}`)}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -1129,7 +1134,7 @@ export default function ActionGroupsBoard() {
         {selectedIds.size > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl border border-blue-200 dark:border-blue-800">
             <span className="text-xs font-semibold text-[#0054A6] dark:text-blue-300">
-              {selectedIds.size} {selectedIds.size === 1 ? "grupo seleccionado" : "grupos seleccionados"}
+              {t("selectedGroups", { count: selectedIds.size })}
             </span>
             <div className="flex items-center gap-2">
               <button
@@ -1184,12 +1189,12 @@ export default function ActionGroupsBoard() {
                 </th>
                 <ResizableTh minWidth={200}>{t("colResource")}</ResizableTh>
                 <ResizableTh minWidth={140}>Canal Principal</ResizableTh>
-                <ResizableTh minWidth={180}>Destinatarios Configurados</ResizableTh>
+                <ResizableTh minWidth={180}>{t("colConfiguredReceivers")}</ResizableTh>
                 <ResizableTh minWidth={130}>{t("colHealth")}</ResizableTh>
                 <ResizableTh minWidth={100}>{t("colStatus")}</ResizableTh>
                 <ResizableTh minWidth={160}>{t("colSubscription")}</ResizableTh>
-                <ResizableTh minWidth={110}>Alertas Vinculadas</ResizableTh>
-                <ResizableTh minWidth={120}>Notificaciones MTD</ResizableTh>
+                <ResizableTh minWidth={110}>{t("colLinkedAlerts")}</ResizableTh>
+                <ResizableTh minWidth={120}>{t("colNotificationsMtd")}</ResizableTh>
                 <ResizableTh minWidth={110}>{t("colComputeCost")}</ResizableTh>
                 <th className="py-3 px-4 text-right">{t("colActions")}</th>
               </tr>
@@ -1201,11 +1206,11 @@ export default function ActionGroupsBoard() {
 
                   // Icono según tipo de acción
                   let ChannelIcon = IconMail;
-                  if (ag.specializedActionType === "Webhook") ChannelIcon = IconWebhook;
-                  else if (ag.specializedActionType === "Logic App") ChannelIcon = IconBinaryTree;
-                  else if (ag.specializedActionType === "Azure Function") ChannelIcon = IconCpu;
-                  else if (ag.specializedActionType === "SMS / Voz") ChannelIcon = IconDeviceMobile;
-                  else if (ag.specializedActionType === "Multi-Canal") ChannelIcon = IconLayersLinked;
+                  if (ag.specializedActionType === "WEBHOOK") ChannelIcon = IconWebhook;
+                  else if (ag.specializedActionType === "LOGIC_APP") ChannelIcon = IconBinaryTree;
+                  else if (ag.specializedActionType === "AZURE_FUNCTION") ChannelIcon = IconCpu;
+                  else if (ag.specializedActionType === "SMS_VOICE") ChannelIcon = IconDeviceMobile;
+                  else if (ag.specializedActionType === "MULTI") ChannelIcon = IconLayersLinked;
 
                   // Health badge
                   let healthBadge = (
@@ -1278,7 +1283,7 @@ export default function ActionGroupsBoard() {
                         <div className="flex items-center gap-1.5">
                           <ChannelIcon className="w-4 h-4 text-[#0078D4] shrink-0" stroke={1.5} />
                           <span className="text-slate-700 dark:text-slate-300 truncate">
-                            {ag.specializedActionType}
+                            {t(`channel_${ag.specializedActionType}`)}
                           </span>
                         </div>
                       </td>
@@ -1304,7 +1309,7 @@ export default function ActionGroupsBoard() {
                           }`}
                         >
                           <IconPower className={`w-3.5 h-3.5 ${ag.state === "Enabled" ? "text-emerald-600" : "text-slate-400"}`} />
-                          {ag.state === "Enabled" ? "Activo" : "Pausado"}
+                          {ag.state === "Enabled" ? t("stateActive") : t("statePaused")}
                         </button>
                       </td>
 
@@ -1410,10 +1415,10 @@ export default function ActionGroupsBoard() {
                     )}
                   </div>
                   <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 leading-snug">
-                    {action.title}
+                    {textoRem(action, "title")}
                   </h4>
                   <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-3 leading-relaxed">
-                    {action.description}
+                    {textoRem(action, "desc")}
                   </p>
                 </div>
 

@@ -14,6 +14,7 @@ import { LAW_REMEDIATION_CATEGORIES } from "@/types/azureLogAnalytics.types";
 import { AZURE_MONITOR_REMEDIATION_CATEGORIES } from "@/types/azureMonitor.types";
 import { SENTINEL_REMEDIATION_CATEGORIES } from "@/types/azureSentinel.types";
 import { NETWORK_WATCHER_REMEDIATION_CATEGORIES } from "@/types/azureNetworkWatcher.types";
+import { ACTION_GROUP_REMEDIATION_CATEGORIES, ACTION_GROUP_CHANNELS } from "@/types/azureActionGroups.types";
 import { WATERFALL_STEP_KEYS } from "@/types/azureWhatIf.types";
 import { REDIS_RULE_I18N } from "@/types/redisCache";
 import { MONGO_RULE_I18N } from "@/types/azureMongoDb";
@@ -180,6 +181,17 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
          */
         params?: Record<string, string | number>;
     }> = [
+        {
+            que: "canales de Action Group (ACTION_GROUP_CHANNELS)",
+            ns: "ActionGroups",
+            claves: ACTION_GROUP_CHANNELS.map((c) => `channel_${c}`),
+        },
+        {
+            que: "recomendaciones de Action Groups (ACTION_GROUP_REMEDIATION_CATEGORIES)",
+            ns: "ActionGroups",
+            params: { name: "ag-oncall", alerts: 3, bounces: 2, failures: 5, receivers: 7 },
+            claves: ACTION_GROUP_REMEDIATION_CATEGORIES.flatMap((c) => [`rem_${c}_title`, `rem_${c}_desc`]),
+        },
         {
             // Las cuatro familias de monitoreo comparten molde: sin `_impact`,
             // porque el tipo de esos servicios nunca tuvo `impactSummary`.
@@ -668,6 +680,7 @@ const TABLEROS_MUERTOS = [
 ];
 
 const TABLEROS_LIMPIOS = [
+    "src/components/monitoring/ActionGroupsBoard.tsx",
     "src/components/monitoring/AzureMonitorPanel.tsx",
     "src/components/monitoring/LogAnalyticsPanel.tsx",
     "src/components/monitoring/NetworkWatcherPanel.tsx",

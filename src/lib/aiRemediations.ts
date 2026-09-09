@@ -485,7 +485,7 @@ export function buildActionGroupRemediationCommand(action: ActionGroupRemediatio
     };
   }
 
-  if (action.category === "FIX_NOTIFICATION") {
+  if (action.category === "ADD_RECEIVERS" || action.category === "FIX_BOUNCED_EMAILS") {
     return {
       cli: action.commandPayload || `az monitor action-group update --name "${resourceName}" --resource-group "${rg}" --add-action email "OpsLead" "ops-team@company.com"`,
       powershell: `# PowerShell Azure CLI - Agregar Destinatario de Notificación\nSet-AzActionGroup -ResourceGroupName "${rg}" -Name "${resourceName}"`,

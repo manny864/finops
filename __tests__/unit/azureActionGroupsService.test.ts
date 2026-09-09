@@ -12,13 +12,13 @@ import type { ActionGroupResource, ActionGroupRemediationAction } from "@/types/
 
 describe("Azure Action Groups & Notification Governance Service", () => {
   it("should derive correct primary action type from channel counts", () => {
-    expect(deriveActionType(2, 0, 0, 0, 0)).toBe("Email");
-    expect(deriveActionType(0, 1, 0, 0, 0)).toBe("Webhook");
-    expect(deriveActionType(0, 0, 1, 0, 0)).toBe("Logic App");
-    expect(deriveActionType(0, 0, 0, 1, 0)).toBe("Azure Function");
-    expect(deriveActionType(0, 0, 0, 0, 2)).toBe("SMS / Voz");
-    expect(deriveActionType(2, 1, 0, 0, 0)).toBe("Multi-Canal");
-    expect(deriveActionType(0, 0, 0, 0, 0)).toBe("Sin Destinatarios");
+    expect(deriveActionType(2, 0, 0, 0, 0)).toBe("EMAIL");
+    expect(deriveActionType(0, 1, 0, 0, 0)).toBe("WEBHOOK");
+    expect(deriveActionType(0, 0, 1, 0, 0)).toBe("LOGIC_APP");
+    expect(deriveActionType(0, 0, 0, 1, 0)).toBe("AZURE_FUNCTION");
+    expect(deriveActionType(0, 0, 0, 0, 2)).toBe("SMS_VOICE");
+    expect(deriveActionType(2, 1, 0, 0, 0)).toBe("MULTI");
+    expect(deriveActionType(0, 0, 0, 0, 0)).toBe("NO_RECIPIENTS");
   });
 
   it("should generate mock Action Groups dataset for demo tenant with valid metrics and recommendations", () => {
@@ -46,7 +46,7 @@ describe("Azure Action Groups & Notification Governance Service", () => {
         webhookReceiversCount: 0,
         logicAppReceiversCount: 0,
         functionReceiversCount: 0,
-        specializedActionType: "Email",
+        specializedActionType: "EMAIL",
         healthStatus: "Orphan",
         specializedCostUSD: 0,
         totalRealCostUSD: 0,
@@ -69,7 +69,7 @@ describe("Azure Action Groups & Notification Governance Service", () => {
         webhookReceiversCount: 0,
         logicAppReceiversCount: 0,
         functionReceiversCount: 0,
-        specializedActionType: "Sin Destinatarios",
+        specializedActionType: "NO_RECIPIENTS",
         healthStatus: "Valid",
         specializedCostUSD: 0,
         totalRealCostUSD: 0,
@@ -92,7 +92,7 @@ describe("Azure Action Groups & Notification Governance Service", () => {
         webhookReceiversCount: 0,
         logicAppReceiversCount: 0,
         functionReceiversCount: 0,
-        specializedActionType: "Email",
+        specializedActionType: "EMAIL",
         healthStatus: "Invalid_Bounces",
         specializedCostUSD: 0,
         totalRealCostUSD: 0,
@@ -115,7 +115,7 @@ describe("Azure Action Groups & Notification Governance Service", () => {
         webhookReceiversCount: 1,
         logicAppReceiversCount: 0,
         functionReceiversCount: 0,
-        specializedActionType: "Webhook",
+        specializedActionType: "WEBHOOK",
         healthStatus: "Invalid_Endpoint_Error",
         specializedCostUSD: 0.50,
         totalRealCostUSD: 0.50,
@@ -134,10 +134,10 @@ describe("Azure Action Groups & Notification Governance Service", () => {
     const orphanRem = remediations.find((r) => r.category === "ORPHAN_PURGE");
     expect(orphanRem).toBeDefined();
 
-    const emptyRem = remediations.find((r) => r.category === "FIX_NOTIFICATION" && r.resourceName === "ag-empty-test");
+    const emptyRem = remediations.find((r) => r.category === "ADD_RECEIVERS");
     expect(emptyRem).toBeDefined();
 
-    const bounceRem = remediations.find((r) => r.category === "FIX_NOTIFICATION" && r.resourceName === "ag-bounces-test");
+    const bounceRem = remediations.find((r) => r.category === "FIX_BOUNCED_EMAILS");
     expect(bounceRem).toBeDefined();
 
     const failedWhRem = remediations.find((r) => r.category === "ENDPOINT_DEBUG");
@@ -152,8 +152,7 @@ describe("Azure Action Groups & Notification Governance Service", () => {
       id: "rem-1",
       resourceId: "/subscriptions/sub-1/resourceGroups/rg-alerts/providers/microsoft.insights/actionGroups/ag-orphan-test",
       resourceName: "ag-orphan-test",
-      title: "Eliminar Action Group huérfano",
-      description: "Test description",
+      params: { name: "ag-orphan-test" },
       category: "ORPHAN_PURGE",
       estimatedSavingsUSD: 0.00,
       confidence: "HIGH",
