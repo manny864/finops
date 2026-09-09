@@ -271,8 +271,7 @@ export function generateDatabricksRecommendations(
       actions.push({
         id: `rec-migrate-job-${c.clusterId}`,
         targetId: c.clusterId,
-        title: `Migrar clúster '${c.clusterName}' a Automated Job Compute`,
-        description: `El clúster '${c.clusterName}' ejecuta pipelines programados bajo tarifa All-Purpose ($0.40-$0.55/DBU). Migrar la ejecución a un Workflow Job automatizado aplica la tarifa reducida Jobs DBU ($0.15-$0.20/DBU), ahorrando un 55-65% en costos de DBU.`,
+        params: { cluster: c.clusterName },
         category: "MIGRATE_TO_JOBS",
         estimatedSavingsUSD: estimatedSavings,
         confidence: "HIGH",
@@ -287,8 +286,9 @@ export function generateDatabricksRecommendations(
       actions.push({
         id: `rec-autoterm-${c.clusterId}`,
         targetId: c.clusterId,
-        title: `Reducir Auto-Termination a 20 min en '${c.clusterName}'`,
-        description: `El clúster interactivo '${c.clusterName}' tiene el auto-apagado ${c.autoterminationMinutes === 0 ? "DESACTIVADO" : `configurado en ${c.autoterminationMinutes} minutos`}. Reducirlo a 20 minutos de inactividad evita facturar horas ociosas de VMs y DBUs.`,
+        // El "DESACTIVADO" vs "configurado en N minutos" es una frase, no un
+        // dato: se resuelve con un `select` de ICU en el catalogo.
+        params: { cluster: c.clusterName, minutes: c.autoterminationMinutes },
         category: "REDUCE_AUTOTERMINATION",
         estimatedSavingsUSD: estimatedSavings,
         confidence: "HIGH",
@@ -303,8 +303,7 @@ export function generateDatabricksRecommendations(
       actions.push({
         id: `rec-singlenode-${c.clusterId}`,
         targetId: c.clusterId,
-        title: `Convertir clúster '${c.clusterName}' a Single-Node`,
-        description: `El clúster de desarrollo '${c.clusterName}' tiene ${c.minWorkers} workers aprovisionados. Convertirlo a clúster Single-Node (1 nodo driver sin workers adicionales) reduce a la mitad el consumo de VMs y DBUs sin afectar el desarrollo interactivo.`,
+        params: { cluster: c.clusterName, workers: c.minWorkers },
         category: "SINGLE_NODE_DEV",
         estimatedSavingsUSD: estimatedSavings,
         confidence: "MEDIUM",

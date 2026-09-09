@@ -3070,7 +3070,19 @@
     "search_recommendedActions": "{count} ações recomendadas",
     "foundry_avgPerDay": "{value} média/dia",
     "foundry_eomProjection": "Projeção EOM: {amount}",
-    "foundry_untaggedLabel": "Sem atribuição ({count} apps)"
+    "foundry_untaggedLabel": "Sem atribuição ({count} apps)",
+    "rem_SAFETY_HASH_CACHING_title": "Implementação de Hash-Cache (SHA-256) em “{name}”",
+    "rem_SAFETY_HASH_CACHING_desc": "A conta “{name}” avalia um alto volume de conteúdo ({texts} textos / {images} imagens). Implementar um cache de hash (Redis ou in-memory com TTL de 24h) para textos e imagens idênticas reduz as chamadas redundantes à API do Content Safety em até 35-40%.",
+    "rem_SAFETY_DEV_F0_DOWNGRADE_title": "Downgrade para o Free Tier F0 em “{name}”",
+    "rem_SAFETY_DEV_F0_DOWNGRADE_desc": "A instância “{name}” em ambiente de desenvolvimento processa menos de 5.000 registros/mês. Mudar do tier Standard (S0) para o nível gratuito F0 (5.000 chamadas de texto e 1.000 imagens grátis por mês) reduz o custo para $0,00 USD/mês.",
+    "rem_SAFETY_BLOCKLIST_OPTIMIZATION_title": "Racionalização de Listas de Bloqueio em “{name}”",
+    "rem_SAFETY_BLOCKLIST_OPTIMIZATION_desc": "Foram detectadas {matches} correspondências em listas de bloqueio personalizadas. Consolidar termos redundantes e aplicar filtragem regex prévia no cliente ou API Gateway diminui a latência e os custos de inferência.",
+    "rem_DBX_MIGRATE_TO_JOBS_title": "Migrar cluster “{cluster}” para Automated Job Compute",
+    "rem_DBX_MIGRATE_TO_JOBS_desc": "O cluster “{cluster}” executa pipelines agendados sob a tarifa All-Purpose ($0,40-$0,55/DBU). Migrar a execução para um Workflow Job automatizado aplica a tarifa reduzida Jobs DBU ($0,15-$0,20/DBU), economizando 55-65% nos custos de DBU.",
+    "rem_DBX_REDUCE_AUTOTERMINATION_title": "Reduzir Auto-Termination para 20 min em “{cluster}”",
+    "rem_DBX_REDUCE_AUTOTERMINATION_desc": "O cluster interativo “{cluster}” tem o desligamento automático {minutes, select, 0 {DESATIVADO} other {configurado em {minutes} minutos}}. Reduzi-lo para 20 minutos de inatividade evita faturar horas ociosas de VMs e DBUs.",
+    "rem_DBX_SINGLE_NODE_DEV_title": "Converter cluster “{cluster}” para Single-Node",
+    "rem_DBX_SINGLE_NODE_DEV_desc": "O cluster de desenvolvimento “{cluster}” tem {workers} workers provisionados. Convertê-lo em cluster Single-Node (1 nó driver sem workers adicionais) reduz pela metade o consumo de VMs e DBUs sem afetar o desenvolvimento interativo."
   },
   "AzureMongoDB": {
     "actionsDetected": "ações detectadas",

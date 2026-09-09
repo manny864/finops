@@ -60,17 +60,21 @@ export interface DatabricksSummary {
   breakdownByComponent: DatabricksComponentBreakdown[];
 }
 
-export type DatabricksRemediationCategory =
-  | "MIGRATE_TO_JOBS"
-  | "REDUCE_AUTOTERMINATION"
-  | "SINGLE_NODE_DEV"
-  | "PURGE_ORPHAN_DISKS";
+// PURGE_ORPHAN_DISKS se cae: tenia color y clave de rotulo pero el servicio
+// nunca la emitia, asi que no habia forma de que llegara a pantalla.
+export const DATABRICKS_REMEDIATION_CATEGORIES = [
+  "MIGRATE_TO_JOBS",
+  "REDUCE_AUTOTERMINATION",
+  "SINGLE_NODE_DEV",
+] as const;
+
+export type DatabricksRemediationCategory = (typeof DATABRICKS_REMEDIATION_CATEGORIES)[number];
 
 export interface DatabricksRemediationAction {
   id: string;
   targetId: string;
-  title: string;
-  description: string;
+  /** Valores a interpolar en `rem_DBX_<category>_title` / `_desc`. */
+  params?: Record<string, string | number>;
   category: DatabricksRemediationCategory;
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM";

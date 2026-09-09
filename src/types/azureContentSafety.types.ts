@@ -34,16 +34,19 @@ export interface ContentSafetySummary {
   breakdownByModality: ContentSafetyModalityBreakdown[];
 }
 
-export type ContentSafetyRemediationCategory =
-  | "HASH_CACHING"
-  | "DEV_F0_DOWNGRADE"
-  | "BLOCKLIST_OPTIMIZATION";
+export const CONTENT_SAFETY_REMEDIATION_CATEGORIES = [
+  "HASH_CACHING",
+  "DEV_F0_DOWNGRADE",
+  "BLOCKLIST_OPTIMIZATION",
+] as const;
+
+export type ContentSafetyRemediationCategory = (typeof CONTENT_SAFETY_REMEDIATION_CATEGORIES)[number];
 
 export interface ContentSafetyRemediationAction {
   id: string;
   resourceId: string;
-  title: string;
-  description: string;
+  /** Valores a interpolar en `rem_SAFETY_<category>_title` / `_desc`. */
+  params?: Record<string, string | number>;
   category: ContentSafetyRemediationCategory;
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM";

@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useRef } from "react";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import {
@@ -54,7 +55,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   MIGRATE_TO_JOBS: "#0078D4",
   REDUCE_AUTOTERMINATION: "#2563EB",
   SINGLE_NODE_DEV: "#0284C7",
-  PURGE_ORPHAN_DISKS: "#38BDF8",
 };
 
 // Vive a nivel de modulo, donde no hay `t`: guarda la clave y se resuelve al renderizar.
@@ -62,7 +62,6 @@ const CATEGORY_LABEL_KEYS: Record<string, string> = {
   MIGRATE_TO_JOBS: "Migrar a Automated Jobs DBU",
   REDUCE_AUTOTERMINATION: "Reducir Auto-Termination a 20 min",
   SINGLE_NODE_DEV: "singleNodeModeDev",
-  PURGE_ORPHAN_DISKS: "orphanedDiskCleanup",
 };
 
 // ─── Fetcher con autenticación OAuth ───
@@ -264,6 +263,7 @@ function RemediationModal({
   const [copied, setCopied] = useState(false);
   const [cmdTab, setCmdTab] = useState<"cli" | "powershell">("cli");
   const t = useTranslations("AzureAI");
+  const textoRem = useTextoPorCategoria("AzureAI", "DBX");
   const { format } = useCurrency();
 
   if (!action) return null;
@@ -287,7 +287,7 @@ function RemediationModal({
             </div>
             <div>
               <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-                {action.title}
+                {textoRem(action, "title")}
               </h3>
               <p className="text-[11px] text-slate-500">
                 {t("dbx_action_savings")}{" "}
@@ -307,7 +307,7 @@ function RemediationModal({
 
         <div className="p-6 space-y-4">
           <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/60 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-            {action.description}
+            {textoRem(action, "desc")}
           </div>
 
           <div className="space-y-2">
@@ -375,6 +375,7 @@ function RemediationModal({
 // ─── Componente Principal ───
 export default function DatabricksDashboard() {
   const t = useTranslations("AzureAI");
+  const textoRem = useTextoPorCategoria("AzureAI", "DBX");
   const tc = useTranslations("Common");
   const { selectedTenant } = useTenant();
   const { instance, accounts } = useMsal();
@@ -971,7 +972,9 @@ export default function DatabricksDashboard() {
           </div>
 
           <div className="space-y-3">
-            {remediationActions.map((action) => (
+            {remediationActions.map((action) => {
+              const descripcion = textoRem(action, "desc");
+              return (
               <div
                 key={action.id}
                 className="border border-slate-200 dark:border-slate-800 rounded-xl p-4 hover:border-[#0078D4]/30 transition-colors"
@@ -993,7 +996,7 @@ export default function DatabricksDashboard() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-bold text-[#1B2A41] dark:text-slate-200">
-                          {action.title}
+                          {textoRem(action, "title")}
                         </p>
                         <span
                           className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
@@ -1009,11 +1012,9 @@ export default function DatabricksDashboard() {
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 mt-1 line-clamp-2">
-                        {expandedAction === action.id
-                          ? action.description
-                          : action.description.slice(0, 120) + "…"}
+                        {expandedAction === action.id ? descripcion : descripcion.slice(0, 120) + "…"}
                       </p>
-                      {action.description.length > 120 && (
+                      {descripcion.length > 120 && (
                         <button
                           onClick={() =>
                             setExpandedAction(
@@ -1042,7 +1043,8 @@ export default function DatabricksDashboard() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

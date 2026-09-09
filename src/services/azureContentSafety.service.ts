@@ -208,8 +208,11 @@ export function generateContentSafetyRecommendations(
       actions.push({
         id: `rec-hash-cache-${r.name}`,
         resourceId: r.id,
-        title: `Implementación de Hash-Cache (SHA-256) en '${r.name}'`,
-        description: `La cuenta '${r.name}' evalúa un alto volumen de contenido (${r.textRecordsCount.toLocaleString()} textos / ${r.imagesAnalyzedCount.toLocaleString()} imágenes). Implementar un caché de hash (Redis o in-memory con TTL de 24h) para textos e imágenes idénticas reduce las llamadas redundantes a la API de Content Safety hasta en un 35-40%.`,
+        params: {
+          name: r.name,
+          texts: r.textRecordsCount.toLocaleString(),
+          images: r.imagesAnalyzedCount.toLocaleString(),
+        },
         category: "HASH_CACHING",
         estimatedSavingsUSD: estimatedSavings,
         confidence: "HIGH",
@@ -224,8 +227,7 @@ export function generateContentSafetyRecommendations(
       actions.push({
         id: `rec-f0-cs-${r.name}`,
         resourceId: r.id,
-        title: `Downgrade a Free Tier F0 en '${r.name}'`,
-        description: `La instancia '${r.name}' en entorno de desarrollo procesa menos de 5,000 registros/mes. Cambiar del tier Standard (S0) al nivel gratuito F0 (5,000 llamadas de texto y 1,000 imágenes gratis al mes) reduce el costo a $0.00 USD/mes.`,
+        params: { name: r.name },
         category: "DEV_F0_DOWNGRADE",
         estimatedSavingsUSD: estimatedSavings,
         confidence: "HIGH",
@@ -240,8 +242,7 @@ export function generateContentSafetyRecommendations(
       actions.push({
         id: `rec-blocklist-opt-${r.name}`,
         resourceId: r.id,
-        title: `Racionalización de Listas de Bloqueo en '${r.name}'`,
-        description: `Se detectaron ${r.blocklistMatchesCount.toLocaleString()} coincidencias en listas de bloqueo personalizadas. Consolidar términos redundantes y aplicar filtrado regex previo en el cliente o API Gateway disminuye la latencia y costos de inferencia.`,
+        params: { name: r.name, matches: r.blocklistMatchesCount.toLocaleString() },
         category: "BLOCKLIST_OPTIMIZATION",
         estimatedSavingsUSD: estimatedSavings,
         confidence: "MEDIUM",

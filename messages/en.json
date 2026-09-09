@@ -3070,7 +3070,19 @@
     "search_recommendedActions": "{count} recommended actions",
     "foundry_avgPerDay": "{value} average/day",
     "foundry_eomProjection": "EOM projection: {amount}",
-    "foundry_untaggedLabel": "Unattributed ({count} apps)"
+    "foundry_untaggedLabel": "Unattributed ({count} apps)",
+    "rem_SAFETY_HASH_CACHING_title": "Implement a hash cache (SHA-256) on “{name}”",
+    "rem_SAFETY_HASH_CACHING_desc": "Account “{name}” evaluates a high volume of content ({texts} texts / {images} images). Implementing a hash cache (Redis or in-memory with a 24h TTL) for identical texts and images cuts redundant calls to the Content Safety API by up to 35-40%.",
+    "rem_SAFETY_DEV_F0_DOWNGRADE_title": "Downgrade “{name}” to the F0 free tier",
+    "rem_SAFETY_DEV_F0_DOWNGRADE_desc": "Instance “{name}” in a development environment processes fewer than 5,000 records/month. Switching from the Standard (S0) tier to the free F0 tier (5,000 free text calls and 1,000 images per month) brings the cost down to $0.00 USD/month.",
+    "rem_SAFETY_BLOCKLIST_OPTIMIZATION_title": "Rationalize blocklists on “{name}”",
+    "rem_SAFETY_BLOCKLIST_OPTIMIZATION_desc": "{matches} matches were detected across custom blocklists. Consolidating redundant terms and applying regex pre-filtering on the client or API Gateway reduces latency and inference costs.",
+    "rem_DBX_MIGRATE_TO_JOBS_title": "Migrate cluster “{cluster}” to Automated Job Compute",
+    "rem_DBX_MIGRATE_TO_JOBS_desc": "Cluster “{cluster}” runs scheduled pipelines at the All-Purpose rate ($0.40-$0.55/DBU). Moving execution to an automated Workflow Job applies the reduced Jobs DBU rate ($0.15-$0.20/DBU), saving 55-65% on DBU costs.",
+    "rem_DBX_REDUCE_AUTOTERMINATION_title": "Reduce auto-termination to 20 min on “{cluster}”",
+    "rem_DBX_REDUCE_AUTOTERMINATION_desc": "Interactive cluster “{cluster}” has auto-shutdown {minutes, select, 0 {DISABLED} other {set to {minutes} minutes}}. Reducing it to 20 minutes of inactivity avoids billing idle VM and DBU hours.",
+    "rem_DBX_SINGLE_NODE_DEV_title": "Convert cluster “{cluster}” to Single-Node",
+    "rem_DBX_SINGLE_NODE_DEV_desc": "Development cluster “{cluster}” has {workers} workers provisioned. Converting it to a Single-Node cluster (1 driver node with no additional workers) halves VM and DBU consumption without affecting interactive development."
   },
   "AzureMongoDB": {
     "actionsDetected": "actions detected",

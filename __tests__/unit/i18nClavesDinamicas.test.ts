@@ -31,6 +31,8 @@ import { COSMOS_RULE_I18N } from "@/types/cosmosDb";
 import { FABRIC_RULE_I18N } from "@/types/azureFabric";
 import { PAGES, pageTitleKey, pageDescKey } from "@/lib/pageRegistry";
 import { SAAS_COMPONENT_KEYS, CRON_JOB_KEYS } from "@/types/saasOperations.types";
+import { CONTENT_SAFETY_REMEDIATION_CATEGORIES } from "@/types/azureContentSafety.types";
+import { DATABRICKS_REMEDIATION_CATEGORIES } from "@/types/azureDatabricks.types";
 import {
     UNIT_ECONOMICS_REMEDIATION_CATEGORIES,
     UNIT_METRIC_CATALOG,
@@ -205,6 +207,24 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
             ns: "AzureAI",
             params: { cost: "1500.00", rate: 12.5, deployment: "gpt-35-turbo-legacy", model: "gpt-4", count: 2, apps: "app-a, app-b" },
             claves: FOUNDRY_REMEDIATION_CATEGORIES.flatMap((c) => [`rem_FOUNDRY_${c}_title`, `rem_FOUNDRY_${c}_desc`]),
+        },
+        {
+            que: "recomendaciones de Databricks (DATABRICKS_REMEDIATION_CATEGORIES)",
+            ns: "AzureAI",
+            params: { cluster: "dbx-etl", minutes: 60, workers: 4 },
+            claves: DATABRICKS_REMEDIATION_CATEGORIES.flatMap((c) => [
+                `rem_DBX_${c}_title`,
+                `rem_DBX_${c}_desc`,
+            ]),
+        },
+        {
+            que: "recomendaciones de Content Safety (CONTENT_SAFETY_REMEDIATION_CATEGORIES)",
+            ns: "AzureAI",
+            params: { name: "cs-prod", texts: "1,200", images: "340", matches: "88" },
+            claves: CONTENT_SAFETY_REMEDIATION_CATEGORIES.flatMap((c) => [
+                `rem_SAFETY_${c}_title`,
+                `rem_SAFETY_${c}_desc`,
+            ]),
         },
         {
             que: "componentes y crons de Operaciones SaaS (SAAS_COMPONENT_KEYS / CRON_JOB_KEYS)",
@@ -533,6 +553,42 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
  * `{scope}` en el catálogo contra un `params: { scopeName }` en el código falla de
  * esta misma forma muda.
  */
+/**
+ * Las ramas de un `select` no las cubre la capa 2: ahi solo se comprueba que el
+ * texto resuelva sin llaves sueltas, y con un valor cualquiera siempre cae en
+ * `other`. Si alguien escribe mal el nombre de una rama, el `other` la tapa y
+ * nadie se entera. Estos casos fuerzan las dos ramas.
+ */
+describe("i18n · capa 2b: las ramas de los select de ICU", () => {
+    it.each(LOCALES)("%s: autoterminacion en 0 no cae en la rama generica", (locale) => {
+        const t = traducir(locale, "AzureAI");
+        const apagado = t("rem_DBX_REDUCE_AUTOTERMINATION_desc", { cluster: "dbx", minutes: 0 });
+        const configurado = t("rem_DBX_REDUCE_AUTOTERMINATION_desc", { cluster: "dbx", minutes: 45 });
+        expect(configurado).toContain("45");
+        // La rama de 0 dice "DESACTIVADO", sin numero. Si el nombre de la rama
+        // se escribe mal, `other` la tapa y sale "configurado en 0 minutos":
+        // por eso se comprueba la ausencia del 0 y no solo que difieran.
+        expect(apagado).not.toMatch(/\b0\b/);
+        expect(configurado).not.toBe(apagado);
+    });
+
+    it.each(LOCALES)("%s: sin culpable, SCALING_MISMATCH no menciona ningun servicio", (locale) => {
+        const t = traducir(locale, "UnitEconomics");
+        const base = {
+            volume: "18.4",
+            unitChange: "7.1",
+            unit: "u",
+            culpritPct: 34,
+            culpritCorr: "0.91",
+        };
+        const sin = t("rem_SCALING_MISMATCH_desc", { ...base, culprit: "NINGUNO" });
+        const con = t("rem_SCALING_MISMATCH_desc", { ...base, culprit: "Azure SQL" });
+        expect(sin).not.toContain("NINGUNO");
+        expect(sin.length).toBeLessThan(con.length);
+        expect(con).toContain("Azure SQL");
+    });
+});
+
 describe("i18n · capa 3: las notificaciones persistidas", () => {
     /**
      * Descubre los call sites en vez de listarlos: una notificación nueva queda
@@ -783,6 +839,8 @@ const TABLEROS_LIMPIOS = [
     "src/components/monitoring/ActionGroupsBoard.tsx",
     "src/components/analytics/CostAllocationEngine.tsx",
     "src/components/analytics/UnitEconomicsPanel.tsx",
+    "src/components/dashboard/ContentSafetyDashboard.tsx",
+    "src/components/dashboard/DatabricksDashboard.tsx",
     "src/components/superadmin/SaasOperationsPanel.tsx",
     "src/app/[locale]/intelligence/azure-ai/components/AzureAISearch.tsx",
     "src/app/[locale]/intelligence/azure-ai/components/AzureFoundryDetail.tsx",
