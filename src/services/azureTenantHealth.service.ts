@@ -15,6 +15,7 @@ import {
   type TenantHealthDataPoint,
   type TenantHealthPayload,
   type TenantHealthSummary,
+  type TenantHealthStatusKey,
 } from "@/types/azureTenantHealth.types";
 
 export function scoreToGrade(score: number): HealthGrade {
@@ -37,7 +38,8 @@ export function calcBudgetComplianceScore(input: {
   projectedSpendUSD?: number;
 }): {
   score: number;
-  statusText: string;
+  statusKey: TenantHealthStatusKey;
+  statusParams?: Record<string, string | number>;
   statusLevel: "OPTIMAL" | "WARNING" | "CRITICAL";
   commandPayload?: string;
 } {
@@ -46,7 +48,7 @@ export function calcBudgetComplianceScore(input: {
   if (budgetUSD === null || budgetUSD <= 0) {
     return {
       score: 70,
-      statusText: "Sin presupuesto mensual configurado este mes",
+      statusKey: "status_BUDGET_none" as const,
       statusLevel: "WARNING",
       commandPayload: `# Crear presupuesto en Azure Consumption para el tenant\naz consumption budget create --budget-name "budget-tenant-monthly" \\\n  --amount ${Math.max(500, Math.ceil(currentSpendUSD * 1.1))} --time-grain Monthly \\\n  --start-date "$(date +%Y-%m-01)" --end-date "2030-12-31"`,
     };
@@ -58,7 +60,8 @@ export function calcBudgetComplianceScore(input: {
   if (burnPct <= 100) {
     return {
       score: 100,
-      statusText: `Presupuesto de $${budgetUSD.toFixed(2)} USD respetado (${burnPct.toFixed(1)}% proyectado)`,
+      statusKey: "status_BUDGET_ok" as const,
+      statusParams: { budget: budgetUSD.toFixed(2), pct: burnPct.toFixed(1) },
       statusLevel: "OPTIMAL",
     };
   }
@@ -69,7 +72,12 @@ export function calcBudgetComplianceScore(input: {
 
   return {
     score,
-    statusText: `Desvío presupuestario del +${excessPct.toFixed(1)}% ($${spendToEvaluate.toFixed(2)} / $${budgetUSD.toFixed(2)} USD)`,
+    statusKey: "status_BUDGET_over" as const,
+    statusParams: {
+      pct: excessPct.toFixed(1),
+      spend: spendToEvaluate.toFixed(2),
+      budget: budgetUSD.toFixed(2),
+    },
     statusLevel: score < 50 ? "CRITICAL" : "WARNING",
     commandPayload: `# Ajustar o crear alertas tempranas de presupuesto al 80% y 100%\naz consumption budget create --budget-name "budget-tenant-alert" \\\n  --amount ${budgetUSD} --time-grain Monthly`,
   };
@@ -82,14 +90,16 @@ export function calcBudgetComplianceScore(input: {
  */
 export function calcCredentialExpiryScore(expiringCount: number): {
   score: number;
-  statusText: string;
+  statusKey: TenantHealthStatusKey;
+  statusParams?: Record<string, string | number>;
   statusLevel: "OPTIMAL" | "WARNING" | "CRITICAL";
   commandPayload?: string;
 } {
   if (expiringCount <= 0) {
     return {
       score: 100,
-      statusText: "0 credenciales vencen en los próximos 30 días",
+      statusKey: "status_CRED_none" as const,
+      statusParams: { days: 30 },
       statusLevel: "OPTIMAL",
     };
   }
@@ -99,7 +109,8 @@ export function calcCredentialExpiryScore(expiringCount: number): {
 
   return {
     score,
-    statusText: `${expiringCount} credencial(es) o secreto(s) vencen en los próximos 30 días`,
+    statusKey: "status_CRED_expiring" as const,
+    statusParams: { count: expiringCount, days: 30 },
     statusLevel: score < 50 ? "CRITICAL" : "WARNING",
     commandPayload: `# Listar credenciales y certificados próximos a expirar\naz ad app credential list --id <appId>`,
   };
@@ -114,14 +125,15 @@ export function calcCoinOptimizationScore(
   totalActive: number
 ): {
   score: number;
-  statusText: string;
+  statusKey: TenantHealthStatusKey;
+  statusParams?: Record<string, string | number>;
   statusLevel: "OPTIMAL" | "WARNING" | "CRITICAL";
   commandPayload?: string;
 } {
   if (totalActive <= 0) {
     return {
       score: 100,
-      statusText: "Sin recomendaciones activas pendientes (100% Optimizado)",
+      statusKey: "status_COIN_none" as const,
       statusLevel: "OPTIMAL",
     };
   }
@@ -131,7 +143,8 @@ export function calcCoinOptimizationScore(
 
   return {
     score,
-    statusText: `${implemented}/${totalActive} recomendaciones implementadas (90 días)`,
+    statusKey: "status_COIN_progress" as const,
+    statusParams: { implemented, total: totalActive, days: 90 },
     statusLevel: score >= 80 ? "OPTIMAL" : score >= 50 ? "WARNING" : "CRITICAL",
     commandPayload: `# Consultar recomendaciones de optimización de Azure Advisor\naz advisor recommendation list --category Cost`,
   };
@@ -146,14 +159,15 @@ export function calcMfaSecurityScore(
   totalAdmins: number
 ): {
   score: number;
-  statusText: string;
+  statusKey: TenantHealthStatusKey;
+  statusParams?: Record<string, string | number>;
   statusLevel: "OPTIMAL" | "WARNING" | "CRITICAL";
   commandPayload?: string;
 } {
   if (totalAdmins <= 0) {
     return {
       score: 100,
-      statusText: "Sin cuentas de administración descubiertas",
+      statusKey: "status_MFA_none" as const,
       statusLevel: "OPTIMAL",
     };
   }
@@ -163,7 +177,8 @@ export function calcMfaSecurityScore(
 
   return {
     score,
-    statusText: `${adminsWithMfa}/${totalAdmins} administradores con MFA activo`,
+    statusKey: "status_MFA_active" as const,
+    statusParams: { current: adminsWithMfa, total: totalAdmins },
     statusLevel: score === 100 ? "OPTIMAL" : score >= 50 ? "WARNING" : "CRITICAL",
     commandPayload: `# Requerir MFA mediante Directiva de Acceso Condicional en Entra ID\n# Portal: Entra ID -> Security -> Conditional Access -> New Policy -> Require MFA for Admins`,
   };
@@ -179,7 +194,6 @@ export function generateTenantHealthActionPlan(signals: HealthSignalItem[], isMo
   if (mfaSignal && mfaSignal.score < 100) {
     plan.push({
       id: "act-mfa-01",
-      title: "Habilitar MFA obligatorio en Cuenta Administradora Principal",
       pillar: "Security",
       healthPointsGain: 20,
       estimatedSavingsUSD: 0,
@@ -193,7 +207,6 @@ export function generateTenantHealthActionPlan(signals: HealthSignalItem[], isMo
   if (coinSignal && coinSignal.score < 80) {
     plan.push({
       id: "act-coin-01",
-      title: "Implementar Quick Wins de Desperdicio (Discos y NICs huérfanas)",
       pillar: "COIN",
       healthPointsGain: 15,
       estimatedSavingsUSD: isMock ? 185.5 : 0,
@@ -207,7 +220,6 @@ export function generateTenantHealthActionPlan(signals: HealthSignalItem[], isMo
   if (budgetSignal && budgetSignal.score < 100) {
     plan.push({
       id: "act-budget-01",
-      title: "Configurar Presupuesto Mensual con Alertas de Umbral Temprano",
       pillar: "Budget",
       healthPointsGain: 10,
       estimatedSavingsUSD: 0,
@@ -221,7 +233,6 @@ export function generateTenantHealthActionPlan(signals: HealthSignalItem[], isMo
   if (credSignal && credSignal.score < 100) {
     plan.push({
       id: "act-cred-01",
-      title: "Rotar Secretos y Certificados de Service Principals próximos a vencer",
       pillar: "Credentials",
       healthPointsGain: 10,
       estimatedSavingsUSD: 0,
@@ -295,25 +306,26 @@ export function getMockTenantHealthPayload(tenantId: string): TenantHealthPayloa
 
   // Señal 1: Presupuesto (70 pts si no hay presupuesto, 90+ si es enterprise)
   const budgetRes = isEnterprise
-    ? { score: 95, statusText: "Presupuesto de $5,000 USD respetado (82% proyectado)", statusLevel: "OPTIMAL" as const }
-    : { score: 70, statusText: "Sin presupuesto configurado este mes", statusLevel: "WARNING" as const };
+    ? { score: 95, statusKey: "status_BUDGET_ok" as const, statusParams: { budget: "5,000", pct: "82" }, statusLevel: "OPTIMAL" as const }
+    : { score: 70, statusKey: "status_BUDGET_none" as const, statusLevel: "WARNING" as const };
 
   // Señal 2: Credenciales (100 pts)
-  const credRes = { score: 100, statusText: "0 credenciales vencen en los próximos 30 días", statusLevel: "OPTIMAL" as const };
+  const credRes = { score: 100, statusKey: "status_CRED_none" as const,
+      statusParams: { days: 30 }, statusLevel: "OPTIMAL" as const };
 
   // Señal 3: COIN (0 pts en demo Pro, 55 pts en Business, 85 pts en Enterprise)
   const coinRes = isEnterprise
-    ? { score: 85, statusText: "58/68 recomendaciones implementadas (90 días)", statusLevel: "OPTIMAL" as const, detailsCount: { current: 58, total: 68 } }
+    ? { score: 85, statusKey: "status_COIN_progress" as const, statusParams: { implemented: 58, total: 68, days: 90 }, statusLevel: "OPTIMAL" as const, detailsCount: { current: 58, total: 68 } }
     : isBusiness
-      ? { score: 55, statusText: "32/68 recomendaciones implementadas (90 días)", statusLevel: "WARNING" as const, detailsCount: { current: 32, total: 68 } }
-      : { score: 0, statusText: "0/68 recomendaciones implementadas (90 días)", statusLevel: "CRITICAL" as const, detailsCount: { current: 0, total: 68 } };
+      ? { score: 55, statusKey: "status_COIN_progress" as const, statusParams: { implemented: 32, total: 68, days: 90 }, statusLevel: "WARNING" as const, detailsCount: { current: 32, total: 68 } }
+      : { score: 0, statusKey: "status_COIN_progress" as const, statusParams: { implemented: 0, total: 68, days: 90 }, statusLevel: "CRITICAL" as const, detailsCount: { current: 0, total: 68 } };
 
   // Señal 4: MFA (0 pts en demo Pro, 50 pts en Business, 100 pts en Enterprise)
   const mfaRes = isEnterprise
-    ? { score: 100, statusText: "4/4 administradores con MFA activo", statusLevel: "OPTIMAL" as const, detailsCount: { current: 4, total: 4 } }
+    ? { score: 100, statusKey: "status_MFA_active" as const, statusParams: { current: 4, total: 4 }, statusLevel: "OPTIMAL" as const, detailsCount: { current: 4, total: 4 } }
     : isBusiness
-      ? { score: 50, statusText: "1/2 administradores con MFA activo", statusLevel: "WARNING" as const, detailsCount: { current: 1, total: 2 } }
-      : { score: 0, statusText: "0/1 administradores con MFA activo", statusLevel: "CRITICAL" as const, detailsCount: { current: 0, total: 1 } };
+      ? { score: 50, statusKey: "status_MFA_active" as const, statusParams: { current: 1, total: 2 }, statusLevel: "WARNING" as const, detailsCount: { current: 1, total: 2 } }
+      : { score: 0, statusKey: "status_MFA_active" as const, statusParams: { current: 0, total: 1 }, statusLevel: "CRITICAL" as const, detailsCount: { current: 0, total: 1 } };
 
   const signals: HealthSignalItem[] = [
     {
@@ -322,9 +334,10 @@ export function getMockTenantHealthPayload(tenantId: string): TenantHealthPayloa
       score: budgetRes.score,
       weightPercentage: SIGNAL_WEIGHTS.BUDGET_COMPLIANCE,
       weightedScore: (budgetRes.score * SIGNAL_WEIGHTS.BUDGET_COMPLIANCE) / 100,
-      statusText: budgetRes.statusText,
+      statusKey: budgetRes.statusKey,
+      statusParams: budgetRes.statusParams,
       statusLevel: budgetRes.statusLevel,
-      actionRequiredTitle: "Crear Presupuesto",
+      actionRequired: true,
       actionType: "SET_BUDGET",
       commandPayload: `# Crear presupuesto mensual en Azure Consumption\naz consumption budget create --budget-name "budget-tenant" --amount 1000 --time-grain Monthly`,
     },
@@ -334,7 +347,8 @@ export function getMockTenantHealthPayload(tenantId: string): TenantHealthPayloa
       score: credRes.score,
       weightPercentage: SIGNAL_WEIGHTS.CREDENTIAL_EXPIRY,
       weightedScore: (credRes.score * SIGNAL_WEIGHTS.CREDENTIAL_EXPIRY) / 100,
-      statusText: credRes.statusText,
+      statusKey: credRes.statusKey,
+      statusParams: credRes.statusParams,
       statusLevel: credRes.statusLevel,
     },
     {
@@ -343,10 +357,11 @@ export function getMockTenantHealthPayload(tenantId: string): TenantHealthPayloa
       score: coinRes.score,
       weightPercentage: SIGNAL_WEIGHTS.COIN_OPTIMIZATION,
       weightedScore: (coinRes.score * SIGNAL_WEIGHTS.COIN_OPTIMIZATION) / 100,
-      statusText: coinRes.statusText,
+      statusKey: coinRes.statusKey,
+      statusParams: coinRes.statusParams,
       statusLevel: coinRes.statusLevel,
       detailsCount: coinRes.detailsCount,
-      actionRequiredTitle: "Ver Recomendaciones",
+      actionRequired: true,
       actionType: "VIEW_ADVISOR",
     },
     {
@@ -355,10 +370,11 @@ export function getMockTenantHealthPayload(tenantId: string): TenantHealthPayloa
       score: mfaRes.score,
       weightPercentage: SIGNAL_WEIGHTS.SECURITY_MFA,
       weightedScore: (mfaRes.score * SIGNAL_WEIGHTS.SECURITY_MFA) / 100,
-      statusText: mfaRes.statusText,
+      statusKey: mfaRes.statusKey,
+      statusParams: mfaRes.statusParams,
       statusLevel: mfaRes.statusLevel,
       detailsCount: mfaRes.detailsCount,
-      actionRequiredTitle: "Forzar MFA",
+      actionRequired: true,
       actionType: "ENFORCE_MFA",
       commandPayload: `# Requerir MFA para cuentas administradoras en Entra ID\n# conditionalAccess policy definition...`,
     },
@@ -402,9 +418,10 @@ export function assembleLiveTenantHealth(input: {
       score: budgetSignal.score,
       weightPercentage: SIGNAL_WEIGHTS.BUDGET_COMPLIANCE,
       weightedScore: (budgetSignal.score * SIGNAL_WEIGHTS.BUDGET_COMPLIANCE) / 100,
-      statusText: budgetSignal.statusText,
+      statusKey: budgetSignal.statusKey,
+      statusParams: budgetSignal.statusParams,
       statusLevel: budgetSignal.statusLevel,
-      actionRequiredTitle: budgetSignal.score < 100 ? "Crear Presupuesto" : undefined,
+      actionRequired: budgetSignal.score < 100,
       actionType: "SET_BUDGET",
       commandPayload: budgetSignal.commandPayload,
     },
@@ -414,9 +431,10 @@ export function assembleLiveTenantHealth(input: {
       score: credSignal.score,
       weightPercentage: SIGNAL_WEIGHTS.CREDENTIAL_EXPIRY,
       weightedScore: (credSignal.score * SIGNAL_WEIGHTS.CREDENTIAL_EXPIRY) / 100,
-      statusText: credSignal.statusText,
+      statusKey: credSignal.statusKey,
+      statusParams: credSignal.statusParams,
       statusLevel: credSignal.statusLevel,
-      actionRequiredTitle: credSignal.score < 100 ? "Rotar Credenciales" : undefined,
+      actionRequired: credSignal.score < 100,
       actionType: "ROTATE_SECRETS",
       commandPayload: credSignal.commandPayload,
     },
@@ -426,10 +444,11 @@ export function assembleLiveTenantHealth(input: {
       score: coinSignal.score,
       weightPercentage: SIGNAL_WEIGHTS.COIN_OPTIMIZATION,
       weightedScore: (coinSignal.score * SIGNAL_WEIGHTS.COIN_OPTIMIZATION) / 100,
-      statusText: coinSignal.statusText,
+      statusKey: coinSignal.statusKey,
+      statusParams: coinSignal.statusParams,
       statusLevel: coinSignal.statusLevel,
       detailsCount: { current: input.coinImplemented, total: input.coinTotal },
-      actionRequiredTitle: coinSignal.score < 80 ? "Ver Recomendaciones" : undefined,
+      actionRequired: coinSignal.score < 80,
       actionType: "VIEW_ADVISOR",
     },
     {
@@ -438,10 +457,11 @@ export function assembleLiveTenantHealth(input: {
       score: mfaSignal.score,
       weightPercentage: SIGNAL_WEIGHTS.SECURITY_MFA,
       weightedScore: (mfaSignal.score * SIGNAL_WEIGHTS.SECURITY_MFA) / 100,
-      statusText: mfaSignal.statusText,
+      statusKey: mfaSignal.statusKey,
+      statusParams: mfaSignal.statusParams,
       statusLevel: mfaSignal.statusLevel,
       detailsCount: { current: input.adminsWithMfa, total: input.totalAdmins },
-      actionRequiredTitle: mfaSignal.score < 100 ? "Forzar MFA" : undefined,
+      actionRequired: mfaSignal.score < 100,
       actionType: "ENFORCE_MFA",
       commandPayload: mfaSignal.commandPayload,
     },

@@ -1,6 +1,7 @@
 "use client";
 import { ERROR_401 } from "@/lib/errorSentinels";
 import { useTranslations } from "next-intl";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
 
 import React, { useState, useMemo, useRef } from "react";
 import useSWR from "swr";
@@ -98,6 +99,7 @@ function ResizableTh({
   className?: string;
 }) {
   const t = useTranslations("IpaasFinops");
+  const textoRem = useTextoPorCategoria("IpaasFinops", "ADF");
   const [width, setWidth] = useState(minWidth);
   const startXRef = useRef(0);
   const startWidthRef = useRef(minWidth);
@@ -147,6 +149,7 @@ function KpiCard({
   sub: string;
 }) {
   const t = useTranslations("IpaasFinops");
+  const textoRem = useTextoPorCategoria("IpaasFinops", "ADF");
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs p-4 flex items-center gap-3">
       <Icon className="w-6 h-6 text-[#0078D4] shrink-0" stroke={1.5} />
@@ -172,6 +175,7 @@ function RemediationModal({
   onClose: () => void;
 }) {
   const t = useTranslations("IpaasFinops");
+  const textoRem = useTextoPorCategoria("IpaasFinops", "ADF");
   const { format } = useCurrency();
   const [activeTab, setActiveTab] = useState<"CLI" | "POWERSHELL">("CLI");
   const [copied, setCopied] = useState(false);
@@ -210,10 +214,10 @@ function RemediationModal({
         <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
           <div>
             <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100 mb-1">
-              {action.title}
+              {textoRem(action, "title")}
             </h4>
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              {action.description}
+              {textoRem(action, "desc")}
             </p>
           </div>
 
@@ -348,6 +352,7 @@ function RemediationModal({
 // ─── Componente Principal AdfFinopsDashboard ───
 export default function AdfFinopsDashboard() {
   const t = useTranslations("IpaasFinops");
+  const textoRem = useTextoPorCategoria("IpaasFinops", "ADF");
   const { selectedTenant } = useTenant();
   const { instance, accounts, inProgress } = useMsal();
   const { format } = useCurrency();
@@ -1082,10 +1087,10 @@ export default function AdfFinopsDashboard() {
                   </div>
 
                   <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 mb-1">
-                    {action.title}
+                    {textoRem(action, "title")}
                   </h4>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-3">
-                    {action.description}
+                    {textoRem(action, "desc")}
                   </p>
                 </div>
 

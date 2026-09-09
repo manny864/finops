@@ -1,5 +1,12 @@
 export type EventGridSkuName = "Basic" | "Premium";
 
+export const EVENT_GRID_REMEDIATION_CATEGORIES = [
+  "SKU_DOWNGRADE",
+  "ORPHAN_PURGE",
+] as const;
+
+export type EventGridRemediationCategory = (typeof EVENT_GRID_REMEDIATION_CATEGORIES)[number];
+
 export interface EventGridResourceItem {
   id: string;
   name: string;
@@ -34,9 +41,9 @@ export interface EventGridRemediationAction {
   id: string;
   resourceId: string;
   resourceName?: string;
-  title: string;
-  description: string;
-  category: "SKU_DOWNGRADE" | "ORPHAN_PURGE";
+  /** Valores a interpolar en `rem_EG_<category>_title` / `_desc`. */
+  params?: Record<string, string | number>;
+  category: EventGridRemediationCategory;
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM";
   actionType: string;

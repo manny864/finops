@@ -64,14 +64,12 @@ export function generateEventGridRecommendations(
           id: `rem-eg-sku-${item.id}`,
           resourceId: item.id,
           resourceName: item.name,
-          title: `Arbitraje de SKU Premium a Basic en '${item.name}'`,
-          description: `El dominio '${item.name}' corre en nivel Premium ($${item.costMtdUSD.toFixed(
-            2
-          )}/mes) procesando ${(item.publishedEvents / 1_000_000).toFixed(
-            1
-          )}M eventos/mes sin requerir aislamiento dedicado de red. Migrar a SKU Basic ($0.60/1M operaciones) optimiza la factura ahorrando ~$${estimatedSavings.toFixed(
-            2
-          )} USD/mes.`,
+          params: {
+            name: item.name,
+            cost: item.costMtdUSD.toFixed(2),
+            millions: (item.publishedEvents / 1_000_000).toFixed(1),
+            savings: estimatedSavings.toFixed(2),
+          },
           category: "SKU_DOWNGRADE",
           estimatedSavingsUSD: estimatedSavings,
           confidence: "HIGH",
@@ -89,8 +87,7 @@ export function generateEventGridRecommendations(
         id: `rem-eg-orphan-${item.id}`,
         resourceId: item.id,
         resourceName: item.name,
-        title: `Purga de tema huérfano sin eventos '${item.name}'`,
-        description: `El recurso '${item.name}' registra 0 eventos publicados y 0 entregas en los últimos 30 días. Eliminar temas huérfanos previene dispersión y mantiene limpia la arquitectura pub/sub.`,
+        params: { name: item.name },
         category: "ORPHAN_PURGE",
         estimatedSavingsUSD: 0.0,
         confidence: "MEDIUM",

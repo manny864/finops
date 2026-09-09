@@ -105,7 +105,7 @@ function HealthRemediationModal({ action, onClose }: RemediationModalProps) {
           <div className="flex items-center gap-2.5">
             <IconSparkles className="w-6 h-6 text-[#0078D4] shrink-0" stroke={1.5} />
             <div>
-              <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">{action.title}</h3>
+              <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">{t(`plan_${action.actionType}`)}</h3>
               <p className="text-xs text-slate-500">Pilar: <span className="font-semibold text-[#0054A6]">{action.pillar}</span></p>
             </div>
           </div>
@@ -147,7 +147,7 @@ function HealthRemediationModal({ action, onClose }: RemediationModalProps) {
                 className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-emerald-600 text-emerald-600 dark:text-emerald-400 bg-white dark:bg-slate-900 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition flex items-center gap-1 cursor-pointer shadow-xs"
               >
                 {copied ? <IconCheck className="w-3.5 h-3.5" /> : <IconCopy className="w-3.5 h-3.5" />}
-                <span>{copied ? "Copiado" : "Copiar Comando"}</span>
+                <span>{copied ? t("copied") : t("copyCommand")}</span>
               </button>
             </div>
             <pre className="p-3 text-[11px] font-mono rounded-xl bg-slate-900 text-slate-100 overflow-x-auto whitespace-pre-wrap leading-relaxed border border-slate-800">
@@ -206,7 +206,7 @@ function ScoreSimulatorModal({
 
         <div className="flex items-center justify-between p-4 rounded-2xl bg-blue-50/50 dark:bg-slate-800/40 border border-blue-200 dark:border-blue-800">
           <div>
-            <span className="text-xs text-slate-500 font-semibold block">Score Actual vs Simulado</span>
+            <span className="text-xs text-slate-500 font-semibold block">{t("simCurrentVsSimulated")}</span>
             <span className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100">
               {currentScore} <span className="text-xs text-slate-400">/ 100</span> →{" "}
               <span className="text-[#0054A6]">{simulatedScore}</span> <span className="text-xs text-[#0054A6]">/ 100</span>
@@ -246,7 +246,7 @@ function ScoreSimulatorModal({
 
           <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
             <div className="space-y-0.5">
-              <span className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 block">Implementar Top Recomendaciones COIN (+21 pts)</span>
+              <span className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 block">{t("simTopCoin", { points: 21 })}</span>
               <span className="text-[11px] text-slate-500">{t("simOptimization")}</span>
             </div>
             <input
@@ -310,10 +310,17 @@ export default function TenantHealthPanel() {
 
   const handleExportCSV = () => {
     if (actionPlan.length === 0) return;
-    const headers = ["ID", "Accion", "Pilar", "Puntos Ganados", "Ahorro Estimado USD", "Prioridad"];
+    const headers = [
+      "ID",
+      t("csvAction"),
+      t("csvPillar"),
+      t("csvPointsGained"),
+      t("csvEstimatedSavings"),
+      t("csvPriority"),
+    ];
     const rows = actionPlan.map((a) => [
       a.id,
-      `"${a.title}"`,
+      `"${t(`plan_${a.actionType}`)}"`,
       a.pillar,
       a.healthPointsGain,
       a.estimatedSavingsUSD.toFixed(2),
@@ -348,9 +355,9 @@ export default function TenantHealthPanel() {
       const point = payload[0].payload;
       return (
         <div className="bg-[#1B2A41] text-white p-3 rounded-xl shadow-2xl border border-slate-700 text-xs space-y-1 z-[9999]">
-          <p className="font-bold text-slate-200">Fecha: {label}</p>
-          <p className="font-mono text-emerald-400">Score de Salud: {point.overallScore} / 100</p>
-          <p className="font-semibold text-sky-300">Grado Asignado: Grado {point.grade}</p>
+          <p className="font-bold text-slate-200">{t("chartDate", { date: String(label) })}</p>
+          <p className="font-mono text-emerald-400">{t("chartScore", { score: point.overallScore })}</p>
+          <p className="font-semibold text-sky-300">{t("chartGrade", { grade: point.grade })}</p>
         </div>
       );
     }
@@ -410,34 +417,45 @@ export default function TenantHealthPanel() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           {
-            label: "Salud General del Tenant",
-            tip: "Score global ponderado (0-100) y grado asignado.",
+            label: t("kpiOverall"),
+            tip: t("kpiOverallTip"),
             value: `${overallScore} / 100`,
-            sub: `Grado ${grade} (${GRADE_THRESHOLDS.find((g) => g.grade === grade)?.label.split("—")[1]?.trim() || "Aceptable"})`,
+            sub: t("kpiGradeSub", { grade, label: t(`grade_${grade}`) }),
             Icon: IconHeartRateMonitor,
             warn: overallScore < 70,
           },
           {
-            label: "Presupuesto Mensual",
-            tip: "Estado del presupuesto mensual y porcentaje consumido.",
-            value: signals.find((s) => s.signalType === "BUDGET_COMPLIANCE")?.score === 100 ? "100% Control" : "Sin Presupuesto",
-            sub: signals.find((s) => s.signalType === "BUDGET_COMPLIANCE")?.statusText || "Evaluando",
+            label: t("kpiBudget"),
+            tip: t("kpiBudgetTip"),
+            value: signals.find((s) => s.signalType === "BUDGET_COMPLIANCE")?.score === 100 ? t("kpiBudgetControlled") : t("kpiBudgetNone"),
+            sub: (() => {
+              const s = signals.find((x) => x.signalType === "BUDGET_COMPLIANCE");
+              return s ? t(s.statusKey, s.statusParams) : t("kpiEvaluating");
+            })(),
             Icon: IconPigMoney,
             warn: (signals.find((s) => s.signalType === "BUDGET_COMPLIANCE")?.score ?? 0) < 80,
           },
           {
-            label: "Adopción FinOps (COIN)",
-            tip: "Porcentaje de recomendaciones implementadas en los últimos 90 días.",
+            label: t("kpiCoin"),
+            tip: t("kpiCoinTip", { days: 90 }),
             value: `${signals.find((s) => s.signalType === "COIN_OPTIMIZATION")?.score || 0}%`,
-            sub: `${signals.find((s) => s.signalType === "COIN_OPTIMIZATION")?.detailsCount?.total ?? 0} oportunidades activas`,
+            sub: t("kpiCoinSub", {
+              count: signals.find((s) => s.signalType === "COIN_OPTIMIZATION")?.detailsCount?.total ?? 0,
+            }),
             Icon: IconSparkles,
             warn: (signals.find((s) => s.signalType === "COIN_OPTIMIZATION")?.score || 0) < 50,
           },
           {
-            label: "MFA en Cuentas Privilegiadas",
-            tip: "Proporción de administradores con autenticación multifactor activa.",
-            value: `${signals.find((s) => s.signalType === "SECURITY_MFA")?.detailsCount?.current ?? 0} / ${signals.find((s) => s.signalType === "SECURITY_MFA")?.detailsCount?.total ?? 0} Admins`,
-            sub: signals.find((s) => s.signalType === "SECURITY_MFA")?.statusText || "Seguridad",
+            label: t("kpiMfa"),
+            tip: t("kpiMfaTip"),
+            value: t("kpiMfaValue", {
+              current: signals.find((s) => s.signalType === "SECURITY_MFA")?.detailsCount?.current ?? 0,
+              total: signals.find((s) => s.signalType === "SECURITY_MFA")?.detailsCount?.total ?? 0,
+            }),
+            sub: (() => {
+              const s = signals.find((x) => x.signalType === "SECURITY_MFA");
+              return s ? t(s.statusKey, s.statusParams) : t("kpiSecurity");
+            })(),
             Icon: IconShieldLock,
             warn: (signals.find((s) => s.signalType === "SECURITY_MFA")?.score || 0) < 100,
           },
@@ -544,27 +562,27 @@ export default function TenantHealthPanel() {
                       <span className="text-xs font-extrabold text-[#1B2A41] dark:text-slate-100">
                         {signal.score} / 100
                       </span>
-                      {signal.actionRequiredTitle && (
+                      {signal.actionRequired && signal.actionType && (
                         <button
                           onClick={() => {
-                            const found = actionPlan.find((a) => a.actionType === signal.actionType);
+                            const tipo = signal.actionType!;
+                            const found = actionPlan.find((a) => a.actionType === tipo);
                             if (found) setSelectedActionForModal(found);
                             else
                               setSelectedActionForModal({
                                 id: `act-${signal.signalType}`,
-                                title: signal.actionRequiredTitle || "Acción Requerida",
                                 pillar: signal.signalType === "BUDGET_COMPLIANCE" ? "Budget" : "Security",
                                 healthPointsGain: 15,
                                 estimatedSavingsUSD: 0,
                                 priority: "HIGH",
-                                actionType: signal.actionType || "FIX",
+                                actionType: tipo,
                                 commandPayload: signal.commandPayload,
                               });
                           }}
                           className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition flex items-center gap-1 cursor-pointer shadow-xs"
                         >
                           <IconSparkles className="w-3 h-3 text-[#0078D4]" />
-                          <span>{signal.actionRequiredTitle}</span>
+                          <span>{t(`signalAction_${signal.actionType}`)}</span>
                         </button>
                       )}
                     </div>
@@ -586,7 +604,7 @@ export default function TenantHealthPanel() {
                     />
                   </div>
 
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">{signal.statusText}</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">{t(signal.statusKey, signal.statusParams)}</p>
                 </div>
               );
             })}
@@ -670,7 +688,7 @@ export default function TenantHealthPanel() {
                 <div className="space-y-1 min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-bold text-[#1B2A41] dark:text-slate-100">
-                      {action.title}
+                      {t(`plan_${action.actionType}`)}
                     </span>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border border-slate-300 dark:border-slate-700 text-slate-500 bg-white dark:bg-slate-900">
                       Pilar: {action.pillar}

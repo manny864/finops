@@ -1,5 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -87,18 +88,18 @@ function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[
 function HealthBadge({ workbook }: { workbook: WorkbookResourceItem }) {
   const t = useTranslations("WorkbooksManagement");
   const map = {
-    Valid: { label: "Valido", cls: "border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400" },
-    Orphan: { label: "Huerfano", cls: "border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400" },
-    SourceError: { label: "Error de Origen", cls: "border-red-300 dark:border-red-800 text-red-700 dark:text-red-400" },
-    Stale: { label: "Desactualizado", cls: "border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400" },
+    Valid: { cls: "border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400" },
+    Orphan: { cls: "border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400" },
+    SourceError: { cls: "border-red-300 dark:border-red-800 text-red-700 dark:text-red-400" },
+    Stale: { cls: "border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400" },
   } as const;
   const cfg = map[workbook.healthStatus];
   return (
     <span
-      title={workbook.healthReason || "Sin observaciones"}
+      title={t(`health_${workbook.healthStatus}_reason`, workbook.healthReasonParams ?? {})}
       className={`text-[10px] font-bold px-2 py-0.5 rounded-md border bg-white dark:bg-slate-900 whitespace-nowrap ${cfg.cls}`}
     >
-      {cfg.label}
+      {t(`health_${workbook.healthStatus}`)}
     </span>
   );
 }
@@ -107,7 +108,7 @@ function HealthBadge({ workbook }: { workbook: WorkbookResourceItem }) {
 function RefreshBadge({ workbook }: { workbook: WorkbookResourceItem }) {
   const t = useTranslations("WorkbooksManagement");
   if (workbook.autoRefreshSeconds <= 0) {
-    return <span className="text-[11px] text-slate-400">Desactivado</span>;
+    return <span className="text-[11px] text-slate-400">{t("refreshDisabled")}</span>;
   }
   const critical = workbook.autoRefreshSeconds <= 300;
   return (
@@ -178,17 +179,17 @@ function WorkbookDetailDrawer({
               </div>
             </div>
             <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
-              <div className="text-[10px] text-slate-500 dark:text-slate-400">Ejecuciones/mes</div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400">{t("monthlyRuns")}</div>
               <div className="text-lg font-extrabold text-[#1B2A41] dark:text-slate-100">
                 {workbook.estimatedMonthlyRuns}
               </div>
             </div>
           </div>
 
-          {workbook.healthReason && (
+          {workbook.healthReasonParams && workbook.healthStatus !== "Valid" && (
             <div className="p-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-900 flex items-start gap-2">
               <IconAlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" stroke={1.5} />
-              <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed">{workbook.healthReason}</p>
+              <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed">{t(`health_${workbook.healthStatus}_reason`, workbook.healthReasonParams)}</p>
             </div>
           )}
 
@@ -299,6 +300,7 @@ function WorkbookRemediationModal({
   onClose: () => void;
 }) {
   const t = useTranslations("WorkbooksManagement");
+  const textoRem = useTextoPorCategoria("WorkbooksManagement");
   const [copied, setCopied] = useState<"cli" | "ps" | null>(null);
   if (!action) return null;
 
@@ -327,8 +329,8 @@ function WorkbookRemediationModal({
         <div className="flex items-center gap-3 mb-4">
           <IconTerminal2 className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
           <div className="pr-8">
-            <h2 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">{action.title}</h2>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{action.description}</p>
+            <h2 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">{textoRem(action, "title")}</h2>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{textoRem(action, "desc")}</p>
           </div>
         </div>
 
@@ -378,6 +380,7 @@ function WorkbookRemediationModal({
 // ─── Componente Principal ───
 export default function WorkbooksManagementPanel() {
   const t = useTranslations("WorkbooksManagement");
+  const textoRem = useTextoPorCategoria("WorkbooksManagement");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -619,7 +622,7 @@ export default function WorkbooksManagementPanel() {
               {summary.orphanCount > 0 && <IconAlertTriangle className="w-4 h-4 text-amber-500" stroke={2} />}
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              {summary.staleCount} desactualizados (&gt;180 dias)
+              {t("staleCount", { count: summary.staleCount, days: 180 })}
             </div>
           </div>
           <IconFileBroken className="w-8 h-8 text-[#0078D4]" stroke={1.5} />
@@ -682,7 +685,7 @@ export default function WorkbooksManagementPanel() {
         <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 mb-3 flex items-center gap-1.5">
             <IconChartAreaLine className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
-            Volumen Escaneado (30 dias)
+            {t("scannedVolume", { days: 30 })}
             <InfoTooltip content={t("trendTooltip")} />
           </h3>
           {costTrend.length === 0 ? (
@@ -822,8 +825,8 @@ export default function WorkbooksManagementPanel() {
                     <IconBook className="w-7 h-7 text-[#0078D4] mx-auto mb-2" stroke={1.5} />
                     <p className="text-xs font-medium">
                       {workbooksList.length === 0
-                        ? "Azure Monitor no reporta workbooks en las suscripciones visibles."
-                        : "Ningun workbook coincide con los filtros aplicados."}
+                        ? t("emptyNoWorkbooks")
+                        : t("emptyNoMatches")}
                     </p>
                   </td>
                 </tr>
@@ -906,8 +909,12 @@ export default function WorkbooksManagementPanel() {
                               setActiveRemediation({
                                 id: `refresh-manual-${w.id}`,
                                 resourceId: w.id,
-                                title: `Ajustar auto-refresh de ${w.displayName}`,
-                                description: `Se refresca cada ${w.autoRefreshInterval}. El intervalo vive dentro de serializedData, asi que el ajuste requiere exportar y reaplicar la definicion.`,
+                                params: {
+                                  name: w.displayName,
+                                  interval: w.autoRefreshInterval ?? "",
+                                  tables: "Log Analytics",
+                                  runs: w.estimatedMonthlyRuns,
+                                },
                                 category: "DISABLE_AUTOREFRESH",
                                 estimatedSavingsUSD: 0,
                                 confidence: "MEDIUM",
@@ -977,9 +984,9 @@ export default function WorkbooksManagementPanel() {
                       </span>
                     )}
                   </div>
-                  <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 leading-snug">{action.title}</h4>
+                  <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 leading-snug">{textoRem(action, "title")}</h4>
                   <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-3 leading-relaxed">
-                    {action.description}
+                    {textoRem(action, "desc")}
                   </p>
                 </div>
 

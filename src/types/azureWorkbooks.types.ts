@@ -62,11 +62,14 @@ export type WorkbookDataSource =
 
 export type WorkbookHealthStatus = "Valid" | "Orphan" | "SourceError" | "Stale";
 
-export type WorkbookRemediationCategory =
-  | "PURGE_ORPHAN"
-  | "DISABLE_AUTOREFRESH"
-  | "OPTIMIZE_KQL"
-  | "PROMOTE_TO_SHARED";
+export const WORKBOOK_REMEDIATION_CATEGORIES = [
+  "PURGE_ORPHAN",
+  "DISABLE_AUTOREFRESH",
+  "OPTIMIZE_KQL",
+  "PROMOTE_TO_SHARED",
+] as const;
+
+export type WorkbookRemediationCategory = (typeof WORKBOOK_REMEDIATION_CATEGORIES)[number];
 
 /** Una consulta individual extraida del `serializedData` del workbook. */
 export interface WorkbookQuerySummary {
@@ -109,7 +112,11 @@ export interface WorkbookResourceItem {
   hasHeavyQueries: boolean;
   healthStatus: WorkbookHealthStatus;
   /** Motivo legible del estado no-valido; vacio cuando `healthStatus === "Valid"`. */
-  healthReason?: string;
+  /**
+   * El motivo se deriva de `healthStatus` (clave `health_<status>_reason`),
+   * asi que del servidor solo viaja el numero que la frase interpola.
+   */
+  healthReasonParams?: Record<string, number>;
   estimatedQueryCostUSD: number;
   /** Ejecuciones mensuales estimadas a partir del auto-refresh. */
   estimatedMonthlyRuns: number;
@@ -144,8 +151,8 @@ export interface WorkbooksSummaryMetrics {
 export interface WorkbookRemediationAction {
   id: string;
   resourceId: string;
-  title: string;
-  description: string;
+  /** Valores a interpolar en `rem_<category>_title` / `_desc`. */
+  params?: Record<string, string | number>;
   category: WorkbookRemediationCategory;
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM";

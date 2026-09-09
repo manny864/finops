@@ -287,17 +287,17 @@ export function deriveWorkbookHealth(input: {
   missingWorkspaceIds: string[];
   daysSinceModified: number;
   hasHeavyQueries: boolean;
-}): { healthStatus: WorkbookHealthStatus; healthReason?: string } {
+}): { healthStatus: WorkbookHealthStatus; healthReasonParams?: Record<string, number> } {
   if (input.missingWorkspaceIds.length > 0) {
     return {
       healthStatus: "SourceError",
-      healthReason: `${input.missingWorkspaceIds.length} workspace(s) referenciados ya no existen en la suscripcion`,
+      healthReasonParams: { count: input.missingWorkspaceIds.length },
     };
   }
   if (input.isOrphan) {
     return {
       healthStatus: "Orphan",
-      healthReason: "El recurso vinculado en sourceId fue eliminado",
+      healthReasonParams: {},
     };
   }
   // Regla 3 — Dashboard zombie: sin modificar hace mas de 180 dias Y con
@@ -305,7 +305,7 @@ export function deriveWorkbookHealth(input: {
   if (input.daysSinceModified > STALE_WORKBOOK_DAYS && input.hasHeavyQueries) {
     return {
       healthStatus: "Stale",
-      healthReason: `Sin modificaciones hace ${input.daysSinceModified} dias y con consultas de alto volumen`,
+      healthReasonParams: { days: input.daysSinceModified },
     };
   }
   return { healthStatus: "Valid" };
@@ -367,11 +367,9 @@ export function generateWorkbooksRecommendations(
       out.push({
         id: `purge-${w.id}`,
         resourceId: w.id,
-        title: `Eliminar workbook huerfano: ${w.displayName}`,
-        description:
-          w.missingWorkspaceIds.length > 0
-            ? `Referencia ${w.missingWorkspaceIds.length} workspace(s) inexistentes. Sus consultas fallan pero el dashboard sigue programado, y cada apertura escanea datos facturables.`
-            : "El recurso vinculado en sourceId fue eliminado. El workbook quedo sin origen valido.",
+        // Las dos frases son ramas de la misma idea, asi que se resuelven con
+        // un `select` sobre la cantidad en vez de un ternario en el servidor.
+        params: { name: w.displayName, missing: w.missingWorkspaceIds.length },
         category: "PURGE_ORPHAN",
         estimatedSavingsUSD: Number(w.estimatedQueryCostUSD.toFixed(2)),
         confidence: "HIGH",
@@ -391,10 +389,14 @@ export function generateWorkbooksRecommendations(
       out.push({
         id: `refresh-${w.id}`,
         resourceId: w.id,
-        title: `Reducir auto-refresh de ${w.displayName} (${w.autoRefreshInterval})`,
-        description: `Se refresca cada ${w.autoRefreshInterval} sobre tablas de alto volumen (${
-          Array.from(new Set(w.queries.flatMap((q) => q.tablesReferenced))).slice(0, 3).join(", ") || "Log Analytics"
-        }), ~${w.estimatedMonthlyRuns} ejecuciones/mes. Salvo que este proyectado en un NOC, 15 min es suficiente.`,
+        params: {
+          name: w.displayName,
+          interval: w.autoRefreshInterval ?? "",
+          tables:
+            Array.from(new Set(w.queries.flatMap((q) => q.tablesReferenced))).slice(0, 3).join(", ") ||
+            "Log Analytics",
+          runs: w.estimatedMonthlyRuns,
+        },
         category: "DISABLE_AUTOREFRESH",
         estimatedSavingsUSD: Number(saving.toFixed(2)),
         confidence: "HIGH",
@@ -411,8 +413,7 @@ export function generateWorkbooksRecommendations(
       out.push({
         id: `kql-${w.id}`,
         resourceId: w.id,
-        title: `Optimizar ${unfiltered.length} consulta(s) KQL en ${w.displayName}`,
-        description: `${unfiltered.length} consulta(s) agregan sin acotar antes por TimeGenerated, lo que fuerza a escanear toda la retencion del workspace. Mover el filtro temporal al inicio del pipeline reduce el volumen facturado.`,
+        params: { count: unfiltered.length, name: w.displayName },
         category: "OPTIMIZE_KQL",
         estimatedSavingsUSD: Number(saving.toFixed(2)),
         confidence: "MEDIUM",
@@ -427,9 +428,7 @@ export function generateWorkbooksRecommendations(
       out.push({
         id: `promote-${w.id}`,
         resourceId: w.id,
-        title: `Promover a compartido: ${w.displayName}`,
-        description:
-          "Workbook privado con consultas de alto volumen. Los dashboards privados se duplican entre usuarios y cada copia escanea por separado; publicarlo como compartido consolida el escaneo.",
+        params: { name: w.displayName },
         category: "PROMOTE_TO_SHARED",
         estimatedSavingsUSD: Number((w.estimatedQueryCostUSD * 0.3).toFixed(2)),
         confidence: "MEDIUM",
@@ -452,7 +451,7 @@ function buildMockWorkbook(partial: Partial<WorkbookResourceItem> & { name: stri
   const missingWorkspaceIds = partial.missingWorkspaceIds || [];
   const isOrphan = partial.isOrphan ?? false;
   const hasHeavyQueries = queries.some((q) => q.isHeavy);
-  const { healthStatus, healthReason } = deriveWorkbookHealth({
+  const { healthStatus, healthReasonParams } = deriveWorkbookHealth({
     isOrphan,
     missingWorkspaceIds,
     daysSinceModified,
@@ -481,7 +480,7 @@ function buildMockWorkbook(partial: Partial<WorkbookResourceItem> & { name: stri
     isOrphan,
     hasHeavyQueries,
     healthStatus,
-    healthReason,
+    healthReasonParams,
     estimatedQueryCostUSD: Number((totalScanGBPerRun * runs * LOG_ANALYTICS_QUERY_SCAN_USD_PER_GB).toFixed(2)),
     estimatedMonthlyRuns: runs,
     totalScanGBPerRun,
@@ -781,7 +780,7 @@ export async function fetchLiveWorkbooksData(tenantId: string): Promise<Workbook
         !knownResourceIds.has(linkedSourceId.toLowerCase());
 
       const hasHeavyQueries = parsed.queries.some((q2) => q2.isHeavy);
-      const { healthStatus, healthReason } = deriveWorkbookHealth({
+      const { healthStatus, healthReasonParams } = deriveWorkbookHealth({
         isOrphan,
         missingWorkspaceIds,
         daysSinceModified,
@@ -813,7 +812,7 @@ export async function fetchLiveWorkbooksData(tenantId: string): Promise<Workbook
         isOrphan,
         hasHeavyQueries,
         healthStatus,
-        healthReason,
+        healthReasonParams,
         estimatedQueryCostUSD: Number((totalScanGBPerRun * runs * LOG_ANALYTICS_QUERY_SCAN_USD_PER_GB).toFixed(2)),
         estimatedMonthlyRuns: runs,
         totalScanGBPerRun,

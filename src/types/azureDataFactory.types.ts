@@ -1,3 +1,11 @@
+export const DATA_FACTORY_REMEDIATION_CATEGORIES = [
+  "IR_DOWNGRADE",
+  "DATA_FLOW_CACHE_ENABLE",
+  "ORPHAN_PURGE",
+] as const;
+
+export type DataFactoryRemediationCategory = (typeof DATA_FACTORY_REMEDIATION_CATEGORIES)[number];
+
 export interface AdfResourceItem {
   id: string;
   name: string;
@@ -33,9 +41,9 @@ export interface AdfRemediationAction {
   id: string;
   resourceId: string;
   resourceName?: string;
-  title: string;
-  description: string;
-  category: "IR_DOWNGRADE" | "DATA_FLOW_CACHE_ENABLE" | "ORPHAN_PURGE";
+  /** Valores a interpolar en `rem_ADF_<category>_title` / `_desc`. */
+  params?: Record<string, string | number>;
+  category: DataFactoryRemediationCategory;
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM";
   actionType: string;

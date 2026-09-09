@@ -17,11 +17,18 @@ export interface HealthSignalItem {
   score: number;
   weightPercentage: number;
   weightedScore: number;
-  statusText: string;
+  /** Clave del resumen (`status_*`) y sus valores; la prosa vive en el catalogo. */
+  statusKey: TenantHealthStatusKey;
+  statusParams?: Record<string, string | number>;
   statusLevel: "OPTIMAL" | "WARNING" | "CRITICAL";
   detailsCount?: { current: number; total: number };
-  actionRequiredTitle?: string;
-  actionType?: string;
+  /**
+   * El rotulo del boton salia del servidor, pero era derivable de `actionType`
+   * ("Crear Presupuesto" <-> SET_BUDGET): campo redundante, no traducible.
+   * Queda solo el hecho de que hace falta accion.
+   */
+  actionRequired?: boolean;
+  actionType?: TenantHealthActionType;
   commandPayload?: string;
 }
 
@@ -31,14 +38,39 @@ export interface TenantHealthDataPoint {
   grade: HealthGrade;
 }
 
+export const TENANT_HEALTH_STATUS_KEYS = [
+  "status_BUDGET_none",
+  "status_BUDGET_ok",
+  "status_BUDGET_over",
+  "status_CRED_none",
+  "status_CRED_expiring",
+  "status_COIN_none",
+  "status_COIN_progress",
+  "status_MFA_none",
+  "status_MFA_active",
+] as const;
+
+export type TenantHealthStatusKey = (typeof TENANT_HEALTH_STATUS_KEYS)[number];
+
+export const TENANT_HEALTH_ACTION_TYPES = [
+  "ENABLE_MFA",
+  "PURGE_ZOMBIES",
+  "SET_BUDGET",
+  "ROTATE_SECRETS",
+  "ENFORCE_MFA",
+  "VIEW_ADVISOR",
+] as const;
+
+export type TenantHealthActionType = (typeof TENANT_HEALTH_ACTION_TYPES)[number];
+
 export interface TenantHealthActionPlan {
   id: string;
-  title: string;
   pillar: "Budget" | "Credentials" | "COIN" | "Security";
   healthPointsGain: number;
   estimatedSavingsUSD: number;
   priority: "HIGH" | "MEDIUM";
-  actionType: string;
+  /** Discrimina la accion y da la clave `plan_<actionType>` del rotulo. */
+  actionType: TenantHealthActionType;
   commandPayload?: string;
 }
 
@@ -63,10 +95,15 @@ export const SIGNAL_WEIGHTS: Record<HealthSignalType, number> = {
   SECURITY_MFA: 20,
 };
 
-export const GRADE_THRESHOLDS: Array<{ min: number; grade: HealthGrade; label: string }> = [
-  { min: 90, grade: "A", label: "Grado A — Excelente" },
-  { min: 80, grade: "B", label: "Grado B — Bueno" },
-  { min: 70, grade: "C", label: "Grado C — Aceptable" },
-  { min: 50, grade: "D", label: "Grado D — Requiere Atención" },
-  { min: 0, grade: "F", label: "Grado F — Crítico" },
+/**
+ * El `label` repetia el grado y el unico consumidor lo partia por el guion
+ * para quedarse con el calificativo: se fue, y el calificativo vive en
+ * `grade_<G>` del catalogo.
+ */
+export const GRADE_THRESHOLDS: Array<{ min: number; grade: HealthGrade }> = [
+  { min: 90, grade: "A" },
+  { min: 80, grade: "B" },
+  { min: 70, grade: "C" },
+  { min: 50, grade: "D" },
+  { min: 0, grade: "F" },
 ];

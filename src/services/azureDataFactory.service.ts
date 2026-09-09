@@ -67,14 +67,13 @@ export function generateAdfRecommendations(
         id: `rem-adf-ir-${item.id}`,
         resourceId: item.id,
         resourceName: item.name,
-        title: `Rightsizing de Cómputo en Managed IR de '${item.name}'`,
-        description: `La factoría cuenta con ${item.integrationRuntimesCount} Integration Runtimes con costo de $${item.costMtdUSD.toFixed(
-          2
-        )} USD/mes pero la utilización promedio de cómputo es de solo ${item.avgIRUtilizationPercentage.toFixed(
-          1
-        )}%. Reducir el tamaño de nodo de Azure-SSIS / Managed IR a la mitad o ajustar el TTL a 10 minutos genera un ahorro estimado de $${estimatedSavings.toFixed(
-          2
-        )} USD/mes.`,
+        params: {
+          name: item.name,
+          runtimes: item.integrationRuntimesCount,
+          cost: item.costMtdUSD.toFixed(2),
+          usage: item.avgIRUtilizationPercentage.toFixed(1),
+          savings: estimatedSavings.toFixed(2),
+        },
         category: "IR_DOWNGRADE",
         estimatedSavingsUSD: estimatedSavings,
         confidence: "HIGH",
@@ -92,12 +91,11 @@ export function generateAdfRecommendations(
         id: `rem-adf-df-${item.id}`,
         resourceId: item.id,
         resourceName: item.name,
-        title: `Habilitar Quick Reuse & Caché de Cómputo en Data Flows de '${item.name}'`,
-        description: `Los pipelines registran una duración promedio de ${item.avgPipelineDurationMinutes.toFixed(
-          1
-        )} min por arranque en frío de clusters Spark en Data Flows. Habilitar Quick Reuse con TTL de 15 min evita el tiempo de aprovisionamiento de 4-5 min por ejecución y optimiza el consumo de vCores ahorrando ~$${estimatedSavings.toFixed(
-          2
-        )} USD/mes.`,
+        params: {
+          name: item.name,
+          minutes: item.avgPipelineDurationMinutes.toFixed(1),
+          savings: estimatedSavings.toFixed(2),
+        },
         category: "DATA_FLOW_CACHE_ENABLE",
         estimatedSavingsUSD: estimatedSavings,
         confidence: "MEDIUM",
@@ -112,8 +110,7 @@ export function generateAdfRecommendations(
         id: `rem-adf-orphan-${item.id}`,
         resourceId: item.id,
         resourceName: item.name,
-        title: `Purga de Data Factory Huérfana '${item.name}'`,
-        description: `La factoría '${item.name}' no ha registrado ejecuciones de pipelines en los últimos 30 días (${item.integrationRuntimesCount} IRs inactivos). Se recomienda su desmantelamiento para eliminar costos residuales y endpoints privados vinculados.`,
+        params: { name: item.name, runtimes: item.integrationRuntimesCount },
         category: "ORPHAN_PURGE",
         estimatedSavingsUSD: item.costMtdUSD > 0 ? item.costMtdUSD : 150.0,
         confidence: "HIGH",

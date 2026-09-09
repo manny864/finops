@@ -34,6 +34,10 @@ import { SAAS_COMPONENT_KEYS, CRON_JOB_KEYS } from "@/types/saasOperations.types
 import { CONTENT_SAFETY_REMEDIATION_CATEGORIES } from "@/types/azureContentSafety.types";
 import { DATABRICKS_REMEDIATION_CATEGORIES } from "@/types/azureDatabricks.types";
 import { EVENT_HUBS_REMEDIATION_CATEGORIES } from "@/types/azureEventHubs.types";
+import { DATA_FACTORY_REMEDIATION_CATEGORIES } from "@/types/azureDataFactory.types";
+import { EVENT_GRID_REMEDIATION_CATEGORIES } from "@/types/azureEventGrid.types";
+import { WORKBOOK_REMEDIATION_CATEGORIES } from "@/types/azureWorkbooks.types";
+import { TENANT_HEALTH_ACTION_TYPES, TENANT_HEALTH_STATUS_KEYS } from "@/types/azureTenantHealth.types";
 import { ENTRA_REMEDIATION_CATEGORIES, ENTRA_WASTE_REASON_KEYS } from "@/types/azureEntraId.types";
 import { WAF_REMEDIATION_CATEGORIES } from "@/types/azureWaf.types";
 import { SERVICE_BUS_REMEDIATION_CATEGORIES } from "@/types/azureServiceBus.types";
@@ -314,6 +318,77 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
             ns: "EntraIdPanel",
             params: { days: 120, sku: "Enterprise" },
             claves: [...ENTRA_WASTE_REASON_KEYS],
+        },
+        {
+            que: "recomendaciones de Data Factory (DATA_FACTORY_REMEDIATION_CATEGORIES)",
+            ns: "IpaasFinops",
+            params: {
+                name: "adf-prod",
+                runtimes: 3,
+                cost: "820.00",
+                usage: 22,
+                savings: "410.00",
+                minutes: 5,
+            },
+            claves: DATA_FACTORY_REMEDIATION_CATEGORIES.flatMap((c) => [
+                `rem_ADF_${c}_title`,
+                `rem_ADF_${c}_desc`,
+                `cat_ADF_${c}`,
+            ]),
+        },
+        {
+            que: "recomendaciones de Event Grid (EVENT_GRID_REMEDIATION_CATEGORIES)",
+            ns: "IpaasFinops",
+            params: {
+                name: "eg-prod",
+                cost: "120.00",
+                savings: "60.00",
+                millions: "1.2",
+            },
+            claves: EVENT_GRID_REMEDIATION_CATEGORIES.flatMap((c) => [
+                `rem_EG_${c}_title`,
+                `rem_EG_${c}_desc`,
+                `cat_EG_${c}`,
+            ]),
+        },
+        {
+            que: "recomendaciones de Workbooks (WORKBOOK_REMEDIATION_CATEGORIES)",
+            ns: "WorkbooksManagement",
+            params: {
+                name: "wb-costos",
+                missing: 2,
+                interval: "5 min",
+                tables: "AzureDiagnostics",
+                runs: 8640,
+                count: 3,
+            },
+            claves: WORKBOOK_REMEDIATION_CATEGORIES.flatMap((c) => [
+                `rem_${c}_title`,
+                `rem_${c}_desc`,
+            ]),
+        },
+        {
+            que: "plan de accion de Tenant Health (TENANT_HEALTH_ACTION_TYPES)",
+            ns: "TenantHealth",
+            claves: TENANT_HEALTH_ACTION_TYPES.flatMap((a) => [
+                `plan_${a}`,
+                `signalAction_${a}`,
+            ]),
+        },
+        {
+            que: "resumenes de senal de Tenant Health (TENANT_HEALTH_STATUS_KEYS)",
+            ns: "TenantHealth",
+            params: {
+                budget: "5000.00",
+                pct: "82.0",
+                spend: "6100.00",
+                count: 3,
+                days: 30,
+                implemented: 58,
+                total: 68,
+                current: 4,
+            },
+            claves: [...TENANT_HEALTH_STATUS_KEYS],
         },
         {
             que: "recomendaciones de Event Hubs (EVENT_HUBS_REMEDIATION_CATEGORIES)",
@@ -698,6 +773,18 @@ describe("i18n · capa 2b: las ramas de los select de ICU", () => {
         expect(configurado).not.toBe(apagado);
     });
 
+    it.each(LOCALES)("%s: sin workspaces faltantes, el workbook huerfano habla del sourceId", (locale) => {
+        const t = traducir(locale, "WorkbooksManagement");
+        const sin = t("rem_PURGE_ORPHAN_desc", { missing: 0 });
+        const con = t("rem_PURGE_ORPHAN_desc", { missing: 2 });
+        // La rama de 0 es otra frase entera (el sourceId borrado), sin numero.
+        // Si el nombre de la rama se rompe, `other` la tapa y sale
+        // "Referencia 0 workspace(s) inexistentes": de ahi el chequeo del 0.
+        expect(sin).not.toMatch(/\b0\b/);
+        expect(con).toContain("2");
+        expect(con).not.toBe(sin);
+    });
+
     it.each(LOCALES)("%s: sin endpoints asociados, ENABLE_PREVENTION no imprime la lista vacia", (locale) => {
         const t = traducir(locale, "WafSecurity");
         const base = { name: "waf-prod", detected: 18400 };
@@ -1022,6 +1109,8 @@ const TABLEROS_MUERTOS = [
 ];
 
 const TABLEROS_LIMPIOS = [
+    "src/components/monitoring/WorkbooksManagementPanel.tsx",
+    "src/components/analytics/TenantHealthPanel.tsx",
     "src/components/monitoring/ActionGroupsBoard.tsx",
     "src/components/analytics/CostAllocationEngine.tsx",
     "src/components/security/EntraIdPanel.tsx",
