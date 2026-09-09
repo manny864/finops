@@ -18,11 +18,16 @@ export type AllocationStrategy =
 
 export type AllocationStatus = "VALID_100" | "INCOMPLETE" | "OVER_ALLOCATED";
 
+export const ALLOCATION_REMEDIATION_CATEGORIES = [
+  "DYNAMIC_NAMESPACE_ENABLE",
+  "LAW_INGESTION_SPLIT",
+  "COMPLETE_100_PERCENT",
+  "DETECT_UNALLOCATED_HUB",
+  "FIX_OVER_ALLOCATION",
+] as const;
+
 export type AllocationRemediationCategory =
-  | "DYNAMIC_NAMESPACE_ENABLE"
-  | "LAW_INGESTION_SPLIT"
-  | "COMPLETE_100_PERCENT"
-  | "DETECT_UNALLOCATED_HUB";
+  (typeof ALLOCATION_REMEDIATION_CATEGORIES)[number];
 
 /** Tipos de recurso que típicamente se comparten entre equipos. */
 export const SHARED_RESOURCE_TYPES = [
@@ -88,8 +93,8 @@ export interface CostAllocationSummary {
 export interface AllocationRemediationAction {
   id: string;
   ruleId: string;
-  title: string;
-  description: string;
+  /** Valores a interpolar en `rem_<category>_title` / `_desc`. */
+  params?: Record<string, string | number>;
   category: AllocationRemediationCategory;
   /** Monto que la acción pone bajo control; no es un ahorro. */
   estimatedSavingsOrImpactUSD: number;

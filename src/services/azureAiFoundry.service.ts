@@ -220,9 +220,7 @@ function generateMockPayload(days: number | "mtd"): FoundryDetailPayload {
   const remediationActions: FoundryRemediationAction[] = [
     {
       id: "rem-ptu-arbitrage",
-      title: "Evaluar Provisioned Throughput (PTU) para gpt-4o-mini",
-      description:
-        "El consumo sostenido de gpt-4o-mini supera el umbral de $1,500/mes. PTU ofrece 50-70% de descuento sobre PAYG con capacidad reservada.",
+      params: { cost: "1500.00" },
       category: "PTU_ARBITRAGE",
       estimatedSavingsUSD: "0.85",
       confidence: "HIGH",
@@ -230,9 +228,7 @@ function generateMockPayload(days: number | "mtd"): FoundryDetailPayload {
     },
     {
       id: "rem-prompt-caching",
-      title: "Activar Prompt Caching en llamadas repetitivas",
-      description:
-        "El 12.5% de cache hit rate indica oportunidad de optimización. Incrementar caching al 30%+ ahorraría ~$0.15/mes.",
+      params: { rate: 12.5 },
       category: "PROMPT_CACHING",
       estimatedSavingsUSD: "0.15",
       confidence: "MEDIUM",
@@ -240,9 +236,7 @@ function generateMockPayload(days: number | "mtd"): FoundryDetailPayload {
     },
     {
       id: "rem-idle-deployment",
-      title: "Eliminar despliegue inactivo gpt-35-turbo-legacy",
-      description:
-        "El deployment gpt-35-turbo-legacy tiene 0 tokens de entrada en el período. Considerar eliminar o migrar a gpt-4o-mini.",
+      params: { deployment: "gpt-35-turbo-legacy", model: "gpt-35-turbo" },
       category: "IDLE_DEPLOYMENT",
       estimatedSavingsUSD: "0.06",
       confidence: "HIGH",
@@ -250,9 +244,7 @@ function generateMockPayload(days: number | "mtd"): FoundryDetailPayload {
     },
     {
       id: "rem-tag-showback",
-      title: "Etiquetar consumidores sin CostCenter",
-      description:
-        "2 aplicaciones (embeddings-pipeline, qa-evaluation-runner) no tienen tag CostCenter. Sin atribución, el 18.2% del gasto no se puede showback.",
+      params: { count: 2, apps: "embeddings-pipeline, qa-evaluation-runner", cost: "0.00" },
       category: "TAG_SHOWBACK",
       estimatedSavingsUSD: "0.00",
       confidence: "HIGH",
@@ -1152,10 +1144,7 @@ function generateRemediations(
     const ptuSavings = new Decimal(monthlyCost).times(0.4);
     actions.push({
       id: "rem-ptu-arbitrage",
-      title: "Evaluar Provisioned Throughput (PTU)",
-      description:
-        `El consumo mensual de $${monthlyCost.toFixed(2)} supera el umbral de $1,500. ` +
-        "PTU ofrece 40-70% de descuento sobre PAYG con capacidad reservada.",
+      params: { cost: monthlyCost.toFixed(2) },
       category: "PTU_ARBITRAGE",
       estimatedSavingsUSD: ptuSavings.toFixed(2),
       confidence: "HIGH",
@@ -1168,10 +1157,7 @@ function generateRemediations(
     const cachingSavings = new Decimal(metrics.estimatedCostUSD).times(0.08);
     actions.push({
       id: "rem-prompt-caching",
-      title: "Activar Prompt Caching en llamadas repetitivas",
-      description:
-        `Cache hit rate actual: ${metrics.promptCacheHitRate}%. ` +
-        "Incrementar a 30%+ ahorraría ~8% del costo de entrada.",
+      params: { rate: metrics.promptCacheHitRate },
       category: "PROMPT_CACHING",
       estimatedSavingsUSD: cachingSavings.toFixed(2),
       confidence: "MEDIUM",
@@ -1184,10 +1170,7 @@ function generateRemediations(
     if (m.inputTokens === 0 && m.outputTokens === 0 && parseFloat(m.totalCostUSD) > 0) {
       actions.push({
         id: `rem-idle-${m.deploymentName}`,
-        title: `Eliminar despliegue inactivo: ${m.deploymentName}`,
-        description:
-          `El deployment ${m.deploymentName} (${m.modelName}) no tiene actividad en el período. ` +
-          "Considerar eliminar para liberar capacidad.",
+        params: { deployment: m.deploymentName, model: m.modelName },
         category: "IDLE_DEPLOYMENT",
         estimatedSavingsUSD: m.totalCostUSD,
         confidence: "HIGH",
@@ -1204,10 +1187,7 @@ function generateRemediations(
     const downgradeSavings = new Decimal(gpt4Model.totalCostUSD).times(0.85);
     actions.push({
       id: "rem-model-downgrade",
-      title: `Migrar ${gpt4Model.modelName} → gpt-4o-mini`,
-      description:
-        `${gpt4Model.modelName} es ~15x más caro que gpt-4o-mini. ` +
-        "Para cargas no críticas, migrar reduce el costo en ~85%.",
+      params: { model: gpt4Model.modelName },
       category: "MODEL_DOWNGRADE",
       estimatedSavingsUSD: downgradeSavings.toFixed(2),
       confidence: "HIGH",
@@ -1224,10 +1204,11 @@ function generateRemediations(
     );
     actions.push({
       id: "rem-tag-showback",
-      title: `Etiquetar ${untaggedApps.length} consumidores sin CostCenter`,
-      description:
-        `${untaggedApps.map((a) => a.appDisplayName).join(", ")} no tienen tag CostCenter. ` +
-        `$${untaggedCost.toFixed(2)} sin atribuir para showback.`,
+      params: {
+        count: untaggedApps.length,
+        apps: untaggedApps.map((a) => a.appDisplayName).join(", "),
+        cost: untaggedCost.toFixed(2),
+      },
       category: "TAG_SHOWBACK",
       estimatedSavingsUSD: "0.00",
       confidence: "HIGH",

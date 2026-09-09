@@ -244,10 +244,12 @@ export function generateAllocationRecommendations(
       out.push({
         id: `complete-${r.id}`,
         ruleId: r.id,
-        title: `Completar el reparto de ${r.sharedResourceName} (${r.totalAllocatedPercentage}%)`,
-        description: `Falta asignar ${(100 - r.totalAllocatedPercentage).toFixed(2)}% del costo, equivalente a ${r.unallocatedAmountUSD.toFixed(
-          2
-        )} USD/mes que ningún centro de costo está viendo en su showback. El gasto existe igual: solo queda fuera del modelo, lo que hace que los departamentos crean que gastan menos de lo que gastan.`,
+        params: {
+          name: r.sharedResourceName,
+          pct: r.totalAllocatedPercentage,
+          missing: (100 - r.totalAllocatedPercentage).toFixed(2),
+          amount: r.unallocatedAmountUSD.toFixed(2),
+        },
         category: "COMPLETE_100_PERCENT",
         estimatedSavingsOrImpactUSD: r.unallocatedAmountUSD,
         confidence: "HIGH",
@@ -259,9 +261,8 @@ export function generateAllocationRecommendations(
       out.push({
         id: `over-${r.id}`,
         ruleId: r.id,
-        title: `Corregir sobre-asignación en ${r.sharedResourceName} (${r.totalAllocatedPercentage}%)`,
-        description: `La suma de porcentajes supera el 100%: se estaría cobrando a los departamentos más de lo que el recurso realmente cuesta, inflando el showback de todos ellos. Ajustar los porcentajes antes de emitir el próximo reporte.`,
-        category: "COMPLETE_100_PERCENT",
+        params: { name: r.sharedResourceName, pct: r.totalAllocatedPercentage },
+        category: "FIX_OVER_ALLOCATION",
         estimatedSavingsOrImpactUSD: 0,
         confidence: "HIGH",
         actionType: "EDIT_RULE",
@@ -273,8 +274,7 @@ export function generateAllocationRecommendations(
       out.push({
         id: `aks-dynamic-${r.id}`,
         ruleId: r.id,
-        title: `Repartir ${r.sharedResourceName} por consumo real de Namespace`,
-        description: `El clúster se prorratea con porcentajes fijos, que quedan congelados mientras las cargas se mueven. Un reparto dinámico por consumo de vCore y memoria por Namespace refleja quién usa realmente el clúster y elimina la discusión mensual sobre si los porcentajes siguen siendo justos. Requiere Container Insights habilitado en el clúster.`,
+        params: { name: r.sharedResourceName },
         category: "DYNAMIC_NAMESPACE_ENABLE",
         estimatedSavingsOrImpactUSD: r.monthlyCostUSD,
         confidence: "MEDIUM",
@@ -288,8 +288,7 @@ export function generateAllocationRecommendations(
       out.push({
         id: `law-dynamic-${r.id}`,
         ruleId: r.id,
-        title: `Repartir ${r.sharedResourceName} por volumen de ingesta`,
-        description: `El workspace se prorratea con porcentajes fijos aunque la tabla \`Usage\` sabe exactamente cuántos GB ingirió cada solución. Un reparto por ingesta atribuye el costo a quien genera los datos, y suele revelar que una sola aplicación explica la mayor parte del gasto.`,
+        params: { name: r.sharedResourceName },
         category: "LAW_INGESTION_SPLIT",
         estimatedSavingsOrImpactUSD: r.monthlyCostUSD,
         confidence: "MEDIUM",
@@ -304,10 +303,7 @@ export function generateAllocationRecommendations(
     out.push({
       id: `unruled-${r.resourceId}`,
       ruleId: "",
-      title: `${r.resourceName} no tiene regla de prorrateo`,
-      description: `Este recurso compartido de tipo ${r.resourceType} cuesta ${r.monthlyCostUSD.toFixed(
-        2
-      )} USD/mes y no está repartido entre ningún centro de costo: su gasto completo queda fuera del showback. Crear la regla no reduce la factura, pero hace que el costo aparezca donde corresponde.`,
+      params: { name: r.resourceName, type: r.resourceType, cost: r.monthlyCostUSD.toFixed(2) },
       category: "DETECT_UNALLOCATED_HUB",
       estimatedSavingsOrImpactUSD: r.monthlyCostUSD,
       confidence: "HIGH",

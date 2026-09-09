@@ -19,6 +19,9 @@ import { APP_INSIGHTS_REMEDIATION_CATEGORIES } from "@/types/azureAppInsights.ty
 import { LOGIC_APP_REMEDIATION_CATEGORIES } from "@/types/azureLogicApps.types";
 import { VISION_REMEDIATION_CATEGORIES } from "@/types/azureVisionVideo.types";
 import { AML_REMEDIATION_CATEGORIES } from "@/types/azureMachineLearning.types";
+import { AI_SEARCH_REMEDIATION_CATEGORIES } from "@/types/azureAiSearch.types";
+import { FOUNDRY_REMEDIATION_CATEGORIES } from "@/types/azureAiFoundry.types";
+import { ALLOCATION_REMEDIATION_CATEGORIES } from "@/types/azureCostAllocation.types";
 import { WATERFALL_STEP_KEYS } from "@/types/azureWhatIf.types";
 import { REDIS_RULE_I18N } from "@/types/redisCache";
 import { MONGO_RULE_I18N } from "@/types/azureMongoDb";
@@ -185,6 +188,24 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
          */
         params?: Record<string, string | number>;
     }> = [
+        {
+            que: "recomendaciones de AI Search (AI_SEARCH_REMEDIATION_CATEGORIES)",
+            ns: "AzureAI",
+            params: { name: "search-dev", gb: "1.2", savings: "172.00", cost: "245.00", replicas: 3, qps: 4 },
+            claves: AI_SEARCH_REMEDIATION_CATEGORIES.flatMap((c) => [`rem_SEARCH_${c}_title`, `rem_SEARCH_${c}_desc`]),
+        },
+        {
+            que: "recomendaciones de AI Foundry (FOUNDRY_REMEDIATION_CATEGORIES)",
+            ns: "AzureAI",
+            params: { cost: "1500.00", rate: 12.5, deployment: "gpt-35-turbo-legacy", model: "gpt-4", count: 2, apps: "app-a, app-b" },
+            claves: FOUNDRY_REMEDIATION_CATEGORIES.flatMap((c) => [`rem_FOUNDRY_${c}_title`, `rem_FOUNDRY_${c}_desc`]),
+        },
+        {
+            que: "recomendaciones de Cost Allocation (ALLOCATION_REMEDIATION_CATEGORIES)",
+            ns: "CostAllocation",
+            params: { name: "aks-shared", pct: 80, missing: "20.00", amount: "412.00", type: "AKS", cost: "1240.00" },
+            claves: ALLOCATION_REMEDIATION_CATEGORIES.flatMap((c) => [`rem_${c}_title`, `rem_${c}_desc`, `cat_${c}`]),
+        },
         {
             que: "recomendaciones de App Insights (APP_INSIGHTS_REMEDIATION_CATEGORIES)",
             ns: "AppInsightsFinops",
@@ -711,6 +732,9 @@ const TABLEROS_MUERTOS = [
 
 const TABLEROS_LIMPIOS = [
     "src/components/monitoring/ActionGroupsBoard.tsx",
+    "src/components/analytics/CostAllocationEngine.tsx",
+    "src/app/[locale]/intelligence/azure-ai/components/AzureAISearch.tsx",
+    "src/app/[locale]/intelligence/azure-ai/components/AzureFoundryDetail.tsx",
     "src/components/monitoring/AppInsightsDashboard.tsx",
     "src/components/dashboard/AMLDashboard.tsx",
     "src/components/dashboard/LogicAppsFinopsDashboard.tsx",

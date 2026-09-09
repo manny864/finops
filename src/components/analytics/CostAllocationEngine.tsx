@@ -1,4 +1,5 @@
 "use client";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
 import { useTranslations } from "next-intl";
 import { useNombreDeBucket } from "@/lib/bucketSinAsignar";
 
@@ -87,9 +88,9 @@ function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[
 function StatusBadge({ rule }: { rule: SharedCostRule }) {
   const t = useTranslations("CostAllocation");
   const map = {
-    VALID_100: { label: "Total asignado: 100%", cls: "border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400" },
+    VALID_100: { label: t("status_valid100"), cls: "border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400" },
     INCOMPLETE: {
-      label: `Incompleto: ${rule.totalAllocatedPercentage}%`,
+      label: t("status_incomplete", { pct: rule.totalAllocatedPercentage }),
       cls: "border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400",
     },
     OVER_ALLOCATED: {
@@ -189,7 +190,7 @@ function RuleEditorCard({
               <button
                 onClick={() => setRows(rows.filter((_, j) => j !== i))}
                 className="text-slate-400 hover:text-red-500 cursor-pointer shrink-0"
-                aria-label="Eliminar fila"
+                aria-label={t("removeRowAria")}
               >
                 <IconTrash className="w-4 h-4" />
               </button>
@@ -212,7 +213,7 @@ function RuleEditorCard({
       </div>
       <div className="flex justify-between items-center text-[11px]">
         <span className={over ? "text-red-600 font-bold" : incomplete ? "text-amber-600 font-semibold" : "text-emerald-600 font-semibold"}>
-          {total.toFixed(2)}% asignado
+          {t("allocatedPct", { pct: total.toFixed(2) })}
           {incomplete && ` · residuo ${money((rule.monthlyCostUSD * (100 - total)) / 100)}`}
         </span>
         <button
@@ -234,7 +235,7 @@ function RuleEditorCard({
               strategy
             )
           }
-          title={over ? "La suma supera 100%: corregir antes de guardar" : undefined}
+          title={over ? t("overHundredTitle") : undefined}
           className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-[#0078D4] text-white hover:bg-[#0060AA] transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {saving ? t("saving") : t("saveAndApply")}
@@ -253,6 +254,7 @@ function RuleEditorCard({
 // ─── Componente Principal ───
 export default function CostAllocationEngine() {
   const t = useTranslations("CostAllocation");
+  const textoRem = useTextoPorCategoria("CostAllocation");
   const nombreBucket = useNombreDeBucket();
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
@@ -358,7 +360,7 @@ export default function CostAllocationEngine() {
               />
             </h1>
             <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 text-[#0054A6]">
-              {data?.source === "live" ? "Live Cost Management" : "Demo Sandbox"}
+              {data?.source === "live" ? t("sourceLive") : t("sourceDemo")}
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -412,35 +414,35 @@ export default function CostAllocationEngine() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           {
-            label: "Gasto Total Compartido",
-            tip: "Costo mensual de los recursos que usan varios equipos y por eso necesitan una regla de reparto.",
+            label: t("kpiSharedSpend"),
+            tip: t("kpiSharedSpendTip"),
             value: money(summary?.totalSharedSpendUSD || 0),
-            sub: `${summary?.activeRulesCount || 0} regla(s) activa(s)`,
+            sub: t("kpiSharedSpendSub", { count: summary?.activeRulesCount || 0 }),
             Icon: IconCash,
           },
           {
-            label: "Prorrateado con Éxito",
-            tip: "Monto efectivamente distribuido entre centros de costo bajo reglas válidas.",
+            label: t("kpiAllocated"),
+            tip: t("kpiAllocatedTip"),
             value: money(summary?.totalAllocatedSpendUSD || 0),
-            sub: `${summary?.allocationCoveragePercentage || 0}% de cobertura`,
+            sub: t("kpiAllocatedSub", { pct: summary?.allocationCoveragePercentage || 0 }),
             Icon: IconChecklist,
           },
           {
-            label: "Residuo No Asignado",
-            tip: "Gasto de reglas incompletas que ningún departamento está viendo en su showback. Existe igual: solo queda fuera del modelo.",
+            label: t("kpiUnallocated"),
+            tip: t("kpiUnallocatedTip"),
             value: money(summary?.totalUnallocatedSpendUSD || 0),
             sub:
               (summary?.invalidRulesCount || 0) > 0
-                ? `${summary?.invalidRulesCount} regla(s) sin validar`
-                : "Todas las reglas al 100%",
+                ? t("kpiUnallocatedSubInvalid", { count: summary?.invalidRulesCount || 0 })
+                : t("kpiUnallocatedSubOk"),
             Icon: IconAlertCircle,
             warn: (summary?.totalUnallocatedSpendUSD || 0) > 0,
           },
           {
-            label: "Centros Beneficiarios",
-            tip: "Departamentos que reciben asignaciones virtuales de los recursos compartidos.",
+            label: t("kpiCostCenters"),
+            tip: t("kpiCostCentersTip"),
             value: String(summary?.affectedCostCentersCount || 0),
-            sub: `${summary?.unruledSharedResourcesCount || 0} recurso(s) sin regla`,
+            sub: t("kpiCostCentersSub", { count: summary?.unruledSharedResourcesCount || 0 }),
             Icon: IconUsersGroup,
           },
         ].map((c) => (
@@ -519,7 +521,7 @@ export default function CostAllocationEngine() {
                             status: "INCOMPLETE",
                             lastUpdated: "",
                           },
-                          [{ targetCostCenterName: data?.availableCostCenters[0] || "Sin Asignar (Untagged)", percentage: 100 }],
+                          [{ targetCostCenterName: data?.availableCostCenters[0] || t("untaggedFallback"), percentage: 100 }],
                           "FIXED_PERCENTAGE"
                         );
                         setAddOpen(false);
@@ -694,7 +696,7 @@ export default function CostAllocationEngine() {
               >
                 <div className="flex justify-between items-start gap-2">
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800 text-[#0054A6] bg-white dark:bg-slate-900 uppercase">
-                    {a.category}
+                    {t(`cat_${a.category}`)}
                   </span>
                   {a.estimatedSavingsOrImpactUSD > 0 && (
                     <span className="text-xs font-extrabold text-[#0054A6]">
@@ -702,9 +704,9 @@ export default function CostAllocationEngine() {
                     </span>
                   )}
                 </div>
-                <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 leading-snug">{a.title}</h4>
+                <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 leading-snug">{textoRem(a, "title")}</h4>
                 <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-4 leading-relaxed">
-                  {a.description}
+                  {textoRem(a, "desc")}
                 </p>
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-[10px] text-slate-400">
                   Confianza: {a.confidence}

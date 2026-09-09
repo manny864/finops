@@ -21,6 +21,7 @@
 
 import React, { useState, useMemo, useCallback } from "react";
 import useSWR from "swr";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
 import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
@@ -109,6 +110,7 @@ function SearchSkeleton() {
 /** Error state with retry button. */
 function SearchError({ message, onRetry }: { message: string; onRetry: () => void }) {
   const t = useTranslations("AzureAI");
+  const textoRem = useTextoPorCategoria("AzureAI", "SEARCH");
   return (
     <div className="flex flex-col items-center justify-center py-16 gap-4">
       <IconExclamationCircle className="w-12 h-12 text-red-400" />
@@ -117,7 +119,7 @@ function SearchError({ message, onRetry }: { message: string; onRetry: () => voi
         onClick={onRetry}
         className="px-4 py-2 bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] dark:text-blue-400 rounded-lg text-sm font-medium hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
       >
-        {t("retry") || "Reintentar"}
+        {t("retry")}
       </button>
     </div>
   );
@@ -126,15 +128,15 @@ function SearchError({ message, onRetry }: { message: string; onRetry: () => voi
 /** Empty state when no search services exist. */
 function SearchEmptyState() {
   const t = useTranslations("AzureAI");
+  const textoRem = useTextoPorCategoria("AzureAI", "SEARCH");
   return (
     <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
       <IconSearch className="w-16 h-16 text-slate-300 dark:text-slate-600" />
       <h3 className="text-lg font-semibold text-[#1B2A41] dark:text-slate-200">
-        {t("empty_title") || "Sin servicios de búsqueda"}
+        {t("search_empty_title")}
       </h3>
       <p className="text-sm text-slate-500 max-w-md">
-        {t("empty_description") ||
-          "No se detectaron servicios de Azure AI Search en las suscripciones conectadas. Aprovisiona un recurso Microsoft.Search/searchServices para comenzar a monitorear."}
+        {t("search_empty_description")}
       </p>
     </div>
   );
@@ -144,6 +146,7 @@ function SearchEmptyState() {
 
 export default function AzureAISearch() {
   const t = useTranslations("AzureAI");
+  const textoRem = useTextoPorCategoria("AzureAI", "SEARCH");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const { instance } = useMsal();
@@ -280,10 +283,10 @@ export default function AzureAISearch() {
         <div className="flex items-center gap-2">
           <IconSearch className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
           <h2 className="text-lg font-semibold text-[#1B2A41] dark:text-slate-200">
-            {t("tab_search") || "AI Search"}
+            {t("tab_search")}
           </h2>
           <InfoTooltip
-            content={t("tooltip_tab_search") || "Índices vectoriales, unidades de búsqueda (SU) y consultas semánticas."}
+            content={t("tooltip_tab_search")}
             position="bottom"
             align="left"
           />
@@ -293,7 +296,7 @@ export default function AzureAISearch() {
           className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] dark:text-blue-400 rounded-lg text-xs font-medium hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
         >
           <IconRefresh className="w-3.5 h-3.5" stroke={1.5} />
-          {t("btn_sync") || "Actualizar"}
+          {t("btn_sync")}
         </button>
       </div>
 
@@ -304,7 +307,7 @@ export default function AzureAISearch() {
           <div className="flex items-center gap-2 mb-2">
             <IconCash className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-              {t("current_cost_mtd") || "Costo actual MTD"}
+              {t("current_cost_mtd")}
             </span>
             <InfoTooltip content={t("search_kpi_cost_tooltip")} />
           </div>
@@ -312,7 +315,7 @@ export default function AzureAISearch() {
             ${Number(summary?.currentCostMtdUSD || summary?.totalMonthlyCostUSD || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div className="text-xs text-slate-400 mt-1">
-            {summary?.totalServicesCount} {t("resources") || "servicios"} activos
+            {t("search_activeResources", { count: summary?.totalServicesCount ?? 0 })}
           </div>
         </div>
 
@@ -364,7 +367,7 @@ export default function AzureAISearch() {
             ${Number(summary?.potentialSavingsUSD || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div className="text-xs text-slate-400 mt-1">
-            {remediationActions.length} acciones recomendadas
+            {t("search_recommendedActions", { count: remediationActions.length })}
           </div>
         </div>
       </div>
@@ -464,7 +467,7 @@ export default function AzureAISearch() {
               <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
                 <ResizableTh className="px-3 py-2.5 text-left font-semibold text-[#1B2A41] dark:text-slate-200 cursor-pointer" onClick={() => handleSort("name")}>
                   <div className="flex items-center gap-1">
-                    {t("resource_name") || "Nombre"}
+                    {t("resource_name")}
                     {sortKey === "name" && <IconArrowsSort className="w-3 h-3" />}
                   </div>
                 </ResizableTh>
@@ -496,14 +499,14 @@ export default function AzureAISearch() {
                   </div>
                 </ResizableTh>
                 <ResizableTh className="px-3 py-2.5 text-left font-semibold text-[#1B2A41] dark:text-slate-200">
-                  {t("resource_group") || "Grupo"}
+                  {t("resource_group")}
                 </ResizableTh>
                 <ResizableTh className="px-3 py-2.5 text-left font-semibold text-[#1B2A41] dark:text-slate-200">
                   {t("col_subscription")}
                 </ResizableTh>
                 <ResizableTh className="px-3 py-2.5 text-right font-semibold text-[#1B2A41] dark:text-slate-200 cursor-pointer" onClick={() => handleSort("monthlyCostUSD")}>
                   <div className="flex items-center justify-end gap-1">
-                    {t("resource_cost") || "Costo"}
+                    {t("resource_cost")}
                     {sortKey === "monthlyCostUSD" && <IconArrowsSort className="w-3 h-3" />}
                   </div>
                 </ResizableTh>
@@ -651,18 +654,18 @@ export default function AzureAISearch() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <h4 className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200 truncate">
-                        {action.title}
+                        {textoRem(action, "title")}
                       </h4>
                       <span className={`flex-shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded ${
                         action.confidence === "HIGH"
                           ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
                           : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
                       }`}>
-                        {action.confidence === "HIGH" ? "Alta confianza" : "Media confianza"}
+                        {action.confidence === "HIGH" ? t("highConfidence") : t("mediumConfidence")}
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mb-2 line-clamp-2">
-                      {action.description}
+                      {textoRem(action, "desc")}
                     </p>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
@@ -699,6 +702,7 @@ function ServiceDetailModal({
   onClose: () => void;
 }) {
   const t = useTranslations("AzureAI");
+  const textoRem = useTextoPorCategoria("AzureAI", "SEARCH");
   return (
     <>
       {/* Backdrop */}

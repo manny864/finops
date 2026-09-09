@@ -1,4 +1,5 @@
 "use client";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
 import { useTranslations } from "next-intl";
 
 /**
@@ -93,6 +94,7 @@ function KpiCard({
   tooltip?: string;
 }) {
   const t = useTranslations("AzureAI");
+  const textoRem = useTextoPorCategoria("AzureAI", "FOUNDRY");
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-col gap-1.5">
       <div className="flex items-center justify-between">
@@ -114,6 +116,7 @@ function KpiCard({
 
 function ModelBarRow({ item, maxCost }: { item: FoundryModelUsageItem; maxCost: number }) {
   const t = useTranslations("AzureAI");
+  const textoRem = useTextoPorCategoria("AzureAI", "FOUNDRY");
   const costNum = parseFloat(item.totalCostUSD) || 0;
   const pct = maxCost > 0 ? (costNum / maxCost) * 100 : 0;
 
@@ -152,6 +155,7 @@ function ModelBarRow({ item, maxCost }: { item: FoundryModelUsageItem; maxCost: 
 
 function AppRow({ app, maxCost }: { app: FoundryApplicationConsumer; maxCost: number }) {
   const t = useTranslations("AzureAI");
+  const textoRem = useTextoPorCategoria("AzureAI", "FOUNDRY");
   const costNum = parseFloat(app.totalCostUSD) || 0;
   const pct = maxCost > 0 ? (costNum / maxCost) * 100 : 0;
 
@@ -191,6 +195,7 @@ function AppRow({ app, maxCost }: { app: FoundryApplicationConsumer; maxCost: nu
 
 function RemediationCard({ action }: { action: FoundryRemediationAction }) {
   const t = useTranslations("AzureAI");
+  const textoRem = useTextoPorCategoria("AzureAI", "FOUNDRY");
   const catColors: Record<string, string> = {
     PTU_ARBITRAGE: "border-l-[#0078D4]",
     PROMPT_CACHING: "border-l-[#2563EB]",
@@ -209,9 +214,9 @@ function RemediationCard({ action }: { action: FoundryRemediationAction }) {
       <div className="flex items-start gap-2">
         <IconBulb className="w-4 h-4 text-[#0078D4] shrink-0 mt-0.5" stroke={1.5} />
         <div className="flex-1 min-w-0">
-          <h4 className="text-xs font-semibold text-[#1B2A41] dark:text-white">{action.title}</h4>
+          <h4 className="text-xs font-semibold text-[#1B2A41] dark:text-white">{textoRem(action, "title")}</h4>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
-            {action.description}
+            {textoRem(action, "desc")}
           </p>
           <div className="flex items-center justify-between mt-2">
             <span className="text-[10px] text-slate-400">{action.category.replace(/_/g, " ")}</span>
@@ -231,6 +236,7 @@ function RemediationCard({ action }: { action: FoundryRemediationAction }) {
 
 export default function AzureFoundryDetail() {
   const t = useTranslations("AzureAI");
+  const textoRem = useTextoPorCategoria("AzureAI", "FOUNDRY");
   const { selectedTenant } = useTenant();
   const { instance, accounts } = useMsal();
   const searchParams = useSearchParams();
@@ -384,7 +390,7 @@ export default function AzureFoundryDetail() {
             <KpiCard
               label={t("foundry_totalRequests")}
               value={fmtNum(metrics.totalRequests)}
-              sub={metrics.avgRequestsPerDay + " promedio/día"}
+              sub={t("foundry_avgPerDay", { value: metrics.avgRequestsPerDay })}
               icon={IconActivity}
               tooltip={t("foundry_requestsTooltip")}
             />
@@ -398,7 +404,7 @@ export default function AzureFoundryDetail() {
             <KpiCard
               label={t("foundry_kpiCost")}
               value={fmtUSD(metrics.estimatedCostUSD)}
-              sub={"Proyección EOM: " + fmtUSD(metrics.forecastCostUSD)}
+              sub={t("foundry_eomProjection", { amount: fmtUSD(metrics.forecastCostUSD) })}
               icon={IconCash}
               tooltip={t("foundry_kpiCostTooltip")}
             />
@@ -612,7 +618,7 @@ export default function AzureFoundryDetail() {
                       </div>
                       <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-center">
                         <p className="text-lg font-bold text-amber-700 dark:text-amber-300">{(100 - taggedPct).toFixed(0)}%</p>
-                        <p className="text-[10px] text-amber-600 dark:text-amber-400">Sin atribuir ({untagged.length} apps)</p>
+                        <p className="text-[10px] text-amber-600 dark:text-amber-400">{t("foundry_untaggedLabel", { count: untagged.length })}</p>
                         <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 mt-1">{fmtUSD(untaggedCost)}</p>
                       </div>
                     </div>

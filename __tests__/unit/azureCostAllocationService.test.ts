@@ -186,7 +186,8 @@ describe("Cost Allocation — resumen y recomendaciones", () => {
     const rec = payload.remediations.find((r) => r.category === "COMPLETE_100_PERCENT");
     expect(rec).toBeDefined();
     expect(rec!.estimatedSavingsOrImpactUSD).toBeGreaterThan(0);
-    expect(rec!.description).toContain("showback");
+    // El monto del residuo viaja como parametro, no dentro de la frase.
+    expect(Number(rec!.params!.amount)).toBeGreaterThan(0);
   });
 
   it("propone reparto dinámico para AKS y Log Analytics con porcentaje fijo", () => {
@@ -219,7 +220,9 @@ describe("Cost Allocation — resumen y recomendaciones", () => {
       lastUpdated: "",
     };
     const s = buildAllocationSummary([over]);
-    const rec = generateAllocationRecommendations(s, []).find((r) => r.title.includes("sobre-asignación"));
+    // Antes habia que buscar por el titulo porque las dos recomendaciones
+    // compartian la categoria COMPLETE_100_PERCENT. Ahora la categoria alcanza.
+    const rec = generateAllocationRecommendations(s, []).find((r) => r.category === "FIX_OVER_ALLOCATION");
     expect(rec).toBeDefined();
     expect(rec!.estimatedSavingsOrImpactUSD).toBe(0);
   });

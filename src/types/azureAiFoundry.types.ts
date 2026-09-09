@@ -113,20 +113,22 @@ export interface FoundryTimeSeriesPoint {
 
 // ── Remediation Actions ─────────────────────────────────────────────────────
 
+export const FOUNDRY_REMEDIATION_CATEGORIES = [
+  "MODEL_DOWNGRADE",
+  "PROMPT_CACHING",
+  "PTU_ARBITRAGE",
+  "TAG_SHOWBACK",
+  "IDLE_DEPLOYMENT",
+] as const;
+
 export type FoundryRemediationCategory =
-  | "MODEL_DOWNGRADE"
-  | "PROMPT_CACHING"
-  | "PTU_ARBITRAGE"
-  | "TAG_SHOWBACK"
-  | "IDLE_DEPLOYMENT";
+  (typeof FOUNDRY_REMEDIATION_CATEGORIES)[number];
 
 export interface FoundryRemediationAction {
   /** Unique identifier. */
   id: string;
-  /** Short title. */
-  title: string;
-  /** Detailed description. */
-  description: string;
+  /** Valores a interpolar en `rem_<category>_title` / `_desc`. */
+  params?: Record<string, string | number>;
   /** Remediation category. */
   category: FoundryRemediationCategory;
   /** Estimated monthly savings (USD, decimal string). */

@@ -124,11 +124,15 @@ export interface AiSearchPayload {
 
 // ── Remediation Actions ─────────────────────────────────────────────────────
 
+export const AI_SEARCH_REMEDIATION_CATEGORIES = [
+  "DOWNGRADE_TIER",
+  "REDUCE_REPLICAS",
+  "ORPHAN_SERVICE",
+  "SEMANTIC_RANKER_AUDIT",
+] as const;
+
 export type AiSearchRemediationCategory =
-  | "DOWNGRADE_TIER"
-  | "REDUCE_REPLICAS"
-  | "ORPHAN_SERVICE"
-  | "SEMANTIC_RANKER_AUDIT";
+  (typeof AI_SEARCH_REMEDIATION_CATEGORIES)[number];
 
 export interface AiSearchRemediationAction {
   /** Unique action identifier. */
@@ -137,10 +141,8 @@ export interface AiSearchRemediationAction {
   serviceId: string;
   /** Service name for display. */
   serviceName: string;
-  /** Short human-readable title. */
-  title: string;
-  /** Detailed description of the issue and proposed fix. */
-  description: string;
+  /** Valores a interpolar en `rem_<category>_title` / `_desc`. */
+  params?: Record<string, string | number>;
   /** Category of remediation. */
   category: AiSearchRemediationCategory;
   /** Estimated monthly savings (USD, decimal string). */
