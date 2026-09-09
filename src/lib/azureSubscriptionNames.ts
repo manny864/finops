@@ -1,4 +1,5 @@
 import { errorMessage } from '@/lib/apiErrors';
+import { listTenantSubscriptions } from '@/lib/azure';
 import { ResourceGraphClient } from '@azure/arm-resourcegraph';
 import { withArgLimit } from '@/lib/argConcurrency';
 
@@ -9,23 +10,14 @@ export async function getSubscriptionNameMap(tenantId: string, credential: any):
     const map = new Map<string, string>();
     if (!credential) return map;
 
-    // 1. Intento vía Azure Management REST API
+    // 1. Intento vía Azure Management REST API. Va por listTenantSubscriptions
+    // para no traer nombres de suscripciones de otros directorios: este mapa
+    // alimenta los filtros de la UI y mezclarlos cruza clientes.
     try {
-        const tokenData = await credential.getToken("https://management.azure.com/.default");
-        if (tokenData?.token) {
-            const res = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
-                headers: { Authorization: `Bearer ${tokenData.token}` },
-            });
-            if (res.ok) {
-                const data = await res.json();
-                for (const sub of data.value || []) {
-                    if (sub.subscriptionId) {
-                        const name = sub.displayName || sub.subscriptionId;
-                        map.set(sub.subscriptionId, name);
-                        map.set(sub.subscriptionId.toLowerCase(), name);
-                    }
-                }
-            }
+        for (const sub of await listTenantSubscriptions(tenantId, credential)) {
+            const name = sub.displayName || sub.subscriptionId;
+            map.set(sub.subscriptionId, name);
+            map.set(sub.subscriptionId.toLowerCase(), name);
         }
     } catch (e) {
         console.warn("[azureSubscriptionNames] getSubscriptionNameMap REST warning:", errorMessage(e));

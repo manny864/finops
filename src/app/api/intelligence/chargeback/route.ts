@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAzureCredential } from "@/lib/azure";
+import { getAzureCredential, listTenantSubscriptions } from "@/lib/azure";
 import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
@@ -84,12 +84,7 @@ export async function GET(request: NextRequest) {
                 if (subscriptionId === 'All' && isAuthOrNotFound) {
                     isFallback = true;
                     console.log("Management Group scope failed for chargeback, falling back to concurrent subscription iteration...");
-                    const token = await credential.getToken("https://management.azure.com/.default");
-                    const subRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
-                        headers: { 'Authorization': `Bearer ${token?.token}` }
-                    });
-                    const subJson = await subRes.json();
-                    const subs = subJson.value || [];
+                    const subs = await listTenantSubscriptions(tenantId, credential);
                     
                     const subPromises: Promise<any>[] = [];
                     for (const sub of subs) {

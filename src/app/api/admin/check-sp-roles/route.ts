@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/modules/storage/db';
-import { getAzureCredential } from '@/lib/azure';
+import { getAzureCredential, listTenantSubscriptions } from '@/lib/azure';
 import { getTenantCredentials } from '@/lib/secrets/tenantCredentials';
 import { AuthError, requireRequestIdentity, requireTenantAccess } from '@/lib/requestAuth';
 import { RowDataPacket } from 'mysql2';
@@ -233,18 +233,20 @@ export async function GET(request: NextRequest) {
             }, { status: 404 });
         }
 
-        const subsRes = await fetch('https://management.azure.com/subscriptions?api-version=2020-01-01', {
-            headers: { Authorization: `Bearer ${armToken}` },
-        });
-        if (!subsRes.ok) {
+        let allSubs: Array<{ subscriptionId: string; displayName: string; state: string }>;
+        try {
+            allSubs = (await listTenantSubscriptions(tenantId, credential)).map((s) => ({
+                subscriptionId: s.subscriptionId,
+                displayName: String(s.displayName || s.subscriptionId),
+                state: String(s.state || ''),
+            }));
+        } catch (e) {
             return NextResponse.json({
                 error: 'CANNOT_LIST_SUBSCRIPTIONS',
-                message: `Error al listar suscripciones: HTTP ${subsRes.status}`,
+                message: `Error al listar suscripciones: ${errorMessage(e)}`,
                 hint: 'El Service Principal no tiene permisos para listar suscripciones.',
             }, { status: 500 });
         }
-        const subsData = await subsRes.json();
-        const allSubs = (subsData.value || []) as Array<{ subscriptionId: string; displayName: string; state: string }>;
 
         const subFilter = request.nextUrl.searchParams.get('subscriptionIds');
         const filtered = subFilter

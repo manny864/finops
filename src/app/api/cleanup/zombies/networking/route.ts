@@ -55,7 +55,7 @@ async function fetchLiveNetworkingZombies(
   const resourceGraphClient = new ResourceGraphClient(credential);
 
   const [graphResults, subNameMap] = await Promise.all([
-    runGraphAudits(resourceGraphClient, credential, subscriptionId),
+    runGraphAudits(resourceGraphClient, credential, tenantId, subscriptionId),
     getSubscriptionNameMap(tenantId, credential),
   ]);
 

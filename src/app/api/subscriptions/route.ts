@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAzureCredential, getExcludedSubscriptionIds } from "@/lib/azure";
+import { getAzureCredential, getExcludedSubscriptionIds, listTenantSubscriptions } from "@/lib/azure";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 import { getSubscriptionLimit } from "@/lib/tierLogic";
@@ -22,46 +22,17 @@ export async function GET(request: NextRequest) {
     console.log(`[Subscriptions] Paso 1: Obteniendo credencial para tenant ${tenantId}`);
     const credential = await getAzureCredential(tenantId);
 
-    // Paso 2: Obtener token de Azure Management
-    console.log(`[Subscriptions] Paso 2: Solicitando token a Azure AD`);
-    const tokenData = await credential.getToken("https://management.azure.com/.default");
-
-    // Paso 3: Llamar a Azure Management API
-    console.log(`[Subscriptions] Paso 3: Consultando subscriptions en Azure Management API`);
-    const allSubscriptions: Array<{ id: string; name: string; state?: string; tenantId?: string }> = [];
-    const seen = new Set<string>();
-    let nextUrl: string | null = "https://management.azure.com/subscriptions?api-version=2020-01-01";
-
-    while (nextUrl) {
-      const res: Response = await fetch(nextUrl, {
-          headers: { 'Authorization': `Bearer ${tokenData.token}` }
-      });
-      
-      if (!res.ok) {
-          const bodyText = await res.text().catch(() => "No se pudo leer el cuerpo de respuesta");
-          console.error(`[Subscriptions] Azure Management API respondió ${res.status}: ${bodyText}`);
-          if (res.status === 403 || res.status === 401) {
-              return NextResponse.json({ error: "MISSING_RBAC_ROLE", details: "La aplicación no tiene permisos de Lector en las suscripciones." }, { status: 403 });
-          }
-          throw new Error(`Failed to fetch subscriptions: ${res.status} ${res.statusText}`);
-      }
-
-      const data: { value?: any[]; nextLink?: string } = await res.json();
-      for (const sub of data.value || []) {
-        const id = String(sub?.subscriptionId || "");
-        if (!id || seen.has(id) || !isSubscriptionStateEligible(sub?.state)) continue;
-        seen.add(id);
-        allSubscriptions.push({
-          id,
-          name: sub.displayName,
-          state: sub.state,
-          tenantId: sub.tenantId
-        });
-      }
-
-      const candidate: string = String(data?.nextLink || "").trim();
-      nextUrl = candidate.length > 0 ? candidate : null;
-    }
+    // Paso 2: Consultar ARM por la puerta única, que descarta las suscripciones
+    // de otros directorios (ver listTenantSubscriptions en lib/azure).
+    console.log(`[Subscriptions] Paso 2: Consultando subscriptions en Azure Management API`);
+    const allSubscriptions = (await listTenantSubscriptions(tenantId, credential))
+      .filter((sub) => isSubscriptionStateEligible(sub.state))
+      .map((sub) => ({
+        id: sub.subscriptionId,
+        name: String(sub.displayName || sub.subscriptionId),
+        state: sub.state,
+        tenantId: sub.tenantId,
+      }));
 
     // MEJ-25: este endpoint llama directo a la Management API, un camino
     // separado de `getAllSubscriptionsForTenant` (que ya filtra las

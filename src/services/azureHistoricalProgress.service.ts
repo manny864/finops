@@ -3,7 +3,7 @@
  * Combines CostSnapshots, DailySnapshots, ActionLogs, and Azure Telemetry.
  */
 
-import { getAzureCredential } from "@/lib/azure";
+import { getAzureCredential, listTenantSubscriptions } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 import type {
   HistoryTimeRange,
@@ -429,15 +429,9 @@ export async function getLiveHistoricalProgress(
         "https://management.azure.com/.default"
       );
       if (tokenResponse?.token) {
-        const subRes = await fetch(
-          "https://management.azure.com/subscriptions?api-version=2020-01-01",
-          { headers: { Authorization: `Bearer ${tokenResponse.token}` } }
+        const enabledSubs = (await listTenantSubscriptions(tenantId, credential)).filter(
+          (s) => s.state === "Enabled"
         );
-        if (subRes.ok) {
-          const subData = await subRes.json();
-          const enabledSubs = (subData.value || []).filter(
-            (s: any) => s.state === "Enabled"
-          );
 
           for (const sub of enabledSubs.slice(0, 3)) {
             try {
@@ -469,7 +463,6 @@ export async function getLiveHistoricalProgress(
               // Sub advisor score fallback
             }
           }
-        }
       }
     } catch {
       // Azure credentials not configured for live score

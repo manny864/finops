@@ -19,20 +19,70 @@ export function isSubscriptionStateEligible(state: unknown): boolean {
   return !["deleted", "disabled", "expired", "canceled", "cancelled"].includes(normalized);
 }
 
-async function listAccessibleSubscriptions(
-  cred: ClientSecretCredential
-): Promise<Array<{ subscriptionId: string; state?: string; displayName?: string }>> {
+export type ArmSubscription = {
+  subscriptionId: string;
+  state?: string;
+  displayName?: string;
+  tenantId?: string;
+};
+
+/**
+ * Suscripciones que ARM devuelve para un tenant, **filtradas por el directorio
+ * al que pertenecen**.
+ *
+ * Un token emitido para el tenant A no devuelve solamente las suscripciones de
+ * A. Basta con que el service principal tenga RBAC sobre una suscripción de
+ * otro directorio (invitado B2B, transferencia, delegación) para que ARM la
+ * liste igual. Medido contra Azure real: el token de "CS CloudSolutions Azure
+ * Patrocinio" devolvía `CSCloudSolution-Production`, que vive en otro tenant.
+ * Los dos clientes terminaban mezclados en el selector de alcance, en los
+ * cobros y en el inventario, sólo porque el nombre se parecía.
+ *
+ * El dato para cortar ya venía en la respuesta: cada suscripción trae su
+ * `tenantId`, que es su directorio de origen. Nadie lo miraba.
+ *
+ * Con Lighthouse vale lo mismo: el token sale de NUESTRO directorio, pero la
+ * suscripción delegada sigue declarando el tenant del cliente, así que filtrar
+ * por el tenant pedido es correcto en los dos modelos de acceso.
+ *
+ * Se descarta lo que no coincide en vez de confiar: una suscripción sin
+ * `tenantId` no se puede atribuir, y ante la duda no entra. Cruzar el límite de
+ * un cliente es peor que mostrar de menos.
+ */
+export async function listTenantSubscriptions(
+  tenantId: string,
+  credential?: ClientSecretCredential,
+  signal?: AbortSignal
+): Promise<ArmSubscription[]> {
+  const esperado = String(tenantId || "").trim().toLowerCase();
+  if (!esperado) return [];
+
+  const cred = credential || (await getAzureCredential(tenantId));
   const tokenResponse = await cred.getToken("https://management.azure.com/.default");
   if (!tokenResponse?.token) return [];
 
-  const out: Array<{ subscriptionId: string; state?: string; displayName?: string }> = [];
+  const out: ArmSubscription[] = [];
   const seen = new Set<string>();
+  const ajenas = new Map<string, string>();
   let nextUrl: string | null = "https://management.azure.com/subscriptions?api-version=2020-01-01";
 
   while (nextUrl) {
     const fetchRes: Response = await fetch(nextUrl, {
       headers: { Authorization: `Bearer ${tokenResponse.token}` },
+      signal,
     });
+    // Un 403 acá no es "no hay suscripciones": es que falta el rol de Lector.
+    // El onboarding depende de poder distinguirlo, asi que sube como error en
+    // vez de degradar a lista vacia. El resto de los fallos si corta callado,
+    // como antes, porque los colectores ya toleran una lista incompleta.
+    if (fetchRes.status === 401 || fetchRes.status === 403) {
+      const err = new Error(
+        `AccessDenied: ARM respondió ${fetchRes.status} al listar suscripciones del tenant ${esperado}`
+      ) as Error & { statusCode?: number; code?: string };
+      err.statusCode = fetchRes.status;
+      err.code = "AccessDenied";
+      throw err;
+    }
     if (!fetchRes.ok) break;
 
     const data: any = await fetchRes.json();
@@ -40,11 +90,29 @@ async function listAccessibleSubscriptions(
       const id = String(sub?.subscriptionId || "");
       if (!id || seen.has(id)) continue;
       seen.add(id);
-      out.push({ subscriptionId: id, state: sub?.state, displayName: sub?.displayName });
+
+      const duenio = String(sub?.tenantId || "").trim().toLowerCase();
+      if (duenio !== esperado) {
+        ajenas.set(id, duenio || "(sin tenantId)");
+        continue;
+      }
+      out.push({
+        subscriptionId: id,
+        state: sub?.state,
+        displayName: sub?.displayName,
+        tenantId: sub?.tenantId,
+      });
     }
 
     const candidate: string = String(data?.nextLink || "").trim();
     nextUrl = candidate.length > 0 ? candidate : null;
+  }
+
+  if (ajenas.size > 0) {
+    console.warn(
+      `[azure] ${ajenas.size} suscripción(es) descartada(s) por pertenecer a otro directorio (tenant pedido ${esperado}): ` +
+        [...ajenas].map(([id, t]) => `${id}→${t}`).join(", ")
+    );
   }
 
   return out;
@@ -91,7 +159,7 @@ export async function getAzureCredential(tenantId: string) {
  * el usuario veia en el filtro de suscripciones del drilldown.
  *
  * El dato ya venia en la respuesta de ARM --`displayName` en
- * /subscriptions?api-version=2020-01-01-- y `listAccessibleSubscriptions` lo
+ * /subscriptions?api-version=2020-01-01-- y `listTenantSubscriptions` lo
  * descartaba. No agrega una llamada: reusa la que ya se hacia.
  *
  * Devuelve un Map vacio si ARM falla. El llamador decide el fallback; ninguno
@@ -104,7 +172,7 @@ export async function getSubscriptionNameMap(
   const cred = credential || (await getAzureCredential(tenantId));
   const map = new Map<string, string>();
   try {
-    for (const sub of await listAccessibleSubscriptions(cred)) {
+    for (const sub of await listTenantSubscriptions(tenantId, cred)) {
       if (sub.subscriptionId && sub.displayName) {
         map.set(sub.subscriptionId, sub.displayName);
       }
@@ -123,7 +191,7 @@ export async function getSubscriptionsForTenant(
   const subs = new Set<string>();
 
   try {
-    const discovered = await listAccessibleSubscriptions(cred);
+    const discovered = await listTenantSubscriptions(tenantId, cred);
     for (const sub of discovered) {
       if (sub.subscriptionId && isSubscriptionStateEligible(sub.state)) {
         subs.add(String(sub.subscriptionId));
@@ -212,7 +280,7 @@ export async function getAllSubscriptionsForTenant(
   const subs = new Set<string>();
 
   try {
-    const discovered = await listAccessibleSubscriptions(cred);
+    const discovered = await listTenantSubscriptions(tenantId, cred);
     for (const sub of discovered) {
       if (sub.subscriptionId && isSubscriptionStateEligible(sub.state)) {
         subs.add(String(sub.subscriptionId));

@@ -1,6 +1,7 @@
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { kqlCatalog } from "../modules/core/kqlCatalog";
 import { withArgLimit } from "@/lib/argConcurrency";
+import { listTenantSubscriptions } from "@/lib/azure";
 
 async function runInBatches(client: ResourceGraphClient, queries: {key: string, query: string}[], batchSize = 1, subscriptions: string[] = [], delayMs = 400) {
     const getQuery = (query: string) => ({
@@ -69,25 +70,13 @@ function evictAuditCacheIfFull(): void {
     }
 }
 
-export async function runGraphAudits(client: ResourceGraphClient, credential: any, subscriptionId?: string) {
+export async function runGraphAudits(client: ResourceGraphClient, credential: any, tenantId: string, subscriptionId?: string) {
     let subs: string[] = [];
     if (subscriptionId) {
         subs = [subscriptionId];
     } else {
         try {
-            const tokenResponse = await credential.getToken("https://management.azure.com/.default");
-            const fetchRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
-                headers: { "Authorization": `Bearer ${tokenResponse.token}` }
-            });
-            if (fetchRes.ok) {
-                const data = await fetchRes.json();
-                for (const sub of data.value) {
-                    if (sub.subscriptionId) subs.push(sub.subscriptionId);
-                }
-            } else {
-                console.error("Fetch API returned:", fetchRes.status, await fetchRes.text());
-                throw new Error("Failed to fetch subscriptions");
-            }
+            subs = (await listTenantSubscriptions(tenantId, credential)).map((s) => s.subscriptionId);
         } catch (e) {
             console.error("Failed to query subscriptions via REST", e);
         }

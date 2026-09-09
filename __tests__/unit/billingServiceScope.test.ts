@@ -47,7 +47,9 @@ vi.mock('@azure/arm-costmanagement', () => ({
     },
 }));
 
-vi.mock('@/lib/azure', () => ({
+// listTenantSubscriptions va sin mockear: es el filtro que separa clientes.
+vi.mock('@/lib/azure', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/lib/azure')>()),
     getAzureCredential: async () => ({ getToken: async () => ({ token: 'fake-token' }) }),
     getAllSubscriptionsForTenant: async () => ['sub-a', 'sub-b'],
     getCostManagementClient: async () => mockCostClient,
@@ -86,8 +88,8 @@ beforeEach(() => {
         ok: true,
         json: async () => ({
             value: [
-                { subscriptionId: 'sub-a', state: 'Enabled' },
-                { subscriptionId: 'sub-b', state: 'Enabled' },
+                { subscriptionId: 'sub-a', state: 'Enabled', tenantId: TENANT },
+                { subscriptionId: 'sub-b', state: 'Enabled', tenantId: TENANT },
             ],
         }),
     }));

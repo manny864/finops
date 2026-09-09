@@ -21,7 +21,8 @@ beforeEach(() => {
     // Descubrimiento ARM: una suscripción habilitada.
     vi.stubGlobal("fetch", vi.fn(async () => ({
         ok: true,
-        json: async () => ({ value: [{ subscriptionId: ARM_SUB, state: "Enabled" }] }),
+        // tenantId: ARM lo devuelve siempre y listTenantSubscriptions descarta lo ajeno
+        json: async () => ({ value: [{ subscriptionId: ARM_SUB, state: "Enabled", tenantId: "tenant-1" }] }),
     })));
 
     query.mockImplementation(async (sql: string) => {

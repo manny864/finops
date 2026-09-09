@@ -1,4 +1,4 @@
-import { getAzureCredential, getCostManagementClient, isSubscriptionStateEligible } from '@/lib/azure';
+import { getAzureCredential, getCostManagementClient, isSubscriptionStateEligible, listTenantSubscriptions } from '@/lib/azure';
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from '@/lib/azureCostColumn';
 import { DetailedCostRow, TagCostRow } from './billingTypes';
 import { withRetry, mapWithConcurrency, throwIfAborted, isMgScopeKnownUnusable, markMgScopeUnusable, isStructuralScopeFailure } from './billingHelpers';
@@ -61,15 +61,7 @@ export async function getYesterdaysCost(tenantId: string, targetDate?: Date, sig
         }
     };
 
-    const token = await credential.getToken('https://management.azure.com/.default');
-    if (!token) throw new Error('No se pudo obtener token Azure');
-
-    const subRes = await fetch('https://management.azure.com/subscriptions?api-version=2020-01-01', {
-        headers: { 'Authorization': `Bearer ${token.token}` },
-        signal,
-    });
-    const subJson: any = await subRes.json();
-    const subs = (subJson.value || []).filter((s: any) => s.subscriptionId && isSubscriptionStateEligible(s.state));
+    const subs = (await listTenantSubscriptions(tenantId, credential, signal)).filter((s) => isSubscriptionStateEligible(s.state));
 
     await mapWithConcurrency(subs, 1, async (sub: any, idx: number) => {
         if (idx > 0) {
@@ -266,14 +258,7 @@ export async function getYesterdaysDetailedCosts(tenantId: string, targetDate?: 
         if (!skipMgProbe && isStructuralScopeFailure(probeErr)) {
             markMgScopeUnusable(tenantId, errorMessage(probeErr));
         }
-        const token = await credential.getToken('https://management.azure.com/.default');
-        if (!token) throw new Error('No se pudo obtener token Azure');
-        const subRes = await fetch('https://management.azure.com/subscriptions?api-version=2020-01-01', {
-            headers: { 'Authorization': `Bearer ${token.token}` },
-            signal,
-        });
-        const subJson: any = await subRes.json();
-        const subs = (subJson.value || []).filter((s: any) => s.subscriptionId && s.state === 'Enabled');
+        const subs = (await listTenantSubscriptions(tenantId, credential, signal)).filter((s) => s.state === 'Enabled');
         await mapWithConcurrency(subs, 1, async (sub: any, idx: number) => {
             if (idx > 0) {
                 await new Promise((r) => setTimeout(r, 300));
@@ -412,14 +397,7 @@ export async function getYesterdaysTagCosts(
         }
     }
 
-    const token = await credential.getToken('https://management.azure.com/.default');
-    if (!token) throw new Error('No se pudo obtener token Azure');
-    const subRes = await fetch('https://management.azure.com/subscriptions?api-version=2020-01-01', {
-        headers: { 'Authorization': `Bearer ${token.token}` },
-        signal,
-    });
-    const subJson: any = await subRes.json();
-    const subs = (subJson.value || []).filter((s: any) => s.subscriptionId && isSubscriptionStateEligible(s.state));
+    const subs = (await listTenantSubscriptions(tenantId, credential, signal)).filter((s) => isSubscriptionStateEligible(s.state));
 
     await mapWithConcurrency(subs, 1, async (sub: any, idx: number) => {
         if (idx > 0) await new Promise((r) => setTimeout(r, 300));

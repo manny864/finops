@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { hasAccess } from "@/lib/tierLogic";
-import { getAzureCredential } from "@/lib/azure";
+import { getAzureCredential, listTenantSubscriptions } from "@/lib/azure";
 import { getWithCache } from "@/lib/cache";
 import { redis } from "@/lib/redis";
 import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
@@ -46,14 +46,11 @@ export async function GET(request: NextRequest) {
                     name: mg.properties?.displayName || mg.name
                 })) || [];
 
-                // 2. Fetch Subscriptions to map names
-                const subRes = await fetch('https://management.azure.com/subscriptions?api-version=2020-01-01', { headers });
+                // 2. Fetch Subscriptions to map names (sólo las de este
+                // directorio: ver listTenantSubscriptions en lib/azure)
                 const subMap: Record<string, string> = {};
-                if (subRes.ok) {
-                    const subData = await subRes.json();
-                    subData.value?.forEach((sub: any) => {
-                        subMap[sub.subscriptionId] = sub.displayName;
-                    });
+                for (const sub of await listTenantSubscriptions(tenantId, credential)) {
+                    subMap[sub.subscriptionId] = String(sub.displayName || sub.subscriptionId);
                 }
 
                 // 3. Fetch Policy Assignments via Azure Resource Graph (cross-scope) joined with policy definitions to resolve displayName

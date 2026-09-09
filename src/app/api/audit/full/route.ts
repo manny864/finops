@@ -17,7 +17,7 @@ async function computeAuditPayload(tenantId: string, subscriptionId: string | nu
     const resourceGraphClient = new ResourceGraphClient(credential);
 
     // 3. Orquestar Servicios de Auditoría
-    const graphResults = await runGraphAudits(resourceGraphClient, credential, subscriptionId || undefined);
+    const graphResults = await runGraphAudits(resourceGraphClient, credential, tenantId, subscriptionId || undefined);
     
     // Interceptar para estimación de costos en huérfanos
     if (graphResults.unattachedDisks && Array.isArray(graphResults.unattachedDisks)) {

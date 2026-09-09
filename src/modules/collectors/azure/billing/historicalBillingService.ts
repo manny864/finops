@@ -1,4 +1,4 @@
-import { getAzureCredential, getCostManagementClient } from '@/lib/azure';
+import { getAzureCredential, getCostManagementClient, listTenantSubscriptions } from '@/lib/azure';
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from '@/lib/azureCostColumn';
 import { AZURE_COST_HISTORY_MAX_MONTHS, HistoricalDetailedCostRow } from './billingTypes';
 import { withRetry, mapWithConcurrency } from './billingHelpers';
@@ -133,14 +133,7 @@ export async function getHistoricalDailyCosts(
         if (!skipMgScope) {
             console.warn(`[BillingService] MG scope historical query failed for tenant ${tenantId}, falling back to subscriptions:`, errorMessage(e));
         }
-        const token = await credential.getToken('https://management.azure.com/.default');
-        if (!token) throw new Error('No se pudo obtener el token de acceso de Azure.');
-        const subRes = await fetch('https://management.azure.com/subscriptions?api-version=2020-01-01', {
-            headers: { 'Authorization': `Bearer ${token.token}` }
-        });
-        if (!subRes.ok) throw new Error(`Failed to fetch subscriptions: HTTP ${subRes.status}`);
-        const subJson: any = await subRes.json();
-        const subs = (subJson.value || []).filter((s: any) => s.subscriptionId && s.state === 'Enabled');
+        const subs = (await listTenantSubscriptions(tenantId, credential)).filter((s) => s.state === 'Enabled');
 
         const merged = new Map<string, number>();
         await mapWithConcurrency(subs, 1, async (sub: any, idx: number) => {
@@ -352,14 +345,7 @@ export async function getHistoricalDetailedCosts(
         if (!skipMgProbe && isStructuralScopeFailure(probeErr)) {
             markMgScopeUnusable(tenantId, errorMessage(probeErr));
         }
-        const token = await credential.getToken('https://management.azure.com/.default');
-        if (!token) throw new Error('No se pudo obtener token Azure');
-        const subRes = await fetch('https://management.azure.com/subscriptions?api-version=2020-01-01', {
-            headers: { 'Authorization': `Bearer ${token.token}` }
-        });
-        if (!subRes.ok) throw new Error(`Failed to fetch subscriptions: HTTP ${subRes.status}`);
-        const subJson: any = await subRes.json();
-        const subs = (subJson.value || []).filter((s: any) => s.subscriptionId && s.state === 'Enabled');
+        const subs = (await listTenantSubscriptions(tenantId, credential)).filter((s) => s.state === 'Enabled');
         await mapWithConcurrency(subs, 2, async (sub: any) => {
             const subId: string = sub.subscriptionId;
             try {

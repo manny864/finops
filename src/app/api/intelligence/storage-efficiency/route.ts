@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
-import { getResourceGraphClient, getAzureCredential } from "@/lib/azure";
+import { getResourceGraphClient, getAzureCredential, listTenantSubscriptions } from "@/lib/azure";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import { withArgLimit } from "@/lib/argConcurrency";
 import {
@@ -541,28 +541,13 @@ async function runQuery(tenantId: string, days: number, startDate?: string | nul
 }
 
 async function getUntruncatedSubscriptions(tenantId: string): Promise<string[]> {
-    const cred = await getAzureCredential(tenantId);
-    const subs: string[] = [];
     try {
-        const tokenResponse = await cred.getToken("https://management.azure.com/.default");
-        const headers = { Authorization: `Bearer ${tokenResponse.token}` };
-        let nextUrl: string | null = "https://management.azure.com/subscriptions?api-version=2020-01-01";
-        const visitedUrls = new Set<string>();
-
-        while (nextUrl && !visitedUrls.has(nextUrl)) {
-            visitedUrls.add(nextUrl);
-            const fetchRes: Response = await fetch(nextUrl, { headers });
-            if (!fetchRes.ok) break;
-            const data: { value?: Array<{ subscriptionId?: string }>; nextLink?: string } = await fetchRes.json();
-            for (const sub of data.value || []) {
-                if (sub.subscriptionId) subs.push(sub.subscriptionId);
-            }
-            nextUrl = typeof data.nextLink === "string" ? data.nextLink : null;
-        }
+        const cred = await getAzureCredential(tenantId);
+        return (await listTenantSubscriptions(tenantId, cred)).map((sub) => sub.subscriptionId);
     } catch (e) {
         console.error(`[storage-efficiency] Error fetching untruncated subscriptions for tenant ${tenantId}:`, e);
+        return [];
     }
-    return subs;
 }
 
 async function fetchAllStorageAccountsFromARG(tenantId: string, subs: string[]): Promise<any[]> {

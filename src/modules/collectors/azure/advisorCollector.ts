@@ -1,4 +1,4 @@
-import { getAzureCredential } from "@/lib/azure";
+import { getAzureCredential, listTenantSubscriptions } from "@/lib/azure";
 
 function normalizeAdvisorLocale(locale: string): string {
     const normalized = (locale || "es").toLowerCase();
@@ -22,22 +22,14 @@ export async function collectAdvisorData(tenantId: string, locale: string) {
     const credential = await getAzureCredential(tenantId);
     const advisorLocale = normalizeAdvisorLocale(locale);
 
-    // Obtener suscripciones
+    // Obtener suscripciones (sólo las de este directorio: ver
+    // listTenantSubscriptions en lib/azure)
     const tokenResponse = await credential.getToken("https://management.azure.com/.default");
     const headers = buildAzureHeaders(tokenResponse?.token || "", advisorLocale);
-    const fetchRes = await fetch("https://management.azure.com/subscriptions?api-version=2020-01-01", {
-        headers,
-    });
-
-    const subs: any[] = [];
-    if (fetchRes.ok) {
-        const data = await fetchRes.json();
-        for (const sub of data.value) {
-            if (sub.subscriptionId) subs.push({ id: sub.subscriptionId, name: sub.displayName });
-        }
-    } else {
-        throw new Error("Failed to fetch subscriptions");
-    }
+    const subs = (await listTenantSubscriptions(tenantId, credential)).map((sub) => ({
+        id: sub.subscriptionId,
+        name: sub.displayName || sub.subscriptionId,
+    }));
 
     if (subs.length === 0) {
         const err = new Error("MISSING_RBAC_ROLE");

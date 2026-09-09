@@ -8,6 +8,7 @@ const getResourceGraphClientMock = vi.fn();
 
 vi.mock("@/modules/storage/db", () => ({
     default: { query: (...args: unknown[]) => queryMock(...args) },
+    initializeDatabase: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Para probar el módulo db REAL (via importActual) sin abrir conexiones MySQL
@@ -31,7 +32,9 @@ vi.mock("@/lib/mockData", () => ({
     isMockTenant: () => false,
 }));
 
-vi.mock("@/lib/azure", () => ({
+// listTenantSubscriptions va sin mockear: es el filtro que separa clientes.
+vi.mock("@/lib/azure", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("@/lib/azure")>()),
     getAzureCredential: (...args: unknown[]) => getAzureCredentialMock(...args),
     getResourceGraphClient: (...args: unknown[]) => getResourceGraphClientMock(...args),
     getSubscriptionsForTenant: vi.fn(),
@@ -124,7 +127,7 @@ describe("storage-efficiency route", () => {
         const fiveGbInBytes = 5 * 1024 * 1024 * 1024;
         const fetchMock = vi.fn(async (url: string) => {
             if (url.includes("/subscriptions?")) {
-                return new Response(JSON.stringify({ value: [{ subscriptionId: "sub-1" }] }), { status: 200 });
+                return new Response(JSON.stringify({ value: [{ subscriptionId: "sub-1", tenantId: "real-tenant" }] }), { status: 200 });
             }
             return new Response(JSON.stringify({
                 value: [{ timeseries: [{ data: [{ average: fiveGbInBytes }, { average: null }] }] }],
@@ -159,7 +162,7 @@ describe("storage-efficiency route", () => {
         const gigabyte = 1024 * 1024 * 1024;
         vi.stubGlobal("fetch", vi.fn(async (url: string) => {
             if (url.includes("/subscriptions?")) {
-                return new Response(JSON.stringify({ value: [{ subscriptionId: "sub-1" }] }), { status: 200 });
+                return new Response(JSON.stringify({ value: [{ subscriptionId: "sub-1", tenantId: "real-tenant" }] }), { status: 200 });
             }
             if (url.includes("storageone")) {
                 return new Response(JSON.stringify({
@@ -213,7 +216,7 @@ describe("storage-efficiency route", () => {
         const gigabyte = 1024 * 1024 * 1024;
         vi.stubGlobal("fetch", vi.fn(async (url: string) => {
             if (url.includes("/subscriptions?")) {
-                return new Response(JSON.stringify({ value: [{ subscriptionId: "sub-1" }] }), { status: 200 });
+                return new Response(JSON.stringify({ value: [{ subscriptionId: "sub-1", tenantId: "real-tenant" }] }), { status: 200 });
             }
             if (url.includes("blobServices")) {
                 // Una timeserie por valor de la dimensión Tier, tal como la

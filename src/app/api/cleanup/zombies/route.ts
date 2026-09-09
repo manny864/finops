@@ -75,7 +75,7 @@ async function scanLiveZombiesFromARG(tenantId: string, subscriptionId?: string 
     `;
 
     const [graphResults, disksResponse, subNameMap] = await Promise.all([
-      runGraphAudits(resourceGraphClient, credential, subscriptionId || undefined),
+      runGraphAudits(resourceGraphClient, credential, tenantId, subscriptionId || undefined),
       queryResourceGraphWithRetry(resourceGraphClient, disksQuery, subs),
       getSubscriptionNameMap(tenantId, credential),
     ]);
