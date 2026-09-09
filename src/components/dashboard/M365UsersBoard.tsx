@@ -16,7 +16,6 @@ import {
     XAxis,
     YAxis,
     LabelList,
-    Tooltip as RechartsTooltip,
 } from "recharts";
 import {
     IconUsers,
@@ -129,8 +128,7 @@ function HBar({ data, color = BLUE.deep, valueFmt }: { data: Array<{ name: strin
             <BarChart data={data} layout="vertical" margin={{ top: 4, right: 60, left: 8, bottom: 4 }}>
                 <XAxis type="number" hide domain={[0, "auto"]} />
                 <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 11, fill: "#64748B" }} />
-                <RechartsTooltip contentStyle={{ backgroundColor: "#1B2A41", border: "1px solid #475569", borderRadius: "8px", color: "#FFFFFF", fontSize: "11px" }} formatter={(v: any, _n: any, p: any) => valueFmt(Number(v), p?.payload)} />
-                <Bar dataKey="value" fill={color} radius={[0, 4, 4, 0]} barSize={22}>
+                <Bar dataKey="value" fill={color} radius={[0, 4, 4, 0]} barSize={22} activeBar={false}>
                     <LabelList dataKey="value" position="right" formatter={(v: any) => valueFmt(Number(v), null)} style={{ fontSize: 11, fontWeight: 700, fill: "currentColor" }} className="fill-slate-600 dark:fill-slate-300" />
                 </Bar>
             </BarChart>
