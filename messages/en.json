@@ -1675,7 +1675,9 @@
     "colSeverity": "Severity",
     "colMessage": "Message",
     "colStatus": "Status",
-    "colActions": "Actions"
+    "colActions": "Actions",
+    "sysAlert_loadTest": "Load test against \"{target}\" (concurrency {concurrency}) detected {reason, select, P95 {p95 {p95}ms} ERROR {error rate {errorPct}%} other {p95 {p95}ms and error rate {errorPct}%}}.",
+    "sysAlert_costSyncStale": "{scope, select, ALL {/api/cron/sync produced no new CostSnapshots data for ANY active tenant in the last {hours}h — the cron is probably not running.} other {{stale}/{total} tenants with no successful CostSnapshots runs for more than {hours}h. Cost Groups and other dependent features show stale data for those tenants.}}"
   },
   "AdminTenants": {
     "pageTitle": "Tenant Management (SuperAdmin)",

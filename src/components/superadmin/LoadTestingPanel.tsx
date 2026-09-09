@@ -15,6 +15,7 @@ import {
     SystemPerformanceAlertItem,
     RunLoadTestResponse,
 } from "@/types/loadTesting.types";
+import { textoDeNotificacion } from "@/lib/notificationText";
 import {
     IconBolt,
     IconShieldExclamation,
@@ -758,7 +759,7 @@ export default function LoadTestingPanel() {
                                             </span>
                                         </td>
                                         <td className="px-3 py-2.5 text-[11px] text-slate-700 dark:text-slate-300">
-                                            {alert.message}
+                                            {textoDeNotificacion(alert.messageKey, alert.params, alert.message, tAlerts)}
                                         </td>
                                         <td className="px-3 py-2.5 whitespace-nowrap">
                                             <div className="flex items-center gap-2">

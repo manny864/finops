@@ -1675,7 +1675,9 @@
     "colSeverity": "Severidad",
     "colMessage": "Mensaje",
     "colStatus": "Estado",
-    "colActions": "Acciones"
+    "colActions": "Acciones",
+    "sysAlert_loadTest": "Prueba de carga contra \"{target}\" (concurrencia {concurrency}) detectó {reason, select, P95 {p95 {p95}ms} ERROR {tasa de error {errorPct}%} other {p95 {p95}ms y tasa de error {errorPct}%}}.",
+    "sysAlert_costSyncStale": "{scope, select, ALL {/api/cron/sync no generó datos nuevos en CostSnapshots para NINGÚN tenant activo en las últimas {hours}h — el cron probablemente no está corriendo.} other {{stale}/{total} tenants sin ejecuciones exitosas de CostSnapshots hace más de {hours}h. Cost Groups y otras features dependientes muestran datos desactualizados para esos tenants.}}"
   },
   "AdminTenants": {
     "pageTitle": "Gestión de Tenants (SuperAdmin)",

@@ -31,7 +31,16 @@ export interface SystemPerformanceAlertItem {
     testId?: string;
     alertType: string;
     severity: "CRITICAL" | "WARNING";
+    /**
+     * Frase en castellano tal como quedo guardada. Se sigue proyectando porque
+     * es lo unico que tienen las filas historicas (`message_key IS NULL`) y lo
+     * que consume el mail de alerta critica.
+     */
     message: string;
+    /** Clave i18n; cuando esta, el panel la prefiere sobre `message`. */
+    messageKey?: string;
+    /** JSON de MySQL: llega como objeto o como string segun el driver. */
+    params?: Record<string, string | number> | string | null;
     status: "PENDING" | "ACKNOWLEDGED" | "RESOLVED";
     createdAtIso: string;
     formattedDate: string;

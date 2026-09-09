@@ -67,6 +67,8 @@ const MOCK_ALERTS: SystemPerformanceAlertItem[] = [
         alertType: "HIGH_LATENCY_P95",
         severity: "WARNING",
         message: "Latencia P95 elevada (3534 ms) en /api/health/db bajo 25 concurrencia.",
+        messageKey: "sysAlert_loadTest",
+        params: { reason: "P95", target: "/api/health/db", concurrency: 25, p95: 3534, errorPct: 0 },
         status: "PENDING",
         createdAtIso: "2026-08-22T19:40:05.000Z",
         formattedDate: "22/08/2026, 19:40:05",
@@ -148,9 +150,9 @@ export async function getSystemPerformanceAlerts(
     try {
         await initializeDatabase();
         const query = onlyPending
-            ? `SELECT id, severity, source, message, detail, load_test_run_id, acknowledged_at, acknowledged_by, created_at
+            ? `SELECT id, severity, source, message, message_key, params_json, detail, load_test_run_id, acknowledged_at, acknowledged_by, created_at
                FROM SystemAlerts WHERE acknowledged_at IS NULL ORDER BY created_at DESC LIMIT 100`
-            : `SELECT id, severity, source, message, detail, load_test_run_id, acknowledged_at, acknowledged_by, created_at
+            : `SELECT id, severity, source, message, message_key, params_json, detail, load_test_run_id, acknowledged_at, acknowledged_by, created_at
                FROM SystemAlerts ORDER BY created_at DESC LIMIT 100`;
 
         const [rows]: any = await pool.query(query);
@@ -162,6 +164,10 @@ export async function getSystemPerformanceAlerts(
                 alertType: String(r.source || "LOAD_TEST_ALERT"),
                 severity: String(r.severity).toUpperCase() === "CRITICAL" ? "CRITICAL" : "WARNING",
                 message: String(r.message || r.detail || "Alerta de rendimiento detectada."),
+                // NULL = fila anterior a la migracion de claves: se muestra con
+                // su texto original, que es la verdad de cuando se creo.
+                messageKey: r.message_key ? String(r.message_key) : undefined,
+                params: r.params_json ?? null,
                 status: r.acknowledged_at ? "ACKNOWLEDGED" : "PENDING",
                 createdAtIso: new Date(r.created_at || Date.now()).toISOString(),
                 formattedDate: formatDate(r.created_at),

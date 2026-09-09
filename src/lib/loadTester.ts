@@ -144,7 +144,19 @@ export async function evaluateAndAlert(result: LoadTestResult, loadTestRunId: nu
 
     if (!severity) return null;
 
+    // El `reason` viaja como discriminador y no como frase: el mensaje se arma
+    // aca en castellano para el mail, pero el panel lo rearma desde la clave con
+    // el idioma de quien mira. Sin esto, las dos condiciones se concatenaban con
+    // " y " en el servidor y no habia forma de traducir la combinacion.
+    const reason = result.p95Ms >= WARN_P95_MS ? (errorRate >= WARN_ERROR_RATE ? "BOTH" : "P95") : "ERROR";
     const message = `Prueba de carga contra "${result.target}" (concurrencia ${result.concurrency}) detectó ${reasons.join(' y ')}.`;
+    const params = {
+        reason,
+        target: result.target,
+        concurrency: result.concurrency,
+        p95: result.p95Ms,
+        errorPct: Number((errorRate * 100).toFixed(1)),
+    };
     const detail = {
         target: result.target,
         concurrency: result.concurrency,
@@ -156,8 +168,8 @@ export async function evaluateAndAlert(result: LoadTestResult, loadTestRunId: nu
     };
 
     const [insertRes]: any = await pool.query(
-        `INSERT INTO SystemAlerts (severity, source, message, detail, load_test_run_id) VALUES (?, 'load_test', ?, ?, ?)`,
-        [severity, message, JSON.stringify(detail), loadTestRunId]
+        `INSERT INTO SystemAlerts (severity, source, message, message_key, params_json, detail, load_test_run_id) VALUES (?, 'load_test', ?, 'sysAlert_loadTest', ?, ?, ?)`,
+        [severity, message, JSON.stringify(params), JSON.stringify(detail), loadTestRunId]
     );
     const alertId = insertRes.insertId as number;
 

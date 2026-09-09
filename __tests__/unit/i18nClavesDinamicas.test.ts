@@ -817,6 +817,39 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
  * nadie se entera. Estos casos fuerzan las dos ramas.
  */
 describe("i18n · capa 2b: las ramas de los select de ICU", () => {
+    it.each(LOCALES)("%s: la alerta de carga distingue p95, error y ambos", (locale) => {
+        const t = traducir(locale, "AdminSystemAlerts");
+        const base = { target: "/api/health/db", concurrency: 25, p95: 3534, errorPct: 2.4 };
+        const soloP95 = t("sysAlert_loadTest", { ...base, reason: "P95" });
+        const soloErr = t("sysAlert_loadTest", { ...base, reason: "ERROR" });
+        const ambos = t("sysAlert_loadTest", { ...base, reason: "BOTH" });
+
+        // Las tres ramas tienen que ser tres frases distintas. Si un nombre se
+        // escribe mal, `other` (= BOTH) lo tapa y la alerta miente: dice que
+        // detecto las dos cosas cuando solo detecto una.
+        expect(new Set([soloP95, soloErr, ambos]).size).toBe(3);
+        expect(soloP95).toContain("3534");
+        expect(soloP95).not.toContain("2.4");
+        expect(soloErr).toContain("2.4");
+        expect(soloErr).not.toContain("3534");
+        expect(ambos).toContain("3534");
+        expect(ambos).toContain("2.4");
+    });
+
+    it.each(LOCALES)("%s: el sync stale total no imprime el conteo parcial", (locale) => {
+        const t = traducir(locale, "AdminSystemAlerts");
+        const base = { stale: 3, total: 12, hours: 26 };
+        const todos = t("sysAlert_costSyncStale", { ...base, scope: "ALL" });
+        const algunos = t("sysAlert_costSyncStale", { ...base, scope: "SOME" });
+
+        expect(todos).not.toBe(algunos);
+        // La rama ALL habla del cron caido y no menciona cuantos tenants: si el
+        // nombre se rompe, sale "3/12 tenants" para el caso en que fallaron los 12.
+        expect(todos).not.toContain("3/12");
+        expect(algunos).toContain("3/12");
+        expect(todos).toContain("26");
+    });
+
     it.each(LOCALES)("%s: autoterminacion en 0 no cae en la rama generica", (locale) => {
         const t = traducir(locale, "AzureAI");
         const apagado = t("rem_DBX_REDUCE_AUTOTERMINATION_desc", { cluster: "dbx", minutes: 0 });

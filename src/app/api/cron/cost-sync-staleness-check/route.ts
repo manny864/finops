@@ -162,8 +162,18 @@ export async function GET(request: NextRequest) {
         }
 
         const [insertRes]: any = await pool.query(
-            `INSERT INTO SystemAlerts (severity, source, message, detail) VALUES (?, 'cost_sync_staleness', ?, ?)`,
-            [severity, message, JSON.stringify(detail)]
+            `INSERT INTO SystemAlerts (severity, source, message, message_key, params_json, detail) VALUES (?, 'cost_sync_staleness', ?, 'sysAlert_costSyncStale', ?, ?)`,
+            [
+                severity,
+                message,
+                JSON.stringify({
+                    scope: allStale ? "ALL" : "SOME",
+                    stale: staleTenants.length,
+                    total: tenants.length,
+                    hours: STALE_HOURS,
+                }),
+                JSON.stringify(detail),
+            ]
         );
 
         // El mail es el unico canal que despierta a alguien: la fila de
