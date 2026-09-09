@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
-import { useTextoPorCategoria } from "@/lib/recommendationText";
+import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
 import { useTenant } from "@/components/TenantProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useMsal } from "@azure/msal-react";
@@ -1013,9 +1013,12 @@ export default function BasicNetworkingFinopsDashboard() {
                                 <button
                                     onClick={() =>
                                         copyToClipboard(
-                                            activeScriptTab === "cli"
-                                                ? activeRemediation.commandPayload.cli
-                                                : activeRemediation.commandPayload.powershell
+                                            resolverComentarios(
+                                                activeScriptTab === "cli"
+                                                    ? activeRemediation.commandPayload.cli
+                                                    : activeRemediation.commandPayload.powershell,
+                                                t
+                                            )
                                         )
                                     }
                                     className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#10B981] text-[#10B981] hover:bg-emerald-50 dark:hover:bg-slate-800 transition-colors shadow-2xs"
@@ -1036,9 +1039,12 @@ export default function BasicNetworkingFinopsDashboard() {
 
                             <pre className="p-4 rounded-xl bg-slate-950 text-slate-100 text-xs font-mono overflow-x-auto leading-relaxed border border-slate-800">
                                 <code>
-                                    {activeScriptTab === "cli"
-                                        ? activeRemediation.commandPayload.cli
-                                        : activeRemediation.commandPayload.powershell}
+                                    {resolverComentarios(
+                                        activeScriptTab === "cli"
+                                            ? activeRemediation.commandPayload.cli
+                                            : activeRemediation.commandPayload.powershell,
+                                        t
+                                    )}
                                 </code>
                             </pre>
                         </div>

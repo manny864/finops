@@ -347,8 +347,8 @@ function getMockDdosProtectionData(tenantId: string): DdosProtectionResponse {
       confidence: "HIGH",
       actionType: "RECONFIGURE",
       commandPayload: {
-        cli: `# 1. Habilitar IP Protection en cada IP pública:\n# az network public-ip update --name "<ip>" --resource-group "<rg>" --ddos-protection-mode Enabled\n# 2. Desvincular VNets del plan Network Protection:\n# az network vnet update --name "<vnet>" --resource-group "<rg>" --ddos-protection false\n# 3. Eliminar el plan Network Protection:\naz network ddos-protection delete --name "${plan.name}" --resource-group "${plan.resourceGroup}"`,
-        powershell: `# Migrar de Network Protection a IP Protection para ${plan.name}`,
+        cli: `#{cmt_STEP1_ENABLE_IP}\n# az network public-ip update --name "<ip>" --resource-group "<rg>" --ddos-protection-mode Enabled\n#{cmt_STEP2_UNLINK_VNETS}\n# az network vnet update --name "<vnet>" --resource-group "<rg>" --ddos-protection false\n#{cmt_STEP3_DELETE_PLAN}\naz network ddos-protection delete --name "${plan.name}" --resource-group "${plan.resourceGroup}"`,
+        powershell: `#{cmt_MIGRATE_TO_IP} ${plan.name}`,
       },
     });
   }
@@ -809,8 +809,8 @@ export async function getAzureDdosProtection(tenantId: string): Promise<DdosProt
           confidence: "HIGH",
           actionType: "RECONFIGURE",
           commandPayload: {
-            cli: `# Migrar de Network Protection a IP Protection para ${plan.name}`,
-            powershell: `# Migrar de Network Protection a IP Protection para ${plan.name}`,
+            cli: `#{cmt_MIGRATE_TO_IP} ${plan.name}`,
+            powershell: `#{cmt_MIGRATE_TO_IP} ${plan.name}`,
           },
         });
       }
@@ -837,7 +837,7 @@ export async function getAzureDdosProtection(tenantId: string): Promise<DdosProt
           actionType: "RECONFIGURE",
           commandPayload: {
             cli: devVnets.map((v) => `az network vnet update --name "${v.name}" --resource-group "${v.resourceGroup}" --ddos-protection false`).join("\n"),
-            powershell: `# Desvincular VNets de desarrollo del plan DDoS`,
+            powershell: `#{cmt_UNLINK_DEV_VNETS}`,
           },
         });
       }

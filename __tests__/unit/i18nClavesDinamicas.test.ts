@@ -1287,6 +1287,164 @@ describe("i18n · capa 4c: ningún toast muestra el `message` del servidor", () 
     });
 });
 
+describe("i18n · capa 4d: los comentarios de los scripts salen del catálogo", () => {
+    /*
+     * Los `commandPayload` los arma el servicio y la respuesta se cachea con una
+     * clave que no incluye el locale, asi que un comentario escrito ahi le llega
+     * al segundo lector en el idioma del primero. No es teorico: los scripts de
+     * DDoS y de Basic Networking mostraban "# Migrar de Network Protection..."
+     * con la interfaz en ingles, y el usuario los copia y los pega en su terminal.
+     *
+     * El script entero no puede ir al catalogo —los comandos `az` son literales
+     * y los comentarios estan intercalados entre ellos—, asi que el servicio deja
+     * un marcador `#{clave}` que el componente resuelve. Esta capa cuida las dos
+     * puntas: que no vuelva a aparecer un comentario en prosa, y que todo
+     * marcador exista en los tres catalogos.
+     */
+    const RE_MARCADOR = /#\{([A-Za-z0-9_]+)\}/g;
+    // un `#` seguido de dos palabras o mas es una frase, no una bandera ni un id
+    const RE_PROSA = /#\s+(?![a-z0-9-]+\s*$)[A-Za-zÁÉÍÓÚÑáéíóúñ][^\\`"']*\s[A-Za-zÁÉÍÓÚÑáéíóúñ]/;
+    /*
+     * Un comando comentado sigue siendo un comando: los scripts alternan pasos
+     * que el usuario descomenta. Traducirlos lo romperia, asi que se los saca
+     * por el verbo, no por el archivo.
+     */
+    const RE_COMANDO = /^#\s*(az|az\b|kubectl|helm|terraform|bicep|Get-|Set-|New-|Remove-|Add-|Update-|Invoke-|Connect-|Select-|Start-|Stop-|Restart-|Enable-|Disable-|curl|gh|npm|python)/;
+
+    const marcadores: string[] = [];
+    const prosa: string[] = [];
+    for (const archivo of fuentes("src")) {
+        const texto = readFileSync(archivo, "utf8");
+        const rel = archivo.replace(/\\/g, "/");
+        for (const m of texto.matchAll(/(?:cli|powershell|ps|bash|script|commandPayload|payload):\s*`([^`]*)`/g)) {
+            for (const mk of m[1].matchAll(RE_MARCADOR)) marcadores.push(mk[1]);
+            for (const linea of m[1].split("\\n")) {
+                const t = linea.trim();
+                if (t.startsWith("#") && !t.startsWith("#{") && !RE_COMANDO.test(t) && RE_PROSA.test(t)) {
+                    prosa.push(`${rel}  ${t.slice(0, 80)}`);
+                }
+            }
+        }
+    }
+
+    /*
+     * Los tableros de red quedaron curados; los otros 149 comentarios son deuda
+     * vieja que nadie pidio tocar. En vez de silenciarlos con una lista de
+     * archivos limpios —que dejaria sin guardia a todo archivo nuevo—, se anota
+     * la deuda por archivo: el numero solo puede bajar, y un archivo que no este
+     * en la lista no puede traer ni un comentario en prosa. La cura de cada uno
+     * es la misma: marcador `#{clave}` + resolverComentarios().
+     */
+    const DEUDA_COMENTARIOS = new Map<string, number>([
+        ["src/lib/aiRemediations.ts", 76],
+        ["src/lib/advisorRemediation.ts", 20],
+        ["src/services/azureTenantHealth.service.ts", 11],
+        ["src/services/azureAppInsights.service.ts", 5],
+        ["src/services/azureEventHubs.service.ts", 5],
+        ["src/services/azureServiceBus.service.ts", 5],
+        ["src/services/azureVisionVideo.service.ts", 5],
+        ["src/services/azureApim.service.ts", 4],
+        ["src/services/azureLogicApps.service.ts", 4],
+        ["src/services/azureContentSafety.service.ts", 3],
+        ["src/services/azureDataFactory.service.ts", 3],
+        ["src/services/azureDatabricks.service.ts", 2],
+        ["src/services/azureEventGrid.service.ts", 2],
+        ["src/services/azureMachineLearning.service.ts", 2],
+        ["src/services/azureScorecard.service.ts", 2],
+    ]);
+
+    const porArchivo = new Map<string, string[]>();
+    for (const linea of prosa) {
+        const archivo = linea.split("  ")[0];
+        porArchivo.set(archivo, [...(porArchivo.get(archivo) ?? []), linea]);
+    }
+
+    it("ningún archivo nuevo trae comentarios en prosa", () => {
+        const nuevos = [...porArchivo.entries()].filter(([a]) => !DEUDA_COMENTARIOS.has(a));
+        expect(
+            nuevos.flatMap(([, ls]) => ls),
+            "Estos comentarios viajan en un solo idioma. Dejá un marcador #{clave} y resolvelo con resolverComentarios()."
+        ).toEqual([]);
+    });
+
+    it.each([...DEUDA_COMENTARIOS])("la deuda de comentarios de %s no crece (tope %i)", (archivo, tope) => {
+        const cuantos = porArchivo.get(archivo)?.length ?? 0;
+        expect(cuantos, `${archivo} pasó de ${tope} a ${cuantos} comentarios en prosa`).toBeLessThanOrEqual(tope);
+        if (cuantos < tope) {
+            throw new Error(`${archivo} bajó de ${tope} a ${cuantos}: bajá el tope en DEUDA_COMENTARIOS.`);
+        }
+    });
+
+    it("hay marcadores que verificar (si esto falla, el escáner se rompió)", () => {
+        expect(marcadores.length).toBeGreaterThanOrEqual(7);
+    });
+
+    const nsDe = (locale: Locale, clave: string) =>
+        Object.keys(catalogos[locale]).filter(
+            (ns) => catalogos[locale][ns] && typeof catalogos[locale][ns] === "object" && clave in catalogos[locale][ns]
+        );
+
+    it.each([...new Set(marcadores)])("el marcador #{%s} existe en los tres catálogos", (clave) => {
+        const base = nsDe("es", clave);
+        expect(base, `${clave} no está en ningún namespace de es.json`).not.toEqual([]);
+        for (const locale of LOCALES.slice(1)) {
+            expect(nsDe(locale, clave), `${clave} está en es ${JSON.stringify(base)} pero en ${locale} ${JSON.stringify(nsDe(locale, clave))}`).toEqual(base);
+        }
+    });
+});
+
+describe("i18n · capa 4e: nadie muestra un script sin pasarlo por el resolver", () => {
+    /*
+     * La 4d cuida que el marcador exista en los catalogos, pero no que alguien
+     * lo resuelva. Eso dejo pasar un bug real: `mockNetworkAnalytics` gano dos
+     * marcadores y `NetworkAnalyticsDashboard` seguia imprimiendo el script
+     * crudo, asi que el modal mostraba `#{cmt_UNLINK_NATGW}` literal. Los curls
+     * no lo vieron porque el script vive adentro de un modal que hay que abrir.
+     *
+     * El invariante es mas barato de revisar que el sintoma: ningun `.tsx`
+     * puede leer `commandPayload.cli/powershell` fuera de resolverComentarios().
+     * Cubre las dos puntas, porque el boton de copiar lee el mismo campo.
+     */
+    function sinResolver(texto: string): string {
+        let s = texto;
+        let i = s.indexOf("resolverComentarios(");
+        while (i !== -1) {
+            let j = i + "resolverComentarios(".length;
+            let abiertos = 1;
+            while (j < s.length && abiertos > 0) {
+                if (s[j] === "(") abiertos++;
+                else if (s[j] === ")") abiertos--;
+                j++;
+            }
+            s = s.slice(0, i) + s.slice(j);
+            i = s.indexOf("resolverComentarios(");
+        }
+        return s;
+    }
+
+    const crudos: string[] = [];
+    let total = 0;
+    for (const archivo of fuentes("src").filter((a) => a.endsWith(".tsx"))) {
+        const texto = readFileSync(archivo, "utf8");
+        total += [...texto.matchAll(/commandPayload\s*\.\s*(cli|powershell|script|bash)/g)].length;
+        for (const _ of sinResolver(texto).matchAll(/commandPayload\s*\.\s*(cli|powershell|script|bash)/g)) {
+            crudos.push(archivo.replace(/\\/g, "/"));
+        }
+    }
+
+    it("ningún componente imprime un commandPayload sin resolver", () => {
+        expect(
+            [...new Set(crudos)],
+            "Estos componentes muestran el script crudo: un marcador #{clave} saldría literal.\n" +
+                "Envolvelos en resolverComentarios(script, t)."
+        ).toEqual([]);
+    });
+
+    it("hay sitios que verificar (si esto falla, el escáner se rompió)", () => {
+        expect(total).toBeGreaterThanOrEqual(12);
+    });
+});
+
 describe("i18n · capa 4b: las claves sueltas de los seeds existen en los tres catálogos", () => {
     /*
      * La capa 4 sólo cubre las familias `rec_*`. El resto de los seeds de demo

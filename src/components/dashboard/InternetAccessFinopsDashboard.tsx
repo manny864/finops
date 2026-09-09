@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
-import { useTextoPorCategoria } from "@/lib/recommendationText";
+import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
 import { useTenant } from "@/components/TenantProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useMsal } from "@azure/msal-react";
@@ -958,8 +958,8 @@ export default function InternetAccessFinopsDashboard() {
                                     onClick={() =>
                                         handleCopyScript(
                                             activeScriptTab === "cli"
-                                                ? activeRemediation.commandPayload.cli
-                                                : activeRemediation.commandPayload.powershell
+                                                ? resolverComentarios(activeRemediation.commandPayload.cli, t)
+                                                : resolverComentarios(activeRemediation.commandPayload.powershell, t)
                                         )
                                     }
                                     className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors shadow-2xs"
@@ -982,8 +982,8 @@ export default function InternetAccessFinopsDashboard() {
                                 <pre className="p-3.5 rounded-lg bg-slate-950 text-sky-400 font-mono text-[11px] overflow-x-auto leading-relaxed border border-slate-800">
                                     <code>
                                         {activeScriptTab === "cli"
-                                            ? activeRemediation.commandPayload.cli
-                                            : activeRemediation.commandPayload.powershell}
+                                            ? resolverComentarios(activeRemediation.commandPayload.cli, t)
+                                            : resolverComentarios(activeRemediation.commandPayload.powershell, t)}
                                     </code>
                                 </pre>
                             </div>

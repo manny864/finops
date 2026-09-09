@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
-import { useTextoPorCategoria } from "@/lib/recommendationText";
+import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
 import { useTenant } from "@/components/TenantProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useMsal } from "@azure/msal-react";
@@ -829,7 +829,7 @@ export default function DdosProtectionDashboard() {
                                         Azure CLI
                                     </span>
                                     <pre className="text-[11px] bg-slate-900 text-green-400 rounded-lg p-3 mt-1 overflow-x-auto whitespace-pre-wrap">
-                                        {selectedRemediation.commandPayload.cli}
+                                        {resolverComentarios(selectedRemediation.commandPayload.cli, t)}
                                     </pre>
                                 </div>
 
@@ -838,7 +838,7 @@ export default function DdosProtectionDashboard() {
                                         PowerShell
                                     </span>
                                     <pre className="text-[11px] bg-slate-900 text-green-400 rounded-lg p-3 mt-1 overflow-x-auto whitespace-pre-wrap">
-                                        {selectedRemediation.commandPayload.powershell}
+                                        {resolverComentarios(selectedRemediation.commandPayload.powershell, t)}
                                     </pre>
                                 </div>
                             </div>

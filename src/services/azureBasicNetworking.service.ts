@@ -833,7 +833,7 @@ export function getMockBasicNetworkingResponse(tenantId: string = "demo-tenant-i
             confidence: "MEDIUM",
             actionType: "RIGHTSIZE",
             commandPayload: {
-                cli: `# Opción 1: Reemplazar por Service Endpoint (gratuito) en la subred de desarrollo:\naz network vnet subnet update \\\n  --name "snet-dev" \\\n  --vnet-name "vnet-dev" \\\n  --resource-group "rg-dev-microservices" \\\n  --service-endpoints "Microsoft.AzureCosmosDB"\n\n# Opción 2: Eliminar Private Endpoint ocioso:\naz network private-endpoint delete \\\n  --name "pe-cosmos-dev-sandbox" \\\n  --resource-group "rg-dev-microservices"`,
+                cli: `#{cmt_OPT1_SERVICE_ENDPOINT}\naz network vnet subnet update \\\n  --name "snet-dev" \\\n  --vnet-name "vnet-dev" \\\n  --resource-group "rg-dev-microservices" \\\n  --service-endpoints "Microsoft.AzureCosmosDB"\n\n#{cmt_OPT2_DELETE_PE}\naz network private-endpoint delete \\\n  --name "pe-cosmos-dev-sandbox" \\\n  --resource-group "rg-dev-microservices"`,
                 powershell: `Remove-AzPrivateEndpoint -Name "pe-cosmos-dev-sandbox" -ResourceGroupName "rg-dev-microservices" -Force`,
             },
         },

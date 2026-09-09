@@ -93,3 +93,30 @@ export function useTextoPorCategoria(namespace: string, prefijo?: string) {
         }
     };
 }
+
+/**
+ * Resuelve los comentarios de un script de remediacion al idioma activo.
+ *
+ * Los `commandPayload` los arma el servicio, y la respuesta se cachea con una
+ * clave que no incluye el locale: un comentario escrito ahi le llega al segundo
+ * lector en el idioma del primero. Pero el script no se puede mandar entero al
+ * catalogo —los comandos `az` son literales y no se traducen, y en varios casos
+ * los comentarios estan intercalados entre ellos—.
+ *
+ * Por eso el servicio deja un marcador `#{clave}` en la linea del comentario y
+ * esto lo cambia por `# ` + el texto del catalogo. Lo que no es marcador queda
+ * intacto, asi que el comando ejecutable nunca pasa por `t()`.
+ *
+ * Si la clave no existe, se deja la linea sin el marcador en vez de tirar: un
+ * comentario faltante no puede romper la unica pantalla que muestra el comando
+ * que el usuario necesita copiar.
+ */
+export function resolverComentarios(script: string, t: (clave: string) => string): string {
+    return script.replace(/#\{([A-Za-z0-9_]+)\}/g, (_, clave: string) => {
+        try {
+            return `# ${t(clave)}`;
+        } catch {
+            return "#";
+        }
+    });
+}

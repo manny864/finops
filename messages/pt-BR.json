@@ -3993,7 +3993,9 @@
     "cbr_DNS_ZONE_FIXED": "Custo fixo de zona hospedada ($0,50/mês)",
     "cbr_DNS_PRIVATE_ZONE": "Zona DNS Privada Hospedada ($0,50/mês)",
     "cbr_PLATFORM_INCLUDED": "Incluído na plataforma Azure ($0,00)",
-    "cbr_ORPHAN_HYGIENE": "Recurso órfão / higiene administrativa"
+    "cbr_ORPHAN_HYGIENE": "Recurso órfão / higiene administrativa",
+    "cmt_OPT1_SERVICE_ENDPOINT": "Opção 1: Substituir por Service Endpoint (gratuito) na sub-rede de desenvolvimento:",
+    "cmt_OPT2_DELETE_PE": "Opção 2: Excluir o Private Endpoint ocioso:"
   },
   "Billing": {
     "title": "Consumo Real",
@@ -5953,7 +5955,12 @@
     "tier_NETWORK_PROTECTION": "DDoS Network Protection",
     "tier_IP_PROTECTION": "DDoS IP Protection",
     "tier_BASIC": "DDoS Basic / Sem Proteção",
-    "tier_ORPHAN": "Planos Órfãos (Desperdício)"
+    "tier_ORPHAN": "Planos Órfãos (Desperdício)",
+    "cmt_STEP1_ENABLE_IP": "1. Habilitar IP Protection em cada IP público:",
+    "cmt_STEP2_UNLINK_VNETS": "2. Desvincular VNets do plano Network Protection:",
+    "cmt_STEP3_DELETE_PLAN": "3. Excluir o plano Network Protection:",
+    "cmt_MIGRATE_TO_IP": "Migrar de Network Protection para IP Protection para",
+    "cmt_UNLINK_DEV_VNETS": "Desvincular VNets de desenvolvimento do plano DDoS"
   },
   "Defender": {
     "page_title": "Defender for Cloud",
@@ -9472,7 +9479,9 @@
     "networkTotal": "Total de Rede",
     "colActions": "Ações",
     "labelService": "Serviço:",
-    "labelSkuTier": "SKU / Camada:"
+    "labelSkuTier": "SKU / Camada:",
+    "cmt_UNLINK_NATGW": "Desvincular o NAT Gateway da sub-rede não produtiva",
+    "cmt_ENABLE_SERVICE_ENDPOINT": "Habilitar Service Endpoint para Microsoft.Storage na VNet interna"
   },
   "NetworkHub": {
     "title": "Redes",

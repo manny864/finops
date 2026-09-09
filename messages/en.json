@@ -3993,7 +3993,9 @@
     "cbr_DNS_ZONE_FIXED": "Fixed hosted zone cost ($0.50/mo)",
     "cbr_DNS_PRIVATE_ZONE": "Hosted Private DNS Zone ($0.50/mo)",
     "cbr_PLATFORM_INCLUDED": "Included in the Azure platform ($0.00)",
-    "cbr_ORPHAN_HYGIENE": "Orphaned resource / administrative hygiene"
+    "cbr_ORPHAN_HYGIENE": "Orphaned resource / administrative hygiene",
+    "cmt_OPT1_SERVICE_ENDPOINT": "Option 1: Replace with a Service Endpoint (free) on the development subnet:",
+    "cmt_OPT2_DELETE_PE": "Option 2: Delete the idle Private Endpoint:"
   },
   "Billing": {
     "title": "Real Consumption",
@@ -5953,7 +5955,12 @@
     "tier_NETWORK_PROTECTION": "DDoS Network Protection",
     "tier_IP_PROTECTION": "DDoS IP Protection",
     "tier_BASIC": "DDoS Basic / Unprotected",
-    "tier_ORPHAN": "Orphaned Plans (Waste)"
+    "tier_ORPHAN": "Orphaned Plans (Waste)",
+    "cmt_STEP1_ENABLE_IP": "1. Enable IP Protection on each public IP:",
+    "cmt_STEP2_UNLINK_VNETS": "2. Unlink VNets from the Network Protection plan:",
+    "cmt_STEP3_DELETE_PLAN": "3. Delete the Network Protection plan:",
+    "cmt_MIGRATE_TO_IP": "Migrate from Network Protection to IP Protection for",
+    "cmt_UNLINK_DEV_VNETS": "Unlink development VNets from the DDoS plan"
   },
   "Defender": {
     "page_title": "Defender for Cloud",
@@ -9472,7 +9479,9 @@
     "networkTotal": "Network Total",
     "colActions": "Actions",
     "labelService": "Service:",
-    "labelSkuTier": "SKU / Tier:"
+    "labelSkuTier": "SKU / Tier:",
+    "cmt_UNLINK_NATGW": "Unlink the NAT Gateway from the non-production subnet",
+    "cmt_ENABLE_SERVICE_ENDPOINT": "Enable a Service Endpoint for Microsoft.Storage on the internal VNet"
   },
   "NetworkHub": {
     "title": "Networks",

@@ -213,7 +213,7 @@ export function getMockNetworkAnalyticsResponse(tierParam?: string | number): Ne
             confidence: "MEDIUM",
             actionType: "DOWNSIZE",
             commandPayload: {
-                cli: `# Desvincular NAT Gateway de la subnet no productiva\naz network vnet subnet update \\\n  --name "subnet-dev-isolated" \\\n  --vnet-name "vnet-dev" \\\n  --resource-group "rg-hybrid-core" \\\n  --nat-gateway null`,
+                cli: `#{cmt_UNLINK_NATGW}\naz network vnet subnet update \\\n  --name "subnet-dev-isolated" \\\n  --vnet-name "vnet-dev" \\\n  --resource-group "rg-hybrid-core" \\\n  --nat-gateway null`,
                 powershell: `$subnet = Get-AzVirtualNetworkSubnetConfig -Name "subnet-dev-isolated" -VirtualNetwork (Get-AzVirtualNetwork -Name "vnet-dev" -ResourceGroupName "rg-hybrid-core")\n$subnet.NatGateway = $null\nSet-AzVirtualNetwork -VirtualNetwork (Get-AzVirtualNetwork -Name "vnet-dev" -ResourceGroupName "rg-hybrid-core")`,
                 impactKey: "impact_NAT_RIGHTSIZING",
             },
@@ -228,7 +228,7 @@ export function getMockNetworkAnalyticsResponse(tierParam?: string | number): Ne
             confidence: "LOW",
             actionType: "RECONFIGURE",
             commandPayload: {
-                cli: `# Habilitar Service Endpoint para Microsoft.Storage en la VNet interna\naz network vnet subnet update \\\n  --name "snet-backend" \\\n  --vnet-name "vnet-hub-prod" \\\n  --resource-group "rg-prod-network" \\\n  --service-endpoints "Microsoft.Storage"`,
+                cli: `#{cmt_ENABLE_SERVICE_ENDPOINT}\naz network vnet subnet update \\\n  --name "snet-backend" \\\n  --vnet-name "vnet-hub-prod" \\\n  --resource-group "rg-prod-network" \\\n  --service-endpoints "Microsoft.Storage"`,
                 powershell: `Get-AzVirtualNetwork -Name "vnet-hub-prod" -ResourceGroupName "rg-prod-network" | Set-AzVirtualNetworkSubnetConfig -Name "snet-backend" -ServiceEndpoint "Microsoft.Storage" | Set-AzVirtualNetwork`,
                 impactKey: "impact_PE_OPTIMIZATION",
             },

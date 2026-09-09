@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
-import { useTextoPorCategoria } from "@/lib/recommendationText";
+import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
 import { useTenant } from "@/components/TenantProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useMsal } from "@azure/msal-react";
@@ -799,9 +799,12 @@ export default function NetworkAnalyticsDashboard() {
                                 </div>
                                 <button
                                     onClick={() => handleCopy(
-                                        activeScriptTab === "cli"
-                                            ? selectedAction.commandPayload.cli
-                                            : selectedAction.commandPayload.powershell
+                                        resolverComentarios(
+                                            activeScriptTab === "cli"
+                                                ? selectedAction.commandPayload.cli
+                                                : selectedAction.commandPayload.powershell,
+                                            t
+                                        )
                                     )}
                                     className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-900 border border-[#10B981] text-[#10B981] hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 transition-colors"
                                 >
@@ -812,9 +815,12 @@ export default function NetworkAnalyticsDashboard() {
 
                             <pre className="p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto border border-slate-800">
                                 <code>
-                                    {activeScriptTab === "cli"
-                                        ? selectedAction.commandPayload.cli
-                                        : selectedAction.commandPayload.powershell}
+                                    {resolverComentarios(
+                                        activeScriptTab === "cli"
+                                            ? selectedAction.commandPayload.cli
+                                            : selectedAction.commandPayload.powershell,
+                                        t
+                                    )}
                                 </code>
                             </pre>
                         </div>
