@@ -126,8 +126,8 @@ export function buildServiceBusRemediationCommand(action: ServiceBusRemediationA
   const resourceName = action.resourceName || action.resourceId.split("/").pop() || "sb-namespace";
   const rg = action.resourceId.split("/")[4] || "rg-servicebus";
 
-  if (action.category === "SKU_DOWNGRADE") {
-    if (action.actionType === "REDUCE_UNITS") {
+  if (action.category === "RIGHTSIZE_MUS" || action.category === "PREMIUM_TO_STANDARD") {
+    if (action.category === "RIGHTSIZE_MUS") {
       const capacity = action.recommendedCapacity || 1;
       return {
         cli:

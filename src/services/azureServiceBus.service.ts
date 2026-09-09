@@ -74,13 +74,15 @@ export function generateServiceBusRecommendations(
           id: `rem-sb-units-${item.id}`,
           resourceId: item.id,
           resourceName: item.name,
-          title: `Rightsizing de Unidades Premium en '${item.name}' (${item.skuCapacity} -> ${reducedUnits} MUs)`,
-          description: `El namespace Premium cuenta con ${item.skuCapacity} Messaging Units ($${item.costMtdUSD.toFixed(
-            2
-          )}/mes) pero su capacidad promedio en 30 días es de ${item.avgCapacityPercentage.toFixed(
-            1
-          )}%. Reducir a ${reducedUnits} MU optimiza el gasto ahorrando $${unitSavings.toLocaleString()} USD/mes garantizando aislamiento de recursos.`,
-          category: "SKU_DOWNGRADE",
+          params: {
+            name: item.name,
+            current: item.skuCapacity,
+            recommended: reducedUnits,
+            cost: item.costMtdUSD.toFixed(2),
+            usage: item.avgCapacityPercentage.toFixed(1),
+            savings: unitSavings,
+          },
+          category: "RIGHTSIZE_MUS",
           estimatedSavingsUSD: unitSavings,
           confidence: "HIGH",
           actionType: "REDUCE_UNITS",
@@ -96,15 +98,12 @@ export function generateServiceBusRecommendations(
             id: `rem-sb-sku-std-${item.id}`,
             resourceId: item.id,
             resourceName: item.name,
-            title: `Migración de Premium a SKU Standard en '${item.name}'`,
-            description: `El namespace corre en nivel Premium ($670/mes) con bajo volumen (${(
-              item.totalMessages / 1_000_000
-            ).toFixed(
-              2
-            )}M mensajes/mes) y sin requerir mensajes > 1MB. Migrar al nivel Standard ($10/mes) ahorra ~$${stdSavings.toFixed(
-              2
-            )} USD/mes.`,
-            category: "SKU_DOWNGRADE",
+            params: {
+              name: item.name,
+              millions: (item.totalMessages / 1_000_000).toFixed(2),
+              savings: stdSavings.toFixed(2),
+            },
+            category: "PREMIUM_TO_STANDARD",
             estimatedSavingsUSD: Number(stdSavings.toFixed(2)),
             confidence: "HIGH",
             actionType: "SKU_DOWNGRADE",
@@ -122,8 +121,7 @@ export function generateServiceBusRecommendations(
         id: `rem-sb-orphan-${item.id}`,
         resourceId: item.id,
         resourceName: item.name,
-        title: `Purga de colas y temas huérfanos en '${item.name}'`,
-        description: `El namespace contiene colas y temas sin mensajes salientes registrados en los últimos 30 días con tamaño 0 MB. Eliminar entidades inactivas previene dispersión y mejora la gobernanza.`,
+        params: { name: item.name },
         category: "ORPHAN_PURGE",
         estimatedSavingsUSD: 0.0,
         confidence: "MEDIUM",
@@ -138,12 +136,7 @@ export function generateServiceBusRecommendations(
         id: `rem-sb-retention-${item.id}`,
         resourceId: item.id,
         resourceName: item.name,
-        title: `Optimizar Política de Retención TTL en '${item.name}'`,
-        description: `El almacenamiento de mensajería acumulado supera ${(
-          item.totalMessagingSize / 1024
-        ).toFixed(
-          1
-        )} GB. Ajustar el Time-To-Live (TTL) y el auto-delete on idle reduce el consumo de almacenamiento estático y el costo asociado.`,
+        params: { name: item.name, gb: (item.totalMessagingSize / 1024).toFixed(1) },
         category: "RETENTION_OPTIMIZE",
         estimatedSavingsUSD: 45.0,
         confidence: "MEDIUM",
@@ -166,8 +159,8 @@ export function buildServiceBusRemediationCommand(action: ServiceBusRemediationA
   const resourceName = action.resourceName || action.resourceId.split("/").pop() || "sb-namespace";
   const rg = action.resourceId.split("/")[4] || "rg-servicebus";
 
-  if (action.category === "SKU_DOWNGRADE") {
-    if (action.actionType === "REDUCE_UNITS") {
+  if (action.category === "RIGHTSIZE_MUS" || action.category === "PREMIUM_TO_STANDARD") {
+    if (action.category === "RIGHTSIZE_MUS") {
       const capacity = action.recommendedCapacity || 1;
       return {
         cli:

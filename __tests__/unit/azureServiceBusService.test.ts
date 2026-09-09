@@ -90,13 +90,13 @@ describe("Azure Service Bus FinOps Service", () => {
     expect(recommendations.length).toBeGreaterThan(0);
 
     const unitsRightsizing = recommendations.find(
-      (r) => r.category === "SKU_DOWNGRADE" && r.actionType === "REDUCE_UNITS"
+      (r) => r.category === "RIGHTSIZE_MUS"
     );
     expect(unitsRightsizing).toBeDefined();
     expect(unitsRightsizing?.estimatedSavingsUSD).toBe(1340.0); // (4 - 2) * 670
 
     const skuDowngrade = recommendations.find(
-      (r) => r.category === "SKU_DOWNGRADE" && r.actionType === "SKU_DOWNGRADE"
+      (r) => r.category === "PREMIUM_TO_STANDARD"
     );
     expect(skuDowngrade).toBeDefined();
     expect(skuDowngrade?.estimatedSavingsUSD).toBe(660.0); // 670 - 10
@@ -112,9 +112,7 @@ describe("Azure Service Bus FinOps Service", () => {
       id: "rem-sb-1",
       resourceId: "/subscriptions/sub-123/resourceGroups/rg-prod/providers/Microsoft.ServiceBus/namespaces/sb-prod",
       resourceName: "sb-prod",
-      title: "Rightsizing MUs",
-      description: "Reducir unidades",
-      category: "SKU_DOWNGRADE",
+      category: "RIGHTSIZE_MUS",
       estimatedSavingsUSD: 1340,
       confidence: "HIGH",
       actionType: "REDUCE_UNITS",

@@ -49,19 +49,22 @@ export interface NetworkServiceCostBreakdown {
     resourceCount: number;
 }
 
-export type NetworkRemediationCategory =
-    | "ORPHAN_IP"
-    | "UNUSED_GATEWAY"
-    | "NAT_RIGHTSIZING"
-    | "PE_OPTIMIZATION"
-    | "ORPHAN_LB";
+export const NETWORK_REMEDIATION_CATEGORIES = [
+    "ORPHAN_IP",
+    "UNUSED_GATEWAY",
+    "NAT_RIGHTSIZING",
+    "PE_OPTIMIZATION",
+    "ORPHAN_LB",
+] as const;
+
+export type NetworkRemediationCategory = (typeof NETWORK_REMEDIATION_CATEGORIES)[number];
 
 export interface NetworkRemediationAction {
     id: string;
     resourceId: string;
     resourceName: string;
-    title: string;
-    description: string;
+    /** Valores a interpolar en `rem_<category>_title` / `_desc`. */
+    params?: Record<string, string | number>;
     category: NetworkRemediationCategory;
     estimatedSavingsUSD: number;
     confidence: "HIGH" | "MEDIUM" | "LOW";
@@ -69,7 +72,8 @@ export interface NetworkRemediationAction {
     commandPayload: {
         cli: string;
         powershell: string;
-        impactSummary: string;
+        /** Clave `impact_<category>`; el texto se resuelve en el render. */
+        impactKey: string;
     };
 }
 

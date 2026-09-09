@@ -318,13 +318,12 @@ export async function computeLiveNetworkAnalytics(tenantId: string, subscription
             const hasIpConfig = Boolean(raw.ipConfig && (raw.ipConfig.id || typeof raw.ipConfig === "string"));
             if (!hasIpConfig) {
                 isOrphan = true;
-                orphanReason = "IP pública no asociada a ninguna NIC, Load Balancer ni Application Gateway.";
+                orphanReason = "orphan_PIP_NO_NIC";
                 remediations.push({
                     id: `rem-pip-${name}`,
                     resourceId: id,
                     resourceName: name,
-                    title: `Eliminar IP Pública Huérfana (${name})`,
-                    description: `La IP pública ${raw.publicIp || name} en el RG ${resourceGroup} no tiene interfaz asociada. Genera costo fijo sin uso.`,
+                    params: { name, ip: raw.publicIp || name, rg: resourceGroup },
                     category: "ORPHAN_IP",
                     estimatedSavingsUSD: monthlyCostUSD > 0 ? monthlyCostUSD : 3.65,
                     confidence: "HIGH",
@@ -332,7 +331,7 @@ export async function computeLiveNetworkAnalytics(tenantId: string, subscription
                     commandPayload: {
                         cli: `az network public-ip delete \\\n  --name "${name}" \\\n  --resource-group "${resourceGroup}" \\\n  --subscription "${subscriptionId}"`,
                         powershell: `Remove-AzPublicIpAddress -Name "${name}" -ResourceGroupName "${resourceGroup}" -Force`,
-                        impactSummary: "Sin impacto operacional. No existe vínculo activo con servicios de cómputo o balanceo.",
+                        impactKey: "impact_ORPHAN_IP",
                     },
                 });
             }
@@ -344,13 +343,12 @@ export async function computeLiveNetworkAnalytics(tenantId: string, subscription
             const backendCount = Array.isArray(backendPools) ? backendPools.length : 0;
             if (backendCount === 0) {
                 isOrphan = true;
-                orphanReason = "Load Balancer sin ningún Backend Address Pool configurado.";
+                orphanReason = "orphan_LB_NO_POOL";
                 remediations.push({
                     id: `rem-lb-${name}`,
                     resourceId: id,
                     resourceName: name,
-                    title: `Revisar Load Balancer sin Miembros (${name})`,
-                    description: `Load Balancer ${name} no tiene instancias de backend asociadas.`,
+                    params: { name },
                     category: "ORPHAN_LB",
                     estimatedSavingsUSD: monthlyCostUSD > 0 ? monthlyCostUSD : 18.0,
                     confidence: "MEDIUM",
@@ -358,7 +356,7 @@ export async function computeLiveNetworkAnalytics(tenantId: string, subscription
                     commandPayload: {
                         cli: `az network lb delete \\\n  --name "${name}" \\\n  --resource-group "${resourceGroup}" \\\n  --subscription "${subscriptionId}"`,
                         powershell: `Remove-AzLoadBalancer -Name "${name}" -ResourceGroupName "${resourceGroup}" -Force`,
-                        impactSummary: "Elimina el balanceador ocioso y sus reglas de NAT frontend.",
+                        impactKey: "impact_ORPHAN_LB",
                     },
                 });
             }
@@ -371,8 +369,7 @@ export async function computeLiveNetworkAnalytics(tenantId: string, subscription
                     id: `rem-gw-${name}`,
                     resourceId: id,
                     resourceName: name,
-                    title: `Auditar Virtual Network Gateway (${name})`,
-                    description: `VNet Gateway con costo mensual activo ($${monthlyCostUSD}/mes). Verificar conexiones VPN/ExpressRoute vigentes.`,
+                    params: { name, cost: monthlyCostUSD },
                     category: "UNUSED_GATEWAY",
                     estimatedSavingsUSD: monthlyCostUSD,
                     confidence: "LOW",
@@ -380,7 +377,7 @@ export async function computeLiveNetworkAnalytics(tenantId: string, subscription
                     commandPayload: {
                         cli: `az network vnet-gateway show \\\n  --name "${name}" \\\n  --resource-group "${resourceGroup}" \\\n  --subscription "${subscriptionId}"`,
                         powershell: `Get-AzVirtualNetworkGateway -Name "${name}" -ResourceGroupName "${resourceGroup}"`,
-                        impactSummary: "Verificar conexiones activas antes de cualquier acción de baja.",
+                        impactKey: "impact_UNUSED_GATEWAY",
                     },
                 });
             }

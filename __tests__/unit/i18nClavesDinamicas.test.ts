@@ -36,6 +36,9 @@ import { DATABRICKS_REMEDIATION_CATEGORIES } from "@/types/azureDatabricks.types
 import { EVENT_HUBS_REMEDIATION_CATEGORIES } from "@/types/azureEventHubs.types";
 import { ENTRA_REMEDIATION_CATEGORIES, ENTRA_WASTE_REASON_KEYS } from "@/types/azureEntraId.types";
 import { WAF_REMEDIATION_CATEGORIES } from "@/types/azureWaf.types";
+import { SERVICE_BUS_REMEDIATION_CATEGORIES } from "@/types/azureServiceBus.types";
+import { ALERT_REMEDIATION_CATEGORIES } from "@/types/azureAlerts.types";
+import { NETWORK_REMEDIATION_CATEGORIES } from "@/types/networkAnalytics.types";
 import {
     UNIT_ECONOMICS_REMEDIATION_CATEGORIES,
     UNIT_METRIC_CATALOG,
@@ -210,6 +213,57 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
             ns: "AzureAI",
             params: { cost: "1500.00", rate: 12.5, deployment: "gpt-35-turbo-legacy", model: "gpt-4", count: 2, apps: "app-a, app-b" },
             claves: FOUNDRY_REMEDIATION_CATEGORIES.flatMap((c) => [`rem_FOUNDRY_${c}_title`, `rem_FOUNDRY_${c}_desc`]),
+        },
+        {
+            que: "recomendaciones de Network Analytics (NETWORK_REMEDIATION_CATEGORIES)",
+            ns: "NetworkFamilies",
+            params: { name: "pip-legacy", ip: "51.140.88.12", rg: "rg-net", cost: "128.40" },
+            claves: NETWORK_REMEDIATION_CATEGORIES.flatMap((c) => [
+                `rem_${c}_title`,
+                `rem_${c}_desc`,
+                `cat_${c}`,
+                `impact_${c}`,
+            ]),
+        },
+        {
+            que: "motivos de orfandad de red",
+            ns: "NetworkFamilies",
+            claves: ["orphan_PIP_NO_NIC", "orphan_LB_NO_POOL", "orphan_PIP_NULL_IPCONFIG", "orphan_PIP_DECOMMISSIONED_VM"],
+        },
+        {
+            que: "recomendaciones de reglas de alerta (ALERT_REMEDIATION_CATEGORIES)",
+            ns: "AlertsManagement",
+            params: {
+                name: "alerta-cpu",
+                cost: "1.50",
+                target: "vm-web-01",
+                rg: "rg-dev",
+                severity: "Sev2",
+            },
+            claves: ALERT_REMEDIATION_CATEGORIES.flatMap((c) => [
+                `rem_${c}_title`,
+                `rem_${c}_desc`,
+                `cat_${c}`,
+            ]),
+        },
+        {
+            que: "recomendaciones de Service Bus (SERVICE_BUS_REMEDIATION_CATEGORIES)",
+            ns: "IpaasFinops",
+            params: {
+                name: "sb-prod",
+                current: 4,
+                recommended: 2,
+                cost: "2680.00",
+                usage: "18.4",
+                savings: "1340.00",
+                millions: "2.30",
+                gb: "3.4",
+            },
+            claves: SERVICE_BUS_REMEDIATION_CATEGORIES.flatMap((c) => [
+                `rem_SB_${c}_title`,
+                `rem_SB_${c}_desc`,
+                `cat_SB_${c}`,
+            ]),
         },
         {
             que: "recomendaciones de WAF (WAF_REMEDIATION_CATEGORIES)",
@@ -1025,7 +1079,6 @@ const TABLEROS_LIMPIOS = [
     "src/components/dashboard/ComputeWorkloadFinopsCmpBoard.tsx",
     "src/components/dashboard/ContainerAppsCard.tsx",
     "src/components/dashboard/ContainersFinopsCmpBoard.tsx",
-    "src/components/dashboard/ContentSafetyDashboard.tsx",
     "src/components/dashboard/CosmosDbFinopsBoard.tsx",
     "src/components/dashboard/CostByCategoryDashboard.tsx",
     "src/components/dashboard/CostCenterBudgetsBoard.tsx",
@@ -1038,10 +1091,8 @@ const TABLEROS_LIMPIOS = [
     "src/components/dashboard/DatabaseFamilyCostBoard.tsx",
     "src/components/dashboard/DatabaseFinopsCmpBoard.tsx",
     "src/components/dashboard/DatabaseStateBadge.tsx",
-    "src/components/dashboard/DatabricksDashboard.tsx",
     "src/components/dashboard/DdosProtectionDashboard.tsx",
     "src/components/dashboard/EventGridFinopsDashboard.tsx",
-    "src/components/dashboard/EventHubsFinopsDashboard.tsx",
     "src/components/dashboard/ExecutiveSummaryBoard.tsx",
     "src/components/dashboard/ExecutiveSummaryCard.tsx",
     "src/components/dashboard/FinOpsRemediationModal.tsx",
@@ -1088,6 +1139,7 @@ const TABLEROS_LIMPIOS = [
     "src/components/dashboard/RiskConfidenceBadges.tsx",
     "src/components/dashboard/SecurityServiceCostBoard.tsx",
     "src/components/dashboard/ServiceBusFinopsDashboard.tsx",
+    "src/components/monitoring/AlertsManagementPanel.tsx",
     "src/components/dashboard/ShortcutWidget.tsx",
     "src/components/dashboard/SpeechLanguageDashboard.tsx",
     "src/components/dashboard/SqlDbRightsizingTab.tsx",
@@ -1171,6 +1223,13 @@ const sinInterpolacion = (t: string) => {
         previo = actual;
     }
 };
+
+describe("i18n · capa 5 (meta): la lista de tableros limpios", () => {
+    it("no tiene entradas repetidas", () => {
+        const repetidos = TABLEROS_LIMPIOS.filter((f, i) => TABLEROS_LIMPIOS.indexOf(f) !== i);
+        expect(repetidos).toEqual([]);
+    });
+});
 
 describe("i18n · capa 5: los tableros traducidos no vuelven a tener castellano suelto", () => {
     it.each(TABLEROS_LIMPIOS)("%s no tiene texto literal en castellano", (relativo) => {

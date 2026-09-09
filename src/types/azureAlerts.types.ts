@@ -16,16 +16,21 @@ export type AlertSeverity =
   | "Sev3"
   | "Sev4";
 
-export type AlertRemediationCategory =
-  | "PURGE_ORPHAN"
-  | "ADJUST_FREQUENCY"
-  | "ASSIGN_ACTION_GROUP"
-  | "TOGGLE_STATE";
+export const ALERT_REMEDIATION_CATEGORIES = [
+  "PURGE_ORPHAN",
+  "ADJUST_FREQUENCY",
+  "ASSIGN_ACTION_GROUP",
+  "TOGGLE_STATE",
+] as const;
+
+export type AlertRemediationCategory = (typeof ALERT_REMEDIATION_CATEGORIES)[number];
 
 export interface AlertFiringEvent {
   timestamp: string;
   status: "Firing" | "Resolved";
-  description: string;
+  /** Azure Monitor manda la razon en texto; el dataset demo manda una clave. */
+  description?: string;
+  descriptionKey?: string;
 }
 
 export interface AlertRuleResource {
@@ -82,8 +87,8 @@ export interface AlertRemediationAction {
   id: string;
   ruleId: string;
   ruleName?: string;
-  title: string;
-  description: string;
+  /** Valores a interpolar en `rem_<category>_title` / `_desc`. */
+  params?: Record<string, string | number>;
   category: AlertRemediationCategory;
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM";

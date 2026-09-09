@@ -33,13 +33,25 @@ export interface ServiceBusSummaryMetrics {
   potentialSavingsUSD: number;
 }
 
+// SKU_DOWNGRADE cubria el rightsizing de Messaging Units y la migracion de
+// Premium a Standard: el tablero ya tenia que mirar `actionType` para
+// distinguirlas, senal de que la categoria no alcanzaba.
+export const SERVICE_BUS_REMEDIATION_CATEGORIES = [
+  "RIGHTSIZE_MUS",
+  "PREMIUM_TO_STANDARD",
+  "ORPHAN_PURGE",
+  "RETENTION_OPTIMIZE",
+] as const;
+
+export type ServiceBusRemediationCategory = (typeof SERVICE_BUS_REMEDIATION_CATEGORIES)[number];
+
 export interface ServiceBusRemediationAction {
   id: string;
   resourceId: string;
   resourceName?: string;
-  title: string;
-  description: string;
-  category: "SKU_DOWNGRADE" | "ORPHAN_PURGE" | "RETENTION_OPTIMIZE";
+  /** Valores a interpolar en `rem_SB_<category>_title` / `_desc`. */
+  params?: Record<string, string | number>;
+  category: ServiceBusRemediationCategory;
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM";
   actionType: string;

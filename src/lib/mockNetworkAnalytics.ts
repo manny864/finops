@@ -90,7 +90,7 @@ export function getMockNetworkAnalyticsResponse(tierParam?: string | number): Ne
             location: "westeurope",
             monthlyCostUSD: Number((3.65 * (multiplier > 1 ? multiplier * 0.25 : 1)).toFixed(2)),
             isOrphan: true,
-            orphanReason: "IP pública sin asociación a NIC, Load Balancer ni Application Gateway (properties.ipConfiguration es nulo).",
+            orphanReason: "orphan_PIP_NULL_IPCONFIG",
             details: {
                 sku: "Standard",
                 provisioningState: "Succeeded",
@@ -153,7 +153,7 @@ export function getMockNetworkAnalyticsResponse(tierParam?: string | number): Ne
                 location: "eastus2",
                 monthlyCostUSD: 3.65,
                 isOrphan: true,
-                orphanReason: "IP pública reservada huérfana de VM de pruebas dada de baja.",
+                orphanReason: "orphan_PIP_DECOMMISSIONED_VM",
                 details: {
                     sku: "Standard",
                     provisioningState: "Succeeded",
@@ -192,8 +192,7 @@ export function getMockNetworkAnalyticsResponse(tierParam?: string | number): Ne
             id: "rem-pip-01",
             resourceId: "/subscriptions/mock-sub-2/resourceGroups/rg-staging/providers/Microsoft.Network/publicIPAddresses/pip-legacy-ingress",
             resourceName: "pip-legacy-ingress",
-            title: "Eliminar IP Pública Huérfana",
-            description: "La dirección IP 51.140.88.12 no tiene ninguna interfaz de red, balanceador ni Application Gateway vinculado. Genera costo fijo continuo sin transferir tráfico.",
+            params: { name: "pip-legacy-web", ip: "51.140.88.12", rg: "rg-networking-prod" },
             category: "ORPHAN_IP",
             estimatedSavingsUSD: 3.65 * (multiplier > 1 ? 2 : 1),
             confidence: "HIGH",
@@ -201,15 +200,14 @@ export function getMockNetworkAnalyticsResponse(tierParam?: string | number): Ne
             commandPayload: {
                 cli: `az network public-ip delete \\\n  --name "pip-legacy-ingress" \\\n  --resource-group "rg-staging" \\\n  --subscription "mock-sub-2"`,
                 powershell: `Remove-AzPublicIpAddress \`\n  -Name "pip-legacy-ingress" \`\n  -ResourceGroupName "rg-staging" \`\n  -Force`,
-                impactSummary: "Sin impacto operacional. El recurso no tiene tráfico ni endpoints vinculados.",
+                impactKey: "impact_ORPHAN_IP",
             },
         },
         {
             id: "rem-nat-01",
             resourceId: "/subscriptions/mock-sub-3/resourceGroups/rg-hybrid-core/providers/Microsoft.Network/natGateways/nat-dev-outbound",
             resourceName: "nat-dev-outbound",
-            title: "Racionalizar NAT Gateway en Ambiente Dev",
-            description: "NAT Gateway con costo fijo de $32.50/mes procesando menos de 1 GB/mes. Reemplazar por Default Outbound o desasociar en horarios no laborables.",
+
             category: "NAT_RIGHTSIZING",
             estimatedSavingsUSD: 32.50,
             confidence: "MEDIUM",
@@ -217,15 +215,14 @@ export function getMockNetworkAnalyticsResponse(tierParam?: string | number): Ne
             commandPayload: {
                 cli: `# Desvincular NAT Gateway de la subnet no productiva\naz network vnet subnet update \\\n  --name "subnet-dev-isolated" \\\n  --vnet-name "vnet-dev" \\\n  --resource-group "rg-hybrid-core" \\\n  --nat-gateway null`,
                 powershell: `$subnet = Get-AzVirtualNetworkSubnetConfig -Name "subnet-dev-isolated" -VirtualNetwork (Get-AzVirtualNetwork -Name "vnet-dev" -ResourceGroupName "rg-hybrid-core")\n$subnet.NatGateway = $null\nSet-AzVirtualNetwork -VirtualNetwork (Get-AzVirtualNetwork -Name "vnet-dev" -ResourceGroupName "rg-hybrid-core")`,
-                impactSummary: "Las instancias en la subnet usarán Azure Default Outbound si no requieren IP pública estática.",
+                impactKey: "impact_NAT_RIGHTSIZING",
             },
         },
         {
             id: "rem-pe-01",
             resourceId: "/subscriptions/mock-sub-1/resourceGroups/rg-data-platform/providers/Microsoft.Network/privateEndpoints/pe-datalake-blob",
             resourceName: "pe-datalake-blob",
-            title: "Revisar Private Endpoint vs Service Endpoints",
-            description: "Evaluar el uso de Service Endpoints (gratuitos) para tráfico interno dentro de la misma región Azure.",
+
             category: "PE_OPTIMIZATION",
             estimatedSavingsUSD: 7.20,
             confidence: "LOW",
@@ -233,7 +230,7 @@ export function getMockNetworkAnalyticsResponse(tierParam?: string | number): Ne
             commandPayload: {
                 cli: `# Habilitar Service Endpoint para Microsoft.Storage en la VNet interna\naz network vnet subnet update \\\n  --name "snet-backend" \\\n  --vnet-name "vnet-hub-prod" \\\n  --resource-group "rg-prod-network" \\\n  --service-endpoints "Microsoft.Storage"`,
                 powershell: `Get-AzVirtualNetwork -Name "vnet-hub-prod" -ResourceGroupName "rg-prod-network" | Set-AzVirtualNetworkSubnetConfig -Name "snet-backend" -ServiceEndpoint "Microsoft.Storage" | Set-AzVirtualNetwork`,
-                impactSummary: "Tráfico de alta velocidad sobre backbone de Azure sin costo de procesamiento de datos por GB.",
+                impactKey: "impact_PE_OPTIMIZATION",
             },
         },
     ];

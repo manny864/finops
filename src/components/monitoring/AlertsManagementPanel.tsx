@@ -1,5 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -100,6 +101,7 @@ function AlertAuditModal({
   potentialSavings: number;
 }) {
   const t = useTranslations("AlertsManagement");
+  const textoRem = useTextoPorCategoria("AlertsManagement");
   const [saving, setSaving] = useState(false);
   const [completed, setCompleted] = useState(false);
 
@@ -179,7 +181,7 @@ function AlertAuditModal({
             {saving ? (
               <>
                 <IconLoader2 className="w-4 h-4 animate-spin text-[#0054A6]" />
-                Auditando...
+                {t("auditing")}
               </>
             ) : completed ? (
               <>
@@ -208,6 +210,7 @@ function AlertConditionModal({
   onClose: () => void;
 }) {
   const t = useTranslations("AlertsManagement");
+  const textoRem = useTextoPorCategoria("AlertsManagement");
   const [copied, setCopied] = useState(false);
 
   if (!alert) return null;
@@ -247,7 +250,7 @@ function AlertConditionModal({
               {t("conditionConfigured")}
             </div>
             <div className="text-slate-800 dark:text-slate-200 font-medium leading-relaxed">
-              {alert.conditionSummary || "Sin resumen de condición disponible"}
+              {alert.conditionSummary || t("noConditionSummary")}
             </div>
             <div className="flex flex-wrap gap-4 pt-2 text-xs text-slate-600 dark:text-slate-400 border-t border-slate-200 dark:border-slate-700">
               <div>
@@ -259,7 +262,7 @@ function AlertConditionModal({
                 {alert.windowSize}
               </div>
               <div>
-                <span className="font-semibold text-slate-700 dark:text-slate-300">Severidad:</span>{" "}
+                <span className="font-semibold text-slate-700 dark:text-slate-300">{t("severityLabel")}:</span>{" "}
                 <span className="font-bold text-[#0054A6]">{alert.severity}</span>
               </div>
             </div>
@@ -344,6 +347,7 @@ function AlertHistoryModal({
   onClose: () => void;
 }) {
   const t = useTranslations("AlertsManagement");
+  const textoRem = useTextoPorCategoria("AlertsManagement");
   if (!alert) return null;
 
   // Sin historial de Azure sólo se sintetiza un evento si hay un timestamp real
@@ -357,9 +361,7 @@ function AlertHistoryModal({
           {
             timestamp: alert.lastFiredTimestamp,
             status: alert.isFiring ? "Firing" : "Resolved",
-            description: alert.isFiring
-              ? "Condición de umbral excedida. Alerta en estado activo."
-              : "Valores operativos dentro del rango normal.",
+            descriptionKey: alert.isFiring ? "hist_thresholdExceeded" : "hist_withinRange",
           },
         ]
       : []);
@@ -378,7 +380,7 @@ function AlertHistoryModal({
           <IconClock className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
           <div>
             <h2 className="text-lg font-bold text-[#1B2A41] dark:text-slate-100">
-              Historial de Activaciones: {alert.name}
+              {t("firingHistoryTitle", { name: alert.name })}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {t("lastActivations")}
@@ -413,14 +415,14 @@ function AlertHistoryModal({
                       h.status === "Firing" ? "text-red-700 dark:text-red-300" : "text-emerald-700 dark:text-emerald-300"
                     }`}
                   >
-                    Estado: {h.status === "Firing" ? "Disparada (Firing)" : "Normalizada (Resolved)"}
+                    {t("histStatusLabel")}: {h.status === "Firing" ? t("histStatusFiring") : t("histStatusResolved")}
                   </span>
                   <span className="text-slate-500 font-mono">
                     {new Date(h.timestamp).toLocaleString()}
                   </span>
                 </div>
                 <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                  {h.description}
+                  {h.descriptionKey ? t(h.descriptionKey) : h.description}
                 </p>
               </div>
             </div>
@@ -450,6 +452,7 @@ function RemediationModal({
 }) {
   const [tab, setTab] = useState<"cli" | "powershell">("cli");
   const t = useTranslations("AlertsManagement");
+  const textoRem = useTextoPorCategoria("AlertsManagement");
   const [copied, setCopied] = useState(false);
 
   if (!action) return null;
@@ -477,7 +480,7 @@ function RemediationModal({
           <IconSparkles className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
           <div>
             <h2 className="text-lg font-bold text-[#1B2A41] dark:text-slate-100">
-              {t("remediationTitle", { title: action.title })}
+              {t("remediationTitle", { title: textoRem(action, "title") })}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {t("estimatedSavingsLabel")} <span className="font-bold text-emerald-600">{formatCurrency(action.estimatedSavingsUSD)}/mes</span>
@@ -486,7 +489,7 @@ function RemediationModal({
         </div>
 
         <p className="text-sm text-slate-600 dark:text-slate-300 mb-4 leading-relaxed">
-          {action.description}
+          {textoRem(action, "desc")}
         </p>
 
         {/* Tab Selector */}
@@ -523,7 +526,7 @@ function RemediationModal({
           <button
             onClick={handleCopy}
             className="absolute top-2.5 right-2.5 p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition cursor-pointer"
-            title="Copiar comando"
+            title={t("copyCommand")}
           >
             {copied ? <IconCheck className="w-4 h-4 text-emerald-400" /> : <IconCopy className="w-4 h-4" />}
           </button>
@@ -545,6 +548,7 @@ function RemediationModal({
 // ─── Componente Principal ───
 export default function AlertsManagementPanel() {
   const t = useTranslations("AlertsManagement");
+  const textoRem = useTextoPorCategoria("AlertsManagement");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -1076,7 +1080,7 @@ export default function AlertsManagementPanel() {
         {selectedIds.size > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl border border-blue-200 dark:border-blue-800">
             <span className="text-xs font-semibold text-[#0054A6] dark:text-blue-300">
-              {selectedIds.size} {selectedIds.size === 1 ? "regla seleccionada" : "reglas seleccionadas"}
+              {t("rulesSelected", { count: selectedIds.size })}
             </span>
             <div className="flex items-center gap-2">
               <button
@@ -1325,7 +1329,7 @@ export default function AlertsManagementPanel() {
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-start gap-2">
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800 text-[#0054A6] bg-white dark:bg-slate-900 uppercase">
-                      {action.category}
+                      {t(`cat_${action.category}`)}
                     </span>
                     {action.estimatedSavingsUSD > 0 && (
                       <span className="text-xs font-extrabold text-emerald-600">
@@ -1334,10 +1338,10 @@ export default function AlertsManagementPanel() {
                     )}
                   </div>
                   <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 leading-snug">
-                    {action.title}
+                    {textoRem(action, "title")}
                   </h4>
                   <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-3 leading-relaxed">
-                    {action.description}
+                    {textoRem(action, "desc")}
                   </p>
                 </div>
 

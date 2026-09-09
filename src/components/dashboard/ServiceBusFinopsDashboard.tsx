@@ -1,6 +1,7 @@
 "use client";
 import { ERROR_401 } from "@/lib/errorSentinels";
 import { useTranslations } from "next-intl";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
 
 import React, { useState, useMemo, useRef } from "react";
 import useSWR from "swr";
@@ -106,6 +107,7 @@ function ResizableTh({
   className?: string;
 }) {
   const t = useTranslations("IpaasFinops");
+  const textoRem = useTextoPorCategoria("IpaasFinops", "SB");
   const [width, setWidth] = useState(minWidth);
   const startXRef = useRef(0);
   const startWidthRef = useRef(minWidth);
@@ -155,6 +157,7 @@ function KpiCard({
   sub: string;
 }) {
   const t = useTranslations("IpaasFinops");
+  const textoRem = useTextoPorCategoria("IpaasFinops", "SB");
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs p-4 flex items-center gap-3">
       <Icon className="w-6 h-6 text-[#0078D4] shrink-0" stroke={1.5} />
@@ -180,6 +183,7 @@ function RemediationModal({
   onClose: () => void;
 }) {
   const t = useTranslations("IpaasFinops");
+  const textoRem = useTextoPorCategoria("IpaasFinops", "SB");
   const { format } = useCurrency();
   const [activeTab, setActiveTab] = useState<"CLI" | "POWERSHELL">("CLI");
   const [copied, setCopied] = useState(false);
@@ -218,15 +222,15 @@ function RemediationModal({
         <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
           <div>
             <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100 mb-1">
-              {action.title}
+              {textoRem(action, "title")}
             </h4>
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              {action.description}
+              {textoRem(action, "desc")}
             </p>
           </div>
 
           {/* Comparador de MUs / SKU */}
-          {action.category === "SKU_DOWNGRADE" && action.actionType === "REDUCE_UNITS" && (
+          {action.category === "RIGHTSIZE_MUS" && (
             <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-xl p-4">
               <div className="flex items-center justify-between text-xs mb-3">
                 <span className="font-bold text-blue-900 dark:text-blue-300">
@@ -259,7 +263,7 @@ function RemediationModal({
             </div>
           )}
 
-          {action.category === "SKU_DOWNGRADE" && action.actionType === "SKU_DOWNGRADE" && (
+          {action.category === "PREMIUM_TO_STANDARD" && (
             <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-xl p-4">
               <div className="flex items-center justify-between text-xs mb-3">
                 <span className="font-bold text-blue-900 dark:text-blue-300">
@@ -373,6 +377,7 @@ function RemediationModal({
 // ─── Componente Principal ServiceBusFinopsDashboard ───
 export default function ServiceBusFinopsDashboard() {
   const t = useTranslations("IpaasFinops");
+  const textoRem = useTextoPorCategoria("IpaasFinops", "SB");
   const { selectedTenant } = useTenant();
   const { instance, accounts, inProgress } = useMsal();
   const { format } = useCurrency();
@@ -1080,12 +1085,12 @@ export default function ServiceBusFinopsDashboard() {
                       )}
                     </div>
                     <h4 className="font-bold text-xs text-[#1B2A41] dark:text-slate-100 leading-snug">
-                      {rec.title}
+                      {textoRem(rec, "title")}
                     </h4>
                     <p className={`text-[11px] text-slate-500 leading-relaxed ${isExpanded ? "" : "line-clamp-2"}`}>
-                      {rec.description}
+                      {textoRem(rec, "desc")}
                     </p>
-                    {rec.description.length > 100 && (
+                    {textoRem(rec, "desc").length > 100 && (
                       <button
                         onClick={() => setExpandedAction(isExpanded ? null : rec.id)}
                         className="text-[10px] font-bold text-[#0054A6] hover:underline cursor-pointer"

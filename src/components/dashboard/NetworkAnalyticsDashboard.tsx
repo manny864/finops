@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
 import { useTenant } from "@/components/TenantProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useMsal } from "@azure/msal-react";
@@ -42,6 +43,7 @@ import {
 
 export default function NetworkAnalyticsDashboard() {
     const t = useTranslations("NetworkFamilies");
+    const textoRem = useTextoPorCategoria("NetworkFamilies");
     const { selectedTenant } = useTenant();
     const { format } = useCurrency();
     const { instance, accounts: msalAccounts } = useMsal();
@@ -712,10 +714,10 @@ export default function NetworkAnalyticsDashboard() {
                                         </span>
                                     </div>
                                     <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                                        {rec.title}
+                                        {textoRem(rec, "title")}
                                     </h4>
                                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                                        {rec.description}
+                                        {textoRem(rec, "desc")}
                                     </p>
                                 </div>
 
@@ -749,7 +751,7 @@ export default function NetworkAnalyticsDashboard() {
                             <div className="flex items-center gap-2">
                                 <IconSparkles className="w-5 h-5 text-[#0054A6]" stroke={1.5} />
                                 <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                                    {selectedAction.title}
+                                    {textoRem(selectedAction, "title")}
                                 </h3>
                             </div>
                             <button
@@ -764,9 +766,9 @@ export default function NetworkAnalyticsDashboard() {
                             <p className="font-semibold text-blue-900 dark:text-blue-200">
                                 {t("estSavingsValue", { amount: format(selectedAction.estimatedSavingsUSD) })}
                             </p>
-                            <p className="mt-1">{selectedAction.description}</p>
+                            <p className="mt-1">{textoRem(selectedAction, "desc")}</p>
                             <p className="mt-2 text-[11px] text-slate-500">
-                                <span className="font-bold">{t("operationalImpactLabel")}</span> {selectedAction.commandPayload.impactSummary}
+                                <span className="font-bold">{t("operationalImpactLabel")}</span> {t(selectedAction.commandPayload.impactKey)}
                             </p>
                         </div>
 
@@ -882,7 +884,7 @@ export default function NetworkAnalyticsDashboard() {
                             {selectedResource.orphanReason && (
                                 <div className="pt-2 text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-lg border border-amber-200 dark:border-amber-800">
                                     <span className="font-bold block">{t("detailAlert")}</span>
-                                    <span>{selectedResource.orphanReason}</span>
+                                    <span>{t(selectedResource.orphanReason)}</span>
                                 </div>
                             )}
                         </div>
