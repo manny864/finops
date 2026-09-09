@@ -16,23 +16,36 @@ export type ScaleEfficiencyStatus = "Optimal" | "Degrading" | "Critical" | "Unkn
 
 export type IngestionMode = "Manual" | "Webhook" | "Csv";
 
-export type UnitEconomicsRemediationCategory =
-  | "CONVERT_FIXED_TO_ELASTIC"
-  | "SCALING_MISMATCH"
-  | "CONFIGURE_UNIT_ALERT"
-  | "SET_TARGET_COST";
+export const UNIT_ECONOMICS_REMEDIATION_CATEGORIES = [
+  "CONVERT_FIXED_TO_ELASTIC",
+  "SCALING_MISMATCH",
+  "CONFIGURE_UNIT_ALERT",
+  // SET_TARGET_COST cubria tres recomendaciones distintas (cargar la metrica,
+  // definir la meta, automatizar la ingesta), asi que no servia para derivar
+  // el texto de ninguna. Se parte en tres.
+  "SET_TARGET_COST",
+  "CONFIGURE_METRIC",
+  "AUTOMATE_INGESTION",
+] as const;
 
-/** Metadatos de presentación de cada métrica de negocio. */
-export const UNIT_METRIC_CATALOG: Record<
-  UnitMetricType,
-  { displayName: string; unitLabel: string; unitSingular: string; /** Divisor para normalizar (p. ej. tokens en millones). */ scale: number }
-> = {
-  DAU: { displayName: "Usuarios Activos Diarios", unitLabel: "usuarios activos", unitSingular: "usuario activo", scale: 1 },
-  MAU: { displayName: "Usuarios Activos Mensuales", unitLabel: "usuarios mensuales", unitSingular: "usuario mensual", scale: 1 },
-  TRANSACTIONS: { displayName: "Transacciones / Pedidos", unitLabel: "transacciones", unitSingular: "transacción", scale: 1 },
-  API_CALLS: { displayName: "Llamadas API", unitLabel: "millones de llamadas", unitSingular: "millón de llamadas", scale: 1_000_000 },
-  AI_TOKENS: { displayName: "Tokens IA", unitLabel: "millones de tokens", unitSingular: "millón de tokens", scale: 1_000_000 },
-  STORAGE_TB: { displayName: "Almacenamiento Productivo", unitLabel: "TB", unitSingular: "TB", scale: 1 },
+export type UnitEconomicsRemediationCategory =
+  (typeof UNIT_ECONOMICS_REMEDIATION_CATEGORIES)[number];
+
+/**
+ * Divisor para normalizar cada metrica (p. ej. tokens en millones).
+ *
+ * Los nombres visibles no viven aca: cuelgan del catalogo como
+ * `metric_<METRICA>_name` / `_unit` / `_unitOne`. Tenerlos en el modulo los
+ * congelaba en castellano para los tres idiomas, y ademas viajaban hasta las
+ * descripciones de las recomendaciones.
+ */
+export const UNIT_METRIC_CATALOG: Record<UnitMetricType, { scale: number }> = {
+  DAU: { scale: 1 },
+  MAU: { scale: 1 },
+  TRANSACTIONS: { scale: 1 },
+  API_CALLS: { scale: 1_000_000 },
+  AI_TOKENS: { scale: 1_000_000 },
+  STORAGE_TB: { scale: 1 },
 };
 
 /**
@@ -58,7 +71,7 @@ export interface UnitEconomicsDataPoint {
 
 export interface ServiceUnitCostItem {
   serviceName: string;
-  serviceCategory: string;
+  serviceCategory: UeServiceCategory;
   monthlySpendUSD: number;
   spendPercentage: number;
   /** Porción del costo unitario atribuible a este servicio. */
@@ -71,8 +84,6 @@ export interface ServiceUnitCostItem {
 
 export interface UnitEconomicsSummary {
   activeMetricType: UnitMetricType;
-  metricDisplayName: string;
-  unitLabel: string;
   avgUnitCostUSD: number;
   targetUnitCostUSD: number;
   /** Desvío del costo unitario frente a la meta, en %. Positivo = por encima. */
@@ -105,8 +116,8 @@ export interface UnitEconomicsRemediationAction {
   id: string;
   targetId: string;
   targetName: string;
-  title: string;
-  description: string;
+  /** Valores a interpolar en `rem_<category>_title` / `_desc`. */
+  params?: Record<string, string | number>;
   category: UnitEconomicsRemediationCategory;
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM";
@@ -138,11 +149,28 @@ export const UE_COLORS = {
 } as const;
 
 /** Colores por categoría de servicio, en la misma escala azul. */
-export const UE_CATEGORY_COLORS: Record<string, string> = {
-  "Cómputo": "#0078D4",
-  "Base de Datos": "#2563EB",
-  "Almacenamiento": "#0284C7",
-  "Redes": "#38BDF8",
-  "IA": "#93C5FD",
-  "Otros": "#94A3B8",
+/**
+ * Categorias de servicio como token, no como rotulo. Antes eran las cadenas en
+ * castellano ("Cómputo", "Base de Datos"), y se usaban a la vez como clave de
+ * este mapa y como texto de la columna: en ingles y portugues la tabla mostraba
+ * castellano. El nombre visible cuelga del catalogo en `svccat_<TOKEN>`.
+ */
+export const UE_SERVICE_CATEGORIES = [
+  "COMPUTE",
+  "DATABASE",
+  "STORAGE",
+  "NETWORK",
+  "AI",
+  "OTHER",
+] as const;
+
+export type UeServiceCategory = (typeof UE_SERVICE_CATEGORIES)[number];
+
+export const UE_CATEGORY_COLORS: Record<UeServiceCategory, string> = {
+  COMPUTE: "#0078D4",
+  DATABASE: "#2563EB",
+  STORAGE: "#0284C7",
+  NETWORK: "#38BDF8",
+  AI: "#93C5FD",
+  OTHER: "#94A3B8",
 };

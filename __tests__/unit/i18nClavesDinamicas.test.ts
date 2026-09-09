@@ -30,6 +30,11 @@ import { POSTGRES_RULE_I18N } from "@/types/azurePostgreSQL";
 import { COSMOS_RULE_I18N } from "@/types/cosmosDb";
 import { FABRIC_RULE_I18N } from "@/types/azureFabric";
 import { PAGES, pageTitleKey, pageDescKey } from "@/lib/pageRegistry";
+import {
+    UNIT_ECONOMICS_REMEDIATION_CATEGORIES,
+    UNIT_METRIC_CATALOG,
+    UE_SERVICE_CATEGORIES,
+} from "@/types/azureUnitEconomics.types";
 
 /**
  * Descubre las claves de comentario de script leyendo los marcadores
@@ -199,6 +204,41 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
             ns: "AzureAI",
             params: { cost: "1500.00", rate: 12.5, deployment: "gpt-35-turbo-legacy", model: "gpt-4", count: 2, apps: "app-a, app-b" },
             claves: FOUNDRY_REMEDIATION_CATEGORIES.flatMap((c) => [`rem_FOUNDRY_${c}_title`, `rem_FOUNDRY_${c}_desc`]),
+        },
+        {
+            que: "recomendaciones de Unit Economics (UNIT_ECONOMICS_REMEDIATION_CATEGORIES)",
+            ns: "UnitEconomics",
+            params: {
+                service: "Azure SQL",
+                corr: "0.12",
+                contribution: "0.000042",
+                unit: "usuario activo",
+                volume: "18.4",
+                unitChange: "7.1",
+                culprit: "Azure SQL",
+                culpritPct: 34,
+                culpritCorr: "0.91",
+                delta: "22.5",
+                current: "0.004210",
+                target: "0.003000",
+                threshold: 15,
+                days: 3,
+            },
+            claves: UNIT_ECONOMICS_REMEDIATION_CATEGORIES.flatMap((c) => [
+                `rem_${c}_title`,
+                `rem_${c}_desc`,
+                `cat_${c}`,
+            ]),
+        },
+        {
+            que: "rótulos de métrica de negocio (UNIT_METRIC_CATALOG)",
+            ns: "UnitEconomics",
+            claves: Object.keys(UNIT_METRIC_CATALOG).flatMap((m) => [`metric_${m}_name`, `metric_${m}_unitOne`]),
+        },
+        {
+            que: "categorías de servicio de Unit Economics (UE_SERVICE_CATEGORIES)",
+            ns: "UnitEconomics",
+            claves: UE_SERVICE_CATEGORIES.map((c) => `svccat_${c}`),
         },
         {
             que: "recomendaciones de Cost Allocation (ALLOCATION_REMEDIATION_CATEGORIES)",
@@ -733,6 +773,7 @@ const TABLEROS_MUERTOS = [
 const TABLEROS_LIMPIOS = [
     "src/components/monitoring/ActionGroupsBoard.tsx",
     "src/components/analytics/CostAllocationEngine.tsx",
+    "src/components/analytics/UnitEconomicsPanel.tsx",
     "src/app/[locale]/intelligence/azure-ai/components/AzureAISearch.tsx",
     "src/app/[locale]/intelligence/azure-ai/components/AzureFoundryDetail.tsx",
     "src/components/monitoring/AppInsightsDashboard.tsx",

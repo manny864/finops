@@ -30,6 +30,7 @@ import {
   type UnitEconomicsRemediationAction,
   type UnitEconomicsSummary,
   type UnitMetricType,
+  UeServiceCategory,
 } from "@/types/azureUnitEconomics.types";
 
 const VALID_METRICS: UnitMetricType[] = ["DAU", "MAU", "TRANSACTIONS", "API_CALLS", "AI_TOKENS", "STORAGE_TB"];
@@ -202,8 +203,6 @@ export function buildSummary(input: {
 
   return {
     activeMetricType: config.primaryMetric,
-    metricDisplayName: meta.displayName,
-    unitLabel: meta.unitSingular,
     avgUnitCostUSD: avgUnitCost,
     targetUnitCostUSD: config.targetCostPerUnitUSD,
     unitCostDeltaPercentage:
@@ -228,7 +227,7 @@ export function buildSummary(input: {
 export function attributeUnitCostByService(
   services: Array<{
     serviceName: string;
-    serviceCategory: string;
+    serviceCategory: UeServiceCategory;
     monthlySpendUSD: number;
     associatedResourcesCount: number;
     dailySpend?: number[];
@@ -274,11 +273,8 @@ export function generateUnitEconomicsRecommendations(
     out.push({
       id: "configure-metric",
       targetId: config.primaryMetric,
-      targetName: summary.metricDisplayName,
-      title: "Cargar el volumen de negocio para activar Unit Economics",
-      description:
-        "El costo unitario es la única métrica FinOps que no se puede calcular solo con datos de Azure: hace falta el denominador de negocio, que vive en tus sistemas. Cargalo a mano en la configuración, o automatizá el envío diario contra el endpoint de ingesta desde tu pipeline. Hasta entonces el módulo muestra el gasto pero no puede dividirlo.",
-      category: "SET_TARGET_COST",
+      targetName: config.primaryMetric,
+      category: "CONFIGURE_METRIC",
       estimatedSavingsUSD: 0,
       confidence: "HIGH",
       actionType: "CONFIGURE_METRIC",
@@ -297,12 +293,12 @@ export function generateUnitEconomicsRecommendations(
       id: `elastic-${s.serviceName}`,
       targetId: s.serviceName,
       targetName: s.serviceName,
-      title: `Convertir ${s.serviceName} a un modelo elástico`,
-      description: `Su gasto no correlaciona con el volumen de negocio (correlación ${s.volumeCorrelation.toFixed(
-        2
-      )}): cuesta lo mismo con el pico que con el valle, y aporta ${s.unitCostContributionUSD.toFixed(
-        6
-      )} USD por ${summary.unitLabel} incluso cuando nadie lo usa. Migrar a Container Apps, Functions o escalado automático hace que el costo siga al negocio. Verificar antes que la carga tolere arranques en frío.`,
+      params: {
+        service: s.serviceName,
+        corr: s.volumeCorrelation.toFixed(2),
+        contribution: s.unitCostContributionUSD.toFixed(6),
+        unit: config.primaryMetric,
+      },
       category: "CONVERT_FIXED_TO_ELASTIC",
       estimatedSavingsUSD: saving,
       confidence: "MEDIUM",
@@ -317,18 +313,18 @@ export function generateUnitEconomicsRecommendations(
       .sort((a, b) => b.monthlySpendUSD - a.monthlySpendUSD)[0];
     out.push({
       id: "scaling-mismatch",
-      targetId: worst?.serviceName || "arquitectura",
-      targetName: worst?.serviceName || "Arquitectura general",
-      title: `Costo unitario en alza pese al crecimiento (+${summary.volumeChangePercentage.toFixed(1)}% de volumen)`,
-      description: `El volumen creció ${summary.volumeChangePercentage.toFixed(
-        1
-      )}% y el costo por ${summary.unitLabel} subió ${summary.unitCostChangePercentage.toFixed(
-        1
-      )}% en vez de bajar. Eso es escalado peor que lineal: algún componente crece más rápido que el negocio.${
-        worst
-          ? ` El candidato más probable es ${worst.serviceName}, que concentra ${worst.spendPercentage}% del gasto con correlación ${worst.volumeCorrelation.toFixed(2)}.`
-          : ""
-      } Revisar consultas N+1, falta de caché o sobre-aprovisionamiento reactivo.`,
+      targetId: worst?.serviceName || "ARCHITECTURE",
+      targetName: worst?.serviceName || "ARCHITECTURE",
+      params: {
+        volume: summary.volumeChangePercentage.toFixed(1),
+        unitChange: summary.unitCostChangePercentage.toFixed(1),
+        // NINGUNO activa la rama vacia del `select` en el catalogo: el fragmento
+        // del culpable es una oracion traducible, no se puede concatenar aca.
+        culprit: worst?.serviceName ?? "NINGUNO",
+        culpritPct: worst?.spendPercentage ?? 0,
+        culpritCorr: worst?.volumeCorrelation.toFixed(2) ?? "",
+        unit: config.primaryMetric,
+      },
       category: "SCALING_MISMATCH",
       estimatedSavingsUSD: 0,
       confidence: "MEDIUM",
@@ -341,11 +337,8 @@ export function generateUnitEconomicsRecommendations(
     out.push({
       id: "set-target",
       targetId: config.primaryMetric,
-      targetName: summary.metricDisplayName,
-      title: "Definir el costo unitario objetivo",
-      description: `El costo actual es ${summary.avgUnitCostUSD.toFixed(6)} USD por ${
-        summary.unitLabel
-      }, pero sin una meta no hay forma de saber si eso es bueno o malo. Un target convierte la métrica en una decisión: por encima se investiga, por debajo se libera presupuesto. Un punto de partida razonable es el promedio actual menos el ahorro que ya tengas identificado.`,
+      targetName: config.primaryMetric,
+      params: { current: summary.avgUnitCostUSD.toFixed(6), unit: config.primaryMetric },
       category: "SET_TARGET_COST",
       estimatedSavingsUSD: 0,
       confidence: "HIGH",
@@ -355,13 +348,14 @@ export function generateUnitEconomicsRecommendations(
     out.push({
       id: "alert-threshold",
       targetId: config.primaryMetric,
-      targetName: summary.metricDisplayName,
-      title: `Costo unitario ${summary.unitCostDeltaPercentage.toFixed(1)}% por encima de la meta`,
-      description: `El promedio del período (${summary.avgUnitCostUSD.toFixed(
-        6
-      )} USD) supera la meta de ${config.targetCostPerUnitUSD.toFixed(6)} USD por ${
-        summary.unitLabel
-      } más allá del umbral configurado (${config.alertThresholdPercentage}%). Configurar una alerta automática sobre esta métrica evita que el desvío se descubra recién en la factura.`,
+      targetName: config.primaryMetric,
+      params: {
+        delta: summary.unitCostDeltaPercentage.toFixed(1),
+        current: summary.avgUnitCostUSD.toFixed(6),
+        target: config.targetCostPerUnitUSD.toFixed(6),
+        threshold: config.alertThresholdPercentage,
+        unit: config.primaryMetric,
+      },
       category: "CONFIGURE_UNIT_ALERT",
       estimatedSavingsUSD: 0,
       confidence: "HIGH",
@@ -374,10 +368,9 @@ export function generateUnitEconomicsRecommendations(
     out.push({
       id: "missing-data",
       targetId: config.primaryMetric,
-      targetName: summary.metricDisplayName,
-      title: `${summary.daysMissingBusinessData} día(s) con gasto y sin volumen cargado`,
-      description: `Esos días quedan fuera del promedio porque dividir por cero no es una opción, y el gráfico los muestra con un hueco en vez de con un cero engañoso. Automatizar la ingesta diaria desde el pipeline elimina el problema de raíz.`,
-      category: "SET_TARGET_COST",
+      targetName: config.primaryMetric,
+      params: { days: summary.daysMissingBusinessData },
+      category: "AUTOMATE_INGESTION",
       estimatedSavingsUSD: 0,
       confidence: "MEDIUM",
       actionType: "AUTOMATE_INGESTION",
@@ -568,20 +561,20 @@ export function getMockUnitEconomicsPayload(tenantId: string, windowDays = 30): 
   // los fijos son planos.
   const svcDefs: Array<{
     serviceName: string;
-    serviceCategory: string;
+    serviceCategory: UeServiceCategory;
     share: number;
     associatedResourcesCount: number;
     /** 1 = sigue al volumen, 0 = plano. */
     elasticity: number;
   }> = [
-    { serviceName: "Azure App Service", serviceCategory: "Cómputo", share: 0.42, associatedResourcesCount: 6, elasticity: 0.95 },
-    { serviceName: "Azure Database for MySQL", serviceCategory: "Base de Datos", share: 0.28, associatedResourcesCount: 2, elasticity: 0.05 },
-    { serviceName: "Azure Cache for Redis", serviceCategory: "Base de Datos", share: 0.12, associatedResourcesCount: 1, elasticity: 0.02 },
-    { serviceName: "Azure Storage", serviceCategory: "Almacenamiento", share: 0.08, associatedResourcesCount: 9, elasticity: 0.55 },
-    { serviceName: "Azure Front Door", serviceCategory: "Redes", share: 0.1, associatedResourcesCount: 1, elasticity: 0.9 },
+    { serviceName: "Azure App Service", serviceCategory: "COMPUTE", share: 0.42, associatedResourcesCount: 6, elasticity: 0.95 },
+    { serviceName: "Azure Database for MySQL", serviceCategory: "DATABASE", share: 0.28, associatedResourcesCount: 2, elasticity: 0.05 },
+    { serviceName: "Azure Cache for Redis", serviceCategory: "DATABASE", share: 0.12, associatedResourcesCount: 1, elasticity: 0.02 },
+    { serviceName: "Azure Storage", serviceCategory: "STORAGE", share: 0.08, associatedResourcesCount: 9, elasticity: 0.55 },
+    { serviceName: "Azure Front Door", serviceCategory: "NETWORK", share: 0.1, associatedResourcesCount: 1, elasticity: 0.9 },
   ];
   if (isEnterprise) {
-    svcDefs.push({ serviceName: "Azure OpenAI", serviceCategory: "IA", share: 0.15, associatedResourcesCount: 3, elasticity: 0.98 });
+    svcDefs.push({ serviceName: "Azure OpenAI", serviceCategory: "AI", share: 0.15, associatedResourcesCount: 3, elasticity: 0.98 });
   }
 
   const shareTotal = svcDefs.reduce((a, s) => a + s.share, 0);
@@ -640,7 +633,7 @@ export async function assembleLiveUnitEconomics(input: {
   dailyCosts: Map<string, number>;
   serviceSpend: Array<{
     serviceName: string;
-    serviceCategory: string;
+    serviceCategory: UeServiceCategory;
     monthlySpendUSD: number;
     associatedResourcesCount: number;
     dailySpend?: number[];
@@ -692,6 +685,6 @@ export async function assembleLiveUnitEconomics(input: {
 }
 
 /** Colores por categoría, reexportado para que la UI no importe el mapa crudo. */
-export function categoryColor(category: string): string {
-  return UE_CATEGORY_COLORS[category] || UE_CATEGORY_COLORS["Otros"];
+export function categoryColor(category: UeServiceCategory): string {
+  return UE_CATEGORY_COLORS[category] || UE_CATEGORY_COLORS.OTHER;
 }

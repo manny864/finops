@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import type { UeServiceCategory } from "@/types/azureUnitEconomics.types";
 import {
   isValidMetricType,
   normalizeMetricType,
@@ -188,7 +189,7 @@ describe("Unit Economics — atribución por servicio", () => {
   it("reparte el costo unitario y calcula el porcentaje del gasto", () => {
     const items = attributeUnitCostByService(
       [
-        { serviceName: "App Service", serviceCategory: "Cómputo", monthlySpendUSD: 70, associatedResourcesCount: 3, dailySpend: [1, 2, 3, 4] },
+        { serviceName: "App Service", serviceCategory: "COMPUTE", monthlySpendUSD: 70, associatedResourcesCount: 3, dailySpend: [1, 2, 3, 4] },
         { serviceName: "MySQL", serviceCategory: "Base de Datos", monthlySpendUSD: 30, associatedResourcesCount: 1, dailySpend: [5, 5, 5, 5] },
       ],
       [10, 20, 30, 40],
@@ -219,13 +220,13 @@ describe("Unit Economics — recomendaciones", () => {
     const s = buildSummary({ series: [point("2026-08-01", 100, 0)], config: cfg(), services: [] });
     const recs = generateUnitEconomicsRecommendations(s, cfg());
     expect(recs).toHaveLength(1);
-    expect(recs[0].category).toBe("SET_TARGET_COST");
+    expect(recs[0].category).toBe("CONFIGURE_METRIC");
     expect(recs[0].actionType).toBe("CONFIGURE_METRIC");
   });
 
   it("propone convertir a elástico los servicios rígidos", () => {
     const services = attributeUnitCostByService(
-      [{ serviceName: "VM Legacy", serviceCategory: "Cómputo", monthlySpendUSD: 300, associatedResourcesCount: 2, dailySpend: [10, 10, 10, 10] }],
+      [{ serviceName: "VM Legacy", serviceCategory: "COMPUTE", monthlySpendUSD: 300, associatedResourcesCount: 2, dailySpend: [10, 10, 10, 10] }],
       [10, 40, 70, 100],
       300,
       1000
@@ -234,7 +235,9 @@ describe("Unit Economics — recomendaciones", () => {
     const rec = generateUnitEconomicsRecommendations(s, cfg()).find((r) => r.category === "CONVERT_FIXED_TO_ELASTIC");
     expect(rec).toBeDefined();
     expect(rec!.estimatedSavingsUSD).toBe(90); // 30% conservador de 300
-    expect(rec!.description).toContain("arranques en frío");
+    // El texto vive en el catálogo; lo que el servicio debe garantizar es que
+    // manda los datos que la frase interpola.
+    expect(rec!.params).toMatchObject({ service: "VM Legacy", unit: "DAU" });
   });
 
   it("señala el escalado peor que lineal cuando el costo unitario sube con el volumen", () => {
@@ -369,7 +372,9 @@ describe("Unit Economics — payload demo", () => {
   });
 
   it("mapea las categorías a la paleta azul, con fallback", () => {
-    expect(categoryColor("Cómputo")).toBe("#0078D4");
-    expect(categoryColor("Categoría inexistente")).toBe("#94A3B8");
+    expect(categoryColor("COMPUTE")).toBe("#0078D4");
+    // El fallback sigue haciendo falta: un payload cacheado de antes de tokenizar
+    // las categorías trae "Cómputo", que ya no está en el mapa.
+    expect(categoryColor("Cómputo" as UeServiceCategory)).toBe("#94A3B8");
   });
 });

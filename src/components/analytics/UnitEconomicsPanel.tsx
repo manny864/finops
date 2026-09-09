@@ -42,6 +42,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { isMockTenant } from "@/lib/mockData";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
 import { getFreshIdToken } from "@/lib/msalToken";
 import Pagination, { usePagination } from "@/components/Pagination";
 import InfoTooltip from "@/components/InfoTooltip";
@@ -52,6 +53,7 @@ import {
   type UnitEconomicsPayload,
   type UnitEconomicsRemediationAction,
   type UnitMetricType,
+  UeServiceCategory,
 } from "@/types/azureUnitEconomics.types";
 
 /** Scrollbar horizontal siempre visible: en macOS los overlay desaparecen. */
@@ -62,13 +64,13 @@ const VISIBLE_SCROLLBAR =
   "[&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-600 " +
   "[&::-webkit-scrollbar-track]:bg-slate-100 dark:[&::-webkit-scrollbar-track]:bg-slate-800";
 
-const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string; stroke?: number }>> = {
-  "Cómputo": IconServer,
-  "Base de Datos": IconDatabase,
-  "Almacenamiento": IconBox,
-  "Redes": IconNetwork,
-  "IA": IconSparkles,
-  "Otros": IconBox,
+const CATEGORY_ICONS: Record<UeServiceCategory, React.ComponentType<{ className?: string; stroke?: number }>> = {
+  COMPUTE: IconServer,
+  DATABASE: IconDatabase,
+  STORAGE: IconBox,
+  NETWORK: IconNetwork,
+  AI: IconSparkles,
+  OTHER: IconBox,
 };
 
 const money = (v: number) =>
@@ -187,7 +189,7 @@ function MetricConfigDrawer({
             >
               {(Object.keys(UNIT_METRIC_CATALOG) as UnitMetricType[]).map((m) => (
                 <option key={m} value={m}>
-                  {UNIT_METRIC_CATALOG[m].displayName}
+                  {t(`metric_${m}_name`)}
                 </option>
               ))}
             </select>
@@ -207,7 +209,7 @@ function MetricConfigDrawer({
                 className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
               />
               <p className="text-[10px] text-slate-400 mt-1">
-                {t("config_target_hint", { unit: UNIT_METRIC_CATALOG[metric].unitSingular })}
+                {t("config_target_hint", { unit: t(`metric_${metric}_unitOne`) })}
               </p>
             </div>
             <div>
@@ -296,6 +298,33 @@ function MetricConfigDrawer({
 }
 
 // ─── Modal de Remediación (z-[100]) ───
+/**
+ * `params.unit` viaja como token de metrica (DAU, AI_TOKENS...), no como rotulo:
+ * el servicio no sabe en que idioma se va a leer la respuesta, y ademas el
+ * payload se cachea sin el locale en la clave. Se resuelve aca, en el render.
+ */
+function useTextoUnitEconomics() {
+  const t = useTranslations("UnitEconomics");
+  const base = useTextoPorCategoria("UnitEconomics");
+  return (accion: UnitEconomicsRemediationAction, campo: "title" | "desc") =>
+    base(
+      accion.params?.unit
+        ? { ...accion, params: { ...accion.params, unit: t(`metric_${accion.params.unit}_unitOne`) } }
+        : accion,
+      campo
+    );
+}
+
+/**
+ * Las tres categorias que salieron de partir SET_TARGET_COST comparten destino:
+ * ninguna se arregla desde el modal de comandos, todas abren la configuracion.
+ */
+const ABRE_CONFIG = new Set<UnitEconomicsRemediationAction["category"]>([
+  "SET_TARGET_COST",
+  "CONFIGURE_METRIC",
+  "AUTOMATE_INGESTION",
+]);
+
 function UeRemediationModal({
   action,
   onClose,
@@ -304,6 +333,7 @@ function UeRemediationModal({
   onClose: () => void;
 }) {
   const t = useTranslations("UnitEconomics");
+  const textoRem = useTextoUnitEconomics();
   const [copied, setCopied] = useState(false);
   if (!action) return null;
 
@@ -322,9 +352,11 @@ function UeRemediationModal({
         </button>
         <div className="flex items-center gap-3 mb-4">
           <IconTerminal2 className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
-          <h2 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 pr-8">{action.title}</h2>
+          <h2 className="text-base font-bold text-[#1B2A41] dark:text-slate-100 pr-8">{textoRem(action, "title")}</h2>
         </div>
-        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-4">{action.description}</p>
+        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
+          {textoRem(action, "desc")}
+        </p>
         {action.estimatedSavingsUSD > 0 && (
           <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
             <span className="text-xs text-slate-600 dark:text-slate-400">{t("estimated_saving")}: </span>
@@ -359,6 +391,7 @@ function UeRemediationModal({
 // ─── Componente Principal ───
 export default function UnitEconomicsPanel() {
   const t = useTranslations("UnitEconomics");
+  const textoRem = useTextoUnitEconomics();
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -443,7 +476,7 @@ export default function UnitEconomicsPanel() {
     document.body.removeChild(link);
   };
 
-  const unitLabel = summary?.unitLabel || t("unit_generic");
+  const unitLabel = summary ? t(`metric_${summary.activeMetricType}_unitOne`) : t("unit_generic");
   const scaleFavorable = summary?.scaleEfficiencyStatus === "Optimal";
   const scaleBad = summary?.scaleEfficiencyStatus === "Critical" || summary?.scaleEfficiencyStatus === "Degrading";
 
@@ -467,7 +500,7 @@ export default function UnitEconomicsPanel() {
 
         <div className="flex items-center gap-2 flex-wrap">
           <span className="px-3 py-2 text-xs font-semibold rounded-xl border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 text-[#0054A6]">
-            {summary?.metricDisplayName || UNIT_METRIC_CATALOG.DAU.displayName}
+            {t(`metric_${summary?.activeMetricType ?? "DAU"}_name`)}
           </span>
 
           <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700">
@@ -599,7 +632,7 @@ export default function UnitEconomicsPanel() {
               {compact(summary?.totalBusinessUnits || 0)}
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              {summary?.metricDisplayName}
+              {summary && t(`metric_${summary.activeMetricType}_name`)}
               {summary && summary.daysMissingBusinessData > 0 && (
                 <span className="block text-amber-600 dark:text-amber-400 font-semibold">
                   {t("days_missing", { days: summary.daysMissingBusinessData })}
@@ -790,7 +823,7 @@ export default function UnitEconomicsPanel() {
                           </span>
                         </div>
                       </td>
-                      <td className="px-3 py-2.5 text-slate-600 dark:text-slate-400">{s.serviceCategory}</td>
+                      <td className="px-3 py-2.5 text-slate-600 dark:text-slate-400">{t(`svccat_${s.serviceCategory}`)}</td>
                       <td className="px-3 py-2.5 font-bold text-[#1B2A41] dark:text-slate-100 whitespace-nowrap">
                         {money(s.monthlySpendUSD)}
                       </td>
@@ -843,11 +876,12 @@ export default function UnitEconomicsPanel() {
                                 id: `manual-elastic-${s.serviceName}`,
                                 targetId: s.serviceName,
                                 targetName: s.serviceName,
-                                title: t("action_optimize_title", { service: s.serviceName }),
-                                description: t("action_optimize_desc", {
-                                  correlation: s.volumeCorrelation.toFixed(2),
-                                  unit: unitLabel,
-                                }),
+                                params: {
+                                  service: s.serviceName,
+                                  corr: s.volumeCorrelation.toFixed(2),
+                                  contribution: s.unitCostContributionUSD.toFixed(6),
+                                  unit: summary?.activeMetricType ?? "DAU",
+                                },
                                 category: "CONVERT_FIXED_TO_ELASTIC",
                                 estimatedSavingsUSD: 0,
                                 confidence: "MEDIUM",
@@ -899,7 +933,7 @@ export default function UnitEconomicsPanel() {
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-start gap-2">
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800 text-[#0054A6] bg-white dark:bg-slate-900 uppercase">
-                      {action.category}
+                      {t(`cat_${action.category}`)}
                     </span>
                     {action.estimatedSavingsUSD > 0 && (
                       <span className="text-xs font-extrabold text-emerald-600">
@@ -908,10 +942,10 @@ export default function UnitEconomicsPanel() {
                     )}
                   </div>
                   <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 leading-snug">
-                    {action.title}
+                    {textoRem(action, "title")}
                   </h4>
                   <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-4 leading-relaxed">
-                    {action.description}
+                    {textoRem(action, "desc")}
                   </p>
                 </div>
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
@@ -920,12 +954,12 @@ export default function UnitEconomicsPanel() {
                   </span>
                   <button
                     onClick={() =>
-                      action.category === "SET_TARGET_COST" ? setConfigOpen(true) : setActiveRemediation(action)
+                      ABRE_CONFIG.has(action.category) ? setConfigOpen(true) : setActiveRemediation(action)
                     }
                     className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1 cursor-pointer"
                   >
                     <IconTerminal2 className="w-3.5 h-3.5" />
-                    {action.category === "SET_TARGET_COST" ? t("configure_cta") : t("view_detail")}
+                    {ABRE_CONFIG.has(action.category) ? t("configure_cta") : t("view_detail")}
                   </button>
                 </div>
               </div>

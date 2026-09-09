@@ -36,6 +36,7 @@ import {
   saveTenantConfig,
   upsertBusinessUnits,
 } from "@/services/azureUnitEconomics.service";
+import type { UeServiceCategory } from "@/types/azureUnitEconomics.types";
 
 /** Ventanas admitidas. Se acota para no dejar que el cliente pida 10 años. */
 const ALLOWED_WINDOWS = [30, 90, 365];
@@ -46,14 +47,14 @@ function resolveWindow(raw: string | null): number {
 }
 
 /** Categoriza un nombre de servicio de Azure para el desglose de la tabla. */
-function categorizeService(serviceName: string): string {
+function categorizeService(serviceName: string): UeServiceCategory {
   const s = serviceName.toLowerCase();
-  if (/virtual machine|app service|functions|container|kubernetes|batch|vmss/.test(s)) return "Cómputo";
-  if (/sql|mysql|postgres|cosmos|redis|database|mariadb/.test(s)) return "Base de Datos";
-  if (/storage|blob|disk|files|backup|archive/.test(s)) return "Almacenamiento";
-  if (/network|bandwidth|front door|gateway|load balancer|dns|cdn|expressroute|vpn/.test(s)) return "Redes";
-  if (/openai|cognitive|machine learning|search|foundry|bot/.test(s)) return "IA";
-  return "Otros";
+  if (/virtual machine|app service|functions|container|kubernetes|batch|vmss/.test(s)) return "COMPUTE";
+  if (/sql|mysql|postgres|cosmos|redis|database|mariadb/.test(s)) return "DATABASE";
+  if (/storage|blob|disk|files|backup|archive/.test(s)) return "STORAGE";
+  if (/network|bandwidth|front door|gateway|load balancer|dns|cdn|expressroute|vpn/.test(s)) return "NETWORK";
+  if (/openai|cognitive|machine learning|search|foundry|bot/.test(s)) return "AI";
+  return "OTHER";
 }
 
 export async function GET(request: NextRequest) {
