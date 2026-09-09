@@ -216,8 +216,7 @@ export function generateAmlRecommendations(
       actions.push({
         id: `rec-autoshutdown-${r.name}`,
         resourceId: r.id,
-        title: `Habilitar Auto-Shutdown en Compute Instance '${r.name}'`,
-        description: `La instancia '${r.name}' corre continuamente sin horario de auto-apagado configurado. Programar el apagado automático diario a las 19:00 y en periodos de inactividad de 30 minutos ahorra hasta un 65% de costo mensual (~$${estimatedSavings}/mes).`,
+        params: { name: r.name, savings: estimatedSavings },
         category: "AUTO_SHUTDOWN_CI",
         estimatedSavingsUSD: estimatedSavings,
         confidence: "HIGH",
@@ -234,8 +233,7 @@ export function generateAmlRecommendations(
       actions.push({
         id: `rec-scalezero-${r.name}`,
         resourceId: r.id,
-        title: `Configurar min_nodes = 0 en Clúster '${r.name}'`,
-        description: `El clúster de entrenamiento '${r.name}' tiene 'min_nodes = ${r.minNodes}', manteniendo ${r.minNodes} nodo(s) ${r.vmSize} encendidos permanentemente incluso sin jobs en cola. Modificar min_nodes a 0 permite que el clúster escale a cero automáticamente cuando finalicen los experimentos.`,
+        params: { name: r.name, minNodes: r.minNodes, vmSize: r.vmSize },
         category: "SCALE_TO_ZERO_CLUSTER",
         estimatedSavingsUSD: estimatedSavings,
         confidence: "HIGH",
@@ -256,8 +254,7 @@ export function generateAmlRecommendations(
       actions.push({
         id: `rec-spot-${r.name}`,
         resourceId: r.id,
-        title: `Utilizar Azure Spot VMs para Training en '${r.name}'`,
-        description: `El clúster '${r.name}' ejecuta jobs de entrenamiento en VMs dedicadas bajo demanda ($${r.monthlyCostUSD}/mes). Configurar una prioridad de baja prioridad (Spot/LowPriority) para pipelines con checkpoints periódicos reduce el costo por hora de GPU hasta un 70-80%.`,
+        params: { name: r.name, cost: r.monthlyCostUSD },
         category: "SPOT_TRAINING",
         estimatedSavingsUSD: estimatedSavings,
         confidence: "MEDIUM",
@@ -274,8 +271,7 @@ export function generateAmlRecommendations(
       actions.push({
         id: `rec-endpoint-opt-${r.name}`,
         resourceId: r.id,
-        title: `Optimizar escala o convertir a Batch en '${r.name}'`,
-        description: `El Online Endpoint '${r.name}' tiene utilización de CPU promedio de ${r.avgCpuPercentage}%. Reducir el recuento de instancias a 1 o migrar a Serverless / Batch Endpoints genera ahorros significativos.`,
+        params: { name: r.name, cpu: r.avgCpuPercentage },
         category: "IDLE_ENDPOINT",
         estimatedSavingsUSD: estimatedSavings,
         confidence: "MEDIUM",

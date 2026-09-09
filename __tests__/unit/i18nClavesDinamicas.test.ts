@@ -15,6 +15,10 @@ import { AZURE_MONITOR_REMEDIATION_CATEGORIES } from "@/types/azureMonitor.types
 import { SENTINEL_REMEDIATION_CATEGORIES } from "@/types/azureSentinel.types";
 import { NETWORK_WATCHER_REMEDIATION_CATEGORIES } from "@/types/azureNetworkWatcher.types";
 import { ACTION_GROUP_REMEDIATION_CATEGORIES, ACTION_GROUP_CHANNELS } from "@/types/azureActionGroups.types";
+import { APP_INSIGHTS_REMEDIATION_CATEGORIES } from "@/types/azureAppInsights.types";
+import { LOGIC_APP_REMEDIATION_CATEGORIES } from "@/types/azureLogicApps.types";
+import { VISION_REMEDIATION_CATEGORIES } from "@/types/azureVisionVideo.types";
+import { AML_REMEDIATION_CATEGORIES } from "@/types/azureMachineLearning.types";
 import { WATERFALL_STEP_KEYS } from "@/types/azureWhatIf.types";
 import { REDIS_RULE_I18N } from "@/types/redisCache";
 import { MONGO_RULE_I18N } from "@/types/azureMongoDb";
@@ -181,6 +185,32 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
          */
         params?: Record<string, string | number>;
     }> = [
+        {
+            que: "recomendaciones de App Insights (APP_INSIGHTS_REMEDIATION_CATEGORIES)",
+            ns: "AppInsightsFinops",
+            params: { name: "ai-prod", rg: "rg-dev", gb: "12.4", traces: "68", savings: "142.00" },
+            claves: APP_INSIGHTS_REMEDIATION_CATEGORIES.flatMap((c) => [`rem_${c}_title`, `rem_${c}_desc`]),
+        },
+        {
+            que: "recomendaciones de Logic Apps (LOGIC_APP_REMEDIATION_CATEGORIES)",
+            ns: "IpaasFinops",
+            params: { name: "la-orders", cost: "410.00", actions: "1,200", enterprise: "340", plan: "Standard", runs: 12, pct: "18", failed: "220", started: "1,200" },
+            claves: LOGIC_APP_REMEDIATION_CATEGORIES.flatMap((c) => [`rem_${c}_title`, `rem_${c}_desc`]),
+        },
+        {
+            // Vision y AML comparten el namespace AzureAI y ambos tienen una
+            // categoria ORPHAN_ACCOUNT: por eso las claves llevan prefijo.
+            que: "recomendaciones de Vision & Video (VISION_REMEDIATION_CATEGORIES)",
+            ns: "AzureAI",
+            params: { name: "cv-dev", rg: "rg-ai", minutes: 320, images: "48,000" },
+            claves: VISION_REMEDIATION_CATEGORIES.flatMap((c) => [`rem_VISION_${c}_title`, `rem_VISION_${c}_desc`]),
+        },
+        {
+            que: "recomendaciones de Machine Learning (AML_REMEDIATION_CATEGORIES)",
+            ns: "AzureAI",
+            params: { name: "aml-train", savings: "610.00", minNodes: 2, vmSize: "Standard_NC6", cost: "1,240.00", cpu: 8 },
+            claves: AML_REMEDIATION_CATEGORIES.flatMap((c) => [`rem_AML_${c}_title`, `rem_AML_${c}_desc`]),
+        },
         {
             que: "canales de Action Group (ACTION_GROUP_CHANNELS)",
             ns: "ActionGroups",
@@ -681,6 +711,10 @@ const TABLEROS_MUERTOS = [
 
 const TABLEROS_LIMPIOS = [
     "src/components/monitoring/ActionGroupsBoard.tsx",
+    "src/components/monitoring/AppInsightsDashboard.tsx",
+    "src/components/dashboard/AMLDashboard.tsx",
+    "src/components/dashboard/LogicAppsFinopsDashboard.tsx",
+    "src/components/dashboard/VisionVideoDashboard.tsx",
     "src/components/monitoring/AzureMonitorPanel.tsx",
     "src/components/monitoring/LogAnalyticsPanel.tsx",
     "src/components/monitoring/NetworkWatcherPanel.tsx",
@@ -694,7 +728,6 @@ const TABLEROS_LIMPIOS = [
     "src/components/cleanup/TtlEnforcementPanel.tsx",
     "src/components/cleanup/ZombieAuditPanel.tsx",
     "src/components/dashboard/AIAnalyticsDashboard.tsx",
-    "src/components/dashboard/AMLDashboard.tsx",
     "src/components/dashboard/AdfFinopsDashboard.tsx",
     "src/components/dashboard/AksChargebackCard.tsx",
     "src/components/dashboard/AksIntelligence.tsx",
@@ -763,7 +796,6 @@ const TABLEROS_LIMPIOS = [
     "src/components/dashboard/LighthouseDelegationPanel.tsx",
     "src/components/dashboard/LoadBalancingFinopsDashboard.tsx",
     "src/components/dashboard/LogAnalyticsCard.tsx",
-    "src/components/dashboard/LogicAppsFinopsDashboard.tsx",
     "src/components/dashboard/M365CopilotConfigPanel.tsx",
     "src/components/dashboard/M365UsersBoard.tsx",
     "src/components/dashboard/MACCTracker.tsx",
@@ -802,7 +834,6 @@ const TABLEROS_LIMPIOS = [
     "src/components/dashboard/TenantHealthDashboard.tsx",
     "src/components/dashboard/TopExpensesBoard.tsx",
     "src/components/dashboard/TopSpendBoard.tsx",
-    "src/components/dashboard/VisionVideoDashboard.tsx",
     "src/components/dashboard/VmFinopsCmpBoard.tsx",
     "src/components/dashboard/VmRemediationModal.tsx",
     "src/components/dashboard/VmssFinopsCmpBoard.tsx",

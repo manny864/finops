@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useRef } from "react";
 import useSWR from "swr";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
 import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
@@ -91,6 +92,7 @@ export function ResizableTh({
 }) {
   const thRef = useRef<HTMLTableCellElement>(null);
   const t = useTranslations("AzureAI");
+  const textoRem = useTextoPorCategoria("AzureAI", "AML");
 
   const onMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -159,6 +161,7 @@ function KpiCard({
 // ─── Empty State para Tenants Vivos ───
 function EmptyState({ onRefresh, isRefreshing }: { onRefresh: () => void; isRefreshing: boolean }) {
   const t = useTranslations("AzureAI");
+  const textoRem = useTextoPorCategoria("AzureAI", "AML");
   return (
     <div className="space-y-6">
       <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -262,6 +265,7 @@ function RemediationModal({
   const [copied, setCopied] = useState(false);
   const [cmdTab, setCmdTab] = useState<"cli" | "powershell">("cli");
   const t = useTranslations("AzureAI");
+  const textoRem = useTextoPorCategoria("AzureAI", "AML");
   const { format } = useCurrency();
 
   if (!action) return null;
@@ -285,7 +289,7 @@ function RemediationModal({
             </div>
             <div>
               <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-                {action.title}
+                {textoRem(action, "title")}
               </h3>
               <p className="text-[11px] text-slate-500">
                 {t("aml_action_savings")}{" "}
@@ -305,7 +309,7 @@ function RemediationModal({
 
         <div className="p-6 space-y-4">
           <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/60 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-            {action.description}
+            {textoRem(action, "desc")}
           </div>
 
           <div className="space-y-2">
@@ -373,6 +377,7 @@ function RemediationModal({
 // ─── Componente Principal ───
 export default function AMLDashboard() {
   const t = useTranslations("AzureAI");
+  const textoRem = useTextoPorCategoria("AzureAI", "AML");
   const tc = useTranslations("Common");
   const { selectedTenant } = useTenant();
   const { instance, accounts } = useMsal();
@@ -958,7 +963,11 @@ export default function AMLDashboard() {
           </div>
 
           <div className="space-y-3">
-            {remediationActions.map((action) => (
+            {remediationActions.map((action) => {
+              const descripcion = textoRem(action, "desc");
+              const resumen =
+                expandedAction === action.id ? descripcion : descripcion.slice(0, 120) + "…";
+              return (
               <div
                 key={action.id}
                 className="border border-slate-200 dark:border-slate-800 rounded-xl p-4 hover:border-[#0078D4]/30 transition-colors"
@@ -980,7 +989,7 @@ export default function AMLDashboard() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-bold text-[#1B2A41] dark:text-slate-200">
-                          {action.title}
+                          {textoRem(action, "title")}
                         </p>
                         <span
                           className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
@@ -996,11 +1005,9 @@ export default function AMLDashboard() {
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 mt-1 line-clamp-2">
-                        {expandedAction === action.id
-                          ? action.description
-                          : action.description.slice(0, 120) + "…"}
+                        {resumen}
                       </p>
-                      {action.description.length > 120 && (
+                      {descripcion.length > 120 && (
                         <button
                           onClick={() =>
                             setExpandedAction(
@@ -1029,7 +1036,8 @@ export default function AMLDashboard() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

@@ -1,4 +1,6 @@
 "use client";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
+import { ERROR_401 } from "@/lib/errorSentinels";
 import { useTranslations } from "next-intl";
 
 import React, { useState, useMemo, useRef } from "react";
@@ -76,7 +78,7 @@ function buildFetcher(
     const res = await fetch(url, { headers });
     if (!res.ok) {
       if (res.status === 401) {
-        throw new Error("No autorizado.");
+        throw new Error(ERROR_401);
       }
       throw new Error(`Error ${res.status}: ${res.statusText}`);
     }
@@ -179,6 +181,7 @@ function RemediationModal({
   onClose: () => void;
 }) {
   const t = useTranslations("AppInsightsFinops");
+  const textoRem = useTextoPorCategoria("AppInsightsFinops");
   const { format } = useCurrency();
   const [activeTab, setActiveTab] = useState<"CLI" | "POWERSHELL">("CLI");
   const [copied, setCopied] = useState(false);
@@ -217,10 +220,10 @@ function RemediationModal({
         <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
           <div>
             <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100 mb-1">
-              {action.title}
+              {textoRem(action, "title")}
             </h4>
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              {action.description}
+              {textoRem(action, "desc")}
             </p>
           </div>
 
@@ -244,9 +247,9 @@ function RemediationModal({
                   <p className="text-[11px] text-slate-500 mt-1">{t("unexpectedBillingRisk")}</p>
                 </div>
                 <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-emerald-300 dark:border-emerald-800">
-                  <p className="text-[10px] text-emerald-600 font-bold uppercase">Tope Recomendado</p>
+                  <p className="text-[10px] text-emerald-600 font-bold uppercase">{t("recommendedCap")}</p>
                   <p className="text-sm font-extrabold text-emerald-600 mt-0.5">
-                    {action.recommendedDailyCap || 5} GB / día
+                    {t("capGbPerDay", { gb: action.recommendedDailyCap || 5 })}
                   </p>
                   <p className="text-[11px] text-slate-500 mt-1">{t("cutsIngestion")}</p>
                 </div>
@@ -266,9 +269,9 @@ function RemediationModal({
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">Muestreo Actual</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">{t("currentSampling")}</p>
                   <p className="text-sm font-extrabold text-slate-800 dark:text-slate-200 mt-0.5">
-                    {action.currentSampling || 100}% de telemetría
+                    {t("samplingOfTelemetry", { pct: action.currentSampling || 100 })}
                   </p>
                   <p className="text-[11px] text-slate-500 mt-1">{t("allTracesProcessed")}</p>
                 </div>
@@ -384,6 +387,7 @@ function RemediationModal({
 // ─── Componente Principal AppInsightsDashboard ───
 export default function AppInsightsDashboard() {
   const t = useTranslations("AppInsightsFinops");
+  const textoRem = useTextoPorCategoria("AppInsightsFinops");
   const { selectedTenant } = useTenant();
   const { instance, accounts, inProgress } = useMsal();
   const { format } = useCurrency();
@@ -444,8 +448,8 @@ export default function AppInsightsDashboard() {
                 {t("connStatus")}
               </h3>
               <p className="text-sm mt-1 text-slate-600 dark:text-slate-400">
-                {error.message === "No autorizado."
-                  ? "Sesión no autorizada o token de Entra ID expirado. Si utiliza una cuenta de demostración, active el modo demo."
+                {error.message === ERROR_401
+                  ? t("unauthorizedDetail")
                   : error.message}
               </p>
               <p className="text-xs text-slate-400 mt-2">
@@ -536,20 +540,20 @@ export default function AppInsightsDashboard() {
   // ─── Exportación ───
   const exportCSV = () => {
     const headers = [
-      "Componente App Insights",
-      "Región",
-      "Grupo de Recursos",
-      "Suscripción",
+      t("colComponent"),
+      t("colRegion"),
+      t("colResourceGroup"),
+      t("colSubscription"),
       "Log Analytics Workspace",
-      "Muestreo (%)",
+      t("colSamplingPct"),
       "Daily Cap (GB)",
-      "Ingesta Total MTD (GB)",
+      t("colTotalIngestGB"),
       "AppTraces (GB)",
       "Dependencies (GB)",
       "Requests (GB)",
       "Exceptions (GB)",
-      "Costo Ingesta MTD (USD)",
-      "Forecast (USD)",
+      t("colIngestCostUsd"),
+      t("colForecastUsd"),
     ];
     const rows = sortedItems.map((i) => [
       i.name,
@@ -558,7 +562,7 @@ export default function AppInsightsDashboard() {
       i.subscriptionName,
       i.linkedWorkspaceName,
       `${i.samplingPercentage}%`,
-      i.isDailyCapUnlimited ? "Sin Límite" : `${i.dailyCapGB} GB/día`,
+      i.isDailyCapUnlimited ? t("noCapValue") : t("capPerDay", { gb: i.dailyCapGB ?? 0 }),
       i.ingestedTotalGB,
       i.tracesGB,
       i.dependenciesGB,
@@ -586,7 +590,7 @@ export default function AppInsightsDashboard() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
             <IconActivity className="w-7 h-7 text-[#0078D4]" stroke={1.5} />
-            Application Insights FinOps & Observabilidad
+            {t("pageTitle")}
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             {t("subtitle")}
@@ -618,26 +622,26 @@ export default function AppInsightsDashboard() {
           icon={IconCash}
           label={t("kpiIngestionCost")}
           value={format(summary.totalCostMtdUSD)}
-          sub={`Proyección: ${format(summary.totalCostMtdUSD * 1.05)}`}
+          sub={t("projectionSub", { amount: format(summary.totalCostMtdUSD * 1.05) })}
         />
         <KpiCard
           icon={IconDatabaseExport}
-          label="Volumen Total Ingerido"
+          label={t("kpiTotalIngested")}
           value={`${summary.totalIngestedGB.toFixed(1)} GB`}
-          sub="Tarifa base: $2.30 USD/GB"
+          sub={t("baseRateSub")}
         />
         <KpiCard
           icon={IconShieldExclamation}
           label={t("kpiNoCap")}
           value={String(summary.unlimitedCapCount)}
-          sub={`${summary.instancesCount} instancias monitoreadas`}
+          sub={t("monitoredInstancesSub", { count: summary.instancesCount })}
           alertBadge={summary.unlimitedCapCount > 0}
         />
         <KpiCard
           icon={IconSparkles}
           label={t("kpiSamplingSavings")}
           value={format(summary.potentialSavingsUSD)}
-          sub={`${remediationActions.length} oportunidades activas`}
+          sub={t("activeOpportunitiesSub", { count: remediationActions.length })}
         />
       </div>
 
@@ -649,7 +653,7 @@ export default function AppInsightsDashboard() {
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
               {t("ingestionBreakdown")}
             </h3>
-            <span className="text-[11px] text-slate-400">Mensual</span>
+            <span className="text-[11px] text-slate-400">{t("monthly")}</span>
           </div>
 
           <div className="h-64 w-full">
@@ -793,7 +797,7 @@ export default function AppInsightsDashboard() {
           >
             {resourceOptions.map((opt) => (
               <option key={opt} value={opt}>
-                {opt === "ALL" ? "Todos los Recursos" : opt}
+                {opt === "ALL" ? t("allResources") : opt}
               </option>
             ))}
           </select>
@@ -813,7 +817,7 @@ export default function AppInsightsDashboard() {
           >
             {regionOptions.map((opt) => (
               <option key={opt} value={opt}>
-                {opt === "ALL" ? "Todas las Regiones" : opt}
+                {opt === "ALL" ? t("allRegions") : opt}
               </option>
             ))}
           </select>
@@ -851,7 +855,7 @@ export default function AppInsightsDashboard() {
           >
             {rgOptions.map((opt) => (
               <option key={opt} value={opt}>
-                {opt === "ALL" ? "Todos los Grupos" : opt}
+                {opt === "ALL" ? t("allGroups") : opt}
               </option>
             ))}
           </select>
@@ -925,7 +929,7 @@ export default function AppInsightsDashboard() {
                   <span className="font-bold text-slate-700 dark:text-slate-300">{t("subscription")}</span>
                 </ResizableTh>
                 <ResizableTh minWidth={160}>
-                  <span className="font-bold text-slate-700 dark:text-slate-300">Workspace Vinculado</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-300">{t("linkedWorkspace")}</span>
                 </ResizableTh>
                 <ResizableTh minWidth={110}>
                   <button
@@ -1041,10 +1045,10 @@ export default function AppInsightsDashboard() {
                             className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-md shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
                           >
                             <IconSparkles className="w-3 h-3" />
-                            {matchingAction.category === "SET_DAILY_CAP" ? "Fijar Daily Cap" : "Ajustar Sampling"}
+                            {matchingAction.category === "SET_DAILY_CAP" ? t("actionSetDailyCap") : t("actionAdjustSampling")}
                           </button>
                         ) : (
-                          <span className="text-[11px] text-slate-400">Optimizado</span>
+                          <span className="text-[11px] text-slate-400">{t("optimized")}</span>
                         )}
                       </td>
                     </tr>
@@ -1124,16 +1128,16 @@ export default function AppInsightsDashboard() {
                     </span>
                     {action.estimatedSavingsUSD > 0 && (
                       <span className="text-xs font-extrabold text-emerald-600">
-                        +{format(action.estimatedSavingsUSD)}/mes
+                        {t("savingsPerMonth", { amount: format(action.estimatedSavingsUSD) })}
                       </span>
                     )}
                   </div>
 
                   <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 mb-1">
-                    {action.title}
+                    {textoRem(action, "title")}
                   </h4>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-3">
-                    {action.description}
+                    {textoRem(action, "desc")}
                   </p>
                 </div>
 

@@ -40,13 +40,22 @@ export interface AppInsightsSummaryMetrics {
   breakdownByTelemetryType: TelemetryTypeBreakdown[];
 }
 
+export const APP_INSIGHTS_REMEDIATION_CATEGORIES = [
+  "SET_DAILY_CAP",
+  "REDUCE_SAMPLING",
+  "FILTER_LOGS",
+  "PURGE_ORPHAN",
+] as const;
+
+export type AppInsightsRemediationCategory =
+  (typeof APP_INSIGHTS_REMEDIATION_CATEGORIES)[number];
+
 export interface AppInsightsRemediationAction {
   id: string;
   resourceId: string;
   resourceName?: string;
-  title: string;
-  description: string;
-  category: "SET_DAILY_CAP" | "REDUCE_SAMPLING" | "FILTER_LOGS" | "PURGE_ORPHAN";
+  params?: Record<string, string | number>;
+  category: AppInsightsRemediationCategory;
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM";
   actionType: string;

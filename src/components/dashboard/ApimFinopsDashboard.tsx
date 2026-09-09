@@ -1,4 +1,5 @@
 "use client";
+import { ERROR_401 } from "@/lib/errorSentinels";
 import { useTranslations } from "next-intl";
 
 import React, { useState, useMemo, useRef } from "react";
@@ -426,7 +427,7 @@ export default function ApimFinopsDashboard() {
                 {t("apim_connStatus")}
               </h3>
               <p className="text-sm mt-1 text-slate-600 dark:text-slate-400">
-                {error.message === t("unauthorized")
+                {error.message === ERROR_401
                   ? t("unauthorizedDetail")
                   : error.message}
               </p>

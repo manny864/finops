@@ -42,17 +42,20 @@ export interface LogicAppsSummaryMetrics {
   potentialSavingsUSD: number;
 }
 
+export const LOGIC_APP_REMEDIATION_CATEGORIES = [
+  "MIGRATE_TO_STANDARD",
+  "DOWNGRADE_TO_CONSUMPTION",
+  "FIX_RETRY_LOOP",
+  "DISABLE_IDLE",
+] as const;
+
 export type LogicAppRemediationCategory =
-  | "MIGRATE_TO_STANDARD"
-  | "DOWNGRADE_TO_CONSUMPTION"
-  | "FIX_RETRY_LOOP"
-  | "DISABLE_IDLE";
+  (typeof LOGIC_APP_REMEDIATION_CATEGORIES)[number];
 
 export interface LogicAppRemediationAction {
   id: string;
   resourceId: string;
-  title: string;
-  description: string;
+  params?: Record<string, string | number>;
   category: LogicAppRemediationCategory;
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM";

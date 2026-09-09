@@ -223,8 +223,7 @@ export function generateVisionVideoRecommendations(
       actions.push({
         id: `rec-f0-${r.name}`,
         resourceId: r.id,
-        title: `Downgrade a Free Tier F0 en '${r.name}'`,
-        description: `La cuenta '${r.name}' en entorno de desarrollo está en tier Standard (S0) pero procesa muy bajo volumen (< 1,000 transacciones/mes). Cambiar al tier gratuito F0 (20 llamadas/minuto, 5K llamadas/mes) reduce el costo base a $0.00 USD/mes.`,
+        params: { name: r.name },
         category: "DEV_F0_DOWNGRADE",
         estimatedSavingsUSD: savings,
         confidence: "HIGH",
@@ -240,8 +239,7 @@ export function generateVisionVideoRecommendations(
       actions.push({
         id: `rec-video-preset-${r.name}`,
         resourceId: r.id,
-        title: `Optimización de Preset en Video Indexer '${r.name}'`,
-        description: `Se detectaron ${r.videoMinutesProcessed} minutos indexados con preset completo (Video+Audio). Para cargas de trabajo que solo requieren transcripción y traducción de voz, configurar el preset 'AudioOnly' o 'BasicVideo' ahorra hasta un 45% del costo por minuto indexado.`,
+        params: { name: r.name, minutes: r.videoMinutesProcessed },
         category: "VIDEO_PRESET_OPTIMIZE",
         estimatedSavingsUSD: savings,
         confidence: "HIGH",
@@ -256,8 +254,7 @@ export function generateVisionVideoRecommendations(
       actions.push({
         id: `rec-batch-${r.name}`,
         resourceId: r.id,
-        title: `Implementación de Batch OCR API en '${r.name}'`,
-        description: `La cuenta '${r.name}' procesa más de ${r.imagesAnalyzed.toLocaleString()} imágenes en llamadas síncronas individuales. Implementar Azure Computer Vision Batch Read API o Storage Queue batching reduce la sobrecarga de concurrencia y optimiza la tasa de procesamiento por volumen.`,
+        params: { name: r.name, images: r.imagesAnalyzed.toLocaleString() },
         category: "BATCH_PROCESSING",
         estimatedSavingsUSD: savings,
         confidence: "MEDIUM",
@@ -272,8 +269,7 @@ export function generateVisionVideoRecommendations(
       actions.push({
         id: `rec-orphan-${r.name}`,
         resourceId: r.id,
-        title: `Eliminar cuenta huérfana / sin uso '${r.name}'`,
-        description: `La cuenta '${r.name}' en el grupo '${r.resourceGroup}' no registra consumo productivo en el ciclo actual pero genera cargos fijos o de infraestructura.`,
+        params: { name: r.name, rg: r.resourceGroup },
         category: "ORPHAN_ACCOUNT",
         estimatedSavingsUSD: savings,
         confidence: "HIGH",

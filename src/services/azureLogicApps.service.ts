@@ -551,8 +551,12 @@ export function generateLogicAppsRecommendations(
         actions.push({
           id: `rec-arbitrage-std-${item.id}`,
           resourceId: item.id,
-          title: `Arbitraje a Logic Apps Standard (WS1) para '${item.name}'`,
-          description: `El flujo '${item.name}' en plan Consumption genera $${item.costMtdUSD.toFixed(2)} USD/mes debido a ${item.totalBillableExecutions.toLocaleString()} acciones y ${item.enterpriseExecutions.toLocaleString()} llamadas Enterprise. Migrarlo a un plan Standard WS1 ($175/mes tarifa fija) incluye ejecuciones ilimitadas y conectores integrados VNet sin cobro por acción individual.`,
+          params: {
+            name: item.name,
+            cost: item.costMtdUSD.toFixed(2),
+            actions: item.totalBillableExecutions.toLocaleString(),
+            enterprise: item.enterpriseExecutions.toLocaleString(),
+          },
           category: "MIGRATE_TO_STANDARD",
           estimatedSavingsUSD: estimatedSavings,
           confidence: "HIGH",
@@ -568,8 +572,7 @@ export function generateLogicAppsRecommendations(
       actions.push({
         id: `rec-arbitrage-cons-${item.id}`,
         resourceId: item.id,
-        title: `Downgrade a Logic Apps Consumption para '${item.name}'`,
-        description: `El plan '${item.name}' (${item.planType}) tiene un costo fijo de $175 USD/mes pero solo ejecutó ${item.runsStartedCount} flujos en el período. Migrarlo a Consumption reduciría la facturación a solo el consumo real (< $5 USD/mes).`,
+        params: { name: item.name, plan: item.planType, runs: item.runsStartedCount },
         category: "DOWNGRADE_TO_CONSUMPTION",
         estimatedSavingsUSD: estimatedSavings,
         confidence: "HIGH",
@@ -585,8 +588,12 @@ export function generateLogicAppsRecommendations(
       actions.push({
         id: `rec-retry-loop-${item.id}`,
         resourceId: item.id,
-        title: `Mitigar bucle de reintento en '${item.name}' (${failPct}% fallos)`,
-        description: `El flujo '${item.name}' ha ejecutado ${item.runsFailedCount.toLocaleString()} reintentos fallidos de un total de ${item.runsStartedCount.toLocaleString()} iniciados. Esto representa una fuga activa de facturación por acciones inútiles. Ajuste la directiva de retry o inserte un Circuit Breaker.`,
+        params: {
+          name: item.name,
+          pct: failPct,
+          failed: item.runsFailedCount.toLocaleString(),
+          started: item.runsStartedCount.toLocaleString(),
+        },
         category: "FIX_RETRY_LOOP",
         estimatedSavingsUSD: estimatedSavings,
         confidence: "HIGH",
@@ -600,8 +607,7 @@ export function generateLogicAppsRecommendations(
       actions.push({
         id: `rec-idle-${item.id}`,
         resourceId: item.id,
-        title: `Eliminar flujo inactivo/huérfano '${item.name}'`,
-        description: `El recurso '${item.name}' se encuentra deshabilitado y sin actividad registrada. Limpiar recursos obsoletos reduce la superficie de ataque y el desorden en Resource Groups de integración.`,
+        params: { name: item.name },
         category: "DISABLE_IDLE",
         estimatedSavingsUSD: 0,
         confidence: "MEDIUM",

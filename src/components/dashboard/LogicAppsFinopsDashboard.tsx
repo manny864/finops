@@ -1,4 +1,6 @@
 "use client";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
+import { ERROR_401 } from "@/lib/errorSentinels";
 import { useTranslations } from "next-intl";
 
 import React, { useState, useMemo, useRef } from "react";
@@ -170,6 +172,7 @@ function RemediationModal({
   onClose: () => void;
 }) {
   const t = useTranslations("IpaasFinops");
+  const textoRem = useTextoPorCategoria("IpaasFinops");
   const [copied, setCopied] = useState(false);
   const [cmdTab, setCmdTab] = useState<"cli" | "powershell">("cli");
   const { format } = useCurrency();
@@ -195,7 +198,7 @@ function RemediationModal({
             </div>
             <div>
               <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
-                {action.title}
+                {textoRem(action, "title")}
               </h3>
               <p className="text-[11px] text-slate-500">
                 {t("la_optimizationSavings")}{" "}
@@ -215,14 +218,14 @@ function RemediationModal({
 
         <div className="p-6 space-y-4">
           <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/60 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-            {action.description}
+            {textoRem(action, "desc")}
           </div>
 
           {/* Comparador de Arbitraje si aplica */}
           {item && action.category === "MIGRATE_TO_STANDARD" && (
             <div className="grid grid-cols-2 gap-3 p-3 bg-blue-50/50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 rounded-xl text-xs">
               <div>
-                <p className="text-[10px] uppercase font-bold text-slate-400">Escenario Actual (Consumption)</p>
+                <p className="text-[10px] uppercase font-bold text-slate-400">{t("currentScenarioConsumption")}</p>
                 <p className="text-base font-extrabold text-red-600 mt-0.5">{t("amountPerMonth", { amount: format(item.costMtdUSD) })}</p>
                 <p className="text-[10px] text-slate-500">{t("actionsPlusEnterpriseCalls", { actions: item.totalBillableExecutions.toLocaleString(), calls: item.enterpriseExecutions.toLocaleString() })}</p>
               </div>
@@ -300,6 +303,7 @@ function RemediationModal({
 export default function LogicAppsFinopsDashboard() {
   const t = useTranslations("IpaasFinops");
   const tc = useTranslations("Common");
+  const textoRem = useTextoPorCategoria("IpaasFinops");
   const { selectedTenant } = useTenant();
   const { instance, accounts, inProgress } = useMsal();
   const { format } = useCurrency();
@@ -361,7 +365,7 @@ export default function LogicAppsFinopsDashboard() {
                 {t("la_connStatus")}
               </h3>
               <p className="text-sm mt-1 text-slate-600 dark:text-slate-400">
-                {error.message === t("unauthorized")
+                {error.message === ERROR_401
                   ? t("unauthorizedDetail")
                   : error.message}
               </p>
@@ -463,9 +467,9 @@ export default function LogicAppsFinopsDashboard() {
       t("subscription"),
       t("costMtdUsd"),
       t("prevCostUsd"),
-      "Forecast USD",
+      t("la_colForecastUsd"),
       t("runsStarted"),
-      "Runs Fallidos",
+      t("la_colFailedRuns"),
       t("enterpriseCalls"),
       t("enterpriseCostUsd"),
     ];
@@ -557,8 +561,8 @@ export default function LogicAppsFinopsDashboard() {
         <KpiCard
           icon={IconLayersLinked}
           label={t("la_kpiResources")}
-          value={`${summary.totalResourcesCount} Workflows`}
-          sub="Logic Apps Consumption + Standard"
+          value={t("la_workflowsCount", { count: summary.totalResourcesCount })}
+          sub={t("la_kpiResourcesSub")}
         />
       </div>
 
@@ -957,7 +961,11 @@ export default function LogicAppsFinopsDashboard() {
           </div>
 
           <div className="space-y-3">
-            {remediationActions.map((action) => (
+            {remediationActions.map((action) => {
+              const descripcion = textoRem(action, "desc");
+              const resumen =
+                expandedAction === action.id ? descripcion : descripcion.slice(0, 130) + "…";
+              return (
               <div
                 key={action.id}
                 className="border border-slate-200 dark:border-slate-800 rounded-xl p-4 hover:border-[#0078D4]/30 transition-colors"
@@ -979,7 +987,7 @@ export default function LogicAppsFinopsDashboard() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-bold text-[#1B2A41] dark:text-slate-200">
-                          {action.title}
+                          {textoRem(action, "title")}
                         </p>
                         <span
                           className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
@@ -995,11 +1003,9 @@ export default function LogicAppsFinopsDashboard() {
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 mt-1 line-clamp-2">
-                        {expandedAction === action.id
-                          ? action.description
-                          : action.description.slice(0, 130) + "…"}
+                        {resumen}
                       </p>
-                      {action.description.length > 130 && (
+                      {descripcion.length > 130 && (
                         <button
                           onClick={() =>
                             setExpandedAction(
@@ -1028,7 +1034,8 @@ export default function LogicAppsFinopsDashboard() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

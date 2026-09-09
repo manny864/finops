@@ -44,17 +44,20 @@ export interface AmlSummaryMetrics {
   breakdownByComputeType: AmlComputeTypeBreakdown[];
 }
 
+export const AML_REMEDIATION_CATEGORIES = [
+  "AUTO_SHUTDOWN_CI",
+  "SCALE_TO_ZERO_CLUSTER",
+  "SPOT_TRAINING",
+  "IDLE_ENDPOINT",
+] as const;
+
 export type AmlRemediationCategory =
-  | "AUTO_SHUTDOWN_CI"
-  | "SCALE_TO_ZERO_CLUSTER"
-  | "SPOT_TRAINING"
-  | "IDLE_ENDPOINT";
+  (typeof AML_REMEDIATION_CATEGORIES)[number];
 
 export interface AmlRemediationAction {
   id: string;
   resourceId: string;
-  title: string;
-  description: string;
+  params?: Record<string, string | number>;
   category: AmlRemediationCategory;
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM";

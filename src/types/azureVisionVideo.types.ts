@@ -42,17 +42,20 @@ export interface VisionVideoSummary {
   breakdownByService: VisionVideoServiceBreakdown[];
 }
 
+export const VISION_REMEDIATION_CATEGORIES = [
+  "DEV_F0_DOWNGRADE",
+  "VIDEO_PRESET_OPTIMIZE",
+  "BATCH_PROCESSING",
+  "ORPHAN_ACCOUNT",
+] as const;
+
 export type VisionRemediationCategory =
-  | "DEV_F0_DOWNGRADE"
-  | "VIDEO_PRESET_OPTIMIZE"
-  | "BATCH_PROCESSING"
-  | "ORPHAN_ACCOUNT";
+  (typeof VISION_REMEDIATION_CATEGORIES)[number];
 
 export interface VisionVideoRemediationAction {
   id: string;
   resourceId: string;
-  title: string;
-  description: string;
+  params?: Record<string, string | number>;
   category: VisionRemediationCategory;
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM";

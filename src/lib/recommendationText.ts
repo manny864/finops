@@ -68,6 +68,11 @@ export interface AccionPorCategoria {
 /**
  * Resuelve `rem_<category>_title` / `_desc` / `_impact` en el namespace dado.
  *
+ * `prefijo` es para los namespaces que comparten varios servicios: en AzureAI
+ * conviven Vision y Document Intelligence, y ambos tienen una categoria
+ * ORPHAN_ACCOUNT. Sin prefijo las dos recomendaciones colgarian de la misma
+ * clave y una pisaria a la otra.
+ *
  * Mismo motivo que `useTextoDeRecomendacion` para no armar la frase en el
  * servidor: la respuesta se cachea con una clave que no incluye el locale, asi
  * que el segundo lector recibiria el idioma del primero.
@@ -76,12 +81,13 @@ export interface AccionPorCategoria {
  * los `params` que la clave interpola, `t()` tira FORMATTING_ERROR, y como esto
  * corre dentro de un render de React eso tumba el tablero entero (`eb33f2e`).
  */
-export function useTextoPorCategoria(namespace: string) {
+export function useTextoPorCategoria(namespace: string, prefijo?: string) {
     const t = useTranslations(namespace);
+    const alcance = prefijo ? `${prefijo}_` : "";
 
     return (accion: AccionPorCategoria, campo: "title" | "desc" | "impact"): string => {
         try {
-            return t(`rem_${accion.category}_${campo}`, accion.params ?? {});
+            return t(`rem_${alcance}${accion.category}_${campo}`, accion.params ?? {});
         } catch {
             return "";
         }
