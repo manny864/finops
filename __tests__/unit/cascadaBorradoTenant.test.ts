@@ -117,4 +117,55 @@ describe("cascada de borrado por tenant", () => {
         const sobran = Object.keys(EXCEPCIONES).filter((t) => !creadas.has(t));
         expect(sobran).toEqual([]);
     });
+
+    /**
+     * En `20260909-002` el orden importa y costó tres despliegues aprenderlo.
+     *
+     * Comparar `tenant_id` contra `Tenants` revienta con
+     * ER_CANT_AGGREGATE_2COLLATIONS cuando las dos columnas no comparten
+     * colación, y la FK ni siquiera se puede crear: InnoDB exige la misma de los
+     * dos lados. Así que la colación se normaliza primero; recién después se
+     * borran las huérfanas y al final se crea la FK. Si alguien reordena el
+     * archivo --o agrega un MODIFY al final-- vuelve el fallo, y sólo se ve en
+     * producción, porque en local todas las tablas ya coinciden.
+     */
+    it("la migración de huérfanas normaliza la colación antes de tocar filas o crear FKs", () => {
+        const sql = readFileSync(
+            path.join(DIR, "20260909-002-fk-tenant-huerfanas.sql"),
+            "utf8",
+        );
+        const sentencias = sql
+            .split(/\r?\n/)
+            .filter((l) => !l.trim().startsWith("--"))
+            .join("\n")
+            .split(/;\s*(?:\n|$)/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+
+        const tipo = (s: string) =>
+            /^ALTER TABLE .* MODIFY /i.test(s)
+                ? "modify"
+                : /^DELETE FROM /i.test(s)
+                    ? "delete"
+                    : /^ALTER TABLE .* ADD CONSTRAINT /i.test(s)
+                        ? "fk"
+                        : "otro";
+
+        const orden = sentencias.map(tipo);
+        expect(orden).not.toContain("otro");
+
+        const ultimoModify = orden.lastIndexOf("modify");
+        const primerDelete = orden.indexOf("delete");
+        const ultimoDelete = orden.lastIndexOf("delete");
+        const primerFk = orden.indexOf("fk");
+
+        expect(ultimoModify).toBeLessThan(primerDelete);
+        expect(ultimoDelete).toBeLessThan(primerFk);
+
+        // Y el DELETE no puede volver a depender de la colación de cada entorno.
+        const sinCollate = sentencias.filter(
+            (s) => tipo(s) === "delete" && !/COLLATE utf8mb4_unicode_ci/i.test(s),
+        );
+        expect(sinCollate).toEqual([]);
+    });
 });
