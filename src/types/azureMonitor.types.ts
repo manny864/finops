@@ -17,11 +17,20 @@ export type AzureAlertSeverity =
   | "Sev4"
   | "Unknown";
 
-export type AzureMonitorRemediationCategory =
-  | "KQL_OPTIMIZE"
-  | "MIGRATE_TO_METRIC"
-  | "ORPHAN_PURGE"
-  | "FREQUENCY_ADJUST";
+/**
+ * Lista en tiempo de ejecucion, no solo un tipo: el texto de cada recomendacion
+ * se resuelve con `rem_<category>_title` / `_desc`, asi que el test de claves
+ * necesita poder recorrer las categorias. El tipo se deriva de la lista para
+ * que no puedan separarse.
+ */
+export const AZURE_MONITOR_REMEDIATION_CATEGORIES = [
+  "KQL_OPTIMIZE",
+  "MIGRATE_TO_METRIC",
+  "ORPHAN_PURGE",
+  "FREQUENCY_ADJUST",
+] as const;
+
+export type AzureMonitorRemediationCategory = (typeof AZURE_MONITOR_REMEDIATION_CATEGORIES)[number];
 
 export interface AzureAlertResource {
   id: string;
@@ -50,8 +59,7 @@ export interface AzureAlertResource {
   queryPayload?: string; // KQL query string for log search alerts
   primaryRecommendation?: {
     category: AzureMonitorRemediationCategory;
-    title: string;
-    description: string;
+    params?: Record<string, string | number>;
     savingsUSD: number;
   };
 }
@@ -88,8 +96,7 @@ export interface AzureMonitorRemediationAction {
   id: string;
   resourceId: string;
   resourceName: string;
-  title: string;
-  description: string;
+  params?: Record<string, string | number>;
   category: AzureMonitorRemediationCategory;
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM";

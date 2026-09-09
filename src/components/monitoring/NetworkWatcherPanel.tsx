@@ -1,5 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -83,10 +84,11 @@ function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[
 /** Badge semaforico del intervalo de Traffic Analytics. */
 function TrafficAnalyticsBadge({ watcher }: { watcher: NetworkWatcherResource }) {
   const t = useTranslations("NetworkWatcher");
+  const textoRem = useTextoPorCategoria("NetworkWatcher");
   if (watcher.trafficAnalyticsActiveCount === 0) {
     return (
       <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900">
-        Inactivo
+        {t("taInactive")}
       </span>
     );
   }
@@ -97,8 +99,8 @@ function TrafficAnalyticsBadge({ watcher }: { watcher: NetworkWatcherResource })
         <span
           title={
             wasteful
-              ? "10 min en un scope no productivo: candidato directo a pasar a 60 min"
-              : "10 min en produccion: puede estar justificado por deteccion temprana"
+              ? t("ta10WastefulTip")
+              : t("ta10ProdTip")
           }
           className={`text-[10px] font-bold px-2 py-0.5 rounded-md border bg-white dark:bg-slate-900 ${
             wasteful
@@ -129,6 +131,7 @@ function WatcherDetailDrawer({
   onClose: () => void;
 }) {
   const t = useTranslations("NetworkWatcher");
+  const textoRem = useTextoPorCategoria("NetworkWatcher");
   const [tab, setTab] = useState<"flowlogs" | "monitors">(initialTab);
   // El tab pedido cambia entre aperturas del mismo drawer; sincronizarlo aca
   // evita reabrir siempre en la pestaña de la vez anterior.
@@ -220,18 +223,18 @@ function WatcherDetailDrawer({
                             : "border-slate-300 dark:border-slate-700 text-slate-500"
                         }`}
                       >
-                        {fl.enabled ? "Habilitado" : "Deshabilitado"}
+                        {fl.enabled ? t("enabled") : t("disabled")}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px]">
                       <div>
                         <div className="text-slate-500 dark:text-slate-400">Traffic Analytics</div>
                         <div className="font-semibold text-[#1B2A41] dark:text-slate-200">
-                          {fl.trafficAnalyticsEnabled ? `${fl.trafficAnalyticsInterval} min` : "Deshabilitado"}
+                          {fl.trafficAnalyticsEnabled ? `${fl.trafficAnalyticsInterval} min` : t("disabled")}
                         </div>
                       </div>
                       <div>
-                        <div className="text-slate-500 dark:text-slate-400">Retencion</div>
+                        <div className="text-slate-500 dark:text-slate-400">{t("retention")}</div>
                         <div
                           className={`font-semibold ${
                             fl.retentionDays === 0
@@ -239,19 +242,19 @@ function WatcherDetailDrawer({
                               : "text-[#1B2A41] dark:text-slate-200"
                           }`}
                         >
-                          {fl.retentionDays === 0 ? "Infinita" : `${fl.retentionDays} dias`}
+                          {fl.retentionDays === 0 ? t("retentionInfinite") : t("daysValue", { days: fl.retentionDays })}
                         </div>
                       </div>
                       <div>
-                        <div className="text-slate-500 dark:text-slate-400">Procesado</div>
+                        <div className="text-slate-500 dark:text-slate-400">{t("processed")}</div>
                         <div className="font-semibold text-[#1B2A41] dark:text-slate-200">
-                          {fl.processedGBPerMonth} GB/mes
+                          {t("gbPerMonth", { gb: fl.processedGBPerMonth })}
                         </div>
                       </div>
                       <div>
-                        <div className="text-slate-500 dark:text-slate-400">Almacenado</div>
+                        <div className="text-slate-500 dark:text-slate-400">{t("stored")}</div>
                         <div className="font-semibold text-[#1B2A41] dark:text-slate-200">
-                          {fl.storedGBPerMonth} GB/mes
+                          {t("gbPerMonth", { gb: fl.storedGBPerMonth })}
                         </div>
                       </div>
                     </div>
@@ -277,7 +280,7 @@ function WatcherDetailDrawer({
                     <span className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 truncate">{cm.name}</span>
                     {cm.hasUnreachableEndpoint && (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 bg-white dark:bg-slate-900 shrink-0">
-                        Endpoint inalcanzable
+                        {t("unreachableEndpoint")}
                       </span>
                     )}
                   </div>
@@ -328,6 +331,7 @@ function NetworkRemediationModal({
   onClose: () => void;
 }) {
   const t = useTranslations("NetworkWatcher");
+  const textoRem = useTextoPorCategoria("NetworkWatcher");
   const [copied, setCopied] = useState<"cli" | "ps" | null>(null);
   if (!action) return null;
 
@@ -355,8 +359,8 @@ function NetworkRemediationModal({
         <div className="flex items-center gap-3 mb-4">
           <IconTerminal2 className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
           <div className="pr-8">
-            <h2 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">{action.title}</h2>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{action.description}</p>
+            <h2 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">{textoRem(action, "title")}</h2>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{textoRem(action, "desc")}</p>
           </div>
         </div>
 
@@ -385,7 +389,7 @@ function NetworkRemediationModal({
                 }`}
               >
                 {copied === key ? <IconCheck className="w-3.5 h-3.5" /> : <IconCopy className="w-3.5 h-3.5" />}
-                {copied === key ? "Copiado" : "Copiar"}
+                {copied === key ? t("copied") : t("copy")}
               </button>
             </div>
             <pre className="p-3.5 bg-slate-950 text-slate-100 rounded-xl font-mono text-[11px] overflow-x-auto border border-slate-800 leading-relaxed whitespace-pre-wrap">
@@ -396,7 +400,6 @@ function NetworkRemediationModal({
 
         <p className="text-[10px] text-slate-400 mt-2">
           {t("placeholdersNote")}
-          cambios en Azure.
         </p>
       </div>
     </div>
@@ -406,6 +409,7 @@ function NetworkRemediationModal({
 // ─── Componente Principal ───
 export default function NetworkWatcherPanel() {
   const t = useTranslations("NetworkWatcher");
+  const textoRem = useTextoPorCategoria("NetworkWatcher");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -514,7 +518,7 @@ export default function NetworkWatcherPanel() {
       w.trafficAnalytics60MinCount,
       w.connectionMonitorsCount,
       `"${w.linkedStorageAccountName || ""}"`,
-      w.storageRetentionDays === 0 ? `"Infinita"` : w.storageRetentionDays,
+      w.storageRetentionDays === 0 ? `"${t("retentionInfinite")}"` : w.storageRetentionDays,
       w.estimatedTrafficAnalyticsCostUSD.toFixed(2),
       w.estimatedConnectionMonitorCostUSD.toFixed(2),
       w.estimatedStorageCostUSD.toFixed(2),
@@ -578,7 +582,7 @@ export default function NetworkWatcherPanel() {
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
             <IconDatabaseExport className="w-4 h-4 text-[#0078D4]" />
-            Exportar CSV
+            {t("exportCsv")}
           </button>
           <button
             onClick={() => mutate()}
@@ -610,7 +614,7 @@ export default function NetworkWatcherPanel() {
               {formatCurrency(summary.totalRealCostUSD)}
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              {summary.totalProcessedGBPerMonth} GB procesados/mes
+              {t("gbProcessedPerMonth", { gb: summary.totalProcessedGBPerMonth })}
             </div>
           </div>
           <IconCash className="w-8 h-8 text-[#0078D4]" stroke={1.5} />
@@ -817,7 +821,7 @@ export default function NetworkWatcherPanel() {
             {t("inventoryTitle")}
           </h3>
           <InfoTooltip content={t("tableTooltip")} />
-          <span className="ml-auto text-[11px] text-slate-500 dark:text-slate-400">{total} watchers</span>
+          <span className="ml-auto text-[11px] text-slate-500 dark:text-slate-400">{t("watchersCount", { count: total })}</span>
         </div>
 
         <div className="overflow-x-auto">
@@ -825,14 +829,14 @@ export default function NetworkWatcherPanel() {
             <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400">
               <tr>
                 <ResizableTh minWidth={220}>Network Watcher</ResizableTh>
-                <ResizableTh minWidth={120}>Region</ResizableTh>
-                <ResizableTh minWidth={170}>Suscripcion</ResizableTh>
+                <ResizableTh minWidth={120}>{t("colRegion")}</ResizableTh>
+                <ResizableTh minWidth={170}>{t("colSubscription")}</ResizableTh>
                 <ResizableTh minWidth={110}>Flow Logs</ResizableTh>
                 <ResizableTh minWidth={150}>Traffic Analytics</ResizableTh>
-                <ResizableTh minWidth={120}>Monitores</ResizableTh>
-                <ResizableTh minWidth={190}>Storage Vinculado</ResizableTh>
+                <ResizableTh minWidth={120}>{t("colMonitors")}</ResizableTh>
+                <ResizableTh minWidth={190}>{t("colLinkedStorage")}</ResizableTh>
                 <ResizableTh minWidth={120}>{t("colRealCost")}</ResizableTh>
-                <ResizableTh minWidth={230}>Acciones</ResizableTh>
+                <ResizableTh minWidth={230}>{t("colActions")}</ResizableTh>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -842,8 +846,8 @@ export default function NetworkWatcherPanel() {
                     <IconRouter className="w-7 h-7 text-[#0078D4] mx-auto mb-2" stroke={1.5} />
                     <p className="text-xs font-medium">
                       {watchersList.length === 0
-                        ? "Azure no reporta Network Watchers en las suscripciones visibles."
-                        : "Ningun watcher coincide con los filtros aplicados."}
+                        ? t("emptyNoWatchers")
+                        : t("emptyFiltered")}
                     </p>
                   </td>
                 </tr>
@@ -923,8 +927,8 @@ export default function NetworkWatcherPanel() {
                             }`}
                           >
                             {w.storageRetentionDays === 0
-                              ? "Retencion infinita"
-                              : `${w.storageRetentionDays} dias de retencion`}
+                              ? t("infiniteRetention")
+                              : t("retentionDaysValue", { days: w.storageRetentionDays })}
                           </span>
                         </>
                       ) : (
@@ -955,8 +959,11 @@ export default function NetworkWatcherPanel() {
                               setActiveRemediation({
                                 id: `ta-manual-${w.id}`,
                                 resourceId: w.id,
-                                title: `Optimizar intervalo de Traffic Analytics en ${w.location}`,
-                                description: `${w.trafficAnalytics10MinCount} configuracion(es) procesan cada 10 min. Azure solo admite 10 o 60; pasar a 60 recorta ~60% del volumen procesado.`,
+                                params: {
+                                  location: w.location,
+                                  rg: w.resourceGroup,
+                                  count: w.trafficAnalytics10MinCount,
+                                },
                                 category: "TRAFFIC_ANALYTICS_INTERVAL",
                                 estimatedSavingsUSD: 0,
                                 confidence: "MEDIUM",
@@ -966,7 +973,7 @@ export default function NetworkWatcherPanel() {
                             className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#00AEEF] bg-white dark:bg-slate-900 text-[#00AEEF] dark:text-cyan-400 hover:bg-sky-50/50 dark:hover:bg-sky-950/40 transition cursor-pointer whitespace-nowrap flex items-center gap-1"
                           >
                             <IconSparkles size={13} stroke={1.5} className="text-[#00AEEF]" />
-                            Optimizar Intervalo
+                            {t("optimizeInterval")}
                           </button>
                         )}
                       </div>
@@ -1024,9 +1031,9 @@ export default function NetworkWatcherPanel() {
                       </span>
                     )}
                   </div>
-                  <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 leading-snug">{action.title}</h4>
+                  <h4 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 leading-snug">{textoRem(action, "title")}</h4>
                   <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-3 leading-relaxed">
-                    {action.description}
+                    {textoRem(action, "desc")}
                   </p>
                 </div>
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
@@ -1036,7 +1043,7 @@ export default function NetworkWatcherPanel() {
                     className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1 cursor-pointer"
                   >
                     <IconTerminal2 className="w-3.5 h-3.5" />
-                    Remediar
+                    {t("remediate")}
                   </button>
                 </div>
               </div>

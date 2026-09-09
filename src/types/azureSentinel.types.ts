@@ -12,11 +12,20 @@ export type SentinelPricingTier =
   | "Free"
   | "Standalone";
 
-export type SentinelRemediationCategory =
-  | "COMMITMENT_TIER"
-  | "ORPHAN_RULES"
-  | "DAILY_CAP"
-  | "RETENTION_ADJUST";
+/**
+ * Lista en tiempo de ejecucion, no solo un tipo: el texto de cada recomendacion
+ * se resuelve con `rem_<category>_title` / `_desc`, asi que el test de claves
+ * necesita poder recorrer las categorias. El tipo se deriva de la lista para
+ * que no puedan separarse.
+ */
+export const SENTINEL_REMEDIATION_CATEGORIES = [
+  "COMMITMENT_TIER",
+  "ORPHAN_RULES",
+  "DAILY_CAP",
+  "RETENTION_ADJUST",
+] as const;
+
+export type SentinelRemediationCategory = (typeof SENTINEL_REMEDIATION_CATEGORIES)[number];
 
 export interface SentinelTableIngestion {
   tableName: string;
@@ -51,8 +60,7 @@ export interface SentinelResource {
   topTables?: SentinelTableIngestion[];
   primaryRecommendation?: {
     category: SentinelRemediationCategory;
-    title: string;
-    description: string;
+    params?: Record<string, string | number>;
     savingsUSD: number;
   };
 }
@@ -98,8 +106,7 @@ export interface SentinelRemediationAction {
   id: string;
   resourceId: string;
   resourceName: string;
-  title: string;
-  description: string;
+  params?: Record<string, string | number>;
   category: SentinelRemediationCategory;
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM";

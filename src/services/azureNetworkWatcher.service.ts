@@ -210,8 +210,7 @@ export function generateNetworkWatcherRecommendations(
       out.push({
         id: `ta-interval-${w.id}`,
         resourceId: w.id,
-        title: `Traffic Analytics a 60 min en ${w.location} (${w.resourceGroup})`,
-        description: `${w.trafficAnalytics10MinCount} configuracion(es) procesan cada 10 min en un scope no productivo. Pasar a 60 min recorta ~60% del volumen procesado sin perder visibilidad util para Dev/Test.`,
+        params: { location: w.location, rg: w.resourceGroup, count: w.trafficAnalytics10MinCount },
         category: "TRAFFIC_ANALYTICS_INTERVAL",
         estimatedSavingsUSD: Number(Math.max(0, saving).toFixed(2)),
         confidence: "HIGH",
@@ -229,8 +228,7 @@ export function generateNetworkWatcherRecommendations(
       out.push({
         id: `retention-${w.id}`,
         resourceId: w.id,
-        title: `Politica de ciclo de vida (30 dias) en ${w.linkedStorageAccountName || "la Storage Account de flow logs"}`,
-        description: `${unbounded.length} flow log(s) tienen retencion infinita (retentionPolicy.days = 0): el contenedor insights-logs-networksecuritygroupflowevent crece sin techo. Una regla de lifecycle a 30 dias frena la acumulacion (~${gb.toFixed(1)} GB/mes).`,
+        params: { storage: w.linkedStorageAccountName || "SIN_CUENTA", count: unbounded.length, gb: gb.toFixed(1) },
         category: "STORAGE_LIFECYCLE",
         estimatedSavingsUSD: calcFlowLogsStorageCost(gb),
         confidence: "HIGH",
@@ -244,8 +242,7 @@ export function generateNetworkWatcherRecommendations(
       out.push({
         id: `cm-orphan-${w.id}`,
         resourceId: w.id,
-        title: `Purgar ${orphanMonitors.length} Connection Monitor(s) huerfano(s) en ${w.location}`,
-        description: `Monitorean endpoints que ya no existen: siguen facturando ${CONNECTION_MONITOR_USD_PER_TEST_MONTH} USD por prueba/mes y generan alertas de falla permanentes que erosionan la confianza del equipo en el tablero.`,
+        params: { count: orphanMonitors.length, location: w.location, rate: CONNECTION_MONITOR_USD_PER_TEST_MONTH },
         category: "ORPHAN_PURGE",
         estimatedSavingsUSD: calcConnectionMonitorCost(orphanMonitors.reduce((a, m) => a + m.testsCount, 0)),
         confidence: "HIGH",
@@ -260,8 +257,7 @@ export function generateNetworkWatcherRecommendations(
       out.push({
         id: `cm-freq-${w.id}`,
         resourceId: w.id,
-        title: `Bajar la frecuencia de ${aggressive.length} monitor(es) de desarrollo en ${w.location}`,
-        description: `Sondean cada ${Math.min(...aggressive.map((m) => m.minFrequencySeconds))} s en un entorno no productivo. Pasar a 300 s conserva la deteccion de caidas y reduce el ruido de telemetria.`,
+        params: { count: aggressive.length, location: w.location, seconds: Math.min(...aggressive.map((m) => m.minFrequencySeconds)) },
         category: "MONITOR_FREQUENCY",
         // La tarifa es por prueba/mes, no por sondeo: el ahorro directo es nulo,
         // el beneficio es menos ingesta de telemetria asociada. No se infla.

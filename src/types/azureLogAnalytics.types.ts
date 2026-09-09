@@ -14,11 +14,20 @@ export type LawPricingTier =
   | "Standalone"
   | "PerNode";
 
-export type LawRemediationCategory =
-  | "COMMITMENT_TIER"
-  | "DAILY_CAP"
-  | "RETENTION_ADJUST"
-  | "PURGE_ORPHAN";
+/**
+ * Lista en tiempo de ejecucion, no solo un tipo: el texto de cada recomendacion
+ * se resuelve con `rem_<category>_title` / `_desc`, asi que el test de claves
+ * necesita poder recorrer las categorias. El tipo se deriva de la lista para
+ * que no puedan separarse.
+ */
+export const LAW_REMEDIATION_CATEGORIES = [
+  "COMMITMENT_TIER",
+  "DAILY_CAP",
+  "RETENTION_ADJUST",
+  "PURGE_ORPHAN",
+] as const;
+
+export type LawRemediationCategory = (typeof LAW_REMEDIATION_CATEGORIES)[number];
 
 export interface LogAnalyticsResource {
   id: string;
@@ -43,8 +52,7 @@ export interface LogAnalyticsResource {
   potentialSavingsUSD: number;
   primaryRecommendation?: {
     category: LawRemediationCategory;
-    title: string;
-    description: string;
+    params?: Record<string, string | number>;
     savingsUSD: number;
   };
 }
@@ -77,8 +85,7 @@ export interface LogAnalyticsRemediationAction {
   id: string;
   resourceId: string;
   resourceName: string;
-  title: string;
-  description: string;
+  params?: Record<string, string | number>;
   category: LawRemediationCategory;
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM";

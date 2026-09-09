@@ -10,6 +10,10 @@ import { BASIC_NETWORK_REMEDIATION_CATEGORIES } from "@/types/basicNetworking.ty
 import { HYBRID_REMEDIATION_CATEGORIES } from "@/types/hybridConnectivity.types";
 import { LOAD_BALANCING_REMEDIATION_CATEGORIES } from "@/types/loadBalancing.types";
 import { INTERNET_ACCESS_REMEDIATION_CATEGORIES } from "@/types/internetAccess.types";
+import { LAW_REMEDIATION_CATEGORIES } from "@/types/azureLogAnalytics.types";
+import { AZURE_MONITOR_REMEDIATION_CATEGORIES } from "@/types/azureMonitor.types";
+import { SENTINEL_REMEDIATION_CATEGORIES } from "@/types/azureSentinel.types";
+import { NETWORK_WATCHER_REMEDIATION_CATEGORIES } from "@/types/azureNetworkWatcher.types";
 import { WATERFALL_STEP_KEYS } from "@/types/azureWhatIf.types";
 import { REDIS_RULE_I18N } from "@/types/redisCache";
 import { MONGO_RULE_I18N } from "@/types/azureMongoDb";
@@ -176,6 +180,32 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
          */
         params?: Record<string, string | number>;
     }> = [
+        {
+            // Las cuatro familias de monitoreo comparten molde: sin `_impact`,
+            // porque el tipo de esos servicios nunca tuvo `impactSummary`.
+            que: "recomendaciones de Log Analytics (LAW_REMEDIATION_CATEGORIES)",
+            ns: "LogAnalyticsPanel",
+            params: { name: "law-prod", tier: 100, gb: "140.0", payg: 2.3, rate: 1.96, savings: "1470.00", rg: "rg-dev", days: 365 },
+            claves: LAW_REMEDIATION_CATEGORIES.flatMap((c) => [`rem_${c}_title`, `rem_${c}_desc`]),
+        },
+        {
+            que: "recomendaciones de Azure Monitor (AZURE_MONITOR_REMEDIATION_CATEGORIES)",
+            ns: "AzureMonitorPanel",
+            params: { name: "alert-5xx", gb: "420.0", cost: "966.00", savings: "676.20", rg: "rg-dev", target: "vm-legacy" },
+            claves: AZURE_MONITOR_REMEDIATION_CATEGORIES.flatMap((c) => [`rem_${c}_title`, `rem_${c}_desc`]),
+        },
+        {
+            que: "recomendaciones de Sentinel (SENTINEL_REMEDIATION_CATEGORIES)",
+            ns: "SentinelPanel",
+            params: { name: "law-sentinel-prod", tier: 100, gb: "141.8", rate: "3.23", savings: "3,950", rules: 4, days: 365 },
+            claves: SENTINEL_REMEDIATION_CATEGORIES.flatMap((c) => [`rem_${c}_title`, `rem_${c}_desc`]),
+        },
+        {
+            que: "recomendaciones de Network Watcher (NETWORK_WATCHER_REMEDIATION_CATEGORIES)",
+            ns: "NetworkWatcher",
+            params: { location: "eastus", rg: "rg-dev", count: 3, storage: "stflowlogs", gb: "12.4", rate: 1.01, seconds: 30 },
+            claves: NETWORK_WATCHER_REMEDIATION_CATEGORIES.flatMap((c) => [`rem_${c}_title`, `rem_${c}_desc`]),
+        },
         {
             // Mismo molde que las otras familias de red.
             que: "recomendaciones de conectividad hibrida (HYBRID_REMEDIATION_CATEGORIES)",
@@ -638,6 +668,10 @@ const TABLEROS_MUERTOS = [
 ];
 
 const TABLEROS_LIMPIOS = [
+    "src/components/monitoring/AzureMonitorPanel.tsx",
+    "src/components/monitoring/LogAnalyticsPanel.tsx",
+    "src/components/monitoring/NetworkWatcherPanel.tsx",
+    "src/components/monitoring/SentinelPanel.tsx",
     "src/components/budgets/BudgetCard.tsx",
     "src/components/budgets/BudgetMonthlyChart.tsx",
     "src/components/budgets/KillSwitchConfig.tsx",

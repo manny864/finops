@@ -27,11 +27,20 @@ export const FLOW_LOGS_STORAGE_USD_PER_GB_MONTH = 0.021;
 /** Intervalo de Traffic Analytics en minutos: Azure solo admite 10 o 60. */
 export type TrafficAnalyticsInterval = 10 | 60;
 
-export type NetworkWatcherRemediationCategory =
-  | "TRAFFIC_ANALYTICS_INTERVAL"
-  | "STORAGE_LIFECYCLE"
-  | "MONITOR_FREQUENCY"
-  | "ORPHAN_PURGE";
+/**
+ * Lista en tiempo de ejecucion, no solo un tipo: el texto de cada recomendacion
+ * se resuelve con `rem_<category>_title` / `_desc`, asi que el test de claves
+ * necesita poder recorrer las categorias. El tipo se deriva de la lista para
+ * que no puedan separarse.
+ */
+export const NETWORK_WATCHER_REMEDIATION_CATEGORIES = [
+  "TRAFFIC_ANALYTICS_INTERVAL",
+  "STORAGE_LIFECYCLE",
+  "MONITOR_FREQUENCY",
+  "ORPHAN_PURGE",
+] as const;
+
+export type NetworkWatcherRemediationCategory = (typeof NETWORK_WATCHER_REMEDIATION_CATEGORIES)[number];
 
 /** Un Flow Log (NSG o VNet) vinculado a un Network Watcher. */
 export interface FlowLogConfig {
@@ -115,8 +124,7 @@ export interface NetworkWatcherSummaryMetrics {
 export interface NetworkWatcherRemediationAction {
   id: string;
   resourceId: string;
-  title: string;
-  description: string;
+  params?: Record<string, string | number>;
   category: NetworkWatcherRemediationCategory;
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM";

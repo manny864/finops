@@ -1,5 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -96,6 +97,7 @@ function SecurityMaturityModal({
   potentialSavings: number;
 }) {
   const t = useTranslations("SentinelPanel");
+  const textoRem = useTextoPorCategoria("SentinelPanel");
   const [saving, setSaving] = useState(false);
   const [completed, setCompleted] = useState(false);
 
@@ -139,12 +141,12 @@ function SecurityMaturityModal({
 
         <div className="space-y-3 mb-6">
           <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 text-xs">
-            <span className="text-slate-600 dark:text-slate-300 font-medium">Workspaces Sentinel Auditados:</span>
+            <span className="text-slate-600 dark:text-slate-300 font-medium">{t("auditedWorkspaces")}</span>
             <span className="font-bold text-[#1B2A41] dark:text-slate-100">{workspacesCount} instancias</span>
           </div>
           <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 text-xs">
             <span className="text-slate-600 dark:text-slate-300 font-medium">{t("savingsPotential")}</span>
-            <span className="font-bold text-emerald-600">{formatCurrency(potentialSavings)}/mes</span>
+            <span className="font-bold text-emerald-600">{t("amountPerMonth", { amount: formatCurrency(potentialSavings) })}</span>
           </div>
           <div className="p-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-xl border border-blue-100 dark:border-blue-900/30 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
             {t("reassessmentNote")}
@@ -166,7 +168,7 @@ function SecurityMaturityModal({
             {saving ? (
               <>
                 <IconLoader2 className="w-4 h-4 animate-spin text-[#0054A6]" />
-                Auditando SIEM...
+                {t("auditingSiem")}
               </>
             ) : completed ? (
               <>
@@ -195,6 +197,7 @@ function RemediationModal({
   onClose: () => void;
 }) {
   const t = useTranslations("SentinelPanel");
+  const textoRem = useTextoPorCategoria("SentinelPanel");
   const [activeTab, setActiveTab] = useState<"CLI" | "POWERSHELL">("CLI");
   const [copied, setCopied] = useState(false);
 
@@ -225,7 +228,7 @@ function RemediationModal({
           </div>
           <div>
             <h2 className="text-lg font-bold text-[#1B2A41] dark:text-slate-100">
-              {action.title}
+              {textoRem(action, "title")}
             </h2>
             <p className="text-xs text-slate-500">{action.resourceName}</p>
           </div>
@@ -234,7 +237,7 @@ function RemediationModal({
         <div className="space-y-4 mb-6">
           <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 border border-slate-100 dark:border-slate-800">
             <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-              {action.description}
+              {textoRem(action, "desc")}
             </p>
           </div>
 
@@ -250,13 +253,13 @@ function RemediationModal({
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="p-2.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
-                  <span className="text-[10px] text-slate-400 block mb-0.5">Tier Actual:</span>
+                  <span className="text-[10px] text-slate-400 block mb-0.5">{t("currentTier")}</span>
                   <span className="font-bold text-slate-700 dark:text-slate-300">
                     {action.currentTier || "Pay-As-You-Go ($4.30/GB)"}
                   </span>
                 </div>
                 <div className="p-2.5 bg-white dark:bg-slate-900 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <span className="text-[10px] text-[#0054A6] block mb-0.5">Tier Recomendado:</span>
+                  <span className="text-[10px] text-[#0054A6] block mb-0.5">{t("recommendedTier")}</span>
                   <span className="font-bold text-[#0054A6]">
                     {action.recommendedTier || "CapacityReservation100GB"} (~$3.19/GB)
                   </span>
@@ -272,7 +275,7 @@ function RemediationModal({
                   {t("dailyCapTitle")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
-                  Límite sugerido: {action.recommendedDailyCapGB || 5} GB/día
+                  {t("suggestedCap", { gb: action.recommendedDailyCapGB || 5 })}
                 </span>
               </div>
               <p className="text-[11px] text-slate-600 dark:text-slate-400">
@@ -288,7 +291,7 @@ function RemediationModal({
                   {t("recRulesTitle")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
-                  {action.orphanRulesCount || 2} reglas identificadas
+                  {t("rulesIdentified", { count: action.orphanRulesCount || 2 })}
                 </span>
               </div>
               <p className="text-[11px] text-slate-600 dark:text-slate-400">
@@ -371,6 +374,7 @@ function RemediationModal({
 // ─── Componente Principal ───
 export default function SentinelPanel() {
   const t = useTranslations("SentinelPanel");
+  const textoRem = useTextoPorCategoria("SentinelPanel");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -477,15 +481,15 @@ export default function SentinelPanel() {
   const handleExportCSV = () => {
     const headers = [
       "Workspace",
-      "Región",
-      "Grupo de Recursos",
-      "Suscripción",
-      "Tier LAW",
-      "Retención (Días)",
-      "Daily Cap (GB)",
-      "Ingesta MTD (GB)",
-      "Costo Consolidado ($ USD)",
-      "Ahorro Estimado ($ USD)",
+      t("csvRegion"),
+      t("csvResourceGroup"),
+      t("csvSubscription"),
+      t("csvLawTier"),
+      t("csvRetentionDays"),
+      t("csvDailyCapGb"),
+      t("csvIngestionMtdGb"),
+      t("csvConsolidatedCost"),
+      t("csvEstSavings"),
     ];
     const rows = filteredWorkspaces.map((w) => [
       `"${w.name}"`,
@@ -494,7 +498,7 @@ export default function SentinelPanel() {
       `"${w.subscriptionName}"`,
       w.lawPricingTier,
       w.retentionInDays,
-      w.dailyCapGB ? `${w.dailyCapGB} GB` : "Ilimitado",
+      w.dailyCapGB ? `${w.dailyCapGB} GB` : t("unlimited"),
       w.totalIngestedGB_MTD.toFixed(2),
       w.totalRealCostUSD.toFixed(2),
       w.potentialSavingsUSD.toFixed(2),
@@ -570,7 +574,7 @@ export default function SentinelPanel() {
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-[#10B981] bg-white dark:bg-slate-900 border border-[#10B981] rounded-xl hover:bg-emerald-50/40 transition-colors shadow-xs cursor-pointer"
           >
             <IconDownload className="w-4 h-4 text-[#10B981]" />
-            Exportar CSV
+            {t("exportCsv")}
           </button>
 
           <button
@@ -622,7 +626,7 @@ export default function SentinelPanel() {
               {(metrics?.totalIngestedGB || 0).toLocaleString(undefined, { maximumFractionDigits: 1 })} GB
             </div>
             <div className="flex items-center gap-1.5 mt-1 text-[11px] text-slate-500">
-              <span>Tarifa combinada:</span>
+              <span>{t("combinedRate")}</span>
               <span className="font-semibold text-slate-700 dark:text-slate-300">
                 $4.30 USD / GB
               </span>
@@ -641,11 +645,11 @@ export default function SentinelPanel() {
           <div>
             <div className="text-2xl font-extrabold text-emerald-600 font-sans">
               {formatCurrency(metrics?.potentialSavingsUSD || 0)}
-              <span className="text-xs text-slate-500 font-normal ml-1">/mes</span>
+              <span className="text-xs text-slate-500 font-normal ml-1">{t("perMonth")}</span>
             </div>
             <div className="flex items-center gap-1.5 mt-1 text-[11px] text-emerald-700 dark:text-emerald-400">
               <IconCheck className="w-3.5 h-3.5" />
-              <span>{remediations.length} acciones optimizables</span>
+              <span>{t("optimizableActions", { count: remediations.length })}</span>
             </div>
           </div>
         </div>
@@ -654,7 +658,7 @@ export default function SentinelPanel() {
         <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Candidatos Capacity Tier
+              {t("kpiCapacityCandidates")}
             </span>
             <IconAward className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
           </div>
@@ -775,7 +779,7 @@ export default function SentinelPanel() {
                   />
                   <RechartsTooltip
                     formatter={(val: any, name: any) => {
-                      if (name === "Costo ($ USD)") return [formatCurrency(Number(val) || 0), name];
+                      if (name === t("seriesCost")) return [formatCurrency(Number(val) || 0), name];
                       return [`${Number(val).toFixed(1)} GB`, name];
                     }}
                     contentStyle={{
@@ -924,16 +928,16 @@ export default function SentinelPanel() {
                   {t("colSubscription")}
                 </ResizableTh>
                 <ResizableTh minWidth={130} className="p-3 font-semibold text-slate-600 dark:text-slate-300">
-                  Pricing Tier
+                  {t("colPricingTier")}
                 </ResizableTh>
                 <ResizableTh minWidth={90} className="p-3 font-semibold text-slate-600 dark:text-slate-300">
                   {t("colRetention")}
                 </ResizableTh>
                 <ResizableTh minWidth={100} className="p-3 font-semibold text-slate-600 dark:text-slate-300">
-                  Tope Diario
+                  {t("colDailyCap")}
                 </ResizableTh>
                 <ResizableTh minWidth={110} className="p-3 font-semibold text-slate-600 dark:text-slate-300">
-                  Ingesta MTD
+                  {t("colIngestionMtd")}
                 </ResizableTh>
                 <ResizableTh minWidth={120} className="p-3 font-semibold text-slate-600 dark:text-slate-300">
                   {t("colCostMtd")}
@@ -1034,7 +1038,7 @@ export default function SentinelPanel() {
                       <td className="p-3 text-slate-600 dark:text-slate-300 font-medium">
                         {w.primaryRecommendation ? (
                           <span className="text-xs text-[#0054A6] line-clamp-1">
-                            {w.primaryRecommendation.title}
+                            {textoRem(w.primaryRecommendation, "title")}
                           </span>
                         ) : (
                           <span className="text-slate-400 text-xs">{t("noChanges")}</span>
@@ -1056,7 +1060,7 @@ export default function SentinelPanel() {
                             className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg hover:bg-blue-50/50 transition-colors shadow-2xs cursor-pointer"
                           >
                             <IconSparkles className="w-3.5 h-3.5 text-[#0054A6]" />
-                            Optimizar
+                            {t("optimize")}
                           </button>
                         ) : (
                           <button
@@ -1065,8 +1069,7 @@ export default function SentinelPanel() {
                                 id: `rem-${w.id}`,
                                 resourceId: w.id,
                                 resourceName: w.name,
-                                title: `Auditar Ingesta de '${w.name}'`,
-                                description: `Evaluación de volumen y conectores en ${w.name}`,
+                                params: { name: w.name },
                                 category: "DAILY_CAP",
                                 estimatedSavingsUSD: 50,
                                 confidence: "MEDIUM",
@@ -1076,7 +1079,7 @@ export default function SentinelPanel() {
                             className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-slate-600 dark:text-slate-400 hover:text-[#0054A6] transition-colors cursor-pointer"
                           >
                             <IconEye className="w-3.5 h-3.5" />
-                            Detalles
+                            {t("details")}
                           </button>
                         )}
                       </td>
@@ -1115,7 +1118,7 @@ export default function SentinelPanel() {
             </div>
           </div>
           <span className="text-xs font-bold text-emerald-600">
-            Ahorro Total: {formatCurrency(metrics?.potentialSavingsUSD || 0)}/mes
+            {t("totalSavingsAmount", { amount: formatCurrency(metrics?.potentialSavingsUSD || 0) })}
           </span>
         </div>
 
@@ -1139,14 +1142,14 @@ export default function SentinelPanel() {
                     {action.category.replace(/_/g, " ")}
                   </span>
                   <span className="text-xs font-extrabold text-emerald-600">
-                    ~{formatCurrency(action.estimatedSavingsUSD)}/mes
+                    {t("estSavingsPerMonth", { amount: formatCurrency(action.estimatedSavingsUSD) })}
                   </span>
                 </div>
                 <h3 className="text-xs font-bold text-[#1B2A41] dark:text-slate-100 mb-1">
-                  {action.title}
+                  {textoRem(action, "title")}
                 </h3>
                 <p className="text-[11px] text-slate-500 line-clamp-3 leading-relaxed">
-                  {action.description}
+                  {textoRem(action, "desc")}
                 </p>
               </div>
 
@@ -1159,7 +1162,7 @@ export default function SentinelPanel() {
                   className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg hover:bg-blue-50/50 transition-colors shadow-2xs cursor-pointer"
                 >
                   <IconSparkles className="w-3.5 h-3.5 text-[#0054A6]" />
-                  Remediar
+                  {t("remediate")}
                 </button>
               </div>
             </div>

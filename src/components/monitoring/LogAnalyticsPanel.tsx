@@ -1,5 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
+import { useTextoPorCategoria } from "@/lib/recommendationText";
 
 import React, { useState } from "react";
 import useSWR from "swr";
@@ -91,6 +92,7 @@ function MaturityEvaluationModal({
   potentialSavings: number;
 }) {
   const t = useTranslations("LogAnalyticsPanel");
+  const textoRem = useTextoPorCategoria("LogAnalyticsPanel");
   const [saving, setSaving] = useState(false);
   const [completed, setCompleted] = useState(false);
 
@@ -134,12 +136,12 @@ function MaturityEvaluationModal({
 
         <div className="space-y-3 mb-6">
           <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 text-xs">
-            <span className="text-slate-600 dark:text-slate-300 font-medium">Workspaces Auditados:</span>
-            <span className="font-bold text-[#1B2A41] dark:text-slate-100">{workspacesCount} instancias</span>
+            <span className="text-slate-600 dark:text-slate-300 font-medium">{t("auditedWorkspaces")}</span>
+            <span className="font-bold text-[#1B2A41] dark:text-slate-100">{t("instancesValue", { count: workspacesCount })}</span>
           </div>
           <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 text-xs">
             <span className="text-slate-600 dark:text-slate-300 font-medium">{t("savingsPotential")}</span>
-            <span className="font-bold text-emerald-600">{formatCurrency(potentialSavings)}/mes</span>
+            <span className="font-bold text-emerald-600">{t("amountPerMonth", { amount: formatCurrency(potentialSavings) })}</span>
           </div>
           <div className="p-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-xl border border-blue-100 dark:border-blue-900/30 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
             {t("rerunDesc")}
@@ -190,6 +192,7 @@ function RemediationModal({
   onClose: () => void;
 }) {
   const t = useTranslations("LogAnalyticsPanel");
+  const textoRem = useTextoPorCategoria("LogAnalyticsPanel");
   const [activeTab, setActiveTab] = useState<"CLI" | "POWERSHELL">("CLI");
   const [copied, setCopied] = useState(false);
 
@@ -220,7 +223,7 @@ function RemediationModal({
           </div>
           <div>
             <h2 className="text-lg font-bold text-[#1B2A41] dark:text-slate-100">
-              {action.title}
+              {textoRem(action, "title")}
             </h2>
             <p className="text-xs text-slate-500">{action.resourceName}</p>
           </div>
@@ -229,7 +232,7 @@ function RemediationModal({
         <div className="space-y-4 mb-6">
           <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 border border-slate-100 dark:border-slate-800">
             <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-              {action.description}
+              {textoRem(action, "desc")}
             </p>
           </div>
 
@@ -245,13 +248,13 @@ function RemediationModal({
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="p-2.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
-                  <span className="text-[10px] text-slate-400 block mb-0.5">Tier Actual:</span>
+                  <span className="text-[10px] text-slate-400 block mb-0.5">{t("currentTier")}</span>
                   <span className="font-bold text-slate-700 dark:text-slate-300">
                     {action.currentTier || "Pay-As-You-Go"}
                   </span>
                 </div>
                 <div className="p-2.5 bg-white dark:bg-slate-900 rounded-lg border border-blue-300 dark:border-blue-700">
-                  <span className="text-[10px] text-blue-500 block mb-0.5">Tier Recomendado:</span>
+                  <span className="text-[10px] text-blue-500 block mb-0.5">{t("recommendedTier")}</span>
                   <span className="font-bold text-[#0054A6]">
                     {action.recommendedTier || "CapacityReservation100GB"}
                   </span>
@@ -272,7 +275,7 @@ function RemediationModal({
                 </span>
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400">
-                Fijar un límite diario de {action.recommendedDailyCapGB || 5} GB/día evita cobros desmedidos causados por bucles infinitos en aplicaciones en desarrollo.
+                {t("recDailyCapDesc", { gb: action.recommendedDailyCapGB || 5 })}
               </p>
             </div>
           )}
@@ -289,7 +292,7 @@ function RemediationModal({
                 </span>
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-400">
-                Reducir el periodo de retención activa de {action.currentRetentionDays || 90} a {action.recommendedRetentionDays || 30} días elimina costos de retención extendida ($0.12/GB-mes).
+                {t("recRetentionDesc", { from: action.currentRetentionDays || 90, to: action.recommendedRetentionDays || 30 })}
               </p>
             </div>
           )}
@@ -337,7 +340,7 @@ function RemediationModal({
                 {copied ? (
                   <>
                     <IconCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    Copiado
+                    {t("copied")}
                   </>
                 ) : (
                   <>
@@ -378,6 +381,7 @@ function KpiCard({
   alertBadge?: boolean;
 }) {
   const t = useTranslations("LogAnalyticsPanel");
+  const textoRem = useTextoPorCategoria("LogAnalyticsPanel");
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
       <div className="flex items-center justify-between">
@@ -406,6 +410,7 @@ function KpiCard({
 // ─── Main Log Analytics Panel Component ───
 export default function LogAnalyticsPanel() {
   const t = useTranslations("LogAnalyticsPanel");
+  const textoRem = useTextoPorCategoria("LogAnalyticsPanel");
   const { selectedTenant } = useTenant();
   const { instance, accounts } = useMsal();
   const searchParams = useSearchParams();
@@ -522,18 +527,18 @@ export default function LogAnalyticsPanel() {
     if (!workspaces.length) return;
     const headers = [
       "Workspace",
-      "Región",
-      "Grupo de Recursos",
-      "Suscripción",
+      t("csvRegion"),
+      t("csvResourceGroup"),
+      t("csvSubscription"),
       "Pricing Tier",
-      "Retención (Días)",
-      "Daily Cap (GB)",
-      "Ingesta MTD (GB)",
-      "Ingesta Diaria Promedio (GB)",
-      "Costo Ingesta (USD)",
-      "Costo Retención (USD)",
-      "Costo Total (USD)",
-      "Ahorro Estimado (USD)",
+      t("csvRetentionDays"),
+      t("csvDailyCapGb"),
+      t("csvIngestionMtdGb"),
+      t("csvAvgDailyIngestionGb"),
+      t("csvIngestionCost"),
+      t("csvRetentionCost"),
+      t("csvTotalCost"),
+      t("csvEstimatedSavings"),
     ];
     const rows = workspaces.map((w) => [
       w.name,
@@ -542,7 +547,7 @@ export default function LogAnalyticsPanel() {
       w.subscriptionName,
       w.pricingTier,
       w.retentionInDays,
-      w.isDailyCapUnlimited ? "Sin Límite" : `${w.dailyCapGB} GB`,
+      w.isDailyCapUnlimited ? t("unlimited") : `${w.dailyCapGB} GB`,
       w.totalBillableGB_MTD,
       w.avgDailyIngestionGB,
       w.monthlyCostUSD,
@@ -614,7 +619,7 @@ export default function LogAnalyticsPanel() {
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg shadow-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <IconDownload className="w-3.5 h-3.5" />
-            Exportar CSV
+            {t("exportCsv")}
           </button>
         </div>
       </div>
@@ -625,25 +630,25 @@ export default function LogAnalyticsPanel() {
           icon={IconCash}
           label={t("kpiCostMtd")}
           value={formatCurrency(summary.totalMonthlyCostUSD)}
-          sub={`Proyección fin de mes: ${formatCurrency(summary.totalMonthlyCostUSD * 1.05)}`}
+          sub={t("eomProjection", { amount: formatCurrency(summary.totalMonthlyCostUSD * 1.05) })}
         />
         <KpiCard
           icon={IconDatabaseExport}
-          label="Volumen Ingerido (GB MTD)"
+          label={t("kpiIngestedVolume")}
           value={`${summary.totalIngestedGB.toFixed(1)} GB`}
-          sub="Tarifa base PAYG: $2.30 USD/GB"
+          sub={t("kpiIngestedVolumeSub")}
         />
         <KpiCard
           icon={IconSparkles}
           label={t("kpiTotalSavings")}
           value={formatCurrency(summary.potentialSavingsUSD)}
-          sub={`${remediationActions.length} oportunidades activas`}
+          sub={t("activeOpportunities", { count: remediationActions.length })}
         />
         <KpiCard
           icon={IconArrowUpCircle}
-          label="Candidatos Commitment Tier"
+          label={t("kpiCommitmentCandidates")}
           value={String(summary.commitmentCandidatesCount)}
-          sub={`${summary.workspacesCount} workspaces monitoreados`}
+          sub={t("monitoredWorkspaces", { count: summary.workspacesCount })}
           alertBadge={summary.commitmentCandidatesCount > 0}
         />
       </div>
@@ -656,7 +661,7 @@ export default function LogAnalyticsPanel() {
             <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100">
               {t("costByTier")}
             </h3>
-            <span className="text-[11px] text-slate-400">Mensual</span>
+            <span className="text-[11px] text-slate-400">{t("monthly")}</span>
           </div>
 
           <div className="h-64 w-full">
@@ -738,8 +743,8 @@ export default function LogAnalyticsPanel() {
                   <RechartsTooltip
                     formatter={(val: any, name: any) =>
                       name === "ingestedGB"
-                        ? [`${val} GB`, "Ingesta"]
-                        : [formatCurrency(Number(val)), "Costo"]
+                        ? [`${val} GB`, t("seriesIngestion")]
+                        : [formatCurrency(Number(val)), t("seriesCost")]
                     }
                     contentStyle={{
                       backgroundColor: "#1B2A41",
@@ -780,7 +785,7 @@ export default function LogAnalyticsPanel() {
               >
                 {resourceOptions.map((opt) => (
                   <option key={opt} value={opt}>
-                    {opt === "ALL" ? "Todos los Workspaces" : opt}
+                    {opt === "ALL" ? t("allWorkspaces") : opt}
                   </option>
                 ))}
               </select>
@@ -796,7 +801,7 @@ export default function LogAnalyticsPanel() {
               >
                 {regionOptions.map((opt) => (
                   <option key={opt} value={opt}>
-                    {opt === "ALL" ? "Todas las Regiones" : opt}
+                    {opt === "ALL" ? t("allRegions") : opt}
                   </option>
                 ))}
               </select>
@@ -812,7 +817,7 @@ export default function LogAnalyticsPanel() {
               >
                 {tierOptions.map((opt) => (
                   <option key={opt} value={opt}>
-                    {opt === "ALL" ? "Todos los Tiers" : opt}
+                    {opt === "ALL" ? t("allTiers") : opt}
                   </option>
                 ))}
               </select>
@@ -828,7 +833,7 @@ export default function LogAnalyticsPanel() {
               >
                 {rgOptions.map((opt) => (
                   <option key={opt} value={opt}>
-                    {opt === "ALL" ? "Todos los RGs" : opt}
+                    {opt === "ALL" ? t("allRgs") : opt}
                   </option>
                 ))}
               </select>
@@ -866,63 +871,72 @@ export default function LogAnalyticsPanel() {
                   className="py-3 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer select-none"
                   onClick={() => handleSort("name")}
                 >
-                  Workspace {sortKey === "name" && (sortDir === "asc" ? "▲" : "▼")}
+                  Workspace{" "}
+                  {sortKey === "name" && (sortDir === "asc" ? "▲" : "▼")}
                 </ResizableTh>
                 <ResizableTh
                   minWidth={110}
                   className="py-3 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer select-none"
                   onClick={() => handleSort("location")}
                 >
-                  Región {sortKey === "location" && (sortDir === "asc" ? "▲" : "▼")}
+                  {t("detailRegion")}{" "}
+                  {sortKey === "location" && (sortDir === "asc" ? "▲" : "▼")}
                 </ResizableTh>
                 <ResizableTh
                   minWidth={140}
                   className="py-3 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer select-none"
                   onClick={() => handleSort("resourceGroup")}
                 >
-                  Grupo Rec. {sortKey === "resourceGroup" && (sortDir === "asc" ? "▲" : "▼")}
+                  {t("colResourceGroupShort")}{" "}
+                  {sortKey === "resourceGroup" && (sortDir === "asc" ? "▲" : "▼")}
                 </ResizableTh>
                 <ResizableTh
                   minWidth={150}
                   className="py-3 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer select-none"
                   onClick={() => handleSort("subscriptionName")}
                 >
-                  Suscripción {sortKey === "subscriptionName" && (sortDir === "asc" ? "▲" : "▼")}
+                  {t("colSubscription")}{" "}
+                  {sortKey === "subscriptionName" && (sortDir === "asc" ? "▲" : "▼")}
                 </ResizableTh>
                 <ResizableTh
                   minWidth={130}
                   className="py-3 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer select-none"
                   onClick={() => handleSort("pricingTier")}
                 >
-                  Pricing Tier {sortKey === "pricingTier" && (sortDir === "asc" ? "▲" : "▼")}
+                  {t("colPricingTier")}{" "}
+                  {sortKey === "pricingTier" && (sortDir === "asc" ? "▲" : "▼")}
                 </ResizableTh>
                 <ResizableTh
                   minWidth={100}
                   className="py-3 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer select-none text-right"
                   onClick={() => handleSort("retentionInDays")}
                 >
-                  Retención {sortKey === "retentionInDays" && (sortDir === "asc" ? "▲" : "▼")}
+                  {t("colRetention")}{" "}
+                  {sortKey === "retentionInDays" && (sortDir === "asc" ? "▲" : "▼")}
                 </ResizableTh>
                 <ResizableTh
                   minWidth={110}
                   className="py-3 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer select-none text-right"
                   onClick={() => handleSort("dailyCapGB")}
                 >
-                  Tope Diario {sortKey === "dailyCapGB" && (sortDir === "asc" ? "▲" : "▼")}
+                  {t("colDailyCap")}{" "}
+                  {sortKey === "dailyCapGB" && (sortDir === "asc" ? "▲" : "▼")}
                 </ResizableTh>
                 <ResizableTh
                   minWidth={110}
                   className="py-3 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer select-none text-right"
                   onClick={() => handleSort("totalBillableGB_MTD")}
                 >
-                  Ingesta MTD {sortKey === "totalBillableGB_MTD" && (sortDir === "asc" ? "▲" : "▼")}
+                  {t("colIngestionMtd")}{" "}
+                  {sortKey === "totalBillableGB_MTD" && (sortDir === "asc" ? "▲" : "▼")}
                 </ResizableTh>
                 <ResizableTh
                   minWidth={120}
                   className="py-3 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer select-none text-right"
                   onClick={() => handleSort("totalRealCostUSD")}
                 >
-                  Costo Total {sortKey === "totalRealCostUSD" && (sortDir === "asc" ? "▲" : "▼")}
+                  {t("colTotalCost")}{" "}
+                  {sortKey === "totalRealCostUSD" && (sortDir === "asc" ? "▲" : "▼")}
                 </ResizableTh>
                 <ResizableTh
                   minWidth={160}
@@ -940,7 +954,7 @@ export default function LogAnalyticsPanel() {
                   minWidth={120}
                   className="py-3 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-center"
                 >
-                  Acciones
+                  {t("colActions")}
                 </ResizableTh>
               </tr>
             </thead>
@@ -1040,7 +1054,7 @@ export default function LogAnalyticsPanel() {
                       <td className="py-3 px-3 text-xs">
                         {w.primaryRecommendation ? (
                           <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300 line-clamp-1">
-                            {w.primaryRecommendation.title}
+                            {textoRem(w.primaryRecommendation, "title")}
                           </span>
                         ) : (
                           <span className="text-[11px] text-slate-400">{t("optimal")}</span>
@@ -1060,7 +1074,7 @@ export default function LogAnalyticsPanel() {
                             className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-md shadow-2xs hover:bg-blue-50/50 transition-colors cursor-pointer"
                           >
                             <IconSparkles className="w-3 h-3 text-[#0078D4]" />
-                            Optimizar
+                            {t("optimize")}
                           </button>
                         ) : (
                           <span className="text-[11px] text-slate-400">—</span>
@@ -1119,10 +1133,10 @@ export default function LogAnalyticsPanel() {
                     </span>
                   </div>
                   <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
-                    {rec.title}
+                    {textoRem(rec, "title")}
                   </h4>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-3">
-                    {rec.description}
+                    {textoRem(rec, "desc")}
                   </p>
                 </div>
 
@@ -1135,7 +1149,7 @@ export default function LogAnalyticsPanel() {
                     className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-2xs hover:bg-blue-50/50 transition-colors cursor-pointer"
                   >
                     <IconSparkles className="w-3 h-3 text-[#0078D4]" />
-                    Optimizar
+                    {t("optimize")}
                   </button>
                 </div>
               </div>
