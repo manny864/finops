@@ -164,4 +164,61 @@ describe("áreas exclusivas de Enterprise", () => {
             `el bloqueo de la página no protege los datos:\n  ${flojas.join("\n  ")}`,
         ).toEqual([]);
     });
+
+    /**
+     * La página de precios se escribe a mano y no sabe nada de `ROUTE_TIERS`,
+     * así que al subir un área queda ofreciendo en un plan barato algo que ya
+     * no se puede abrir. Le pasó a siete viñetas con este cambio.
+     *
+     * Cobrar por una función que devuelve el cartel de "no disponible en tu
+     * plan" es el peor final posible, así que se fija acá. Sólo se listan las
+     * viñetas cuya ruta es identificable sin adivinar; el resto del texto
+     * comercial no se toca.
+     */
+    it("ningún plan ofrece una función que su propio tier tiene bloqueada", () => {
+        // frase de la viñeta (es/en/pt-BR) -> ruta que abre
+        const VINETAS: [string[], string][] = [
+            [["Inventario de Costo Cero", "Zero-Cost Inventory", "Inventário de Custo Zero"],
+                "/intelligence/zero-cost"],
+            [["Planes de Ahorro vs Reservas", "Savings Plan vs Reservation", "Planos de Economia vs Reservas"],
+                "/intelligence/commitment-simulator"],
+            [["Beneficios Híbridos", "Hybrid Benefit", "Benefício Híbrido"],
+                "/intelligence/hybrid-benefit"],
+            [["Scorecard", "Scorecard", "Scorecard"], "/intelligence/scorecard"],
+            [["Salud del Tenant", "Tenant Health", "Saúde do Tenant"],
+                "/intelligence/tenant-health"],
+            [["Escenarios What-If", "What-If Scenarios", "Cenários What-If"],
+                "/intelligence/simulator"],
+            [["Rightsizing", "Rightsizing", "Rightsizing"], "/intelligence/rightsizing"],
+            [["Optimización de Tarifas", "Rate Optimization", "Otimização de Tarifas"],
+                "/intelligence/rates"],
+            [["Unit Economics", "Unit Economics", "Unit Economics"],
+                "/intelligence/unit-economics"],
+            [["Análisis de Red", "Network Analysis", "Análise de Rede"], "/intelligence/redes"],
+        ];
+        const PLANES: [string, string][] = [["pro", "Professional"], ["business", "Business"]];
+
+        const mentiras: string[] = [];
+        for (const [idioma, i] of [["es", 0], ["en", 1], ["pt-BR", 2]] as [string, number][]) {
+            const msgs = JSON.parse(
+                readFileSync(join(RAIZ, `messages/${idioma}.json`), "utf8"),
+            ) as { pricing: Record<string, { features: string[] }> };
+            for (const [clave, tier] of PLANES) {
+                const features = msgs.pricing[clave].features;
+                for (const [frases, ruta] of VINETAS) {
+                    const frase = frases[i];
+                    if (!features.some((f) => f.includes(frase))) continue;
+                    const pedido = getRequiredTierForPath(ruta);
+                    if (pedido && !hasAccess(tier, pedido)) {
+                        mentiras.push(`${idioma}/${clave}: "${frase}" -> ${ruta} pide ${pedido}`);
+                    }
+                }
+            }
+        }
+        expect(
+            mentiras,
+            `La página de precios vende funciones que ese plan tiene bloqueadas:\n  ` +
+            `${mentiras.join("\n  ")}`,
+        ).toEqual([]);
+    });
 });
