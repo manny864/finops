@@ -2,7 +2,7 @@
  * GET /api/intelligence/defender/details
  * Microsoft Defender for Cloud — Cobertura por Recurso y FinOps de Planes
  *
- * RBAC: requireTenantTier(Business) para tenants reales; bypass para demo/mock.
+ * RBAC: requireTenantTier(Enterprise) para tenants reales; bypass para demo/mock.
  * `isMockTenant` corre ANTES del guard: la rama mock son literales sinteticos
  * puros. Tolerancia cero a fallback mock en tenants conectados.
  *
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(getMockDefenderPayload(tenantId));
     }
 
-    await requireTenantTier(request, tenantId, "Business");
+    await requireTenantTier(request, tenantId, "Enterprise");
 
     const subscriptionIds =
       searchParams

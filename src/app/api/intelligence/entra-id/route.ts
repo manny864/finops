@@ -200,7 +200,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!isMockTenant(tenantId)) {
-      await requireTenantTier(request, tenantId, "Business");
+      await requireTenantTier(request, tenantId, "Enterprise");
     } else {
       await requireTenantAccess(request, tenantId);
     }

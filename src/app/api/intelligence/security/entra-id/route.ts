@@ -7,7 +7,7 @@
  * interceptada por el monkey-patch de modo demo en TenantProvider. Cambiar
  * aquella habria roto ambas cosas.
  *
- * RBAC: requireTenantTier(Business) para tenants reales; bypass para demo/mock.
+ * RBAC: requireTenantTier(Enterprise) para tenants reales; bypass para demo/mock.
  * `isMockTenant` corre ANTES del guard: la rama mock son literales sinteticos
  * puros. Tolerancia cero a fallback mock en tenants conectados.
  *
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(getMockEntraIdPayload(tenantId));
     }
 
-    await requireTenantTier(request, tenantId, "Business");
+    await requireTenantTier(request, tenantId, "Enterprise");
 
     const payload = await fetchLiveEntraIdData(tenantId);
     return NextResponse.json(payload);

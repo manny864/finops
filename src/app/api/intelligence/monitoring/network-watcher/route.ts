@@ -2,7 +2,7 @@
  * GET /api/intelligence/monitoring/network-watcher
  * Azure Network Watcher — FinOps de Diagnostico de Red
  *
- * RBAC: requireTenantTier(Business) para tenants reales; bypass para demo/mock.
+ * RBAC: requireTenantTier(Enterprise) para tenants reales; bypass para demo/mock.
  * El tier se valida server-side porque RouteTierGate/Sidebar son solo client-side
  * (finding SEC-02, docs/security/audit-2026-08-21.md).
  *
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(getMockNetworkWatcherPayload(tenantId));
     }
 
-    await requireTenantTier(request, tenantId, "Business");
+    await requireTenantTier(request, tenantId, "Enterprise");
 
     const livePayload = await fetchLiveNetworkWatcherData(tenantId);
     return NextResponse.json(livePayload);

@@ -2,7 +2,7 @@
  * GET /api/intelligence/monitoring/alerts
  * Azure Alerts Management & FinOps Governance API
  *
- * RBAC: requireTenantTier(Business) for real tenants; bypass for mock/demo tenants.
+ * RBAC: requireTenantTier(Enterprise) for real tenants; bypass for mock/demo tenants.
  * El tier se valida server-side porque RouteTierGate/Sidebar son solo client-side
  * y no impiden que un tenant Professional le pegue directo a la API.
  * Evaluates isMockTenant BEFORE requireTenantTier.
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 2. Strict RBAC validation for real/connected tenants
-    await requireTenantTier(request, tenantId, "Business");
+    await requireTenantTier(request, tenantId, "Enterprise");
 
     // 3. Live Azure Resource Graph discovery (Zero fallback to mock on live tenant)
     const livePayload = await fetchLiveAlertsData(tenantId);
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Real tenant auth
-    await requireTenantTier(request, tenantId, "Business");
+    await requireTenantTier(request, tenantId, "Enterprise");
 
     const body = await request.json();
     return NextResponse.json({

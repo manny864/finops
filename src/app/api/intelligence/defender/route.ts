@@ -3,7 +3,7 @@
  * (Standard/Free) por suscripción y costo real MonthToDate.
  * PATCH — cambia el tier de un plan puntual (Standard→Free en subs Dev/Test).
  *
- * RBAC app: feature de tier Business+ → requireTenantTier(..., 'Business').
+ * RBAC app: feature de tier Enterprise → requireTenantTier(..., 'Enterprise').
  * Roles Azure requeridos (Service Principal del tenant):
  *   - Reader/Security Reader para listar planes.
  *   - Cost Management Reader para el costo.
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ success: true, mock: true, ...data });
         }
 
-        await requireTenantTier(request, tenantId, "Business");
+        await requireTenantTier(request, tenantId, "Enterprise");
 
         let subscriptionIds: string[] = [];
         if (!isMockTenant(tenantId)) {
@@ -75,7 +75,7 @@ export async function PATCH(request: NextRequest) {
             return NextResponse.json({ error: "No se puede modificar un tenant demo" }, { status: 400 });
         }
 
-        await requireTenantTier(request, tenantId, "Business");
+        await requireTenantTier(request, tenantId, "Enterprise");
 
         await setDefenderPlanTier(tenantId, subscriptionId, planName, pricingTier);
         await invalidateCache(`defender:cost:v1:${tenantId}`);

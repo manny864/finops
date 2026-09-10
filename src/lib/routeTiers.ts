@@ -5,6 +5,27 @@
 // sobre las genéricas (ej. /intelligence/aks-chargeback gana sobre /intelligence/aks).
 
 export const ROUTE_TIERS: Record<string, 'Professional' | 'Business' | 'Enterprise'> = {
+    // Las seis áreas Enterprise-only: Optimización y Ahorro, Azure Integration
+    // Services, Analítica Avanzada, Monitoreo, Seguridad y Azure IA.
+    //
+    // Cada una es un hub cuyas pestañas cuelgan de su propia ruta, así que el
+    // match por prefijo las cubre. Lo que NO cubre es que varias de esas
+    // pestañas son alias (`export { default } from ...`) de páginas viejas que
+    // viven en otra ruta de primer nivel: `/intelligence/scorecard`,
+    // `/intelligence/simulator`, `/intelligence/alerts`, etc. Esas URLs sirven
+    // exactamente el mismo componente, así que si no suben también el bloqueo
+    // es decorativo — se entra por la ruta vieja. Por eso están todas acá en
+    // Enterprise, aunque no aparezcan en el Sidebar.
+    '/intelligence/optimizacion-y-ahorro': 'Enterprise',
+    '/intelligence/azure-ai': 'Enterprise',
+    // Página consolidada vieja de Azure IA (las mismas pestañas: Search,
+    // Document Intelligence, Speech, Vision, Content Safety, AML).
+    '/intelligence/azure-ai-services': 'Enterprise',
+    // Alias inverso: /intelligence/azure-monitor reexporta la pestaña del hub.
+    '/intelligence/azure-monitor': 'Enterprise',
+    // Pestaña "Costo Cero" de Optimización y Ahorro.
+    '/intelligence/zero-cost': 'Enterprise',
+
     // Inteligencia
     '/intelligence/billing': 'Professional',
     '/intelligence/budgets': 'Professional',
@@ -15,7 +36,7 @@ export const ROUTE_TIERS: Record<string, 'Professional' | 'Business' | 'Enterpri
     '/intelligence/optimization': 'Enterprise',
     '/intelligence/rates': 'Enterprise',
     '/intelligence/licenses': 'Enterprise',
-    '/intelligence/hybrid-benefit': 'Business',
+    '/intelligence/hybrid-benefit': 'Enterprise',
     '/intelligence/commitments': 'Enterprise',
     '/intelligence/aks-chargeback': 'Enterprise',
     '/intelligence/aks': 'Enterprise',
@@ -23,34 +44,34 @@ export const ROUTE_TIERS: Record<string, 'Professional' | 'Business' | 'Enterpri
     '/intelligence/container-apps': 'Business',
     '/intelligence/cosmos-db': 'Business',
     '/cleanup/backup-orphans': 'Professional',
-    '/intelligence/defender': 'Business',
-    '/intelligence/seguridad': 'Business',
-    '/intelligence/integration-services': 'Business',
-    '/intelligence/app-insights': 'Business',
-    '/intelligence/monitoreo': 'Business',
-    '/intelligence/log-analytics': 'Business',
+    '/intelligence/defender': 'Enterprise',
+    '/intelligence/seguridad': 'Enterprise',
+    '/intelligence/integration-services': 'Enterprise',
+    '/intelligence/app-insights': 'Enterprise',
+    '/intelligence/monitoreo': 'Enterprise',
+    '/intelligence/log-analytics': 'Enterprise',
     '/intelligence/unit-economics': 'Enterprise',
     // Cost Groups (Budget & Forecast por Business Unit) — Business y Enterprise.
     '/intelligence/cost-groups': 'Business',
     '/intelligence/allocation': 'Enterprise',
-    '/intelligence/scorecard': 'Business',
+    '/intelligence/scorecard': 'Enterprise',
     '/intelligence/cost-centers': 'Enterprise',
     '/intelligence/anomalies': 'Enterprise',
     '/intelligence/optimization-index': 'Enterprise',
-    '/intelligence/tenant-health': 'Business',
-    // Simulador What-If — Business.
-    '/intelligence/simulator': 'Business',
+    '/intelligence/tenant-health': 'Enterprise',
+    // Simulador What-If — pestaña de Analítica Avanzada.
+    '/intelligence/simulator': 'Enterprise',
     '/intelligence/cost-projection': 'Enterprise',
     '/intelligence/storage-efficiency': 'Enterprise',
     '/intelligence/almacenamiento': 'Enterprise',
     '/intelligence/compute-efficiency': 'Enterprise',
     '/intelligence/cost-by-category': 'Business',
-    '/intelligence/commitment-simulator': 'Professional',
-    '/intelligence/alerts': 'Business',
+    '/intelligence/commitment-simulator': 'Enterprise',
+    '/intelligence/alerts': 'Enterprise',
     '/intelligence/ai-analytics': 'Enterprise',
     '/intelligence/macc': 'Enterprise',
     '/intelligence/upload': 'Business',
-    '/intelligence/analitica-avanzada': 'Business',
+    '/intelligence/analitica-avanzada': 'Enterprise',
     // Limpieza — TTL Business (vista y remediación quedan separadas dentro de
     // la página, ver canDeleteResources en tierLogic.ts). Networking Zombies
     // gratis desde Professional (vista; remediación desde Business).

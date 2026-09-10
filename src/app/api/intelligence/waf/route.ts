@@ -2,7 +2,7 @@
  * GET /api/intelligence/waf
  * Azure WAF — Seguridad Perimetral y Economia Unitaria
  *
- * RBAC: requireTenantTier(Business) para tenants reales; bypass para demo/mock.
+ * RBAC: requireTenantTier(Enterprise) para tenants reales; bypass para demo/mock.
  * `isMockTenant` corre ANTES del guard: la rama mock son literales sinteticos
  * puros. Tolerancia cero a fallback mock en tenants conectados — en un panel de
  * seguridad, inventar amenazas seria mucho peor que en uno de costos.
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(getMockWafPayload(tenantId));
     }
 
-    await requireTenantTier(request, tenantId, "Business");
+    await requireTenantTier(request, tenantId, "Enterprise");
 
     const payload = await fetchLiveWafData(tenantId);
     return NextResponse.json(payload);

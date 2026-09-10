@@ -2,7 +2,7 @@
  * GET /api/intelligence/monitoring/workbooks
  * Azure Monitor Workbooks — Gobernanza de Dashboards y Costo Indirecto de Consultas
  *
- * RBAC: requireTenantTier(Business) para tenants reales; bypass para demo/mock.
+ * RBAC: requireTenantTier(Enterprise) para tenants reales; bypass para demo/mock.
  * El tier se valida server-side porque RouteTierGate/Sidebar son solo client-side
  * y no impiden que un tenant Professional le pegue directo a la API
  * (finding SEC-02, docs/security/audit-2026-08-21.md).
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 2. RBAC estricto + entitlement de tier para tenants reales.
-    await requireTenantTier(request, tenantId, "Business");
+    await requireTenantTier(request, tenantId, "Enterprise");
 
     // 3. Descubrimiento vivo en Azure Resource Graph.
     const livePayload = await fetchLiveWorkbooksData(tenantId);

@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(getMockTenantHealthPayload(tenantId));
     }
 
-    await requireTenantTier(request, tenantId, "Business");
+    await requireTenantTier(request, tenantId, "Enterprise");
 
     const payload = await getWithStaleWhileRevalidate(
       `tenantHealth:v2:${tenantId}`,

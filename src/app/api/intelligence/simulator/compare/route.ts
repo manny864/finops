@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
         }
 
         await requireTenantRole(request, tenantId, ["ADMIN", "OWNER", "Colaborador", "Reader"]);
-        if (!isMockTenant(tenantId)) await requireTenantTier(request, tenantId, "Business");
+        if (!isMockTenant(tenantId)) await requireTenantTier(request, tenantId, "Enterprise");
 
         const placeholders = ids.map(() => "?").join(",");
         const [rowsRaw] = await pool.query(

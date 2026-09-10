@@ -333,7 +333,7 @@ export async function GET(
       return NextResponse.json(buildMock(tenantId, service));
     }
 
-    await requireTenantTier(request, tenantId, "Business");
+    await requireTenantTier(request, tenantId, "Enterprise");
 
     const credential = await getAzureCredential(tenantId);
     const subscriptionIds = await getSubscriptionsForTenant(tenantId, credential);

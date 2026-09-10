@@ -120,10 +120,10 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/intelligence/redes', label: t('redes'), icon: Network, requiredTier: 'Business' },
                 { href: '/intelligence/licenses', label: t('users_licenses'), icon: Users, requiredTier: 'Enterprise' },
                 { href: '/intelligence/azure-ai', label: t('azure_ai'), icon: Sparkles, requiredTier: 'Enterprise' },
-                { href: '/intelligence/integration-services', label: t('integration_services_hub'), icon: Boxes, requiredTier: 'Business' },
-                { href: '/intelligence/monitoreo', label: t('monitoring_hub'), icon: Activity, requiredTier: 'Business' },
-                { href: '/intelligence/seguridad', label: t('security_hub'), icon: ShieldCheck, requiredTier: 'Business' },
-                { href: '/intelligence/analitica-avanzada', label: t('advanced_analytics'), icon: BarChart3, requiredTier: 'Business' }
+                { href: '/intelligence/integration-services', label: t('integration_services_hub'), icon: Boxes, requiredTier: 'Enterprise' },
+                { href: '/intelligence/monitoreo', label: t('monitoring_hub'), icon: Activity, requiredTier: 'Enterprise' },
+                { href: '/intelligence/seguridad', label: t('security_hub'), icon: ShieldCheck, requiredTier: 'Enterprise' },
+                { href: '/intelligence/analitica-avanzada', label: t('advanced_analytics'), icon: BarChart3, requiredTier: 'Enterprise' }
             ]
         },
         {

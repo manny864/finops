@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
         // este gate pedía sólo Professional, más laxo que la página, así que un
         // tenant Professional podía llamar la API directo bypasseando el gate
         // de UI.
-        await requireTenantTier(request, tenantId, "Business");
+        await requireTenantTier(request, tenantId, "Enterprise");
 
         if (isMockTenant(tenantId)) {
             return NextResponse.json(getMockDataForRoute("tenant_health", tenantId));

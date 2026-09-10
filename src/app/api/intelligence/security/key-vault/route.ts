@@ -2,7 +2,7 @@
  * GET /api/intelligence/security/key-vault
  * Azure Key Vault — Gobernanza de Identidades, Telemetria de API y FinOps
  *
- * RBAC: requireTenantTier(Business) para tenants reales; bypass para demo/mock.
+ * RBAC: requireTenantTier(Enterprise) para tenants reales; bypass para demo/mock.
  * `isMockTenant` corre ANTES del guard: la rama mock son literales sinteticos
  * puros, sin acceso a Azure, DB ni Redis. Tolerancia cero a fallback mock en
  * tenants conectados.
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(getMockKeyVaultPayload(tenantId));
     }
 
-    await requireTenantTier(request, tenantId, "Business");
+    await requireTenantTier(request, tenantId, "Enterprise");
 
     const payload = await fetchLiveKeyVaultData(tenantId);
     return NextResponse.json(payload);

@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ success: true, baseCost: mock?.actualCost ?? null });
         }
 
-        await requireTenantTier(request, tenantId, 'Business', { allowSuperAdmin: true });
+        await requireTenantTier(request, tenantId, 'Enterprise', { allowSuperAdmin: true });
         const baseCost = await fetchTenantBaseCost(tenantId);
         return NextResponse.json({ success: true, baseCost });
     } catch (error) {
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
         if (isMockTenant(tenantId)) {
             await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
         } else {
-            await requireTenantTier(request, tenantId, 'Business', { allowSuperAdmin: true });
+            await requireTenantTier(request, tenantId, 'Enterprise', { allowSuperAdmin: true });
         }
 
         const hasClientBaseCost = typeof scenario?.baseCost === 'number' && scenario.baseCost > 0;
