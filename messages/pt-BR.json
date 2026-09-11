@@ -457,7 +457,14 @@
     "col_createdBy": "Criada Por",
     "col_lastUsed": "Último Uso",
     "col_status": "Status",
-    "col_actions": "Ações"
+    "col_actions": "Ações",
+    "activeKeysTitle": "Chaves de API Ativas",
+    "refreshList": "Atualizar lista",
+    "filterPlaceholder": "Filtrar chaves...",
+    "visibleColumns": "Colunas Visíveis",
+    "copyPrefix": "Copiar prefixo",
+    "revokeKey": "Revogar chave",
+    "revokeKeyAction": "Revogar Chave"
   },
   "AdminAudit": {
     "pageTitle": "Registro de Auditoria",
@@ -493,7 +500,27 @@
     "col_resource": "Recurso / Destino",
     "col_status": "Status",
     "col_ip": "IP / Origem",
-    "col_actions": "Ações"
+    "col_actions": "Ações",
+    "csvHeader_id": "ID",
+    "csvHeader_date": "Data (UTC)",
+    "csvHeader_userEmail": "E-mail do usuário",
+    "csvHeader_userName": "Nome",
+    "csvHeader_actionType": "Tipo de ação",
+    "csvHeader_resource": "Recurso / destino",
+    "csvHeader_status": "Status",
+    "csvHeader_ip": "IP de origem",
+    "status_SUCCESS": "Bem-sucedido",
+    "status_FAILED": "Falhou",
+    "status_PENDING": "Pendente",
+    "filterAllActions": "Todas as ações",
+    "filterAllStatuses": "Todos os status",
+    "statusOption_SUCCESS": "Bem-sucedido (SUCCESS)",
+    "statusOption_FAILED": "Falhou (FAILED)",
+    "statusOption_PENDING": "Pendente (PENDING)",
+    "csvAllFiltered": "CSV (filtrado completo)",
+    "visibleColumns": "Colunas Visíveis",
+    "viewDetails": "Ver Detalhes",
+    "downloadError": "Erro no download"
   },
   "AdminBilling": {
     "title": "Faturamento",
@@ -556,7 +583,12 @@
     "invoiceStatus_PAID": "Paga",
     "invoiceStatus_PENDING": "Pendente",
     "invoiceStatus_FAILED": "Falhou",
-    "periodEnd": "fim do período"
+    "periodEnd": "fim do período",
+    "active": "Ativa",
+    "refreshInvoices": "Atualizar faturas",
+    "searchInvoices": "Buscar faturas...",
+    "visibleColumns": "Colunas Visíveis",
+    "loadingInvoices": "Carregando faturas..."
   },
   "AdminCapacityAddons": {
     "selfServeUnavailable": "A contratação online não está disponível para esta conta (sem assinatura ativa no Paddle, ou add-ons não habilitados neste ambiente). Fale com vendas para ampliar sua capacidade.",
@@ -565,7 +597,14 @@
     "addon_additional_tenant_slot": "tenant adicional",
     "addon_additional_subscription_slot": "assinatura adicional",
     "addonApplied": "{qty, plural, =0 {O add-on de {addon} foi cancelado.} other {Add-on atualizado para # de {addon}. A capacidade é habilitada em alguns segundos.}}",
-    "addonError": "Não foi possível contratar o add-on."
+    "addonError": "Não foi possível contratar o add-on.",
+    "title": "Ampliar capacidade",
+    "unlimitedSubs": "Seu plano inclui assinaturas ilimitadas.",
+    "usageLine": "Você está usando {used} de {limit} assinaturas do Azure.",
+    "applying": "Aplicando...",
+    "reduce": "Reduzir",
+    "purchase": "Contratar",
+    "capacityReadError": "Não foi possível ler a capacidade."
   },
   "AdminCloudAccounts": {
     "pageTitle": "Contas Cloud — Azure",
@@ -1066,7 +1105,13 @@
     "col_createdAt": "Data de Criação",
     "col_lastUsed": "Último Uso",
     "col_status": "Status",
-    "col_actions": "Ações"
+    "col_actions": "Ações",
+    "refreshList": "Atualizar lista",
+    "filterPlaceholder": "Filtrar keys...",
+    "visibleColumns": "Colunas Visíveis",
+    "copyPrefix": "Copiar prefixo",
+    "revokeKey": "Revogar key",
+    "revokeKeyAction": "Revogar Key"
   },
   "AdminNotifications": {
     "title": "Canais de Notificação",
@@ -5587,7 +5632,10 @@
     "valuePlaceholder": "Valor (Value)",
     "cancel": "Cancelar",
     "creating": "Criando no Azure...",
-    "create": "Criar Resource Group"
+    "create": "Criar Resource Group",
+    "createTitle": "Criar Novo Resource Group",
+    "namePlaceholder": "ex. rg-finops-workbooks-001",
+    "removeTag": "Remover tag"
   },
   "Credentials": {
     "tierLockedFeatureName": "Credenciais a Expirar",
@@ -7619,7 +7667,9 @@
     "promptRecipientEmail": "Informe o e-mail do destinatário:",
     "saveMappingFailed": "Erro ao salvar o mapeamento",
     "unassignedShort": "Não identificado",
-    "unassignedLong": "Não identificado (faturamento EA/MCA sem cliente CSP)"
+    "unassignedLong": "Não identificado (faturamento EA/MCA sem cliente CSP)",
+    "groupNamePlaceholder": "ex. Finanças & Analytics Latam",
+    "customerIdPlaceholder": "ex. cust-financas-01"
   },
   "IpaasFinops": {
     "noSession": "Não há sessão ativa do Microsoft Entra ID. Faça login para consultar a telemetria real.",
@@ -14209,7 +14259,11 @@
     "deployError": "Erro ao implantar o artefato",
     "deployUnexpected": "Ocorreu um erro inesperado ao implantar.",
     "rgRequired": "Por favor, insira o Subscription ID e o Resource Group.",
-    "providerRetryNote": "Se a implantação falhar com “A assinatura não tem registrado o resource provider ‘microsoft.insights’”: a plataforma o registra e tenta novamente de forma automática. Se o provider já aparece como ‘Registered’ no Azure, aguarde 2-5 minutos pela propagação do ARM."
+    "providerRetryNote": "Se a implantação falhar com “A assinatura não tem registrado o resource provider ‘microsoft.insights’”: a plataforma o registra e tenta novamente de forma automática. Se o provider já aparece como ‘Registered’ no Azure, aguarde 2-5 minutos pela propagação do ARM.",
+    "copyCommand": "Copiar comando para a área de transferência",
+    "providerNoticeTitle": "Aviso: Resource Provider ‘microsoft.insights’ (Azure Monitor)",
+    "copied": "Copiado",
+    "copyCommandLabel": "Copiar Comando"
   },
   "WorkbooksManagement": {
     "loadError": "Erro ao carregar os Workbooks do Azure Monitor",

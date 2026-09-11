@@ -402,28 +402,62 @@ export async function getAuditTrailLogs(
 /**
  * Serializa logs de auditoría a CSV.
  */
-export function serializeAuditTrailCsv(items: AuditTrailLogItem[]): string {
-    const headers = [
-        "ID",
-        "Fecha_UTC",
-        "Usuario_Email",
-        "Nombre",
-        "Tipo_Accion",
-        "Recurso_Destino",
-        "Estado",
-        "IP_Origen",
-    ];
+/**
+ * CSV del Audit Trail en el idioma de quien lo descarga.
+ *
+ * Las cabeceras estaban fijas en castellano ("Fecha_UTC", "Tipo_Accion"), asi
+ * que un admin con la plataforma en ingles bajaba un archivo que no podia leer
+ * ni pasarle a su auditor. El archivo sale del servidor, por eso `t` entra por
+ * parametro: la ruta lo resuelve con el locale que manda el cliente.
+ *
+ * `actionType` NO se traduce a proposito: es el identificador de la accion
+ * (START_VM, DELETE_ZOMBIE) y un CSV de auditoria tiene que ser comparable y
+ * filtrable entre exportaciones de distintos idiomas. El estado si, porque es
+ * un rotulo de resultado y no una clave.
+ */
+export function serializeAuditTrailCsv(
+    items: AuditTrailLogItem[],
+    t?: (key: string) => string
+): string {
+    /*
+     * Rotulos de respaldo. Existen porque un CSV con "csvHeader_id" en la
+     * primera fila es peor que uno en un idioma que no es el tuyo: si alguien
+     * llama sin `t`, o si next-intl devuelve la ruta de la clave porque falta
+     * una entrada, la planilla tiene que seguir siendo legible.
+     */
+    const FALLBACK: Record<string, string> = {
+        csvHeader_id: "ID",
+        csvHeader_date: "Date (UTC)",
+        csvHeader_userEmail: "User email",
+        csvHeader_userName: "Name",
+        csvHeader_actionType: "Action type",
+        csvHeader_resource: "Resource / target",
+        csvHeader_status: "Status",
+        csvHeader_ip: "Source IP",
+    };
+
+    const rotulo = (clave: string, crudo: string): string => {
+        const v = t?.(clave);
+        // next-intl devuelve "Namespace.clave" cuando no existe; ningun rotulo
+        // traducido de estos tiene un punto.
+        return v && !v.includes(".") ? v : crudo;
+    };
+
+    const headers = Object.keys(FALLBACK).map((k) => rotulo(k, FALLBACK[k]));
+
+    const comilla = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const estado = (s: string) => rotulo(`status_${s}`, s);
 
     const rows = items.map((i) => [
-        `"${i.id}"`,
-        `"${i.createdAtIso}"`,
-        `"${i.userEmail}"`,
-        `"${i.userName || ""}"`,
-        `"${i.actionType}"`,
-        `"${(i.resourceTargetName || "").replace(/"/g, '""')}"`,
-        `"${i.status}"`,
-        `"${i.ipAddress || ""}"`,
+        comilla(i.id),
+        comilla(i.createdAtIso),
+        comilla(i.userEmail),
+        comilla(i.userName || ""),
+        comilla(i.actionType),
+        comilla(i.resourceTargetName || ""),
+        comilla(estado(i.status)),
+        comilla(i.ipAddress || ""),
     ]);
 
-    return [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
+    return [headers.map(comilla).join(","), ...rows.map((r) => r.join(","))].join("\r\n");
 }

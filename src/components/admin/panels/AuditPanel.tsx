@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import DemoModeBadge from "@/components/DemoModeBadge";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
@@ -49,8 +49,11 @@ const columnasAuditoria = (t: (k: string) => string): ColumnConfig[] => [
     { id: "actions", label: t("col_actions"), visible: true, width: 110 },
 ];
 
-const ACTION_TYPE_OPTIONS: { value: string; label: string }[] = [
-    { value: "ALL", label: "Todas las acciones" },
+// El rotulo de "todas" sale del catalogo; los valores concretos son los
+// identificadores de accion (START_VM, DELETE_ZOMBIE) y se dejan crudos a
+// proposito: son la clave con la que se filtra, no texto de producto.
+const actionTypeOptions = (t: (k: string) => string): { value: string; label: string }[] => [
+    { value: "ALL", label: t("filterAllActions") },
     { value: "ROTATE_APP_SECRET", label: "ROTATE_APP_SECRET" },
     { value: "START_VM", label: "START_VM" },
     { value: "STOP_VM", label: "STOP_VM" },
@@ -64,16 +67,17 @@ const ACTION_TYPE_OPTIONS: { value: string; label: string }[] = [
     { value: "RELINK_SUBSCRIPTION", label: "RELINK_SUBSCRIPTION" },
 ];
 
-const STATUS_OPTIONS: { value: string; label: string }[] = [
-    { value: "ALL", label: "Todos los estados" },
-    { value: "SUCCESS", label: "Exitoso (SUCCESS)" },
-    { value: "FAILED", label: "Fallido (FAILED)" },
-    { value: "PENDING", label: "Pendiente (PENDING)" },
+const statusOptions = (t: (k: string) => string): { value: string; label: string }[] => [
+    { value: "ALL", label: t("filterAllStatuses") },
+    { value: "SUCCESS", label: t("statusOption_SUCCESS") },
+    { value: "FAILED", label: t("statusOption_FAILED") },
+    { value: "PENDING", label: t("statusOption_PENDING") },
 ];
 
 export default function AuditTrailPanel() {
     const t = useTranslations("AdminAudit");
     const tc = useTranslations("Common");
+    const locale = useLocale();
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
 
@@ -238,6 +242,7 @@ export default function AuditTrailPanel() {
             if (fromDateFilter) params.append("fromDate", fromDateFilter);
             if (toDateFilter) params.append("toDate", toDateFilter);
             if (isMock) params.append("mock", "true");
+            params.append("locale", locale);
 
             if (format === "csv-page") {
                 params.append("format", "csv");
@@ -258,7 +263,7 @@ export default function AuditTrailPanel() {
             }
 
             const res = await fetch(`/api/admin/audit-trail/export?${params.toString()}`, { headers });
-            if (!res.ok) throw new Error("Error en la descarga");
+            if (!res.ok) throw new Error(t("downloadError"));
 
             const blob = await res.blob();
             const dateStr = new Date().toISOString().split("T")[0];
@@ -383,7 +388,7 @@ export default function AuditTrailPanel() {
                                 onChange={(e) => setActionTypeFilter(e.target.value)}
                                 className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-[#0078D4]"
                             >
-                                {ACTION_TYPE_OPTIONS.map((opt) => (
+                                {actionTypeOptions(t).map((opt) => (
                                     <option key={opt.value} value={opt.value}>
                                         {opt.label}
                                     </option>
@@ -400,7 +405,7 @@ export default function AuditTrailPanel() {
                                 onChange={(e) => setStatusFilter(e.target.value)}
                                 className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-[#0078D4]"
                             >
-                                {STATUS_OPTIONS.map((opt) => (
+                                {statusOptions(t).map((opt) => (
                                     <option key={opt.value} value={opt.value}>
                                         {opt.label}
                                     </option>
@@ -498,7 +503,7 @@ export default function AuditTrailPanel() {
                         ) : (
                             <IconFileSpreadsheet size={14} className="text-white" />
                         )}
-                        <span>CSV (filtrado completo)</span>
+                        <span>{t("csvAllFiltered")}</span>
                     </button>
 
                     {/* Botón 3: JSON (Slate corporativo) */}
@@ -564,7 +569,7 @@ export default function AuditTrailPanel() {
                         {isColumnPickerOpen && (
                             <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl z-[100] p-3 space-y-2 animate-in fade-in">
                                 <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200">
-                                    <span>Columnas Visibles</span>
+                                    <span>{t("visibleColumns")}</span>
                                     <button
                                         onClick={resetColumnsToDefault}
                                         className="text-[11px] font-normal text-[#0078D4] hover:underline"
@@ -673,15 +678,15 @@ export default function AuditTrailPanel() {
                                             <td className="px-4 py-3 whitespace-nowrap">
                                                 {log.status === "SUCCESS" ? (
                                                     <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800">
-                                                        Exitoso
+                                                        {t("status_SUCCESS")}
                                                     </span>
                                                 ) : log.status === "FAILED" ? (
                                                     <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800">
-                                                        Fallido
+                                                        {t("status_FAILED")}
                                                     </span>
                                                 ) : (
                                                     <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400">
-                                                        Pendiente
+                                                        {t("status_PENDING")}
                                                     </span>
                                                 )}
                                             </td>
@@ -701,7 +706,7 @@ export default function AuditTrailPanel() {
                                                     className="inline-flex items-center gap-1 text-xs font-semibold text-[#0078D4] hover:text-[#0060AA] transition-colors"
                                                 >
                                                     <IconEye size={14} className="text-[#0078D4]" />
-                                                    <span>Ver Detalles</span>
+                                                    <span>{t("viewDetails")}</span>
                                                 </button>
                                             </td>
                                         )}

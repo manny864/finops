@@ -360,7 +360,7 @@ export default function BillingPanel() {
                             ) : billingData?.status === "ACTIVE" ? (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-[#0078D4] border border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800">
                                     <IconCircleCheck size={13} />
-                                    <span>Activa</span>
+                                    <span>{t("active")}</span>
                                 </span>
                             ) : (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-400">
@@ -509,7 +509,7 @@ export default function BillingPanel() {
                         <button
                             onClick={loadBilling}
                             className="p-1 text-slate-400 hover:text-[#0078D4] rounded transition-colors"
-                            title="Refrescar facturas"
+                            title={t("refreshInvoices")}
                         >
                             <IconRefresh size={14} className={loading ? "animate-spin" : ""} />
                         </button>
@@ -526,7 +526,7 @@ export default function BillingPanel() {
                                     setSearchTerm(e.target.value);
                                     setCurrentPage(1);
                                 }}
-                                placeholder="Buscar facturas..."
+                                placeholder={t("searchInvoices")}
                                 className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0078D4]"
                             />
                         </div>
@@ -545,7 +545,7 @@ export default function BillingPanel() {
                             {isColumnPickerOpen && (
                                 <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl z-[100] p-3 space-y-2 animate-in fade-in">
                                     <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200">
-                                        <span>Columnas Visibles</span>
+                                        <span>{t("visibleColumns")}</span>
                                         <button
                                             onClick={resetColumnsToDefault}
                                             className="text-[11px] font-normal text-[#0078D4] hover:underline"
@@ -603,7 +603,7 @@ export default function BillingPanel() {
                                     <td colSpan={columns.filter((c) => c.visible).length} className="px-4 py-8 text-center text-slate-500">
                                         <div className="inline-flex items-center gap-2">
                                             <IconLoader2 size={16} className="animate-spin text-[#0078D4]" />
-                                            <span>Cargando facturas...</span>
+                                            <span>{t("loadingInvoices")}</span>
                                         </div>
                                     </td>
                                 </tr>

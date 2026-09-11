@@ -1162,7 +1162,7 @@ export default function InvoicingReportPanel() {
                                 </label>
                                 <input
                                     type="text"
-                                    placeholder="Ej. Finanzas & Analytics Latam"
+                                    placeholder={t("groupNamePlaceholder")}
                                     value={virtualName}
                                     onChange={(e) => setVirtualName(e.target.value)}
                                     className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0078D4]"
@@ -1175,7 +1175,7 @@ export default function InvoicingReportPanel() {
                                 </label>
                                 <input
                                     type="text"
-                                    placeholder="Ej. cust-finanzas-01"
+                                    placeholder={t("customerIdPlaceholder")}
                                     value={virtualId}
                                     onChange={(e) => setVirtualId(e.target.value)}
                                     className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 font-mono focus:outline-none focus:ring-1 focus:ring-[#0078D4]"

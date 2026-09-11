@@ -57,7 +57,7 @@ export default function CapacityAddonsCard({ tenantId, isMock }: { tenantId: str
         headers: await authHeaders(),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.error || "No se pudo leer la capacidad.");
+      if (!res.ok || !json.success) throw new Error(json.error || t("capacityReadError"));
       setData(json);
       setSubsQty(json.subscriptions.purchased);
       setTenantsQty(json.tenantSlots.purchased);
@@ -134,7 +134,7 @@ export default function CapacityAddonsCard({ tenantId, isMock }: { tenantId: str
           disabled={saving !== null || qty === current || !data.canPurchase}
           className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#0078D4] text-white hover:bg-[#006cbe] disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
         >
-          {saving === kind ? "Aplicando..." : qty < current ? "Reducir" : "Contratar"}
+          {saving === kind ? t("applying") : qty < current ? t("reduce") : t("purchase")}
         </button>
       </div>
     </div>
@@ -145,14 +145,14 @@ export default function CapacityAddonsCard({ tenantId, isMock }: { tenantId: str
       <div className="flex items-center gap-2">
         <IconStack2 size={18} stroke={1.5} className="text-[#0078D4]" />
         <h2 className="font-bold text-sm text-[#1B2A41] dark:text-slate-100 font-['Montserrat',sans-serif]">
-          Ampliar capacidad
+          {t("title")}
         </h2>
       </div>
 
       <p className="text-[11px] text-slate-500 dark:text-slate-400 pb-1">
         {unlimited
-          ? "Tu plan incluye suscripciones ilimitadas."
-          : `Estás usando ${data.subscriptions.used} de ${data.subscriptions.limit} suscripciones de Azure.`}
+          ? t("unlimitedSubs")
+          : t("usageLine", { used: data.subscriptions.used, limit: data.subscriptions.limit ?? 0 })}
       </p>
 
       {!data.canPurchase ? (

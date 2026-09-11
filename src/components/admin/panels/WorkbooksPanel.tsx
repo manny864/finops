@@ -241,7 +241,7 @@ export default function WorkbooksPanel() {
                     <IconAlertCircle size={20} className="text-[#0078D4] shrink-0 mt-0.5" />
                     <div className="flex-1">
                         <h2 className="text-sm font-bold text-[#1B2A41] dark:text-blue-200 flex items-center gap-1.5">
-                            Aviso: Resource Provider &apos;microsoft.insights&apos; (Azure Monitor)
+                            {t("providerNoticeTitle")}
                         </h2>
                         <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
                             {t("providerRetryNote")}
@@ -254,17 +254,17 @@ export default function WorkbooksPanel() {
                                 type="button"
                                 onClick={handleCopyCli}
                                 className="flex items-center gap-1.5 text-xs text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded border border-slate-700 transition-all cursor-pointer shrink-0 ml-3"
-                                title="Copiar comando al portapapeles"
+                                title={t("copyCommand")}
                             >
                                 {copiedCli ? (
                                     <>
                                         <IconCheck size={14} className="text-emerald-400" />
-                                        <span className="text-emerald-400 font-sans font-medium">Copiado</span>
+                                        <span className="text-emerald-400 font-sans font-medium">{t("copied")}</span>
                                     </>
                                 ) : (
                                     <>
                                         <IconCopy size={14} className="text-slate-400" />
-                                        <span className="font-sans font-medium">Copiar Comando</span>
+                                        <span className="font-sans font-medium">{t("copyCommandLabel")}</span>
                                     </>
                                 )}
                             </button>

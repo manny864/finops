@@ -235,7 +235,7 @@ export default function CreateResourceGroupModal({
                     <div className="border-t border-slate-100 dark:border-slate-800 pt-4 space-y-3.5">
                         <h4 className="font-bold text-[#0078D4] dark:text-blue-400 flex items-center gap-1.5 text-xs">
                             <IconPlus size={14} />
-                            Crear Nuevo Resource Group
+                            {t("createTitle")}
                         </h4>
 
                         {/* Input Nombre RG */}
@@ -248,7 +248,7 @@ export default function CreateResourceGroupModal({
                                 value={rgName}
                                 onChange={(e) => setRgName(e.target.value)}
                                 className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-[#0078D4] focus:outline-none shadow-sm"
-                                placeholder="Ej. rg-finops-workbooks-001"
+                                placeholder={t("namePlaceholder")}
                             />
                         </div>
 
@@ -319,7 +319,7 @@ export default function CreateResourceGroupModal({
                                             type="button"
                                             onClick={() => removeTag(i)}
                                             className="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                                            title="Eliminar etiqueta"
+                                            title={t("removeTag")}
                                         >
                                             <IconTrash size={14} />
                                         </button>

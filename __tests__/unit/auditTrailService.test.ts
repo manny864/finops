@@ -112,7 +112,10 @@ describe("auditTrail.service", () => {
         ];
 
         const csv = serializeAuditTrailCsv(mockLogs);
-        expect(csv).toContain("Fecha_UTC");
+        // Sin `t`, las cabeceras caen al rotulo de respaldo en vez de
+        // escribir el nombre de la clave en la planilla.
+        expect(csv).toContain("Date (UTC)");
+        expect(csv).not.toContain("csvHeader_");
         expect(csv).toContain("START_VM");
         expect(csv).toContain("admin@test.com");
     });

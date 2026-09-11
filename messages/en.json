@@ -457,7 +457,14 @@
     "col_createdBy": "Created By",
     "col_lastUsed": "Last Used",
     "col_status": "Status",
-    "col_actions": "Actions"
+    "col_actions": "Actions",
+    "activeKeysTitle": "Active API Keys",
+    "refreshList": "Refresh list",
+    "filterPlaceholder": "Filter keys...",
+    "visibleColumns": "Visible Columns",
+    "copyPrefix": "Copy prefix",
+    "revokeKey": "Revoke key",
+    "revokeKeyAction": "Revoke Key"
   },
   "AdminAudit": {
     "pageTitle": "Audit Log",
@@ -493,7 +500,27 @@
     "col_resource": "Resource / Target",
     "col_status": "Status",
     "col_ip": "IP / Source",
-    "col_actions": "Actions"
+    "col_actions": "Actions",
+    "csvHeader_id": "ID",
+    "csvHeader_date": "Date (UTC)",
+    "csvHeader_userEmail": "User email",
+    "csvHeader_userName": "Name",
+    "csvHeader_actionType": "Action type",
+    "csvHeader_resource": "Resource / target",
+    "csvHeader_status": "Status",
+    "csvHeader_ip": "Source IP",
+    "status_SUCCESS": "Successful",
+    "status_FAILED": "Failed",
+    "status_PENDING": "Pending",
+    "filterAllActions": "All actions",
+    "filterAllStatuses": "All statuses",
+    "statusOption_SUCCESS": "Successful (SUCCESS)",
+    "statusOption_FAILED": "Failed (FAILED)",
+    "statusOption_PENDING": "Pending (PENDING)",
+    "csvAllFiltered": "CSV (full filtered set)",
+    "visibleColumns": "Visible Columns",
+    "viewDetails": "View Details",
+    "downloadError": "Download failed"
   },
   "AdminBilling": {
     "title": "Billing",
@@ -556,7 +583,12 @@
     "invoiceStatus_PAID": "Paid",
     "invoiceStatus_PENDING": "Pending",
     "invoiceStatus_FAILED": "Failed",
-    "periodEnd": "the end of the period"
+    "periodEnd": "the end of the period",
+    "active": "Active",
+    "refreshInvoices": "Refresh invoices",
+    "searchInvoices": "Search invoices...",
+    "visibleColumns": "Visible Columns",
+    "loadingInvoices": "Loading invoices..."
   },
   "AdminCapacityAddons": {
     "selfServeUnavailable": "Online purchasing is not available for this account (no active Paddle subscription, or add-ons are not enabled in this environment). Contact sales to expand your capacity.",
@@ -565,7 +597,14 @@
     "addon_additional_tenant_slot": "additional tenant",
     "addon_additional_subscription_slot": "additional subscription",
     "addonApplied": "{qty, plural, =0 {The {addon} add-on was cancelled.} other {Add-on updated to # {addon}. Capacity is enabled within seconds.}}",
-    "addonError": "The add-on could not be purchased."
+    "addonError": "The add-on could not be purchased.",
+    "title": "Expand capacity",
+    "unlimitedSubs": "Your plan includes unlimited subscriptions.",
+    "usageLine": "You are using {used} of {limit} Azure subscriptions.",
+    "applying": "Applying...",
+    "reduce": "Reduce",
+    "purchase": "Purchase",
+    "capacityReadError": "Could not read the capacity."
   },
   "AdminCloudAccounts": {
     "pageTitle": "Cloud Accounts — Azure",
@@ -1066,7 +1105,13 @@
     "col_createdAt": "Created On",
     "col_lastUsed": "Last Used",
     "col_status": "Status",
-    "col_actions": "Actions"
+    "col_actions": "Actions",
+    "refreshList": "Refresh list",
+    "filterPlaceholder": "Filter keys...",
+    "visibleColumns": "Visible Columns",
+    "copyPrefix": "Copy prefix",
+    "revokeKey": "Revoke key",
+    "revokeKeyAction": "Revoke Key"
   },
   "AdminNotifications": {
     "title": "Notification Channels",
@@ -5587,7 +5632,10 @@
     "valuePlaceholder": "Value",
     "cancel": "Cancel",
     "creating": "Creating in Azure...",
-    "create": "Create Resource Group"
+    "create": "Create Resource Group",
+    "createTitle": "Create New Resource Group",
+    "namePlaceholder": "e.g. rg-finops-workbooks-001",
+    "removeTag": "Remove tag"
   },
   "Credentials": {
     "tierLockedFeatureName": "Expiring Credentials",
@@ -7619,7 +7667,9 @@
     "promptRecipientEmail": "Enter the recipient's email:",
     "saveMappingFailed": "Could not save the mapping",
     "unassignedShort": "Unassigned",
-    "unassignedLong": "Unassigned (EA/MCA billing with no CSP customer)"
+    "unassignedLong": "Unassigned (EA/MCA billing with no CSP customer)",
+    "groupNamePlaceholder": "e.g. Finance & Analytics Latam",
+    "customerIdPlaceholder": "e.g. cust-finance-01"
   },
   "IpaasFinops": {
     "noSession": "No active Microsoft Entra ID session. Sign in to query real telemetry.",
@@ -14209,7 +14259,11 @@
     "deployError": "Error deploying the artifact",
     "deployUnexpected": "An unexpected error occurred while deploying.",
     "rgRequired": "Please enter Subscription ID and Resource Group.",
-    "providerRetryNote": "If the deployment fails with “The subscription is not registered to use the resource provider ‘microsoft.insights’”: the platform registers it and retries automatically. If the provider already shows as ‘Registered’ in Azure, wait 2-5 minutes for ARM propagation."
+    "providerRetryNote": "If the deployment fails with “The subscription is not registered to use the resource provider ‘microsoft.insights’”: the platform registers it and retries automatically. If the provider already shows as ‘Registered’ in Azure, wait 2-5 minutes for ARM propagation.",
+    "copyCommand": "Copy command to clipboard",
+    "providerNoticeTitle": "Notice: Resource Provider ‘microsoft.insights’ (Azure Monitor)",
+    "copied": "Copied",
+    "copyCommandLabel": "Copy Command"
   },
   "WorkbooksManagement": {
     "loadError": "Failed to load Azure Monitor Workbooks",

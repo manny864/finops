@@ -543,12 +543,12 @@ $response | ConvertTo-Json`,
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-2 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2">
                         <h2 className="font-bold text-sm text-[#1B2A41] dark:text-slate-100 font-['Montserrat',sans-serif]">
-                            Claves de API Activas ({filteredKeys.length})
+                            {t("activeKeysTitle")} ({filteredKeys.length})
                         </h2>
                         <button
                             onClick={loadKeys}
                             className="p-1 text-slate-400 hover:text-[#0078D4] rounded transition-colors"
-                            title="Refrescar lista"
+                            title={t("refreshList")}
                         >
                             <IconRefresh size={14} className={loading ? "animate-spin" : ""} />
                         </button>
@@ -565,7 +565,7 @@ $response | ConvertTo-Json`,
                                     setSearchTerm(e.target.value);
                                     setCurrentPage(1);
                                 }}
-                                placeholder="Filtrar claves..."
+                                placeholder={t("filterPlaceholder")}
                                 className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#0078D4]"
                             />
                         </div>
@@ -584,7 +584,7 @@ $response | ConvertTo-Json`,
                             {isColumnPickerOpen && (
                                 <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl z-[100] p-3 space-y-2 animate-in fade-in">
                                     <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200">
-                                        <span>Columnas Visibles</span>
+                                        <span>{t("visibleColumns")}</span>
                                         <button
                                             onClick={resetColumnsToDefault}
                                             className="text-[11px] font-normal text-[#0078D4] hover:underline"
@@ -681,7 +681,7 @@ $response | ConvertTo-Json`,
                                                         type="button"
                                                         onClick={() => handleCopyText(k.maskedKey, false)}
                                                         className="text-slate-400 hover:text-[#0078D4] transition-colors"
-                                                        title="Copiar prefijo"
+                                                        title={t("copyPrefix")}
                                                     >
                                                         <IconCopy size={13} />
                                                     </button>
@@ -751,7 +751,7 @@ $response | ConvertTo-Json`,
                                                         type="button"
                                                         onClick={() => setRevokingKey(k)}
                                                         className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
-                                                        title="Revocar clave"
+                                                        title={t("revokeKey")}
                                                     >
                                                         <IconTrash size={15} stroke={1.5} />
                                                     </button>
@@ -976,7 +976,7 @@ $response | ConvertTo-Json`,
                                 className="inline-flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors shadow-sm disabled:opacity-50"
                             >
                                 {revoking && <IconLoader2 size={14} className="animate-spin" />}
-                                <span>Revocar Clave</span>
+                                <span>{t("revokeKeyAction")}</span>
                             </button>
                         </div>
                     </div>

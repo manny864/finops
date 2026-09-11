@@ -7,6 +7,7 @@ import { AuthError, requireTenantRole } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import { errorMessage, errorStatus } from "@/lib/apiErrors";
 import { getAuditTrailLogs, serializeAuditTrailCsv } from "@/services/auditTrail.service";
+import { getTranslations } from "next-intl/server";
 
 export async function GET(request: NextRequest) {
     try {
@@ -65,8 +66,12 @@ export async function GET(request: NextRequest) {
             });
         }
 
-        // CSV por defecto
-        const csv = serializeAuditTrailCsv(items);
+        // CSV por defecto, en el idioma que manda el cliente: el archivo se
+        // descarga y se lee fuera de la plataforma, sin el contexto de la UI.
+        const localeParam = searchParams.get("locale") || "es";
+        const locale = ["es", "en", "pt-BR"].includes(localeParam) ? localeParam : "es";
+        const t = await getTranslations({ locale, namespace: "AdminAudit" });
+        const csv = serializeAuditTrailCsv(items, (k) => t(k as never));
         return new NextResponse(csv, {
             status: 200,
             headers: {
