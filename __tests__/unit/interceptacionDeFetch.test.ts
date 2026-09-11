@@ -35,7 +35,7 @@ const PROVIDER = "src/components/TenantProvider.tsx";
  * Bajar este número es progreso: significa que una interceptación redundante se
  * fue y la ruta quedó como única fuente. Subirlo es deuda nueva.
  */
-const TOPE_REDUNDANTES = 71;
+const TOPE_REDUNDANTES = 67;
 
 function rutasInterceptadas(): string[] {
     const src = readFileSync(PROVIDER, "utf8");
@@ -77,9 +77,22 @@ describe("interceptación de fetch en TenantProvider", () => {
         }
     });
 
-    it("unit-economics ya no se intercepta", () => {
-        // El caso que destapó todo esto: su rama mock en la ruta devuelve el
-        // payload que el panel lee, y la interceptación devolvía otro.
-        expect(interceptadas).not.toContain("/api/intelligence/unit-economics");
+    /**
+     * Las cinco que el barrido de formas encontró rotas: para cada una se
+     * comparó lo que devolvía la interceptación contra lo que el componente
+     * accede, y no coincidía. No vuelven.
+     *
+     * El barrido dejó explícitamente fuera 27 rutas donde el handler responde
+     * 401 a un tenant demo: ahí la interceptación es lo que hace andar la
+     * pantalla y sacarla la rompería. Ésas se quedan.
+     */
+    it.each([
+        ["/api/intelligence/unit-economics", "summary"],
+        ["/api/governance/reporting", "summary, nonCompliantResources"],
+        ["/api/cleanup/zombies/networking", "metrics"],
+        ["/api/cleanup/backup-orphans", "summary"],
+        ["/api/cleanup/zombies", "metrics"],
+    ])("%s no se intercepta (el panel lee %s y la interceptación no lo traía)", (ruta) => {
+        expect(interceptadas).not.toContain(ruta);
     });
 });

@@ -371,9 +371,18 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               // MaturityPayload (summary.dimensions) que consume MaturityDashboard.
               // El mock del interceptor era {success, score, breakdown} y dejaba
               // la pagina de Madurez vacia en demo.
-              if (url.includes('/api/cleanup/zombies/networking')) return new Response(JSON.stringify(getMockDataForRoute('networking_zombies', mockKey)), {status: 200});
-              if (url.includes('/api/cleanup/backup-orphans')) return new Response(JSON.stringify(getMockDataForRoute('backup_orphans', mockKey)), {status: 200});
-              if (url.includes('/api/cleanup/zombies')) return new Response(JSON.stringify(getMockDataForRoute('audit_full', mockKey)), {status: 200});
+              // /api/cleanup/zombies/networking NO se intercepta: su rama mock devuelve la forma que el
+              // panel lee (data.metrics); esta linea devolvia un payload sin `metrics`,
+              // asi que en demo la pantalla quedaba vacia. Verificado comparando
+              // las dos formas contra lo que el componente accede.
+              // /api/cleanup/backup-orphans NO se intercepta: su rama mock devuelve la forma que el
+              // panel lee (data.summary); esta linea devolvia un payload sin `summary`,
+              // asi que en demo la pantalla quedaba vacia. Verificado comparando
+              // las dos formas contra lo que el componente accede.
+              // /api/cleanup/zombies NO se intercepta: su rama mock devuelve la forma que el
+              // panel lee (data.metrics); esta linea devolvia `auditResults`/`mode`, sin `metrics`,
+              // asi que en demo la pantalla quedaba vacia. Verificado comparando
+              // las dos formas contra lo que el componente accede.
               if (url.includes('/api/intelligence/executive-report/jobs')) {
                   const method = (init?.method || 'GET').toUpperCase();
                   if (method === 'POST') {
@@ -669,7 +678,10 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                       recommendation: { movableGb, potentialSavings, fromTier: 'hot', toTier: 'cool' }
                   }), {status: 200});
               }
-              if (url.includes('/api/governance/reporting')) return new Response(JSON.stringify(getMockDataForRoute('governance-reporting', mockKey)), {status: 200});
+              // /api/governance/reporting NO se intercepta: su rama mock devuelve la forma que el
+              // panel lee (summary, nonCompliantResources, orphanedAssignments); esta linea devolvia `identities`/`policyCompliance`/`resourceInventory`,
+              // asi que en demo la pantalla quedaba vacia. Verificado comparando
+              // las dos formas contra lo que el componente accede.
               {
                   const costGroupDetailMatch = url.match(/\/api\/cost-groups\/([^/?]+)/);
                   if (costGroupDetailMatch) {
