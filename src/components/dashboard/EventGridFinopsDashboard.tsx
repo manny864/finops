@@ -1,7 +1,7 @@
 "use client";
 import { ERROR_401 } from "@/lib/errorSentinels";
 import { useTranslations } from "next-intl";
-import { useTextoPorCategoria } from "@/lib/recommendationText";
+import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
 
 import React, { useState, useMemo, useRef } from "react";
 import useSWR from "swr";
@@ -42,6 +42,7 @@ import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { buildEventGridRemediationCommand } from "@/lib/aiRemediations";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import type {
   EventGridResourceItem,
   EventGridRemediationAction,
@@ -189,7 +190,7 @@ function RemediationModal({
   const currentCode = activeTab === "CLI" ? commands.cli : commands.powershell;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(currentCode);
+    navigator.clipboard.writeText(resolverComentarios(currentCode, t));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -239,7 +240,7 @@ function RemediationModal({
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">SKU Actual</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">{t("ipaas_currentSku")}</p>
                   <p className="text-sm font-extrabold text-slate-800 dark:text-slate-200 mt-0.5">
                     Premium
                   </p>
@@ -302,7 +303,7 @@ function RemediationModal({
 
             <div className="relative group">
               <pre className="p-3.5 bg-slate-950 text-slate-200 rounded-xl text-xs font-mono overflow-x-auto whitespace-pre-wrap border border-slate-800">
-                {currentCode}
+                {resolverComentarios(currentCode, t)}
               </pre>
             </div>
           </div>
@@ -583,7 +584,7 @@ export default function EventGridFinopsDashboard() {
         />
         <KpiCard
           icon={IconBroadcast}
-          label="Total Eventos MTD"
+          label={t("ipaas_totalEventsMtd")}
           value={
             summary.totalEventsMTD >= 1_000_000_000
               ? `${(summary.totalEventsMTD / 1_000_000_000).toFixed(2)}B eventos`
@@ -613,7 +614,7 @@ export default function EventGridFinopsDashboard() {
               </p>
             </div>
             <span className="text-xs font-bold text-[#0054A6]">
-              {skuDistribution.length} Niveles
+              {t("ipaas_tiers", { n: skuDistribution.length })}
             </span>
           </div>
 
@@ -635,6 +636,7 @@ export default function EventGridFinopsDashboard() {
                   ))}
                 </Pie>
                 <RechartsTooltip
+                  {...TOOLTIP_TEMA}
                   formatter={(value: any) => [format(Number(value)), t("costMtd")]}
                   contentStyle={{
                     backgroundColor: "#1B2A41",
@@ -698,6 +700,7 @@ export default function EventGridFinopsDashboard() {
                   tickFormatter={(val) => `${(val / 1_000_000).toFixed(0)}M`}
                 />
                 <RechartsTooltip
+                  {...TOOLTIP_TEMA}
                   formatter={(value: any, name: any) => [
                     t("millionEvents", { n: (Number(value) / 1_000_000).toFixed(2) }),
                     name === "publishedEvents" ? t("published") : t("delivered"),
@@ -854,11 +857,11 @@ export default function EventGridFinopsDashboard() {
                   </button>
                 </ResizableTh>
                 <ResizableTh minWidth={110}>{t("costPrev")}</ResizableTh>
-                <ResizableTh minWidth={110}>Forecast</ResizableTh>
-                <ResizableTh minWidth={120}>Total Eventos</ResizableTh>
-                <ResizableTh minWidth={110}>Throughput (ops/s)</ResizableTh>
+                <ResizableTh minWidth={110}>{t("ipaas_forecast")}</ResizableTh>
+                <ResizableTh minWidth={120}>{t("ipaas_totalEvents")}</ResizableTh>
+                <ResizableTh minWidth={110}>{t("ipaas_throughputOps")}</ResizableTh>
                 <ResizableTh minWidth={120} className="text-center">
-                  Acciones
+                  {tc("actions")}
                 </ResizableTh>
               </tr>
             </thead>
@@ -1028,7 +1031,7 @@ export default function EventGridFinopsDashboard() {
 
                   <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                     <span className="text-[10px] text-slate-400 font-medium">
-                      Confianza {rec.confidence}
+                      {t("ipaas_confidence")} {rec.confidence}
                     </span>
                     <button
                       onClick={() => setActiveModalAction(rec)}

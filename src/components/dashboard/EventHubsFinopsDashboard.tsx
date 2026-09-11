@@ -1,7 +1,7 @@
 "use client";
 import { ERROR_401 } from "@/lib/errorSentinels";
 import { useTranslations } from "next-intl";
-import { useTextoPorCategoria } from "@/lib/recommendationText";
+import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
 import { EH_SKU_CATEGORIES } from "@/types/azureEventHubs.types";
 
 import React, { useState, useMemo, useRef } from "react";
@@ -44,6 +44,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { buildEventHubsRemediationCommand } from "@/lib/aiRemediations";
 import { forecastMonthEnd } from "@/lib/costAccrual";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import type {
   EventHubsResourceItem,
   EventHubsRemediationAction,
@@ -120,6 +121,7 @@ function ResizableTh({
   className?: string;
 }) {
   const t = useTranslations("IpaasFinops");
+  const tc = useTranslations("Common");
   const textoRem = useTextoPorCategoria("IpaasFinops", "EH");
   const [width, setWidth] = useState(minWidth);
   const startXRef = useRef(0);
@@ -205,7 +207,7 @@ function RemediationModal({
   const currentCode = activeTab === "CLI" ? commands.cli : commands.powershell;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(currentCode);
+    navigator.clipboard.writeText(resolverComentarios(currentCode, t));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -336,7 +338,7 @@ function RemediationModal({
 
             <div className="relative group">
               <pre className="p-3.5 bg-slate-950 text-slate-200 rounded-xl text-xs font-mono overflow-x-auto whitespace-pre-wrap border border-slate-800">
-                {currentCode}
+                {resolverComentarios(currentCode, t)}
               </pre>
             </div>
           </div>
@@ -375,6 +377,7 @@ function RemediationModal({
 // ─── Componente Principal EventHubsFinopsDashboard ───
 export default function EventHubsFinopsDashboard() {
   const t = useTranslations("IpaasFinops");
+  const tc = useTranslations("Common");
   const textoRem = useTextoPorCategoria("IpaasFinops", "EH");
   const { selectedTenant } = useTenant();
   const { instance, accounts, inProgress } = useMsal();
@@ -746,6 +749,7 @@ export default function EventHubsFinopsDashboard() {
                     ))}
                   </Pie>
                   <RechartsTooltip
+                    {...TOOLTIP_TEMA}
                     formatter={(value: any) => [format(Number(value)), t("costMtd")]}
                     contentStyle={{
                       backgroundColor: "#1B2A41",
@@ -805,6 +809,7 @@ export default function EventHubsFinopsDashboard() {
                     tickFormatter={(v) => `${(v / 1024).toFixed(0)} GB`}
                   />
                   <RechartsTooltip
+                    {...TOOLTIP_TEMA}
                     formatter={(val: any, name: any) => [
                       `${(Number(val) / 1024).toFixed(2)} GB`,
                       name === "ingressMB" ? "Ingress" : "Egress",
@@ -822,7 +827,7 @@ export default function EventHubsFinopsDashboard() {
                     align="right"
                     formatter={(val) => (
                       <span className="text-xs text-slate-600 dark:text-slate-400">
-                        {val === "ingressMB" ? "Datos Entrantes (Ingress)" : "Datos Salientes (Egress)"}
+                        {val === "ingressMB" ? t("ipaas_ingress") : t("ipaas_egress")}
                       </span>
                     )}
                   />
@@ -944,7 +949,7 @@ export default function EventHubsFinopsDashboard() {
                     onClick={() => handleSort("forecastEomUSD")}
                     className="flex items-center gap-1 font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600"
                   >
-                    Forecast
+                    {t("ipaas_forecast")}
                   </button>
                 </ResizableTh>
                 <ResizableTh minWidth={120}>
@@ -964,10 +969,10 @@ export default function EventHubsFinopsDashboard() {
                   </button>
                 </ResizableTh>
                 <ResizableTh minWidth={100}>
-                  <span className="font-bold text-slate-700 dark:text-slate-300">Auto-inflate</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-300">{t("ipaas_autoInflate")}</span>
                 </ResizableTh>
                 <th className="p-[10px_14px] text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right bg-slate-50/80 dark:bg-slate-900/80 min-w-[110px]">
-                  Acciones
+                  {tc("actions")}
                 </th>
               </tr>
             </thead>
@@ -1157,7 +1162,7 @@ export default function EventHubsFinopsDashboard() {
 
                 <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                   <span className="text-[10px] text-slate-400">
-                    Confianza: {action.confidence}
+                    {t("ipaas_confidence")}: {action.confidence}
                   </span>
                   <button
                     onClick={() => setActiveModalAction(action)}

@@ -151,6 +151,21 @@ body {
   color: var(--brand-deep) !important;
 }
 
+/* Un icono dentro de una pastilla de marca va blanco en los DOS temas.
+ * La regla de arriba pinta todo `.tabler-icon` con `--brand-deep !important`, y
+ * eso dejaba el check azul sobre fondo azul --invisible-- en la tabla de
+ * capacidades. Las clases de Tailwind (`text-white`, incluso el truco
+ * `[&>svg]:text-white`) generan reglas de especificidad normal y pierden contra
+ * ese `!important`: hace falta otro `!important`, y va DESPUES para ganar el
+ * desempate por orden. */
+.icon-on-brand,
+.icon-on-brand .tabler-icon,
+.icon-on-brand .lucide,
+.icon-on-brand svg {
+  color: #FFFFFF !important;
+  stroke: #FFFFFF !important;
+}
+
 .dark .lucide,
 .dark .tabler-icon,
 .dark svg.tabler-icon,

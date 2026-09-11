@@ -1343,7 +1343,7 @@ describe("i18n · capa 4d: los comentarios de los scripts salen del catálogo", 
      * es la misma: marcador `#{clave}` + resolverComentarios().
      */
     const DEUDA_COMENTARIOS = new Map<string, number>([
-        ["src/lib/aiRemediations.ts", 76],
+        ["src/lib/aiRemediations.ts", 59],
         ["src/lib/advisorRemediation.ts", 20],
         ["src/services/azureTenantHealth.service.ts", 11],
         ["src/services/azureAppInsights.service.ts", 5],
@@ -1351,7 +1351,6 @@ describe("i18n · capa 4d: los comentarios de los scripts salen del catálogo", 
         ["src/services/azureServiceBus.service.ts", 5],
         ["src/services/azureVisionVideo.service.ts", 5],
         ["src/services/azureApim.service.ts", 4],
-        ["src/services/azureLogicApps.service.ts", 4],
         ["src/services/azureContentSafety.service.ts", 3],
         ["src/services/azureDataFactory.service.ts", 3],
         ["src/services/azureDatabricks.service.ts", 2],

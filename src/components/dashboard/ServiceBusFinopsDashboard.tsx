@@ -1,7 +1,7 @@
 "use client";
 import { ERROR_401 } from "@/lib/errorSentinels";
 import { useTranslations } from "next-intl";
-import { useTextoPorCategoria } from "@/lib/recommendationText";
+import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
 
 import React, { useState, useMemo, useRef } from "react";
 import useSWR from "swr";
@@ -43,6 +43,7 @@ import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { buildServiceBusRemediationCommand } from "@/lib/aiRemediations";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import type {
   ServiceBusNamespaceResource,
   ServiceBusRemediationAction,
@@ -107,6 +108,7 @@ function ResizableTh({
   className?: string;
 }) {
   const t = useTranslations("IpaasFinops");
+  const tc = useTranslations("Common");
   const textoRem = useTextoPorCategoria("IpaasFinops", "SB");
   const [width, setWidth] = useState(minWidth);
   const startXRef = useRef(0);
@@ -192,7 +194,7 @@ function RemediationModal({
   const currentCode = activeTab === "CLI" ? commands.cli : commands.powershell;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(currentCode);
+    navigator.clipboard.writeText(resolverComentarios(currentCode, t));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -275,7 +277,7 @@ function RemediationModal({
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">SKU Actual</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">{t("ipaas_currentSku")}</p>
                   <p className="text-sm font-extrabold text-slate-800 dark:text-slate-200 mt-0.5">
                     Premium (1 MU)
                   </p>
@@ -338,7 +340,7 @@ function RemediationModal({
 
             <div className="relative group">
               <pre className="p-3.5 bg-slate-950 text-slate-200 rounded-xl text-xs font-mono overflow-x-auto whitespace-pre-wrap border border-slate-800">
-                {currentCode}
+                {resolverComentarios(currentCode, t)}
               </pre>
             </div>
           </div>
@@ -377,6 +379,7 @@ function RemediationModal({
 // ─── Componente Principal ServiceBusFinopsDashboard ───
 export default function ServiceBusFinopsDashboard() {
   const t = useTranslations("IpaasFinops");
+  const tc = useTranslations("Common");
   const textoRem = useTextoPorCategoria("IpaasFinops", "SB");
   const { selectedTenant } = useTenant();
   const { instance, accounts, inProgress } = useMsal();
@@ -623,7 +626,7 @@ export default function ServiceBusFinopsDashboard() {
         />
         <KpiCard
           icon={IconActivity}
-          label="Total Mensajes MTD"
+          label={t("ipaas_totalMessagesMtd")}
           value={
             summary.totalMessagesMTD >= 1_000_000_000
               ? t("billionMessages", { n: (summary.totalMessagesMTD / 1_000_000_000).toFixed(2) })
@@ -653,7 +656,7 @@ export default function ServiceBusFinopsDashboard() {
               </p>
             </div>
             <span className="text-xs font-bold text-[#0054A6]">
-              {skuDistribution.length} Niveles
+              {t("ipaas_tiers", { n: skuDistribution.length })}
             </span>
           </div>
 
@@ -675,6 +678,7 @@ export default function ServiceBusFinopsDashboard() {
                   ))}
                 </Pie>
                 <RechartsTooltip
+                  {...TOOLTIP_TEMA}
                   formatter={(value: any) => [format(Number(value)), t("costMtd")]}
                   contentStyle={{
                     backgroundColor: "#1B2A41",
@@ -738,6 +742,7 @@ export default function ServiceBusFinopsDashboard() {
                   tickFormatter={(val) => `${(val / 1_000_000).toFixed(0)}M`}
                 />
                 <RechartsTooltip
+                  {...TOOLTIP_TEMA}
                   formatter={(value: any, name: any) => [
                     `${(Number(value) / 1_000_000).toFixed(2)}M mensajes`,
                     name === "incomingMessages" ? "Entrantes" : "Salientes",
@@ -895,7 +900,7 @@ export default function ServiceBusFinopsDashboard() {
                   </button>
                 </ResizableTh>
                 <ResizableTh minWidth={110}>{t("costPrev")}</ResizableTh>
-                <ResizableTh minWidth={110}>Forecast</ResizableTh>
+                <ResizableTh minWidth={110}>{t("ipaas_forecast")}</ResizableTh>
                 <ResizableTh minWidth={120}>
                   <button
                     onClick={() => handleSort("avgCapacityPercentage")}
@@ -907,10 +912,10 @@ export default function ServiceBusFinopsDashboard() {
                     )}
                   </button>
                 </ResizableTh>
-                <ResizableTh minWidth={120}>Total Mensajes</ResizableTh>
+                <ResizableTh minWidth={120}>{t("ipaas_totalMessages")}</ResizableTh>
                 <ResizableTh minWidth={110}>{t("sb_colSize")}</ResizableTh>
                 <ResizableTh minWidth={120} className="text-center">
-                  Acciones
+                  {tc("actions")}
                 </ResizableTh>
               </tr>
             </thead>
@@ -1102,7 +1107,7 @@ export default function ServiceBusFinopsDashboard() {
 
                   <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                     <span className="text-[10px] text-slate-400 font-medium">
-                      Confianza {rec.confidence}
+                      {t("ipaas_confidence")} {rec.confidence}
                     </span>
                     <button
                       onClick={() => setActiveModalAction(rec)}

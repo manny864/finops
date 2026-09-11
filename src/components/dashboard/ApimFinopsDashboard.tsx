@@ -1,7 +1,7 @@
 "use client";
 import { ERROR_401 } from "@/lib/errorSentinels";
 import { useTranslations } from "next-intl";
-import { useTextoPorCategoria } from "@/lib/recommendationText";
+import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
 
 import React, { useState, useMemo, useRef } from "react";
 import useSWR from "swr";
@@ -47,6 +47,7 @@ import type {
   ApimSkuName,
 } from "@/types/azureApim.types";
 import { buildApimRemediationCommand } from "@/lib/aiRemediations";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 const CATEGORY_COLORS: Record<string, string> = {
   DEV_SKU_DOWNGRADE: "#0078D4",
@@ -193,7 +194,7 @@ function RemediationModal({
   const commandText = cmdTab === "cli" ? commands.cli : commands.powershell;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(commandText);
+    navigator.clipboard.writeText(resolverComentarios(commandText, t));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -246,7 +247,7 @@ function RemediationModal({
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">SKU Actual</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">{t("ipaas_currentSku")}</p>
                   <p className="text-sm font-extrabold text-slate-800 dark:text-slate-200 mt-0.5">
                     {action.currentSku || "Premium"}
                   </p>
@@ -330,7 +331,7 @@ function RemediationModal({
               </div>
             </div>
             <pre className="p-3.5 bg-slate-950 text-slate-100 font-mono text-xs rounded-xl overflow-x-auto border border-slate-800">
-              <code>{commandText}</code>
+              <code>{resolverComentarios(commandText, t)}</code>
             </pre>
           </div>
         </div>
@@ -639,7 +640,7 @@ export default function ApimFinopsDashboard() {
               </p>
             </div>
             <span className="text-xs font-bold text-[#0054A6]">
-              {skuDistribution.length} Niveles
+              {t("ipaas_tiers", { n: skuDistribution.length })}
             </span>
           </div>
 
@@ -661,6 +662,7 @@ export default function ApimFinopsDashboard() {
                   ))}
                 </Pie>
                 <RechartsTooltip
+                  {...TOOLTIP_TEMA}
                   formatter={(value: any) => [format(Number(value)), t("costMtd")]}
                   contentStyle={{
                     backgroundColor: "#1B2A41",
@@ -720,6 +722,7 @@ export default function ApimFinopsDashboard() {
                   tickFormatter={(val) => `${(val / 1_000_000).toFixed(0)}M`}
                 />
                 <RechartsTooltip
+                  {...TOOLTIP_TEMA}
                   formatter={(value: any, name: any) => [
                     name === "requests"
                       ? t("millionCalls", { n: (Number(value) / 1_000_000).toFixed(1) })
@@ -838,7 +841,7 @@ export default function ApimFinopsDashboard() {
                     onClick={() => handleSort("name")}
                     className="flex items-center gap-1 hover:text-[#0054A6]"
                   >
-                    Instancia APIM
+                    {t("ipaas_apimInstance")}
                     {sortKey === "name" && (
                       <span>{sortDir === "asc" ? "▲" : "▼"}</span>
                     )}
@@ -870,7 +873,7 @@ export default function ApimFinopsDashboard() {
                   </button>
                 </ResizableTh>
                 <ResizableTh minWidth={110}>{t("costPrev")}</ResizableTh>
-                <ResizableTh minWidth={110}>Forecast</ResizableTh>
+                <ResizableTh minWidth={110}>{t("ipaas_forecast")}</ResizableTh>
                 <ResizableTh minWidth={120}>
                   <button
                     onClick={() => handleSort("avgCapacityPercentage")}
@@ -883,9 +886,9 @@ export default function ApimFinopsDashboard() {
                   </button>
                 </ResizableTh>
                 <ResizableTh minWidth={120}>{t("totalCalls")}</ResizableTh>
-                <ResizableTh minWidth={110}>Latencia Prom.</ResizableTh>
+                <ResizableTh minWidth={110}>{t("ipaas_avgLatency")}</ResizableTh>
                 <ResizableTh minWidth={120} className="text-center">
-                  Acciones
+                  {tc("actions")}
                 </ResizableTh>
               </tr>
             </thead>
@@ -1061,14 +1064,14 @@ export default function ApimFinopsDashboard() {
 
               <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between">
                 <span className="text-[10px] font-semibold text-slate-400">
-                  Confianza: {action.confidence === "HIGH" ? t("high") : t("medium")}
+                  {t("ipaas_confidence")}: {action.confidence === "HIGH" ? t("high") : t("medium")}
                 </span>
                 <button
                   onClick={() => setActiveModalAction(action)}
                   className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 border border-[#0054A6] rounded-lg shadow-xs hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
                 >
                   <IconSparkles className="w-3.5 h-3.5" />
-                  Simular y Resolver
+                  {t("ipaas_simulateResolve")}
                 </button>
               </div>
             </div>

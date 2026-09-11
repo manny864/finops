@@ -91,7 +91,7 @@ export function buildLogicAppsRemediationCommand(action: LogicAppRemediationActi
 } {
   return {
     cli: action.commandPayload || `az logic workflow show --id "${action.resourceId}"`,
-    powershell: `# PowerShell / Azure CLI remediation for Logic Apps\n# Resource: ${action.resourceId}\n${action.commandPayload || ""}`,
+    powershell: `#{cmt_la_ps_header}\n#{cmt_la_recurso} ${action.resourceId}\n${action.commandPayload || ""}`,
   };
 }
 
@@ -103,19 +103,19 @@ export function buildApimRemediationCommand(action: ApimRemediationAction): {
   if (action.category === "DEV_SKU_DOWNGRADE") {
     return {
       cli: action.commandPayload || `az apim update --name "${resourceName}" --resource-group "${action.resourceId.split("/")[4] || "rg"}" --sku-name Developer --sku-capacity 1`,
-      powershell: `# PowerShell Azure CLI - Arbitraje a SKU Developer\nUpdate-AzApiManagement -ResourceGroupName "${action.resourceId.split("/")[4] || "rg"}" -Name "${resourceName}" -Sku Developer -Capacity 1`,
+      powershell: `#{cmt_ip_arb_developer}\nUpdate-AzApiManagement -ResourceGroupName "${action.resourceId.split("/")[4] || "rg"}" -Name "${resourceName}" -Sku Developer -Capacity 1`,
     };
   }
   if (action.category === "UNITS_RIGHTSIZING") {
     const recommendedUnits = action.recommendedCapacity || 1;
     return {
       cli: action.commandPayload || `az apim update --name "${resourceName}" --resource-group "${action.resourceId.split("/")[4] || "rg"}" --sku-capacity ${recommendedUnits}`,
-      powershell: `# PowerShell Azure CLI - Rightsizing de Unidades\nUpdate-AzApiManagement -ResourceGroupName "${action.resourceId.split("/")[4] || "rg"}" -Name "${resourceName}" -Capacity ${recommendedUnits}`,
+      powershell: `#{cmt_ip_rightsizing_units}\nUpdate-AzApiManagement -ResourceGroupName "${action.resourceId.split("/")[4] || "rg"}" -Name "${resourceName}" -Capacity ${recommendedUnits}`,
     };
   }
   return {
-    cli: action.commandPayload || `# Habilitar caché de respuesta interna en políticas de APIM\naz apim api policy update --resource-group "${action.resourceId.split("/")[4] || "rg"}" --service-name "${resourceName}" --api-id "all-apis"`,
-    powershell: `# PowerShell - Aplicar caché en políticas de APIM\nSet-AzApiManagementPolicy -ResourceGroupName "${action.resourceId.split("/")[4] || "rg"}" -Name "${resourceName}" -PolicyFilePath "./apim-cache-policy.xml"`,
+    cli: action.commandPayload || `#{cmt_ip_apim_cache_cli}\naz apim api policy update --resource-group "${action.resourceId.split("/")[4] || "rg"}" --service-name "${resourceName}" --api-id "all-apis"`,
+    powershell: `#{cmt_ip_apim_cache_ps}\nSet-AzApiManagementPolicy -ResourceGroupName "${action.resourceId.split("/")[4] || "rg"}" -Name "${resourceName}" -PolicyFilePath "./apim-cache-policy.xml"`,
   };
 }
 
@@ -133,14 +133,14 @@ export function buildServiceBusRemediationCommand(action: ServiceBusRemediationA
         cli:
           action.commandPayload ||
           `az servicebus namespace update --name "${resourceName}" --resource-group "${rg}" --capacity ${capacity}`,
-        powershell: `# PowerShell Azure CLI - Rightsizing de Messaging Units\nSet-AzServiceBusNamespace -ResourceGroupName "${rg}" -Name "${resourceName}" -Capacity ${capacity}`,
+        powershell: `#{cmt_ip_rightsizing_mu}\nSet-AzServiceBusNamespace -ResourceGroupName "${rg}" -Name "${resourceName}" -Capacity ${capacity}`,
       };
     }
     return {
       cli:
         action.commandPayload ||
         `az servicebus namespace update --name "${resourceName}" --resource-group "${rg}" --sku Standard`,
-      powershell: `# PowerShell Azure CLI - Migración a SKU Standard\nSet-AzServiceBusNamespace -ResourceGroupName "${rg}" -Name "${resourceName}" -SkuName Standard`,
+      powershell: `#{cmt_ip_mig_standard}\nSet-AzServiceBusNamespace -ResourceGroupName "${rg}" -Name "${resourceName}" -SkuName Standard`,
     };
   }
 
@@ -149,7 +149,7 @@ export function buildServiceBusRemediationCommand(action: ServiceBusRemediationA
       cli:
         action.commandPayload ||
         `az servicebus queue delete --name "idle-queue" --namespace-name "${resourceName}" --resource-group "${rg}"`,
-      powershell: `# PowerShell - Eliminar cola huérfana\nRemove-AzServiceBusQueue -ResourceGroupName "${rg}" -NamespaceName "${resourceName}" -Name "idle-queue"`,
+      powershell: `#{cmt_ip_del_queue}\nRemove-AzServiceBusQueue -ResourceGroupName "${rg}" -NamespaceName "${resourceName}" -Name "idle-queue"`,
     };
   }
 
@@ -157,7 +157,7 @@ export function buildServiceBusRemediationCommand(action: ServiceBusRemediationA
     cli:
       action.commandPayload ||
       `az servicebus queue update --name "main-queue" --namespace-name "${resourceName}" --resource-group "${rg}" --default-message-time-to-live P7D`,
-    powershell: `# PowerShell - Ajustar retención de mensajes\nSet-AzServiceBusQueue -ResourceGroupName "${rg}" -NamespaceName "${resourceName}" -Name "main-queue" -DefaultMessageTimeToLive (New-TimeSpan -Days 7)`,
+    powershell: `#{cmt_ip_retencion}\nSet-AzServiceBusQueue -ResourceGroupName "${rg}" -NamespaceName "${resourceName}" -Name "main-queue" -DefaultMessageTimeToLive (New-TimeSpan -Days 7)`,
   };
 }
 
@@ -173,7 +173,7 @@ export function buildEventGridRemediationCommand(action: EventGridRemediationAct
       cli:
         action.commandPayload ||
         `az eventgrid domain update --name "${resourceName}" --resource-group "${rg}" --sku Basic`,
-      powershell: `# PowerShell Azure CLI - Arbitraje a SKU Basic\nUpdate-AzEventGridDomain -ResourceGroupName "${rg}" -Name "${resourceName}" -Sku Basic`,
+      powershell: `#{cmt_ip_arb_basic}\nUpdate-AzEventGridDomain -ResourceGroupName "${rg}" -Name "${resourceName}" -Sku Basic`,
     };
   }
 
@@ -181,7 +181,7 @@ export function buildEventGridRemediationCommand(action: EventGridRemediationAct
     cli:
       action.commandPayload ||
       `az eventgrid topic delete --name "${resourceName}" --resource-group "${rg}" --yes`,
-    powershell: `# PowerShell - Eliminar tema huérfano\nRemove-AzEventGridTopic -ResourceGroupName "${rg}" -Name "${resourceName}"`,
+    powershell: `#{cmt_ip_del_topic}\nRemove-AzEventGridTopic -ResourceGroupName "${rg}" -Name "${resourceName}"`,
   };
 }
 
@@ -199,14 +199,14 @@ export function buildEventHubsRemediationCommand(action: EventHubsRemediationAct
         cli:
           action.commandPayload ||
           `az eventhubs namespace update --name "${resourceName}" --resource-group "${rg}" --capacity ${cap}`,
-        powershell: `# PowerShell Azure CLI - Rightsizing de PUs/TUs\nSet-AzEventHubNamespace -ResourceGroupName "${rg}" -Name "${resourceName}" -SkuCapacity ${cap}`,
+        powershell: `#{cmt_ip_rightsizing_putu}\nSet-AzEventHubNamespace -ResourceGroupName "${rg}" -Name "${resourceName}" -SkuCapacity ${cap}`,
       };
     }
     return {
       cli:
         action.commandPayload ||
         `az eventhubs namespace update --name "${resourceName}" --resource-group "${rg}" --sku Standard --capacity 2`,
-      powershell: `# PowerShell Azure CLI - Arbitraje a SKU Standard\nSet-AzEventHubNamespace -ResourceGroupName "${rg}" -Name "${resourceName}" -SkuName Standard -SkuCapacity 2`,
+      powershell: `#{cmt_ip_arb_standard}\nSet-AzEventHubNamespace -ResourceGroupName "${rg}" -Name "${resourceName}" -SkuName Standard -SkuCapacity 2`,
     };
   }
 
@@ -215,7 +215,7 @@ export function buildEventHubsRemediationCommand(action: EventHubsRemediationAct
       cli:
         action.commandPayload ||
         `az eventhubs namespace update --name "${resourceName}" --resource-group "${rg}" --capacity 1 --enable-auto-inflate true --maximum-throughput-units 5`,
-      powershell: `# PowerShell Azure CLI - Ajustar Auto-inflate y Capacidad Base\nSet-AzEventHubNamespace -ResourceGroupName "${rg}" -Name "${resourceName}" -SkuCapacity 1 -EnableAutoInflate $true -MaximumThroughputUnits 5`,
+      powershell: `#{cmt_ip_autoinflate}\nSet-AzEventHubNamespace -ResourceGroupName "${rg}" -Name "${resourceName}" -SkuCapacity 1 -EnableAutoInflate $true -MaximumThroughputUnits 5`,
     };
   }
 
@@ -223,7 +223,7 @@ export function buildEventHubsRemediationCommand(action: EventHubsRemediationAct
     cli:
       action.commandPayload ||
       `az eventhubs namespace delete --name "${resourceName}" --resource-group "${rg}" --yes`,
-    powershell: `# PowerShell - Eliminar namespace huérfano\nRemove-AzEventHubNamespace -ResourceGroupName "${rg}" -Name "${resourceName}"`,
+    powershell: `#{cmt_ip_del_namespace}\nRemove-AzEventHubNamespace -ResourceGroupName "${rg}" -Name "${resourceName}"`,
   };
 }
 
@@ -239,7 +239,7 @@ export function buildAdfRemediationCommand(action: AdfRemediationAction): {
       cli:
         action.commandPayload ||
         `az datafactory integration-runtime managed update --factory-name "${resourceName}" --resource-group "${rg}" --name "AutoResolveIntegrationRuntime" --time-to-live 10`,
-      powershell: `# PowerShell Azure CLI - Rightsizing de Integration Runtime\nSet-AzDataFactoryV2IntegrationRuntime -ResourceGroupName "${rg}" -DataFactoryName "${resourceName}" -Name "AutoResolveIntegrationRuntime"`,
+      powershell: `#{cmt_ip_rightsizing_ir}\nSet-AzDataFactoryV2IntegrationRuntime -ResourceGroupName "${rg}" -DataFactoryName "${resourceName}" -Name "AutoResolveIntegrationRuntime"`,
     };
   }
 
@@ -248,7 +248,7 @@ export function buildAdfRemediationCommand(action: AdfRemediationAction): {
       cli:
         action.commandPayload ||
         `az datafactory integration-runtime managed update --factory-name "${resourceName}" --resource-group "${rg}" --name "Azure-AutoResolve-IR" --time-to-live 15`,
-      powershell: `# PowerShell Azure CLI - Habilitar Quick Reuse & Caché Data Flow\nSet-AzDataFactoryV2IntegrationRuntime -ResourceGroupName "${rg}" -DataFactoryName "${resourceName}" -Name "Azure-AutoResolve-IR"`,
+      powershell: `#{cmt_ip_quick_reuse}\nSet-AzDataFactoryV2IntegrationRuntime -ResourceGroupName "${rg}" -DataFactoryName "${resourceName}" -Name "Azure-AutoResolve-IR"`,
     };
   }
 
@@ -256,7 +256,7 @@ export function buildAdfRemediationCommand(action: AdfRemediationAction): {
     cli:
       action.commandPayload ||
       `az datafactory delete --factory-name "${resourceName}" --resource-group "${rg}" --yes`,
-    powershell: `# PowerShell - Eliminar Data Factory huérfana\nRemove-AzDataFactoryV2 -ResourceGroupName "${rg}" -Name "${resourceName}"`,
+    powershell: `#{cmt_ip_del_adf}\nRemove-AzDataFactoryV2 -ResourceGroupName "${rg}" -Name "${resourceName}"`,
   };
 }
 

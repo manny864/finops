@@ -90,7 +90,13 @@ describe("Azure Logic Apps FinOps Service", () => {
 
     const cmd = buildLogicAppsRemediationCommand(action);
     expect(cmd.cli).toContain("az logicapp create");
-    expect(cmd.powershell).toContain("PowerShell");
+    // El encabezado ya no viaja en el script: es un marcador que
+    // resolverComentarios() cambia por el texto del catalogo en el idioma del
+    // lector. Aserta el marcador, que es lo que el builder tiene que emitir.
+    expect(cmd.powershell).toContain("#{cmt_la_ps_header}");
+    expect(cmd.powershell).toContain("#{cmt_la_recurso}");
+    // Y el comando ejecutable sigue intacto: el marcador nunca lo toca.
+    expect(cmd.powershell).toContain("az logicapp create --plan asp-std");
   });
 
   it("should enrich live Logic Apps with cost map, monitor telemetry and 30-day dailyTrend", async () => {

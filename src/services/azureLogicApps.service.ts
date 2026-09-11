@@ -561,7 +561,7 @@ export function generateLogicAppsRecommendations(
           estimatedSavingsUSD: estimatedSavings,
           confidence: "HIGH",
           actionType: "MIGRATE_TO_LOGIC_APP_STANDARD",
-          commandPayload: `# Azure CLI: Crear App Service Plan WS1 y migrar flujo a Logic Apps Standard\naz appservice plan create --name "asp-logicapps-std" --resource-group "${item.resourceGroup}" --sku WS1 --is-linux false\naz logicapp create --name "${item.name}-std" --resource-group "${item.resourceGroup}" --plan "asp-logicapps-std"`,
+          commandPayload: `#{cmt_la_migrar_ws1}\naz appservice plan create --name "asp-logicapps-std" --resource-group "${item.resourceGroup}" --sku WS1 --is-linux false\naz logicapp create --name "${item.name}-std" --resource-group "${item.resourceGroup}" --plan "asp-logicapps-std"`,
         });
       }
     }
@@ -577,7 +577,7 @@ export function generateLogicAppsRecommendations(
         estimatedSavingsUSD: estimatedSavings,
         confidence: "HIGH",
         actionType: "DOWNGRADE_TO_CONSUMPTION",
-        commandPayload: `# Exportar definición de workflow JSON y recrear en modo Consumption\naz logic workflow create --resource-group "${item.resourceGroup}" --name "${item.name}" --location "${item.location}" --definition @workflow.json`,
+        commandPayload: `#{cmt_la_exportar_consumption}\naz logic workflow create --resource-group "${item.resourceGroup}" --name "${item.name}" --location "${item.location}" --definition @workflow.json`,
       });
     }
 
@@ -598,7 +598,7 @@ export function generateLogicAppsRecommendations(
         estimatedSavingsUSD: estimatedSavings,
         confidence: "HIGH",
         actionType: "UPDATE_RETRY_POLICY",
-        commandPayload: `# Configurar política de reintentos fija o exponencial en el workflow\naz logic workflow update --resource-group "${item.resourceGroup}" --name "${item.name}" --state "Disabled"`,
+        commandPayload: `#{cmt_la_politica_reintentos}\naz logic workflow update --resource-group "${item.resourceGroup}" --name "${item.name}" --state "Disabled"`,
       });
     }
 
@@ -629,7 +629,7 @@ export function buildLogicAppsRemediationCommand(action: LogicAppRemediationActi
 } {
   return {
     cli: action.commandPayload || `az logic workflow show --id "${action.resourceId}"`,
-    powershell: `# PowerShell / Azure CLI remediation for Logic Apps\n# Resource: ${action.resourceId}\n${action.commandPayload || ""}`,
+    powershell: `#{cmt_la_ps_header}\n#{cmt_la_recurso} ${action.resourceId}\n${action.commandPayload || ""}`,
   };
 }
 

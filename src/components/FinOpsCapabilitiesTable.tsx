@@ -479,7 +479,7 @@ export function FinOpsCapabilitiesTable({
     if (value === true) {
       return (
         <span
-          className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-[#0054A6] text-white shadow-2xs"
+          className="icon-on-brand inline-flex items-center justify-center w-6 h-6 rounded-md bg-[#0054A6] text-white shadow-2xs"
           aria-label={t('matrix.included')}
         >
           <IconCheck className="w-4 h-4 text-white" stroke={3} />
@@ -663,7 +663,7 @@ export function FinOpsCapabilitiesTable({
                       {/* Columna de la Característica (Ícono + Nombre traducido) */}
                       <td className="py-4 px-4 text-slate-900">
                         <div className="flex items-center gap-3.5">
-                          <span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-[#0054A6] text-white shadow-2xs [&>svg]:text-white [&>svg]:stroke-white">
+                          <span className="icon-on-brand shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-[#0054A6] text-white shadow-2xs">
                             {row.icon}
                           </span>
                           <span className="text-xs sm:text-sm font-medium text-slate-800 leading-snug">

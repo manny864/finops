@@ -1,5 +1,5 @@
 "use client";
-import { useTextoPorCategoria } from "@/lib/recommendationText";
+import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
 import { ERROR_401 } from "@/lib/errorSentinels";
 import { useTranslations } from "next-intl";
 
@@ -183,7 +183,7 @@ function RemediationModal({
   const commandText = cmdTab === "cli" ? commands.cli : commands.powershell;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(commandText);
+    navigator.clipboard.writeText(resolverComentarios(commandText, t));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -274,7 +274,7 @@ function RemediationModal({
             </div>
 
             <pre className="bg-slate-900 text-slate-100 p-4 rounded-xl text-xs font-mono overflow-x-auto border border-slate-800 whitespace-pre-wrap">
-              {commandText}
+              {resolverComentarios(commandText, t)}
             </pre>
           </div>
         </div>
@@ -572,7 +572,7 @@ export default function LogicAppsFinopsDashboard() {
           <div className="flex items-center gap-2">
             <IconPlugConnected className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
             <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Conectores Enterprise & B2B (SAP, IBM MQ, AS2, EDIFACT)
+              {t("ipaas_enterpriseConnectors")}
             </h3>
           </div>
           <span className="text-[11px] font-semibold text-slate-400">
@@ -770,12 +770,12 @@ export default function LogicAppsFinopsDashboard() {
                     className="flex items-center gap-1 cursor-pointer hover:text-[#0078D4]"
                     onClick={() => handleSort("forecastEomUSD")}
                   >
-                    Forecast
+                    {t("ipaas_forecast")}
                     <SortIcon column="forecastEomUSD" />
                   </button>
                 </ResizableTh>
                 <ResizableTh minWidth={110}>
-                  <span>Salud</span>
+                  <span>{t("ipaas_health")}</span>
                 </ResizableTh>
                 <ResizableTh minWidth={120}>
                   <button
@@ -791,12 +791,12 @@ export default function LogicAppsFinopsDashboard() {
                     className="flex items-center gap-1 cursor-pointer hover:text-[#0078D4]"
                     onClick={() => handleSort("runsFailedCount")}
                   >
-                    Runs Fallidos
+                    {t("ipaas_failedRuns")}
                     <SortIcon column="runsFailedCount" />
                   </button>
                 </ResizableTh>
                 <th className="px-4 py-3 text-left font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Acciones
+                  {tc("actions")}
                 </th>
               </tr>
             </thead>
