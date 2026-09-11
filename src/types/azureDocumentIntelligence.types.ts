@@ -48,18 +48,30 @@ export interface DocIntelligenceSummary {
   breakdownByModel: DocIntelligenceModelBreakdown[];
 }
 
+export const DOC_INTELLIGENCE_REMEDIATION_CATEGORIES = [
+  "MODEL_ARBITRAGE",
+  "COMMITMENT_TIER",
+  "DEV_F0_DOWNGRADE",
+  "ORPHAN_ACCOUNT",
+] as const;
+
 export type DocIntelligenceRemediationCategory =
-  | "MODEL_ARBITRAGE"
-  | "COMMITMENT_TIER"
-  | "DEV_F0_DOWNGRADE"
-  | "ORPHAN_ACCOUNT";
+  (typeof DOC_INTELLIGENCE_REMEDIATION_CATEGORIES)[number];
 
 export interface DocIntelligenceRemediationAction {
   id: string;
   resourceId: string;
+  /**
+   * Texto de respaldo en castellano. La UI muestra
+   * `rem_DOC_<category>_title`/`_desc` del catalogo: la respuesta se cachea con
+   * una clave que no incluye el locale, asi que armar la frase en el servidor le
+   * daria al segundo lector el idioma del primero.
+   */
   title: string;
   description: string;
   category: DocIntelligenceRemediationCategory;
+  /** Valores a interpolar en las claves. Numeros y nombres, nunca frases. */
+  params?: Record<string, string | number>;
   estimatedSavingsUSD: number;
   confidence: "HIGH" | "MEDIUM";
   actionType: string;

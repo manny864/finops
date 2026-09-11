@@ -42,6 +42,8 @@ import {
   IconSparkles,
 } from "@tabler/icons-react";
 import InfoTooltip from "@/components/InfoTooltip";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
+import { useRouter } from "@/i18n/routing";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -245,6 +247,7 @@ export default function AzureFoundryDetail() {
   const isMock = forceMock || (tenantId ? isMockTenant(tenantId) : false);
   const [days, setDays] = useState<number | "mtd">(30);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const router = useRouter();
 
   const apiUrl = tenantId
     ? `/api/intelligence/azure-ai/foundry/detail?tenantId=${encodeURIComponent(tenantId)}&days=${days}${forceMock ? "&mock=true" : ""}`
@@ -342,8 +345,8 @@ export default function AzureFoundryDetail() {
         <div className="flex items-center gap-1.5">
           {([
             { id: 7, label: "7D" },
-            { id: 30, label: "1 mes (30D)" },
-            { id: "mtd" as const, label: "Mes actual (MTD)" },
+            { id: 30, label: t("foundry_range30") },
+            { id: "mtd" as const, label: t("foundry_rangeMtd") },
             { id: 90, label: "90D" },
           ]).map((opt) => (
             <button
@@ -366,7 +369,7 @@ export default function AzureFoundryDetail() {
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer disabled:opacity-50"
         >
           <IconRotateClockwise className={"w-3.5 h-3.5 " + (isRefreshing ? "animate-spin text-[#0078D4]" : "")} stroke={1.5} />
-          Refrescar datos
+          {t("foundry_refresh")}
         </button>
       </div>
 
@@ -397,7 +400,7 @@ export default function AzureFoundryDetail() {
             <KpiCard
               label={t("foundry_totalTokens")}
               value={fmtCompact(metrics.totalTokens)}
-              sub={metrics.avgTokensPerRequest + " promedio/solicitud"}
+              sub={t("foundry_avgPerRequest", { n: metrics.avgTokensPerRequest })}
               icon={IconCpu}
               tooltip={t("foundry_totalTokensTooltip")}
             />
@@ -447,10 +450,10 @@ export default function AzureFoundryDetail() {
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="#94a3b8" />
                     <YAxis tick={{ fontSize: 10 }} stroke="#94a3b8" tickFormatter={(v: number) => "$" + v.toFixed(2)} />
                     <RechartsTooltip
-                      contentStyle={{ fontSize: 11, borderRadius: 8 }}
+                      {...TOOLTIP_TEMA}
                       formatter={(value: unknown) => {
                         const n = typeof value === "number" ? value : parseFloat(String(value || "0"));
-                        return ["$" + (isNaN(n) ? "0.00" : n.toFixed(2)), "Costo"];
+                        return ["$" + (isNaN(n) ? "0.00" : n.toFixed(2)), t("ov_chartCost")];
                       }}
                     />
                     <Area
@@ -480,7 +483,7 @@ export default function AzureFoundryDetail() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="#94a3b8" />
                     <YAxis tick={{ fontSize: 10 }} stroke="#94a3b8" tickFormatter={(v: number) => fmtCompact(v)} />
-                    <RechartsTooltip contentStyle={{ fontSize: 11, borderRadius: 8 }} />
+                    <RechartsTooltip {...TOOLTIP_TEMA} />
                     <Legend wrapperStyle={{ fontSize: 10 }} />
                     <Line
                       type="monotone"
@@ -613,7 +616,7 @@ export default function AzureFoundryDetail() {
                     <div className="grid grid-cols-2 gap-3 mb-4">
                       <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-3 text-center">
                         <p className="text-lg font-bold text-green-700 dark:text-green-300">{taggedPct.toFixed(0)}%</p>
-                        <p className="text-[10px] text-green-600 dark:text-green-400">Atribuido ({tagged.length} apps)</p>
+                        <p className="text-[10px] text-green-600 dark:text-green-400">{t("foundry_attributed", { count: tagged.length })}</p>
                         <p className="text-xs font-semibold text-green-700 dark:text-green-300 mt-1">{fmtUSD(taggedCost)}</p>
                       </div>
                       <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-center">
@@ -648,9 +651,13 @@ export default function AzureFoundryDetail() {
                             <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">
                               {t("foundry_tagHint")}
                             </p>
-                            <button className="mt-2 text-[11px] px-3 py-1.5 rounded-lg border border-[#0078D4] text-[#0078D4] dark:text-blue-400 bg-white dark:bg-slate-800 hover:bg-blue-50 font-medium transition-colors cursor-pointer flex items-center">
+                            <button
+                              type="button"
+                              onClick={() => router.push("/governance/tags")}
+                              className="mt-2 text-[11px] px-3 py-1.5 rounded-lg border border-[#0078D4] text-[#0078D4] dark:text-blue-400 bg-white dark:bg-slate-800 hover:bg-blue-50 font-medium transition-colors cursor-pointer flex items-center"
+                            >
                               <IconSparkles size={16} stroke={1.5} className="inline mr-1.5 text-[#0078D4]" />
-                              Asignar Tags
+                              {t("foundry_assignTags")}
                             </button>
                           </div>
                         </div>

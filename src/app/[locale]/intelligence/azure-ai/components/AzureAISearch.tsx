@@ -30,6 +30,7 @@ import { isMockTenant } from "@/lib/mockData";
 import InfoTooltip from "@/components/InfoTooltip";
 import ResizableTh from "@/components/ResizableTh";
 import MockBanner from "@/components/MockBanner";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import {
   ResponsiveContainer,
   PieChart,
@@ -146,6 +147,7 @@ function SearchEmptyState() {
 
 export default function AzureAISearch() {
   const t = useTranslations("AzureAI");
+  const tc = useTranslations("Common");
   const textoRem = useTextoPorCategoria("AzureAI", "SEARCH");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
@@ -399,13 +401,7 @@ export default function AzureAISearch() {
                 ))}
               </Pie>
               <RechartsTooltip
-                contentStyle={{
-                  backgroundColor: "#1B2A41",
-                  border: "1px solid #475569",
-                  borderRadius: "8px",
-                  color: "#FFFFFF",
-                  fontSize: "12px",
-                }}
+                {...TOOLTIP_TEMA}
                 formatter={(value, name) => [`${Number(value).toFixed(1)}%`, String(name ?? "")]}
               />
               <Legend
@@ -422,7 +418,7 @@ export default function AzureAISearch() {
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-1.5">
           <IconFilter className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
-          <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Filtros</span>
+          <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">{t("srch_filters")}</span>
         </div>
         <select
           value={filterSku}
@@ -494,7 +490,7 @@ export default function AzureAISearch() {
                 </ResizableTh>
                 <ResizableTh className="px-3 py-2.5 text-center font-semibold text-[#1B2A41] dark:text-slate-200 cursor-pointer" onClick={() => handleSort("storageUsedGB")}>
                   <div className="flex items-center justify-center gap-1">
-                    Almacenamiento
+                    {t("srch_storage")}
                     {sortKey === "storageUsedGB" && <IconArrowsSort className="w-3 h-3" />}
                   </div>
                 </ResizableTh>
@@ -511,7 +507,7 @@ export default function AzureAISearch() {
                   </div>
                 </ResizableTh>
                 <ResizableTh className="px-3 py-2.5 text-center font-semibold text-[#1B2A41] dark:text-slate-200" minWidth={80}>
-                  Acciones
+                  {tc("actions")}
                 </ResizableTh>
               </tr>
             </thead>
@@ -585,7 +581,7 @@ export default function AzureAISearch() {
         {filteredServices.length > 15 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20">
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">Mostrar</span>
+              <span className="text-xs text-slate-500">{t("srch_show")}</span>
               <select
                 value={pageSize}
                 onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
@@ -758,23 +754,23 @@ function ServiceDetailModal({
           {/* Performance */}
           <div>
             <h4 className="text-xs font-semibold text-[#1B2A41] dark:text-slate-200 mb-3 uppercase tracking-wide">
-              Rendimiento
+              {t("srch_perf")}
             </h4>
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
-                <div className="text-[10px] text-slate-400 uppercase mb-1">QPS Promedio</div>
+                <div className="text-[10px] text-slate-400 uppercase mb-1">{t("srch_avgQps")}</div>
                 <div className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">{(Number(service.qpsAvg) || 0).toFixed(2)}</div>
               </div>
               <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
-                <div className="text-[10px] text-slate-400 uppercase mb-1">QPS Pico</div>
+                <div className="text-[10px] text-slate-400 uppercase mb-1">{t("srch_peakQps")}</div>
                 <div className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">{(Number(service.qpsPeak) || 0).toFixed(2)}</div>
               </div>
               <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
-                <div className="text-[10px] text-slate-400 uppercase mb-1">Latencia</div>
+                <div className="text-[10px] text-slate-400 uppercase mb-1">{t("srch_latency")}</div>
                 <div className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">{(Number(service.latencyMsAvg) || 0).toFixed(0)} ms</div>
               </div>
               <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
-                <div className="text-[10px] text-slate-400 uppercase mb-1">Throttling</div>
+                <div className="text-[10px] text-slate-400 uppercase mb-1">{t("srch_throttling")}</div>
                 <div className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">{(Number(service.throttleRatePct) || 0).toFixed(1)}%</div>
               </div>
             </div>
@@ -783,15 +779,15 @@ function ServiceDetailModal({
           {/* Storage */}
           <div>
             <h4 className="text-xs font-semibold text-[#1B2A41] dark:text-slate-200 mb-3 uppercase tracking-wide">
-              Almacenamiento
+              {t("srch_storage")}
             </h4>
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
-                <div className="text-[10px] text-slate-400 uppercase mb-1">Almacenamiento</div>
+                <div className="text-[10px] text-slate-400 uppercase mb-1">{t("srch_storage")}</div>
                 <div className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">{(Number(service.storageUsedGB) || 0).toFixed(1)} GB</div>
               </div>
               <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
-                <div className="text-[10px] text-slate-400 uppercase mb-1">Documentos</div>
+                <div className="text-[10px] text-slate-400 uppercase mb-1">{t("srch_documents")}</div>
                 <div className="text-sm font-semibold text-[#1B2A41] dark:text-slate-200">{(Number(service.documentsCount) || 0).toLocaleString()}</div>
               </div>
               <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3">

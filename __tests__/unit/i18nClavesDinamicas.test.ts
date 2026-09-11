@@ -21,6 +21,7 @@ import { VISION_REMEDIATION_CATEGORIES } from "@/types/azureVisionVideo.types";
 import { AML_REMEDIATION_CATEGORIES } from "@/types/azureMachineLearning.types";
 import { AI_SEARCH_REMEDIATION_CATEGORIES } from "@/types/azureAiSearch.types";
 import { FOUNDRY_REMEDIATION_CATEGORIES } from "@/types/azureAiFoundry.types";
+import { DOC_INTELLIGENCE_REMEDIATION_CATEGORIES } from "@/types/azureDocumentIntelligence.types";
 import { ALLOCATION_REMEDIATION_CATEGORIES } from "@/types/azureCostAllocation.types";
 import { WATERFALL_STEP_KEYS } from "@/types/azureWhatIf.types";
 import { REDIS_RULE_I18N } from "@/types/redisCache";
@@ -213,6 +214,12 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
             ns: "AzureAI",
             params: { name: "search-dev", gb: "1.2", savings: "172.00", cost: "245.00", replicas: 3, qps: 4 },
             claves: AI_SEARCH_REMEDIATION_CATEGORIES.flatMap((c) => [`rem_SEARCH_${c}_title`, `rem_SEARCH_${c}_desc`]),
+        },
+        {
+            que: "recomendaciones de Document Intelligence (DOC_INTELLIGENCE_REMEDIATION_CATEGORIES)",
+            ns: "AzureAI",
+            params: { name: "di-prod", pages: 320, limit: 500 },
+            claves: DOC_INTELLIGENCE_REMEDIATION_CATEGORIES.flatMap((c) => [`rem_DOC_${c}_title`, `rem_DOC_${c}_desc`]),
         },
         {
             que: "recomendaciones de AI Foundry (FOUNDRY_REMEDIATION_CATEGORIES)",

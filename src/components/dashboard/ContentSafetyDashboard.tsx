@@ -49,6 +49,7 @@ import type {
   ContentSafetyRemediationAction,
 } from "@/types/azureContentSafety.types";
 import { buildContentSafetyRemediationCommand } from "@/lib/aiRemediations";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 // ─── Paleta de colores en tonos de azul ───
 const CATEGORY_COLORS: Record<string, string> = {
@@ -600,7 +601,7 @@ export default function ContentSafetyDashboard() {
                       <Cell key={i} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(v: any) => format(Number(v))} />
+                  <Tooltip formatter={(v: any) => format(Number(v))} {...TOOLTIP_TEMA} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -643,7 +644,7 @@ export default function ContentSafetyDashboard() {
               <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
               <XAxis dataKey="date" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} width={40} />
-              <Tooltip />
+              <Tooltip {...TOOLTIP_TEMA} />
               <Area
                 type="monotone"
                 dataKey="textAnalyzedK"
@@ -777,7 +778,7 @@ export default function ContentSafetyDashboard() {
                   </button>
                 </ResizableTh>
                 <th className="px-4 py-3 text-left font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Acciones
+                  {tc("actions")}
                 </th>
               </tr>
             </thead>

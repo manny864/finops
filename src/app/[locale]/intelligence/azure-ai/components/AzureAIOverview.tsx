@@ -26,6 +26,7 @@ import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
+import { useRouter } from "@/i18n/routing";
 import {
   IconBrain,
   IconTrendingUp,
@@ -46,6 +47,7 @@ import InfoTooltip from "@/components/InfoTooltip";
 import type {
   AzureAiSummaryPayload,
   AiCapabilityBreakdownItem,
+  AiCapabilityKey,
   AiRiskAnomalySignal,
   AiRemediationAction,
 } from "@/types/azureAiSummary.types";
@@ -222,7 +224,27 @@ function UnitEconomicsCard({
   );
 }
 
+/**
+ * Cada capacidad ya tiene su pantalla con el modal de remediacion completo
+ * (comando CLI/PowerShell, copiar, ahorro). El boton de aca navega ahi en vez
+ * de duplicar ese modal en el resumen: es la misma accion, un solo lugar donde
+ * mantenerla.
+ */
+const RUTA_POR_CAPACIDAD: Record<AiCapabilityKey, string> = {
+  foundry: "/intelligence/azure-ai/foundry",
+  search: "/intelligence/azure-ai/search",
+  doc_intelligence: "/intelligence/azure-ai/document-intelligence",
+  speech_language: "/intelligence/azure-ai/speech-language",
+  vision_video: "/intelligence/azure-ai/vision-video",
+  content_safety: "/intelligence/azure-ai/content-safety",
+  machine_learning: "/intelligence/azure-ai/aml",
+  databricks: "/intelligence/azure-ai/databricks",
+};
+
 function RemediationCard({ action }: { action: AiRemediationAction }) {
+  const t = useTranslations("AzureAI");
+  const router = useRouter();
+  const destino = RUTA_POR_CAPACIDAD[action.capabilityKey];
   const confidenceBadge =
     action.confidence === "HIGH"
       ? "bg-green-50 text-green-700 border-green-200"
@@ -256,10 +278,13 @@ function RemediationCard({ action }: { action: AiRemediationAction }) {
                 <span className="text-[10px] font-normal text-slate-400">/mo</span>
               </span>
               <button
-                className="text-[11px] px-3 py-1.5 rounded-lg border border-[#0078D4] text-[#0078D4] dark:text-blue-400 bg-white hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800 font-medium transition-colors"
-                title="Optimize this recommendation"
+                type="button"
+                onClick={() => destino && router.push(destino)}
+                disabled={!destino}
+                className="text-[11px] px-3 py-1.5 rounded-lg border border-[#0078D4] text-[#0078D4] dark:text-blue-400 bg-white hover:bg-blue-50 dark:bg-slate-900 dark:hover:bg-slate-800 font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                title={t("ov_optimizeTooltip")}
               >
-                Optimizar {"\u2728"}
+                {t("ov_optimize")} {"\u2728"}
               </button>
             </div>
           </div>
@@ -428,24 +453,27 @@ export default function AzureAIOverview() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <KpiCard
-          title="Total Azure AI Cost (MTD)"
+          title={t("ov_mtdTitle")}
           value={fmtUSD(metrics.totalCostMtdUSD)}
           subtitle={
             hasData
-              ? fmtPct(capabilityBreakdown[0]?.sharePercentage || "0") + " del presupuesto total"
-              : "Sin datos de facturacion"
+              ? t("ov_mtdShare", { pct: fmtPct(capabilityBreakdown[0]?.sharePercentage || "0") })
+              : t("ov_noBilling")
           }
           icon={IconBrain}
           tooltip={t("ov_mtdTooltip")}
           trend={parseFloat(metrics.momVariationPct) > 0 ? "up" : parseFloat(metrics.momVariationPct) < 0 ? "down" : "neutral"}
         />
         <KpiCard
-          title="Forecast EOM"
+          title={t("ov_forecastTitle")}
           value={fmtUSD(metrics.forecastEomUSD)}
           subtitle={
             metrics.momVariationPct !== "0.0"
-              ? (parseFloat(metrics.momVariationPct) > 0 ? "+" : "") + metrics.momVariationPct + "% vs mes anterior"
-              : "Proyeccion lineal"
+              ? t("ov_vsPrevMonth", {
+                  sign: parseFloat(metrics.momVariationPct) > 0 ? "+" : "",
+                  pct: metrics.momVariationPct,
+                })
+              : t("ov_linearProjection")
           }
           icon={IconTrendingUp}
           tooltip={t("ov_forecastTooltip")}
@@ -455,8 +483,8 @@ export default function AzureAIOverview() {
           value={fmtUSD(metrics.estimatedWasteUSD)}
           subtitle={
             parseFloat(metrics.estimatedWasteUSD) > 0
-              ? "Instancias ociosas / clusters sin auto-apagado"
-              : "Sin desperdicio detectado"
+              ? t("ov_wasteSubtitle")
+              : t("ov_noWaste")
           }
           icon={IconAlertTriangle}
           tooltip={t("ov_wasteTooltip")}
@@ -466,8 +494,8 @@ export default function AzureAIOverview() {
           value={fmtUSD(metrics.potentialSavingsUSD)}
           subtitle={
             parseFloat(metrics.potentialSavingsUSD) > 0
-              ? remediationActions.length + " acciones de optimizacion detectadas"
-              : "Sin oportunidades detectadas"
+              ? t("ov_savingsSubtitle", { n: remediationActions.length })
+              : t("ov_noOpportunities")
           }
           icon={IconPigMoney}
           tooltip={t("ov_savingsTooltip")}
@@ -506,7 +534,7 @@ export default function AzureAIOverview() {
               <span>
                 {t("ov_activeResources", { n: capabilityBreakdown.reduce((sum: number, c: AiCapabilityBreakdownItem) => sum + c.activeResourcesCount, 0) })}
               </span>
-              <span>Total: {fmtUSD(metrics.totalCostMtdUSD)}</span>
+              <span>{t("ov_totalLabel", { amount: fmtUSD(metrics.totalCostMtdUSD) })}</span>
             </div>
           </div>
 
@@ -520,29 +548,29 @@ export default function AzureAIOverview() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <UnitEconomicsCard
-                label="Total Tokens Procesados"
+                label={t("ov_totalTokens")}
                 value={fmtCompact(ue.totalTokens)}
-                sub={fmtCompact(ue.promptTokens) + " prompt + " + fmtCompact(ue.completionTokens) + " completion"}
+                sub={t("ov_tokensSplit", { prompt: fmtCompact(ue.promptTokens), completion: fmtCompact(ue.completionTokens) })}
                 icon={IconSparkles}
               />
               <UnitEconomicsCard
                 label={t("ov_avgCostPer1M")}
                 value={fmtUSD(ue.avgCostPerMillionTokensUSD)}
-                sub={"Modelo principal: " + ue.topModelName}
+                sub={t("ov_topModel", { model: ue.topModelName })}
                 icon={IconCoins}
               />
               <UnitEconomicsCard
                 label={t("billingModality")}
                 value={
                   ue.billingModel === "PAYG"
-                    ? "Pay-As-You-Go"
+                    ? t("ov_billingPayg")
                     : ue.billingModel === "PTU"
-                      ? "Provisioned Throughput"
+                      ? t("ov_billingPtu")
                       : ue.billingModel === "HYBRID"
-                        ? "Hibrido (PAYG + PTU)"
-                        : "No detectado"
+                        ? t("ov_billingHybrid")
+                        : t("ov_billingUnknown")
                 }
-                sub={ue.activeDeployments + " deployments activos"}
+                sub={t("ov_activeDeployments", { n: ue.activeDeployments })}
                 icon={IconBrain}
               />
             </div>
@@ -553,7 +581,7 @@ export default function AzureAIOverview() {
               <div className="flex items-center gap-2 mb-4">
                 <IconBulb className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
                 <h3 className="text-sm font-semibold text-[#1B2A41] dark:text-white">
-                  Top Recommendations by ROI
+                  {t("ov_topRecommendations")}
                 </h3>
                 <InfoTooltip content={t("ov_actionsTooltip")} />
               </div>
@@ -577,7 +605,7 @@ export default function AzureAIOverview() {
               <div className="flex items-center gap-2 mb-4">
                 <IconAlertTriangle className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
                 <h3 className="text-sm font-semibold text-[#1B2A41] dark:text-white">
-                  Risk and Anomaly Signals
+                  {t("ov_riskSignals")}
                 </h3>
                 <InfoTooltip content={t("healthMonitorTooltip")} />
               </div>
