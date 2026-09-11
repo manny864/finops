@@ -1,5 +1,5 @@
 "use client";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -82,26 +82,46 @@ function getChannelIcon(channel: NotificationChannelType) {
   }
 }
 
-function getTypeBadge(type: AlertRuleType) {
+/**
+ * El umbral se re-formatea en el panel en vez de mostrar `formattedThreshold`.
+ * Esa cadena la arma `formatAlertThreshold()` del servicio y sale en castellano
+ * a proposito: viaja en los payloads de Teams/Slack/ServiceNow/email, no solo
+ * por pantalla. Traducirla en el servicio cambiaria tambien lo que se despacha.
+ */
+function formatThresholdLabel(rule: SelfServiceAlertRule, t: (k: string, v?: Record<string, string>) => string) {
+  const pct = (rule.thresholdValue || 0).toFixed(1);
+  switch (rule.alertType) {
+    case "BUDGET":
+      return t("thrBudget", { pct });
+    case "ANOMALY_PERCENT":
+      return t("thrAnomaly", { pct });
+    case "FORECAST_OVERRUN":
+      return t("thrForecast", { pct });
+    default:
+      return rule.formattedThreshold;
+  }
+}
+
+function getTypeBadge(type: AlertRuleType, t: (k: string) => string) {
   switch (type) {
     case "BUDGET":
       return {
-        label: "Presupuesto",
+        label: t("badgeBudget"),
         className: "border-[#0078D4] text-[#0078D4] bg-white dark:bg-slate-900",
       };
     case "FIXED_THRESHOLD":
       return {
-        label: "Umbral Fijo USD",
+        label: t("badgeFixed"),
         className: "border-[#2563EB] text-[#2563EB] bg-white dark:bg-slate-900",
       };
     case "ANOMALY_PERCENT":
       return {
-        label: "Anomalía AI",
+        label: t("badgeAnomaly"),
         className: "border-[#0284C7] text-[#0284C7] bg-white dark:bg-slate-900",
       };
     case "FORECAST_OVERRUN":
       return {
-        label: "Forecast EOM",
+        label: t("badgeForecast"),
         className: "border-[#38BDF8] text-[#0284C7] bg-white dark:bg-slate-900",
       };
     default:
@@ -132,7 +152,7 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
   const [name, setName] = useState(initialRule?.name || "");
   const [alertType, setAlertType] = useState<AlertRuleType>(initialRule?.alertType || "BUDGET");
   const [scopeType, setScopeType] = useState<AlertScopeType>(initialRule?.scopeType || "TENANT");
-  const [scopeValue, setScopeValue] = useState(initialRule?.scopeValue || "Tenant Completo");
+  const [scopeValue, setScopeValue] = useState(initialRule?.scopeValue || t("scopeTenant"));
   const [thresholdValue, setThresholdValue] = useState<number>(initialRule?.thresholdValue || 80);
   const [thresholdUnit, setThresholdUnit] = useState<"PERCENT" | "USD">(initialRule?.thresholdUnit || "PERCENT");
   const [notificationChannel, setNotificationChannel] = useState<NotificationChannelType>(
@@ -153,7 +173,7 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
 
       const syntheticRule: Partial<SelfServiceAlertRule> = {
         id: initialRule?.id || "test-preview",
-        name: name || "Regla de Prueba",
+        name: name || t("testRuleName"),
         alertType,
         scopeType,
         scopeValue,
@@ -178,7 +198,7 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
     } catch (err: any) {
       setTestResult({
         success: false,
-        responseMessage: `Error: ${err.message || "Fallo en la prueba"}`,
+        responseMessage: `Error: ${err.message || t("testFailedFallback")}`,
         testedAt: new Date().toISOString(),
       });
     } finally {
@@ -233,7 +253,7 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
             <IconBellRinging className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
             <div>
               <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">
-                {initialRule ? "Editar Regla de Alerta" : "Nueva Regla de Alerta Self-Service"}
+                {initialRule ? t("modalEditTitle") : t("modalNewTitle")}
               </h3>
               <p className="text-xs text-slate-500">{t("stepHeader", { step })}</p>
             </div>
@@ -249,9 +269,9 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
         {/* Indicador de Pasos */}
         <div className="grid grid-cols-3 gap-2">
           {[
-            { n: 1, label: "Tipo y Alcance" },
-            { n: 2, label: "Condición" },
-            { n: 3, label: "Canal y Destino" },
+            { n: 1, label: t("step1") },
+            { n: 2, label: t("step2") },
+            { n: 3, label: t("step3") },
           ].map((s) => (
             <div
               key={s.n}
@@ -279,7 +299,7 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="ej. Alerta Presupuesto AKS > 85%"
+                  placeholder={t("ruleNamePlaceholder")}
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[#1B2A41] dark:text-slate-100 focus:outline-none focus:border-[#0054A6]"
                 />
               </div>
@@ -303,7 +323,7 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
 
                 <div>
                   <label className="block text-xs font-bold text-[#1B2A41] dark:text-slate-200 mb-1">
-                    Alcance (Scope)
+                    {t("scopeLabel")}
                   </label>
                   <select
                     value={scopeType}
@@ -327,7 +347,7 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
                   required
                   value={scopeValue}
                   onChange={(e) => setScopeValue(e.target.value)}
-                  placeholder="ej. CSCS-LandingZone o rg-production"
+                  placeholder={t("scopeValuePlaceholder")}
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[#1B2A41] dark:text-slate-100 focus:outline-none focus:border-[#0054A6]"
                 />
               </div>
@@ -394,7 +414,7 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
                   {[
                     { id: "TEAMS", label: "Microsoft Teams", Icon: IconBrandTeams },
                     { id: "SLACK", label: "Slack", Icon: IconBrandSlack },
-                    { id: "EMAIL", label: "Correo Electrónico", Icon: IconMail },
+                    { id: "EMAIL", label: t("channelEmail"), Icon: IconMail },
                     { id: "SERVICENOW", label: "ServiceNow", Icon: IconServer },
                     { id: "WEBHOOK", label: "Custom Webhook", Icon: IconWebhook },
                   ].map((ch) => (
@@ -417,7 +437,7 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
 
               <div>
                 <label className="block text-xs font-bold text-[#1B2A41] dark:text-slate-200 mb-1">
-                  Destino / Endpoint / Emails
+                  {t("destinationLabel")}
                 </label>
                 <input
                   type="text"
@@ -426,7 +446,7 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
                   onChange={(e) => setChannelTarget(e.target.value)}
                   placeholder={
                     notificationChannel === "EMAIL"
-                      ? "alertas@empresa.com, lead@empresa.com"
+                      ? t("emailPlaceholder")
                       : "https://outlook.office.com/webhook/..."
                   }
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[#1B2A41] dark:text-slate-100 focus:outline-none focus:border-[#0054A6]"
@@ -442,7 +462,7 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
                   className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
                 >
                   <IconSend className="w-3.5 h-3.5 text-[#0078D4]" stroke={1.5} />
-                  <span>{isTesting ? "Enviando Prueba..." : "Probar Conexión Ahora"}</span>
+                  <span>{isTesting ? t("testingNow") : t("testConnection")}</span>
                 </button>
 
                 {testResult && (
@@ -460,7 +480,7 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
                     )}
                     <div>
                       <span className="font-bold block">
-                        {testResult.success ? "Prueba Exitosa" : "Fallo de Prueba"} (HTTP {testResult.httpStatusCode || 200})
+                        {testResult.success ? t("testSuccess") : t("testFailure")} (HTTP {testResult.httpStatusCode || 200})
                       </span>
                       <span>{testResult.responseMessage}</span>
                     </div>
@@ -574,14 +594,14 @@ function TestResultModal({ rule, onClose, tenantId }: TestModalProps) {
 
         <div className="space-y-3">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500">Canal Destino:</span>
+            <span className="text-slate-500">{t("targetChannel")}</span>
             <span className="font-bold text-[#0054A6]">{rule.notificationChannel}</span>
           </div>
 
           <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30 text-xs">
-            <span className="text-slate-400 block mb-1">Endpoint / Destinatarios:</span>
+            <span className="text-slate-400 block mb-1">{t("endpointRecipients")}</span>
             <span className="font-mono text-slate-700 dark:text-slate-200 break-all">
-              {rule.channelConfig.channelTarget || rule.channelConfig.webhookUrl || "No configurado"}
+              {rule.channelConfig.channelTarget || rule.channelConfig.webhookUrl || t("notConfigured")}
             </span>
           </div>
 
@@ -606,7 +626,7 @@ function TestResultModal({ rule, onClose, tenantId }: TestModalProps) {
                 )}
                 <div>
                   <span className="font-bold block">
-                    {result.success ? "Entrega Exitosa" : "Fallo de Envío"} (HTTP {result.httpStatusCode || 200})
+                    {result.success ? t("deliverySuccess") : t("deliveryFailure")} (HTTP {result.httpStatusCode || 200})
                   </span>
                   <span>{result.responseMessage}</span>
                 </div>
@@ -616,7 +636,7 @@ function TestResultModal({ rule, onClose, tenantId }: TestModalProps) {
                 <div className="space-y-1">
                   <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
                     <IconCode className="w-3.5 h-3.5 text-[#0078D4]" />
-                    Payload Estructurado Enviado:
+                    {t("payloadSent")}
                   </span>
                   <pre className="p-3 text-[11px] font-mono rounded-xl bg-slate-900 text-slate-100 overflow-x-auto max-h-48 leading-relaxed border border-slate-800">
                     {JSON.stringify(result.payloadPreview, null, 2)}
@@ -643,6 +663,7 @@ function TestResultModal({ rule, onClose, tenantId }: TestModalProps) {
 // ─── Componente Principal ───
 export default function SelfServiceAlertsPanel() {
   const t = useTranslations("SelfServiceAlerts");
+  const locale = useLocale();
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -750,7 +771,7 @@ export default function SelfServiceAlertsPanel() {
   };
 
   const handleDeleteRule = async (ruleId: string) => {
-    if (!window.confirm("¿Seguro que deseas eliminar esta regla de alerta?")) return;
+    if (!window.confirm(t("confirmDelete"))) return;
     try {
       const token = isMock ? "demo" : await getFreshIdToken(instance, accounts[0], ["User.Read"]);
       await fetch(
@@ -776,7 +797,7 @@ export default function SelfServiceAlertsPanel() {
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconBellRinging className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
-              <span>Alertas Self-Service</span>
+              <span>{t("pageTitle")}</span>
             </h1>
             <InfoTooltip content={t("pageTooltip")} />
             <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 text-[#0054A6]">
@@ -793,7 +814,7 @@ export default function SelfServiceAlertsPanel() {
             onClick={() => mutate()}
             disabled={isValidating}
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
-            title="Recargar reglas"
+            title={t("refreshTitle")}
           >
             <IconRotateClockwise className={`w-4 h-4 text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} stroke={1.5} />
             <span>{t("refresh")}</span>
@@ -823,31 +844,34 @@ export default function SelfServiceAlertsPanel() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           {
-            label: "Reglas Configuradas",
-            tip: "Total de reglas de alerta creadas para este tenant.",
-            value: `${metrics?.totalRulesCount ?? 0} reglas`,
-            sub: `${metrics?.activeRulesCount ?? 0} Activas · ${metrics?.pausedRulesCount ?? 0} Pausadas`,
+            label: t("kpiRules"),
+            tip: t("kpiRulesTip"),
+            value: t("kpiRulesValue", { n: metrics?.totalRulesCount ?? 0 }),
+            sub: t("kpiRulesSub", {
+              active: metrics?.activeRulesCount ?? 0,
+              paused: metrics?.pausedRulesCount ?? 0,
+            }),
             Icon: IconBellRinging,
           },
           {
-            label: "Disparos en los Últimos 30 Días",
-            tip: "Total acumulado de notificaciones y webhooks emitidos.",
-            value: `${metrics?.totalFiredEventsLast30Days ?? 0} eventos`,
-            sub: "Eventos de alerta despachados",
+            label: t("kpiFires"),
+            tip: t("kpiFiresTip"),
+            value: t("kpiFiresValue", { n: metrics?.totalFiredEventsLast30Days ?? 0 }),
+            sub: t("kpiFiresSub"),
             Icon: IconFlame,
           },
           {
-            label: "Canales Integrados",
-            tip: "Número de canales únicos de notificación conectados (Teams, Slack, Webhook, Email, ServiceNow).",
-            value: `${metrics?.uniqueChannelsCount ?? 0} canales`,
+            label: t("kpiChannels"),
+            tip: t("kpiChannelsTip"),
+            value: t("kpiChannelsValue", { n: metrics?.uniqueChannelsCount ?? 0 }),
             sub: "Teams, Slack, Webhook, Email, ServiceNow",
             Icon: IconShare,
           },
           {
-            label: "Cobertura de Presupuesto",
-            tip: "Porcentaje de reglas activas orientadas al cumplimiento presupuestario.",
+            label: t("kpiBudgetCoverage"),
+            tip: t("kpiBudgetCoverageTip"),
             value: `${metrics?.budgetCoveragePercentage ?? 0}%`,
-            sub: "Protección contra sobrecostos",
+            sub: t("kpiBudgetCoverageSub"),
             Icon: IconShieldCheck,
           },
         ].map((c) => (
@@ -896,7 +920,7 @@ export default function SelfServiceAlertsPanel() {
               <option value="BUDGET">{t("filterBudget")}</option>
               <option value="FIXED_THRESHOLD">{t("typeFixed")}</option>
               <option value="ANOMALY_PERCENT">{t("filterAnomalies")}</option>
-              <option value="FORECAST_OVERRUN">Forecast EOM</option>
+              <option value="FORECAST_OVERRUN">{t("badgeForecast")}</option>
             </select>
 
             <select
@@ -945,7 +969,7 @@ export default function SelfServiceAlertsPanel() {
             <InfoTooltip content={t("tableTooltip")} />
           </div>
           <span className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-800 text-[#0054A6] bg-white dark:bg-slate-900">
-            {filteredRules.length} Reglas Registradas
+            {t("rulesRegistered", { n: filteredRules.length })}
           </span>
         </div>
 
@@ -972,7 +996,7 @@ export default function SelfServiceAlertsPanel() {
                 </tr>
               ) : (
                 paged.map((rule) => {
-                  const badge = getTypeBadge(rule.alertType);
+                  const badge = getTypeBadge(rule.alertType, t);
                   const ChannelIcon = getChannelIcon(rule.notificationChannel);
 
                   return (
@@ -994,7 +1018,7 @@ export default function SelfServiceAlertsPanel() {
                       </td>
 
                       <td className="py-3 px-4">
-                        <span className="font-bold text-[#1B2A41] dark:text-slate-100">{rule.formattedThreshold}</span>
+                        <span className="font-bold text-[#1B2A41] dark:text-slate-100">{formatThresholdLabel(rule, t)}</span>
                       </td>
 
                       <td className="py-3 px-4">
@@ -1024,18 +1048,18 @@ export default function SelfServiceAlertsPanel() {
                               rule.isEnabled ? "bg-emerald-500" : "bg-slate-400"
                             }`}
                           />
-                          <span>{rule.isEnabled ? "Activa" : "Pausada"}</span>
+                          <span>{rule.isEnabled ? t("statusActive") : t("statusPaused")}</span>
                         </button>
                       </td>
 
                       <td className="py-3 px-4 text-slate-500 dark:text-slate-400">
                         {rule.lastFiredTimestamp
-                          ? new Date(rule.lastFiredTimestamp).toLocaleDateString("es-ES")
+                          ? new Date(rule.lastFiredTimestamp).toLocaleDateString(locale)
                           : "—"}
                       </td>
 
                       <td className="py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">
-                        {rule.fireCount} veces
+                        {t("firesCount", { n: rule.fireCount })}
                       </td>
 
                       <td className="py-3 px-4 text-right">
@@ -1046,7 +1070,7 @@ export default function SelfServiceAlertsPanel() {
                             title={t("testDispatch")}
                           >
                             <IconSend className="w-3 h-3 text-[#0078D4]" />
-                            <span>Probar</span>
+                            <span>{t("test")}</span>
                           </button>
 
                           <button
@@ -1055,15 +1079,15 @@ export default function SelfServiceAlertsPanel() {
                               setIsModalOpen(true);
                             }}
                             className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-50 transition cursor-pointer shadow-xs"
-                            title="Editar regla"
+                            title={t("editRuleTitle")}
                           >
-                            <span>Editar</span>
+                            <span>{t("edit")}</span>
                           </button>
 
                           <button
                             onClick={() => handleDeleteRule(rule.id)}
                             className="p-1 text-slate-400 hover:text-red-600 transition cursor-pointer"
-                            title="Eliminar regla"
+                            title={t("deleteRuleTitle")}
                           >
                             <IconTrash className="w-4 h-4" />
                           </button>

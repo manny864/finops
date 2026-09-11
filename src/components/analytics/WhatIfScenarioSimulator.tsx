@@ -874,15 +874,6 @@ export default function WhatIfScenarioSimulator() {
                     interval={0}
                   />
                   <YAxis tick={{ fontSize: 10, fill: "#64748B" }} tickFormatter={(v) => `$${v}`} />
-                  <Tooltip
-                    formatter={(val: any) => money(Number(val))}
-                    contentStyle={{ ...TOOLTIP_TEMA.contentStyle,
-                      
-                      borderRadius: "12px",
-                      border: "none",
-                      
-                      fontSize: "11px",
-                    }} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
                   <Bar dataKey="amountUSD" radius={[4, 4, 0, 0]}>
                     {activeResult.waterfallSteps.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.fill} />

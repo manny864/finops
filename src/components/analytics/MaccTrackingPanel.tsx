@@ -86,26 +86,32 @@ function money(amount: number, compact = false): string {
   return `$${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
 }
 
-function getStatusBadge(status: MaccContractStatus) {
+// `short` existe porque la KPI card no entra con la etiqueta larga; antes se
+// recortaba con split("·"), que dependia de que la traduccion trajera el punto.
+function getStatusBadge(status: MaccContractStatus, t: (k: string) => string) {
   switch (status) {
     case "EARLY_COMPLETION":
       return {
-        label: "Ritmo Acelerado · Cumplimiento Anticipado",
+        label: t("statusEarly"),
+        short: t("statusEarlyShort"),
         className: "border-emerald-500 text-emerald-600 bg-white dark:bg-slate-900",
       };
     case "ON_TRACK":
       return {
-        label: "En Ritmo (On Track)",
+        label: t("statusOnTrack"),
+        short: t("statusOnTrackShort"),
         className: "border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900",
       };
     case "UNDER_BURN_RISK":
       return {
-        label: "Riesgo de Sub-consumo (Under-burn)",
+        label: t("statusUnderBurn"),
+        short: t("statusUnderBurnShort"),
         className: "border-amber-400 text-amber-600 bg-white dark:bg-slate-900",
       };
     default:
       return {
-        label: "Evaluando",
+        label: t("statusEvaluating"),
+        short: t("statusEvaluatingShort"),
         className: "border-slate-300 text-slate-600 bg-white dark:bg-slate-900",
       };
   }
@@ -177,7 +183,7 @@ function MaccSimulationDrawer({ isOpen, onClose, account, tenantId }: Simulation
                 <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">
                   {t("simTitle")}
                 </h3>
-                <p className="text-xs text-slate-500">Cuenta {account.billingAccountId}</p>
+                <p className="text-xs text-slate-500">{t("drawerAccount", { id: account.billingAccountId })}</p>
               </div>
             </div>
             <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer">
@@ -189,7 +195,7 @@ function MaccSimulationDrawer({ isOpen, onClose, account, tenantId }: Simulation
           <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 space-y-2">
             <span className="text-xs font-bold text-slate-500 block">{t("commitVsProjection")}</span>
             <div className="flex items-center justify-between text-xs">
-              <span>Compromiso Contratado:</span>
+              <span>{t("contractedCommitment")}</span>
               <span className="font-bold text-[#1B2A41] dark:text-slate-100">
                 {money(account.commitmentAmountUSD, true)}
               </span>
@@ -221,7 +227,7 @@ function MaccSimulationDrawer({ isOpen, onClose, account, tenantId }: Simulation
                       : "border-slate-200 dark:border-slate-800 text-slate-500 bg-slate-50 dark:bg-slate-800/30"
                   }`}
                 >
-                  +{pct}% Banda
+                  {t("bandPlus", { pct })}
                 </button>
               ))}
             </div>
@@ -238,12 +244,12 @@ function MaccSimulationDrawer({ isOpen, onClose, account, tenantId }: Simulation
               <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/40 dark:bg-blue-950/20 space-y-3">
                 <span className="text-xs font-bold text-[#0054A6] flex items-center gap-1">
                   <IconArrowUpRight className="w-4 h-4 text-[#0078D4]" />
-                  Impacto Financiero Proyectado
+                  {t("projectedFinancialImpact")}
                 </span>
 
                 <div className="space-y-2 text-xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-600 dark:text-slate-300">Nuevo Compromiso Simulado:</span>
+                    <span className="text-slate-600 dark:text-slate-300">{t("newSimulatedCommitment")}</span>
                     <span className="font-extrabold text-[#1B2A41] dark:text-slate-100">
                       {money(simulationResult.simulatedCommitmentUSD, true)}
                     </span>
@@ -252,7 +258,10 @@ function MaccSimulationDrawer({ isOpen, onClose, account, tenantId }: Simulation
                   <div className="flex items-center justify-between">
                     <span className="text-slate-600 dark:text-slate-300">{t("tierDiscount")}</span>
                     <span className="font-extrabold text-[#0054A6]">
-                      {simulationResult.simulatedDiscountPercentage}% (vs {simulationResult.currentTierDiscountPercentage}% actual)
+                      {t("vsCurrent", {
+                        next: simulationResult.simulatedDiscountPercentage,
+                        current: simulationResult.currentTierDiscountPercentage,
+                      })}
                     </span>
                   </div>
 
@@ -274,9 +283,9 @@ function MaccSimulationDrawer({ isOpen, onClose, account, tenantId }: Simulation
 
               <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30 text-xs text-slate-500 leading-relaxed">
                 <p>
-                  {t("renegotiateNote1")}
-                  {t("renegotiateNote2")}
-                  Marketplace elegible.
+                  {t("renegotiateNote1")}{" "}
+                  {t("renegotiateNote2")}{" "}
+                  {t("renegotiateNote3")}
                 </p>
               </div>
             </div>
@@ -289,7 +298,7 @@ function MaccSimulationDrawer({ isOpen, onClose, account, tenantId }: Simulation
             onClick={onClose}
             className="px-4 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition cursor-pointer shadow-xs"
           >
-            Entendido
+            {t("understood")}
           </button>
         </div>
       </div>
@@ -330,7 +339,7 @@ export default function MaccTrackingPanel() {
 
   const { paged, page, totalPages, pageSize, setPage, setPageSize, total } = usePagination(subscriptionsBreakdown, 15);
 
-  const statusBadge = getStatusBadge(metrics?.globalStatus || "ON_TRACK");
+  const statusBadge = getStatusBadge(metrics?.globalStatus || "ON_TRACK", t);
 
   return (
     <div className="w-full max-w-full px-4 sm:px-6 lg:px-8 space-y-6">
@@ -340,7 +349,7 @@ export default function MaccTrackingPanel() {
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-2">
               <IconContract className="w-6 h-6 text-[#0078D4]" stroke={1.5} />
-              <span>MACC Tracking &amp; Compromisos Enterprise</span>
+              <span>{t("pageTitle")}</span>
             </h1>
             <InfoTooltip content={t("pageTooltip")} />
             <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 text-[#0054A6]">
@@ -356,7 +365,7 @@ export default function MaccTrackingPanel() {
           onClick={() => mutate()}
           disabled={isValidating}
           className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60 self-start md:self-auto"
-          title="Recargar compromisos"
+          title={t("refreshTitle")}
         >
           <IconRotateClockwise className={`w-4 h-4 text-[#0078D4] ${isValidating ? "animate-spin" : ""}`} stroke={1.5} />
           <span>{t("refreshData")}</span>
@@ -374,35 +383,36 @@ export default function MaccTrackingPanel() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           {
-            label: "Compromiso Total MACC",
-            tip: "Monto global acumulado contratado en los acuerdos de facturación activos.",
+            label: t("kpiTotalCommitment"),
+            tip: t("kpiTotalCommitmentTip"),
             value: money(metrics?.totalCommitmentUSD ?? 0, true),
-            sub: `${billingAccounts.length} Cuentas de Facturación Activas`,
+            sub: t("kpiTotalCommitmentSub", { n: billingAccounts.length }),
             Icon: IconContract,
           },
           {
-            label: "Consumo Acumulado",
-            tip: "Gasto total elegible devengado a la fecha sobre los compromisos MACC.",
+            label: t("kpiConsumed"),
+            tip: t("kpiConsumedTip"),
             value: money(metrics?.totalConsumedUSD ?? 0, true),
-            sub: `${
-              metrics?.totalCommitmentUSD && metrics.totalCommitmentUSD > 0
-                ? Math.round((metrics.totalConsumedUSD / metrics.totalCommitmentUSD) * 100)
-                : 0
-            }% del total contratado`,
+            sub: t("kpiConsumedSub", {
+              pct:
+                metrics?.totalCommitmentUSD && metrics.totalCommitmentUSD > 0
+                  ? Math.round((metrics.totalConsumedUSD / metrics.totalCommitmentUSD) * 100)
+                  : 0,
+            }),
             Icon: IconReceipt2,
           },
           {
-            label: "Saldo Restante",
-            tip: "Monto pendiente de devengar antes de la fecha de vencimiento contractual.",
+            label: t("kpiRemaining"),
+            tip: t("kpiRemainingTip"),
             value: money(metrics?.totalRemainingUSD ?? 0, true),
-            sub: "Pendiente de consumo",
+            sub: t("kpiRemainingSub"),
             Icon: IconCash,
           },
           {
-            label: "Estado Global del Contrato",
-            tip: "Evaluación del ritmo de consumo frente a la trayectoria teórica ideal.",
-            value: statusBadge.label.split("·")[0].trim(),
-            sub: "Evaluación de Pacing Velocity",
+            label: t("kpiGlobalStatus"),
+            tip: t("kpiGlobalStatusTip"),
+            value: statusBadge.short,
+            sub: t("kpiGlobalStatusSub"),
             Icon: IconTrendingUp,
           },
         ].map((c) => (
@@ -440,13 +450,13 @@ export default function MaccTrackingPanel() {
 
           <div className="flex items-center gap-3 text-xs font-semibold text-slate-500">
             <span className="flex items-center gap-1">
-              <span className="w-3 h-0.5 bg-[#0078D4] inline-block" /> Real Acumulado
+              <span className="w-3 h-0.5 bg-[#0078D4] inline-block" /> {t("seriesActual")}
             </span>
             <span className="flex items-center gap-1">
-              <span className="w-3 h-0.5 border-t border-dashed border-slate-400 inline-block" /> Objetivo Lineal
+              <span className="w-3 h-0.5 border-t border-dashed border-slate-400 inline-block" /> {t("seriesLinearTarget")}
             </span>
             <span className="flex items-center gap-1">
-              <span className="w-3 h-0.5 border-t border-dashed border-[#0284C7] inline-block" /> Forecast
+              <span className="w-3 h-0.5 border-t border-dashed border-[#0284C7] inline-block" /> {t("seriesForecastShort")}
             </span>
           </div>
         </div>
@@ -465,14 +475,14 @@ export default function MaccTrackingPanel() {
                 formatter={(value: any, name: any) => [
                   money(Number(value || 0)),
                   name === "actualSpendUSD"
-                    ? "Real Acumulado"
+                    ? t("seriesActual")
                     : name === "linearTargetUSD"
-                      ? "Objetivo Lineal"
+                      ? t("seriesLinearTarget")
                       : name === "forecastSpendUSD"
-                        ? "Proyección Forecast"
+                        ? t("seriesForecast")
                         : name,
                 ]}
-                labelFormatter={(label) => `Mes: ${label}`}
+                labelFormatter={(label) => t("tooltipMonth", { label })}
                 contentStyle={{ ...TOOLTIP_TEMA.contentStyle,
                   
                   border: "1px solid #334155",
@@ -487,7 +497,7 @@ export default function MaccTrackingPanel() {
                   stroke="#2563EB"
                   strokeDasharray="4 4"
                   label={{
-                    value: `Meta MACC: ${money(metrics.totalCommitmentUSD, true)}`,
+                    value: t("maccGoal", { amount: money(metrics.totalCommitmentUSD, true) }),
                     fill: "#2563EB",
                     fontSize: 11,
                     position: "insideTopRight",
@@ -534,7 +544,7 @@ export default function MaccTrackingPanel() {
             <IconBuildingBank className="w-5 h-5 text-[#0078D4]" stroke={1.5} />
             <span>{t("accountsTitle")}</span>
           </h2>
-          <span className="text-xs text-slate-400">{billingAccounts.length} Cuentas Registradas</span>
+          <span className="text-xs text-slate-400">{t("accountsRegistered", { n: billingAccounts.length })}</span>
         </div>
 
         {billingAccounts.length === 0 ? (
@@ -544,7 +554,7 @@ export default function MaccTrackingPanel() {
         ) : (
           <div className="grid grid-cols-1 gap-6">
             {billingAccounts.map((account) => {
-              const bBadge = getStatusBadge(account.status);
+              const bBadge = getStatusBadge(account.status, t);
 
               return (
                 <div
@@ -559,7 +569,7 @@ export default function MaccTrackingPanel() {
                         <div className="font-bold text-[#1B2A41] dark:text-slate-100 text-sm">
                           {account.displayName} ({account.billingAccountId})
                         </div>
-                        <span className="text-xs text-slate-400">Tipo de Acuerdo: {account.agreementType}</span>
+                        <span className="text-xs text-slate-400">{t("agreementType", { type: account.agreementType })}</span>
                       </div>
                     </div>
 
@@ -573,27 +583,27 @@ export default function MaccTrackingPanel() {
                     <IconInfoCircle className="w-4 h-4 text-[#0078D4] shrink-0 mt-0.5" />
                     <span>
                       {account.status === "EARLY_COMPLETION"
-                        ? `La proyección actual (${money(
-                            account.projectedFinalCostUSD,
-                            true
-                          )}) alcanzará el 100% antes del vencimiento (${account.endDate}). Se sugiere evaluar una ampliación de banda con Microsoft para desbloquear mayor descuento.`
+                        ? t("bannerEarly", {
+                            projected: money(account.projectedFinalCostUSD, true),
+                            date: account.endDate,
+                          })
                         : account.status === "UNDER_BURN_RISK"
-                          ? `El ritmo actual proyecta un déficit respecto al compromiso contratado. Recomendamos auditar compras de Marketplace elegibles o acelerar migraciones programadas.`
-                          : `El ritmo de consumo se encuentra alineado con la trayectoria contractual esperada.`}
+                          ? t("bannerUnderBurn")
+                          : t("bannerOnTrack")}
                     </span>
                   </div>
 
                   {/* Grid de 6 Métricas Clave */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                     <div className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20 space-y-1">
-                      <span className="text-[11px] font-medium text-slate-500 block">Compromiso Total</span>
+                      <span className="text-[11px] font-medium text-slate-500 block">{t("mCommitment")}</span>
                       <span className="text-sm font-extrabold text-[#1B2A41] dark:text-slate-100">
                         {money(account.commitmentAmountUSD, true)}
                       </span>
                     </div>
 
                     <div className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20 space-y-1">
-                      <span className="text-[11px] font-medium text-slate-500 block">Consumido (Progreso)</span>
+                      <span className="text-[11px] font-medium text-slate-500 block">{t("mConsumed")}</span>
                       <span className="text-sm font-extrabold text-[#0054A6]">
                         {money(account.consumedAmountUSD, true)}{" "}
                         <span className="text-xs font-semibold text-slate-500">({account.progressPercentage}%)</span>
@@ -601,7 +611,7 @@ export default function MaccTrackingPanel() {
                     </div>
 
                     <div className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20 space-y-1">
-                      <span className="text-[11px] font-medium text-slate-500 block">Saldo Restante</span>
+                      <span className="text-[11px] font-medium text-slate-500 block">{t("mRemaining")}</span>
                       <span className="text-sm font-extrabold text-[#1B2A41] dark:text-slate-100">
                         {money(account.remainingAmountUSD, true)}
                       </span>
@@ -615,9 +625,9 @@ export default function MaccTrackingPanel() {
                     </div>
 
                     <div className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20 space-y-1">
-                      <span className="text-[11px] font-medium text-slate-500 block">Burn Rate Mensual</span>
+                      <span className="text-[11px] font-medium text-slate-500 block">{t("mBurnRate")}</span>
                       <span className="text-sm font-extrabold text-[#0054A6]">
-                        {money(account.monthlyBurnRateUSD, true)}/mes
+                        {t("perMonth", { amount: money(account.monthlyBurnRateUSD, true) })}
                       </span>
                     </div>
 
@@ -632,9 +642,9 @@ export default function MaccTrackingPanel() {
                   {/* Barra de Progreso de Consumo */}
                   <div className="space-y-1.5">
                     <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
-                      <span>Inicio: {account.startDate}</span>
-                      <span className="font-bold text-[#0054A6]">Progreso: {account.progressPercentage}%</span>
-                      <span>Vencimiento: {account.endDate} ({money(account.commitmentAmountUSD, true)})</span>
+                      <span>{t("startLabel", { date: account.startDate })}</span>
+                      <span className="font-bold text-[#0054A6]">{t("progressLabel", { pct: account.progressPercentage })}</span>
+                      <span>{t("expiryLabel", { date: account.endDate, amount: money(account.commitmentAmountUSD, true) })}</span>
                     </div>
                     <div className="w-full bg-slate-100 dark:bg-slate-800 h-3 rounded-full overflow-hidden">
                       <div
@@ -647,8 +657,10 @@ export default function MaccTrackingPanel() {
                   {/* Botones de Acción */}
                   <div className="flex items-center justify-between gap-3 flex-wrap border-t border-slate-100 dark:border-slate-800 pt-3">
                     <div className="text-xs text-slate-500">
-                      Desglose: {money(account.eligibleFirstPartySpendUSD, true)} 1st Party ·{" "}
-                      {money(account.eligibleMarketplaceSpendUSD, true)} Marketplace Elegible
+                      {t("breakdownLine", {
+                        firstParty: money(account.eligibleFirstPartySpendUSD, true),
+                        marketplace: money(account.eligibleMarketplaceSpendUSD, true),
+                      })}
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -657,7 +669,7 @@ export default function MaccTrackingPanel() {
                         className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
                       >
                         <IconSparkles className="w-3.5 h-3.5 text-[#0078D4]" stroke={1.5} />
-                        <span>Simular Nuevo Compromiso</span>
+                        <span>{t("simulateNewCommitment")}</span>
                       </button>
                     </div>
                   </div>
@@ -679,7 +691,7 @@ export default function MaccTrackingPanel() {
             <InfoTooltip content={t("tableTooltip")} />
           </div>
           <span className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-800 text-[#0054A6] bg-white dark:bg-slate-900">
-            {subscriptionsBreakdown.length} Suscripciones Contribuyentes
+            {t("contributingSubs", { n: subscriptionsBreakdown.length })}
           </span>
         </div>
 
@@ -742,12 +754,12 @@ export default function MaccTrackingPanel() {
                     <td className="py-3 px-4 text-right">
                       <button
                         onClick={() =>
-                          alert(`Auditoría de software Marketplace elegible para ${sub.subscriptionName}`)
+                          alert(t("auditAlert", { name: sub.subscriptionName }))
                         }
                         className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition inline-flex items-center gap-1 cursor-pointer shadow-xs"
                       >
                         <IconShieldCheck className="w-3.5 h-3.5 text-[#0078D4]" />
-                        <span>Auditar</span>
+                        <span>{t("audit")}</span>
                       </button>
                     </td>
                   </tr>
