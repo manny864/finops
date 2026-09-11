@@ -28,6 +28,7 @@ import { fetchWithAuthRetry } from '@/lib/msalToken';
 import Pagination, { usePagination } from '@/components/Pagination';
 import { toast } from 'sonner';
 import { errorMessage } from '@/lib/apiErrors';
+import { isMockTenant, MOCK_AZURE_SUBSCRIPTIONS, MOCK_ONBOARDING_CLIENT_TENANT } from '@/lib/mockData';
 
 export default function OnboardingPage() {
   const t = useTranslations('onboarding');
@@ -76,6 +77,13 @@ export default function OnboardingPage() {
       if (selectedTenant && selectedTenant.id !== 'default') {
           setFormTenantId(selectedTenant.id);
           setCheckTenantId(selectedTenant.id);
+          if (isMockTenant(selectedTenant.id)) {
+              // En demo el formulario se precarga entero para que el boton se
+              // pueda apretar: el generador valida formato UUID y los ids de
+              // los tenants demo no son RFC-4122 (ver MOCK_ONBOARDING_CLIENT_TENANT).
+              setFormTenantId(MOCK_ONBOARDING_CLIENT_TENANT);
+              setFormSubscriptionId(MOCK_AZURE_SUBSCRIPTIONS.map((sub) => sub.id).join(', '));
+          }
       }
   }, [selectedTenant]);
 
@@ -580,6 +588,9 @@ export default function OnboardingPage() {
                               placeholder={tA('subscriptionIdPlaceholder')}
                           />
                           <p className="text-xs text-gray-500 mt-1">{tA('subscriptionIdHint')}</p>
+                          {isMockTenant(selectedTenant?.id || '') && (
+                              <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1">{tA('demoSubscriptionHint')}</p>
+                          )}
                       </div>
                       <button 
                           type="submit" 
@@ -722,7 +733,11 @@ export default function OnboardingPage() {
                                       : 'bg-gray-50 dark:bg-slate-800/60 border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300'
                           }`}>
                               <span className="font-semibold whitespace-nowrap">{tA('reservationsLabel')}</span>
-                              <span>{checkResult.summary.reservationsAccess.hint}</span>
+                              <span>
+                                  {checkResult.summary.reservationsAccess.hintKey
+                                      ? tA(checkResult.summary.reservationsAccess.hintKey)
+                                      : checkResult.summary.reservationsAccess.hint}
+                              </span>
                           </div>
                       )}
 
@@ -733,7 +748,9 @@ export default function OnboardingPage() {
                                   ? 'bg-green-50 dark:bg-green-950/40 border-green-200 dark:border-green-900/60 text-green-900 dark:text-green-200'
                                   : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/60 text-amber-900 dark:text-amber-200'
                           }`}>
-                              {checkResult.globalHint}
+                              {checkResult.globalHintKey
+                                  ? tA(checkResult.globalHintKey, checkResult.globalHintParams)
+                                  : checkResult.globalHint}
                           </div>
                       )}
 

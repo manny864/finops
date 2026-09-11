@@ -6,6 +6,7 @@ import { AuthError, requireRequestIdentity, requireTenantAccess } from '@/lib/re
 import { RowDataPacket } from 'mysql2';
 import { getCustomRoleActionsForTier, CUSTOM_REMEDIATION_ROLE_NAME } from '@/lib/onboardingScriptTemplate';
 import { errorMessage } from '@/lib/apiErrors';
+import { isMockTenant, MOCK_AZURE_SUBSCRIPTIONS } from '@/lib/mockData';
 
 // IDs canónicos de roles built-in de Azure (no cambian).
 const BUILTIN_ROLE_IDS: Record<string, string> = {
@@ -182,10 +183,91 @@ async function resolveRoleDef(
     return def;
 }
 
+/**
+ * Reporte sintetico de verificacion de permisos para los tenants demo.
+ *
+ * La prosa (`globalHint`, el hint de reservas) viaja como CLAVE y no como
+ * texto: el servidor no conoce el locale del usuario y este payload es la
+ * superficie de demo, que tiene que leerse bien en los tres idiomas. Los
+ * campos de texto quedan en castellano como fallback, igual que en el resto
+ * de la plataforma.
+ */
+function buildMockSpRolesReport(tenantId: string) {
+    const required = getRequiredRoles('Enterprise');
+    const spObjectId = 'd0000000-0000-4000-8000-00000000ffff';
+    const [subA, subB, subC] = MOCK_AZURE_SUBSCRIPTIONS;
+
+    const completo = (sub: { id: string; name: string }): SubReport => ({
+        subscriptionId: sub.id,
+        displayName: sub.name,
+        state: 'Enabled',
+        assignedRoles: [...required.builtIn],
+        missingRoles: [],
+        customRoleRequired: true,
+        customRoleName: CUSTOM_REMEDIATION_ROLE_NAME,
+        missingActions: [],
+        hasCustomRole: true,
+        status: 'OK',
+    });
+
+    const incompleto = (sub: { id: string; name: string }): SubReport => ({
+        subscriptionId: sub.id,
+        displayName: sub.name,
+        state: 'Enabled',
+        assignedRoles: required.builtIn.filter((r) => r !== 'Tag Contributor'),
+        missingRoles: ['Tag Contributor'],
+        customRoleRequired: true,
+        customRoleName: null,
+        missingActions: required.customActions.slice(0, 2),
+        hasCustomRole: false,
+        status: 'PARTIAL',
+    });
+
+    const subscriptions = [completo(subA), completo(subB), incompleto(subC)];
+
+    return {
+        success: true,
+        mock: true,
+        summary: {
+            tenantId,
+            tier: 'Enterprise',
+            clientId: 'd0000000-0000-4000-8000-00000000aaaa',
+            spObjectId,
+            requiredRoles: required.builtIn,
+            requiredCustomRole: CUSTOM_REMEDIATION_ROLE_NAME,
+            requiredCustomActions: required.customActions,
+            totalSubscriptions: subscriptions.length,
+            okCount: subscriptions.filter((r) => r.status === 'OK').length,
+            partialCount: subscriptions.filter((r) => r.status === 'PARTIAL').length,
+            noRolesCount: 0,
+            errorCount: 0,
+            reservationsAccess: {
+                status: 'OK',
+                hint: 'El SP puede leer las reservas del directorio.',
+                hintKey: 'reservationsOkDemo',
+            },
+        },
+        subscriptions,
+        globalHint: '1 suscripcion con roles/permisos incompletos.',
+        globalHintKey: 'globalHintPartialDemo',
+        globalHintParams: { count: 1, roles: 'Tag Contributor', sp: spObjectId },
+        timestamp: new Date().toISOString(),
+    };
+}
+
 export async function GET(request: NextRequest) {
     try {
         const identity = await requireRequestIdentity(request);
         const tenantId = request.nextUrl.searchParams.get('tenantId') || identity.tenantId;
+
+        // isMockTenant ANTES del guard. Sin esto la verificacion en demo moria en
+        // TENANT_NOT_FOUND: los tenants sinteticos no tienen fila en Tenants, ni
+        // client_id, ni un SP contra el que consultar Graph. El reporte de abajo
+        // es deliberadamente MIXTO (dos OK y una incompleta): un all-green no
+        // demuestra para que sirve la pantalla.
+        if (isMockTenant(tenantId)) {
+            return NextResponse.json(buildMockSpRolesReport(tenantId));
+        }
 
         await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
 

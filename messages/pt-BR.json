@@ -879,7 +879,28 @@
     }
   },
   "AdminHub": {
-    "noAccess": "Você não tem acesso a esta seção."
+    "noAccess": "Você não tem acesso a esta seção.",
+    "tab_users": "Usuários e Permissões",
+    "tab_security": "Segurança (2FA)",
+    "tab_sso": "SSO SAML",
+    "tab_onboarding": "Onboarding de Clientes",
+    "tab_lighthouse": "Onboarding Lighthouse",
+    "tab_general": "Geral",
+    "tab_ai": "IA",
+    "tab_notifications": "Notificações",
+    "tab_cloud_accounts": "Status da Conta",
+    "tab_markup": "Partner Markup (CSP)",
+    "tab_copilot": "Copilot M365",
+    "tab_mcp_keys": "MCP API Keys",
+    "tab_api_keys": "API Pública",
+    "tab_billing": "Faturamento",
+    "tab_audit": "Audit Trail",
+    "tab_executive": "Relatório Executivo",
+    "tab_executive_history": "Histórico de Relatórios",
+    "tab_invoicing": "Relatório de Faturamento",
+    "tab_workbooks": "Workbooks",
+    "tab_powerbi": "Modelos Power BI",
+    "tab_focus": "Exportação FOCUS 1.1"
   },
   "AdminLoadTest": {
     "pageTitle": "Teste de Carga",
@@ -1221,7 +1242,10 @@
     "kpiPermissionsHint": "Ambientes com credencial válida",
     "kpiTemplate": "Template do script",
     "kpiTemplateHelp": "Versão do template de onboarding. Importa: um tenant conectado com um template antigo pode não ter os papéis que uma feature nova exige.",
-    "kpiTemplateHint": "Personalizado para o tier {tier}"
+    "kpiTemplateHint": "Personalizado para o tier {tier}",
+    "globalHintPartialDemo": "⚠️ {count} assinatura(s) com funções ou permissões incompletas. Faltando: {roles}. Atribua-as ao Service Principal ({sp}) nas assinaturas afetadas, ou execute novamente o script de onboarding.",
+    "reservationsOkDemo": "O Service Principal consegue ler as reservas do diretório.",
+    "demoSubscriptionHint": "Assinatura de demonstração pré-preenchida para ver o script gerado."
   },
   "AdminPricingUnits": {
     "title": "Normalizador de Unidades de Preço",

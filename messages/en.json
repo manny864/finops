@@ -879,7 +879,28 @@
     }
   },
   "AdminHub": {
-    "noAccess": "You do not have access to this section."
+    "noAccess": "You do not have access to this section.",
+    "tab_users": "Users & Permissions",
+    "tab_security": "Security (2FA)",
+    "tab_sso": "SAML SSO",
+    "tab_onboarding": "Client Onboarding",
+    "tab_lighthouse": "Lighthouse Onboarding",
+    "tab_general": "General",
+    "tab_ai": "AI",
+    "tab_notifications": "Notifications",
+    "tab_cloud_accounts": "Account Status",
+    "tab_markup": "Partner Markup (CSP)",
+    "tab_copilot": "Copilot M365",
+    "tab_mcp_keys": "MCP API Keys",
+    "tab_api_keys": "Public API",
+    "tab_billing": "Billing",
+    "tab_audit": "Audit Trail",
+    "tab_executive": "Executive Report",
+    "tab_executive_history": "Report History",
+    "tab_invoicing": "Invoicing Report",
+    "tab_workbooks": "Workbooks",
+    "tab_powerbi": "Power BI Templates",
+    "tab_focus": "FOCUS 1.1 Export"
   },
   "AdminLoadTest": {
     "pageTitle": "Load Test",
@@ -1221,7 +1242,10 @@
     "kpiPermissionsHint": "Environments with a valid credential",
     "kpiTemplate": "Script template",
     "kpiTemplateHelp": "Onboarding template version. It matters: a tenant onboarded with an older template may lack the roles a newer feature requires.",
-    "kpiTemplateHint": "Customized for {tier} tier"
+    "kpiTemplateHint": "Customized for {tier} tier",
+    "globalHintPartialDemo": "⚠️ {count} subscription(s) with incomplete roles or permissions. Missing: {roles}. Assign them to the Service Principal ({sp}) on the affected subscriptions, or re-run the onboarding script.",
+    "reservationsOkDemo": "The Service Principal can read the directory reservations.",
+    "demoSubscriptionHint": "Demo subscription pre-filled so you can see the generated script."
   },
   "AdminPricingUnits": {
     "title": "Pricing Unit Normalizer",

@@ -1030,33 +1030,17 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                       return new Response(JSON.stringify({ success: true, mock: true, mappedEntries: 128, assessment: '## Análisis de costos (DEMO)\n\nSe procesaron **128 filas** del CSV FOCUS v1.1.\n\n- Top servicio: Virtual Machines (42% del gasto)\n- Anomalía detectada: +23% en Storage vs. mes previo\n- Ahorro potencial estimado: **$3,450/mes** (rightsizing + reservas)\n\n*En producción este análisis lo genera el motor de IA sobre tus datos reales.*' }), { status: 200 });
                   }
 
-                  // Onboarding: verificación de roles del SP
-                  if (url.includes('/api/admin/check-sp-roles')) {
-                      const roles = ['Reader', 'Cost Management Reader', 'Tag Contributor'];
-                      return new Response(JSON.stringify({
-                          success: true, mock: true,
-                          summary: {
-                              tier: tier.charAt(0).toUpperCase() + tier.slice(1),
-                              totalSubscriptions: 3, okCount: 3, partialCount: 0, noRolesCount: 0,
-                              requiredRoles: roles,
-                              requiredCustomRole: 'FinOps Remediation',
-                              spObjectId: '00000000-1111-2222-3333-444444444444',
-                              reservationsAccess: { status: 'OK', hint: 'El SP tiene acceso de lectura a Reservations (Microsoft.Capacity).' },
-                          },
-                          globalHint: 'Todas las suscripciones tienen los roles requeridos. ✅',
-                          subscriptions: [
-                              { subscriptionId: 'sub-demo-001', displayName: 'Production', status: 'OK', assignedRoles: roles, missingRoles: [], customRoleRequired: true, customRoleName: 'FinOps Remediation' },
-                              { subscriptionId: 'sub-demo-002', displayName: 'Staging', status: 'OK', assignedRoles: roles, missingRoles: [], customRoleRequired: true, customRoleName: 'FinOps Remediation' },
-                              { subscriptionId: 'sub-demo-003', displayName: 'Sandbox', status: 'OK', assignedRoles: roles, missingRoles: [], customRoleRequired: false, customRoleName: null },
-                          ],
-                          timestamp: new Date().toISOString(),
-                      }), { status: 200 });
-                  }
+                  // /api/admin/check-sp-roles NO se intercepta: la ruta ya resuelve
+                  // isMockTenant con un reporte MIXTO (dos suscripciones OK y una
+                  // incompleta) y manda la prosa como clave de catalogo. Este mock
+                  // devolvia todo en verde —que no demuestra para que sirve la
+                  // pantalla— y el hint en castellano sobre la UI en ingles.
 
-                  // Onboarding: generación de script
-                  if (url.includes('/api/admin/onboarding')) {
-                      return new Response(JSON.stringify({ success: true, mock: true, script: '# DEMO — Script de onboarding (Azure CLI)\n# En producción este script crea el App Registration, el Service Principal\n# y asigna los roles mínimos requeridos por tu tier.\n\naz ad sp create-for-rbac --name "finops-cscloud" --role "Reader" \\\n  --scopes /subscriptions/<SUB_ID>\n\naz role assignment create --assignee <SP_APP_ID> \\\n  --role "Cost Management Reader" --scope /subscriptions/<SUB_ID>\n' }), { status: 200 });
-                  }
+                  // /api/admin/onboarding NO se intercepta: la ruta ya resuelve
+                  // isMockTenant y `generateOnboardingScript` es texto puro, asi que
+                  // la demo produce el MISMO PowerShell que produccion. Este mock
+                  // devolvia seis lineas de Azure CLI con <SUB_ID> sin reemplazar, en
+                  // castellano, que no es el script que el producto genera.
               }
 
               if (url.includes('/api/admin/report/invoicing')) {

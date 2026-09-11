@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateOnboardingScript } from "@/lib/onboardingScriptTemplate";
 import pool from "@/modules/storage/db";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { isMockTenant } from "@/lib/mockData";
 
 export async function POST(request: NextRequest) {
     try {
@@ -12,16 +13,29 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Faltan parámetros clientTenantId o subscriptionId" }, { status: 400 });
         }
 
-        await requireTenantAccess(request, clientTenantId);
+        // isMockTenant ANTES del guard, como el resto de las rutas: los tenants
+        // demo no estan en Tenants ni tienen membresia, asi que requireTenantAccess
+        // los rechaza. La generacion en si es texto puro —no toca Azure— asi que
+        // la demo produce el MISMO script que produccion, que es lo que hay que
+        // poder mostrar.
+        const isDemo = isMockTenant(clientTenantId);
+        if (!isDemo) {
+            await requireTenantAccess(request, clientTenantId);
+        }
 
-        let tier = 'Professional';
-        try {
-            const [rows] = await pool.query("SELECT tier FROM Tenants WHERE tenant_id = ?", [clientTenantId]);
-            if (Array.isArray(rows) && rows.length > 0 && (rows[0] as { tier?: string }).tier) {
-                tier = (rows[0] as { tier: string }).tier;
+        // El tier decide que roles pide el script; el demo muestra el de Enterprise
+        // (el mas completo) y no consulta Tenants, donde no tiene fila.
+        let tier = 'Enterprise';
+        if (!isDemo) {
+            tier = 'Professional';
+            try {
+                const [rows] = await pool.query("SELECT tier FROM Tenants WHERE tenant_id = ?", [clientTenantId]);
+                if (Array.isArray(rows) && rows.length > 0 && (rows[0] as { tier?: string }).tier) {
+                    tier = (rows[0] as { tier: string }).tier;
+                }
+            } catch (e) {
+                console.error("Error fetching tier:", e);
             }
-        } catch (e) {
-            console.error("Error fetching tier:", e);
         }
 
         let script;
