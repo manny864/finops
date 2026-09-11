@@ -702,45 +702,10 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               // desproporcionados respecto a la cantidad de recursos.
               if (url.includes('/api/m365/overview')) return new Response(JSON.stringify(getMockDataForRoute('m365_overview', mockKey)), {status: 200});
               if (url.includes('/api/m365/user-activity')) return new Response(JSON.stringify(getMockDataForRoute('m365_user_activity', mockKey)), {status: 200});
-              if (url.includes('/api/governance/ha')) {
-                  const m = (selectedTenant?.tier?.toLowerCase()==='enterprise')?5:(selectedTenant?.tier?.toLowerCase()==='business')?2:1;
-                  const baseItems = [
-                      { resourceId: '/subscriptions/mock-sub-1/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm-payments-01', resourceName: 'vm-payments-01', resourceType: 'Microsoft.Compute/virtualMachines', issueType: 'no_zone', severity: 'critical', estimatedRisk: 'VM productiva del API de Payments en eastus sin zona ni Availability Set: caída zonal = pérdida total' },
-                      { resourceId: '/subscriptions/mock-sub-1/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm-payments-02', resourceName: 'vm-payments-02', resourceType: 'Microsoft.Compute/virtualMachines', issueType: 'no_zone', severity: 'critical', estimatedRisk: 'Segunda VM del cluster Payments en la misma zona implícita' },
-                      { resourceId: '/subscriptions/mock-sub-1/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm-db-prod-01', resourceName: 'vm-db-prod-01', resourceType: 'Microsoft.Compute/virtualMachines', issueType: 'no_backup', severity: 'critical', estimatedRisk: 'SQL Server self-hosted en VM sin política de backup en Recovery Services Vault' },
-                      { resourceId: '/subscriptions/mock-sub-2/resourceGroups/rg-data/providers/Microsoft.Sql/servers/sql-finance', resourceName: 'sql-finance', resourceType: 'Microsoft.Sql/servers', issueType: 'no_geo_redundancy', severity: 'critical', estimatedRisk: 'SQL Finance sin failover group ni geo-replica activa' },
-                      { resourceId: '/subscriptions/mock-sub-1/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm-api-app-01', resourceName: 'vm-api-app-01', resourceType: 'Microsoft.Compute/virtualMachines', issueType: 'no_availability_set', severity: 'high', estimatedRisk: 'API tier en single host sin Availability Set ni VMSS' },
-                      { resourceId: '/subscriptions/mock-sub-1/resourceGroups/rg-prod/providers/Microsoft.ContainerService/managedClusters/aks-prod-east', resourceName: 'aks-prod-east', resourceType: 'Microsoft.ContainerService/managedClusters', issueType: 'no_zone', severity: 'high', estimatedRisk: 'AKS sin agent pool profiles zonales en eastus' },
-                      { resourceId: '/subscriptions/mock-sub-1/resourceGroups/rg-web/providers/Microsoft.Web/serverfarms/asp-portal-prod', resourceName: 'asp-portal-prod', resourceType: 'Microsoft.Web/serverfarms', issueType: 'low_capacity', severity: 'high', estimatedRisk: 'App Service Plan productivo con capacidad 1 (single-instance)' },
-                      { resourceId: '/subscriptions/mock-sub-1/resourceGroups/rg-data/providers/Microsoft.DocumentDB/databaseAccounts/cosmos-orders', resourceName: 'cosmos-orders', resourceType: 'Microsoft.DocumentDB/databaseAccounts', issueType: 'no_geo_redundancy', severity: 'high', estimatedRisk: 'Cosmos DB con una sola región write configurada' },
-                      { resourceId: '/subscriptions/mock-sub-1/resourceGroups/rg-data/providers/Microsoft.DBforPostgreSQL/flexibleServers/pg-events', resourceName: 'pg-events', resourceType: 'Microsoft.DBforPostgreSQL/flexibleServers', issueType: 'no_geo_redundancy', severity: 'high', estimatedRisk: 'Postgres Flexible sin Zone-Redundant HA habilitado' },
-                      { resourceId: '/subscriptions/mock-sub-2/resourceGroups/rg-network/providers/Microsoft.Network/publicIPAddresses/pip-lb-front', resourceName: 'pip-lb-front', resourceType: 'Microsoft.Network/publicIPAddresses', issueType: 'basic_sku', severity: 'medium', estimatedRisk: 'Public IP Basic SKU no soporta zonas ni reglas SLA' },
-                      { resourceId: '/subscriptions/mock-sub-2/resourceGroups/rg-network/providers/Microsoft.Network/publicIPAddresses/pip-vpn-gw', resourceName: 'pip-vpn-gw', resourceType: 'Microsoft.Network/publicIPAddresses', issueType: 'basic_sku', severity: 'medium', estimatedRisk: 'Public IP de VPN Gateway con SKU Basic' },
-                      { resourceId: '/subscriptions/mock-sub-3/resourceGroups/rg-cache/providers/Microsoft.Cache/Redis/redis-sessions', resourceName: 'redis-sessions', resourceType: 'Microsoft.Cache/Redis', issueType: 'low_capacity', severity: 'medium', estimatedRisk: 'Redis Standard (sin SLA de Premium zonal/geo)' },
-                      { resourceId: '/subscriptions/mock-sub-1/resourceGroups/rg-prod/providers/Microsoft.Sql/servers/sql-app-prod', resourceName: 'sql-app-prod', resourceType: 'Microsoft.Sql/servers', issueType: 'no_geo_redundancy', severity: 'medium', estimatedRisk: 'SQL App sin geo-replicación, solo backup local' },
-                      { resourceId: '/subscriptions/mock-sub-3/resourceGroups/rg-data/providers/Microsoft.DBforMySQL/flexibleServers/mysql-cms', resourceName: 'mysql-cms', resourceType: 'Microsoft.DBforMySQL/flexibleServers', issueType: 'no_geo_redundancy', severity: 'medium', estimatedRisk: 'MySQL Flexible sin HA habilitada' },
-                      { resourceId: '/subscriptions/mock-sub-1/resourceGroups/rg-prod/providers/Microsoft.Web/serverfarms/asp-api-prod', resourceName: 'asp-api-prod', resourceType: 'Microsoft.Web/serverfarms', issueType: 'low_capacity', severity: 'medium', estimatedRisk: 'App Service Plan API con capacidad 1' },
-                      { resourceId: '/subscriptions/mock-sub-1/resourceGroups/rg-prod/providers/Microsoft.Storage/storageAccounts/sapaymentlogs', resourceName: 'sapaymentlogs', resourceType: 'Microsoft.Storage/storageAccounts', issueType: 'single_replica', severity: 'low', estimatedRisk: 'Storage con redundancia Standard_LRS, considerar ZRS' },
-                      { resourceId: '/subscriptions/mock-sub-2/resourceGroups/rg-archive/providers/Microsoft.Storage/storageAccounts/saarchive01', resourceName: 'saarchive01', resourceType: 'Microsoft.Storage/storageAccounts', issueType: 'single_replica', severity: 'low', estimatedRisk: 'Archive storage con LRS, datos críticos sin geo-replicación' },
-                      { resourceId: '/subscriptions/mock-sub-2/resourceGroups/rg-backup/providers/Microsoft.Storage/storageAccounts/sabackupdb', resourceName: 'sabackupdb', resourceType: 'Microsoft.Storage/storageAccounts', issueType: 'single_replica', severity: 'low', estimatedRisk: 'Storage de backups con Premium_LRS (sin geo)' },
-                      { resourceId: '/subscriptions/mock-sub-3/resourceGroups/rg-dev/providers/Microsoft.Storage/storageAccounts/sadevstatic', resourceName: 'sadevstatic', resourceType: 'Microsoft.Storage/storageAccounts', issueType: 'single_replica', severity: 'low', estimatedRisk: 'Static website storage LRS' },
-                      { resourceId: '/subscriptions/mock-sub-2/resourceGroups/rg-test/providers/Microsoft.Compute/virtualMachines/vm-test-bench', resourceName: 'vm-test-bench', resourceType: 'Microsoft.Compute/virtualMachines', issueType: 'no_availability_set', severity: 'low', estimatedRisk: 'VM de benchmark/test sin AS (no productivo)' },
-                  ];
-                  const items: any[] = [];
-                  for (let k = 0; k < m; k++) {
-                      baseItems.forEach((it, idx) => {
-                          const suffix = k === 0 ? '' : `-${k+1}`;
-                          items.push({
-                              ...it,
-                              resourceId: it.resourceId + suffix,
-                              resourceName: it.resourceName + suffix,
-                          });
-                      });
-                  }
-                  const counts: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0 };
-                  items.forEach(it => { if (it.severity in counts) counts[it.severity]++; });
-                  return new Response(JSON.stringify({ success: true, mock: true, source: 'mock', items, counts }), {status: 200});
-              }
+              // /api/governance/ha NO se intercepta: su rama mock (getMockHaPayload)
+              // devuelve {summary, availableSubscriptions, source, lastUpdated}, que es
+              // lo que el panel lee. El mock de aca servia {items, counts} plano, asi
+              // que `data.summary` venia undefined y la pantalla quedaba en cero.
               if (url.includes('/api/intelligence/compute-cost-per-core')) return new Response(JSON.stringify(getMockDataForRoute('compute-efficiency', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/macc')) return new Response(JSON.stringify(getMockDataForRoute('macc', mockKey)), {status: 200});
 
@@ -910,28 +875,9 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                       }), { status: 200 });
                   }
 
-                  // Credenciales por expirar
-                  if (url.includes('/api/governance/expiring-credentials')) {
-                      const samples = [
-                          { displayName: 'finops-onboarding-sp', credentialType: 'password' as const, days: 2 },
-                          { displayName: 'github-actions-cicd', credentialType: 'certificate' as const, days: 12 },
-                          { displayName: 'data-ingest-job', credentialType: 'password' as const, days: 28 },
-                          { displayName: 'monitoring-sp', credentialType: 'certificate' as const, days: 65 },
-                      ];
-                      const sev = (d: number) => (d <= 7 ? 'critical' : d <= 30 ? 'high' : d <= 60 ? 'medium' : 'low');
-                      const items = samples.map((s, i) => ({
-                          appId: `00000000-0000-0000-0000-${String(i).padStart(12, '0')}`,
-                          displayName: s.displayName,
-                          credentialType: s.credentialType,
-                          credentialId: `cred-${i}`,
-                          expiresAt: new Date(nowMs + s.days * dayMs).toISOString(),
-                          daysTillExpiry: s.days,
-                          severity: sev(s.days),
-                      }));
-                      const counts = { critical: 0, high: 0, medium: 0, low: 0 } as Record<string, number>;
-                      items.forEach((it) => { counts[it.severity]++; });
-                      return new Response(JSON.stringify({ success: true, mock: true, items, counts }), { status: 200 });
-                  }
+                  // /api/governance/expiring-credentials NO se intercepta: mismo motivo
+                  // que /api/governance/ha — la ruta ya devuelve {summary, source,
+                  // lastUpdated} y este mock servia {items, counts} plano.
 
                   // Notificaciones (canales)
                   if (url.includes('/api/admin/notifications/channels')) {

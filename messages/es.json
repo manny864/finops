@@ -2748,7 +2748,9 @@
     "mockPolicy_deny_regiones_no_homologadas_desc": "Limita el despliegue a eastus, westeurope y brazilsouth.",
     "mockPolicy_audit_tags_obligatorias_name": "Auditar etiquetas obligatorias en RGs",
     "mockPolicy_audit_tags_obligatorias_desc": "Verifica que cada grupo de recursos declare Environment, Owner y CostCenter.",
-    "noDescription": "Sin descripción declarada en la definición."
+    "noDescription": "Sin descripción declarada en la definición.",
+    "sliceCompliant": "Conformes",
+    "sliceNonCompliant": "No conformes"
   },
   "AzureAI": {
     "title": "Azure AI",
@@ -6782,7 +6784,9 @@
     "pageSubtitle": "Control de metadatos, centros de costo y cumplimiento de políticas de asignación financiera.",
     "tagsAppliedPartial": "Etiquetas aplicadas en Azure a {ok} de {total} recursos ({fail} fallaron)",
     "tagsPropagatedPartial": "Etiquetas propagadas en Azure a {ok} de {total} recursos ({fail} fallaron)",
-    "tagsPersistError": "Error al persistir etiquetas"
+    "tagsPersistError": "Error al persistir etiquetas",
+    "resourceCount": "({count, plural, one {# recurso} other {# recursos}})",
+    "childResources": "{count, plural, one {# recurso} other {# recursos}}"
   },
   "HA": {
     "tierLockedFeatureName": "Recomendaciones de Alta Disponibilidad",
@@ -10810,7 +10814,12 @@
     "thresholdMin": "1% (muy conservador)",
     "thresholdMax": "50% (agresivo)",
     "thresholdScopeNote": "El umbral se aplica a los horarios que crees a partir de ahora y a las acciones masivas de esta pantalla. Los horarios ya guardados conservan el suyo hasta que los vuelvas a editar.",
-    "applyThreshold": "Aplicar Umbral"
+    "applyThreshold": "Aplicar Umbral",
+    "kpiSavingsSub": "{amount} adicionales disponibles",
+    "kpiSchedulesSub": "{count, plural, one {# regla en total} other {# reglas en total}}",
+    "kpiRunningSub": "{count, plural, one {# apagada} other {# apagadas}}",
+    "kpiHoursSub": "{count, plural, one {# apagado pospuesto por CPU} other {# apagados pospuestos por CPU}}",
+    "offHoursPerWeek": "{hours} h/sem apagada"
   },
   "Profile": {
     "openProfile": "Abrir perfil",
@@ -11211,7 +11220,8 @@
     "close": "Cerrar",
     "mockDesc_orphan_disk_01": "Premium SSD de 512 GB sin adjuntar hace 47 días. Requiere confirmación de borrado permanente.",
     "mockDesc_vm_dev_04": "CPU promedio del 6,2% durante 30 días sobre un Standard_D8s_v5.",
-    "mockDesc_salogsarchive": "Sin lecturas en 90 días: el tier Cool reduce el costo de almacenamiento ~46%."
+    "mockDesc_salogsarchive": "Sin lecturas en 90 días: el tier Cool reduce el costo de almacenamiento ~46%.",
+    "perMonthSuffix": " / mes"
   },
   "RemediationModals": {
     "estMonthlySavings": "Ahorro mensual est.",
@@ -11430,7 +11440,15 @@
     "colVm": "Máquina Virtual",
     "colPeakCpu": "Pico Máx CPU",
     "analyzingMetrics": "Analizando métricas históricas de Azure Monitor...",
-    "noMsalAccount": "No hay cuenta MSAL activa."
+    "noMsalAccount": "No hay cuenta MSAL activa.",
+    "btn_upgrade": "Aplicar Upgrade",
+    "btn_upgrading": "Aplicando...",
+    "confirm_upgrade": "¿Seguro que querés escalar la máquina {name} al tamaño {sku}? Esto puede reiniciarla y aumenta el costo mensual.",
+    "upgrade_started": "Upgrade iniciado para {name}",
+    "upgrade_error": "Error aplicando el upgrade: {error}",
+    "badge_saturated": "Saturada (CPU sostenida)",
+    "badge_peaking": "Picos contra el techo de CPU",
+    "extra_cost_label": "Costo adicional estimado"
   },
   "RightsizingAppService": {
     "title": "Rightsizing de App Service",

@@ -176,8 +176,12 @@ export default function RightsizingPage() {
     }
   };
 
-  const handleDowngrade = async (vm: any) => {
-      if (!window.confirm(t("confirm_downgrade", { name: vm.name, sku: vm.recommendedSku }))) return;
+  // El mismo handler para bajar y subir: el resize de ARM es el mismo PATCH y
+  // solo cambia lo que se confirma, lo que se audita y lo que se avisa.
+  const handleResize = async (vm: any) => {
+      const isUpgrade = vm.action === 'UPGRADE';
+      const confirmKey = isUpgrade ? "confirm_upgrade" : "confirm_downgrade";
+      if (!window.confirm(t(confirmKey, { name: vm.name, sku: vm.recommendedSku }))) return;
       setProcessingVmId(vm.id);
       try {
           const account = accounts[0];
@@ -194,18 +198,19 @@ export default function RightsizingPage() {
                   subscriptionId: vm.subscriptionId,
                   resourceGroup: vm.id.split('/')[4],
                   resourceName: vm.name,
-                  newSku: vm.recommendedSku
+                  newSku: vm.recommendedSku,
+                  direction: isUpgrade ? 'UPGRADE' : 'DOWNGRADE'
               })
           });
           const json = await res.json();
           if (json.success) {
-              alert(t("downgrade_started", { name: vm.name }));
+              alert(t(isUpgrade ? "upgrade_started" : "downgrade_started", { name: vm.name }));
               setVms(prev => prev.filter(v => v.id !== vm.id));
           } else {
               alert(t("error_prefix", { error: json.error }));
           }
       } catch (e) {
-          alert(t("downgrade_error", { error: String(e) }));
+          alert(t(isUpgrade ? "upgrade_error" : "downgrade_error", { error: String(e) }));
       } finally {
           setProcessingVmId(null);
       }
@@ -356,7 +361,7 @@ export default function RightsizingPage() {
                                         {vm.isExempted ? (
                                             <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
                                         ) : (
-                                            <AlertTriangle className={`w-4 h-4 ${vm.reason === 'Deallocated VM with attached Storage' ? 'text-rose-500' : 'text-amber'}`} />
+                                            <AlertTriangle className={`w-4 h-4 ${vm.reason === 'Deallocated VM with attached Storage' ? 'text-rose-500' : vm.action === 'UPGRADE' ? 'text-sky-500' : 'text-amber'}`} />
                                         )}
                                         {vm.name}
                                     </div>
@@ -379,11 +384,15 @@ export default function RightsizingPage() {
                                                 </p>
                                             )}
                                         </div>
-                                    ) : vm.reason === 'Deallocated VM with attached Storage' && (
+                                    ) : vm.reason === 'Deallocated VM with attached Storage' ? (
                                         <span className="text-[10px] text-rose-500 font-bold block ml-[23px]">
                                             {t("deallocated_false_savings")}
                                         </span>
-                                    )}
+                                    ) : vm.action === 'UPGRADE' ? (
+                                        <span className="text-[10px] text-sky-600 dark:text-sky-400 font-bold block ml-[23px]">
+                                            {t(vm.reason === 'Peaking' ? "badge_peaking" : "badge_saturated")}
+                                        </span>
+                                    ) : null}
                                 </td>
                                 <td>{vm.subscriptionId ? (subscriptions.find(s => s.id?.toLowerCase() === vm.subscriptionId.toLowerCase())?.name || vm.subscriptionId) : '—'}</td>
                                 {viewMode === 'engineer' && (
@@ -408,7 +417,7 @@ export default function RightsizingPage() {
                                     <div className="flex flex-col items-start gap-1">
                                         <div className="flex items-center text-green font-bold gap-2">
                                             <ArrowRight className="w-4 h-4" />
-                                            <span className={`tag font-mono ${vm.isExempted ? 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300' : vm.reason === 'Deallocated VM with attached Storage' ? 'bg-rose-50 text-rose-600 border border-rose-200' : 'green'}`}>{vm.recommendedSku}</span>
+                                            <span className={`tag font-mono ${vm.isExempted ? 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300' : vm.reason === 'Deallocated VM with attached Storage' ? 'bg-rose-50 text-rose-600 border border-rose-200' : vm.action === 'UPGRADE' ? 'bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-500/10 dark:text-sky-300' : 'green'}`}>{vm.recommendedSku}</span>
                                         </div>
                                         {vm.hiddenCost > 0 && !vm.isExempted && (
                                             <span className="text-xs text-rose-500 font-bold ml-6" title={t("hidden_cost_tooltip")}>
@@ -457,17 +466,17 @@ export default function RightsizingPage() {
                                                     </button>
                                                 ) : (
                                                     <button
-                                                        onClick={() => handleDowngrade(vm)}
+                                                        onClick={() => handleResize(vm)}
                                                         disabled={processingVmId === vm.id}
-                                                        className="font-heading font-semibold text-[12px] rounded-[10px] bg-amber text-white p-[7px_11px] cursor-pointer hover:brightness-110 active:scale-95 transition-all shadow-sm disabled:opacity-75 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
+                                                        className={`font-heading font-semibold text-[12px] rounded-[10px] text-white p-[7px_11px] cursor-pointer hover:brightness-110 active:scale-95 transition-all shadow-sm disabled:opacity-75 disabled:cursor-not-allowed inline-flex items-center gap-1.5 ${vm.action === 'UPGRADE' ? 'bg-primary' : 'bg-amber'}`}
                                                     >
                                                         {processingVmId === vm.id ? (
                                                             <>
                                                                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                                                <span>{t("btn_downgrading")}</span>
+                                                                <span>{t(vm.action === 'UPGRADE' ? "btn_upgrading" : "btn_downgrading")}</span>
                                                             </>
                                                         ) : (
-                                                            t("btn_downgrade")
+                                                            t(vm.action === 'UPGRADE' ? "btn_upgrade" : "btn_downgrade")
                                                         )}
                                                     </button>
                                                 )}

@@ -502,7 +502,7 @@ export default function VmPowerManagementPanel() {
       label: t("kpiSavings"),
       tip: t("kpiSavingsTip"),
       value: money(summary?.totalOffHoursSavingsMonthlyUSD || 0),
-      sub: `${money(summary?.untappedSavingsMonthlyUSD || 0)} adicionales disponibles`,
+      sub: t("kpiSavingsSub", { amount: money(summary?.untappedSavingsMonthlyUSD || 0) }),
       Icon: IconCash,
       color: "text-[#0078D4]",
     },
@@ -510,7 +510,7 @@ export default function VmPowerManagementPanel() {
       label: t("kpiScheduled"),
       tip: t("kpiScheduledTip"),
       value: `${summary?.activeSchedulesCount || 0}`,
-      sub: `${schedules.length} regla(s) en total`,
+      sub: t("kpiSchedulesSub", { count: schedules.length }),
       Icon: IconCalendarTime,
       color: "text-[#2563EB]",
     },
@@ -518,7 +518,7 @@ export default function VmPowerManagementPanel() {
       label: t("kpiRunning"),
       tip: t("kpiRunningTip"),
       value: `${summary?.runningVmsCount || 0}`,
-      sub: `${summary?.deallocatedVmsCount || 0} apagada(s)`,
+      sub: t("kpiRunningSub", { count: summary?.deallocatedVmsCount || 0 }),
       Icon: IconPlayerPlay,
       color: "text-[#0284C7]",
     },
@@ -526,7 +526,7 @@ export default function VmPowerManagementPanel() {
       label: t("kpiHours"),
       tip: t("kpiHoursTip"),
       value: t("hoursValue", { hours: summary?.totalMonthlyAvoidedHours || 0 }),
-      sub: `${summary?.smartShutdownAvoidedOutagesCount || 0} apagado(s) pospuesto(s) por CPU`,
+      sub: t("kpiHoursSub", { count: summary?.smartShutdownAvoidedOutagesCount || 0 }),
       Icon: IconClockCheck,
       color: "text-slate-900 dark:text-white",
     },
@@ -1075,7 +1075,7 @@ export default function VmPowerManagementPanel() {
                           {vm.hasActiveSchedule && (
                             <span className="text-[10px] text-[#0054A6]">
                               {vm.scheduledOffHoursPerWeek > 0
-                                ? `${vm.scheduledOffHoursPerWeek} h/sem apagada`
+                                ? t("offHoursPerWeek", { hours: vm.scheduledOffHoursPerWeek })
                                 : "Con horario"}
                             </span>
                           )}

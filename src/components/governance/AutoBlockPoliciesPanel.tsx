@@ -214,6 +214,10 @@ export default function AutoBlockPoliciesPanel() {
 
   // ─── Tabla de políticas ───
   const [scopeFilter, setScopeFilter] = useState("ALL");
+  // "Ver brechas" prometia llevar a la tabla de abajo, pero solo hacia
+  // setScopeFilter("ALL") — que es el valor por defecto, asi que el click no
+  // producia ningun cambio visible.
+  const assignmentsRef = useRef<HTMLDivElement>(null);
   const [drawerPolicy, setDrawerPolicy] = useState<PolicyAssignmentItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PolicyAssignmentItem | null>(null);
   const [remediating, setRemediating] = useState<string | null>(null);
@@ -257,10 +261,10 @@ export default function AutoBlockPoliciesPanel() {
 
   const donutData = useMemo(
     () => [
-      { name: "Conformes", value: summary?.totalCompliantCount || 0, color: AUTOBLOCK_COLORS.compliant },
-      { name: "No conformes", value: summary?.totalNonCompliantCount || 0, color: AUTOBLOCK_COLORS.nonCompliant },
+      { name: t("sliceCompliant"), value: summary?.totalCompliantCount || 0, color: AUTOBLOCK_COLORS.compliant },
+      { name: t("sliceNonCompliant"), value: summary?.totalNonCompliantCount || 0, color: AUTOBLOCK_COLORS.nonCompliant },
     ],
-    [summary]
+    [summary, t]
   );
   const hasEvaluations = (summary?.totalCompliantCount || 0) + (summary?.totalNonCompliantCount || 0) > 0;
 
@@ -456,8 +460,17 @@ export default function AutoBlockPoliciesPanel() {
                         <Cell key={d.name} fill={d.color} />
                       ))}
                     </Pie>
+                    {/*
+                      * Anclado a la esquina del contenedor en vez de seguir al
+                      * cursor: el anillo ocupa casi todo el alto y con
+                      * innerRadius 62% el tooltip caia justo sobre el
+                      * porcentaje del centro, tapando lo que el usuario estaba
+                      * mirando. Fijo arriba a la izquierda queda sobre el fondo
+                      * de la tarjeta y se lee.
+                      */}
                     <Tooltip
-                      formatter={(v) => [t("resourcesCount", { count: Number(v ?? 0) }), ""]}
+                      position={{ x: 0, y: 0 }}
+                      formatter={(v, n) => [t("resourcesCount", { count: Number(v ?? 0) }), n]}
                       contentStyle={{ ...TOOLTIP_TEMA.contentStyle, borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12  }} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
                   </PieChart>
                 </ResponsiveContainer>
@@ -545,7 +558,10 @@ export default function AutoBlockPoliciesPanel() {
                   </span>
                 </div>
                 <button
-                  onClick={() => setScopeFilter("ALL")}
+                  onClick={() => {
+                    setScopeFilter("ALL");
+                    assignmentsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
                   title={t("viewGapsTooltip")}
                   className="text-[11px] font-semibold text-[#0054A6] cursor-pointer bg-transparent whitespace-nowrap"
                 >
@@ -658,7 +674,7 @@ export default function AutoBlockPoliciesPanel() {
       </div>
 
       {/* ─── Fila 4: tabla de políticas activas ─── */}
-      <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs p-4 space-y-3">
+      <div ref={assignmentsRef} className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs p-4 space-y-3">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h3 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 flex items-center gap-1.5">
             {t("activePoliciesTitle")}

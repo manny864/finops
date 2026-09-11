@@ -445,7 +445,7 @@ export default function RemediationApprovalsPanel() {
 
                   <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-800 flex-wrap">
                     <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400 tabular-nums whitespace-nowrap">
-                      −{money(p.monthlySavingsUSD)} / mes
+                      −{money(p.monthlySavingsUSD)}{t("perMonthSuffix")}
                     </span>
                     <div className="flex items-center gap-2">
                       <button

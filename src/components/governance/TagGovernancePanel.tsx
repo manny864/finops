@@ -721,7 +721,7 @@ export default function TagGovernancePanel() {
               {t("resourceAuditHeading")}
             </h2>
             <InfoTooltip content={t("resourceAuditTip")} />
-            <span className="text-xs text-slate-400">({filteredResources.length} recursos)</span>
+            <span className="text-xs text-slate-400">{t("resourceCount", { count: filteredResources.length })}</span>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -1208,7 +1208,7 @@ export default function TagGovernancePanel() {
 
                     {isRgColVisible("childCount") && (
                       <td className="py-3 px-4 text-slate-700 dark:text-slate-300 font-semibold">
-                        {rg.childResourcesCount} recursos
+                        {t("childResources", { count: rg.childResourcesCount })}
                       </td>
                     )}
 

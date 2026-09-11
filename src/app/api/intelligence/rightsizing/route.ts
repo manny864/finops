@@ -155,6 +155,7 @@ export async function GET(request: NextRequest) {
                 avgCpu: analysis.avgCpu,
                 recommendedSku: analysis.recommendedSku,
                 isUnderutilized: analysis.isUnderutilized,
+                action: analysis.action,
                 reason: analysis.status,
                 hiddenCost: 0
             };
@@ -191,6 +192,7 @@ export async function GET(request: NextRequest) {
                 avgCpu: 0,
                 recommendedSku: "Snapshot & Delete VM",
                 isUnderutilized: true,
+                action: 'DELETE',
                 reason: 'Deallocated VM with attached Storage',
                 hiddenCost: parseFloat(storageCost.toFixed(2))
             };
@@ -200,7 +202,7 @@ export async function GET(request: NextRequest) {
         const stoppedResults = await Promise.all(stoppedPromises);
         
         const results = [...activeResults, ...stoppedResults];
-            return results.filter(r => r.isUnderutilized);
+            return results.filter(r => r.action !== 'NONE');
         }, 3600);
 
         const exemptions = await getExemptionsForTenant(tenantId);

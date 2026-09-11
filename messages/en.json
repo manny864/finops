@@ -2748,7 +2748,9 @@
     "mockPolicy_deny_regiones_no_homologadas_desc": "Limits deployment to eastus, westeurope and brazilsouth.",
     "mockPolicy_audit_tags_obligatorias_name": "Audit mandatory tags on RGs",
     "mockPolicy_audit_tags_obligatorias_desc": "Checks that every resource group declares Environment, Owner and CostCenter.",
-    "noDescription": "No description declared in the definition."
+    "noDescription": "No description declared in the definition.",
+    "sliceCompliant": "Compliant",
+    "sliceNonCompliant": "Non-compliant"
   },
   "AzureAI": {
     "title": "Azure AI",
@@ -6782,7 +6784,9 @@
     "pageSubtitle": "Metadata control, cost centers and compliance with financial allocation policies.",
     "tagsAppliedPartial": "Tags applied in Azure to {ok} of {total} resources ({fail} failed)",
     "tagsPropagatedPartial": "Tags propagated in Azure to {ok} of {total} resources ({fail} failed)",
-    "tagsPersistError": "Failed to persist tags"
+    "tagsPersistError": "Failed to persist tags",
+    "resourceCount": "({count, plural, one {# resource} other {# resources}})",
+    "childResources": "{count, plural, one {# resource} other {# resources}}"
   },
   "HA": {
     "tierLockedFeatureName": "High Availability Recommendations",
@@ -10810,7 +10814,12 @@
     "thresholdMin": "1% (very conservative)",
     "thresholdMax": "50% (aggressive)",
     "thresholdScopeNote": "The threshold applies to schedules you create from now on and to the bulk actions on this screen. Schedules already saved keep their own until you edit them again.",
-    "applyThreshold": "Apply Threshold"
+    "applyThreshold": "Apply Threshold",
+    "kpiSavingsSub": "{amount} additional available",
+    "kpiSchedulesSub": "{count, plural, one {# rule in total} other {# rules in total}}",
+    "kpiRunningSub": "{count, plural, one {# shut down} other {# shut down}}",
+    "kpiHoursSub": "{count, plural, one {# shutdown deferred by CPU} other {# shutdowns deferred by CPU}}",
+    "offHoursPerWeek": "{hours} h/wk off"
   },
   "Profile": {
     "openProfile": "Open profile",
@@ -11211,7 +11220,8 @@
     "close": "Close",
     "mockDesc_orphan_disk_01": "512 GB Premium SSD unattached for 47 days. Requires confirmation of permanent deletion.",
     "mockDesc_vm_dev_04": "6.2% average CPU over 30 days on a Standard_D8s_v5.",
-    "mockDesc_salogsarchive": "No reads in 90 days: the Cool tier cuts storage cost by ~46%."
+    "mockDesc_salogsarchive": "No reads in 90 days: the Cool tier cuts storage cost by ~46%.",
+    "perMonthSuffix": " / mo"
   },
   "RemediationModals": {
     "estMonthlySavings": "Est. monthly savings",
@@ -11430,7 +11440,15 @@
     "colVm": "Virtual Machine",
     "colPeakCpu": "Peak Max CPU",
     "analyzingMetrics": "Analyzing historical Azure Monitor metrics...",
-    "noMsalAccount": "No active MSAL account."
+    "noMsalAccount": "No active MSAL account.",
+    "btn_upgrade": "Apply Upgrade",
+    "btn_upgrading": "Applying...",
+    "confirm_upgrade": "Are you sure you want to scale machine {name} up to size {sku}? This might restart it and increases the monthly cost.",
+    "upgrade_started": "Upgrade started for {name}",
+    "upgrade_error": "Error applying upgrade: {error}",
+    "badge_saturated": "Saturated (sustained CPU)",
+    "badge_peaking": "Peaks hitting the CPU ceiling",
+    "extra_cost_label": "Estimated additional cost"
   },
   "RightsizingAppService": {
     "title": "App Service Rightsizing",

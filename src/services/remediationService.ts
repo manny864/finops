@@ -173,7 +173,13 @@ function extractDefaultVCpuCount(sku: string): number | null {
     return m ? parseInt(m[1], 10) : null;
 }
 
-export async function downgradeVirtualMachine(tenantId: string, userEmail: string, subscriptionId: string, resourceGroup: string, vmName: string, newSku: string) {
+/**
+ * Redimensiona la VM. Sirve para las dos direcciones —el PATCH de ARM es el
+ * mismo— pero `direction` decide que queda en la auditoria: un upgrade
+ * registrado como DOWNGRADE_VM le miente al historial.
+ */
+export async function downgradeVirtualMachine(tenantId: string, userEmail: string, subscriptionId: string, resourceGroup: string, vmName: string, newSku: string, direction: "DOWNGRADE" | "UPGRADE" = "DOWNGRADE") {
+    const auditAction = direction === "UPGRADE" ? "UPGRADE_VM" : "DOWNGRADE_VM";
     const credential = await getAzureCredential(tenantId);
     const client = new ComputeManagementClient(credential, subscriptionId);
     const fullResourceId = `/subscriptions/${subscriptionId}/resourceGroups/${resourceGroup}/providers/Microsoft.Compute/virtualMachines/${vmName}`;
@@ -208,10 +214,10 @@ export async function downgradeVirtualMachine(tenantId: string, userEmail: strin
                 ...(vmSizeProperties ? { vmSizeProperties } : {}),
             },
         });
-        await logAction(tenantId, userEmail, "DOWNGRADE_VM", fullResourceId, "SUCCESS");
+        await logAction(tenantId, userEmail, auditAction, fullResourceId, "SUCCESS");
         return { started: true, resourceId: fullResourceId, newSku };
     } catch (e) {
-        await logAction(tenantId, userEmail, "DOWNGRADE_VM", fullResourceId, "FAILED");
+        await logAction(tenantId, userEmail, auditAction, fullResourceId, "FAILED");
         throw e;
     }
 }
