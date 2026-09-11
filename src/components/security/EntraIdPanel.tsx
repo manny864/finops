@@ -1,6 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useTextoPorCategoria } from "@/lib/recommendationText";
+import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
 import { EDS_SKU_MONTHLY_USD, INACTIVE_USER_DAYS } from "@/types/azureEntraId.types";
 
 import React, { useState, useMemo } from "react";
@@ -255,13 +255,14 @@ function EntraRemediationModal({
   onClose: () => void;
 }) {
   const t = useTranslations("EntraIdPanel");
+  const tc = useTranslations("Common");
   const textoRem = useTextoPorCategoria("EntraIdPanel");
   const [copied, setCopied] = useState<"cli" | "ps" | null>(null);
   if (!action) return null;
 
   const cmd = buildEntraIdRemediationCommand(action);
   const copy = (text: string, which: "cli" | "ps") => {
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(resolverComentarios(text, t));
     setCopied(which);
     setTimeout(() => setCopied(null), 2000);
   };
@@ -311,7 +312,7 @@ function EntraRemediationModal({
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">{label}</span>
               <button
-                onClick={() => copy(text, key)}
+                onClick={() => copy(resolverComentarios(text, t), key)}
                 className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border bg-white dark:bg-slate-900 transition flex items-center gap-1 cursor-pointer ${
                   copied === key
                     ? "border-emerald-600 text-emerald-600"
@@ -319,11 +320,11 @@ function EntraRemediationModal({
                 }`}
               >
                 {copied === key ? <IconCheck className="w-3.5 h-3.5" /> : <IconCopy className="w-3.5 h-3.5" />}
-                {copied === key ? "Copiado" : "Copiar"}
+                {copied === key ? tc("copied") : tc("copy")}
               </button>
             </div>
             <pre className="p-3.5 bg-slate-950 text-slate-100 rounded-xl font-mono text-[11px] overflow-x-auto border border-slate-800 leading-relaxed whitespace-pre-wrap">
-              {text}
+              {resolverComentarios(text, t)}
             </pre>
           </div>
         ))}
@@ -339,6 +340,7 @@ function EntraRemediationModal({
 // ─── Componente Principal ───
 export default function EntraIdPanel() {
   const t = useTranslations("EntraIdPanel");
+  const tc = useTranslations("Common");
   const textoRem = useTextoPorCategoria("EntraIdPanel");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
@@ -943,7 +945,7 @@ export default function EntraIdPanel() {
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
             {t("totalPotentialSavings")}{" "}
             <span className="font-bold text-emerald-600 dark:text-emerald-400">
-              {formatCurrency(summary.potentialSavingsUSD)}/mes
+              {tc("amountPerMonth", { amount: formatCurrency(summary.potentialSavingsUSD) })}
             </span>
           </p>
         </div>
@@ -962,7 +964,7 @@ export default function EntraIdPanel() {
                     </span>
                     {action.estimatedSavingsUSD > 0 && (
                       <span className="text-xs font-extrabold text-emerald-600">
-                        +{formatCurrency(action.estimatedSavingsUSD)}/mes
+                        +{tc("amountPerMonth", { amount: formatCurrency(action.estimatedSavingsUSD) })}
                       </span>
                     )}
                   </div>
@@ -974,7 +976,7 @@ export default function EntraIdPanel() {
                   </p>
                 </div>
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center gap-2">
-                  <span className="text-[10px] text-slate-400 font-medium">Confianza: {action.confidence}</span>
+                  <span className="text-[10px] text-slate-400 font-medium">{tc("confidence")}: {action.confidence}</span>
                   <button
                     onClick={() =>
                       action.affectedPrincipals && action.affectedPrincipals.length > 0
@@ -984,7 +986,7 @@ export default function EntraIdPanel() {
                     className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1 cursor-pointer"
                   >
                     <IconTerminal2 className="w-3.5 h-3.5" />
-                    {action.affectedPrincipals && action.affectedPrincipals.length > 0 ? "Auditar" : "Remediar"}
+                    {action.affectedPrincipals && action.affectedPrincipals.length > 0 ? tc("audit") : tc("remediate")}
                   </button>
                 </div>
               </div>

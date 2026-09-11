@@ -1,6 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useTextoPorCategoria } from "@/lib/recommendationText";
+import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -172,7 +172,7 @@ function LinkedConsumersDrawer({
               </div>
             </div>
             <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
-              <div className="text-[10px] text-slate-500 dark:text-slate-400">Throttling (429)</div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400">{t("throttling429")}</div>
               <div
                 className={`text-lg font-extrabold ${
                   vault.throttledHits429 > 0
@@ -184,7 +184,7 @@ function LinkedConsumersDrawer({
               </div>
             </div>
             <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
-              <div className="text-[10px] text-slate-500 dark:text-slate-400">Latencia media</div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400">{t("avgLatency")}</div>
               <div className="text-lg font-extrabold text-[#1B2A41] dark:text-slate-100">
                 {vault.avgLatencyMs > 0 ? `${vault.avgLatencyMs} ms` : "—"}
               </div>
@@ -222,7 +222,7 @@ function LinkedConsumersDrawer({
               )}
               {vault.managedHsmPoolCostUSD > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-amber-700 dark:text-amber-400 font-semibold">Pool Managed HSM</span>
+                  <span className="text-amber-700 dark:text-amber-400 font-semibold">{t("poolManagedHsm")}</span>
                   <span className="font-bold text-amber-700 dark:text-amber-400">
                     {formatCurrency(vault.managedHsmPoolCostUSD)}
                   </span>
@@ -331,6 +331,7 @@ function KeyVaultRemediationModal({
   onClose: () => void;
 }) {
   const t = useTranslations("KeyVaultPanel");
+  const tc = useTranslations("Common");
   const textoRem = useTextoPorCategoria("KeyVaultPanel");
   const [copied, setCopied] = useState<"cli" | "ps" | null>(null);
   if (!action) return null;
@@ -338,7 +339,7 @@ function KeyVaultRemediationModal({
   const cmd = buildKeyVaultRemediationCommand(action);
   const isDestructive = action.category === "DOWNGRADE_MANAGED_HSM";
   const copy = (text: string, which: "cli" | "ps") => {
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(resolverComentarios(text, t));
     setCopied(which);
     setTimeout(() => setCopied(null), 2000);
   };
@@ -397,7 +398,7 @@ function KeyVaultRemediationModal({
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">{label}</span>
               <button
-                onClick={() => copy(text, key)}
+                onClick={() => copy(resolverComentarios(text, t), key)}
                 className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border bg-white dark:bg-slate-900 transition flex items-center gap-1 cursor-pointer ${
                   copied === key
                     ? "border-emerald-600 text-emerald-600"
@@ -405,11 +406,11 @@ function KeyVaultRemediationModal({
                 }`}
               >
                 {copied === key ? <IconCheck className="w-3.5 h-3.5" /> : <IconCopy className="w-3.5 h-3.5" />}
-                {copied === key ? "Copiado" : "Copiar"}
+                {copied === key ? tc("copied") : tc("copy")}
               </button>
             </div>
             <pre className="p-3.5 bg-slate-950 text-slate-100 rounded-xl font-mono text-[11px] overflow-x-auto border border-slate-800 leading-relaxed whitespace-pre-wrap">
-              {text}
+              {resolverComentarios(text, t)}
             </pre>
           </div>
         ))}
@@ -425,6 +426,7 @@ function KeyVaultRemediationModal({
 // ─── Componente Principal ───
 export default function KeyVaultPanel() {
   const t = useTranslations("KeyVaultPanel");
+  const tc = useTranslations("Common");
   const textoRem = useTextoPorCategoria("KeyVaultPanel");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
@@ -740,7 +742,7 @@ export default function KeyVaultPanel() {
                     <Cell key={entry.objectType} fill={entry.color} />
                   ))}
                 </Pie>
-                <RechartsTooltip formatter={(v) => `${Number(v ?? 0).toLocaleString("es-AR")} ops`} {...TOOLTIP_TEMA} />
+                <RechartsTooltip formatter={(v) => t("opsUnit", { n: Number(v ?? 0) })} {...TOOLTIP_TEMA} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
               </PieChart>
             </ResponsiveContainer>
@@ -789,7 +791,7 @@ export default function KeyVaultPanel() {
                   formatter={(v, name) =>
                     name === "avgLatencyMs"
                       ? `${Number(v ?? 0)} ms`
-                      : `${Number(v ?? 0).toLocaleString("es-AR")} ops`
+                      : t("opsUnit", { n: Number(v ?? 0) })
                   } {...TOOLTIP_TEMA} />
                 <Area
                   yAxisId="left"
@@ -971,7 +973,7 @@ export default function KeyVaultPanel() {
                       <span className="text-slate-700 dark:text-slate-300">
                         {v.secretsCount} / {v.keysCount} / {v.certificatesCount}
                       </span>
-                      <span className="block text-[10px] text-slate-400">sec / claves / certs</span>
+                      <span className="block text-[10px] text-slate-400">{t("secKeysCerts")}</span>
                       {v.expiredObjectsCount > 0 && (
                         <span className="block text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
                           {v.expiredObjectsCount} vencido(s)
@@ -1027,7 +1029,7 @@ export default function KeyVaultPanel() {
                           className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#00AEEF] bg-white dark:bg-slate-900 text-[#00AEEF] dark:text-cyan-400 hover:bg-sky-50/50 dark:hover:bg-sky-950/40 transition cursor-pointer whitespace-nowrap flex items-center gap-1"
                         >
                           <IconSparkles size={13} stroke={1.5} className="text-[#00AEEF]" />
-                          Auditar Objetos
+                          {t("auditObjects")}
                         </button>
                         {v.totalApiHitsMTD > 1_000_000 && (
                           <button
@@ -1086,7 +1088,7 @@ export default function KeyVaultPanel() {
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
             {t("totalPotentialSavings")}{" "}
             <span className="font-bold text-emerald-600 dark:text-emerald-400">
-              {formatCurrency(summary.potentialSavingsUSD)}/mes
+              {tc("amountPerMonth", { amount: formatCurrency(summary.potentialSavingsUSD) })}
             </span>
             {summary.accessPolicyVaultsCount > 0 && (
               <>
@@ -1113,7 +1115,7 @@ export default function KeyVaultPanel() {
                     </span>
                     {action.estimatedSavingsUSD > 0 && (
                       <span className="text-xs font-extrabold text-emerald-600">
-                        +{formatCurrency(action.estimatedSavingsUSD)}/mes
+                        +{tc("amountPerMonth", { amount: formatCurrency(action.estimatedSavingsUSD) })}
                       </span>
                     )}
                   </div>
@@ -1125,13 +1127,13 @@ export default function KeyVaultPanel() {
                   </p>
                 </div>
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                  <span className="text-[10px] text-slate-400 font-medium">Confianza: {action.confidence}</span>
+                  <span className="text-[10px] text-slate-400 font-medium">{tc("confidence")}: {action.confidence}</span>
                   <button
                     onClick={() => setActiveRemediation(action)}
                     className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1 cursor-pointer"
                   >
                     <IconTerminal2 className="w-3.5 h-3.5" />
-                    Remediar
+                    {tc("remediate")}
                   </button>
                 </div>
               </div>

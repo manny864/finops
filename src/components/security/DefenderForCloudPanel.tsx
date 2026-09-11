@@ -37,6 +37,7 @@ import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import InfoTooltip from "@/components/InfoTooltip";
 import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
+import { resolverComentarios } from "@/lib/recommendationText";
 import type {
   DefenderPayload,
   DefenderPlanCategory,
@@ -101,10 +102,10 @@ function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[
 function CoverageBadge({ plan }: { plan: DefenderPlanItem }) {
   const t = useTranslations("DefenderForCloud");
   const map = {
-    Full: { label: "Completa", cls: "border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400" },
-    Partial: { label: "Parcial", cls: "border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400" },
+    Full: { label: t("covFull"), cls: "border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400" },
+    Partial: { label: t("covPartial"), cls: "border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400" },
     None: {
-      label: "Sin Cobertura",
+      label: t("covNone"),
       cls: plan.hasUnprotectedProduction
         ? "border-red-300 dark:border-red-800 text-red-700 dark:text-red-400"
         : "border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400",
@@ -123,6 +124,7 @@ function CoverageBadge({ plan }: { plan: DefenderPlanItem }) {
 // ─── Drawer de Recursos Protegidos (z-50) ───
 function PlanResourcesDrawer({ plan, onClose }: { plan: DefenderPlanItem | null; onClose: () => void }) {
   const t = useTranslations("DefenderForCloud");
+  const tc = useTranslations("Common");
   if (!plan) return null;
   const Icon = CATEGORY_ICONS[plan.category];
 
@@ -141,7 +143,7 @@ function PlanResourcesDrawer({ plan, onClose }: { plan: DefenderPlanItem | null;
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 truncate">
               {plan.subscriptionName} · Tier {plan.pricingTier}
               {plan.subPlan ? ` (${plan.subPlan === "Plan1" ? "Plan 1" : "Plan 2"})` : ""} ·{" "}
-              {formatCurrency(plan.monthlyCostUSD)}/mes
+              {tc("amountPerMonth", { amount: formatCurrency(plan.monthlyCostUSD) })}
             </p>
           </div>
           <button
@@ -156,7 +158,7 @@ function PlanResourcesDrawer({ plan, onClose }: { plan: DefenderPlanItem | null;
         <div className="p-5 space-y-4">
           <div className="grid grid-cols-3 gap-3">
             <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
-              <div className="text-[10px] text-slate-500 dark:text-slate-400">Protegidos</div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400">{t("protected_")}</div>
               <div className="text-lg font-extrabold text-[#1B2A41] dark:text-slate-100">
                 {plan.coveredResourcesCount}
               </div>
@@ -174,7 +176,7 @@ function PlanResourcesDrawer({ plan, onClose }: { plan: DefenderPlanItem | null;
               </div>
             </div>
             <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
-              <div className="text-[10px] text-slate-500 dark:text-slate-400">Entorno dominante</div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400">{t("dominantEnv")}</div>
               <div className="text-lg font-extrabold text-[#1B2A41] dark:text-slate-100">
                 {plan.dominantEnvironment === "Production" ? "Prod" : plan.dominantEnvironment}
               </div>
@@ -258,13 +260,14 @@ function DefenderRemediationModal({
   onClose: () => void;
 }) {
   const t = useTranslations("DefenderForCloud");
+  const tc = useTranslations("Common");
   const [copied, setCopied] = useState<"cli" | "ps" | null>(null);
   if (!action) return null;
 
   const cmd = buildDefenderRemediationCommand(action);
   const isRisk = action.category === "ENABLE_DB_PROTECTION";
   const copy = (text: string, which: "cli" | "ps") => {
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(resolverComentarios(text, t));
     setCopied(which);
     setTimeout(() => setCopied(null), 2000);
   };
@@ -319,7 +322,7 @@ function DefenderRemediationModal({
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">{label}</span>
               <button
-                onClick={() => copy(text, key)}
+                onClick={() => copy(resolverComentarios(text, t), key)}
                 className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border bg-white dark:bg-slate-900 transition flex items-center gap-1 cursor-pointer ${
                   copied === key
                     ? "border-emerald-600 text-emerald-600"
@@ -327,11 +330,11 @@ function DefenderRemediationModal({
                 }`}
               >
                 {copied === key ? <IconCheck className="w-3.5 h-3.5" /> : <IconCopy className="w-3.5 h-3.5" />}
-                {copied === key ? "Copiado" : "Copiar"}
+                {copied === key ? tc("copied") : tc("copy")}
               </button>
             </div>
             <pre className="p-3.5 bg-slate-950 text-slate-100 rounded-xl font-mono text-[11px] overflow-x-auto border border-slate-800 leading-relaxed whitespace-pre-wrap">
-              {text}
+              {resolverComentarios(text, t)}
             </pre>
           </div>
         ))}
@@ -348,6 +351,7 @@ function DefenderRemediationModal({
 // ─── Componente Principal ───
 export default function DefenderForCloudPanel() {
   const t = useTranslations("DefenderForCloud");
+  const tc = useTranslations("Common");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
@@ -745,7 +749,7 @@ export default function DefenderForCloudPanel() {
           >
             <option value="ALL">{t("envAll")}</option>
             <option value="PROD">{t("envProduction")}</option>
-            <option value="NONPROD">Dev / Staging</option>
+            <option value="NONPROD">{t("envDevStaging")}</option>
           </select>
         </div>
 
@@ -930,7 +934,7 @@ export default function DefenderForCloudPanel() {
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
             {t("totalPotentialSavingsIdentified")}{" "}
             <span className="font-bold text-emerald-600 dark:text-emerald-400">
-              {formatCurrency(summary.potentialSavingsUSD)}/mes
+              {tc("amountPerMonth", { amount: formatCurrency(summary.potentialSavingsUSD) })}
             </span>
           </p>
         </div>
@@ -961,7 +965,7 @@ export default function DefenderForCloudPanel() {
                       </span>
                       {action.estimatedSavingsUSD > 0 && (
                         <span className="text-xs font-extrabold text-emerald-600">
-                          +{formatCurrency(action.estimatedSavingsUSD)}/mes
+                          +{tc("amountPerMonth", { amount: formatCurrency(action.estimatedSavingsUSD) })}
                         </span>
                       )}
                     </div>
@@ -973,7 +977,7 @@ export default function DefenderForCloudPanel() {
                     </p>
                   </div>
                   <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                    <span className="text-[10px] text-slate-400 font-medium">Confianza: {action.confidence}</span>
+                    <span className="text-[10px] text-slate-400 font-medium">{tc("confidence")}: {action.confidence}</span>
                     <button
                       onClick={() => setActiveRemediation(action)}
                       className={`px-3 py-1.5 text-xs font-semibold rounded-lg border bg-white dark:bg-slate-900 transition flex items-center gap-1 cursor-pointer ${
@@ -983,7 +987,7 @@ export default function DefenderForCloudPanel() {
                       }`}
                     >
                       <IconTerminal2 className="w-3.5 h-3.5" />
-                      {isRisk ? "Ver Riesgo" : "Remediar"}
+                      {isRisk ? tc("viewRisk") : tc("remediate")}
                     </button>
                   </div>
                 </div>

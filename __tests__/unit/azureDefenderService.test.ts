@@ -330,8 +330,10 @@ describe("Defender for Cloud — comandos de remediacion", () => {
 
     const en = buildDefenderRemediationCommand({ ...base, category: "ENABLE_DB_PROTECTION" });
     expect(en.cli).toContain("--tier Standard");
-    // Debe dejar claro que no es una accion de ahorro.
-    expect(en.cli).toContain("RIESGO");
+    // Debe dejar claro que no es una accion de ahorro. La frase ya no viaja en
+    // el script --viene del catalogo en el idioma del lector-- asi que lo que se
+    // afirma es que el builder siga emitiendo ESE marcador y no otro.
+    expect(en.cli).toContain("#{cmt_df_hallazgo_de_riesgo_no_de_ahorro}");
 
     const gv = buildDefenderRemediationCommand({ ...base, category: "GOVERN_AUTO_PROVISIONING" });
     expect(gv.cli).toContain("--tier Free");

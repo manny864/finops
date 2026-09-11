@@ -372,22 +372,28 @@ describe("WAF — comandos de remediacion", () => {
 
   it("el cambio a Prevention revisa los eventos ANTES de cambiar el modo", () => {
     const c = buildWafRemediationCommand({ ...base, category: "ENABLE_PREVENTION" });
-    expect(c.cli).toContain("AzureDiagnostics");
-    expect(c.cli.indexOf("summarize count()")).toBeLessThan(c.cli.indexOf("--mode Prevention"));
-    expect(c.cli).toContain("NO cambiar en frio");
+    expect(c.cli).toContain("#{cmt_waf_azurediagnostics}");
+    // Lo que importa es el ORDEN: la consulta de diagnostico va antes del cambio
+    // de modo. La consulta ahora es un marcador, el comando sigue siendo literal.
+    expect(c.cli.indexOf("#{cmt_waf_summarize_count_by_ruleid_s_action}")).toBeLessThan(
+      c.cli.indexOf("--mode Prevention")
+    );
+    expect(c.cli).toContain("#{cmt_waf_no_cambiar_en_frio_revisar_primero}");
   });
 
   it("el geo-filtro usa prioridad baja, que es lo que produce el ahorro", () => {
     const c = buildWafRemediationCommand({ ...base, category: "GEO_FILTER_RULE" });
     expect(c.cli).toContain("--priority 10");
     expect(c.cli).toContain("GeoMatch");
-    expect(c.cli).toContain("PRIORIDAD");
+    // El porque de la prioridad baja vive en el catalogo; el builder tiene que
+    // seguir emitiendo esa explicacion.
+    expect(c.cli).toContain("#{cmt_waf_la_prioridad_es_lo_que_produce}");
   });
 
   it("el rate limiting empieza en modo Log para calibrar", () => {
     const c = buildWafRemediationCommand({ ...base, category: "RATE_LIMITING" });
     expect(c.cli).toContain("--action Log");
-    expect(c.cli).toContain("NAT corporativo");
+    expect(c.cli).toContain("#{cmt_waf_mal_elegido_bloquea_a_todos_los}");
   });
 
   it("la purga verifica asociaciones antes de borrar", () => {

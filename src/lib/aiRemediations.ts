@@ -629,8 +629,8 @@ export function buildDefenderRemediationCommand(action: DefenderRemediationActio
     return {
       cli:
         action.commandPayload ||
-        `# El tier de Defender for Servers se fija POR SUSCRIPCION, no por VM.\n# Verificar primero el estado actual:\naz security pricing show --name "${plan}" --subscription "${sub}"\n\n# Opcion A - toda la suscripcion a Plan 1 (solo si NO tiene cargas productivas):\naz security pricing create --name "${plan}" --tier Standard --subplan P1 --subscription "${sub}"\n\n# Opcion B - conservar Plan 2 y excluir VMs puntuales con la etiqueta oficial\n# de exclusion de Defender for Servers:\naz resource tag --ids <resource-id> --tags "excludeFromDefenderForServers=true" --is-incremental`,
-      powershell: `# Estado actual del plan\nGet-AzSecurityPricing -Name "${plan}"\n\n# Toda la suscripcion a Plan 1\nSet-AzContext -Subscription "${sub}"\nSet-AzSecurityPricing -Name "${plan}" -PricingTier Standard -SubPlan P1\n\n# O excluir una VM puntual conservando Plan 2\nUpdate-AzTag -ResourceId <resource-id> -Tag @{ excludeFromDefenderForServers = "true" } -Operation Merge`,
+        `#{cmt_df_el_tier_de_defender_for_servers}\n#{cmt_df_verificar_primero_el_estado_actual}\naz security pricing show --name "${plan}" --subscription "${sub}"\n\n#{cmt_df_opcion_a_toda_la_suscripcion_a}\naz security pricing create --name "${plan}" --tier Standard --subplan P1 --subscription "${sub}"\n\n#{cmt_df_opcion_b_conservar_plan_2_y}\n#{cmt_df_de_exclusion_de_defender_for_servers}\naz resource tag --ids <resource-id> --tags "excludeFromDefenderForServers=true" --is-incremental`,
+      powershell: `#{cmt_df_estado_actual_del_plan}\nGet-AzSecurityPricing -Name "${plan}"\n\n#{cmt_df_toda_la_suscripcion_a_plan_1}\nSet-AzContext -Subscription "${sub}"\nSet-AzSecurityPricing -Name "${plan}" -PricingTier Standard -SubPlan P1\n\n#{cmt_df_o_excluir_una_vm_puntual_conservando}\nUpdate-AzTag -ResourceId <resource-id> -Tag @{ excludeFromDefenderForServers = "true" } -Operation Merge`,
     };
   }
 
@@ -638,8 +638,8 @@ export function buildDefenderRemediationCommand(action: DefenderRemediationActio
     return {
       cli:
         action.commandPayload ||
-        `# Confirmar que la cuenta no recibe cargas de terceros antes de excluirla.\n# Defender for Storage se puede desactivar por cuenta sin tocar la suscripcion:\naz security atp storage show --resource-group <rg> --storage-account <storage-account>\naz security atp storage update --resource-group <rg> --storage-account <storage-account> --is-enabled false`,
-      powershell: `# Estado por cuenta\nGet-AzSecurityAdvancedThreatProtection -ResourceId <storage-account-resource-id>\n\n# Desactivar en esa cuenta puntual\nDisable-AzSecurityAdvancedThreatProtection -ResourceId <storage-account-resource-id>`,
+        `#{cmt_df_confirmar_que_la_cuenta_no_recibe}\n#{cmt_df_defender_for_storage_se_puede_desactivar}\naz security atp storage show --resource-group <rg> --storage-account <storage-account>\naz security atp storage update --resource-group <rg> --storage-account <storage-account> --is-enabled false`,
+      powershell: `#{cmt_df_estado_por_cuenta}\nGet-AzSecurityAdvancedThreatProtection -ResourceId <storage-account-resource-id>\n\n#{cmt_df_desactivar_en_esa_cuenta_puntual}\nDisable-AzSecurityAdvancedThreatProtection -ResourceId <storage-account-resource-id>`,
     };
   }
 
@@ -647,8 +647,8 @@ export function buildDefenderRemediationCommand(action: DefenderRemediationActio
     return {
       cli:
         action.commandPayload ||
-        `# Hallazgo de RIESGO, no de ahorro: activa proteccion, no la recorta.\naz security pricing create --name "${plan}" --tier Standard --subscription "${sub}"\naz security pricing show --name "${plan}" --subscription "${sub}"`,
-      powershell: `# Activar proteccion avanzada en bases de datos productivas\nSet-AzContext -Subscription "${sub}"\nSet-AzSecurityPricing -Name "${plan}" -PricingTier Standard\nGet-AzSecurityPricing -Name "${plan}"`,
+        `#{cmt_df_hallazgo_de_riesgo_no_de_ahorro}\naz security pricing create --name "${plan}" --tier Standard --subscription "${sub}"\naz security pricing show --name "${plan}" --subscription "${sub}"`,
+      powershell: `#{cmt_df_activar_proteccion_avanzada_en_bases_de}\nSet-AzContext -Subscription "${sub}"\nSet-AzSecurityPricing -Name "${plan}" -PricingTier Standard\nGet-AzSecurityPricing -Name "${plan}"`,
     };
   }
 
@@ -656,8 +656,8 @@ export function buildDefenderRemediationCommand(action: DefenderRemediationActio
     return {
       cli:
         action.commandPayload ||
-        `# Revisar todos los planes de la suscripcion antes de desactivar uno:\naz security pricing list --subscription "${sub}" --query "value[].{plan:name,tier:properties.pricingTier,subPlan:properties.subPlan}" -o table\n\n# Desactivar el plan sin recursos que proteger:\naz security pricing create --name "${plan}" --tier Free --subscription "${sub}"`,
-      powershell: `# Inventario de planes de la suscripcion\nSet-AzContext -Subscription "${sub}"\nGet-AzSecurityPricing | Select-Object Name, PricingTier, SubPlan | Format-Table\n\n# Desactivar el plan sin cobertura efectiva\nSet-AzSecurityPricing -Name "${plan}" -PricingTier Free`,
+        `#{cmt_df_revisar_todos_los_planes_de_la}\naz security pricing list --subscription "${sub}" --query "value[].{plan:name,tier:properties.pricingTier,subPlan:properties.subPlan}" -o table\n\n#{cmt_df_desactivar_el_plan_sin_recursos_que}\naz security pricing create --name "${plan}" --tier Free --subscription "${sub}"`,
+      powershell: `#{cmt_df_inventario_de_planes_de_la_suscripcion}\nSet-AzContext -Subscription "${sub}"\nGet-AzSecurityPricing | Select-Object Name, PricingTier, SubPlan | Format-Table\n\n#{cmt_df_desactivar_el_plan_sin_cobertura_efectiva}\nSet-AzSecurityPricing -Name "${plan}" -PricingTier Free`,
     };
   }
 
@@ -679,8 +679,8 @@ export function buildKeyVaultRemediationCommand(action: KeyVaultRemediationActio
     return {
       cli:
         action.commandPayload ||
-        `# Un pool de Managed HSM no se puede "bajar" de SKU: hay que exportar las\n# claves a un Key Vault Premium y dar de baja el pool.\n# 1) Respaldo de seguridad completo del pool (guardar fuera de Azure):\naz keyvault security-domain download --hsm-name "${vault}" --sd-wrapping-keys cert1.cer cert2.cer cert3.cer --sd-quorum 2 --security-domain-file "${vault}-SD.json"\n\n# 2) Backup de cada clave y restore en el vault Premium destino:\naz keyvault key backup --hsm-name "${vault}" --name <key-name> --file key.backup\naz keyvault key restore --vault-name <kv-premium-destino> --file key.backup\n\n# 3) Recien con las claves verificadas en destino, eliminar el pool:\naz keyvault delete --hsm-name "${vault}" --resource-group "${rg}"\naz keyvault purge --hsm-name "${vault}" --location <region>   # irreversible`,
-      powershell: `# Exportar y dar de baja el pool de Managed HSM\n# 1) Security domain (imprescindible: sin el, las claves son irrecuperables)\nExport-AzKeyVaultSecurityDomain -Name "${vault}" -Certificates cert1.cer,cert2.cer,cert3.cer -OutputPath "${vault}-SD.json" -Quorum 2\n\n# 2) Backup/restore de cada clave hacia el vault Premium\nBackup-AzKeyVaultKey -HsmName "${vault}" -Name <key-name> -OutputFile key.backup\nRestore-AzKeyVaultKey -VaultName <kv-premium-destino> -InputFile key.backup\n\n# 3) Baja del pool, una vez verificado el destino\nRemove-AzKeyVaultManagedHsm -Name "${vault}" -ResourceGroupName "${rg}"`,
+        `# Un pool de Managed HSM no se puede "bajar" de SKU: hay que exportar las\n#{cmt_kv_claves_a_un_key_vault_premium}\n#{cmt_kv_1_respaldo_de_seguridad_completo_del}\naz keyvault security-domain download --hsm-name "${vault}" --sd-wrapping-keys cert1.cer cert2.cer cert3.cer --sd-quorum 2 --security-domain-file "${vault}-SD.json"\n\n#{cmt_kv_2_backup_de_cada_clave_y}\naz keyvault key backup --hsm-name "${vault}" --name <key-name> --file key.backup\naz keyvault key restore --vault-name <kv-premium-destino> --file key.backup\n\n#{cmt_kv_3_recien_con_las_claves_verificadas}\naz keyvault delete --hsm-name "${vault}" --resource-group "${rg}"\naz keyvault purge --hsm-name "${vault}" --location <region>   # irreversible`,
+      powershell: `#{cmt_kv_exportar_y_dar_de_baja_el}\n#{cmt_kv_1_security_domain_imprescindible_sin_el}\nExport-AzKeyVaultSecurityDomain -Name "${vault}" -Certificates cert1.cer,cert2.cer,cert3.cer -OutputPath "${vault}-SD.json" -Quorum 2\n\n#{cmt_kv_2_backup_restore_de_cada_clave}\nBackup-AzKeyVaultKey -HsmName "${vault}" -Name <key-name> -OutputFile key.backup\nRestore-AzKeyVaultKey -VaultName <kv-premium-destino> -InputFile key.backup\n\n#{cmt_kv_3_baja_del_pool_una_vez}\nRemove-AzKeyVaultManagedHsm -Name "${vault}" -ResourceGroupName "${rg}"`,
     };
   }
 
@@ -688,8 +688,8 @@ export function buildKeyVaultRemediationCommand(action: KeyVaultRemediationActio
     return {
       cli:
         action.commandPayload ||
-        `# El arreglo es de codigo, no de infraestructura: cachear el secreto en\n# memoria con TTL en vez de pedirlo en cada request.\n#\n#   // .NET - registrar el cliente una sola vez y cachear el valor\n#   builder.Services.AddAzureClients(b => b.AddSecretClient(uri));\n#   var cached = await cache.GetOrCreateAsync("db-conn", e => {\n#       e.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30);\n#       return client.GetSecretAsync("db-conn");\n#   });\n#\n# Alternativa sin tocar codigo en App Service / Functions: usar referencias\n# @Microsoft.KeyVault(...) en app settings, que la plataforma cachea sola.\naz webapp config appsettings set --name <app> --resource-group "${rg}" \\\n  --settings "DbConn=@Microsoft.KeyVault(SecretUri=https://${vault}.vault.azure.net/secrets/db-conn/)"\n\n# Verificar el volumen y los 429 despues del cambio:\naz monitor metrics list --resource <vault-resource-id> --metric ServiceApiHit --interval PT1H`,
-      powershell: `# Referencia de Key Vault en app settings (cacheada por la plataforma)\nSet-AzWebApp -Name <app> -ResourceGroupName "${rg}" -AppSettings @{ DbConn = "@Microsoft.KeyVault(SecretUri=https://${vault}.vault.azure.net/secrets/db-conn/)" }\n\n# Medir el efecto sobre las transacciones\nGet-AzMetric -ResourceId <vault-resource-id> -MetricName ServiceApiHit -TimeGrain 01:00:00`,
+        `#{cmt_kv_el_arreglo_es_de_codigo_no}\n#{cmt_kv_memoria_con_ttl_en_vez_de}\n#\n#{cmt_kv_net_registrar_el_cliente_una_sola}\n#{cmt_kv_builder_services_addazureclients_b_b_addsecretclient}\n#   var cached = await cache.GetOrCreateAsync("db-conn", e => {\n#{cmt_kv_e_absoluteexpirationrelativetonow_timespan_fromminutes_30}\n#       return client.GetSecretAsync("db-conn");\n#   });\n#\n#{cmt_kv_alternativa_sin_tocar_codigo_en_app}\n#{cmt_kv_microsoft_keyvault_en_app_settings_que}\naz webapp config appsettings set --name <app> --resource-group "${rg}" \\\n  --settings "DbConn=@Microsoft.KeyVault(SecretUri=https://${vault}.vault.azure.net/secrets/db-conn/)"\n\n#{cmt_kv_verificar_el_volumen_y_los_429}\naz monitor metrics list --resource <vault-resource-id> --metric ServiceApiHit --interval PT1H`,
+      powershell: `#{cmt_kv_referencia_de_key_vault_en_app}\nSet-AzWebApp -Name <app> -ResourceGroupName "${rg}" -AppSettings @{ DbConn = "@Microsoft.KeyVault(SecretUri=https://${vault}.vault.azure.net/secrets/db-conn/)" }\n\n#{cmt_kv_medir_el_efecto_sobre_las_transacciones}\nGet-AzMetric -ResourceId <vault-resource-id> -MetricName ServiceApiHit -TimeGrain 01:00:00`,
     };
   }
 
@@ -697,8 +697,8 @@ export function buildKeyVaultRemediationCommand(action: KeyVaultRemediationActio
     return {
       cli:
         action.commandPayload ||
-        `# Auditar antes de purgar: un certificado vencido puede seguir referenciado.\naz keyvault certificate list --vault-name "${vault}" --query "[?attributes.expires<'$(date -u +%Y-%m-%d)'].{name:name,expires:attributes.expires}" -o table\naz keyvault secret list --vault-name "${vault}" --query "[?attributes.expires!=null].{name:name,expires:attributes.expires}" -o table\n\n# Deshabilitar primero (reversible) en vez de borrar:\naz keyvault certificate set-attributes --vault-name "${vault}" --name <cert> --enabled false\n\n# Si la boveda entera esta sin uso, comprobar purge protection antes:\naz keyvault show --name "${vault}" --query "properties.enablePurgeProtection"`,
-      powershell: `# Inventario de objetos vencidos\nGet-AzKeyVaultCertificate -VaultName "${vault}" | Where-Object { $_.Expires -lt (Get-Date) } | Select-Object Name, Expires\nGet-AzKeyVaultSecret -VaultName "${vault}" | Where-Object { $_.Expires -lt (Get-Date) } | Select-Object Name, Expires\n\n# Deshabilitar en vez de borrar (reversible)\nUpdate-AzKeyVaultCertificate -VaultName "${vault}" -Name <cert> -Enable $false\n\n# Estado de purge protection de la boveda\n(Get-AzKeyVault -VaultName "${vault}").EnablePurgeProtection`,
+        `#{cmt_kv_auditar_antes_de_purgar_un_certificado}\naz keyvault certificate list --vault-name "${vault}" --query "[?attributes.expires<'$(date -u +%Y-%m-%d)'].{name:name,expires:attributes.expires}" -o table\naz keyvault secret list --vault-name "${vault}" --query "[?attributes.expires!=null].{name:name,expires:attributes.expires}" -o table\n\n#{cmt_kv_deshabilitar_primero_reversible_en_vez_de}\naz keyvault certificate set-attributes --vault-name "${vault}" --name <cert> --enabled false\n\n#{cmt_kv_si_la_boveda_entera_esta_sin}\naz keyvault show --name "${vault}" --query "properties.enablePurgeProtection"`,
+      powershell: `#{cmt_kv_inventario_de_objetos_vencidos}\nGet-AzKeyVaultCertificate -VaultName "${vault}" | Where-Object { $_.Expires -lt (Get-Date) } | Select-Object Name, Expires\nGet-AzKeyVaultSecret -VaultName "${vault}" | Where-Object { $_.Expires -lt (Get-Date) } | Select-Object Name, Expires\n\n#{cmt_kv_deshabilitar_en_vez_de_borrar_reversible}\nUpdate-AzKeyVaultCertificate -VaultName "${vault}" -Name <cert> -Enable $false\n\n#{cmt_kv_estado_de_purge_protection_de_la}\n(Get-AzKeyVault -VaultName "${vault}").EnablePurgeProtection`,
     };
   }
 
@@ -706,8 +706,8 @@ export function buildKeyVaultRemediationCommand(action: KeyVaultRemediationActio
     return {
       cli:
         action.commandPayload ||
-        `# ORDEN IMPORTANTE: activar RBAC invalida las access policies de golpe.\n# Primero inventariar quien tiene acceso hoy:\naz keyvault show --name "${vault}" --query "properties.accessPolicies[].{objectId:objectId,secrets:permissions.secrets,keys:permissions.keys,certs:permissions.certificates}" -o json\n\n# Segundo, asignar el rol equivalente a cada principal:\naz role assignment create --role "Key Vault Secrets User" --assignee <objectId> --scope <vault-resource-id>\naz role assignment create --role "Key Vault Crypto User"  --assignee <objectId> --scope <vault-resource-id>\n\n# Recien entonces activar RBAC:\naz keyvault update --name "${vault}" --resource-group "${rg}" --enable-rbac-authorization true`,
-      powershell: `# 1) Inventario de access policies actuales\n(Get-AzKeyVault -VaultName "${vault}").AccessPolicies | Select-Object ObjectId, PermissionsToSecrets, PermissionsToKeys, PermissionsToCertificates\n\n# 2) Rol equivalente por principal\nNew-AzRoleAssignment -ObjectId <objectId> -RoleDefinitionName "Key Vault Secrets User" -Scope <vault-resource-id>\n\n# 3) Activar RBAC solo con los roles ya asignados\nUpdate-AzKeyVault -VaultName "${vault}" -ResourceGroupName "${rg}" -EnableRbacAuthorization $true`,
+        `#{cmt_kv_orden_importante_activar_rbac_invalida_las}\n#{cmt_kv_primero_inventariar_quien_tiene_acceso_hoy}\naz keyvault show --name "${vault}" --query "properties.accessPolicies[].{objectId:objectId,secrets:permissions.secrets,keys:permissions.keys,certs:permissions.certificates}" -o json\n\n#{cmt_kv_segundo_asignar_el_rol_equivalente_a}\naz role assignment create --role "Key Vault Secrets User" --assignee <objectId> --scope <vault-resource-id>\naz role assignment create --role "Key Vault Crypto User"  --assignee <objectId> --scope <vault-resource-id>\n\n#{cmt_kv_recien_entonces_activar_rbac}\naz keyvault update --name "${vault}" --resource-group "${rg}" --enable-rbac-authorization true`,
+      powershell: `#{cmt_kv_1_inventario_de_access_policies_actuales}\n(Get-AzKeyVault -VaultName "${vault}").AccessPolicies | Select-Object ObjectId, PermissionsToSecrets, PermissionsToKeys, PermissionsToCertificates\n\n#{cmt_kv_2_rol_equivalente_por_principal}\nNew-AzRoleAssignment -ObjectId <objectId> -RoleDefinitionName "Key Vault Secrets User" -Scope <vault-resource-id>\n\n#{cmt_kv_3_activar_rbac_solo_con_los}\nUpdate-AzKeyVault -VaultName "${vault}" -ResourceGroupName "${rg}" -EnableRbacAuthorization $true`,
     };
   }
 
@@ -729,8 +729,8 @@ export function buildEntraIdRemediationCommand(action: EntraIdRemediationAction)
     return {
       cli:
         action.commandPayload ||
-        `# Azure CLI no gestiona asignacion de licencias: se hace por Microsoft Graph.\n# Principales afectados (primeros ${upnList.length}):\n${upnBlock}\n#\n# 1) Confirmar el skuId real del plan antes de tocar nada:\naz rest --method GET --url "https://graph.microsoft.com/v1.0/subscribedSkus" \\\n  --query "value[?skuPartNumber=='${target}'].{sku:skuPartNumber,id:skuId,prepaid:prepaidUnits.enabled,consumed:consumedUnits}"\n\n# 2) Quitar la licencia a un usuario (repetir por UPN):\naz rest --method POST \\\n  --url "https://graph.microsoft.com/v1.0/users/<upn>/assignLicense" \\\n  --headers "Content-Type=application/json" \\\n  --body '{"addLicenses":[],"removeLicenses":["<skuId>"]}'`,
-      powershell: `# Microsoft.Graph PowerShell SDK\nConnect-MgGraph -Scopes "User.ReadWrite.All","Organization.Read.All"\n\n$sku = Get-MgSubscribedSku | Where-Object SkuPartNumber -eq "${target}"\n\n# Revisar primero a quien se le va a quitar\n$upns = @(\n${upnList.map((u) => `  "${shellQuote(u)}"`).join(",\n") || '  # (ninguno)'}\n)\n$upns | ForEach-Object { Get-MgUser -UserId $_ -Property DisplayName,AccountEnabled,SignInActivity | Select-Object DisplayName, AccountEnabled }\n\n# Recien entonces desasignar\n$upns | ForEach-Object { Set-MgUserLicense -UserId $_ -AddLicenses @() -RemoveLicenses @($sku.SkuId) }`,
+        `#{cmt_eid_azure_cli_no_gestiona_asignacion_de}\n# Principales afectados (primeros ${upnList.length}):\n${upnBlock}\n#\n#{cmt_eid_1_confirmar_el_skuid_real_del}\naz rest --method GET --url "https://graph.microsoft.com/v1.0/subscribedSkus" \\\n  --query "value[?skuPartNumber=='${target}'].{sku:skuPartNumber,id:skuId,prepaid:prepaidUnits.enabled,consumed:consumedUnits}"\n\n#{cmt_eid_2_quitar_la_licencia_a_un}\naz rest --method POST \\\n  --url "https://graph.microsoft.com/v1.0/users/<upn>/assignLicense" \\\n  --headers "Content-Type=application/json" \\\n  --body '{"addLicenses":[],"removeLicenses":["<skuId>"]}'`,
+      powershell: `#{cmt_eid_microsoft_graph_powershell_sdk}\nConnect-MgGraph -Scopes "User.ReadWrite.All","Organization.Read.All"\n\n$sku = Get-MgSubscribedSku | Where-Object SkuPartNumber -eq "${target}"\n\n#{cmt_eid_revisar_primero_a_quien_se_le}\n$upns = @(\n${upnList.map((u) => `  "${shellQuote(u)}"`).join(",\n") || '  # (ninguno)'}\n)\n$upns | ForEach-Object { Get-MgUser -UserId $_ -Property DisplayName,AccountEnabled,SignInActivity | Select-Object DisplayName, AccountEnabled }\n\n#{cmt_eid_recien_entonces_desasignar}\n$upns | ForEach-Object { Set-MgUserLicense -UserId $_ -AddLicenses @() -RemoveLicenses @($sku.SkuId) }`,
     };
   }
 
@@ -741,8 +741,8 @@ export function buildEntraIdRemediationCommand(action: EntraIdRemediationAction)
     return {
       cli:
         action.commandPayload ||
-        `# OJO: bajar de Premium a Standard o Enterprise NO es una operacion en\n# caliente — Azure exige recrear el dominio administrado. De Enterprise a\n# Standard si es un cambio en linea.\naz ad ds show --name "${name}" --resource-group "${rg}" --query "{sku:sku,domainName:domainName}"\naz ad ds update --name "${name}" --resource-group "${rg}" --sku Standard`,
-      powershell: `# Estado actual del dominio administrado\nGet-AzADDomainService -Name "${name}" -ResourceGroupName "${rg}" | Select-Object Name, Sku, DomainName\n\n# Cambio de SKU (Enterprise -> Standard es en linea; desde Premium requiere recrear)\nUpdate-AzADDomainService -Name "${name}" -ResourceGroupName "${rg}" -Sku Standard`,
+        `#{cmt_eid_ojo_bajar_de_premium_a_standard}\n#{cmt_eid_caliente_azure_exige_recrear_el_dominio}\n#{cmt_eid_standard_si_es_un_cambio_en}\naz ad ds show --name "${name}" --resource-group "${rg}" --query "{sku:sku,domainName:domainName}"\naz ad ds update --name "${name}" --resource-group "${rg}" --sku Standard`,
+      powershell: `#{cmt_eid_estado_actual_del_dominio_administrado}\nGet-AzADDomainService -Name "${name}" -ResourceGroupName "${rg}" | Select-Object Name, Sku, DomainName\n\n#{cmt_eid_cambio_de_sku_enterprise_standard_es}\nUpdate-AzADDomainService -Name "${name}" -ResourceGroupName "${rg}" -Sku Standard`,
     };
   }
 
@@ -750,8 +750,8 @@ export function buildEntraIdRemediationCommand(action: EntraIdRemediationAction)
     return {
       cli:
         action.commandPayload ||
-        `# Service principals sin autenticaciones recientes (primeros ${upnList.length}):\n${upnBlock}\n#\n# Confirmar la ultima actividad antes de desasignar: un SP sin trafico puede\n# ser una integracion estacional o de recuperacion ante desastres.\naz rest --method GET \\\n  --url "https://graph.microsoft.com/beta/servicePrincipalSignInActivities?\$filter=appId eq '<appId>'"\n\n# La licencia Workload ID se gestiona a nivel tenant desde el portal de Entra:\n# Identity > Workload identities > Premium assignments`,
-      powershell: `Connect-MgGraph -Scopes "Application.Read.All","AuditLog.Read.All"\n\n# Ultima actividad de cada service principal antes de decidir\n@(\n${upnList.map((u) => `  "${shellQuote(u)}"`).join(",\n") || '  # (ninguno)'}\n) | ForEach-Object { Get-MgBetaServicePrincipalSignInActivity -Filter "appId eq '$_'" }`,
+        `# Service principals sin autenticaciones recientes (primeros ${upnList.length}):\n${upnBlock}\n#\n#{cmt_eid_confirmar_la_ultima_actividad_antes_de}\n#{cmt_eid_ser_una_integracion_estacional_o_de}\naz rest --method GET \\\n  --url "https://graph.microsoft.com/beta/servicePrincipalSignInActivities?\$filter=appId eq '<appId>'"\n\n#{cmt_eid_la_licencia_workload_id_se_gestiona}\n# Identity > Workload identities > Premium assignments`,
+      powershell: `Connect-MgGraph -Scopes "Application.Read.All","AuditLog.Read.All"\n\n#{cmt_eid_ultima_actividad_de_cada_service_principal}\n@(\n${upnList.map((u) => `  "${shellQuote(u)}"`).join(",\n") || '  # (ninguno)'}\n) | ForEach-Object { Get-MgBetaServicePrincipalSignInActivity -Filter "appId eq '$_'" }`,
     };
   }
 
@@ -759,8 +759,8 @@ export function buildEntraIdRemediationCommand(action: EntraIdRemediationAction)
     return {
       cli:
         action.commandPayload ||
-        `# El fraude de bombeo telefonico se mitiga por politica, no por CLI.\n# 1) Revisar los metodos de autenticacion habilitados en el tenant:\naz rest --method GET --url "https://graph.microsoft.com/v1.0/policies/authenticationMethodsPolicy"\n\n# 2) Priorizar Authenticator/FIDO2 sobre SMS y activar la proteccion contra\n#    fraude telefonico en Entra: Protection > Authentication methods >\n#    SMS > Telecom fraud protection.`,
-      powershell: `Connect-MgGraph -Scopes "Policy.Read.All"\n\n# Metodos de autenticacion habilitados\nGet-MgPolicyAuthenticationMethodPolicy | Select-Object -ExpandProperty AuthenticationMethodConfigurations | Select-Object Id, State`,
+        `#{cmt_eid_el_fraude_de_bombeo_telefonico_se}\n#{cmt_eid_1_revisar_los_metodos_de_autenticacion}\naz rest --method GET --url "https://graph.microsoft.com/v1.0/policies/authenticationMethodsPolicy"\n\n#{cmt_eid_2_priorizar_authenticator_fido2_sobre_sms}\n#{cmt_eid_fraude_telefonico_en_entra_protection_authentication}\n#    SMS > Telecom fraud protection.`,
+      powershell: `Connect-MgGraph -Scopes "Policy.Read.All"\n\n#{cmt_eid_metodos_de_autenticacion_habilitados}\nGet-MgPolicyAuthenticationMethodPolicy | Select-Object -ExpandProperty AuthenticationMethodConfigurations | Select-Object Id, State`,
     };
   }
 
@@ -783,13 +783,13 @@ export function buildWafRemediationCommand(action: WafRemediationAction): {
     return {
       cli:
         action.commandPayload ||
-        `# NO cambiar en frio: revisar primero que reglas dispararon en Detection,\n# porque las que hoy solo registran pasaran a BLOQUEAR trafico real.\n#\n# 1) Top de reglas disparadas en el ultimo mes (Log Analytics):\n#    AzureDiagnostics\n#    | where Category in ('ApplicationGatewayFirewallLog','FrontDoorWebApplicationFirewallLog')\n#    | where TimeGenerated > ago(30d)\n#    | summarize count() by ruleId_s, action_s\n#    | order by count_ desc\n#\n# 2) Crear exclusiones para los falsos positivos identificados.\n# 3) Recien entonces pasar a Prevention:\n${
+        `#{cmt_waf_no_cambiar_en_frio_revisar_primero}\n#{cmt_waf_porque_las_que_hoy_solo_registran}\n#\n#{cmt_waf_1_top_de_reglas_disparadas_en}\n#{cmt_waf_azurediagnostics}\n#    | where Category in ('ApplicationGatewayFirewallLog','FrontDoorWebApplicationFirewallLog')\n#{cmt_waf_where_timegenerated_ago_30d}\n#{cmt_waf_summarize_count_by_ruleid_s_action}\n#{cmt_waf_order_by_count_desc}\n#\n#{cmt_waf_2_crear_exclusiones_para_los_falsos}\n#{cmt_waf_3_recien_entonces_pasar_a_prevention}\n${
           isFrontDoor
             ? `az network front-door waf-policy update --name "${policy}" --resource-group "${rg}" --mode Prevention`
             : `az network application-gateway waf-policy policy-setting update --policy-name "${policy}" --resource-group "${rg}" --mode Prevention`
         }`,
       powershell: isFrontDoor
-        ? `# Revisar los eventos de Detection antes de cambiar el modo\n$p = Get-AzFrontDoorWafPolicy -Name "${policy}" -ResourceGroupName "${rg}"\n$p.PolicySetting\n\nUpdate-AzFrontDoorWafPolicy -Name "${policy}" -ResourceGroupName "${rg}" -Mode Prevention`
+        ? `#{cmt_waf_revisar_los_eventos_de_detection_antes}\n$p = Get-AzFrontDoorWafPolicy -Name "${policy}" -ResourceGroupName "${rg}"\n$p.PolicySetting\n\nUpdate-AzFrontDoorWafPolicy -Name "${policy}" -ResourceGroupName "${rg}" -Mode Prevention`
         : `$p = Get-AzApplicationGatewayFirewallPolicy -Name "${policy}" -ResourceGroupName "${rg}"\n$p.PolicySettings\n\n$p.PolicySettings.Mode = "Prevention"\nSet-AzApplicationGatewayFirewallPolicy -InputObject $p`,
     };
   }
@@ -798,7 +798,7 @@ export function buildWafRemediationCommand(action: WafRemediationAction): {
     return {
       cli:
         action.commandPayload ||
-        `# La PRIORIDAD es lo que produce el ahorro: un numero bajo hace que la\n# regla se evalue antes que la matriz CRS, y el paquete se descarta sin\n# pagar la inspeccion completa.\n# Confirmar antes que no haya usuarios legitimos en esos paises.\n${
+        `#{cmt_waf_la_prioridad_es_lo_que_produce}\n#{cmt_waf_regla_se_evalue_antes_que_la}\n#{cmt_waf_pagar_la_inspeccion_completa}\n#{cmt_waf_confirmar_antes_que_no_haya_usuarios}\n${
           isFrontDoor
             ? `az network front-door waf-policy rule create \\\n  --policy-name "${policy}" --resource-group "${rg}" \\\n  --name blockHighRiskGeos --priority 10 --rule-type MatchRule --action Block --defer\naz network front-door waf-policy rule match-condition add \\\n  --policy-name "${policy}" --resource-group "${rg}" --name blockHighRiskGeos \\\n  --match-variable RemoteAddr --operator GeoMatch --values CN RU VN`
             : `az network application-gateway waf-policy custom-rule create \\\n  --policy-name "${policy}" --resource-group "${rg}" \\\n  --name blockHighRiskGeos --priority 10 --rule-type MatchRule --action Block\naz network application-gateway waf-policy custom-rule match-condition add \\\n  --policy-name "${policy}" --resource-group "${rg}" --name blockHighRiskGeos \\\n  --match-variables RemoteAddr --operator GeoMatch --values CN RU VN`
@@ -813,12 +813,12 @@ export function buildWafRemediationCommand(action: WafRemediationAction): {
     return {
       cli:
         action.commandPayload ||
-        `# Empezar en modo Log para calibrar el umbral con trafico real: un limite\n# mal elegido bloquea a todos los usuarios detras de un NAT corporativo.\n${
+        `#{cmt_waf_empezar_en_modo_log_para_calibrar}\n#{cmt_waf_mal_elegido_bloquea_a_todos_los}\n${
           isFrontDoor
             ? `az network front-door waf-policy rule create \\\n  --policy-name "${policy}" --resource-group "${rg}" \\\n  --name throttleByIp --priority 20 --rule-type RateLimitRule \\\n  --rate-limit-duration 1 --rate-limit-threshold 1000 --action Log --defer`
             : `az network application-gateway waf-policy custom-rule create \\\n  --policy-name "${policy}" --resource-group "${rg}" \\\n  --name throttleByIp --priority 20 --rule-type RateLimitRule \\\n  --rate-limit-duration OneMin --rate-limit-threshold 1000 --group-by-user-session ClientAddr --action Log`
         }\n\n# Tras validar el umbral, cambiar --action a Block.`,
-      powershell: `# Regla de rate limit en modo Log para calibrar\n$cond = New-AzFrontDoorWafMatchConditionObject -MatchVariable RequestUri -OperatorProperty Any\n$rule = New-AzFrontDoorWafCustomRuleObject -Name "throttleByIp" -RuleType RateLimitRule -RateLimitDurationInMinutes 1 -RateLimitThreshold 1000 -MatchCondition $cond -Action Log -Priority 20\nUpdate-AzFrontDoorWafPolicy -Name "${policy}" -ResourceGroupName "${rg}" -CustomRule $rule`,
+      powershell: `#{cmt_waf_regla_de_rate_limit_en_modo}\n$cond = New-AzFrontDoorWafMatchConditionObject -MatchVariable RequestUri -OperatorProperty Any\n$rule = New-AzFrontDoorWafCustomRuleObject -Name "throttleByIp" -RuleType RateLimitRule -RateLimitDurationInMinutes 1 -RateLimitThreshold 1000 -MatchCondition $cond -Action Log -Priority 20\nUpdate-AzFrontDoorWafPolicy -Name "${policy}" -ResourceGroupName "${rg}" -CustomRule $rule`,
     };
   }
 
@@ -826,7 +826,7 @@ export function buildWafRemediationCommand(action: WafRemediationAction): {
     return {
       cli:
         action.commandPayload ||
-        `# Verificar que realmente no tenga asociaciones antes de borrar: sus reglas\n# personalizadas se pierden con la politica.\n${
+        `#{cmt_waf_verificar_que_realmente_no_tenga_asociaciones}\n#{cmt_waf_personalizadas_se_pierden_con_la_politica}\n${
           isFrontDoor
             ? `az network front-door waf-policy show --name "${policy}" --resource-group "${rg}" --query "{frontendEndpoints:frontendEndpointLinks,securityPolicies:securityPolicyLinks}"\naz network front-door waf-policy delete --name "${policy}" --resource-group "${rg}"`
             : `az network application-gateway waf-policy show --name "${policy}" --resource-group "${rg}" --query "{gateways:applicationGateways,listeners:httpListeners}"\naz network application-gateway waf-policy delete --name "${policy}" --resource-group "${rg}"`
