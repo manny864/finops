@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { useMsal } from "@azure/msal-react";
 import { useTenant } from "@/components/TenantProvider";
 import { useChartTheme } from "@/lib/chartTheme";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import {
     ResponsiveContainer,
     LineChart,
@@ -183,7 +184,7 @@ export default function HistoryButton({
                                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.4} />
                                         <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={24} />
                                         <YAxis tick={{ fontSize: 11 }} width={56} />
-                                        <Tooltip />
+                                        <Tooltip {...TOOLTIP_TEMA} />
                                         <Legend wrapperStyle={{ fontSize: 12 }} />
                                         {metricKeys.map((k, i) => (
                                             <Line key={k} type="monotone" dataKey={k} stroke={LINE_COLORS[i % LINE_COLORS.length]}

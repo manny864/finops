@@ -12,6 +12,7 @@ import { isMockTenant } from "@/lib/mockData";
 import InfoTooltip from "@/components/InfoTooltip";
 import ResizableTh from "@/components/ResizableTh";
 import MockBanner from "@/components/MockBanner";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import {
     ResponsiveContainer,
     PieChart,
@@ -371,18 +372,17 @@ export default function DdosProtectionDashboard() {
                                         ))}
                                     </Pie>
                                     <RechartsTooltip
-                                        contentStyle={{
-                                            backgroundColor: "#1B2A41",
+                                        contentStyle={{ ...TOOLTIP_TEMA.contentStyle,
+                                            
                                             border: "1px solid #475569",
                                             borderRadius: "8px",
-                                            color: "#FFFFFF",
+                                            
                                             fontSize: "11px",
                                         }}
                                         formatter={(_value: any, _name: any, _props: any) => [
                                             `${format(Number(_value ?? 0))} (${_props?.payload?.percentage ?? 0}%)`,
                                             `${_props?.payload?.count ?? 0} ${t("resources")}`,
-                                        ]}
-                                    />
+                                        ]} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
                                     <Legend
                                         verticalAlign="bottom"
                                         height={36}

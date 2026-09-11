@@ -28,6 +28,7 @@ import {
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import { useCurrency } from "@/components/CurrencyProvider";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import type {
   SpeechLanguagePayload,
   SpeechLanguageResource,
@@ -390,7 +391,7 @@ export default function SpeechLanguageDashboard() {
                       <Cell key={i} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(v: any) => format(Number(v))} />
+                  <Tooltip formatter={(v: any) => format(Number(v))} {...TOOLTIP_TEMA} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -433,7 +434,7 @@ export default function SpeechLanguageDashboard() {
               <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
               <XAxis dataKey="date" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} width={40} />
-              <Tooltip />
+              <Tooltip {...TOOLTIP_TEMA} />
               <Area
                 type="monotone"
                 dataKey="audioHours"

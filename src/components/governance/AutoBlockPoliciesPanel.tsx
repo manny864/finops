@@ -30,6 +30,7 @@ import { errorMessage } from "@/lib/apiErrors";
 import ResizableTh from "@/components/ResizableTh";
 import Pagination, { usePagination } from "@/components/Pagination";
 import InfoTooltip from "@/components/InfoTooltip";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import {
   AUTOBLOCK_COLORS,
   NON_COMPLIANT_COLUMNS,
@@ -457,8 +458,7 @@ export default function AutoBlockPoliciesPanel() {
                     </Pie>
                     <Tooltip
                       formatter={(v) => [t("resourcesCount", { count: Number(v ?? 0) }), ""]}
-                      contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }}
-                    />
+                      contentStyle={{ ...TOOLTIP_TEMA.contentStyle, borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12  }} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">

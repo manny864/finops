@@ -39,6 +39,7 @@ import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
 import Pagination, { usePagination } from "@/components/Pagination";
 import InfoTooltip from "@/components/InfoTooltip";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import {
   type HealthGrade,
   type HealthSignalItem,
@@ -642,7 +643,7 @@ export default function TenantHealthPanel() {
                 tick={{ fontSize: 11, fill: "#64748B" }}
                 tickFormatter={(val) => `${val}`}
               />
-              <Tooltip content={<CustomTrendTooltip />} />
+              <Tooltip content={<CustomTrendTooltip {...TOOLTIP_TEMA} />} />
               <Area
                 type="monotone"
                 dataKey="overallScore"

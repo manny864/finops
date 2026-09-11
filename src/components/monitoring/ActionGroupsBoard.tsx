@@ -54,6 +54,7 @@ import { buildActionGroupRemediationCommand } from "@/lib/aiRemediations";
 import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import InfoTooltip from "@/components/InfoTooltip";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import type {
   ActionGroupsPayload,
   ActionGroupResource,
@@ -985,14 +986,13 @@ export default function ActionGroupsBoard() {
                 </Pie>
                 <RechartsTooltip
                   formatter={(val: any) => [t("groupsValue", { count: val }), t("chartCount")]}
-                  contentStyle={{
-                    backgroundColor: "#1B2A41",
-                    color: "#FFFFFF",
+                  contentStyle={{ ...TOOLTIP_TEMA.contentStyle,
+                    background: "var(--surface)",
+                    color: "var(--chart-tip-fg)",
                     borderRadius: "12px",
                     border: "1px solid #334155",
                     fontSize: "12px",
-                  }}
-                />
+                  }} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -1035,14 +1035,13 @@ export default function ActionGroupsBoard() {
                 <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748B" }} tickFormatter={(d) => d.slice(5)} />
                 <YAxis tick={{ fontSize: 11, fill: "#64748B" }} />
                 <RechartsTooltip
-                  contentStyle={{
-                    backgroundColor: "#1B2A41",
-                    color: "#FFFFFF",
+                  contentStyle={{ ...TOOLTIP_TEMA.contentStyle,
+                    background: "var(--surface)",
+                    color: "var(--chart-tip-fg)",
                     borderRadius: "12px",
                     border: "1px solid #334155",
                     fontSize: "12px",
-                  }}
-                />
+                  }} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
                 <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "6px" }} />
                 <Area type="monotone" dataKey="notificationsCount" name={t("seriesSuccessfulNotifications")} stroke="#0078D4" strokeWidth={2} fillOpacity={1} fill="url(#colorNotifs)" />
                 <Area type="monotone" dataKey="failedCount" name={t("seriesFailuresBounces")} stroke="#EF4444" strokeWidth={2} fillOpacity={1} fill="url(#colorFailed)" />

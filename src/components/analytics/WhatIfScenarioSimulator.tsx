@@ -48,6 +48,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import Pagination, { usePagination } from "@/components/Pagination";
 import InfoTooltip from "@/components/InfoTooltip";
 import { simulateScenario } from "@/services/azureWhatIfSimulator.service";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import {
   type SavedWhatIfScenario,
   type WhatIfParameters,
@@ -134,7 +135,7 @@ function ScenarioComparisonModal({ scenarios, onClose }: ComparisonModalProps) {
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#94A3B8" opacity={0.2} />
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#64748B" }} />
               <YAxis tick={{ fontSize: 11, fill: "#64748B" }} tickFormatter={(v) => `$${v}`} />
-              <Tooltip formatter={(val: any) => money(Number(val))} />
+              <Tooltip formatter={(val: any) => money(Number(val))} {...TOOLTIP_TEMA} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Bar dataKey="base" name={t("legendBaseCost")} fill="#64748B" radius={[4, 4, 0, 0]} />
               <Bar dataKey="projected" name={t("legendProjectedCost")} fill="#0054A6" radius={[4, 4, 0, 0]} />
@@ -875,14 +876,13 @@ export default function WhatIfScenarioSimulator() {
                   <YAxis tick={{ fontSize: 10, fill: "#64748B" }} tickFormatter={(v) => `$${v}`} />
                   <Tooltip
                     formatter={(val: any) => money(Number(val))}
-                    contentStyle={{
-                      backgroundColor: "#1B2A41",
+                    contentStyle={{ ...TOOLTIP_TEMA.contentStyle,
+                      
                       borderRadius: "12px",
                       border: "none",
-                      color: "#FFF",
+                      
                       fontSize: "11px",
-                    }}
-                  />
+                    }} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
                   <Bar dataKey="amountUSD" radius={[4, 4, 0, 0]}>
                     {activeResult.waterfallSteps.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.fill} />

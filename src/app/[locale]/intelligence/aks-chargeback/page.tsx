@@ -30,6 +30,7 @@ import InfoTooltip from '@/components/InfoTooltip';
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { useTranslations } from 'next-intl';
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 const COLORS = ['#0054A6', '#00AEEF', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6'];
 
@@ -477,7 +478,7 @@ export default function AksChargebackPage() {
                                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                     ))}
                                 </Pie>
-                                <RechartsTooltip formatter={(value: any) => (hasAnyCost ? currencyFormatter.format(value) : `${value} Cores`)} />
+                                <RechartsTooltip formatter={(value: any) => (hasAnyCost ? currencyFormatter.format(value) : `${value} Cores`)} {...TOOLTIP_TEMA} />
                                 <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
                             </PieChart>
                         </ResponsiveContainer>

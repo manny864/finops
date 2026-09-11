@@ -51,6 +51,7 @@ import { buildAlertRemediationCommand } from "@/lib/aiRemediations";
 import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import InfoTooltip from "@/components/InfoTooltip";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import type {
   AlertsPayload,
   AlertRuleResource,
@@ -942,14 +943,13 @@ export default function AlertsManagementPanel() {
                 </Pie>
                 <RechartsTooltip
                   formatter={(val: any) => [formatCurrency(Number(val)), "Costo Mensual"]}
-                  contentStyle={{
-                    backgroundColor: "#1B2A41",
-                    color: "#FFFFFF",
+                  contentStyle={{ ...TOOLTIP_TEMA.contentStyle,
+                    background: "var(--surface)",
+                    color: "var(--chart-tip-fg)",
                     borderRadius: "12px",
                     border: "1px solid #334155",
                     fontSize: "12px",
-                  }}
-                />
+                  }} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -983,14 +983,13 @@ export default function AlertsManagementPanel() {
                 <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "#64748B" }} />
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: "#64748B" }} tickFormatter={(v) => `$${v}`} />
                 <RechartsTooltip
-                  contentStyle={{
-                    backgroundColor: "#1B2A41",
-                    color: "#FFFFFF",
+                  contentStyle={{ ...TOOLTIP_TEMA.contentStyle,
+                    background: "var(--surface)",
+                    color: "var(--chart-tip-fg)",
                     borderRadius: "12px",
                     border: "1px solid #334155",
                     fontSize: "12px",
-                  }}
-                />
+                  }} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
                 <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "6px" }} />
                 <Bar yAxisId="left" dataKey="count" name={t("seriesRuleCount")} fill="#0078D4" radius={[6, 6, 0, 0]} />
                 <Bar yAxisId="right" dataKey="costUSD" name={t("seriesCostUsd")} fill="#38BDF8" radius={[6, 6, 0, 0]} />

@@ -5,6 +5,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Sector } from 'recha
 import { FocusCostEntry } from '@/modules/core/focusMapper';
 import { useSubscription } from '../SubscriptionProvider';
 import { useCurrency } from '@/components/CurrencyProvider';
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 export default function FocusCostPieChart({ data, onSegmentClick }: { data: FocusCostEntry[], onSegmentClick?: (category: string | null) => void }) {
     const t = useTranslations("AdminFocusExport");
@@ -106,9 +107,8 @@ export default function FocusCostPieChart({ data, onSegmentClick }: { data: Focu
                             formatter={(value: any, name: any) => {
                                 return [format(value), name];
                             }}
-                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                            wrapperStyle={{ zIndex: 9999 }}
-                        />
+                            contentStyle={{ ...TOOLTIP_TEMA.contentStyle, borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'  }}
+                            wrapperStyle={{ zIndex: 9999 }} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
                     </PieChart>
                 </ResponsiveContainer>
             </div>

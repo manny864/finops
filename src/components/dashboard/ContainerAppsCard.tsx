@@ -14,6 +14,7 @@ import { isMockTenant } from '@/lib/mockData';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Boxes, Loader2, Package, Server, Zap } from 'lucide-react';
 import { errorMessage } from '@/lib/apiErrors';
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 const fmt = (n: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
@@ -144,7 +145,7 @@ export default function ContainerAppsCard() {
                             <BarChart data={chartData} layout="vertical" margin={{ left: 8, right: 8 }}>
                                 <XAxis type="number" tick={{ fontSize: 9 }} tickFormatter={(v) => `$${(v / 1000).toFixed(1)}k`} />
                                 <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 10 }} />
-                                <RechartsTooltip formatter={(v: any) => [fmt(Number(v)), t('cost')]} />
+                                <RechartsTooltip formatter={(v: any) => [fmt(Number(v)), t('cost')]} {...TOOLTIP_TEMA} />
                                 <Bar dataKey="cost" radius={[0, 4, 4, 0]}>
                                     {chartData.map((row, idx) => (
                                         <Cell key={idx} fill={row.candidate ? '#E08A1E' : '#0054A6'} />

@@ -10,6 +10,7 @@ import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
 import Pagination, { usePagination } from "@/components/Pagination";
 import InfoTooltip from "@/components/InfoTooltip";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -472,15 +473,14 @@ export default function MaccTrackingPanel() {
                         : name,
                 ]}
                 labelFormatter={(label) => `Mes: ${label}`}
-                contentStyle={{
-                  backgroundColor: "#1B2A41",
+                contentStyle={{ ...TOOLTIP_TEMA.contentStyle,
+                  
                   border: "1px solid #334155",
                   borderRadius: "0.75rem",
-                  color: "#FFFFFF",
+                  
                   fontSize: "12px",
                   boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-                }}
-              />
+                }} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
               {metrics?.totalCommitmentUSD ? (
                 <ReferenceLine
                   y={metrics.totalCommitmentUSD}

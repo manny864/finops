@@ -29,6 +29,10 @@
   --line: #E3EBF3;
   --line-strong: #CFDDEC;
   --ink: #1B2A41;
+  /* Texto del tooltip de los graficos: el navy sobre el blanco de --surface en
+   * claro, blanco sobre el fondo oscuro en oscuro. No se usa --ink porque ese
+   * es el gris-azulado del cuerpo (#1B2A41), no el navy de marca. */
+  --chart-tip-fg: var(--navy);
   --ink-soft: #5A6B82;
   --green: #1FA971;
   --green-soft: #E6F7EF;
@@ -88,6 +92,7 @@
   --line-strong: #2D4A6D;
   --ink: #EEF3F9;
   --ink-soft: #A9BBD0;
+  --chart-tip-fg: #FFFFFF;
 }
 
 /* ===== Unificación de look & feel: azul de marca CSCloudSolutions =====

@@ -10,6 +10,7 @@ import { isMockTenant } from "@/lib/mockData";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import InfoTooltip from "@/components/InfoTooltip";
 import FinOpsRemediationModal, { type OptimizationTarget } from "@/components/dashboard/FinOpsRemediationModal";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import {
     IconDatabase,
     IconCpu,
@@ -489,16 +490,15 @@ export default function CostByCategoryDashboard() {
                                         tickLine={false}
                                     />
                                     <RechartsTooltip
-                                        contentStyle={{
-                                            backgroundColor: "#1B2A41",
+                                        contentStyle={{ ...TOOLTIP_TEMA.contentStyle,
+                                            
                                             borderColor: "#475569",
                                             borderRadius: "12px",
-                                            color: "#FFFFFF",
+                                            
                                             fontSize: "12px",
                                             boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.5)",
                                         }}
-                                        formatter={(val: any, name: any) => [`$${Number(val).toFixed(2)}`, name]}
-                                    />
+                                        formatter={(val: any, name: any) => [`$${Number(val).toFixed(2)}`, name]} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
                                     <Legend
                                         wrapperStyle={{ fontSize: "11px", paddingTop: "12px" }}
                                     />

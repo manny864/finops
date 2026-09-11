@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { IconDropletDollar } from "@tabler/icons-react";
 import { useChartTheme } from "@/lib/chartTheme";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 export interface CostPieChartProps {
     data: any[];
@@ -210,7 +211,7 @@ export default function CostPieChart({ data, onSegmentClick, selectedCategory }:
                                     );
                                 })}
                             </Pie>
-                            <Tooltip content={<CustomTooltip />} />
+                            <Tooltip content={<CustomTooltip {...TOOLTIP_TEMA} />} />
                         </PieChart>
                     </ResponsiveContainer>
                 )}

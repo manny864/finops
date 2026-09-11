@@ -49,6 +49,7 @@ import {
   type CostAnomalyItem,
 } from "@/types/azureAnomalyDetection.types";
 import { useTranslations } from "next-intl";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 const VISIBLE_SCROLLBAR =
   "overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 " +
@@ -559,7 +560,7 @@ export default function AnomalyDetectionPanel() {
                   tick={{ fontSize: 11, fill: "#64748B" }}
                   tickFormatter={(val) => `$${val}`}
                 />
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={<CustomTooltip {...TOOLTIP_TEMA} />} />
 
                 {/* Banda de Confianza */}
                 <ReferenceArea

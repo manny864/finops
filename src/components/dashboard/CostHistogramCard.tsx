@@ -21,6 +21,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { aggregateHistogramByGranularity, type DailySpendHistogramPoint, type HistogramGranularity } from "@/lib/costProjection";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 /**
  * Histograma de costos (distribución diaria del gasto) de la página
@@ -174,7 +175,7 @@ export default function CostHistogramCard() {
                                 tickFormatter={(v: number) => format(v, { compact: true })}
                                 tick={{ fontSize: 12 }}
                             />
-                            <RechartsTooltip content={<CustomTooltip />} />
+                            <RechartsTooltip content={<CustomTooltip {...TOOLTIP_TEMA} />} />
                             <Bar dataKey="cost" radius={[4, 4, 0, 0]}>
                                 {chartData.map((entry: any, idx: number) => {
                                     const isSpike = granularity === "daily" && entry.isSpike;

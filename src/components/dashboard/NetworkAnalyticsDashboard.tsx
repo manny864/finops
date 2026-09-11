@@ -15,6 +15,7 @@ import {
 } from "@/types/networkAnalytics.types";
 import InfoTooltip from "@/components/InfoTooltip";
 import ResizableTh from "@/components/ResizableTh";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import {
     ResponsiveContainer,
     PieChart,
@@ -340,8 +341,7 @@ export default function NetworkAnalyticsDashboard() {
                                                 );
                                             }
                                             return null;
-                                        }}
-                                    />
+                                        }} {...TOOLTIP_TEMA} />
                                 </PieChart>
                             </ResponsiveContainer>
                             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">

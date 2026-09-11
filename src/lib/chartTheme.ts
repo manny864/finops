@@ -39,7 +39,9 @@ const LIGHT: Omit<ChartTheme, "isDark" | "animate"> = {
   grid: "#E2E8F0",
   tick: "#1B2A41",
   axis: "#94A3B8",
-  tooltip: { backgroundColor: "#1B2A41", color: "#FFFFFF", borderColor: "#1B2A41" },
+  // En claro el tooltip va BLANCO con texto navy, no navy con texto blanco:
+  // es la misma pastilla que usa TOOLTIP_TEMA via --surface/--chart-tip-fg.
+  tooltip: { backgroundColor: "#FFFFFF", color: "#1E3A8A", borderColor: "#E3EBF3" },
 };
 
 const DARK: Omit<ChartTheme, "isDark" | "animate"> = {
@@ -48,7 +50,7 @@ const DARK: Omit<ChartTheme, "isDark" | "animate"> = {
   grid: "#334155",
   tick: "#CBD5E1",
   axis: "#475569",
-  tooltip: { backgroundColor: "#0F172A", color: "#FFFFFF", borderColor: "#334155" },
+  tooltip: { backgroundColor: "#0A1728", color: "#FFFFFF", borderColor: "#1C3149" },
 };
 
 /**

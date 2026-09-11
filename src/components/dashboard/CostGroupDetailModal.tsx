@@ -19,6 +19,7 @@ import {
 import { isMockTenant } from "@/lib/mockData";
 import { getRegionCoords } from "@/lib/azureRegionCoords";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 const PIE_COLORS = ["#0054A6", "#F2A900", "#10B981", "#EF4444", "#8B5CF6", "#F43F5E", "#0EA5E9"];
 
@@ -103,7 +104,7 @@ function MiniPie({ data, donut = false }: { data: Array<{ name: string; cost: nu
                     <Pie data={data} dataKey="cost" nameKey="name" cx="50%" cy="50%" innerRadius={donut ? 34 : 0} outerRadius={58} paddingAngle={2} stroke="none">
                         {data.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                     </Pie>
-                    <Tooltip formatter={(v: any, n: any) => [fmtUsd(Number(v)), n]} />
+                    <Tooltip formatter={(v: any, n: any) => [fmtUsd(Number(v)), n]} {...TOOLTIP_TEMA} />
                 </PieChart>
             </ResponsiveContainer>
             <div className="mt-2 space-y-1 max-h-24 overflow-y-auto">
@@ -490,7 +491,7 @@ export default function CostGroupDetailModal({ name, tenantId, onClose, onUpdate
                                         <BarChart data={subs} layout="vertical" margin={{ left: 8, right: 16 }}>
                                             <XAxis type="number" tick={{ fontSize: 10 }} domain={[0, "auto"]} label={{ value: t("cost_axis"), position: "insideBottom", offset: -4, fontSize: 10 }} />
                                             <YAxis type="category" dataKey="name" tick={{ fontSize: 9 }} width={90} label={{ value: t("subscription_axis"), angle: -90, position: "insideLeft", fontSize: 10 }} />
-                                            <Tooltip formatter={(v: any) => fmtUsd(Number(v))} />
+                                            <Tooltip formatter={(v: any) => fmtUsd(Number(v))} {...TOOLTIP_TEMA} />
                                             {budgetPerSub > 0 && <ReferenceLine x={budgetPerSub} stroke="#dc2626" strokeDasharray="4 3" label={{ value: t("budget"), fontSize: 9, fill: "#dc2626" }} />}
                                             <Bar dataKey="cost" fill="#0054A6" radius={[0, 4, 4, 0]} />
                                         </BarChart>
@@ -547,7 +548,7 @@ export default function CostGroupDetailModal({ name, tenantId, onClose, onUpdate
                                             <CartesianGrid strokeDasharray="3 3" className="stroke-gray-100 dark:stroke-slate-800" />
                                             <XAxis dataKey="month" tick={{ fontSize: 10 }} />
                                             <YAxis tick={{ fontSize: 10 }} />
-                                            <Tooltip formatter={(v: any) => fmtUsd(Number(v))} />
+                                            <Tooltip formatter={(v: any) => fmtUsd(Number(v))} {...TOOLTIP_TEMA} />
                                             <Bar dataKey="actual" name={t("actual_cost")} fill="#0054A6" radius={[4, 4, 0, 0]} barSize={22} />
                                             <Line type="monotone" dataKey="forecast" name={t("forecast")} stroke="#f97316" strokeWidth={2} strokeDasharray="5 4" dot={false} connectNulls={false} />
                                             <Line type="monotone" dataKey="budget" name={t("budget")} stroke="#dc2626" strokeWidth={2} strokeDasharray="2 2" dot={false} />
@@ -596,7 +597,7 @@ export default function CostGroupDetailModal({ name, tenantId, onClose, onUpdate
                                         <CartesianGrid strokeDasharray="3 3" className="stroke-gray-100 dark:stroke-slate-800" />
                                         <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                                         <YAxis tick={{ fontSize: 11 }} />
-                                        <Tooltip formatter={(v: any) => fmtUsd(Number(v))} />
+                                        <Tooltip formatter={(v: any) => fmtUsd(Number(v))} {...TOOLTIP_TEMA} />
                                         <Legend wrapperStyle={{ fontSize: 11 }} />
                                         {subscriptionKeys.map((k, i) => (
                                             <Line key={k} type="monotone" dataKey={k} name={k} stroke={PIE_COLORS[i % PIE_COLORS.length]} strokeWidth={2} dot={false} />

@@ -50,6 +50,7 @@ import {
 } from "@tabler/icons-react";
 
 import { getFreshIdToken } from "@/lib/msalToken";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 export default function HybridConnectivityFinopsDashboard() {
     const t = useTranslations("HybridConnectivityFinops");
@@ -413,8 +414,7 @@ export default function HybridConnectivityFinopsDashboard() {
                                             );
                                         }
                                         return null;
-                                    }}
-                                />
+                                    }} {...TOOLTIP_TEMA} />
                             </PieChart>
                         </ResponsiveContainer>
                     </div>

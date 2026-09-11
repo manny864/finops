@@ -43,6 +43,7 @@ import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { buildAppInsightsRemediationCommand } from "@/lib/aiRemediations";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import type {
   AppInsightsResourceItem,
   AppInsightsRemediationAction,
@@ -683,14 +684,13 @@ export default function AppInsightsDashboard() {
                       `${format(Number(value))} (${item.payload.gbCount} GB)`,
                       item.payload.typeName,
                     ]}
-                    contentStyle={{
-                      backgroundColor: "#1B2A41",
+                    contentStyle={{ ...TOOLTIP_TEMA.contentStyle,
+                      
                       border: "none",
                       borderRadius: "8px",
-                      color: "#FFFFFF",
+                      
                       fontSize: "12px",
-                    }}
-                  />
+                    }} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
                   <Legend
                     verticalAlign="bottom"
                     iconType="circle"
@@ -741,14 +741,13 @@ export default function AppInsightsDashboard() {
                       `${Number(val).toFixed(2)} GB`,
                       name === "tracesGB" ? "AppTraces" : "Dependencies",
                     ]}
-                    contentStyle={{
-                      backgroundColor: "#1B2A41",
+                    contentStyle={{ ...TOOLTIP_TEMA.contentStyle,
+                      
                       border: "none",
                       borderRadius: "8px",
-                      color: "#FFFFFF",
+                      
                       fontSize: "12px",
-                    }}
-                  />
+                    }} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
                   <Legend
                     verticalAlign="top"
                     align="right"

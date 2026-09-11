@@ -16,6 +16,7 @@ import {
 import { useCurrency } from "@/components/CurrencyProvider";
 import { formatCurrencyAxis } from "@/lib/whiteboard";
 import type { WhiteboardTopService } from "@/types/whiteboard.types";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 const BAR_COLORS = ["#0078D4", "#2563EB", "#0284C7", "#38BDF8"];
 
@@ -70,8 +71,7 @@ export default function WhiteboardTopServicesWidget({
                 typeof label === "string" && label.length > 40
                   ? label.slice(0, 40) + "…"
                   : String(label ?? "")
-              }
-            />
+              } {...TOOLTIP_TEMA} />
             <Bar dataKey="cost" radius={[0, 4, 4, 0]}>
               {chartData.map((_, i) => (
                 <Cell key={i} fill={BAR_COLORS[i % BAR_COLORS.length]} />

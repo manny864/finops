@@ -23,6 +23,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { projectFutureCosts, type MonthlyCostPoint } from "@/lib/costProjection";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 interface Props {
     /** Muestra el link "Ver detalle completo" hacia /intelligence/cost-projection (default true). */
@@ -188,7 +189,7 @@ export default function CostProjectionCard({ showFullPageLink = true }: Props) {
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                     <XAxis dataKey="month" tick={{ fontSize: 11 }} minTickGap={14} />
                                     <YAxis tickFormatter={(v: number) => format(v, { compact: true })} tick={{ fontSize: 11 }} />
-                                    <RechartsTooltip content={<ProjectionTooltip format={format} t={t} />} />
+                                    <RechartsTooltip content={<ProjectionTooltip format={format} t={t} {...TOOLTIP_TEMA} />} />
                                     <Legend wrapperStyle={{ fontSize: 12 }} />
                                     <Area dataKey="band" name={t('cost_projection_confidence_band')} stroke="none" fill="#f97316" fillOpacity={0.12} connectNulls={false} legendType="none" />
                                     <Line type="monotone" dataKey="real" name={t('cost_projection_real')} stroke="#00aeef" strokeWidth={2} dot={false} connectNulls={false} />

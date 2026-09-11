@@ -12,6 +12,7 @@ import { calculateChargeback, CostEntry, AllocationRule } from '@/services/alloc
 import Pagination, { usePagination } from '@/components/Pagination';
 import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import { errorMessage } from '@/lib/apiErrors';
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 const COLORS = ['#0054A6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#64748b'];
 
@@ -190,7 +191,7 @@ export default function ChargebackPage() {
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis dataKey="name" />
                                     <YAxis />
-                                    <Tooltip formatter={(value: any) => [`$${Number(value).toFixed(2)}`, '']} />
+                                    <Tooltip formatter={(value: any) => [`$${Number(value).toFixed(2)}`, '']} {...TOOLTIP_TEMA} />
                                     <Legend />
                                     <Bar dataKey="Original" stackId="a" fill="#0054A6" />
                                     <Bar dataKey="Reallocated" stackId="a" fill="#10b981" />

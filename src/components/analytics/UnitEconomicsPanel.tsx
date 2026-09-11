@@ -46,6 +46,7 @@ import { useTextoPorCategoria } from "@/lib/recommendationText";
 import { getFreshIdToken } from "@/lib/msalToken";
 import Pagination, { usePagination } from "@/components/Pagination";
 import InfoTooltip from "@/components/InfoTooltip";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import {
   UNIT_METRIC_CATALOG,
   UE_COLORS,
@@ -724,7 +725,7 @@ export default function UnitEconomicsPanel() {
                   tickFormatter={(v: number) => unitMoney(Number(v))}
                 />
                 <RechartsTooltip
-                  contentStyle={{ borderRadius: 12, border: "1px solid #E2E8F0", fontSize: 12 }}
+                  contentStyle={{ ...TOOLTIP_TEMA.contentStyle, borderRadius: 12, border: "1px solid #E2E8F0", fontSize: 12  }}
                   labelFormatter={(label) => String(label)}
                   formatter={(value, name) => {
                     if (value === null || value === undefined) return [t("no_units_short"), String(name)];
@@ -732,8 +733,7 @@ export default function UnitEconomicsPanel() {
                       return [unitMoney(Number(value)), String(name)];
                     }
                     return [money(Number(value)), String(name)];
-                  }}
-                />
+                  }} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
                 <Legend wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
                 <Bar
                   yAxisId="left"

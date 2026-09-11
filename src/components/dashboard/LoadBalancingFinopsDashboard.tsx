@@ -19,6 +19,7 @@ import {
 import InfoTooltip from "@/components/InfoTooltip";
 import ResizableTh from "@/components/ResizableTh";
 import MockBanner from "@/components/MockBanner";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import {
     PieChart,
     Pie,
@@ -406,8 +407,7 @@ export default function LoadBalancingFinopsDashboard() {
                                             );
                                         }
                                         return null;
-                                    }}
-                                />
+                                    }} {...TOOLTIP_TEMA} />
                             </PieChart>
                         </ResponsiveContainer>
                     </div>

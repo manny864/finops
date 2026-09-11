@@ -12,6 +12,7 @@ import {
     CartesianGrid,
 } from 'recharts';
 import { errorMessage } from '@/lib/apiErrors';
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 export interface UtilReservation {
     reservationId: string;
@@ -124,7 +125,7 @@ export default function ReservationUtilizationModal({
                                         <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" className="dark:stroke-slate-700" />
                                         <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(d: string) => d.slice(5)} minTickGap={24} />
                                         <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} unit="%" width={44} />
-                                        <Tooltip formatter={(v: any) => `${Number(v).toFixed(1)}%`} />
+                                        <Tooltip formatter={(v: any) => `${Number(v).toFixed(1)}%`} {...TOOLTIP_TEMA} />
                                         <Area type="monotone" dataKey="utilization" stroke="#10B981" strokeWidth={2} fill="url(#utilGrad)" />
                                     </AreaChart>
                                 </ResponsiveContainer>

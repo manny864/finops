@@ -45,6 +45,7 @@ import { buildNetworkWatcherRemediationCommand } from "@/lib/aiRemediations";
 import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import InfoTooltip from "@/components/InfoTooltip";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import type {
   NetworkWatcherPayload,
   NetworkWatcherRemediationAction,
@@ -705,7 +706,7 @@ export default function NetworkWatcherPanel() {
                     <Cell key={entry.serviceName} fill={entry.color} />
                   ))}
                 </Pie>
-                <RechartsTooltip formatter={(v) => formatCurrency(Number(v ?? 0))} />
+                <RechartsTooltip formatter={(v) => formatCurrency(Number(v ?? 0))} {...TOOLTIP_TEMA} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
               </PieChart>
             </ResponsiveContainer>
@@ -734,7 +735,7 @@ export default function NetworkWatcherPanel() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
                 <XAxis dataKey="date" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={24} />
                 <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={44} />
-                <RechartsTooltip formatter={(v) => `${Number(v ?? 0).toFixed(2)} GB`} />
+                <RechartsTooltip formatter={(v) => `${Number(v ?? 0).toFixed(2)} GB`} {...TOOLTIP_TEMA} />
                 <Area
                   type="monotone"
                   dataKey="processedGB"

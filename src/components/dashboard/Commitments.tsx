@@ -27,6 +27,7 @@ import ReservationUtilizationModal, { type UtilReservation } from '@/components/
 import { isMockTenant } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 interface ReservationDetail {
     reservationId: string;
@@ -203,7 +204,7 @@ export default function Commitments() {
                                     <Cell fill={utilizationColor} />
                                     <Cell fill="#E5E7EB" className="dark:fill-slate-700" />
                                 </Pie>
-                                <Tooltip formatter={(value: any) => `${Number(value).toFixed(1)}%`} />
+                                <Tooltip formatter={(value: any) => `${Number(value).toFixed(1)}%`} {...TOOLTIP_TEMA} />
                             </PieChart>
                         </ResponsiveContainer>
                         <div className="absolute inset-0 flex items-center justify-center flex-col">
@@ -256,7 +257,7 @@ export default function Commitments() {
                                     <Cell fill={coverageColor} />
                                     <Cell fill="#E5E7EB" className="dark:fill-slate-700" />
                                 </Pie>
-                                <Tooltip formatter={(value: any) => `${Number(value).toFixed(1)}%`} />
+                                <Tooltip formatter={(value: any) => `${Number(value).toFixed(1)}%`} {...TOOLTIP_TEMA} />
                             </PieChart>
                         </ResponsiveContainer>
                         <div className="absolute inset-0 flex items-center justify-center flex-col">

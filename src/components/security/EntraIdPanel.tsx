@@ -47,6 +47,7 @@ import { buildEntraIdRemediationCommand } from "@/lib/aiRemediations";
 import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import InfoTooltip from "@/components/InfoTooltip";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import type {
   EntraIdPayload,
   EntraIdRemediationAction,
@@ -643,7 +644,7 @@ export default function EntraIdPanel() {
                     <Cell key={entry.typeName} fill={entry.color} />
                   ))}
                 </Pie>
-                <RechartsTooltip formatter={(v) => formatCurrency(Number(v ?? 0))} />
+                <RechartsTooltip formatter={(v) => formatCurrency(Number(v ?? 0))} {...TOOLTIP_TEMA} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
               </PieChart>
             </ResponsiveContainer>
@@ -665,7 +666,7 @@ export default function EntraIdPanel() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={36} allowDecimals={false} />
-                <RechartsTooltip />
+                <RechartsTooltip {...TOOLTIP_TEMA} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
                 <Bar dataKey="Activas" fill="#0078D4" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="Inactivas" fill="#38BDF8" radius={[4, 4, 0, 0]} />

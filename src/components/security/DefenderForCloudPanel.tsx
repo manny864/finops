@@ -36,6 +36,7 @@ import { buildDefenderRemediationCommand } from "@/lib/aiRemediations";
 import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import InfoTooltip from "@/components/InfoTooltip";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import type {
   DefenderPayload,
   DefenderPlanCategory,
@@ -633,7 +634,7 @@ export default function DefenderForCloudPanel() {
                     <Cell key={entry.planName} fill={entry.color} />
                   ))}
                 </Pie>
-                <RechartsTooltip formatter={(v) => formatCurrency(Number(v ?? 0))} />
+                <RechartsTooltip formatter={(v) => formatCurrency(Number(v ?? 0))} {...TOOLTIP_TEMA} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
               </PieChart>
             </ResponsiveContainer>

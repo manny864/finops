@@ -40,6 +40,7 @@ import InfoTooltip from "@/components/InfoTooltip";
 import { useChartTheme } from "@/lib/chartTheme";
 import CoinRecommendationsModal from "@/components/dashboard/CoinRecommendationsModal";
 import type { CoinIndexSummary, CategoryCoinBreakdown } from "@/lib/coinTypes";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 const CATEGORY_COLORS: Record<string, string> = {
     Cost: "#0054A6",
@@ -505,8 +506,7 @@ export default function CoinDashboard() {
                                                 );
                                             }
                                             return null;
-                                        }}
-                                    />
+                                        }} {...TOOLTIP_TEMA} />
                                     <Bar
                                         dataKey="coinRate"
                                         radius={[0, 6, 6, 0]}
@@ -620,8 +620,7 @@ export default function CoinDashboard() {
                                                 );
                                             }
                                             return null;
-                                        }}
-                                    />
+                                        }} {...TOOLTIP_TEMA} />
                                     <ReferenceLine
                                         y={70}
                                         stroke="#10B981"

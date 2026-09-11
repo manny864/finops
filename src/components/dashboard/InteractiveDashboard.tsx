@@ -13,6 +13,7 @@ import FocusCostPieChart from './FocusCostPieChart';
 import FeatureGuard from '@/components/FeatureGuard';
 import { useCurrency } from '@/components/CurrencyProvider';
 import { mapAuditToUnifiedZombieList } from "@/lib/zombieAuditCatalog";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 interface InteractiveDashboardProps {
     loading: boolean;
@@ -363,9 +364,8 @@ export default function InteractiveDashboard({
                                 <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} tickMargin={10} />
                                 <YAxis tickFormatter={formatYAxis} tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
                                 <RechartsTooltip
-                                    contentStyle={{ borderRadius: '8px', border: '1px solid var(--line)', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', background: 'var(--surface)', color: 'inherit' }}
-                                formatter={(value: any) => [format(value), t('spend_label')]}
-                                />
+                                    contentStyle={{ ...TOOLTIP_TEMA.contentStyle, borderRadius: '8px', border: '1px solid var(--line)', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', background: 'var(--surface)', color: 'inherit' }}
+                                formatter={(value: any) => [format(value), t('spend_label')]} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
                                 <Area type="monotone" dataKey="cost" stroke="#00aeef" strokeWidth={4} fillOpacity={1} fill="url(#colorGasto)" activeDot={{ r: 8, strokeWidth: 0 }} dot={<CustomDot />} />
                             </AreaChart>
                         </ResponsiveContainer>
@@ -398,7 +398,7 @@ export default function InteractiveDashboard({
                                             <Pie data={leakagePieData} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={5} dataKey="value">
                                                 {leakagePieData.map((e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                                             </Pie>
-                                            <RechartsTooltip formatter={(v: any) => format(Number(v))} wrapperStyle={{ zIndex: 9999 }} contentStyle={{ background: 'var(--surface)', border: '1px solid var(--line)', color: 'inherit' }} />
+                                            <RechartsTooltip formatter={(v: any) => format(Number(v))} wrapperStyle={{ zIndex: 9999 }} contentStyle={{ ...TOOLTIP_TEMA.contentStyle, background: 'var(--surface)', border: '1px solid var(--line)', color: 'inherit' }} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
                                         </RechartsPieChart>
                                     </ResponsiveContainer>
                                 </div>

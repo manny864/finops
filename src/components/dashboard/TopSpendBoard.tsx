@@ -23,6 +23,7 @@ import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLocke
 import InfoTooltip from "@/components/InfoTooltip";
 import { useChartTheme } from "@/lib/chartTheme";
 import type { TopSpendItem, TopSpendSummary } from "@/types/topSpend.types";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 const fmtUsd = (n: number | null | undefined) =>
     new Intl.NumberFormat("en-US", {
@@ -161,8 +162,7 @@ function PanelCard({
                                             );
                                         }
                                         return null;
-                                    }}
-                                />
+                                    }} {...TOOLTIP_TEMA} />
                                 <Bar
                                     dataKey="costUSD"
                                     fill={color}

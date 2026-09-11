@@ -12,6 +12,7 @@ import { ChevronLeft, ChevronRight, DollarSign, Layers } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Pie, PieChart, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from "recharts";
 import InfoTooltip from "@/components/InfoTooltip";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 const PIE_COLORS = ["#0054A6", "#00AEEF", "#F2A900", "#10B981", "#EF4444", "#8B5CF6", "#F43F5E", "#0EA5E9", "#F59E0B", "#64748B"];
 
@@ -323,7 +324,7 @@ export default function NetworkServiceCostBoard({
                                         <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                                     ))}
                                 </Pie>
-                                <RechartsTooltip formatter={(value) => formatPieValue(Number(value || 0), pieData.mode)} />
+                                <RechartsTooltip formatter={(value) => formatPieValue(Number(value || 0), pieData.mode)} {...TOOLTIP_TEMA} />
                                 <Legend />
                             </PieChart>
                         </ResponsiveContainer>

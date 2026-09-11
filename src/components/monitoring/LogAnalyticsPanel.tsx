@@ -43,6 +43,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import { buildLogAnalyticsRemediationCommand } from "@/lib/aiRemediations";
 import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import type {
   LogAnalyticsPayload,
   LogAnalyticsResource,
@@ -688,14 +689,13 @@ export default function LogAnalyticsPanel() {
                   </Pie>
                   <RechartsTooltip
                     formatter={(val: any) => formatCurrency(Number(val))}
-                    contentStyle={{
-                      backgroundColor: "#1B2A41",
+                    contentStyle={{ ...TOOLTIP_TEMA.contentStyle,
+                      
                       borderRadius: "8px",
-                      color: "#FFFFFF",
+                      
                       fontSize: "12px",
                       border: "none",
-                    }}
-                  />
+                    }} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
                   <Legend
                     verticalAlign="bottom"
                     iconType="circle"
@@ -746,14 +746,13 @@ export default function LogAnalyticsPanel() {
                         ? [`${val} GB`, t("seriesIngestion")]
                         : [formatCurrency(Number(val)), t("seriesCost")]
                     }
-                    contentStyle={{
-                      backgroundColor: "#1B2A41",
+                    contentStyle={{ ...TOOLTIP_TEMA.contentStyle,
+                      
                       borderRadius: "8px",
-                      color: "#FFFFFF",
+                      
                       fontSize: "12px",
                       border: "none",
-                    }}
-                  />
+                    }} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
                   <Area
                     type="monotone"
                     dataKey="ingestedGB"

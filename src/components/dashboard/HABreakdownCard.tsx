@@ -8,6 +8,7 @@ import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, L
 import { ShieldAlert, Loader2 } from 'lucide-react';
 import PinButton from '@/components/dashboard/PinButton';
 import { errorMessage } from '@/lib/apiErrors';
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 const COLORS = ['#ef4444', '#f97316', '#f59e0b', '#3b82f6', '#06b6d4', '#10b981', '#8b5cf6', '#ec4899', '#64748b', '#84cc16'];
 
@@ -104,7 +105,7 @@ export default function HABreakdownCard() {
                                     <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
                                 ))}
                             </Pie>
-                            <RechartsTooltip formatter={(v: any, n: any) => [`${v} ${t('ha_tooltip_resources')}`, n]} />
+                            <RechartsTooltip formatter={(v: any, n: any) => [`${v} ${t('ha_tooltip_resources')}`, n]} {...TOOLTIP_TEMA} />
                             <Legend
                                 verticalAlign="bottom"
                                 height={36}

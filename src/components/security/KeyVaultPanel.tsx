@@ -52,6 +52,7 @@ import type {
   KeyVaultResourceItem,
 } from "@/types/azureKeyVault.types";
 import { KV_TRANSACTION_USD_PER_10K } from "@/types/azureKeyVault.types";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 /**
  * Scrollbar horizontal siempre visible. En macOS los scrollbars son overlay y
@@ -739,7 +740,7 @@ export default function KeyVaultPanel() {
                     <Cell key={entry.objectType} fill={entry.color} />
                   ))}
                 </Pie>
-                <RechartsTooltip formatter={(v) => `${Number(v ?? 0).toLocaleString("es-AR")} ops`} />
+                <RechartsTooltip formatter={(v) => `${Number(v ?? 0).toLocaleString("es-AR")} ops`} {...TOOLTIP_TEMA} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
               </PieChart>
             </ResponsiveContainer>
@@ -789,8 +790,7 @@ export default function KeyVaultPanel() {
                     name === "avgLatencyMs"
                       ? `${Number(v ?? 0)} ms`
                       : `${Number(v ?? 0).toLocaleString("es-AR")} ops`
-                  }
-                />
+                  } {...TOOLTIP_TEMA} />
                 <Area
                   yAxisId="left"
                   type="monotone"

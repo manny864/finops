@@ -20,6 +20,7 @@ import { isMockTenant } from '@/lib/mockData';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import InfoTooltip from "@/components/InfoTooltip";
 import type { ComputeEfficiencySummary, RateOptimizationAction } from "@/lib/computeEfficiencyTypes";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 const RATE_ACTION_ICON: Record<RateOptimizationAction['type'], React.ComponentType<{ className?: string }>> = {
     savings_plan: PiggyBank,
@@ -231,10 +232,9 @@ export default function ComputeEfficiencyDashboard() {
                                     tickFormatter={(v: number) => `$${v}`}
                                 />
                                 <RechartsTooltip
-                                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12px' }}
+                                    contentStyle={{ ...TOOLTIP_TEMA.contentStyle, borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12px'  }}
                                     formatter={(value: any) => [format(Number(value) || 0), t("costPerCore")]}
-                                    labelFormatter={(label: any) => String(label || "")}
-                                />
+                                    labelFormatter={(label: any) => String(label || "")} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
                                 <ReferenceLine
                                     y={data.benchmark}
                                     stroke="#10B981"

@@ -9,6 +9,7 @@ import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, L
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { getFreshIdToken } from '@/lib/msalToken';
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import {
   useReactTable,
   getCoreRowModel,
@@ -268,8 +269,7 @@ export default function NetworkAnalyticsPage() {
                                             </Pie>
                                             <RechartsTooltip 
                                                 formatter={(value: any) => `$${Number(value).toFixed(2)}`}
-                                                wrapperStyle={{ zIndex: 9999 }}
-                                            />
+                                                wrapperStyle={{ zIndex: 9999 }} {...TOOLTIP_TEMA} />
                                             <Legend
                                                 verticalAlign="bottom"
                                                 height={48}

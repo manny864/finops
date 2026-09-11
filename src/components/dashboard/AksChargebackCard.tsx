@@ -9,6 +9,7 @@ import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, L
 import { Server, Loader2 } from 'lucide-react';
 import PinButton from '@/components/dashboard/PinButton';
 import { errorMessage } from '@/lib/apiErrors';
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 const COLORS = ['#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#f97316', '#10b981', '#f59e0b', '#ef4444', '#64748b', '#84cc16'];
 
@@ -99,7 +100,7 @@ export default function AksChargebackCard() {
                                     <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
                                 ))}
                             </Pie>
-                            <RechartsTooltip formatter={(v: any, n: any) => [fmt(Number(v)), n]} />
+                            <RechartsTooltip formatter={(v: any, n: any) => [fmt(Number(v)), n]} {...TOOLTIP_TEMA} />
                             <Legend
                                 verticalAlign="bottom"
                                 height={36}

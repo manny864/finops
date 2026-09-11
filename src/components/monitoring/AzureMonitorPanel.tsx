@@ -42,6 +42,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import { buildAzureMonitorRemediationCommand } from "@/lib/aiRemediations";
 import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import type {
   AzureMonitorPayload,
   AzureAlertResource,
@@ -731,14 +732,13 @@ export default function AzureMonitorPanel() {
                   </Pie>
                   <RechartsTooltip
                     formatter={(val: any) => [formatCurrency(Number(val) || 0), t("colCostMtd")]}
-                    contentStyle={{
-                      backgroundColor: "#1B2A41",
+                    contentStyle={{ ...TOOLTIP_TEMA.contentStyle,
+                      
                       borderRadius: "12px",
-                      color: "#FFFFFF",
+                      
                       border: "1px solid #334155",
                       fontSize: "12px",
-                    }}
-                  />
+                    }} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
                   <Legend
                     verticalAlign="bottom"
                     iconType="circle"
@@ -811,14 +811,13 @@ export default function AzureMonitorPanel() {
                       if (name === t("seriesCost")) return [formatCurrency(Number(val) || 0), name];
                       return [`${Number(val).toFixed(2)} GB`, name];
                     }}
-                    contentStyle={{
-                      backgroundColor: "#1B2A41",
+                    contentStyle={{ ...TOOLTIP_TEMA.contentStyle,
+                      
                       borderRadius: "12px",
-                      color: "#FFFFFF",
+                      
                       border: "1px solid #334155",
                       fontSize: "12px",
-                    }}
-                  />
+                    }} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
                   <Area
                     yAxisId="left"
                     type="monotone"

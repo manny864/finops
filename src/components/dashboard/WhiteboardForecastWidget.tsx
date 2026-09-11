@@ -15,6 +15,7 @@ import {
 import { useCurrency } from "@/components/CurrencyProvider";
 import { formatCurrencyAxis } from "@/lib/whiteboard";
 import type { WhiteboardCostTrendPoint } from "@/types/whiteboard.types";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 export default function WhiteboardForecastWidget({
   costTrend,
@@ -116,7 +117,7 @@ export default function WhiteboardForecastWidget({
               tickFormatter={(v) => formatCurrencyAxis(Number(v), maxVal)}
               width={52}
             />
-            <Tooltip formatter={(v: any) => format(Number(v))} />
+            <Tooltip formatter={(v: any) => format(Number(v))} {...TOOLTIP_TEMA} />
             <Area
               type="monotone"
               dataKey="actual"

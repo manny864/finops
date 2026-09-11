@@ -12,6 +12,7 @@ import PremiumBanner from '@/components/PremiumBanner';
 import { useCurrency } from '@/components/CurrencyProvider';
 import { isMockTenant } from '@/lib/mockData';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 type AnomalyStatus = 'New' | 'Investigating' | 'Resolved' | 'False Positive';
 
@@ -398,7 +399,7 @@ export default function AnomalyDashboard() {
                                     tick={{ fontSize: 12, fill: '#6B7280' }}
                                     tickFormatter={(val) => format(val, { compact: true })}
                                 />
-                                <Tooltip content={<CustomTooltip />} />
+                                <Tooltip content={<CustomTooltip {...TOOLTIP_TEMA} />} />
 
                                 {/* Base Expected Band */}
                                 <ReferenceArea y1={Math.max(0, mean - (3 * stdDev))} y2={upperBound} fill="#0054a6" fillOpacity={0.05} />
@@ -433,7 +434,7 @@ export default function AnomalyDashboard() {
                             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#374151" opacity={0.15} />
                             <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12, fill: '#6B7280' }} />
                             <YAxis type="category" dataKey="label" width={100} tick={{ fontSize: 12, fill: '#6B7280' }} />
-                            <Tooltip cursor={{ fill: 'rgba(148,163,184,0.1)' }} />
+                            <Tooltip cursor={{ fill: 'rgba(148,163,184,0.1)' }} {...TOOLTIP_TEMA} />
                             <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={22}>
                                 {statusChartData.map((entry) => (
                                     <Cell key={entry.status} fill={STATUS_CHART_COLORS[entry.status]} />

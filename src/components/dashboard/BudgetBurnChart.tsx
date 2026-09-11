@@ -6,6 +6,7 @@ import { useTenant } from '../TenantProvider';
 import { useSubscription } from '../SubscriptionProvider';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, LabelList, Legend } from 'recharts';
 import { useCurrency } from '../CurrencyProvider';
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 interface BudgetBurnChartProps {
     onHeightChange?: (h: number) => void;
@@ -170,15 +171,14 @@ export default function BudgetBurnChart({ onHeightChange }: BudgetBurnChartProps
                                                 <div className="bg-white dark:bg-slate-900 p-3 rounded-lg shadow-lg border border-gray-100">
                                                     <p className="font-bold text-sm text-gray-800 mb-1">{data.costCenter}</p>
                                                     <p className="text-xs text-gray-600">
-                                                        {t.rich("budget_tooltip_line", { spend: format(Number(data.actual) || 0), budget: format(Number(data.budget) || 0), b: (c) => <span className="font-bold" style={{ color: gastoColor }}>{c}</span>, bb: (c) => <span className="font-bold" style={{ color: '#0d9488' }}>{c}</span>, est: (c) => (data.estimated ? <span className="text-[10px] text-gray-400" title={t("budget_tooltip_est_title")}>{c}</span> : null) })}
+                                                        {t.rich("budget_tooltip_line", { spend: format(Number(data.actual) || 0), budget: format(Number(data.budget) || 0), b: (c) => <span className="font-bold" style={{ color: gastoColor }}>{c}</span>, bb: (c) => <span className="font-bold" style={{ }}>{c}</span>, est: (c) => (data.estimated ? <span className="text-[10px] text-gray-400" title={t("budget_tooltip_est_title")}>{c}</span> : null) })}
                                                     </p>
                                                 </div>
                                             );
                                         }
                                         return null;
                                     }}
-                                    cursor={{fill: 'transparent'}}
-                                />
+                                    cursor={{fill: 'transparent'}} {...TOOLTIP_TEMA} />
                                 
                                 <Legend verticalAlign="top" height={24} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
 

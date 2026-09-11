@@ -8,6 +8,7 @@
 import React from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, ReferenceLine } from 'recharts';
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 export interface BudgetMonthlyChartPoint {
     /** "YYYY-MM" */
@@ -90,8 +91,7 @@ export default function BudgetMonthlyChart({ data, budgetAmount, forecastedSpend
                                 </div>
                             );
                         }}
-                        cursor={{ fill: 'rgba(0,0,0,0.03)' }}
-                    />
+                        cursor={{ fill: 'rgba(0,0,0,0.03)' }} {...TOOLTIP_TEMA} />
                     {budgetAmount > 0 && (
                         <ReferenceLine
                             y={budgetAmount}

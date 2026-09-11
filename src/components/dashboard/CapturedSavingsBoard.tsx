@@ -10,6 +10,7 @@ import InfoTooltip from "@/components/InfoTooltip";
 import ResizableTh from "@/components/ResizableTh";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import { useChartTheme } from "@/lib/chartTheme";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import {
     IconPigMoney,
     IconTrash,
@@ -422,8 +423,7 @@ export default function CapturedSavingsBoard() {
                                                 );
                                             }
                                             return null;
-                                        }}
-                                    />
+                                        }} {...TOOLTIP_TEMA} />
                                     <Legend
                                         wrapperStyle={{ fontSize: 11.5, paddingTop: 10 }}
                                         iconType="circle"

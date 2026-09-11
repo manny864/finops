@@ -41,6 +41,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import { buildSentinelRemediationCommand } from "@/lib/aiRemediations";
 import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import type {
   SentinelPayload,
   SentinelResource,
@@ -782,14 +783,13 @@ export default function SentinelPanel() {
                       if (name === t("seriesCost")) return [formatCurrency(Number(val) || 0), name];
                       return [`${Number(val).toFixed(1)} GB`, name];
                     }}
-                    contentStyle={{
-                      backgroundColor: "#1B2A41",
+                    contentStyle={{ ...TOOLTIP_TEMA.contentStyle,
+                      
                       borderRadius: "12px",
-                      color: "#FFFFFF",
+                      
                       border: "1px solid #334155",
                       fontSize: "12px",
-                    }}
-                  />
+                    }} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
                   <Area
                     yAxisId="left"
                     type="monotone"

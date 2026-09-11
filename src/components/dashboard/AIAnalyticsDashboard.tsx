@@ -10,6 +10,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from '@/lib/mockData';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, CartesianGrid, Legend, AreaChart, Area } from "recharts";
+import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 // ── KPI card ──────────────────────────────────────────────────────────────────
 function KpiCard({
@@ -364,7 +365,7 @@ export default function AIAnalyticsDashboard() {
                             <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                             <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                             <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
-                            <RechartsTooltip formatter={(v: any) => [`$${Number(v).toFixed(2)}`, t("mtdCost")]} />
+                            <RechartsTooltip formatter={(v: any) => [`$${Number(v).toFixed(2)}`, t("mtdCost")]} {...TOOLTIP_TEMA} />
                             <Area type="monotone" dataKey="cumulativeCost" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#costGradient)" />
                         </AreaChart>
                     </ResponsiveContainer>
@@ -386,7 +387,7 @@ export default function AIAnalyticsDashboard() {
                                     <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                                     <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                                     <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`} />
-                                    <RechartsTooltip formatter={(v: any) => [Number(v).toLocaleString(), t("tokensAccrued")]} />
+                                    <RechartsTooltip formatter={(v: any) => [Number(v).toLocaleString(), t("tokensAccrued")]} {...TOOLTIP_TEMA} />
                                     <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
                                     <Line type="monotone" name={t("tokensInputLabel")} dataKey="cumulativeInputTokens" stroke="#3b82f6" strokeWidth={2} dot={{ r: 2 }} />
                                     <Line type="monotone" name={t("tokensOutputLabel")} dataKey="cumulativeOutputTokens" stroke="#ec4899" strokeWidth={2} dot={{ r: 2 }} />
@@ -520,7 +521,7 @@ export default function AIAnalyticsDashboard() {
                                 <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                                 <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                                 <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `$${v}`} />
-                                <RechartsTooltip formatter={(v: any) => [`$${Number(v).toFixed(2)}`, t("mtdCost")]} />
+                                <RechartsTooltip formatter={(v: any) => [`$${Number(v).toFixed(2)}`, t("mtdCost")]} {...TOOLTIP_TEMA} />
                                 <Line type="monotone" dataKey="cumulativeCost" stroke="#0054a6" strokeWidth={2} dot={{ r: 2 }} />
                             </LineChart>
                         </ResponsiveContainer>
