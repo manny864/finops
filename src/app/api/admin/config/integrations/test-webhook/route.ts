@@ -57,11 +57,22 @@ export async function POST(request: NextRequest) {
             });
 
             const text = await res.text().catch(() => '');
+
+            // Microsoft retiro los conectores clasicos de Office 365: una URL
+            // vieja de webhook.office.com devuelve 4xx y no hay nada que
+            // arreglar del lado nuestro. Sin decirlo, el sintoma parece un bug
+            // de la plataforma.
+            const conectorRetirado =
+                /(^|\.)webhook\.office\.com$/i.test(target.hostname) && res.status >= 400 && res.status < 500;
+
             return NextResponse.json({
                 ok: res.ok,
                 status: res.status,
                 // Slack responde "ok"/"invalid_payload" en texto plano; sirve para diagnosticar.
                 detail: text.slice(0, 200) || undefined,
+                hint: conectorRetirado
+                    ? 'Microsoft retiró los conectores clásicos de Office 365: las URLs de webhook.office.com ya no reciben mensajes. Recreá el webhook en Teams con Workflows (Power Automate) y pegá la URL nueva.'
+                    : undefined,
             });
         } catch (fetchErr) {
             const aborted = (fetchErr as Error).name === 'AbortError';

@@ -335,7 +335,11 @@ function WebhookConfig({
             });
             const json = await res.json().catch(() => ({}));
             if (json.ok) toast.success(t('webhook.testOk'));
-            else toast.error(t('webhook.testFailed'), { description: json.error || json.detail || `HTTP ${json.status ?? res.status}` });
+            // `hint` primero: cuando existe, explica que hacer. El detalle del
+            // proveedor va detras porque es diagnostico, no accion.
+            else toast.error(t('webhook.testFailed'), {
+                description: json.hint || json.error || json.detail || `HTTP ${json.status ?? res.status}`,
+            });
         } catch (e) {
             toast.error(t('webhook.testFailed'), { description: errorMessage(e) });
         }

@@ -30,6 +30,44 @@ interface SlackConfig {
     webhook_url: string;
 }
 
+/**
+ * Convierte un fallo HTTP del webhook en algo que el admin pueda accionar.
+ *
+ * Antes se tiraba `Teams webhook returned 405: Method Not Allowed` y nada mas:
+ * el cuerpo de la respuesta —que es donde el proveedor explica el motivo— se
+ * descartaba, asi que quedaba un codigo y ningun camino.
+ *
+ * El caso de los 4xx en `webhook.office.com` tiene nombre propio: Microsoft
+ * retiro los conectores clasicos de Office 365 en Teams. Una URL vieja de ese
+ * dominio ya no recibe entregas y no hay nada que arreglar de este lado — hay
+ * que recrear el webhook desde Teams con Workflows (Power Automate), que emite
+ * una URL de logic.azure.com. Se acota a 4xx a proposito: un 5xx del mismo
+ * host es una caida del servicio, no el retiro, y sugerir la migracion ahi
+ * mandaria a rehacer la configuracion por una intermitencia.
+ */
+async function describeWebhookFailure(
+    canal: string,
+    url: string,
+    response: Response
+): Promise<string> {
+    const cuerpo = await response.text().catch(() => "");
+    const detalle = cuerpo.trim().slice(0, 300);
+
+    let hint = "";
+    try {
+        const esConectorClasico = /(^|\.)webhook\.office\.com$/i.test(new URL(url).hostname);
+        if (esConectorClasico && response.status >= 400 && response.status < 500) {
+            hint =
+                " Microsoft retiró los conectores clásicos de Office 365: las URLs de webhook.office.com ya no reciben mensajes." +
+                " Recreá el webhook en Teams con Workflows (Power Automate) y pegá la URL nueva.";
+        }
+    } catch {
+        // URL invalida: assertSafeWebhookUrl ya la habria rechazado antes.
+    }
+
+    return `${canal} webhook returned ${response.status}: ${response.statusText}.${hint}${detalle ? ` Respuesta: ${detalle}` : ""}`;
+}
+
 async function sendToSlack(config: SlackConfig, payload: NotificationPayload): Promise<void> {
     const emoji = payload.severity === 'warning' ? '🟡' : payload.severity === 'error' ? '🔴' : '🟢';
     const body = {
@@ -80,7 +118,7 @@ async function sendToSlack(config: SlackConfig, payload: NotificationPayload): P
     });
 
     if (!response.ok) {
-        throw new Error(`Slack webhook returned ${response.status}: ${response.statusText}`);
+        throw new Error(await describeWebhookFailure("Slack", config.webhook_url, response));
     }
 }
 
@@ -137,7 +175,7 @@ async function sendToTeams(config: TeamsConfig, payload: NotificationPayload): P
     });
 
     if (!response.ok) {
-        throw new Error(`Teams webhook returned ${response.status}: ${response.statusText}`);
+        throw new Error(await describeWebhookFailure("Teams", config.webhook_url, response));
     }
 }
 
