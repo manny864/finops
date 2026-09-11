@@ -43,6 +43,7 @@ import { WORKBOOK_REMEDIATION_CATEGORIES } from "@/types/azureWorkbooks.types";
 import { TENANT_HEALTH_ACTION_TYPES, TENANT_HEALTH_STATUS_KEYS } from "@/types/azureTenantHealth.types";
 import { ZOMBIE_TYPE_KEYS, ZOMBIE_ISSUE_KEYS } from "@/types/azureZombieAudit.types";
 import { NETWORK_ZOMBIE_TYPE_KEYS } from "@/types/azureNetworkingZombies.types";
+import { JOB_STEP_KEYS } from "@/types/executiveReportJob.types";
 import { ENTRA_REMEDIATION_CATEGORIES, ENTRA_WASTE_REASON_KEYS } from "@/types/azureEntraId.types";
 import { WAF_REMEDIATION_CATEGORIES } from "@/types/azureWaf.types";
 import { SERVICE_BUS_REMEDIATION_CATEGORIES } from "@/types/azureServiceBus.types";
@@ -333,6 +334,11 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
             que: "hallazgos del scan de zombis (ZOMBIE_ISSUE_KEYS)",
             ns: "ZombiePanel",
             claves: Object.values(ZOMBIE_ISSUE_KEYS),
+        },
+        {
+            que: "pasos del job de reporte ejecutivo (JOB_STEP_KEYS)",
+            ns: "AdminReport",
+            claves: Object.values(JOB_STEP_KEYS).flatMap((v) => [v.badge, v.label]),
         },
         {
             que: "tipos de zombi de red (NETWORK_ZOMBIE_TYPE_KEYS)",

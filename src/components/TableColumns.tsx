@@ -1,6 +1,7 @@
 "use client";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { IconColumns } from "@tabler/icons-react";
+import { useTranslations } from "next-intl";
 
 /**
  * Configuración de columnas de tabla (visibilidad + persistencia).
@@ -67,8 +68,12 @@ export function useColumnConfig(storageKey: string, defaults: TableColumnConfig[
     return { columns, isVisible, toggle, open, setOpen, menuRef };
 }
 
-export function ColumnMenu({ columns, toggle, open, setOpen, menuRef, label = "Personalizar Columnas" }:
+// El default estaba en castellano y cuatro tableros lo usaban tal cual, mas
+// dos que pasaban la misma cadena a mano. El componente lo resuelve solo.
+export function ColumnMenu({ columns, toggle, open, setOpen, menuRef, label }:
     ReturnType<typeof useColumnConfig> & { label?: string }) {
+    const t = useTranslations("Common");
+    const buttonLabel = label ?? t("customizeColumns");
     return (
         <div className="relative" ref={menuRef}>
             <button
@@ -76,7 +81,7 @@ export function ColumnMenu({ columns, toggle, open, setOpen, menuRef, label = "P
                 className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer whitespace-nowrap"
             >
                 <IconColumns size={16} className="inline mr-1.5 text-[#0078D4]" stroke={1.5} />
-                {label}
+                {buttonLabel}
             </button>
             {open && (
                 <div className="absolute right-0 mt-1 w-60 p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl z-[100] space-y-0.5">

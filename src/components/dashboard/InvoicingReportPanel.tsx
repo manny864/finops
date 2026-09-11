@@ -751,7 +751,7 @@ export default function InvoicingReportPanel() {
                         </h2>
                         <InfoTooltip content={t("byCustomerHint")} />
                     </div>
-                    <ColumnMenu {...custCols} label="Personalizar Columnas" />
+                    <ColumnMenu {...custCols} />
                 </div>
 
                 <div className={MACOS_SCROLL}>
@@ -909,7 +909,7 @@ export default function InvoicingReportPanel() {
                         </h2>
                         <InfoTooltip content={t("bySubscriptionHint")} />
                     </div>
-                    <ColumnMenu {...subCols} label="Personalizar Columnas" />
+                    <ColumnMenu {...subCols} />
                 </div>
 
                 <div className={MACOS_SCROLL}>
@@ -1003,7 +1003,7 @@ export default function InvoicingReportPanel() {
                         </h2>
                         <InfoTooltip content={t("lineDetailHint")} />
                     </div>
-                    <ColumnMenu {...lineCols} label="Personalizar Columnas" />
+                    <ColumnMenu {...lineCols} />
                 </div>
 
                 <div className={MACOS_SCROLL}>

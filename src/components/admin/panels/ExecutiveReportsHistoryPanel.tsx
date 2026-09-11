@@ -362,7 +362,7 @@ export default function ExecutiveReportsHistoryPanel() {
                 </div>
 
                 <div className="flex items-center gap-2 self-end md:self-auto">
-                    <ColumnMenu {...tableCols} label="Personalizar Columnas" />
+                    <ColumnMenu {...tableCols} />
                 </div>
             </div>
 

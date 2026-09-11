@@ -57,6 +57,7 @@ import { errorMessage } from '@/lib/apiErrors';
 import InfoTooltip from '@/components/InfoTooltip';
 import ResizableTh from '@/components/ResizableTh';
 import { CELL, ColumnMenu, useColumnConfig, type TableColumnConfig } from '@/components/TableColumns';
+import { JOB_STEP_KEYS } from '@/types/executiveReportJob.types';
 import { useExecutiveReportJob } from '@/hooks/useExecutiveReportJob';
 import toast from 'react-hot-toast';
 
@@ -602,7 +603,7 @@ export default function ExecutiveReportPanel() {
                             </div>
                         </div>
                         <span className="text-xs font-mono font-bold text-[#0078D4] bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-800 shadow-2xs">
-                            Paso: {jobStepStatus}
+                            {t("stepLabel", { step: t(JOB_STEP_KEYS[jobStepStatus]?.badge ?? "step_QUEUED") })}
                         </span>
                     </div>
 
@@ -614,8 +615,12 @@ export default function ExecutiveReportPanel() {
                         />
                     </div>
                     <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
-                        <span>{currentStepLabel}</span>
-                        <span>{progressPercent}% completado</span>
+                        <span>
+                            {jobStepStatus === "FAILED" && currentStepLabel
+                                ? currentStepLabel
+                                : t(JOB_STEP_KEYS[jobStepStatus]?.label ?? "jobQueued")}
+                        </span>
+                        <span>{t("pctCompleted", { pct: progressPercent })}</span>
                     </div>
                 </div>
             )}
@@ -704,7 +709,7 @@ export default function ExecutiveReportPanel() {
                                     {t('historicalAnalysisTitle')}
                                     <InfoTooltip content="Evolución de costos mensuales de los últimos 6 meses y ritmo de proyección frente a la media." />
                                 </h3>
-                                <ColumnMenu {...histCols} label="Personalizar Columnas" />
+                                <ColumnMenu {...histCols} />
                             </div>
 
                             <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -842,7 +847,7 @@ export default function ExecutiveReportPanel() {
                         {/* PIE DE PÁGINA FORMAL */}
                         <div className="pt-8 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-400 space-y-1">
                             <p className="font-semibold text-slate-500 dark:text-slate-400">CSCloudSolutions FinOps Management Platform</p>
-                            <p>Documento confidencial para uso exclusivo de directivos y administradores del tenant {selectedTenant?.name}.</p>
+                            <p>{t("confidentialFooter", { tenant: selectedTenant?.name ?? "" })}</p>
                         </div>
                     </div>
                 </div>

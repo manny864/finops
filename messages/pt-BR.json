@@ -1387,7 +1387,23 @@
     "generateWithAi": "Gerar Relatório com IA",
     "showingReportFrom": "Mostrando relatório de {date}",
     "noAnalysis": "Nenhuma análise gerada para este escopo. Clique em \"Gerar Relatório com IA\".",
-    "generateButton": "Gerar Relatório com IA"
+    "generateButton": "Gerar Relatório com IA",
+    "pctCompleted": "{pct}% concluído",
+    "confidentialFooter": "Documento confidencial para uso exclusivo de diretores e administradores do tenant {tenant}.",
+    "stepLabel": "Etapa: {step}",
+    "step_QUEUED": "Na fila",
+    "step_COLLECTING_METRICS": "Coletando métricas",
+    "step_AI_SYNTHESIZING": "Sintetizando com IA",
+    "step_COMPILING_PDF": "Compilando PDF",
+    "step_COMPLETED": "Concluído",
+    "step_FAILED": "Falhou",
+    "jobQueued": "Na fila de processamento...",
+    "jobStarting": "Iniciando a tarefa em segundo plano...",
+    "jobCollecting": "Coletando telemetria do tenant...",
+    "jobSynthesizing": "Analisando com inteligência artificial...",
+    "jobCompiling": "Compilando o documento PDF...",
+    "jobDone": "Relatório executivo gerado com sucesso.",
+    "jobFailed": "Falha durante a geração do relatório."
   },
   "AdminReportHistory": {
     "title": "Histórico de Relatórios Executivos",
@@ -4542,7 +4558,8 @@
     "health": "Saúde",
     "audit": "Auditar",
     "viewRisk": "Ver risco",
-    "delete": "Excluir"
+    "delete": "Excluir",
+    "customizeColumns": "Personalizar Colunas"
   },
   "ComputeContainersFinops": {
     "selectTenant": "Selecione um tenant para ver o cockpit FinOps/CMP de contêineres.",

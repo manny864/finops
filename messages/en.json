@@ -1387,7 +1387,23 @@
     "generateWithAi": "Generate Report with AI",
     "showingReportFrom": "Showing report from {date}",
     "noAnalysis": "No analysis generated for this scope. Click \"Generate Report with AI\".",
-    "generateButton": "Generate AI Report"
+    "generateButton": "Generate AI Report",
+    "pctCompleted": "{pct}% complete",
+    "confidentialFooter": "Confidential document for the exclusive use of executives and administrators of tenant {tenant}.",
+    "stepLabel": "Step: {step}",
+    "step_QUEUED": "Queued",
+    "step_COLLECTING_METRICS": "Collecting metrics",
+    "step_AI_SYNTHESIZING": "Synthesizing with AI",
+    "step_COMPILING_PDF": "Compiling PDF",
+    "step_COMPLETED": "Completed",
+    "step_FAILED": "Failed",
+    "jobQueued": "In the processing queue...",
+    "jobStarting": "Starting the background job...",
+    "jobCollecting": "Collecting tenant telemetry...",
+    "jobSynthesizing": "Analyzing with artificial intelligence...",
+    "jobCompiling": "Compiling the PDF document...",
+    "jobDone": "Executive report generated successfully.",
+    "jobFailed": "The report generation failed."
   },
   "AdminReportHistory": {
     "title": "Executive Reports History",
@@ -4542,7 +4558,8 @@
     "health": "Health",
     "audit": "Audit",
     "viewRisk": "View risk",
-    "delete": "Delete"
+    "delete": "Delete",
+    "customizeColumns": "Customize Columns"
   },
   "ComputeContainersFinops": {
     "selectTenant": "Select a tenant to view the containers FinOps/CMP cockpit.",
