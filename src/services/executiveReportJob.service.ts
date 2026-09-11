@@ -91,7 +91,7 @@ export async function startExecutiveReportJob(
         activeJobsCache.set(jobId, state);
 
         // Disparar procesamiento en segundo plano simulado
-        void runMockJobProcess(jobId, tenantId, scopeId, triggerAiAnalysis, sendEmailNotification, requestedByEmail);
+        void runMockJobProcess(jobId, tenantId, scopeId, locale, triggerAiAnalysis, sendEmailNotification, requestedByEmail);
 
         return {
             success: true,
@@ -149,6 +149,7 @@ async function runMockJobProcess(
     jobId: string,
     tenantId: string,
     scopeSubscriptionId: string,
+    locale: string,
     triggerAi: boolean,
     sendEmail: boolean,
     email: string
@@ -179,7 +180,7 @@ async function runMockJobProcess(
         await new Promise((r) => setTimeout(r, 1500));
         let markdown = aggregatedData.aiMarkdown || '';
         if (triggerAi) {
-            markdown = await generateExecutiveAssessment(aggregatedData);
+            markdown = await generateExecutiveAssessment(aggregatedData, undefined, locale);
             aggregatedData.aiMarkdown = markdown;
         }
         update('COMPILING_PDF');
@@ -262,7 +263,7 @@ async function runRealJobProcess(
         await update('AI_SYNTHESIZING');
         let reportMarkdown = aggregatedData.aiMarkdown || '';
         if (triggerAi) {
-            reportMarkdown = await generateExecutiveAssessment(aggregatedData);
+            reportMarkdown = await generateExecutiveAssessment(aggregatedData, undefined, locale);
             aggregatedData.aiMarkdown = reportMarkdown;
         }
 

@@ -304,14 +304,34 @@ Tu objetivo es analizar el JSON del tenant y redactar un Reporte Ejecutivo Estra
 Reglas estrictas:
 1. Cero Alucinación: Basa cada afirmación en números concretos del JSON. Si falta algún dato, declara "Dato no disponible en este tenant".
 2. Moneda y Formato: Todo en USD con formato estándar ($X,XXX.XX USD).
-3. Tono: Ejecutivo, analítico y orientado a la toma de decisiones. Redacta en Español formal.`;
+3. Tono: Ejecutivo, analítico y orientado a la toma de decisiones.`;
+
+/**
+ * Idioma de redaccion del reporte.
+ *
+ * El prompt terminaba en "Redacta en Español formal" y `locale` —que ya viaja
+ * desde el frontend, se guarda en la fila del job y llega hasta
+ * runRealJobProcess— nunca llegaba al modelo. Resultado: un usuario con la UI
+ * en ingles pedia el reporte y recibia un PDF entero en castellano.
+ */
+const REPORT_LANGUAGES: Record<string, string> = {
+    es: 'Spanish (español)',
+    en: 'English',
+    'pt-BR': 'Brazilian Portuguese (português do Brasil)',
+};
+
+function buildLanguageDirective(locale: string): string {
+    const languageName = REPORT_LANGUAGES[locale] ?? REPORT_LANGUAGES.es;
+    return `\n\nIDIOMA DE SALIDA (prioritario sobre cualquier otra instruccion de estilo): Generate the entire executive report strictly in the requested language: ${languageName}. All headings, diagnostic narratives, tables and tactical action plans must be written in this language. Do not mix languages.`;
+}
 
 /**
  * Invoca el LLM para generar la síntesis ejecutiva Markdown.
  */
 export async function generateExecutiveReportAiMarkdown(
     data: ExecutiveReportFullData,
-    userInstructions?: string
+    userInstructions?: string,
+    locale: string = 'es'
 ): Promise<string> {
     const tenantId = data.tenantId;
     const redactedMetrics = await redactForTenant(tenantId, data);
@@ -323,7 +343,12 @@ export async function generateExecutiveReportAiMarkdown(
         withExponentialBackoff(() =>
             generateText({
                 model: model as any,
-                system: EXECUTIVE_REPORT_SYSTEM_PROMPT,
+                system: EXECUTIVE_REPORT_SYSTEM_PROMPT
+                    + buildLanguageDirective(locale)
+                    + (userInstructions ? `\n\nINSTRUCCIONES ADICIONALES DEL USUARIO:\n${userInstructions}` : ''),
+                // Analisis numerico: la temperatura por defecto de cada proveedor
+                // deja margen para que el modelo "redondee" cifras del JSON.
+                temperature: 0.2,
                 prompt: `Analiza la telemetría viva de este tenant y genera el Reporte Ejecutivo FinOps completo:\n\n${dataString}`,
             })
         )

@@ -55,6 +55,27 @@ export function renderPdfReportHtml(params: RenderPdfReportParams): string {
       }
     }
 
+    /*
+     * Marca de agua corporativa. El position fixed en Paged Media la repite en
+     * TODAS las paginas; el alfa 0.035 la deja por debajo del umbral de lectura
+     * para que no compita con el texto ni ensucie una impresion en blanco y
+     * negro. pointer-events/user-select en none para que no se pueda
+     * seleccionar ni copiar junto con el contenido.
+     */
+    .watermark {
+      position: fixed;
+      top: 45%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-30deg);
+      font-size: 5rem;
+      font-weight: 800;
+      color: rgba(0, 84, 166, 0.035);
+      pointer-events: none;
+      z-index: 0;
+      user-select: none;
+      white-space: nowrap;
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       color: #0f172a;
@@ -281,6 +302,7 @@ export function renderPdfReportHtml(params: RenderPdfReportParams): string {
   </style>
 </head>
 <body>
+  <div class="watermark" aria-hidden="true">CSCloudSolutions</div>
   <div class="header-cover">
     <div class="header-title">CSCloudSolutions · Reporte Ejecutivo FinOps</div>
     <div class="header-meta">
