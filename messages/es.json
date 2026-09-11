@@ -555,7 +555,8 @@
     "cancellationScheduled": "Cancelación Programada",
     "invoiceStatus_PAID": "Pagada",
     "invoiceStatus_PENDING": "Pendiente",
-    "invoiceStatus_FAILED": "Fallida"
+    "invoiceStatus_FAILED": "Fallida",
+    "periodEnd": "fin del período"
   },
   "AdminCapacityAddons": {
     "selfServeUnavailable": "La contratación en línea no está disponible para esta cuenta (sin suscripción de Paddle activa o add-ons no habilitados en este entorno). Contactá a ventas para ampliar tu capacidad.",

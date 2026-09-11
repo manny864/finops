@@ -555,7 +555,8 @@
     "cancellationScheduled": "Cancellation Scheduled",
     "invoiceStatus_PAID": "Paid",
     "invoiceStatus_PENDING": "Pending",
-    "invoiceStatus_FAILED": "Failed"
+    "invoiceStatus_FAILED": "Failed",
+    "periodEnd": "the end of the period"
   },
   "AdminCapacityAddons": {
     "selfServeUnavailable": "Online purchasing is not available for this account (no active Paddle subscription, or add-ons are not enabled in this environment). Contact sales to expand your capacity.",

@@ -262,6 +262,13 @@ export default function BillingPanel() {
     };
 
     // Filtrado y Paginado de Facturas
+    // Una sola forma de escribir la fecha en toda la pantalla, con el locale
+    // activo: la tabla, el buscador y el modal tienen que coincidir.
+    const formatDate = useCallback(
+        (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString(locale) : "—"),
+        [locale]
+    );
+
     const filteredInvoices = useMemo(() => {
         const list = billingData?.invoices || [];
         if (!searchTerm.trim()) return list;
@@ -269,11 +276,11 @@ export default function BillingPanel() {
         return list.filter(
             (inv) =>
                 inv.invoiceNumber.toLowerCase().includes(q) ||
-                inv.formattedDate.toLowerCase().includes(q) ||
+                formatDate(inv.billingDateIso).toLowerCase().includes(q) ||
                 String(inv.amountUSD).includes(q) ||
                 inv.status.toLowerCase().includes(q)
         );
-    }, [billingData?.invoices, searchTerm]);
+    }, [billingData?.invoices, searchTerm, formatDate]);
 
     const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / pageSize));
     const paginatedInvoices = useMemo(() => {
@@ -619,7 +626,7 @@ export default function BillingPanel() {
 
                                         {columns.find((c) => c.id === "billingDate")?.visible && (
                                             <td className="px-4 py-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                                                {inv.formattedDate}
+                                                {formatDate(inv.billingDateIso)}
                                             </td>
                                         )}
 
@@ -721,8 +728,8 @@ export default function BillingPanel() {
                                 {t("cancelKeepAccess")}
                                 <strong>
                                     {billingData?.currentPeriodEndIso
-                                        ? new Date(billingData.currentPeriodEndIso).toLocaleDateString()
-                                        : "fin del período"}
+                                        ? formatDate(billingData.currentPeriodEndIso)
+                                        : t("periodEnd")}
                                 </strong>
                                 ).
                             </p>

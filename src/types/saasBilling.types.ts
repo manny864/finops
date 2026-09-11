@@ -9,8 +9,13 @@ export type SaaSSubscriptionStatus = "ACTIVE" | "PAST_DUE" | "CANCELED" | "TRIAL
 export interface SaaSInvoiceItem {
     id: string;
     invoiceNumber: string;
+    /**
+     * ISO crudo. NO viaja una fecha ya formateada: el servicio la armaba con
+     * `toLocaleDateString("es-ES")` fijo, asi que la tabla mostraba la fecha en
+     * castellano tambien con la UI en ingles. El formato lo pone la pantalla,
+     * que es la unica que conoce el locale activo.
+     */
     billingDateIso: string;
-    formattedDate: string;
     amountUSD: number;
     status: "PAID" | "PENDING" | "FAILED";
     downloadPdfUrl?: string;
