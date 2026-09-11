@@ -83,6 +83,19 @@ function getChannelIcon(channel: NotificationChannelType) {
 }
 
 /**
+ * El resultado del test viene del servidor, que no conoce el locale del
+ * usuario: manda `messageKey` + `messageParams` y `responseMessage` en
+ * castellano como fallback (que es ademas lo que se loguea). Misma convencion
+ * que `nameKey` / `scopeValueKey`.
+ */
+function testResultMessage(
+  result: AlertTestResult,
+  t: (k: string, v?: Record<string, string | number>) => string
+) {
+  return result.messageKey ? t(result.messageKey, result.messageParams) : result.responseMessage;
+}
+
+/**
  * El umbral se re-formatea en el panel en vez de mostrar `formattedThreshold`.
  * Esa cadena la arma `formatAlertThreshold()` del servicio y sale en castellano
  * a proposito: viaja en los payloads de Teams/Slack/ServiceNow/email, no solo
@@ -482,7 +495,7 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
                       <span className="font-bold block">
                         {testResult.success ? t("testSuccess") : t("testFailure")} (HTTP {testResult.httpStatusCode || 200})
                       </span>
-                      <span>{testResult.responseMessage}</span>
+                      <span>{testResultMessage(testResult, t)}</span>
                     </div>
                   </div>
                 )}
@@ -628,7 +641,7 @@ function TestResultModal({ rule, onClose, tenantId }: TestModalProps) {
                   <span className="font-bold block">
                     {result.success ? t("deliverySuccess") : t("deliveryFailure")} (HTTP {result.httpStatusCode || 200})
                   </span>
-                  <span>{result.responseMessage}</span>
+                  <span>{testResultMessage(result, t)}</span>
                 </div>
               </div>
 
@@ -1007,7 +1020,7 @@ export default function SelfServiceAlertsPanel() {
                           <span>{rule.nameKey ? t(rule.nameKey) : rule.name}</span>
                         </div>
                         <div className="text-[11px] text-slate-400 pl-5">
-                          {rule.scopeType}: {rule.scopeValue}
+                          {rule.scopeType}: {rule.scopeValueKey ? t(rule.scopeValueKey) : rule.scopeValue}
                         </div>
                       </td>
 

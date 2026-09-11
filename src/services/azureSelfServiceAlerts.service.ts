@@ -185,10 +185,15 @@ export async function testAlertRuleDelivery(
   const payloadPreview = generateAlertTestPayloadPreview(rule);
 
   if (isMock) {
+    // El guion es el placeholder cuando la regla no trae destino: cualquier
+    // texto ahi seria castellano viajando como parametro al catalogo.
+    const target = rule.channelConfig.channelTarget || rule.channelConfig.webhookUrl || "—";
     return {
       success: true,
       httpStatusCode: 200,
-      responseMessage: `[SIMULACIÓN DEMO] Entrega exitosa hacia ${rule.notificationChannel} (${rule.channelConfig.channelTarget || rule.channelConfig.webhookUrl || "Canal configurado"}).`,
+      responseMessage: `[SIMULACIÓN DEMO] Entrega exitosa hacia ${rule.notificationChannel} (${target}).`,
+      messageKey: "testDemoSuccess",
+      messageParams: { channel: rule.notificationChannel, target },
       testedAt,
       payloadPreview,
     };
@@ -215,14 +220,21 @@ export async function testAlertRuleDelivery(
         responseMessage: response.ok
           ? `Entrega confirmada (HTTP ${response.status} OK)`
           : `El endpoint respondió con error HTTP ${response.status}: ${response.statusText}`,
+        messageKey: response.ok ? "testDeliveryConfirmed" : "testEndpointError",
+        messageParams: response.ok
+          ? { status: response.status }
+          : { status: response.status, statusText: response.statusText },
         testedAt,
         payloadPreview,
       };
     } catch (err: any) {
+      const detail = err.message || "Timeout";
       return {
         success: false,
         httpStatusCode: 504,
-        responseMessage: `Fallo de conexión al destino: ${err.message || "Timeout / Red Inalcanzable"}`,
+        responseMessage: `Fallo de conexión al destino: ${detail}`,
+        messageKey: "testConnectionFailed",
+        messageParams: { error: detail },
         testedAt,
         payloadPreview,
       };
@@ -234,6 +246,8 @@ export async function testAlertRuleDelivery(
     success: true,
     httpStatusCode: 200,
     responseMessage: `Notificación de prueba generada correctamente para ${rule.notificationChannel}.`,
+    messageKey: "testGenerated",
+    messageParams: { channel: rule.notificationChannel },
     testedAt,
     payloadPreview,
   };
@@ -256,6 +270,7 @@ export function getMockSelfServiceAlertsPayload(
       alertType: "BUDGET",
       scopeType: "TENANT",
       scopeValue: "Tenant Completo",
+      scopeValueKey: "scopeTenant",
       thresholdValue: 80,
       thresholdUnit: "PERCENT",
       formattedThreshold: formatAlertThreshold("BUDGET", 80, "PERCENT"),
@@ -319,6 +334,7 @@ export function getMockSelfServiceAlertsPayload(
       alertType: "FORECAST_OVERRUN",
       scopeType: "TENANT",
       scopeValue: "Tenant Completo",
+      scopeValueKey: "scopeTenant",
       thresholdValue: 110,
       thresholdUnit: "PERCENT",
       formattedThreshold: formatAlertThreshold("FORECAST_OVERRUN", 110, "PERCENT"),

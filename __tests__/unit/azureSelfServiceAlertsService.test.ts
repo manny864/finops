@@ -1,4 +1,5 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { readFileSync } from "fs";
 import {
   formatAlertThreshold,
   computeAlertsSummaryMetrics,
@@ -125,6 +126,51 @@ describe("azureSelfServiceAlerts.service", () => {
       expect(result.success).toBe(true);
       expect(result.httpStatusCode).toBe(200);
       expect(result.responseMessage).toContain("SIMULACIÓN DEMO");
+    });
+
+    /*
+     * `responseMessage` sale del servicio en castellano — es lo que se loguea —
+     * y la pantalla muestra `messageKey`. Sin este test, una rama que devuelva
+     * solo `responseMessage` (o una clave mal tipeada) no falla en ningun lado:
+     * next-intl no rompe el build, tira MISSING_MESSAGE en runtime y el usuario
+     * lee "SelfServiceAlerts.testXxx" en el modal.
+     */
+    describe("messageKey de cada rama", () => {
+      const catalogos = (["es", "en", "pt-BR"] as const).map(
+        (l) => [l, JSON.parse(readFileSync(`messages/${l}.json`, "utf8")).SelfServiceAlerts] as const
+      );
+
+      const esperarClaveUsable = (result: { messageKey?: string }) => {
+        expect(result.messageKey, "la rama no devolvio messageKey").toBeTruthy();
+        for (const [locale, ns] of catalogos) {
+          expect(typeof ns?.[result.messageKey!], `${result.messageKey} falta en ${locale}`).toBe("string");
+        }
+      };
+
+      afterEach(() => vi.restoreAllMocks());
+
+      it("demo", async () => esperarClaveUsable(await testAlertRuleDelivery(testRule, true)));
+
+      it("canal sin URL HTTP", async () =>
+        esperarClaveUsable(
+          await testAlertRuleDelivery(
+            { ...testRule, notificationChannel: "EMAIL", channelConfig: { channelTarget: "ops@empresa.com" } },
+            false
+          )
+        ));
+
+      it("endpoint OK y endpoint con error", async () => {
+        for (const [ok, status] of [[true, 200], [false, 500]] as const) {
+          vi.spyOn(global, "fetch").mockResolvedValue({ ok, status, statusText: "X" } as Response);
+          esperarClaveUsable(await testAlertRuleDelivery(testRule, false));
+          vi.restoreAllMocks();
+        }
+      });
+
+      it("fallo de conexion", async () => {
+        vi.spyOn(global, "fetch").mockRejectedValue(new Error("ECONNREFUSED"));
+        esperarClaveUsable(await testAlertRuleDelivery(testRule, false));
+      });
     });
   });
 

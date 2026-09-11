@@ -11825,7 +11825,13 @@
     "payloadSent": "Payload Estruturado Enviado:",
     "thrBudget": "{pct}% do Orçamento",
     "thrAnomaly": "+{pct}% Desvio Diário",
-    "thrForecast": "{pct}% Forecast EOM"
+    "thrForecast": "{pct}% Forecast EOM",
+    "testDemoSuccess": "[SIMULAÇÃO DEMO] Entrega bem-sucedida para {channel} ({target}).",
+    "testDeliveryConfirmed": "Entrega confirmada (HTTP {status} OK)",
+    "testEndpointError": "O endpoint respondeu com erro HTTP {status}: {statusText}",
+    "testConnectionFailed": "Falha de conexão com o destino: {error}",
+    "testGenerated": "Notificação de teste gerada com sucesso para {channel}.",
+    "testError": "Erro ao testar a entrega: {error}"
   },
   "SentinelPanel": {
     "loadError": "Erro ao carregar o Microsoft Sentinel FinOps",

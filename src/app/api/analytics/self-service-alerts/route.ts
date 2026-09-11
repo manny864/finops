@@ -70,6 +70,7 @@ export async function GET(request: NextRequest) {
           alertType,
           scopeType: (r.scope_subscription_id ? "SUBSCRIPTION" : "TENANT") as AlertScopeType,
           scopeValue: r.scope_subscription_id || "Tenant Completo",
+          scopeValueKey: r.scope_subscription_id ? undefined : "scopeTenant",
           thresholdValue,
           thresholdUnit,
           formattedThreshold: formatAlertThreshold(alertType, thresholdValue, thresholdUnit),

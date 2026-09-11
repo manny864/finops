@@ -42,6 +42,13 @@ export interface SelfServiceAlertRule {
   alertType: AlertRuleType;
   scopeType: AlertScopeType;
   scopeValue: string;
+  /**
+   * Cuando la regla no apunta a una subscripcion, `scopeValue` no trae un dato
+   * del tenant sino un rotulo ("Tenant Completo") que arma el servidor, que no
+   * conoce el idioma del usuario. Misma convencion que `nameKey`: viaja la
+   * clave y el panel la resuelve; `scopeValue` queda como fallback.
+   */
+  scopeValueKey?: string;
   thresholdValue: number;
   thresholdUnit: "PERCENT" | "USD";
   formattedThreshold: string;
@@ -73,7 +80,14 @@ export interface SelfServiceAlertsPayload {
 export interface AlertTestResult {
   success: boolean;
   httpStatusCode?: number;
+  /**
+   * Texto ya armado, en castellano. Es lo que va al log y el fallback del
+   * panel; la pantalla prefiere `messageKey` + `messageParams`, que existen
+   * por el mismo motivo que `nameKey` — el servidor no tiene el locale.
+   */
   responseMessage: string;
+  messageKey?: string;
+  messageParams?: Record<string, string | number>;
   testedAt: string;
   payloadPreview?: Record<string, any>;
 }

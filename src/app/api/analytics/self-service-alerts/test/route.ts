@@ -42,6 +42,8 @@ export async function POST(request: NextRequest) {
         success: false,
         httpStatusCode: 500,
         responseMessage: `Error al probar la entrega: ${errorMessage(error)}`,
+        messageKey: "testError",
+        messageParams: { error: errorMessage(error) },
         testedAt: new Date().toISOString(),
       },
       { status: 500 }

@@ -1468,7 +1468,7 @@ describe("i18n · capa 4b: las claves sueltas de los seeds existen en los tres c
      * texto bien hecha, no una fuga. `statusKey` sí entra porque ahí el valor es
      * la clave entera ("status_BUDGET_none").
      */
-    const RE_CLAVE = /\b(?:name|description|desc|title|message|label|status)Key:\s*"([A-Za-z0-9_.]+)"/g;
+    const RE_CLAVE = /\b(?:name|description|desc|title|message|label|status|scopeValue)Key:\s*"([A-Za-z0-9_.]+)"/g;
 
     function namespacesDe(locale: Locale, clave: string): string[] {
         const partes = clave.split(".");
