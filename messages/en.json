@@ -552,7 +552,10 @@
     "col_status": "Status",
     "col_actions": "Actions",
     "downloadPdf": "Download PDF",
-    "cancellationScheduled": "Cancellation Scheduled"
+    "cancellationScheduled": "Cancellation Scheduled",
+    "invoiceStatus_PAID": "Paid",
+    "invoiceStatus_PENDING": "Pending",
+    "invoiceStatus_FAILED": "Failed"
   },
   "AdminCapacityAddons": {
     "selfServeUnavailable": "Online purchasing is not available for this account (no active Paddle subscription, or add-ons are not enabled in this environment). Contact sales to expand your capacity.",
@@ -10750,7 +10753,32 @@
     "step2": "Paste the provided Power Query M script.",
     "step3": "Replace <YOUR_BASE_URL> and <YOUR_MCP_KEY> with your credentials (or enable auto-injection above).",
     "step4": "Click Done → Refresh data and start designing your visualizations.",
-    "manualReplaceHint": "Manually replace the <YOUR_BASE_URL> and <YOUR_MCP_KEY> placeholders."
+    "manualReplaceHint": "Manually replace the <YOUR_BASE_URL> and <YOUR_MCP_KEY> placeholders.",
+    "tpl_cost_desc": "Daily cost summary, top resources, and breakdown by service and subscription. 30/90/365 days.",
+    "tpl_sust_desc": "CO2e emissions by region, VM/Storage breakdown, and migration recommendations to greener regions.",
+    "tpl_zomb_desc": "Detected orphaned resources (unattached disks, NICs, IPs) and the monthly cost wasted.",
+    "tpl_budg_desc": "Budget status: current spend vs limit, % used and status (ok/warning/exceeded).",
+    "tplcat_cost": "Cost Analytics",
+    "tplcat_sust": "ESG & Carbon",
+    "tplcat_zomb": "Governance & Waste",
+    "tplcat_budg": "Budgets & Forecast",
+    "tplviz_cost_1": "Card: Total cost USD (MTD / 90d)",
+    "tplviz_cost_2": "Line chart: daily cost trend",
+    "tplviz_cost_3": "Bar chart: top 10 resources by cost",
+    "tplviz_cost_4": "Donut chart: distribution by subscription",
+    "tplviz_cost_5": "Matrix: cost by service × month",
+    "tplviz_sust_1": "Card: total monthly kg CO2e",
+    "tplviz_sust_2": "Map (Azure): emissions by geographic region",
+    "tplviz_sust_3": "Bar chart: estimated equivalences (trees, car km)",
+    "tplviz_sust_4": "Table: migration recommendations with % reduction",
+    "tplviz_zomb_1": "Card: total waste USD/month",
+    "tplviz_zomb_2": "Bar chart: top zombie resources by cost",
+    "tplviz_zomb_3": "Donut chart: distribution by orphaned resource type",
+    "tplviz_zomb_4": "Table: detail with Resource ID, location and cost",
+    "tplviz_budg_1": "Gauge: % consumed per budget",
+    "tplviz_budg_2": "Bar chart: allocated budget vs actual spend",
+    "tplviz_budg_3": "Table: list with alert status traffic light",
+    "fileDownloaded": "File {file} downloaded"
   },
   "PowerManagement": {
     "customizeColumns": "Customize Columns",
@@ -11784,7 +11812,13 @@
     "stopDuringIdle": "Stop the server during idle periods:",
     "updateIndexPolicyExcludePaths": "Update the indexing policy, excluding paths that are never queried:",
     "useDmsOrInPortal": "Use Azure Database Migration Service (DMS) or the in-portal migration tool:",
-    "useRunbookOrLogicApps": "Use an Azure Automation runbook or Logic Apps to trigger start/stop via the Azure REST API"
+    "useRunbookOrLogicApps": "Use an Azure Automation runbook or Logic Apps to trigger start/stop via the Azure REST API",
+    "pq_howTo": "How to use this script:",
+    "pq_paste": "Paste this script into the editor",
+    "pq_keyWarning": "The API key is stored in plain text in this file: do not commit it to a repository or share it by email.",
+    "pq_relativePath": "RelativePath instead of concatenating the URL: without it Power BI cannot analyse the source and scheduled refresh in the Service fails.",
+    "pq_guard": "If the field is missing, continue with an empty list instead of breaking the query.",
+    "pq_expand": "Expand with an explicit field list: if the API stops sending one, the column becomes null instead of failing."
   },
   "SecurityFamilies": {
     "loading": "Loading security costs...",

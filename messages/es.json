@@ -552,7 +552,10 @@
     "col_status": "Estado",
     "col_actions": "Acciones",
     "downloadPdf": "Descargar PDF",
-    "cancellationScheduled": "Cancelación Programada"
+    "cancellationScheduled": "Cancelación Programada",
+    "invoiceStatus_PAID": "Pagada",
+    "invoiceStatus_PENDING": "Pendiente",
+    "invoiceStatus_FAILED": "Fallida"
   },
   "AdminCapacityAddons": {
     "selfServeUnavailable": "La contratación en línea no está disponible para esta cuenta (sin suscripción de Paddle activa o add-ons no habilitados en este entorno). Contactá a ventas para ampliar tu capacidad.",
@@ -10750,7 +10753,32 @@
     "step2": "Pegá el script de Power Query M provisto.",
     "step3": "Reemplazá <YOUR_BASE_URL> y <YOUR_MCP_KEY> con tus credenciales (o activá la auto-inyección arriba).",
     "step4": "Hacé clic en Listo → Actualizar datos y comenzá a diseñar tus visualizaciones.",
-    "manualReplaceHint": "Reemplazar manualmente los marcadores <YOUR_BASE_URL> y <YOUR_MCP_KEY>."
+    "manualReplaceHint": "Reemplazar manualmente los marcadores <YOUR_BASE_URL> y <YOUR_MCP_KEY>.",
+    "tpl_cost_desc": "Resumen de costos diarios, top resources, breakdown por servicio y suscripción. 30/90/365 días.",
+    "tpl_sust_desc": "Emisiones CO2e por región, breakdown VM/Storage, recomendaciones de migración a regiones verdes.",
+    "tpl_zomb_desc": "Recursos huérfanos detectados (discos sin atar, NICs, IPs) y costo mensual desperdiciado.",
+    "tpl_budg_desc": "Estado de presupuestos: gasto actual vs límite, % usado y estado (ok/alerta/excedido).",
+    "tplcat_cost": "Análisis de Costos",
+    "tplcat_sust": "ESG y Carbono",
+    "tplcat_zomb": "Gobernanza y Desperdicio",
+    "tplcat_budg": "Presupuestos y Forecast",
+    "tplviz_cost_1": "Card: Costo total USD (MTD / 90d)",
+    "tplviz_cost_2": "Gráfico de líneas: tendencia diaria de costos",
+    "tplviz_cost_3": "Gráfico de barras: top 10 recursos por costo",
+    "tplviz_cost_4": "Gráfico de dona: distribución por suscripción",
+    "tplviz_cost_5": "Matriz: costo por servicio × mes",
+    "tplviz_sust_1": "Card: kg CO2e total mensual",
+    "tplviz_sust_2": "Mapa (Azure): emisiones por región geográfica",
+    "tplviz_sust_3": "Gráfico de barras: equivalencias estimadas (árboles, km auto)",
+    "tplviz_sust_4": "Tabla: recomendaciones de migración con % de reducción",
+    "tplviz_zomb_1": "Card: desperdicio total USD/mes",
+    "tplviz_zomb_2": "Gráfico de barras: top recursos zombis por costo",
+    "tplviz_zomb_3": "Gráfico de dona: distribución por tipo de recurso huérfano",
+    "tplviz_zomb_4": "Tabla: detalle con Resource ID, ubicación y costo",
+    "tplviz_budg_1": "Gauge: % consumido por presupuesto",
+    "tplviz_budg_2": "Gráfico de barras: presupuesto asignado vs gasto real",
+    "tplviz_budg_3": "Tabla: lista con semáforo de estado de alerta",
+    "fileDownloaded": "Archivo {file} descargado"
   },
   "PowerManagement": {
     "customizeColumns": "Personalizar Columnas",
@@ -11784,7 +11812,13 @@
     "stopDuringIdle": "Detener servidor durante períodos de inactividad:",
     "updateIndexPolicyExcludePaths": "Actualizar la política de indexación excluyendo rutas no consultadas:",
     "useDmsOrInPortal": "Usar Azure Database Migration Service (DMS) o la herramienta de migración in-portal:",
-    "useRunbookOrLogicApps": "Utilizar Azure Automation Runbook o Logic Apps para disparar Start/Stop vía Azure REST API"
+    "useRunbookOrLogicApps": "Utilizar Azure Automation Runbook o Logic Apps para disparar Start/Stop vía Azure REST API",
+    "pq_howTo": "Para usar este script:",
+    "pq_paste": "Pegar este script en el editor",
+    "pq_keyWarning": "La API key queda escrita en texto plano en este archivo: no lo subas a un repositorio ni lo compartas por correo.",
+    "pq_relativePath": "RelativePath en vez de concatenar la URL: sin esto Power BI no puede analizar el origen y la actualizacion programada del Servicio falla.",
+    "pq_guard": "Si el campo no viene, se sigue con lista vacia en lugar de romper la consulta.",
+    "pq_expand": "Expand con la lista de campos explicita: si la API deja de mandar uno, la columna queda en null en vez de fallar."
   },
   "SecurityFamilies": {
     "loading": "Cargando costos de seguridad...",

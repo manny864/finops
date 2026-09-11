@@ -632,7 +632,9 @@ export default function BillingPanel() {
                                         {columns.find((c) => c.id === "status")?.visible && (
                                             <td className="px-4 py-3 whitespace-nowrap">
                                                 <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-[#0078D4] border border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800">
-                                                    {inv.status === "PAID" ? "Pagada" : inv.status}
+                                                    {t.has(`invoiceStatus_${inv.status}` as never)
+                                                        ? t(`invoiceStatus_${inv.status}` as never)
+                                                        : inv.status}
                                                 </span>
                                             </td>
                                         )}

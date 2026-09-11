@@ -14,28 +14,108 @@
 export interface PowerBITemplate {
     id: string;
     name: string;
+    /**
+     * La descripcion, la categoria y las visualizaciones sugeridas se
+     * mostraban tal cual las escribe este archivo — en castellano sobre la UI
+     * en ingles. Viajan tambien como clave de catalogo (namespace
+     * PowerBITemplates) y el texto queda de fallback, misma convencion que
+     * `nameKey` en el resto de la plataforma.
+     */
     description: string;
+    descriptionKey?: string;
     category: "cost" | "sustainability" | "governance" | "unit-economics";
     categoryDisplayName?: string;
+    categoryDisplayNameKey?: string;
     feedType: string;
     sampleVisualizations: string[];
+    visualizationKeys?: string[];
     powerQueryM: string;
 }
 
-const COMMON_HEADER = `// Para usar este script:
-// 1. Power BI Desktop → Get Data → Blank Query
-// 2. Home → Advanced Editor → pegar este script
-// 3. Reemplazar <YOUR_BASE_URL> y <YOUR_MCP_KEY> con tus valores
-// 4. Done → Refresh
+/**
+ * Constructor del script Power Query M.
+ *
+ * Los cuatro templates eran casi identicos copiados a mano y habian derivado
+ * entre si (uno leia `Source[data]` sin proteger, otros no). Con un solo
+ * constructor, un arreglo vale para los cuatro.
+ *
+ * Los comentarios viajan como marcadores `{{cmt.X}}` y los resuelve el cliente
+ * con `resolveScriptComments` — misma convencion que los scripts CLI de las
+ * rutas de bases de datos, para no tener que generar un script por idioma.
+ */
+function buildPowerQuery(opts: {
+    feedType: string;
+    payloadField: string;
+    /** [campo en el JSON, titulo de la columna, tipo M] */
+    columns: Array<[string, string, string]>;
+    extraQuery?: string;
+}): string {
+    const { feedType, payloadField, columns, extraQuery } = opts;
+    const campos = columns.map(([src]) => `"${src}"`).join(', ');
+    const titulos = columns.map(([, dst]) => `"${dst}"`).join(', ');
+    const tipos = columns.map(([, dst, tipo]) => `        {"${dst}", ${tipo}}`).join(',\n');
+    const esquema = columns.map(([, dst, tipo]) => `        #"${dst}" = ${tipo.replace('type ', '')}`).join(',\n');
+    const query = extraQuery ? `[type = "${feedType}", ${extraQuery}]` : `[type = "${feedType}"]`;
+
+    return `// {{cmt.pq_howTo}}
+// 1. Power BI Desktop > Get Data > Blank Query
+// 2. Home > Advanced Editor
+// 3. {{cmt.pq_paste}}
+// 4. Done > Refresh
+//
+// {{cmt.pq_keyWarning}}
+
+let
+    BaseUrl = "<YOUR_BASE_URL>",
+    ApiKey  = "<YOUR_MCP_KEY>",
+
+    // {{cmt.pq_relativePath}}
+    Response = Json.Document(Web.Contents(
+        BaseUrl,
+        [
+            RelativePath = "api/exports/powerbi-feed",
+            Query        = ${query},
+            Headers      = [#"Authorization" = "Bearer " & ApiKey]
+        ]
+    )),
+
+    // {{cmt.pq_guard}}
+    Payload = try Response[${payloadField}] otherwise {},
+
+    Esquema = type table[
+${esquema}
+    ],
+
+    Result =
+        if List.IsEmpty(Payload) then
+            #table(Esquema, {})
+        else
+            let
+                AsTable  = Table.FromList(Payload, Splitter.SplitByNothing(), {"Record"}),
+                // {{cmt.pq_expand}}
+                Expanded = Table.ExpandRecordColumn(
+                    AsTable, "Record",
+                    {${campos}},
+                    {${titulos}}
+                )
+            in
+                Table.TransformColumnTypes(Expanded, {
+${tipos}
+                })
+in
+    Result
 `;
+}
 
 export const POWERBI_TEMPLATES: PowerBITemplate[] = [
     {
         id: "cost-overview",
         name: "FinOps Cost Overview",
         description: "Resumen de costos diarios, top resources, breakdown por servicio y suscripción. 30/90/365 días.",
+        descriptionKey: "tpl_cost_desc",
         category: "cost",
         categoryDisplayName: "Cost Analytics",
+        categoryDisplayNameKey: "tplcat_cost",
         feedType: "costs",
         sampleVisualizations: [
             "Card: Total Cost USD (MTD / 90d)",
@@ -44,41 +124,29 @@ export const POWERBI_TEMPLATES: PowerBITemplate[] = [
             "Donut chart: Distribución por suscripción",
             "Matrix: Costo por servicio × mes",
         ],
-        powerQueryM: `${COMMON_HEADER}
-let
-    BaseUrl = "<YOUR_BASE_URL>",
-    ApiKey = "<YOUR_MCP_KEY>",
-    Days = 90,
-    Source = Json.Document(Web.Contents(
-        BaseUrl & "/api/exports/powerbi-feed",
-        [
-            Query = [type = "costs", days = Text.From(Days)],
-            Headers = [#"Authorization" = "Bearer " & ApiKey]
-        ]
-    )),
-    DataList = Source[data],
-    AsTable = Table.FromList(DataList, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
-    Expanded = Table.ExpandRecordColumn(AsTable, "Column1", 
-        {"date", "service", "subscriptionName", "resourceGroup", "resourceName", "costUSD"}, 
-        {"Date", "Service", "Subscription", "Resource Group", "Resource Name", "Cost (USD)"}),
-    Typed = Table.TransformColumnTypes(Expanded, {
-        {"Date", type date}, 
-        {"Service", type text}, 
-        {"Subscription", type text},
-        {"Resource Group", type text}, 
-        {"Resource Name", type text}, 
-        {"Cost (USD)", type number}
-    })
-in
-    Typed
-`,
+        visualizationKeys: ["tplviz_cost_1", "tplviz_cost_2", "tplviz_cost_3", "tplviz_cost_4", "tplviz_cost_5"],
+        powerQueryM: buildPowerQuery({
+            feedType: "costs",
+            payloadField: "data",
+            extraQuery: 'days = "90"',
+            columns: [
+                ["date", "Date", "type datetime"],
+                ["service", "Service", "type text"],
+                ["subscriptionName", "Subscription", "type text"],
+                ["resourceGroup", "Resource Group", "type text"],
+                ["resourceName", "Resource Name", "type text"],
+                ["costUSD", "Cost (USD)", "type number"],
+            ],
+        }),
     },
     {
         id: "sustainability",
         name: "Sustainability & Carbon",
         description: "Emisiones CO2e por región, breakdown VM/Storage, recomendaciones de migración a regiones verdes.",
+        descriptionKey: "tpl_sust_desc",
         category: "sustainability",
         categoryDisplayName: "ESG & Carbon",
+        categoryDisplayNameKey: "tplcat_sust",
         feedType: "sustainability",
         sampleVisualizations: [
             "Card: kg CO2e total mensual",
@@ -86,38 +154,26 @@ in
             "Bar chart: Equivalencias estimadas (árboles, km auto)",
             "Table: Recomendaciones de migración con % reducción",
         ],
-        powerQueryM: `${COMMON_HEADER}
-let
-    BaseUrl = "<YOUR_BASE_URL>",
-    ApiKey = "<YOUR_MCP_KEY>",
-    Source = Json.Document(Web.Contents(
-        BaseUrl & "/api/exports/powerbi-feed",
-        [
-            Query = [type = "sustainability"],
-            Headers = [#"Authorization" = "Bearer " & ApiKey]
-        ]
-    )),
-    Regions = Source[byRegion],
-    AsTable = Table.FromList(Regions, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
-    Expanded = Table.ExpandRecordColumn(AsTable, "Column1", 
-        {"region", "kgCO2e", "resources", "intensity"},
-        {"Region", "Emissions (kgCO2e)", "Resources Count", "Grid Carbon Intensity"}),
-    Typed = Table.TransformColumnTypes(Expanded, {
-        {"Region", type text}, 
-        {"Emissions (kgCO2e)", type number},
-        {"Resources Count", Int64.Type}, 
-        {"Grid Carbon Intensity", Int64.Type}
-    })
-in
-    Typed
-`,
+        visualizationKeys: ["tplviz_sust_1", "tplviz_sust_2", "tplviz_sust_3", "tplviz_sust_4"],
+        powerQueryM: buildPowerQuery({
+            feedType: "sustainability",
+            payloadField: "byRegion",
+            columns: [
+                ["region", "Region", "type text"],
+                ["kgCO2e", "Emissions (kgCO2e)", "type number"],
+                ["resources", "Resources Count", "Int64.Type"],
+                ["intensity", "Grid Carbon Intensity", "Int64.Type"],
+            ],
+        }),
     },
     {
         id: "zombies",
         name: "Zombie Resources & Waste",
         description: "Recursos huérfanos detectados (discos sin atar, NICs, IPs), costo mensual desperdiciado.",
+        descriptionKey: "tpl_zomb_desc",
         category: "governance",
         categoryDisplayName: "Governance & Waste",
+        categoryDisplayNameKey: "tplcat_zomb",
         feedType: "zombies",
         sampleVisualizations: [
             "Card: Total Waste USD/mes",
@@ -125,71 +181,45 @@ in
             "Donut chart: Distribución por tipo de recurso huérfano",
             "Table: Detalle con Resource ID, ubicación y costo",
         ],
-        powerQueryM: `${COMMON_HEADER}
-let
-    BaseUrl = "<YOUR_BASE_URL>",
-    ApiKey = "<YOUR_MCP_KEY>",
-    Source = Json.Document(Web.Contents(
-        BaseUrl & "/api/exports/powerbi-feed",
-        [
-            Query = [type = "zombies"],
-            Headers = [#"Authorization" = "Bearer " & ApiKey]
-        ]
-    )),
-    Zombies = Source[data],
-    AsTable = Table.FromList(Zombies, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
-    Expanded = Table.ExpandRecordColumn(AsTable, "Column1",
-        {"resource_id", "resource_type", "location", "estimated_monthly_cost_usd"},
-        {"Resource ID", "Resource Type", "Location", "Estimated Monthly Waste (USD)"}),
-    Typed = Table.TransformColumnTypes(Expanded, {
-        {"Resource ID", type text}, 
-        {"Resource Type", type text},
-        {"Location", type text}, 
-        {"Estimated Monthly Waste (USD)", type number}
-    })
-in
-    Typed
-`,
+        visualizationKeys: ["tplviz_zomb_1", "tplviz_zomb_2", "tplviz_zomb_3", "tplviz_zomb_4"],
+        powerQueryM: buildPowerQuery({
+            feedType: "zombies",
+            payloadField: "data",
+            columns: [
+                ["resource_id", "Resource ID", "type text"],
+                ["resource_type", "Resource Type", "type text"],
+                ["location", "Location", "type text"],
+                ["estimated_monthly_cost_usd", "Estimated Monthly Waste (USD)", "type number"],
+            ],
+        }),
     },
     {
         id: "budgets",
         name: "Budget Tracking",
         description: "Estado de presupuestos: gasto actual vs límite, % usado, status (ok/warning/exceeded).",
+        descriptionKey: "tpl_budg_desc",
         category: "cost",
         categoryDisplayName: "Budgets & Forecast",
+        categoryDisplayNameKey: "tplcat_budg",
         feedType: "budgets",
         sampleVisualizations: [
             "Gauge: % consumido por presupuesto",
             "Bar chart: Presupuesto asignado vs gasto real",
             "Table: Lista con semáforo de estado de alerta",
         ],
-        powerQueryM: `${COMMON_HEADER}
-let
-    BaseUrl = "<YOUR_BASE_URL>",
-    ApiKey = "<YOUR_MCP_KEY>",
-    Source = Json.Document(Web.Contents(
-        BaseUrl & "/api/exports/powerbi-feed",
-        [
-            Query = [type = "budgets"],
-            Headers = [#"Authorization" = "Bearer " & ApiKey]
-        ]
-    )),
-    Budgets = Source[data],
-    AsTable = Table.FromList(Budgets, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
-    Expanded = Table.ExpandRecordColumn(AsTable, "Column1",
-        {"name", "period", "budgetUSD", "spentUSD", "usagePct", "status"},
-        {"Budget Name", "Period", "Budget (USD)", "Spent (USD)", "Usage %", "Status"}),
-    Typed = Table.TransformColumnTypes(Expanded, {
-        {"Budget Name", type text}, 
-        {"Period", type text},
-        {"Budget (USD)", type number}, 
-        {"Spent (USD)", type number},
-        {"Usage %", type number}, 
-        {"Status", type text}
-    })
-in
-    Typed
-`,
+        visualizationKeys: ["tplviz_budg_1", "tplviz_budg_2", "tplviz_budg_3"],
+        powerQueryM: buildPowerQuery({
+            feedType: "budgets",
+            payloadField: "data",
+            columns: [
+                ["name", "Budget Name", "type text"],
+                ["period", "Period", "type text"],
+                ["budgetUSD", "Budget (USD)", "type number"],
+                ["spentUSD", "Spent (USD)", "type number"],
+                ["usagePct", "Usage %", "type number"],
+                ["status", "Status", "type text"],
+            ],
+        }),
     },
 ];
 

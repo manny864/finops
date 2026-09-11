@@ -552,7 +552,10 @@
     "col_status": "Status",
     "col_actions": "Ações",
     "downloadPdf": "Baixar PDF",
-    "cancellationScheduled": "Cancelamento Agendado"
+    "cancellationScheduled": "Cancelamento Agendado",
+    "invoiceStatus_PAID": "Paga",
+    "invoiceStatus_PENDING": "Pendente",
+    "invoiceStatus_FAILED": "Falhou"
   },
   "AdminCapacityAddons": {
     "selfServeUnavailable": "A contratação online não está disponível para esta conta (sem assinatura ativa no Paddle, ou add-ons não habilitados neste ambiente). Fale com vendas para ampliar sua capacidade.",
@@ -10750,7 +10753,32 @@
     "step2": "Cole o script do Power Query M fornecido.",
     "step3": "Substitua <YOUR_BASE_URL> e <YOUR_MCP_KEY> pelas suas credenciais (ou ative a autoinjeção acima).",
     "step4": "Clique em Concluído → Atualizar dados e comece a criar suas visualizações.",
-    "manualReplaceHint": "Substitua manualmente os marcadores <YOUR_BASE_URL> e <YOUR_MCP_KEY>."
+    "manualReplaceHint": "Substitua manualmente os marcadores <YOUR_BASE_URL> e <YOUR_MCP_KEY>.",
+    "tpl_cost_desc": "Resumo de custos diários, top recursos e detalhamento por serviço e assinatura. 30/90/365 dias.",
+    "tpl_sust_desc": "Emissões de CO2e por região, detalhamento VM/Storage e recomendações de migração para regiões verdes.",
+    "tpl_zomb_desc": "Recursos órfãos detectados (discos sem vínculo, NICs, IPs) e custo mensal desperdiçado.",
+    "tpl_budg_desc": "Status dos orçamentos: gasto atual vs limite, % usado e status (ok/alerta/excedido).",
+    "tplcat_cost": "Análise de Custos",
+    "tplcat_sust": "ESG e Carbono",
+    "tplcat_zomb": "Governança e Desperdício",
+    "tplcat_budg": "Orçamentos e Forecast",
+    "tplviz_cost_1": "Card: Custo total USD (MTD / 90d)",
+    "tplviz_cost_2": "Gráfico de linhas: tendência diária de custos",
+    "tplviz_cost_3": "Gráfico de barras: top 10 recursos por custo",
+    "tplviz_cost_4": "Gráfico de rosca: distribuição por assinatura",
+    "tplviz_cost_5": "Matriz: custo por serviço × mês",
+    "tplviz_sust_1": "Card: kg CO2e total mensal",
+    "tplviz_sust_2": "Mapa (Azure): emissões por região geográfica",
+    "tplviz_sust_3": "Gráfico de barras: equivalências estimadas (árvores, km de carro)",
+    "tplviz_sust_4": "Tabela: recomendações de migração com % de redução",
+    "tplviz_zomb_1": "Card: desperdício total USD/mês",
+    "tplviz_zomb_2": "Gráfico de barras: top recursos zumbis por custo",
+    "tplviz_zomb_3": "Gráfico de rosca: distribuição por tipo de recurso órfão",
+    "tplviz_zomb_4": "Tabela: detalhe com Resource ID, localização e custo",
+    "tplviz_budg_1": "Gauge: % consumido por orçamento",
+    "tplviz_budg_2": "Gráfico de barras: orçamento alocado vs gasto real",
+    "tplviz_budg_3": "Tabela: lista com semáforo de status de alerta",
+    "fileDownloaded": "Arquivo {file} baixado"
   },
   "PowerManagement": {
     "customizeColumns": "Personalizar Colunas",
@@ -11784,7 +11812,13 @@
     "stopDuringIdle": "Parar o servidor durante períodos de inatividade:",
     "updateIndexPolicyExcludePaths": "Atualizar a política de indexação excluindo caminhos não consultados:",
     "useDmsOrInPortal": "Usar o Azure Database Migration Service (DMS) ou a ferramenta de migração no portal:",
-    "useRunbookOrLogicApps": "Usar um Azure Automation Runbook ou Logic Apps para disparar start/stop via Azure REST API"
+    "useRunbookOrLogicApps": "Usar um Azure Automation Runbook ou Logic Apps para disparar start/stop via Azure REST API",
+    "pq_howTo": "Para usar este script:",
+    "pq_paste": "Cole este script no editor",
+    "pq_keyWarning": "A chave de API fica em texto puro neste arquivo: não faça commit em um repositório nem compartilhe por e-mail.",
+    "pq_relativePath": "RelativePath em vez de concatenar a URL: sem isso o Power BI não consegue analisar a origem e a atualização agendada do Serviço falha.",
+    "pq_guard": "Se o campo não vier, segue com lista vazia em vez de quebrar a consulta.",
+    "pq_expand": "Expand com a lista de campos explícita: se a API parar de enviar um, a coluna fica nula em vez de falhar."
   },
   "SecurityFamilies": {
     "loading": "Carregando custos de segurança...",

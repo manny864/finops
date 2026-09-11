@@ -11,6 +11,7 @@ import {
 } from "@tabler/icons-react";
 import { Link } from "@/i18n/routing";
 import { useTranslations } from "next-intl";
+import { resolveScriptComments } from "@/lib/scriptComments";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { isMockTenant } from "@/lib/mockData";
@@ -19,14 +20,26 @@ import { downloadPqFile } from "@/lib/export/downloadPqFile";
 import PowerBiScriptModal from "@/components/reports/PowerBiScriptModal";
 import { toast } from "sonner";
 
+/**
+ * El registro manda la clave y el texto en castellano de fallback: resolver
+ * aca evita que la tarjeta se lea en castellano sobre la UI en ingles.
+ */
+function traducirLista(claves: string[] | undefined, textos: string[], t: any): string[] {
+    if (!claves || claves.length !== textos.length) return textos;
+    return claves.map((clave, i) => (t.has(clave) ? t(clave) : textos[i]));
+}
+
 interface TemplateMeta {
     id: string;
     name: string;
     description: string;
+    descriptionKey?: string;
     category: string;
     categoryDisplayName?: string;
+    categoryDisplayNameKey?: string;
     feedType: string;
     sampleVisualizations: string[];
+    visualizationKeys?: string[];
     downloadUrl: string;
 }
 
@@ -36,6 +49,7 @@ interface TemplateDetail extends TemplateMeta {
 
 export default function PowerBiTemplatesPanel() {
     const t = useTranslations("PowerBITemplates");
+    const tc = useTranslations("ScriptComments");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
 
@@ -115,12 +129,12 @@ export default function PowerBiTemplatesPanel() {
             const res = await fetch(`/api/templates/powerbi/${tpl.id}`);
             const json = await res.json();
             if (json.success && json.template?.powerQueryM) {
-                const raw = json.template.powerQueryM;
+                const raw = resolveScriptComments(json.template.powerQueryM, tc);
                 const script = activeApiKey
                     ? raw.replace(/<YOUR_BASE_URL>/g, baseUrl).replace(/<YOUR_MCP_KEY>/g, activeApiKey)
                     : raw;
                 downloadPqFile(tpl.id, script);
-                toast.success(`Archivo ${tpl.id}.pq descargado`);
+                toast.success(t("fileDownloaded", { file: `${tpl.id}.pq` }));
             } else {
                 window.open(`${tpl.downloadUrl}?format=pq`, "_blank");
             }
@@ -189,10 +203,10 @@ export default function PowerBiTemplatesPanel() {
                                     >
                                         {tpl.name}
                                     </h3>
-                                    {getCategoryBadge(tpl.category, tpl.categoryDisplayName)}
+                                    {getCategoryBadge(tpl.category, tpl.categoryDisplayNameKey && t.has(tpl.categoryDisplayNameKey) ? t(tpl.categoryDisplayNameKey) : tpl.categoryDisplayName)}
                                 </div>
                                 <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
-                                    {tpl.description}
+                                    {tpl.descriptionKey && t.has(tpl.descriptionKey) ? t(tpl.descriptionKey) : tpl.description}
                                 </p>
 
                                 <div className="mb-6 bg-slate-50 dark:bg-slate-800/40 rounded-xl p-3.5 border border-slate-100 dark:border-slate-800/60">
@@ -201,7 +215,7 @@ export default function PowerBiTemplatesPanel() {
                                         {t("suggested_visualizations")}
                                     </p>
                                     <ul className="text-xs text-slate-600 dark:text-slate-300 space-y-1 ml-1">
-                                        {tpl.sampleVisualizations.slice(0, 4).map((v, i) => (
+                                        {traducirLista(tpl.visualizationKeys, tpl.sampleVisualizations, t).slice(0, 4).map((v, i) => (
                                             <li key={i} className="flex items-center gap-1.5">
                                                 <span className="w-1.5 h-1.5 rounded-full bg-[#0078D4]" />
                                                 <span>{v}</span>

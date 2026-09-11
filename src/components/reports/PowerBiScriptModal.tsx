@@ -10,6 +10,7 @@ import {
     IconFileCode,
 } from "@tabler/icons-react";
 import { useTranslations } from "next-intl";
+import { resolveScriptComments } from "@/lib/scriptComments";
 import { downloadPqFile } from "@/lib/export/downloadPqFile";
 import { toast } from "sonner";
 
@@ -20,9 +21,12 @@ interface PowerBiScriptModalProps {
         id: string;
         name: string;
         description: string;
+        descriptionKey?: string;
         category: string;
         categoryDisplayName?: string;
+        categoryDisplayNameKey?: string;
         sampleVisualizations: string[];
+        visualizationKeys?: string[];
         powerQueryM: string;
     } | null;
     baseUrl: string;
@@ -43,17 +47,21 @@ export default function PowerBiScriptModal({
     activeApiKey,
 }: PowerBiScriptModalProps) {
     const t = useTranslations("PowerBITemplates");
+    const tc = useTranslations("ScriptComments");
     const [autoInject, setAutoInject] = useState(true);
     const [copied, setCopied] = useState(false);
 
     if (!isOpen || !template) return null;
 
     const keyToUse = activeApiKey || "mcp_YOUR_API_KEY_HERE";
+    // Los comentarios viajan como marcadores y se resuelven siempre, inyecte o
+    // no las credenciales: antes salian en castellano sobre la UI en ingles.
+    const baseScript = resolveScriptComments(template.powerQueryM, tc);
     const processedScript = autoInject
-        ? template.powerQueryM
+        ? baseScript
               .replace(/<YOUR_BASE_URL>/g, baseUrl)
               .replace(/<YOUR_MCP_KEY>/g, keyToUse)
-        : template.powerQueryM;
+        : baseScript;
 
     const handleCopy = () => {
         navigator.clipboard.writeText(processedScript);
@@ -64,10 +72,13 @@ export default function PowerBiScriptModal({
 
     const handleDownload = () => {
         downloadPqFile(template.id, processedScript);
-        toast.success(`Archivo ${template.id}.pq descargado`);
+        toast.success(t("fileDownloaded", { file: `${template.id}.pq` }));
     };
 
     const categoryName =
+        (template.categoryDisplayNameKey && t.has(template.categoryDisplayNameKey)
+            ? t(template.categoryDisplayNameKey)
+            : undefined) ||
         template.categoryDisplayName ||
         (template.category === "cost"
             ? "Cost Analytics"
@@ -102,7 +113,7 @@ export default function PowerBiScriptModal({
                             </span>
                         </div>
                         <p className="text-xs text-slate-500 dark:text-slate-400">
-                            {template.description}
+                            {template.descriptionKey && t.has(template.descriptionKey) ? t(template.descriptionKey) : template.description}
                         </p>
                     </div>
                     <button
@@ -122,7 +133,10 @@ export default function PowerBiScriptModal({
                             {t("recommended_visualizations")}
                         </p>
                         <div className="flex flex-wrap gap-1.5">
-                            {template.sampleVisualizations.map((v, i) => (
+                            {(template.visualizationKeys && template.visualizationKeys.length === template.sampleVisualizations.length
+                                ? template.visualizationKeys.map((k, i) => (t.has(k) ? t(k) : template.sampleVisualizations[i]))
+                                : template.sampleVisualizations
+                            ).map((v, i) => (
                                 <span
                                     key={i}
                                     className="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-medium border border-slate-200 dark:border-slate-700"
