@@ -4444,7 +4444,20 @@
     "tagManagement": "Tag Management",
     "runAudit": "Run FinOps Audit",
     "navigation": "Navigation",
-    "quickActions": "Quick Actions"
+    "quickActions": "Quick Actions",
+    "contentGroup": "In your environment",
+    "searching": "Searching…",
+    "searchHint": "Type at least 2 characters to search inside your environment.",
+    "kind_service": "Service",
+    "kind_resourceGroup": "Resource Group",
+    "kind_subscription": "Subscription",
+    "kind_waste": "Waste",
+    "kind_alertRule": "Alert rule",
+    "spend90d": "${amount} USD over the last 90 days",
+    "wastePerMonth": "${amount} USD/mo · {type}",
+    "alertChannel": "Channel: {channel}",
+    "searchError": "The search could not be completed.",
+    "partialSources": "Some sources did not respond: results may be incomplete."
   },
   "CommitmentDrilldown": {
     "allSubscriptions": "All subscriptions ({n})",

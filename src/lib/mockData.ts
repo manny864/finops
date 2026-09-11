@@ -43,6 +43,32 @@ export const MOCK_AZURE_SUBSCRIPTIONS = [
     { id: "d0000000-0000-4000-8000-000000000003", name: "CSCS-Testing-Sandbox" },
 ] as const;
 
+/**
+ * Resultados del buscador para los tenants demo.
+ *
+ * Filtra el mismo dataset sintetico que ya usan las pantallas de costos,
+ * zombis y alertas, para que buscar en la demo devuelva cosas que despues se
+ * ven en pantalla y no un catalogo aparte.
+ */
+export const getMockSearchResults = (query: string) => {
+    const q = query.trim().toLowerCase();
+    const todo = [
+        { kind: "service" as const, title: "Virtual Machines", subtitleKey: "spend90d", subtitleParams: { amount: "198300.00" }, href: "/intelligence/billing?service=Virtual%20Machines" },
+        { kind: "service" as const, title: "Azure OpenAI", subtitleKey: "spend90d", subtitleParams: { amount: "71200.00" }, href: "/intelligence/billing?service=Azure%20OpenAI" },
+        { kind: "service" as const, title: "Azure SQL Database", subtitleKey: "spend90d", subtitleParams: { amount: "68400.00" }, href: "/intelligence/billing?service=Azure%20SQL%20Database" },
+        { kind: "resourceGroup" as const, title: "rg-analytics-prod", subtitleKey: "spend90d", subtitleParams: { amount: "24110.75" }, href: "/intelligence/chargeback?resourceGroup=rg-analytics-prod" },
+        { kind: "resourceGroup" as const, title: "rg-networking-hub", subtitleKey: "spend90d", subtitleParams: { amount: "9860.10" }, href: "/intelligence/chargeback?resourceGroup=rg-networking-hub" },
+        { kind: "subscription" as const, title: "CSCS-LandingZone-Production", href: "/intelligence/billing" },
+        { kind: "waste" as const, title: "disk-temp-unattached-01", subtitleKey: "wastePerMonth", subtitleParams: { amount: "19.05", type: "microsoft.compute/disks" }, href: "/cleanup/zombies" },
+        { kind: "waste" as const, title: "pip-legacy-gateway", subtitleKey: "wastePerMonth", subtitleParams: { amount: "4.25", type: "microsoft.network/publicipaddresses" }, href: "/cleanup/zombies" },
+        { kind: "alertRule" as const, title: "Overall Budget Consumption > 80%", subtitleKey: "alertChannel", subtitleParams: { channel: "teams" }, href: "/intelligence/analitica-avanzada/alertas-self-service" },
+    ];
+    return {
+        results: todo.filter((r) => r.title.toLowerCase().includes(q)),
+        sourceStatus: [{ source: "demo", ok: true }],
+    };
+};
+
 export const isMockTenant = (tenantId: string) => {
     if (!tenantId) return false;
     const lower = tenantId.trim().toLowerCase();

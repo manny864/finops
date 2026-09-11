@@ -4444,7 +4444,20 @@
     "tagManagement": "Gestión de Etiquetas",
     "runAudit": "Ejecutar Auditoría FinOps",
     "navigation": "Navegación",
-    "quickActions": "Acciones Rápidas"
+    "quickActions": "Acciones Rápidas",
+    "contentGroup": "En tu entorno",
+    "searching": "Buscando…",
+    "searchHint": "Escribí al menos 2 caracteres para buscar dentro de tu entorno.",
+    "kind_service": "Servicio",
+    "kind_resourceGroup": "Resource Group",
+    "kind_subscription": "Suscripción",
+    "kind_waste": "Desperdicio",
+    "kind_alertRule": "Regla de alerta",
+    "spend90d": "${amount} USD en los últimos 90 días",
+    "wastePerMonth": "${amount} USD/mes · {type}",
+    "alertChannel": "Canal: {channel}",
+    "searchError": "No se pudo completar la búsqueda.",
+    "partialSources": "Algunos orígenes no respondieron: los resultados pueden estar incompletos."
   },
   "CommitmentDrilldown": {
     "allSubscriptions": "Todas las suscripciones ({n})",
