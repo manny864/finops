@@ -140,3 +140,82 @@ describe("integridad de claves i18n", () => {
         );
     });
 });
+
+/**
+ * Segunda pasada: los mapas `*_LABEL_KEYS` a nivel de modulo.
+ *
+ * El escaneo de arriba sólo ve `t('literal')`. Estos mapas viven donde no hay
+ * `t` —a nivel de modulo— y se resuelven con `t(MAPA[x])`, o sea una variable:
+ * invisible para la regex. Es justo el hueco por el que entró el defecto del
+ * 2026-09-11 en `DatabricksDashboard`, donde dos de las tres entradas eran la
+ * frase en castellano en vez de la clave ("Migrar a Automated Jobs DBU"), y
+ * `t()` tiraba MISSING_MESSAGE en pantalla.
+ *
+ * Acá el valor del mapa SÍ es un literal estático, así que se puede verificar.
+ */
+function escanearMapasDeClaves() {
+    const violations: { file: string; entrada: string; valor: string; ns: string; missing: Locale[] }[] = [];
+    let entradasVerificadas = 0;
+
+    for (const file of walk("src")) {
+        const src = readFileSync(file, "utf8");
+        const byVar = namespacesByVar(src);
+        if (byVar.size === 0) continue;
+
+        // Un archivo puede tener varios namespaces; se prueba la clave contra
+        // todos y basta con que resuelva en uno. Afinar más pediría saber qué
+        // variable `t` acompaña al mapa, que es justo lo que no se puede leer
+        // estáticamente.
+        const namespaces = [...new Set(byVar.values())];
+
+        const reMapa = /const\s+\w*LABEL_KEYS\w*\s*:\s*Record<[^>]*>\s*=\s*\{([\s\S]*?)\n\};/g;
+        let mapa: RegExpExecArray | null;
+        while ((mapa = reMapa.exec(src))) {
+            const reEntrada = /^\s*([A-Za-z0-9_]+)\s*:\s*(['"])([^'"]+)\2\s*,?\s*$/gm;
+            let entrada: RegExpExecArray | null;
+            while ((entrada = reEntrada.exec(mapa[1]))) {
+                const [, nombre, , valor] = entrada;
+                entradasVerificadas++;
+                const resuelveEnAlguno = namespaces.some((ns) =>
+                    LOCALES.every((l) => resolves(l, ns, valor))
+                );
+                if (resuelveEnAlguno) continue;
+
+                const ns = namespaces[0];
+                violations.push({
+                    file,
+                    entrada: nombre,
+                    valor,
+                    ns,
+                    missing: LOCALES.filter((l) => !namespaces.some((n) => resolves(l, n, valor))),
+                });
+            }
+        }
+    }
+
+    return { violations, entradasVerificadas };
+}
+
+describe("mapas *_LABEL_KEYS: el valor tiene que ser una clave, no la frase", () => {
+    const { violations, entradasVerificadas } = escanearMapasDeClaves();
+
+    it("cada valor resuelve en los tres idiomas", () => {
+        const report = violations
+            .map((v) => `  ${v.file}: ${v.entrada} -> "${v.valor}" no resuelve en [${v.missing.join(", ")}]`)
+            .join("\n");
+
+        expect(
+            violations.length,
+            violations.length
+                ? `\n${violations.length} entrada(s) de mapa que no son claves validas.\n` +
+                  `Suele ser la frase original dejada donde iba la clave; t() tira MISSING_MESSAGE en runtime.\n${report}\n`
+                : ""
+        ).toBe(0);
+    });
+
+    it("el escaneo encuentra los mapas", () => {
+        // Misma red de seguridad que arriba: si la regex deja de matchear, el
+        // test pasaria vacio.
+        expect(entradasVerificadas).toBeGreaterThan(15);
+    });
+});

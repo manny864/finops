@@ -3119,7 +3119,9 @@
     "rem_DBX_REDUCE_AUTOTERMINATION_title": "Reduzir Auto-Termination para 20 min em “{cluster}”",
     "rem_DBX_REDUCE_AUTOTERMINATION_desc": "O cluster interativo “{cluster}” tem o desligamento automático {minutes, select, 0 {DESATIVADO} other {configurado em {minutes} minutos}}. Reduzi-lo para 20 minutos de inatividade evita faturar horas ociosas de VMs e DBUs.",
     "rem_DBX_SINGLE_NODE_DEV_title": "Converter cluster “{cluster}” para Single-Node",
-    "rem_DBX_SINGLE_NODE_DEV_desc": "O cluster de desenvolvimento “{cluster}” tem {workers} workers provisionados. Convertê-lo em cluster Single-Node (1 nó driver sem workers adicionais) reduz pela metade o consumo de VMs e DBUs sem afetar o desenvolvimento interativo."
+    "rem_DBX_SINGLE_NODE_DEV_desc": "O cluster de desenvolvimento “{cluster}” tem {workers} workers provisionados. Convertê-lo em cluster Single-Node (1 nó driver sem workers adicionais) reduz pela metade o consumo de VMs e DBUs sem afetar o desenvolvimento interativo.",
+    "migrateToAutomatedJobsDbu": "Migrar para Automated Jobs DBU",
+    "reduceAutoTerminationTo20Min": "Reduzir Auto-Termination para 20 min"
   },
   "AzureMongoDB": {
     "actionsDetected": "ações detectadas",

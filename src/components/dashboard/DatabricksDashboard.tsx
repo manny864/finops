@@ -59,8 +59,8 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 // Vive a nivel de modulo, donde no hay `t`: guarda la clave y se resuelve al renderizar.
 const CATEGORY_LABEL_KEYS: Record<string, string> = {
-  MIGRATE_TO_JOBS: "Migrar a Automated Jobs DBU",
-  REDUCE_AUTOTERMINATION: "Reducir Auto-Termination a 20 min",
+  MIGRATE_TO_JOBS: "migrateToAutomatedJobsDbu",
+  REDUCE_AUTOTERMINATION: "reduceAutoTerminationTo20Min",
   SINGLE_NODE_DEV: "singleNodeModeDev",
 };
 
