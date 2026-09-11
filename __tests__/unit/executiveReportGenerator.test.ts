@@ -28,15 +28,20 @@ describe('ExecutiveReportGenerator Service', () => {
         expect(data.rightsizingRecommendations.length).toBeGreaterThan(0);
     });
 
-    it('should contain all 6 mandatory C-Level sections in the system prompt', () => {
+    it('should contain all 7 mandatory C-Level sections in the system prompt', () => {
+        // La 2 es nueva: el barrido por familias de recursos. Las que le siguen
+        // corrieron un numero.
         expect(EXECUTIVE_REPORT_SYSTEM_PROMPT).toContain('1. Resumen Ejecutivo y Diagnóstico Financiero C-Level');
-        expect(EXECUTIVE_REPORT_SYSTEM_PROMPT).toContain('2. Economía Unitaria y Eficiencia de Asignación (Showback / Chargeback)');
-        expect(EXECUTIVE_REPORT_SYSTEM_PROMPT).toContain('3. Matriz de Ineficiencias y Fuga de Capital (Hard Waste & Rightsizing)');
-        expect(EXECUTIVE_REPORT_SYSTEM_PROMPT).toContain('4. Optimización de Tarifas y Cobertura de Compromisos (Rate Optimization)');
-        expect(EXECUTIVE_REPORT_SYSTEM_PROMPT).toContain('5. Riesgos Operacionales, Alta Disponibilidad y Gobernanza');
-        expect(EXECUTIVE_REPORT_SYSTEM_PROMPT).toContain('6. Hoja de Ruta y Plan de Acción Priorizado (30 - 60 - 90 Días)');
+        expect(EXECUTIVE_REPORT_SYSTEM_PROMPT).toContain('2. Barrido 360° por Familias de Recursos');
+        expect(EXECUTIVE_REPORT_SYSTEM_PROMPT).toContain('3. Economía Unitaria y Eficiencia de Asignación (Showback / Chargeback)');
+        expect(EXECUTIVE_REPORT_SYSTEM_PROMPT).toContain('4. Matriz de Ineficiencias y Fuga de Capital (Hard Waste & Rightsizing)');
+        expect(EXECUTIVE_REPORT_SYSTEM_PROMPT).toContain('5. Optimización de Tarifas y Cobertura de Compromisos (Rate Optimization)');
+        expect(EXECUTIVE_REPORT_SYSTEM_PROMPT).toContain('6. Riesgos Operacionales, Alta Disponibilidad y Gobernanza');
+        expect(EXECUTIVE_REPORT_SYSTEM_PROMPT).toContain('7. Hoja de Ruta y Plan de Acción Priorizado (30 - 60 - 90 Días)');
         expect(EXECUTIVE_REPORT_SYSTEM_PROMPT).toContain('Cero Alucinación');
         expect(EXECUTIVE_REPORT_SYSTEM_PROMPT).toContain('Dato no disponible en este tenant');
+        // La regla que impide que un colector caido se lea como "cero hallazgos".
+        expect(EXECUTIVE_REPORT_SYSTEM_PROMPT).toContain('collectorStatus');
     });
 
     it('should build valid A4 paged media HTML document', async () => {

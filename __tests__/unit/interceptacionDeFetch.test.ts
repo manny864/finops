@@ -35,7 +35,7 @@ const PROVIDER = "src/components/TenantProvider.tsx";
  * Bajar este número es progreso: significa que una interceptación redundante se
  * fue y la ruta quedó como única fuente. Subirlo es deuda nueva.
  */
-const TOPE_REDUNDANTES = 67;
+const TOPE_REDUNDANTES = 62;
 
 function rutasInterceptadas(): string[] {
     const src = readFileSync(PROVIDER, "utf8");
@@ -92,6 +92,13 @@ describe("interceptación de fetch en TenantProvider", () => {
         ["/api/cleanup/zombies/networking", "metrics"],
         ["/api/cleanup/backup-orphans", "summary"],
         ["/api/cleanup/zombies", "metrics"],
+        // Las que cayeron despues, por el mismo desajuste de forma: la ruta ya
+        // resolvia isMockTenant y la interceptacion servia otra cosa.
+        ["/api/governance/ha", "summary"],
+        ["/api/governance/expiring-credentials", "summary"],
+        ["/api/onboard/lighthouse", "summary.delegations"],
+        ["/api/intelligence/copilot", "un stream text/plain, no un JSON"],
+        ["/api/billing/invoices", "y ademas se tragaba la URL del PDF"],
     ])("%s no se intercepta (el panel lee %s y la interceptación no lo traía)", (ruta) => {
         expect(interceptadas).not.toContain(ruta);
     });
