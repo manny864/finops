@@ -249,7 +249,7 @@ function RemediationModal({
                   {t("recCapacityTitle")}
                 </span>
                 <span className="text-[11px] font-extrabold text-emerald-600">
-                  {t("estSavingsPerMonth", { v: formatCurrency(action.estimatedSavingsUSD) })}
+                  {t("estSavingsPerMonth", { amount: formatCurrency(action.estimatedSavingsUSD) })}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs">

@@ -11670,7 +11670,7 @@
     "recommendedActions": "Acciones de Optimización FinOps Recomendadas",
     "recommendedActionsSub": "Oportunidades de ahorro directo en licencias combinadas Sentinel + LAW e ingesta de telemetría",
     "reassessmentNote": "La reevaluación cruza el volumen de ingesta de tablas de seguridad (SecurityEvent, CommonSecurityLog, SigninLogs), la vigencia de Capacity Reservations combinadas y el ratio de reglas analíticas sin hallazgos.",
-    "estSavingsPerMonth": "Ahorro estimado: ~{v}/mes",
+    "estSavingsPerMonth": "Ahorro estimado: ~{amount}/mes",
     "copyScript": "Copiar Script",
     "copyCommand": "Copiar Comando",
     "governanceTitle": "Gobernanza FinOps de Microsoft Sentinel",
