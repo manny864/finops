@@ -655,7 +655,14 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                       }
                   }), { status: 200 });
               }
-              if (url.includes('/api/onboard/lighthouse')) return new Response(JSON.stringify({ mock: true, armTemplate: { '$schema':'https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json', contentVersion:'1.0.0.0', resources:[] } }), {status: 200});
+              // /api/onboard/lighthouse NO se intercepta: la ruta (y sus
+              // subrutas /verify y /[id]) ya resuelven isMockTenant devolviendo
+              // un LighthousePayload completo. Este mock servia solo
+              // {mock, armTemplate} — sin `summary` — y el panel hace
+              // `payload?.summary.delegations`: el `?.` corta en `payload`, no
+              // en `summary`, asi que en demo la pagina entera reventaba con
+              // "can't access property delegations". Ademas el includes()
+              // tambien tapaba /verify y /[id].
               if (url.includes('/api/intelligence/storage-efficiency')) {
                   const m = (selectedTenant?.tier?.toLowerCase()==='enterprise')?50:(selectedTenant?.tier?.toLowerCase()==='business')?10:(selectedTenant?.tier?.toLowerCase()==='pro')?3:1;
                   const hotGb = 12500 * m, coolGb = 5000 * m, coldGb = 1600 * m, archGb = 1000 * m;

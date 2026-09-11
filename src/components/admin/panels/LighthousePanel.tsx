@@ -257,7 +257,9 @@ export default function LighthousePanel() {
         URL.revokeObjectURL(url);
     };
 
-    const delegations = payload?.summary.delegations || [];
+    // `?.` en las dos posiciones: `setPayload(json as LighthousePayload)` es un
+    // cast sin validar, asi que cualquier 200 con otra forma llegaba hasta aca.
+    const delegations = payload?.summary?.delegations || [];
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();
         if (!q) return delegations;
