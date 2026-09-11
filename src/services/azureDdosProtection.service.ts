@@ -18,6 +18,7 @@
 import { getResourceGraphClient, getAzureCredential } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
+import { isMockTenant } from "@/lib/mockData";
 import {
   DdosResourceDetail,
   DdosSummaryMetrics,
@@ -125,7 +126,10 @@ function getMockDdosProtectionData(tenantId: string): DdosProtectionResponse {
   const remediations: DdosRemediationAction[] = [];
 
   const regions = ["eastus", "westeurope", "uksouth", "southeastasia"];
-  const subNames = ["Producción Principal", "Producción Europa", "DR UK", "APAC"];
+  // Nombres de suscripcion de demo: neutros a proposito. Son DATOS --un tenant
+// real los nombra como quiere-- y en castellano se los comia un lector en
+// ingles o portugues.
+  const subNames = ["Production Main", "Production Europe", "DR UK", "APAC"];
   const subIds = [
     "sub-prod-001",
     "sub-prod-002",
@@ -422,13 +426,16 @@ function getEmptyDdosProtectionResponse(): DdosProtectionResponse {
 // ─── Main Service ─────────────────────────────────────────────────────────
 
 export async function getAzureDdosProtection(tenantId: string): Promise<DdosProtectionResponse> {
-  const isMock =
-    tenantId.startsWith("demo-") ||
-    tenantId.startsWith("mock-") ||
-    tenantId === "default-tenant" ||
-    tenantId === "default";
-
-  if (isMock) {
+  /**
+   * `isMockTenant` y no un predicado propio.
+   *
+   * El de antes solo miraba los prefijos `demo-`/`mock-` y los dos ids
+   * literales, asi que los CUATRO tenants demo --que se identifican por UUID
+   * (`22222222-...`)-- caian al camino vivo y la pantalla salia vacia. La ruta
+   * SI usaba `isMockTenant`: decidia "mock" y despues delegaba en esta funcion,
+   * que volvia a decidir y decia que no. Un solo predicado para los dos.
+   */
+  if (isMockTenant(tenantId)) {
     return getMockDdosProtectionData(tenantId);
   }
 
