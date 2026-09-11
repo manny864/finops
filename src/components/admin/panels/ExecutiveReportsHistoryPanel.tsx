@@ -486,7 +486,7 @@ export default function ExecutiveReportsHistoryPanel() {
                                                     <button
                                                         type="button"
                                                         onClick={() => void handleDownload(item.id, "pdf")}
-                                                        title="Descargar PDF"
+                                                        title={t("downloadPdf")}
                                                         className="p-1 text-[#0078D4] hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-md transition-colors"
                                                     >
                                                         <IconDownload size={15} stroke={1.5} />

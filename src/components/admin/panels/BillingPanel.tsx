@@ -647,7 +647,7 @@ export default function BillingPanel() {
                                                     className="inline-flex items-center gap-1 text-xs font-semibold text-[#0078D4] hover:text-[#0060AA] transition-colors"
                                                 >
                                                     <IconDownload size={14} className="text-[#0078D4]" />
-                                                    <span>Descargar PDF</span>
+                                                    <span>{t("downloadPdf")}</span>
                                                 </button>
                                             </td>
                                         )}

@@ -571,7 +571,7 @@ export default function ExecutiveReportPanel() {
                             className="inline-flex items-center gap-1.5 px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-semibold shadow-2xs disabled:opacity-50 transition-colors"
                         >
                             {isExportingPdf ? <IconLoader2 size={16} stroke={1.5} className="animate-spin" /> : <IconDownload size={16} stroke={1.5} />}
-                            Descargar PDF A4
+                            {t("downloadPdf")}
                         </button>
                     </div>
 

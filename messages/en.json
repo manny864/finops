@@ -550,7 +550,8 @@
     "col_billingDate": "Issue Date",
     "col_amountUSD": "Amount (USD)",
     "col_status": "Status",
-    "col_actions": "Actions"
+    "col_actions": "Actions",
+    "downloadPdf": "Download PDF"
   },
   "AdminCapacityAddons": {
     "selfServeUnavailable": "Online purchasing is not available for this account (no active Paddle subscription, or add-ons are not enabled in this environment). Contact sales to expand your capacity.",
@@ -1369,7 +1370,7 @@
     "tableSavings": "Estimated savings",
     "tableRecommendation": "Recommendation",
     "tableVsPreviousMonth": "vs. previous month",
-    "downloadPdf": "Download PDF",
+    "downloadPdf": "Download A4 PDF",
     "downloadJson": "Download JSON",
     "openExecutiveTab": "Open in the Executive Report tab",
     "searchPlaceholder": "Search by id, scope or requester…",

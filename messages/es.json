@@ -550,7 +550,8 @@
     "col_billingDate": "Fecha de Emisión",
     "col_amountUSD": "Monto (USD)",
     "col_status": "Estado",
-    "col_actions": "Acciones"
+    "col_actions": "Acciones",
+    "downloadPdf": "Descargar PDF"
   },
   "AdminCapacityAddons": {
     "selfServeUnavailable": "La contratación en línea no está disponible para esta cuenta (sin suscripción de Paddle activa o add-ons no habilitados en este entorno). Contactá a ventas para ampliar tu capacidad.",
@@ -1369,7 +1370,7 @@
     "tableSavings": "Ahorro estimado",
     "tableRecommendation": "Recomendación",
     "tableVsPreviousMonth": "vs. mes anterior",
-    "downloadPdf": "Descargar PDF",
+    "downloadPdf": "Descargar PDF A4",
     "downloadJson": "Descargar JSON",
     "openExecutiveTab": "Abrir en la pestaña Reporte Ejecutivo",
     "searchPlaceholder": "Buscar por id, alcance o solicitante…",
