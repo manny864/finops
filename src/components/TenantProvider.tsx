@@ -472,7 +472,14 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/intelligence/aks-chargeback')) return new Response(JSON.stringify(getMockDataForRoute('aks_chargeback', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/aks')) return new Response(JSON.stringify(getMockDataForRoute('aks', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/zero-cost')) return new Response(JSON.stringify(getMockDataForRoute('zero_cost', mockKey)), {status: 200});
-              if (url.includes('/api/intelligence/unit-economics')) return new Response(JSON.stringify(getMockDataForRoute('unit_economics', mockKey)), {status: 200});
+              // /api/intelligence/unit-economics NO se intercepta: la ruta ya
+              // hace su propia rama mock con `isMockTenant` y devuelve el payload
+              // que el panel espera ({summary, config, series, remediations}).
+              // Lo que devolvia esta linea era el mock VIEJO de mockData
+              // --{success, mock, data}, sin `summary`-- asi que el panel leia
+              // undefined en todos los KPI y mostraba $0.00, volumen 0 y "sin
+              // datos de costo" con el badge de Demo Sandbox puesto. Mismo
+              // defecto que tenia el modal de COIN.
               if (url.includes('/api/intelligence/scorecard')) return new Response(JSON.stringify(getMockDataForRoute('scorecard', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/whiteboard')) return new Response(JSON.stringify(getMockDataForRoute('white_board', mockKey)), {status: 200});
               // Sub-ruta de detalle de recursos por Centro de Costos debe ir ANTES que /api/intelligence/cost-centers (substring).
