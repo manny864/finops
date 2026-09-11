@@ -14864,6 +14864,7 @@
         "Supressão de Recomendações (Snooze)",
         "Canais de Notificação (Slack/Teams/Email/Webhook)",
         "Autenticação Multi-Fator (MFA)",
+        "Azure Key Vault (criptografia gerenciada pela plataforma)",
         "Suporte na plataforma (20 tickets/mês, resposta em 24 h)",
         "FinOps Copilot (IA)"
       ]
@@ -14937,7 +14938,6 @@
         "Power BI Invoicing (CSP)",
         "SSO Federado (SAML)",
         "Auditorias FinOps Modulares",
-        "Azure Key Vault (criptografia gerenciada pela plataforma)",
         "Billing Azure Marketplace SaaS",
         "Suporte dedicado ilimitado (SLA máximo de 4 h)"
       ],

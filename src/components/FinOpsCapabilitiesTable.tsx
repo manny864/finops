@@ -422,10 +422,15 @@ export function FinOpsCapabilitiesTable({
           enterprise: true,
         },
         {
+          // No es un diferencial de Enterprise: `isKeyVaultEnabled()` depende
+          // solo de la configuracion de la plataforma (AZURE_KEYVAULT_*) y no
+          // mira el tier, asi que las credenciales de CUALQUIER tenant se
+          // guardan cifradas igual. Anunciarlo como exclusivo era una promesa
+          // comercial que el codigo no sostiene.
           itemKey: 'azureKeyVault',
           icon: <IconLock className="w-4.5 h-4.5 text-white" stroke={1.75} />,
-          pro: false,
-          business: false,
+          pro: true,
+          business: true,
           enterprise: true,
         },
         {
