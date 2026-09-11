@@ -272,11 +272,21 @@ describe("Azure Workbooks — comandos de remediacion", () => {
     expect(purge.powershell).toContain("Remove-AzApplicationInsightsWorkbook");
 
     const refresh = buildWorkbookRemediationCommand({ ...base, category: "DISABLE_AUTOREFRESH" });
-    expect(refresh.cli).toContain("autoRefreshSeconds");
-    expect(refresh.powershell).toContain("900");
+    // En el CLI, "autoRefreshSeconds" sólo aparecía dentro de los comentarios,
+    // que ahora son marcadores que resuelve resolverComentarios() en el idioma
+    // del lector. Lo que se afirma es el comando ejecutable --que es lo que el
+    // usuario copia-- más el marcador que el builder debe emitir.
+    expect(refresh.cli).toContain("az monitor app-insights workbook update");
+    expect(refresh.cli).toContain("#{cmt_wb_editar_workbook_json_autorefreshseconds_900_15}");
+    // En PowerShell sí es ejecutable: $def.autoRefreshSeconds = 900.
+    expect(refresh.powershell).toContain("$def.autoRefreshSeconds = 900");
 
     const kql = buildWorkbookRemediationCommand({ ...base, category: "OPTIMIZE_KQL" });
-    expect(kql.cli).toContain("TimeGenerated");
+    // Este CLI es casi todo comentario --el patron KQL a aplicar-- y una sola
+    // linea ejecutable. Se afirman las dos cosas: el comando, y el marcador del
+    // comentario que lleva el ejemplo con TimeGenerated.
+    expect(kql.cli).toContain("az monitor app-insights workbook show");
+    expect(kql.cli).toContain("#{cmt_wb_where_timegenerated_ago_24h}");
 
     const promote = buildWorkbookRemediationCommand({ ...base, category: "PROMOTE_TO_SHARED" });
     expect(promote.cli).toContain("shared");

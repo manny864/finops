@@ -1,5 +1,5 @@
 "use client";
-import { useTextoPorCategoria } from "@/lib/recommendationText";
+import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
 import { ERROR_401 } from "@/lib/errorSentinels";
 import { useTranslations } from "next-intl";
 
@@ -191,7 +191,7 @@ function RemediationModal({
   const currentCode = activeTab === "CLI" ? commands.cli : commands.powershell;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(currentCode);
+    navigator.clipboard.writeText(resolverComentarios(currentCode, t));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -349,7 +349,7 @@ function RemediationModal({
 
             <div className="relative group">
               <pre className="p-3.5 bg-slate-950 text-slate-200 rounded-xl text-xs font-mono overflow-x-auto whitespace-pre-wrap border border-slate-800">
-                {currentCode}
+                {resolverComentarios(currentCode, t)}
               </pre>
             </div>
           </div>
@@ -388,6 +388,7 @@ function RemediationModal({
 // ─── Componente Principal AppInsightsDashboard ───
 export default function AppInsightsDashboard() {
   const t = useTranslations("AppInsightsFinops");
+  const tc = useTranslations("Common");
   const textoRem = useTextoPorCategoria("AppInsightsFinops");
   const { selectedTenant } = useTenant();
   const { instance, accounts, inProgress } = useMsal();
@@ -958,7 +959,7 @@ export default function AppInsightsDashboard() {
                   </button>
                 </ResizableTh>
                 <th className="p-[10px_14px] text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right bg-slate-50/80 dark:bg-slate-900/80 min-w-[130px]">
-                  Acciones
+                  {tc("actions")}
                 </th>
               </tr>
             </thead>
@@ -1142,7 +1143,7 @@ export default function AppInsightsDashboard() {
 
                 <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                   <span className="text-[10px] text-slate-400">
-                    Confianza: {action.confidence}
+                    {tc("confidence")}: {action.confidence}
                   </span>
                   <button
                     onClick={() => setActiveModalAction(action)}

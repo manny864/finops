@@ -1,6 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useTextoPorCategoria } from "@/lib/recommendationText";
+import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -56,8 +56,7 @@ import type {
   AlertsPayload,
   AlertRuleResource,
   AlertRemediationAction,
-  AlertFiringEvent,
-} from "@/types/azureAlerts.types";
+  AlertFiringEvent, AlertTypeBreakdownItem } from "@/types/azureAlerts.types";
 
 const formatCurrency = (val: number) =>
   new Intl.NumberFormat("en-US", {
@@ -102,6 +101,7 @@ function AlertAuditModal({
   potentialSavings: number;
 }) {
   const t = useTranslations("AlertsManagement");
+  const tc = useTranslations("Common");
   const textoRem = useTextoPorCategoria("AlertsManagement");
   const [saving, setSaving] = useState(false);
   const [completed, setCompleted] = useState(false);
@@ -149,7 +149,7 @@ function AlertAuditModal({
           </div>
           <div className="p-3 bg-blue-50/50 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-800 flex justify-between items-center text-sm">
             <span className="text-[#0054A6] dark:text-blue-300">{t("projectedSavings")}</span>
-            <span className="font-bold text-[#0054A6] dark:text-blue-200">{formatCurrency(potentialSavings)}/mes</span>
+            <span className="font-bold text-[#0054A6] dark:text-blue-200">{tc("amountPerMonth", { amount: formatCurrency(potentialSavings) })}</span>
           </div>
           <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400 space-y-1">
             <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium">
@@ -453,6 +453,7 @@ function RemediationModal({
 }) {
   const [tab, setTab] = useState<"cli" | "powershell">("cli");
   const t = useTranslations("AlertsManagement");
+  const tc = useTranslations("Common");
   const textoRem = useTextoPorCategoria("AlertsManagement");
   const [copied, setCopied] = useState(false);
 
@@ -462,7 +463,7 @@ function RemediationModal({
   const commandText = tab === "cli" ? script.cli : script.powershell;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(commandText);
+    navigator.clipboard.writeText(resolverComentarios(commandText, t));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -484,7 +485,7 @@ function RemediationModal({
               {t("remediationTitle", { title: textoRem(action, "title") })}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              {t("estimatedSavingsLabel")} <span className="font-bold text-emerald-600">{formatCurrency(action.estimatedSavingsUSD)}/mes</span>
+              {t("estimatedSavingsLabel")} <span className="font-bold text-emerald-600">{tc("amountPerMonth", { amount: formatCurrency(action.estimatedSavingsUSD) })}</span>
             </p>
           </div>
         </div>
@@ -522,7 +523,7 @@ function RemediationModal({
         {/* Code Box */}
         <div className="relative mb-6">
           <pre className="p-3.5 bg-slate-950 text-slate-100 rounded-xl font-mono text-xs overflow-x-auto border border-slate-800 leading-relaxed pr-12">
-            {commandText}
+            {resolverComentarios(commandText, t)}
           </pre>
           <button
             onClick={handleCopy}
@@ -549,6 +550,7 @@ function RemediationModal({
 // ─── Componente Principal ───
 export default function AlertsManagementPanel() {
   const t = useTranslations("AlertsManagement");
+  const tc = useTranslations("Common");
   const textoRem = useTextoPorCategoria("AlertsManagement");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
@@ -782,6 +784,30 @@ export default function AlertsManagementPanel() {
     breakdownByType: [],
   };
 
+  /**
+   * `typeLabel` lo arma el servidor en castellano (ALERT_TYPE_DISPLAY_NAMES en
+   * azureAlertsRules.service.ts). El que sirve es `typeName`, que es el
+   * discriminador (`metric`, `scheduledQuery`, ...): con el se resuelve la
+   * clave en el catalogo y el texto sale en el idioma del lector.
+   *
+   * `typeLabel` queda de respaldo por si aparece un tipo nuevo antes de que su
+   * clave exista: vale mas la frase en castellano que una clave cruda en
+   * pantalla.
+   */
+  const tiposTraducidos = useMemo(
+    () =>
+      summary.breakdownByType.map((b: AlertTypeBreakdownItem) => {
+        let etiqueta = b.typeLabel;
+        try {
+          etiqueta = t(`alertType_${b.typeName}`);
+        } catch {
+          /* tipo sin clave: se queda el texto del servidor */
+        }
+        return { ...b, typeLabel: etiqueta };
+      }),
+    [summary.breakdownByType, t]
+  );
+
   return (
     <div className="w-full max-w-full px-4 sm:px-6 lg:px-8 space-y-6">
       {/* ─── Encabezado Principal y Controles Globales ─── */}
@@ -928,7 +954,7 @@ export default function AlertsManagementPanel() {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={summary.breakdownByType.filter((b) => b.count > 0)}
+                  data={tiposTraducidos.filter((b) => b.count > 0)}
                   dataKey="costUSD"
                   nameKey="typeLabel"
                   cx="50%"
@@ -937,12 +963,12 @@ export default function AlertsManagementPanel() {
                   outerRadius={62}
                   paddingAngle={3}
                 >
-                  {summary.breakdownByType.map((entry, index) => (
+                  {tiposTraducidos.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
                 <RechartsTooltip
-                  formatter={(val: any) => [formatCurrency(Number(val)), "Costo Mensual"]}
+                  formatter={(val: any) => [formatCurrency(Number(val)), t("monthlyCostLabel")]}
                   contentStyle={{ ...TOOLTIP_TEMA.contentStyle,
                     background: "var(--surface)",
                     color: "var(--chart-tip-fg)",
@@ -955,7 +981,7 @@ export default function AlertsManagementPanel() {
           </div>
 
           <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
-            {summary.breakdownByType.map((b) => (
+            {tiposTraducidos.map((b) => (
               <div key={b.typeName} className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: b.color }} />
                 <span className="text-slate-600 dark:text-slate-400 truncate">{b.typeLabel}:</span>
@@ -977,19 +1003,13 @@ export default function AlertsManagementPanel() {
 
           <div className="h-48 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={summary.breakdownByType} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <BarChart data={tiposTraducidos} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.6} />
                 <XAxis dataKey="typeLabel" tick={{ fontSize: 11, fill: "#64748B" }} />
                 <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "#64748B" }} />
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: "#64748B" }} tickFormatter={(v) => `$${v}`} />
-                <RechartsTooltip
-                  contentStyle={{ ...TOOLTIP_TEMA.contentStyle,
-                    background: "var(--surface)",
-                    color: "var(--chart-tip-fg)",
-                    borderRadius: "12px",
-                    border: "1px solid #334155",
-                    fontSize: "12px",
-                  }} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
+                {/* Sin tooltip a pedido: las dos barras ya llevan su valor en
+                    los ejes y la leyenda, y el hover tapaba la comparacion. */}
                 <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "6px" }} />
                 <Bar yAxisId="left" dataKey="count" name={t("seriesRuleCount")} fill="#0078D4" radius={[6, 6, 0, 0]} />
                 <Bar yAxisId="right" dataKey="costUSD" name={t("seriesCostUsd")} fill="#38BDF8" radius={[6, 6, 0, 0]} />
@@ -1313,7 +1333,7 @@ export default function AlertsManagementPanel() {
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {t("totalPotentialSavings")}{" "}
-              <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(summary.potentialSavingsUSD)}/mes</span>
+              <span className="font-bold text-emerald-600 dark:text-emerald-400">{tc("amountPerMonth", { amount: formatCurrency(summary.potentialSavingsUSD) })}</span>
             </p>
           </div>
         </div>
@@ -1332,7 +1352,7 @@ export default function AlertsManagementPanel() {
                     </span>
                     {action.estimatedSavingsUSD > 0 && (
                       <span className="text-xs font-extrabold text-emerald-600">
-                        +{formatCurrency(action.estimatedSavingsUSD)}/mes
+                        +{tc("amountPerMonth", { amount: formatCurrency(action.estimatedSavingsUSD) })}
                       </span>
                     )}
                   </div>
@@ -1345,13 +1365,13 @@ export default function AlertsManagementPanel() {
                 </div>
 
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                  <span className="text-[10px] text-slate-400 font-medium">Confianza: {action.confidence}</span>
+                  <span className="text-[10px] text-slate-400 font-medium">{tc("confidence")}: {action.confidence}</span>
                   <button
                     onClick={() => setActiveRemediation(action)}
                     className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1 cursor-pointer"
                   >
                     <IconTerminal2 className="w-3.5 h-3.5" />
-                    Remediar
+                    {tc("remediate")}
                   </button>
                 </div>
               </div>

@@ -1,6 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useTextoPorCategoria } from "@/lib/recommendationText";
+import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -308,7 +308,7 @@ function WorkbookRemediationModal({
   const cmd = buildWorkbookRemediationCommand(action);
 
   const copy = (text: string, which: "cli" | "ps") => {
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(resolverComentarios(text, t));
     setCopied(which);
     setTimeout(() => setCopied(null), 2000);
   };
@@ -364,7 +364,7 @@ function WorkbookRemediationModal({
               </button>
             </div>
             <pre className="p-3.5 bg-slate-950 text-slate-100 rounded-xl font-mono text-[11px] overflow-x-auto border border-slate-800 leading-relaxed whitespace-pre-wrap">
-              {text}
+              {resolverComentarios(text, t)}
             </pre>
           </div>
         ))}
@@ -381,6 +381,7 @@ function WorkbookRemediationModal({
 // ─── Componente Principal ───
 export default function WorkbooksManagementPanel() {
   const t = useTranslations("WorkbooksManagement");
+  const tc = useTranslations("Common");
   const textoRem = useTextoPorCategoria("WorkbooksManagement");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
@@ -605,7 +606,7 @@ export default function WorkbooksManagementPanel() {
               {summary.totalWorkbooksCount}
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              <span className="text-[#0054A6] dark:text-blue-300 font-semibold">{summary.sharedCount} compartidos</span>{" "}
+              <span className="text-[#0054A6] dark:text-blue-300 font-semibold">{t("sharedAndPrivate", { shared: summary.sharedCount, private: summary.privateCount })}</span>{" "}
               · <span className="text-slate-400">{summary.privateCount} privados</span>
             </div>
           </div>
@@ -814,9 +815,9 @@ export default function WorkbooksManagementPanel() {
                 <ResizableTh minWidth={160}>Fuente Principal</ResizableTh>
                 <ResizableTh minWidth={130}>Auto-Refresh</ResizableTh>
                 <ResizableTh minWidth={150}>{t("colLastModified")}</ResizableTh>
-                <ResizableTh minWidth={130}>Salud</ResizableTh>
+                <ResizableTh minWidth={130}>{tc("health")}</ResizableTh>
                 <ResizableTh minWidth={110}>{t("colMonthlyCost")}</ResizableTh>
-                <ResizableTh minWidth={190}>Acciones</ResizableTh>
+                <ResizableTh minWidth={190}>{tc("actions")}</ResizableTh>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -925,7 +926,7 @@ export default function WorkbooksManagementPanel() {
                             className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-[#00AEEF] bg-white dark:bg-slate-900 text-[#00AEEF] dark:text-cyan-400 hover:bg-sky-50/50 dark:hover:bg-sky-950/40 transition cursor-pointer flex items-center gap-1 whitespace-nowrap"
                           >
                             <IconClockPause className="w-3.5 h-3.5" />
-                            Refresco
+                            {t("refreshBtn")}
                           </button>
                         )}
                       </div>
@@ -961,7 +962,7 @@ export default function WorkbooksManagementPanel() {
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
               {t("totalPotentialSavings")}{" "}
               <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                {formatCurrency(summary.potentialSavingsUSD)}/mes
+                {tc("amountPerMonth", { amount: formatCurrency(summary.potentialSavingsUSD) })}
               </span>
             </p>
           </div>
@@ -981,7 +982,7 @@ export default function WorkbooksManagementPanel() {
                     </span>
                     {action.estimatedSavingsUSD > 0 && (
                       <span className="text-xs font-extrabold text-emerald-600">
-                        +{formatCurrency(action.estimatedSavingsUSD)}/mes
+                        +{tc("amountPerMonth", { amount: formatCurrency(action.estimatedSavingsUSD) })}
                       </span>
                     )}
                   </div>
@@ -992,13 +993,13 @@ export default function WorkbooksManagementPanel() {
                 </div>
 
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                  <span className="text-[10px] text-slate-400 font-medium">Confianza: {action.confidence}</span>
+                  <span className="text-[10px] text-slate-400 font-medium">{tc("confidence")}: {action.confidence}</span>
                   <button
                     onClick={() => setActiveRemediation(action)}
                     className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1 cursor-pointer"
                   >
                     <IconTerminal2 className="w-3.5 h-3.5" />
-                    Remediar
+                    {tc("remediate")}
                   </button>
                 </div>
               </div>

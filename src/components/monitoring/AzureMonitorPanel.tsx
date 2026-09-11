@@ -370,6 +370,7 @@ function RemediationModal({
 // ─── Componente Principal ───
 export default function AzureMonitorPanel() {
   const t = useTranslations("AzureMonitorPanel");
+  const tc = useTranslations("Common");
   const textoRem = useTextoPorCategoria("AzureMonitorPanel");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
@@ -1228,7 +1229,7 @@ export default function AzureMonitorPanel() {
             </div>
           </div>
           <span className="text-xs font-bold text-emerald-600">
-            Ahorro Total: {formatCurrency(metrics?.potentialSavingsUSD || 0)}/mes
+            {tc("totalSavings")} {tc("amountPerMonth", { amount: formatCurrency(metrics?.potentialSavingsUSD || 0) })}
           </span>
         </div>
 

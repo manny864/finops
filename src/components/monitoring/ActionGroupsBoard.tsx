@@ -1,6 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useTextoPorCategoria } from "@/lib/recommendationText";
+import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
 import { ACTION_GROUP_CHANNELS } from "@/types/azureActionGroups.types";
 
 import React, { useState, useMemo } from "react";
@@ -467,6 +467,7 @@ function ActionGroupRemediationModal({
 }) {
   const [tab, setTab] = useState<"cli" | "powershell">("cli");
   const t = useTranslations("ActionGroups");
+  const tc = useTranslations("Common");
   const textoRem = useTextoPorCategoria("ActionGroups");
   const [copied, setCopied] = useState(false);
 
@@ -476,7 +477,7 @@ function ActionGroupRemediationModal({
   const commandText = tab === "cli" ? script.cli : script.powershell;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(commandText);
+    navigator.clipboard.writeText(resolverComentarios(commandText, t));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -498,7 +499,7 @@ function ActionGroupRemediationModal({
               {t("remediationTitle", { title: textoRem(action, "title") })}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              {t("estSavingsLabel")} <span className="font-bold text-emerald-600">{formatCurrency(action.estimatedSavingsUSD)}/mes</span>
+              {t("estSavingsLabel")} <span className="font-bold text-emerald-600">{tc("amountPerMonth", { amount: formatCurrency(action.estimatedSavingsUSD) })}</span>
             </p>
           </div>
         </div>
@@ -536,7 +537,7 @@ function ActionGroupRemediationModal({
         {/* Code Box */}
         <div className="relative mb-6">
           <pre className="p-3.5 bg-slate-950 text-slate-100 rounded-xl font-mono text-xs overflow-x-auto border border-slate-800 leading-relaxed pr-12">
-            {commandText}
+            {resolverComentarios(commandText, t)}
           </pre>
           <button
             onClick={handleCopy}
@@ -563,6 +564,7 @@ function ActionGroupRemediationModal({
 // ─── Componente Principal ───
 export default function ActionGroupsBoard() {
   const t = useTranslations("ActionGroups");
+  const tc = useTranslations("Common");
   const textoRem = useTextoPorCategoria("ActionGroups");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
@@ -900,7 +902,7 @@ export default function ActionGroupsBoard() {
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
               <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{summary.enabledCount} activos</span> •{" "}
-              <span className="text-slate-400">{summary.disabledCount} deshabilitados</span>
+              <span className="text-slate-400">{t("disabledCount", { n: summary.disabledCount })}</span>
             </div>
           </div>
           <IconBellRinging className="w-8 h-8 text-[#0078D4]" stroke={1.5} />
@@ -948,7 +950,7 @@ export default function ActionGroupsBoard() {
               )}
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              {summary.bouncedEmailsTotal} rebotes • {summary.failedNotificationsMTD} fallas webhook
+              {t("bouncesAndFailures", { bounces: summary.bouncedEmailsTotal, failures: summary.failedNotificationsMTD })}
             </div>
           </div>
           <IconAlertTriangle className="w-8 h-8 text-[#0078D4]" stroke={1.5} />
@@ -1229,14 +1231,14 @@ export default function ActionGroupsBoard() {
                     healthBadge = (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold text-[10px] border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 bg-rose-50/50 dark:bg-rose-950/20">
                         <IconAlertTriangle className="w-3 h-3" />
-                        Rebotes ({ag.bouncedEmailCount})
+                        {t("badgeBounces", { n: ag.bouncedEmailCount })}
                       </span>
                     );
                   } else if (ag.healthStatus === "Invalid_Endpoint_Error") {
                     healthBadge = (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold text-[10px] border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 bg-red-50/50 dark:bg-red-950/20">
                         <IconAlertCircle className="w-3 h-3" />
-                        Falla Webhook ({ag.failedWebhookCount})
+                        {t("badgeWebhookFail", { n: ag.failedWebhookCount })}
                       </span>
                     );
                   }
@@ -1390,7 +1392,7 @@ export default function ActionGroupsBoard() {
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {t("totalPotentialSavings")}{" "}
-              <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(summary.potentialSavingsUSD)}/mes</span>
+              <span className="font-bold text-emerald-600 dark:text-emerald-400">{tc("amountPerMonth", { amount: formatCurrency(summary.potentialSavingsUSD) })}</span>
             </p>
           </div>
         </div>
@@ -1409,7 +1411,7 @@ export default function ActionGroupsBoard() {
                     </span>
                     {action.estimatedSavingsUSD > 0 && (
                       <span className="text-xs font-extrabold text-emerald-600">
-                        +{formatCurrency(action.estimatedSavingsUSD)}/mes
+                        +{tc("amountPerMonth", { amount: formatCurrency(action.estimatedSavingsUSD) })}
                       </span>
                     )}
                   </div>
@@ -1422,13 +1424,13 @@ export default function ActionGroupsBoard() {
                 </div>
 
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                  <span className="text-[10px] text-slate-400 font-medium">Confianza: {action.confidence}</span>
+                  <span className="text-[10px] text-slate-400 font-medium">{tc("confidence")}: {action.confidence}</span>
                   <button
                     onClick={() => setActiveRemediation(action)}
                     className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1 cursor-pointer"
                   >
                     <IconTerminal2 className="w-3.5 h-3.5" />
-                    Remediar
+                    {tc("remediate")}
                   </button>
                 </div>
               </div>

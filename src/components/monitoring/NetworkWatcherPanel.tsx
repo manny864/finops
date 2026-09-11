@@ -1,6 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useTextoPorCategoria } from "@/lib/recommendationText";
+import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -338,7 +338,7 @@ function NetworkRemediationModal({
 
   const cmd = buildNetworkWatcherRemediationCommand(action);
   const copy = (text: string, which: "cli" | "ps") => {
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(resolverComentarios(text, t));
     setCopied(which);
     setTimeout(() => setCopied(null), 2000);
   };
@@ -394,7 +394,7 @@ function NetworkRemediationModal({
               </button>
             </div>
             <pre className="p-3.5 bg-slate-950 text-slate-100 rounded-xl font-mono text-[11px] overflow-x-auto border border-slate-800 leading-relaxed whitespace-pre-wrap">
-              {text}
+              {resolverComentarios(text, t)}
             </pre>
           </div>
         ))}
@@ -410,6 +410,7 @@ function NetworkRemediationModal({
 // ─── Componente Principal ───
 export default function NetworkWatcherPanel() {
   const t = useTranslations("NetworkWatcher");
+  const tc = useTranslations("Common");
   const textoRem = useTextoPorCategoria("NetworkWatcher");
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "";
@@ -631,7 +632,7 @@ export default function NetworkWatcherPanel() {
               {summary.totalWatchersCount}
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              {watchersList.filter((w) => w.flowLogsCount === 0).length} sin flow logs
+              {t("withoutFlowLogs", { n: watchersList.filter((w) => w.flowLogsCount === 0).length })}
             </div>
           </div>
           <IconWorld className="w-8 h-8 text-[#0078D4]" stroke={1.5} />
@@ -673,7 +674,7 @@ export default function NetworkWatcherPanel() {
               {formatCurrency(
                 watchersList.reduce((a, w) => a + w.estimatedConnectionMonitorCostUSD, 0)
               )}
-              /mes
+              {t("perMonthSuffix")}
             </div>
           </div>
           <IconActivity className="w-8 h-8 text-[#0078D4]" stroke={1.5} />
@@ -1009,7 +1010,7 @@ export default function NetworkWatcherPanel() {
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
             {t("totalPotentialSavingsIdentified")}{" "}
             <span className="font-bold text-emerald-600 dark:text-emerald-400">
-              {formatCurrency(summary.potentialSavingsUSD)}/mes
+              {tc("amountPerMonth", { amount: formatCurrency(summary.potentialSavingsUSD) })}
             </span>
           </p>
         </div>
@@ -1028,7 +1029,7 @@ export default function NetworkWatcherPanel() {
                     </span>
                     {action.estimatedSavingsUSD > 0 && (
                       <span className="text-xs font-extrabold text-emerald-600">
-                        +{formatCurrency(action.estimatedSavingsUSD)}/mes
+                        +{tc("amountPerMonth", { amount: formatCurrency(action.estimatedSavingsUSD) })}
                       </span>
                     )}
                   </div>
@@ -1038,7 +1039,7 @@ export default function NetworkWatcherPanel() {
                   </p>
                 </div>
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                  <span className="text-[10px] text-slate-400 font-medium">Confianza: {action.confidence}</span>
+                  <span className="text-[10px] text-slate-400 font-medium">{tc("confidence")}: {action.confidence}</span>
                   <button
                     onClick={() => setActiveRemediation(action)}
                     className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-950/40 transition flex items-center gap-1 cursor-pointer"

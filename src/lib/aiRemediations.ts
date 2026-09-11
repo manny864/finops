@@ -273,7 +273,7 @@ export function buildAppInsightsRemediationCommand(action: AppInsightsRemediatio
       cli:
         action.commandPayload ||
         `az monitor app-insights component update --app "${resourceName}" --resource-group "${rg}" --daily-cap ${cap}`,
-      powershell: `# PowerShell Azure CLI - Fijar Daily Cap de Ingesta\nSet-AzApplicationInsights -ResourceGroupName "${rg}" -Name "${resourceName}" -DailyCap ${cap}`,
+      powershell: `#{cmt_ai_powershell_azure_cli_fijar_daily_cap}\nSet-AzApplicationInsights -ResourceGroupName "${rg}" -Name "${resourceName}" -DailyCap ${cap}`,
     };
   }
 
@@ -283,7 +283,7 @@ export function buildAppInsightsRemediationCommand(action: AppInsightsRemediatio
       cli:
         action.commandPayload ||
         `az monitor app-insights component update --app "${resourceName}" --resource-group "${rg}" --sampling-percentage ${sampling}`,
-      powershell: `# PowerShell Azure CLI - Optimizar Tasa de Muestreo (Sampling Rate)\nSet-AzApplicationInsights -ResourceGroupName "${rg}" -Name "${resourceName}" -SamplingPercentage ${sampling}`,
+      powershell: `#{cmt_ai_powershell_azure_cli_optimizar_tasa_de}\nSet-AzApplicationInsights -ResourceGroupName "${rg}" -Name "${resourceName}" -SamplingPercentage ${sampling}`,
     };
   }
 
@@ -292,15 +292,15 @@ export function buildAppInsightsRemediationCommand(action: AppInsightsRemediatio
       cli:
         action.commandPayload ||
         `az monitor app-insights component delete --app "${resourceName}" --resource-group "${rg}" --yes`,
-      powershell: `# PowerShell - Eliminar componente Application Insights huérfano\nRemove-AzApplicationInsights -ResourceGroupName "${rg}" -Name "${resourceName}"`,
+      powershell: `#{cmt_ai_powershell_eliminar_componente_application_insights_huerfano}\nRemove-AzApplicationInsights -ResourceGroupName "${rg}" -Name "${resourceName}"`,
     };
   }
 
   return {
     cli:
       action.commandPayload ||
-      `# Configurar MinimumLogLevel = Warning en appsettings.json o ApplicationInsights.config`,
-    powershell: `# Configurar MinimumLogLevel = Warning en appsettings.json`,
+      `#{cmt_ai_configurar_minimumloglevel_warning_en_appsettings_json}`,
+    powershell: `#{cmt_ai_configurar_minimumloglevel_warning_en_appsettings_json_2}`,
   };
 }
 
@@ -447,7 +447,7 @@ export function buildAlertRemediationCommand(action: AlertRemediationAction): {
   if (action.category === "PURGE_ORPHAN") {
     return {
       cli: action.commandPayload || `az monitor scheduled-query delete --name "${ruleName}" --resource-group "${rg}" --yes`,
-      powershell: `# PowerShell Azure CLI - Eliminar Alerta Huérfana\nRemove-AzScheduledQueryRule -ResourceGroupName "${rg}" -Name "${ruleName}"`,
+      powershell: `#{cmt_al_powershell_azure_cli_eliminar_alerta_huerfana}\nRemove-AzScheduledQueryRule -ResourceGroupName "${rg}" -Name "${ruleName}"`,
     };
   }
 
@@ -455,20 +455,20 @@ export function buildAlertRemediationCommand(action: AlertRemediationAction): {
     const freq = action.recommendedFrequency || "5m";
     return {
       cli: action.commandPayload || `az monitor scheduled-query update --name "${ruleName}" --resource-group "${rg}" --evaluation-frequency ${freq} --window-size 15m`,
-      powershell: `# PowerShell Azure CLI - Ajustar Frecuencia de Evaluación\nUpdate-AzScheduledQueryRule -ResourceGroupName "${rg}" -Name "${ruleName}" -EvaluationFrequency (New-TimeSpan -Minutes 5)`,
+      powershell: `#{cmt_al_powershell_azure_cli_ajustar_frecuencia_de}\nUpdate-AzScheduledQueryRule -ResourceGroupName "${rg}" -Name "${ruleName}" -EvaluationFrequency (New-TimeSpan -Minutes 5)`,
     };
   }
 
   if (action.category === "ASSIGN_ACTION_GROUP") {
     return {
       cli: action.commandPayload || `az monitor metrics alert update --name "${ruleName}" --resource-group "${rg}" --add-action-group "ag-default"`,
-      powershell: `# PowerShell Azure CLI - Vincular Action Group\nAdd-AzMetricAlertRuleV2 -ResourceGroupName "${rg}" -Name "${ruleName}"`,
+      powershell: `#{cmt_al_powershell_azure_cli_vincular_action_group}\nAdd-AzMetricAlertRuleV2 -ResourceGroupName "${rg}" -Name "${ruleName}"`,
     };
   }
 
   return {
     cli: action.commandPayload || `az monitor alert show --name "${ruleName}" --resource-group "${rg}"`,
-    powershell: `# PowerShell Azure CLI\nGet-AzScheduledQueryRule -ResourceGroupName "${rg}" -Name "${ruleName}"`,
+    powershell: `#{cmt_al_powershell_azure_cli}\nGet-AzScheduledQueryRule -ResourceGroupName "${rg}" -Name "${ruleName}"`,
   };
 }
 
@@ -482,27 +482,27 @@ export function buildActionGroupRemediationCommand(action: ActionGroupRemediatio
   if (action.category === "ORPHAN_PURGE") {
     return {
       cli: action.commandPayload || `az monitor action-group delete --name "${resourceName}" --resource-group "${rg}"`,
-      powershell: `# PowerShell Azure CLI - Eliminar Action Group Huérfano\nRemove-AzActionGroup -ResourceGroupName "${rg}" -Name "${resourceName}"`,
+      powershell: `#{cmt_ag_powershell_azure_cli_eliminar_action_group}\nRemove-AzActionGroup -ResourceGroupName "${rg}" -Name "${resourceName}"`,
     };
   }
 
   if (action.category === "ADD_RECEIVERS" || action.category === "FIX_BOUNCED_EMAILS") {
     return {
       cli: action.commandPayload || `az monitor action-group update --name "${resourceName}" --resource-group "${rg}" --add-action email "OpsLead" "ops-team@company.com"`,
-      powershell: `# PowerShell Azure CLI - Agregar Destinatario de Notificación\nSet-AzActionGroup -ResourceGroupName "${rg}" -Name "${resourceName}"`,
+      powershell: `#{cmt_ag_powershell_azure_cli_agregar_destinatario_de}\nSet-AzActionGroup -ResourceGroupName "${rg}" -Name "${resourceName}"`,
     };
   }
 
   if (action.category === "ENDPOINT_DEBUG") {
     return {
       cli: action.commandPayload || `az monitor action-group test-notifications --action-group "${resourceName}" --resource-group "${rg}" --alert-type "microsoft.insights/metricalerts"`,
-      powershell: `# PowerShell Azure CLI - Test de Notificaciones en Action Group\nTest-AzActionGroup -ResourceGroupName "${rg}" -ActionGroupName "${resourceName}"`,
+      powershell: `#{cmt_ag_powershell_azure_cli_test_de_notificaciones}\nTest-AzActionGroup -ResourceGroupName "${rg}" -ActionGroupName "${resourceName}"`,
     };
   }
 
   return {
     cli: action.commandPayload || `az monitor action-group show --name "${resourceName}" --resource-group "${rg}"`,
-    powershell: `# PowerShell Azure CLI\nGet-AzActionGroup -ResourceGroupName "${rg}" -Name "${resourceName}"`,
+    powershell: `#{cmt_ag_powershell_azure_cli}\nGet-AzActionGroup -ResourceGroupName "${rg}" -Name "${resourceName}"`,
   };
 }
 
@@ -530,8 +530,8 @@ export function buildWorkbookRemediationCommand(action: WorkbookRemediationActio
     return {
       cli:
         action.commandPayload ||
-        `# Verificar antes de borrar: el workbook puede tener consultas reutilizables\naz monitor app-insights workbook show --name "${name}" --resource-group "${rg}"\naz monitor app-insights workbook delete --name "${name}" --resource-group "${rg}" --yes`,
-      powershell: `# Eliminar workbook huerfano\nGet-AzApplicationInsightsWorkbook -ResourceGroupName "${rg}" -Name "${name}"\nRemove-AzApplicationInsightsWorkbook -ResourceGroupName "${rg}" -Name "${name}"`,
+        `#{cmt_wb_verificar_antes_de_borrar_el_workbook}\naz monitor app-insights workbook show --name "${name}" --resource-group "${rg}"\naz monitor app-insights workbook delete --name "${name}" --resource-group "${rg}" --yes`,
+      powershell: `#{cmt_wb_eliminar_workbook_huerfano}\nGet-AzApplicationInsightsWorkbook -ResourceGroupName "${rg}" -Name "${name}"\nRemove-AzApplicationInsightsWorkbook -ResourceGroupName "${rg}" -Name "${name}"`,
     };
   }
 
@@ -539,8 +539,8 @@ export function buildWorkbookRemediationCommand(action: WorkbookRemediationActio
     return {
       cli:
         action.commandPayload ||
-        `# El intervalo de auto-refresh vive dentro de serializedData: hay que\n# exportar la definicion, ajustar "autoRefreshSeconds" y volver a aplicarla.\naz monitor app-insights workbook show --name "${name}" --resource-group "${rg}" --query "serializedData" -o tsv > workbook.json\n# Editar workbook.json: "autoRefreshSeconds": 900  (15 min)\naz monitor app-insights workbook update --name "${name}" --resource-group "${rg}" --serialized-data @workbook.json`,
-      powershell: `# Ajustar auto-refresh a 15 min\n$wb = Get-AzApplicationInsightsWorkbook -ResourceGroupName "${rg}" -Name "${name}"\n$def = $wb.SerializedData | ConvertFrom-Json\n$def.autoRefreshSeconds = 900\nUpdate-AzApplicationInsightsWorkbook -ResourceGroupName "${rg}" -Name "${name}" -SerializedData ($def | ConvertTo-Json -Depth 40)`,
+        `#{cmt_wb_el_intervalo_de_auto_refresh_vive}\n#{cmt_wb_exportar_la_definicion_ajustar_autorefreshseconds_y}\naz monitor app-insights workbook show --name "${name}" --resource-group "${rg}" --query "serializedData" -o tsv > workbook.json\n#{cmt_wb_editar_workbook_json_autorefreshseconds_900_15}\naz monitor app-insights workbook update --name "${name}" --resource-group "${rg}" --serialized-data @workbook.json`,
+      powershell: `#{cmt_wb_ajustar_auto_refresh_a_15_min}\n$wb = Get-AzApplicationInsightsWorkbook -ResourceGroupName "${rg}" -Name "${name}"\n$def = $wb.SerializedData | ConvertFrom-Json\n$def.autoRefreshSeconds = 900\nUpdate-AzApplicationInsightsWorkbook -ResourceGroupName "${rg}" -Name "${name}" -SerializedData ($def | ConvertTo-Json -Depth 40)`,
     };
   }
 
@@ -548,8 +548,8 @@ export function buildWorkbookRemediationCommand(action: WorkbookRemediationActio
     return {
       cli:
         action.commandPayload ||
-        `# Patron a aplicar en cada consulta del workbook: acotar por TimeGenerated\n# ANTES de agregar, para que el motor no escanee toda la retencion.\n#\n#   ANTES:  ContainerLogV2 | summarize count() by ContainerName\n#   DESPUES: ContainerLogV2\n#            | where TimeGenerated > ago(24h)\n#            | summarize count() by ContainerName\n#\naz monitor app-insights workbook show --name "${name}" --resource-group "${rg}" --query "serializedData" -o tsv`,
-      powershell: `# Exportar la definicion para revisar las consultas KQL\n(Get-AzApplicationInsightsWorkbook -ResourceGroupName "${rg}" -Name "${name}").SerializedData | Out-File workbook.json`,
+        `#{cmt_wb_patron_a_aplicar_en_cada_consulta}\n#{cmt_wb_antes_de_agregar_para_que_el}\n#\n#{cmt_wb_antes_containerlogv2_summarize_count_by_containername}\n#{cmt_wb_despues_containerlogv2}\n#{cmt_wb_where_timegenerated_ago_24h}\n#{cmt_wb_summarize_count_by_containername}\n#\naz monitor app-insights workbook show --name "${name}" --resource-group "${rg}" --query "serializedData" -o tsv`,
+      powershell: `#{cmt_wb_exportar_la_definicion_para_revisar_las}\n(Get-AzApplicationInsightsWorkbook -ResourceGroupName "${rg}" -Name "${name}").SerializedData | Out-File workbook.json`,
     };
   }
 
@@ -557,8 +557,8 @@ export function buildWorkbookRemediationCommand(action: WorkbookRemediationActio
     return {
       cli:
         action.commandPayload ||
-        `# Publicar como workbook compartido para consolidar el escaneo en una sola copia\naz monitor app-insights workbook create --name "${name}" --resource-group "${rg}" --category workbook --shared-type-kind shared --serialized-data @workbook.json`,
-      powershell: `# Crear la version compartida a partir de la definicion privada\nNew-AzApplicationInsightsWorkbook -ResourceGroupName "${rg}" -Name "${name}" -Category workbook -Kind shared -SerializedData (Get-Content workbook.json -Raw)`,
+        `#{cmt_wb_publicar_como_workbook_compartido_para_consolidar}\naz monitor app-insights workbook create --name "${name}" --resource-group "${rg}" --category workbook --shared-type-kind shared --serialized-data @workbook.json`,
+      powershell: `#{cmt_wb_crear_la_version_compartida_a_partir}\nNew-AzApplicationInsightsWorkbook -ResourceGroupName "${rg}" -Name "${name}" -Category workbook -Kind shared -SerializedData (Get-Content workbook.json -Raw)`,
     };
   }
 
@@ -580,8 +580,8 @@ export function buildNetworkWatcherRemediationCommand(action: NetworkWatcherReme
     return {
       cli:
         action.commandPayload ||
-        `# Traffic Analytics de 10 -> 60 min (unicos valores admitidos por Azure)\naz network watcher flow-log update \\\n  --name <flow-log-name> \\\n  --resource-group "${rg}" \\\n  --traffic-analytics true \\\n  --interval 60`,
-      powershell: `# Traffic Analytics a 60 min\n$fl = Get-AzNetworkWatcherFlowLog -NetworkWatcherName "${watcher}" -ResourceGroupName "${rg}" -Name <flow-log-name>\nSet-AzNetworkWatcherFlowLog -NetworkWatcherName "${watcher}" -ResourceGroupName "${rg}" -Name $fl.Name \\\n  -EnableTrafficAnalytics -TrafficAnalyticsInterval 60 \\\n  -TrafficAnalyticsWorkspaceId $fl.FlowAnalyticsConfiguration.NetworkWatcherFlowAnalyticsConfiguration.WorkspaceResourceId`,
+        `#{cmt_nw_traffic_analytics_de_10_60_min}\naz network watcher flow-log update \\\n  --name <flow-log-name> \\\n  --resource-group "${rg}" \\\n  --traffic-analytics true \\\n  --interval 60`,
+      powershell: `#{cmt_nw_traffic_analytics_a_60_min}\n$fl = Get-AzNetworkWatcherFlowLog -NetworkWatcherName "${watcher}" -ResourceGroupName "${rg}" -Name <flow-log-name>\nSet-AzNetworkWatcherFlowLog -NetworkWatcherName "${watcher}" -ResourceGroupName "${rg}" -Name $fl.Name \\\n  -EnableTrafficAnalytics -TrafficAnalyticsInterval 60 \\\n  -TrafficAnalyticsWorkspaceId $fl.FlowAnalyticsConfiguration.NetworkWatcherFlowAnalyticsConfiguration.WorkspaceResourceId`,
     };
   }
 
@@ -589,8 +589,8 @@ export function buildNetworkWatcherRemediationCommand(action: NetworkWatcherReme
     return {
       cli:
         action.commandPayload ||
-        `# Dos frentes: acotar la retencion del propio flow log y poner lifecycle\n# en el contenedor, porque el flow log solo purga lo que el mismo escribio.\naz network watcher flow-log update --name <flow-log-name> --resource-group "${rg}" --retention 30\n\naz storage account management-policy create \\\n  --account-name <storage-account> \\\n  --resource-group "${rg}" \\\n  --policy '{"rules":[{"enabled":true,"name":"purge-flowlogs-30d","type":"Lifecycle","definition":{"filters":{"blobTypes":["blockBlob"],"prefixMatch":["insights-logs-networksecuritygroupflowevent"]},"actions":{"baseBlob":{"delete":{"daysAfterModificationGreaterThan":30}}}}}]}'`,
-      powershell: `# Retencion de 30 dias en el flow log\nSet-AzNetworkWatcherFlowLog -NetworkWatcherName "${watcher}" -ResourceGroupName "${rg}" -Name <flow-log-name> -EnableRetention -RetentionPolicyDays 30\n\n# Regla de ciclo de vida en el contenedor de flow logs\n$action = Add-AzStorageAccountManagementPolicyAction -BaseBlobAction Delete -daysAfterModificationGreaterThan 30\n$filter = New-AzStorageAccountManagementPolicyFilter -PrefixMatch "insights-logs-networksecuritygroupflowevent" -BlobType blockBlob\n$rule = New-AzStorageAccountManagementPolicyRule -Name "purge-flowlogs-30d" -Action $action -Filter $filter\nSet-AzStorageAccountManagementPolicy -ResourceGroupName "${rg}" -StorageAccountName <storage-account> -Rule $rule`,
+        `#{cmt_nw_dos_frentes_acotar_la_retencion_del}\n#{cmt_nw_en_el_contenedor_porque_el_flow}\naz network watcher flow-log update --name <flow-log-name> --resource-group "${rg}" --retention 30\n\naz storage account management-policy create \\\n  --account-name <storage-account> \\\n  --resource-group "${rg}" \\\n  --policy '{"rules":[{"enabled":true,"name":"purge-flowlogs-30d","type":"Lifecycle","definition":{"filters":{"blobTypes":["blockBlob"],"prefixMatch":["insights-logs-networksecuritygroupflowevent"]},"actions":{"baseBlob":{"delete":{"daysAfterModificationGreaterThan":30}}}}}]}'`,
+      powershell: `#{cmt_nw_retencion_de_30_dias_en_el}\nSet-AzNetworkWatcherFlowLog -NetworkWatcherName "${watcher}" -ResourceGroupName "${rg}" -Name <flow-log-name> -EnableRetention -RetentionPolicyDays 30\n\n#{cmt_nw_regla_de_ciclo_de_vida_en}\n$action = Add-AzStorageAccountManagementPolicyAction -BaseBlobAction Delete -daysAfterModificationGreaterThan 30\n$filter = New-AzStorageAccountManagementPolicyFilter -PrefixMatch "insights-logs-networksecuritygroupflowevent" -BlobType blockBlob\n$rule = New-AzStorageAccountManagementPolicyRule -Name "purge-flowlogs-30d" -Action $action -Filter $filter\nSet-AzStorageAccountManagementPolicy -ResourceGroupName "${rg}" -StorageAccountName <storage-account> -Rule $rule`,
     };
   }
 
@@ -598,8 +598,8 @@ export function buildNetworkWatcherRemediationCommand(action: NetworkWatcherReme
     return {
       cli:
         action.commandPayload ||
-        `# Sondeo cada 300 s en vez de <=30 s. Connection Monitor se factura por\n# prueba/mes, no por sondeo: el ahorro real esta en la telemetria que deja\n# de ingerirse, no en la tarifa del monitor.\naz network watcher connection-monitor test-configuration add \\\n  --connection-monitor <monitor-name> \\\n  --location <region> \\\n  --name <test-config-name> \\\n  --frequency 300 \\\n  --protocol Tcp \\\n  --tcp-port 443`,
-      powershell: `# Ajustar la frecuencia del test de conectividad\n$tc = New-AzNetworkWatcherConnectionMonitorTestConfigurationObject -Name <test-config-name> -TestFrequencySec 300 -ProtocolConfiguration (New-AzNetworkWatcherConnectionMonitorProtocolConfigurationObject -TcpProtocol -Port 443)\nSet-AzNetworkWatcherConnectionMonitor -NetworkWatcherName "${watcher}" -ResourceGroupName "${rg}" -Name <monitor-name> -TestConfiguration $tc`,
+        `#{cmt_nw_sondeo_cada_300_s_en_vez}\n#{cmt_nw_prueba_mes_no_por_sondeo_el}\n#{cmt_nw_de_ingerirse_no_en_la_tarifa}\naz network watcher connection-monitor test-configuration add \\\n  --connection-monitor <monitor-name> \\\n  --location <region> \\\n  --name <test-config-name> \\\n  --frequency 300 \\\n  --protocol Tcp \\\n  --tcp-port 443`,
+      powershell: `#{cmt_nw_ajustar_la_frecuencia_del_test_de}\n$tc = New-AzNetworkWatcherConnectionMonitorTestConfigurationObject -Name <test-config-name> -TestFrequencySec 300 -ProtocolConfiguration (New-AzNetworkWatcherConnectionMonitorProtocolConfigurationObject -TcpProtocol -Port 443)\nSet-AzNetworkWatcherConnectionMonitor -NetworkWatcherName "${watcher}" -ResourceGroupName "${rg}" -Name <monitor-name> -TestConfiguration $tc`,
     };
   }
 
@@ -607,8 +607,8 @@ export function buildNetworkWatcherRemediationCommand(action: NetworkWatcherReme
     return {
       cli:
         action.commandPayload ||
-        `# Confirmar que el endpoint realmente ya no existe antes de borrar\naz network watcher connection-monitor show --name <monitor-name> --location <region>\naz network watcher connection-monitor delete --name <monitor-name> --location <region>`,
-      powershell: `# Eliminar el Connection Monitor huerfano\nGet-AzNetworkWatcherConnectionMonitor -NetworkWatcherName "${watcher}" -ResourceGroupName "${rg}" -Name <monitor-name>\nRemove-AzNetworkWatcherConnectionMonitor -NetworkWatcherName "${watcher}" -ResourceGroupName "${rg}" -Name <monitor-name>`,
+        `#{cmt_nw_confirmar_que_el_endpoint_realmente_ya}\naz network watcher connection-monitor show --name <monitor-name> --location <region>\naz network watcher connection-monitor delete --name <monitor-name> --location <region>`,
+      powershell: `#{cmt_nw_eliminar_el_connection_monitor_huerfano}\nGet-AzNetworkWatcherConnectionMonitor -NetworkWatcherName "${watcher}" -ResourceGroupName "${rg}" -Name <monitor-name>\nRemove-AzNetworkWatcherConnectionMonitor -NetworkWatcherName "${watcher}" -ResourceGroupName "${rg}" -Name <monitor-name>`,
     };
   }
 
