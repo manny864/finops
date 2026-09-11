@@ -50,7 +50,7 @@ export function calcBudgetComplianceScore(input: {
       score: 70,
       statusKey: "status_BUDGET_none" as const,
       statusLevel: "WARNING",
-      commandPayload: `# Crear presupuesto en Azure Consumption para el tenant\naz consumption budget create --budget-name "budget-tenant-monthly" \\\n  --amount ${Math.max(500, Math.ceil(currentSpendUSD * 1.1))} --time-grain Monthly \\\n  --start-date "$(date +%Y-%m-01)" --end-date "2030-12-31"`,
+      commandPayload: `#{cmt_th_crear_presupuesto_en_azure_consumption_para}\naz consumption budget create --budget-name "budget-tenant-monthly" \\\n  --amount ${Math.max(500, Math.ceil(currentSpendUSD * 1.1))} --time-grain Monthly \\\n  --start-date "$(date +%Y-%m-01)" --end-date "2030-12-31"`,
     };
   }
 
@@ -79,7 +79,7 @@ export function calcBudgetComplianceScore(input: {
       budget: budgetUSD.toFixed(2),
     },
     statusLevel: score < 50 ? "CRITICAL" : "WARNING",
-    commandPayload: `# Ajustar o crear alertas tempranas de presupuesto al 80% y 100%\naz consumption budget create --budget-name "budget-tenant-alert" \\\n  --amount ${budgetUSD} --time-grain Monthly`,
+    commandPayload: `#{cmt_th_ajustar_o_crear_alertas_tempranas_de}\naz consumption budget create --budget-name "budget-tenant-alert" \\\n  --amount ${budgetUSD} --time-grain Monthly`,
   };
 }
 
@@ -112,7 +112,7 @@ export function calcCredentialExpiryScore(expiringCount: number): {
     statusKey: "status_CRED_expiring" as const,
     statusParams: { count: expiringCount, days: 30 },
     statusLevel: score < 50 ? "CRITICAL" : "WARNING",
-    commandPayload: `# Listar credenciales y certificados próximos a expirar\naz ad app credential list --id <appId>`,
+    commandPayload: `#{cmt_th_listar_credenciales_y_certificados_proximos_a}\naz ad app credential list --id <appId>`,
   };
 }
 
@@ -146,7 +146,7 @@ export function calcCoinOptimizationScore(
     statusKey: "status_COIN_progress" as const,
     statusParams: { implemented, total: totalActive, days: 90 },
     statusLevel: score >= 80 ? "OPTIMAL" : score >= 50 ? "WARNING" : "CRITICAL",
-    commandPayload: `# Consultar recomendaciones de optimización de Azure Advisor\naz advisor recommendation list --category Cost`,
+    commandPayload: `#{cmt_th_consultar_recomendaciones_de_optimizacion_de_azure}\naz advisor recommendation list --category Cost`,
   };
 }
 
@@ -180,7 +180,14 @@ export function calcMfaSecurityScore(
     statusKey: "status_MFA_active" as const,
     statusParams: { current: adminsWithMfa, total: totalAdmins },
     statusLevel: score === 100 ? "OPTIMAL" : score >= 50 ? "WARNING" : "CRITICAL",
-    commandPayload: `# Requerir MFA mediante Directiva de Acceso Condicional en Entra ID\n# Portal: Entra ID -> Security -> Conditional Access -> New Policy -> Require MFA for Admins`,
+    /**
+     * Este payload eran DOS lineas de comentario y ningun comando: el usuario
+     * abria el modal, veia texto y no tenia nada que copiar. Se le agrega el
+     * diagnostico --quienes son los admins y cual es el estado de las politicas
+     * de acceso condicional-- que es lo que se puede hacer por CLI. La politica
+     * en si se crea con el POST de `act-mfa-01`, que ya existe mas abajo.
+     */
+    commandPayload: `#{cmt_th_requerir_mfa_mediante_directiva_de_acceso}\n#{cmt_th_portal_entra_id_security_conditional_access}\n\n#{cmt_th_admins_sin_mfa_diag}\naz ad directory-role member list --role "Global Administrator" --query "[].{nombre:displayName, upn:userPrincipalName}" -o table\n\n#{cmt_th_politicas_ca_diag}\naz rest --method GET --url "https://graph.microsoft.com/v1.0/identity/conditionalAccess/policies" --query "value[].{nombre:displayName, estado:state}" -o table`,
   };
 }
 
@@ -199,7 +206,7 @@ export function generateTenantHealthActionPlan(signals: HealthSignalItem[], isMo
       estimatedSavingsUSD: 0,
       priority: "HIGH",
       actionType: "ENABLE_MFA",
-      commandPayload: `# Aplicar política de MFA para administradores privilegiados\naz rest --method POST --url "https://graph.microsoft.com/v1.0/identity/conditionalAccess/policies"`,
+      commandPayload: `#{cmt_th_aplicar_politica_de_mfa_para_administradores}\naz rest --method POST --url "https://graph.microsoft.com/v1.0/identity/conditionalAccess/policies"`,
     });
   }
 
@@ -212,7 +219,7 @@ export function generateTenantHealthActionPlan(signals: HealthSignalItem[], isMo
       estimatedSavingsUSD: isMock ? 185.5 : 0,
       priority: "HIGH",
       actionType: "PURGE_ZOMBIES",
-      commandPayload: `# Purgar recursos huérfanos sin uso\naz resource delete --ids $(az disk list --query "[?diskState=='Unattached'].id" -o tsv)`,
+      commandPayload: `#{cmt_th_purgar_recursos_huerfanos_sin_uso}\naz resource delete --ids $(az disk list --query "[?diskState=='Unattached'].id" -o tsv)`,
     });
   }
 
@@ -339,7 +346,7 @@ export function getMockTenantHealthPayload(tenantId: string): TenantHealthPayloa
       statusLevel: budgetRes.statusLevel,
       actionRequired: true,
       actionType: "SET_BUDGET",
-      commandPayload: `# Crear presupuesto mensual en Azure Consumption\naz consumption budget create --budget-name "budget-tenant" --amount 1000 --time-grain Monthly`,
+      commandPayload: `#{cmt_th_crear_presupuesto_mensual_en_azure_consumption}\naz consumption budget create --budget-name "budget-tenant" --amount 1000 --time-grain Monthly`,
     },
     {
       signalType: "CREDENTIAL_EXPIRY",
@@ -376,7 +383,7 @@ export function getMockTenantHealthPayload(tenantId: string): TenantHealthPayloa
       detailsCount: mfaRes.detailsCount,
       actionRequired: true,
       actionType: "ENFORCE_MFA",
-      commandPayload: `# Requerir MFA para cuentas administradoras en Entra ID\n# conditionalAccess policy definition...`,
+      commandPayload: `#{cmt_th_requerir_mfa_para_cuentas_administradoras_en}\n#{cmt_th_conditionalaccess_policy_definition}`,
     },
   ];
 

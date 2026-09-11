@@ -1345,7 +1345,6 @@ describe("i18n · capa 4d: los comentarios de los scripts salen del catálogo", 
     const DEUDA_COMENTARIOS = new Map<string, number>([
         ["src/lib/aiRemediations.ts", 17],
         ["src/lib/advisorRemediation.ts", 20],
-        ["src/services/azureTenantHealth.service.ts", 11],
         ["src/services/azureAppInsights.service.ts", 5],
         ["src/services/azureEventHubs.service.ts", 5],
         ["src/services/azureServiceBus.service.ts", 5],
@@ -1356,7 +1355,6 @@ describe("i18n · capa 4d: los comentarios de los scripts salen del catálogo", 
         ["src/services/azureDatabricks.service.ts", 2],
         ["src/services/azureEventGrid.service.ts", 2],
         ["src/services/azureMachineLearning.service.ts", 2],
-        ["src/services/azureScorecard.service.ts", 2],
     ]);
 
     const porArchivo = new Map<string, string[]>();

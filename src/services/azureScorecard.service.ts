@@ -167,7 +167,7 @@ export function buildPenalties(team: {
     const ids = team.untaggedResourceNames.slice(0, 10);
     const cmd =
       ids.length > 0
-        ? `# Aplicar etiquetas obligatorias a recursos de ${team.teamName}\n` +
+        ? `#{cmt_sc_aplicar_etiquetas_obligatorias_a_recursos_de} ${team.teamName}\n` +
           `az resource tag --tags CostCenter="${team.teamName}" Environment="Production" Owner="${team.teamId}@company.com" \\\n  --ids ${ids.join(" ")}`
         : undefined;
 
@@ -195,7 +195,7 @@ export function buildPenalties(team: {
     const ids = team.zombieResourceNames.slice(0, 10);
     const cmd =
       ids.length > 0
-        ? `# Purgar recursos huérfanos sin uso en ${team.teamName} (Ahorro: $${team.zombieCostUSD.toFixed(2)}/mes)\n` +
+        ? `#{cmt_sc_purgar_recursos_huerfanos_sin_uso_en} ${team.teamName} (Ahorro: $${team.zombieCostUSD.toFixed(2)}/mes)\n` +
           ids.map((r) => `az resource delete --ids "${r}" --verbose`).join("\n")
         : undefined;
 
@@ -216,7 +216,7 @@ export function buildPenalties(team: {
 
   const commitLoss = Number((PILLAR_MAX_POINTS.Commitments - team.commitmentScore).toFixed(1));
   if (commitLoss > 0) {
-    const cmd = `# Explorar recomendaciones de Savings Plans / Reservations para ${team.teamName}\naz consumption reservation recommendation list --scope "Subscription" --look-back-period "Last30Days"`;
+    const cmd = `#{cmt_sc_explorar_recomendaciones_de_savings_plans_reservations} ${team.teamName}\naz consumption reservation recommendation list --scope "Subscription" --look-back-period "Last30Days"`;
     out.push({
       id: `${team.teamId}-commitments`,
       pillar: "Commitments",
@@ -238,7 +238,7 @@ export function buildPenalties(team: {
   const budgetLoss = Number((PILLAR_MAX_POINTS.Budget - team.budgetDisciplineScore).toFixed(1));
   if (budgetLoss > 0) {
     const suggestedBudget = Math.ceil(team.monthlySpendUSD * 1.05);
-    const cmd = `# Ajustar presupuesto mensual en Azure Consumption para ${team.teamName}\naz consumption budget create --budget-name "budget-${team.teamId}" --amount ${suggestedBudget} --time-grain Monthly`;
+    const cmd = `#{cmt_sc_ajustar_presupuesto_mensual_en_azure_consumption} ${team.teamName}\naz consumption budget create --budget-name "budget-${team.teamId}" --amount ${suggestedBudget} --time-grain Monthly`;
     out.push({
       id: `${team.teamId}-budget`,
       pillar: "Budget",
@@ -378,7 +378,7 @@ export function generateScorecardRecommendations(
       actionType: "FIX_TAGS",
       estimatedSavingsUSD: 0,
       confidence: "HIGH",
-      commandPayload: `# Asignar tags de CostCenter y Owner a recursos no clasificados\naz tag create --name "CostCenter"`,
+      commandPayload: `#{cmt_sc_asignar_tags_de_costcenter_y_owner}\naz tag create --name "CostCenter"`,
     });
   }
 
@@ -405,7 +405,7 @@ export function generateScorecardRecommendations(
       actionType: "PURGE_ZOMBIE",
       estimatedSavingsUSD: worstWaste.zombieCostUSD,
       confidence: "HIGH",
-      commandPayload: zombieCmd || `# Purgar recursos zombis del equipo ${worstWaste.teamName}\naz resource list --tag CostCenter="${worstWaste.teamName}"`,
+      commandPayload: zombieCmd || `#{cmt_sc_purgar_recursos_zombis_del_equipo} ${worstWaste.teamName}\naz resource list --tag CostCenter="${worstWaste.teamName}"`,
     });
   }
 
@@ -428,7 +428,7 @@ export function generateScorecardRecommendations(
       actionType: "NOTIFY_OWNERS",
       estimatedSavingsUSD: 0,
       confidence: "MEDIUM",
-      commandPayload: `# Disparar notificación de scorecard mensual a owners\ncurl -X POST "https://api.cscloudsolutions.com/v1/notifications/scorecard-digest" -H "Content-Type: application/json" -d '{"teams": ${JSON.stringify(needsAttention.map((t) => t.teamName))}}'`,
+      commandPayload: `#{cmt_sc_disparar_notificacion_de_scorecard_mensual_a}\ncurl -X POST "https://api.cscloudsolutions.com/v1/notifications/scorecard-digest" -H "Content-Type: application/json" -d '{"teams": ${JSON.stringify(needsAttention.map((t) => t.teamName))}}'`,
     });
   }
 

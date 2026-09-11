@@ -42,6 +42,7 @@ import {
   type TeamScorecardItem,
 } from "@/types/azureScorecard.types";
 import { useTranslations } from "next-intl";
+import { resolverComentarios } from "@/lib/recommendationText";
 
 const VISIBLE_SCROLLBAR =
   "overflow-x-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 " +
@@ -160,7 +161,7 @@ function RemediationModal({
 
   const handleCopy = () => {
     if (!commandPayload) return;
-    navigator.clipboard.writeText(commandPayload);
+    navigator.clipboard.writeText(resolverComentarios(commandPayload, t));
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
@@ -240,7 +241,7 @@ function RemediationModal({
               </button>
             </div>
             <pre className="p-3 text-[11px] font-mono rounded-xl bg-slate-900 text-slate-100 overflow-x-auto whitespace-pre-wrap leading-relaxed border border-slate-800">
-              {commandPayload}
+              {resolverComentarios(commandPayload, t)}
             </pre>
           </div>
         )}

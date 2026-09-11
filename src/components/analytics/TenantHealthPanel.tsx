@@ -40,6 +40,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import Pagination, { usePagination } from "@/components/Pagination";
 import InfoTooltip from "@/components/InfoTooltip";
 import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
+import { resolverComentarios } from "@/lib/recommendationText";
 import {
   type HealthGrade,
   type HealthSignalItem,
@@ -88,13 +89,14 @@ interface RemediationModalProps {
 
 function HealthRemediationModal({ action, onClose }: RemediationModalProps) {
   const t = useTranslations("TenantHealth");
+  const tc = useTranslations("Common");
   const [copied, setCopied] = useState(false);
 
   if (!action) return null;
 
   const handleCopy = () => {
     if (!action.commandPayload) return;
-    navigator.clipboard.writeText(action.commandPayload);
+    navigator.clipboard.writeText(resolverComentarios(action.commandPayload, t));
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
@@ -107,7 +109,7 @@ function HealthRemediationModal({ action, onClose }: RemediationModalProps) {
             <IconSparkles className="w-6 h-6 text-[#0078D4] shrink-0" stroke={1.5} />
             <div>
               <h3 className="text-base font-bold text-[#1B2A41] dark:text-slate-100">{t(`plan_${action.actionType}`)}</h3>
-              <p className="text-xs text-slate-500">Pilar: <span className="font-semibold text-[#0054A6]">{action.pillar}</span></p>
+              <p className="text-xs text-slate-500">{t("pillarLabel")} <span className="font-semibold text-[#0054A6]">{action.pillar}</span></p>
             </div>
           </div>
           <button
@@ -126,11 +128,11 @@ function HealthRemediationModal({ action, onClose }: RemediationModalProps) {
           {action.estimatedSavingsUSD > 0 ? (
             <div className="p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/30 dark:bg-slate-800/30">
               <span className="block text-[11px] font-medium text-slate-500">{t("estimatedSavings")}</span>
-              <span className="text-lg font-extrabold text-emerald-600">+{money(action.estimatedSavingsUSD)}/mes</span>
+              <span className="text-lg font-extrabold text-emerald-600">+{tc("amountPerMonth", { amount: money(action.estimatedSavingsUSD) })}</span>
             </div>
           ) : (
             <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
-              <span className="block text-[11px] font-medium text-slate-500">Prioridad</span>
+              <span className="block text-[11px] font-medium text-slate-500">{t("priorityLabel")}</span>
               <span className="text-sm font-extrabold text-[#1B2A41] dark:text-slate-100">{action.priority}</span>
             </div>
           )}
@@ -152,7 +154,7 @@ function HealthRemediationModal({ action, onClose }: RemediationModalProps) {
               </button>
             </div>
             <pre className="p-3 text-[11px] font-mono rounded-xl bg-slate-900 text-slate-100 overflow-x-auto whitespace-pre-wrap leading-relaxed border border-slate-800">
-              {action.commandPayload}
+              {resolverComentarios(action.commandPayload, t)}
             </pre>
           </div>
         )}
@@ -234,7 +236,7 @@ function ScoreSimulatorModal({
 
           <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
             <div className="space-y-0.5">
-              <span className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 block">Configurar Presupuesto Mensual (+9 pts)</span>
+              <span className="text-xs font-bold text-[#1B2A41] dark:text-slate-200 block">{t("simBudgetTitle")}</span>
               <span className="text-[11px] text-slate-500">{t("simBudget")}</span>
             </div>
             <input
@@ -273,6 +275,24 @@ function ScoreSimulatorModal({
 }
 
 // ─── Componente Principal ───
+/**
+ * Titulo de una senal de gobernanza.
+ *
+ * `displayName` lo arma el servidor en castellano; `signalType` es el
+ * discriminador y con el sale la clave. El texto del servidor queda de respaldo
+ * por si aparece una senal nueva antes que su clave.
+ */
+function etiquetaSenal(
+    senal: { signalType: string; displayName: string },
+    t: (k: string) => string
+): string {
+    try {
+        return t(`signal_${senal.signalType}`);
+    } catch {
+        return senal.displayName;
+    }
+}
+
 /** Las cinco notas que tienen clave en el catalogo (`grade_A` .. `grade_F`). */
 const NOTAS_CON_CLAVE = ["A", "B", "C", "D", "F"];
 
@@ -410,7 +430,7 @@ export default function TenantHealthPanel() {
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
             <IconDatabaseExport className="w-4 h-4 text-[#0078D4]" stroke={1.5} />
-            <span>Exportar Plan CSV</span>
+            <span>{t("exportPlanCsv")}</span>
           </button>
           <button
             onClick={() => mutate()}
@@ -551,7 +571,7 @@ export default function TenantHealthPanel() {
               <span>{t("signalsTitle")}</span>
               <InfoTooltip content={t("signalsTooltip")} />
             </h3>
-            <span className="text-xs text-slate-400">Total: 100%</span>
+            <span className="text-xs text-slate-400">{t("weightTotal")}</span>
           </div>
 
           <div className="space-y-4">
@@ -567,10 +587,10 @@ export default function TenantHealthPanel() {
                       <SignalIcon className="w-5 h-5 text-[#0078D4] shrink-0" stroke={1.5} />
                       <div>
                         <span className="text-xs font-bold text-[#1B2A41] dark:text-slate-100">
-                          {signal.displayName}
+                          {etiquetaSenal(signal, t)}
                         </span>
                         <span className="text-[11px] text-slate-400 ml-2">
-                          (peso {signal.weightPercentage}%)
+                          {t("signalWeight", { n: signal.weightPercentage })}
                         </span>
                       </div>
                     </div>
@@ -636,7 +656,7 @@ export default function TenantHealthPanel() {
             <span>{t("historyTitle")}</span>
             <InfoTooltip content={t("historyTooltip")} />
           </h3>
-          <span className="text-xs text-slate-500">Tendencia mensual</span>
+          <span className="text-xs text-slate-500">{t("monthlyTrend")}</span>
         </div>
 
         <div className="h-[240px] w-full">
@@ -686,7 +706,7 @@ export default function TenantHealthPanel() {
             </p>
           </div>
           <span className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-800 text-[#0054A6] bg-white dark:bg-slate-900">
-            {actionPlan.length} Acciones Sugeridas
+            {t("suggestedActions", { n: actionPlan.length })}
           </span>
         </div>
 
