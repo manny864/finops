@@ -24,7 +24,13 @@ import type {
     ExecutiveReportScope,
     HistoricalMonthCost,
     InefficiencyCategoryBreakdown,
+    ResourceFamilyBreakdown,
+    ResourceFamilySpend,
+    TelemetryCollectorStatus,
 } from '@/types/executiveReport.types';
+import type { FinOpsCategoryDetail } from '@/lib/categoryConsumptionTypes';
+import { getRealCategoryOverview } from '@/services/categoryConsumptionService';
+import { evaluateHALive } from '@/services/haService';
 import { isMockTenant } from '@/lib/mockData';
 
 export const EXECUTIVE_HISTORY_MONTHS = 6;
@@ -42,92 +48,194 @@ export const HARD_WASTE_CONFIG: Record<string, { type: string; unitCost: number;
 /**
  * Agregador Holístico de Telemetría para Reporte Ejecutivo.
  */
+type Settled<T> = { ok: true; value: T } | { ok: false; error: string };
+
+/**
+ * Corre un colector sin que su fallo tumbe el barrido completo.
+ *
+ * El motivo de que esto exista y no un `Promise.allSettled` pelado: el reporte
+ * necesita DISTINGUIR "el tenant no tiene desperdicio" de "no pude leer el
+ * desperdicio". Un catch que devuelve [] funde los dos casos y el LLM termina
+ * escribiendo que el tenant esta optimizado cuando en realidad la consulta
+ * fallo. Por eso cada colector reporta su estado y ese estado viaja al prompt.
+ */
+async function collect<T>(name: string, fn: () => Promise<T>): Promise<Settled<T> & { collector: string }> {
+    try {
+        return { collector: name, ok: true, value: await fn() };
+    } catch (err) {
+        const error = errorMessage(err) || String(err);
+        console.error(`[executiveReport] colector "${name}" fallo:`, error);
+        return { collector: name, ok: false, error };
+    }
+}
+
+const FAMILY_KEYS: Record<string, keyof Omit<ResourceFamilyBreakdown, 'others'>> = {
+    Compute: 'compute',
+    Databases: 'databases',
+    'AI and Machine Learning': 'aiAndMachineLearning',
+    Networking: 'networking',
+    Storage: 'storage',
+};
+
+function toFamilySpend(detail: FinOpsCategoryDetail): ResourceFamilySpend {
+    return {
+        category: detail.category,
+        monthlyCostUSD: round2(detail.totalCost),
+        percentageOfTotal: round2(detail.percentage),
+        momVariationPercent: round2(detail.momVariation),
+        projectedMonthEndUSD: round2(detail.projectedCost),
+        // Se corta en 5: el prompt necesita los que mueven la aguja, no el
+        // inventario completo, y cada servicio extra son tokens de entrada.
+        topServices: (detail.services || []).slice(0, 5).map((svc) => ({
+            name: svc.name,
+            costUSD: round2(svc.cost),
+            resourceCount: svc.count,
+        })),
+    };
+}
+
+function round2(n: number): number {
+    return new Decimal(Number.isFinite(n) ? n : 0).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();
+}
+
+/**
+ * Agregador Holístico de Telemetría para Reporte Ejecutivo.
+ *
+ * Los colectores corren CONCURRENTES: antes el barrido era secuencial y, peor,
+ * las secciones de desperdicio, HA, anomalias, rightsizing y presupuestos eran
+ * literales hardcodeados — el reporte de un tenant real presentaba numeros
+ * inventados como si fueran su telemetria viva. Ahora cada seccion sale de su
+ * fuente o queda vacia, y `collectorStatus` dice cual fue el caso.
+ */
 export async function aggregateExecutiveTelemetry(
     tenantId: string,
     scope: ExecutiveReportScope = 'TENANT_ALL',
     scopeId?: string
 ): Promise<ExecutiveReportFullData> {
     const reportId = `exec-rep-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    const isMock = isMockTenant(tenantId);
 
-    if (isMock) {
+    if (isMockTenant(tenantId)) {
         return getMockExecutiveReportFullData(tenantId, scope, scopeId);
     }
 
-    // 1. Datos del Tenant
-    // `Tenants` no tiene columna `name` ni `currency`: el nombre es
-    // `company_name` y la moneda vive en CostSnapshots, no en el tenant.
-    const [tenantRows] = await pool.query<RowDataPacket[]>(
-        'SELECT company_name, tier FROM Tenants WHERE tenant_id = ? LIMIT 1',
-        [tenantId]
-    );
-    const orgName = tenantRows[0]?.company_name || 'Organización';
+    const [
+        identity,
+        history,
+        mtd,
+        families,
+        ha,
+        waste,
+        anomalyRows,
+        budgetRows,
+    ] = await Promise.all([
+        collect('tenantIdentity', async () => {
+            // `Tenants` no tiene columna `name` ni `currency`: el nombre es
+            // `company_name` y la moneda vive en CostSnapshots.
+            const [rows] = await pool.query<RowDataPacket[]>(
+                'SELECT company_name, tier FROM Tenants WHERE tenant_id = ? LIMIT 1',
+                [tenantId]
+            );
+            return { orgName: rows[0]?.company_name || 'Organización', tier: rows[0]?.tier || null };
+        }),
 
-    // 2. Historial de Costos (Últimos 6 meses desde CostSnapshots)
-    let historicalTrends: HistoricalMonthCost[] = [];
-    try {
-        const [snapshotRows] = await pool.query<RowDataPacket[]>(
-            // CostSnapshots no tiene `snapshot_date` ni `billed_cost`. Se usa
-            // el mismo COALESCE que el resto del repo (invoicing, account-status):
+        collect('historicalTrends', async () => {
+            // CostSnapshots no tiene `snapshot_date` ni `billed_cost`. Se usa el
+            // mismo COALESCE que el resto del repo (invoicing, account-status):
             // las filas FOCUS traen ChargePeriodStart/BilledCost y las legacy
             // date/cost_usd.
-            `SELECT DATE_FORMAT(COALESCE(ChargePeriodStart, date), '%Y-%m') AS monthKey,
-                    SUM(COALESCE(BilledCost, cost_usd, 0)) AS totalBilledCost
-             FROM CostSnapshots
-             WHERE tenant_id = ?
-               AND COALESCE(ChargePeriodStart, date) >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
-             GROUP BY DATE_FORMAT(COALESCE(ChargePeriodStart, date), '%Y-%m')
-             ORDER BY monthKey ASC`,
-            [tenantId]
-        );
+            const [rows] = await pool.query<RowDataPacket[]>(
+                `SELECT DATE_FORMAT(COALESCE(ChargePeriodStart, date), '%Y-%m') AS monthKey,
+                        SUM(COALESCE(BilledCost, cost_usd, 0)) AS totalBilledCost
+                 FROM CostSnapshots
+                 WHERE tenant_id = ?
+                   AND COALESCE(ChargePeriodStart, date) >= DATE_SUB(CURDATE(), INTERVAL ? MONTH)
+                 GROUP BY DATE_FORMAT(COALESCE(ChargePeriodStart, date), '%Y-%m')
+                 ORDER BY monthKey ASC`,
+                [tenantId, EXECUTIVE_HISTORY_MONTHS]
+            );
 
-        let prevCost: Decimal | null = null;
-        historicalTrends = (snapshotRows || []).map((row) => {
-            const cost = new Decimal(row.totalBilledCost || 0);
-            let comparisonVsPreviousMonthPercent: number | null = null;
-            let trend: 'BULLISH' | 'BEARISH' | 'STABLE' = 'STABLE';
+            let prevCost: Decimal | null = null;
+            return (rows || []).map((row): HistoricalMonthCost => {
+                const cost = new Decimal(row.totalBilledCost || 0);
+                let comparisonVsPreviousMonthPercent: number | null = null;
+                let trend: 'BULLISH' | 'BEARISH' | 'STABLE' = 'STABLE';
+                if (prevCost && prevCost.greaterThan(0)) {
+                    const delta = cost.minus(prevCost).dividedBy(prevCost).times(100);
+                    comparisonVsPreviousMonthPercent = delta.toDecimalPlaces(1, Decimal.ROUND_HALF_UP).toNumber();
+                    if (comparisonVsPreviousMonthPercent > 2) trend = 'BULLISH';
+                    else if (comparisonVsPreviousMonthPercent < -2) trend = 'BEARISH';
+                }
+                prevCost = cost;
+                return {
+                    monthKey: row.monthKey,
+                    costUSD: cost.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber(),
+                    comparisonVsPreviousMonthPercent,
+                    trend,
+                };
+            });
+        }),
 
-            if (prevCost && prevCost.greaterThan(0)) {
-                const delta = cost.minus(prevCost).dividedBy(prevCost).times(100);
-                comparisonVsPreviousMonthPercent = delta.toDecimalPlaces(1, Decimal.ROUND_HALF_UP).toNumber();
-                if (comparisonVsPreviousMonthPercent > 2) trend = 'BULLISH';
-                else if (comparisonVsPreviousMonthPercent < -2) trend = 'BEARISH';
-            }
-            prevCost = cost;
+        collect('mtdSpend', async () => {
+            const [rows] = await pool.query<RowDataPacket[]>(
+                `SELECT SUM(COALESCE(BilledCost, cost_usd, 0)) AS mtdTotal
+                 FROM CostSnapshots
+                 WHERE tenant_id = ?
+                   AND COALESCE(ChargePeriodStart, date) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')`,
+                [tenantId]
+            );
+            return new Decimal(rows[0]?.mtdTotal || 0);
+        }),
 
-            return {
-                monthKey: row.monthKey,
-                costUSD: cost.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber(),
-                comparisonVsPreviousMonthPercent,
-                trend,
-            };
-        });
-    } catch (err) {
-        // Antes era un `catch {}` mudo: con las columnas mal escritas la query
-        // fallaba siempre y el reporte mostraba "sin histórico" como si el
-        // tenant no tuviera datos. Un fallo de consulta no es un dataset vacío.
-        console.error('[executiveReport] no se pudo leer el histórico de CostSnapshots:', errorMessage(err));
-        historicalTrends = [];
-    }
+        // Un solo colector cubre cuatro familias (Bases de Datos, IA, Redes y
+        // Almacenamiento) mas Computo: salen del join CostCategorySnapshots x
+        // OpenDataServices que ya mantiene categoryConsumptionService, sin
+        // pegarle de nuevo a Azure.
+        collect('resourceFamilies', () => getRealCategoryOverview(tenantId, 30)),
 
-    // 3. Métricas MTD y Proyección
-    let mtdSpend = new Decimal(0);
-    try {
-        const [mtdRows] = await pool.query<RowDataPacket[]>(
-            `SELECT SUM(COALESCE(BilledCost, cost_usd, 0)) AS mtdTotal
-             FROM CostSnapshots
-             WHERE tenant_id = ?
-               AND COALESCE(ChargePeriodStart, date) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')`,
-            [tenantId]
-        );
-        mtdSpend = new Decimal(mtdRows[0]?.mtdTotal || 0);
-    } catch (err) {
-        // Mismo caso: este catch hacía que el Reporte Ejecutivo informara
-        // un gasto MTD de $0.00 cuando en realidad la query estaba rota.
-        console.error('[executiveReport] no se pudo calcular el gasto MTD:', errorMessage(err));
-        mtdSpend = new Decimal(0);
-    }
+        collect('haRisks', () => evaluateHALive(tenantId)),
 
+        collect('hardWaste', async () => {
+            const [rows] = await pool.query<RowDataPacket[]>(
+                `SELECT reason, COUNT(*) AS affected, SUM(COALESCE(estimated_waste_usd, 0)) AS wasteUsd
+                 FROM ZombieResources
+                 WHERE tenant_id = ? AND status = 'active'
+                 GROUP BY reason
+                 ORDER BY wasteUsd DESC`,
+                [tenantId]
+            );
+            return rows || [];
+        }),
+
+        collect('anomalies', async () => {
+            const [rows] = await pool.query<RowDataPacket[]>(
+                `SELECT detected_date, service_name, actual_cost_usd, expected_cost_usd,
+                        deviation_percentage, severity
+                 FROM Anomalies
+                 WHERE tenant_id = ?
+                 ORDER BY detected_date DESC
+                 LIMIT 20`,
+                [tenantId]
+            );
+            return rows || [];
+        }),
+
+        collect('budgets', async () => {
+            const [rows] = await pool.query<RowDataPacket[]>(
+                `SELECT name, amount_usd, actual_spend_usd
+                 FROM Budgets WHERE tenant_id = ? AND active = 1`,
+                [tenantId]
+            );
+            return rows || [];
+        }),
+    ]);
+
+    const collectorStatus: TelemetryCollectorStatus[] = [
+        identity, history, mtd, families, ha, waste, anomalyRows, budgetRows,
+    ].map((r) => (r.ok ? { collector: r.collector, ok: true } : { collector: r.collector, ok: false, error: r.error }));
+
+    // ── Costos y proyeccion ──────────────────────────────────────────────
+    const historicalTrends: HistoricalMonthCost[] = history.ok ? history.value : [];
+    const mtdSpend = mtd.ok ? mtd.value : new Decimal(0);
     const todayDay = Math.max(1, new Date().getDate());
     const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
     const projectedMonthEnd = mtdSpend.dividedBy(todayDay).times(daysInMonth).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
@@ -137,72 +245,98 @@ export async function aggregateExecutiveTelemetry(
         ? projectedMonthEnd.minus(lastMonthHistorical).dividedBy(lastMonthHistorical).times(100).toDecimalPlaces(1, Decimal.ROUND_HALF_UP).toNumber()
         : 0;
 
-    // 4. Desperdicio (Hard Waste) e Ineficiencias
-    const inefficiencies: InefficiencyCategoryBreakdown[] = [
-        { categoryName: 'Discos Desasociados (Huérfanos)', affectedResourcesCount: 4, monthlyWasteUSD: 60.00, percentageOfTotalWaste: 24.5 },
-        { categoryName: 'IPs Públicas sin Asignar', affectedResourcesCount: 6, monthlyWasteUSD: 21.00, percentageOfTotalWaste: 8.6 },
-        { categoryName: 'Snapshots de Almacenamiento >90d', affectedResourcesCount: 12, monthlyWasteUSD: 60.00, percentageOfTotalWaste: 24.5 },
-        { categoryName: 'App Service Plans Vacíos', affectedResourcesCount: 2, monthlyWasteUSD: 90.00, percentageOfTotalWaste: 36.7 },
-        { categoryName: 'Recursos Vencidos por TTL', affectedResourcesCount: 1, monthlyWasteUSD: 14.00, percentageOfTotalWaste: 5.7 },
-    ];
+    // ── Familias de recursos ─────────────────────────────────────────────
+    const resourceFamilies: ResourceFamilyBreakdown = {
+        compute: null, databases: null, aiAndMachineLearning: null,
+        networking: null, storage: null, others: [],
+    };
+    if (families.ok) {
+        for (const detail of families.value.categories || []) {
+            const key = FAMILY_KEYS[detail.category];
+            if (key) resourceFamilies[key] = toFamilySpend(detail);
+            else resourceFamilies.others.push(toFamilySpend(detail));
+        }
+    }
 
-    const monthlyWasteTotal = inefficiencies.reduce((acc, curr) => acc + curr.monthlyWasteUSD, 0);
-    const annualizedSavings = monthlyWasteTotal * 12;
+    // ── Desperdicio ──────────────────────────────────────────────────────
+    const wasteRows = waste.ok ? waste.value : [];
+    const monthlyWasteTotal = wasteRows.reduce((acc, r) => acc + Number(r.wasteUsd || 0), 0);
+    const inefficiencyDistribution: InefficiencyCategoryBreakdown[] = wasteRows.map((r) => ({
+        categoryName: String(r.reason || 'Sin clasificar'),
+        affectedResourcesCount: Number(r.affected || 0),
+        monthlyWasteUSD: round2(Number(r.wasteUsd || 0)),
+        percentageOfTotalWaste: monthlyWasteTotal > 0
+            ? round2((Number(r.wasteUsd || 0) / monthlyWasteTotal) * 100)
+            : 0,
+    }));
 
-    // 5. Alta Disponibilidad (HA Risks)
-    const haRisks = [
-        { resourceName: 'vm-db-prod-sql', resourceType: 'Microsoft.Compute/virtualMachines', severity: 'critical', issueType: 'Single Host / Sin Zona de Disponibilidad', estimatedRisk: 'Pérdida de SLA ante falla de rack de cómputo' },
-        { resourceName: 'appgw-ingress-core', resourceType: 'Microsoft.Network/applicationGateways', severity: 'high', issueType: 'Instancia única sin redundancia de zona', estimatedRisk: 'Degradación de latencia o corte total en zona este' },
-        { resourceName: 'stprodbackups01', resourceType: 'Microsoft.Storage/storageAccounts', severity: 'medium', issueType: 'Redundancia LRS (Localmente Redundante)', estimatedRisk: 'Exposición ante falla del datacenter' },
-    ];
+    // ── HA ───────────────────────────────────────────────────────────────
+    const haItems = ha.ok ? ha.value.items : [];
+    const haRisks = haItems.slice(0, 25).map((item) => ({
+        resourceName: item.resourceName,
+        resourceType: item.resourceType,
+        severity: item.severity,
+        issueType: item.issueType,
+        estimatedRisk: item.estimatedRisk,
+    }));
+    const criticalHighHaRisksCount = haItems.filter((i) => i.severity === 'critical' || i.severity === 'high').length;
 
-    // 6. Anomalías Activas
-    const anomalies = [
-        { date: new Date().toISOString().slice(0, 10), resource: 'Microsoft.CognitiveServices/OpenAI (Tokens)', impactUSD: 450.00, severity: 'Alta (Spike inesperado)' },
-    ];
+    // ── Anomalias ────────────────────────────────────────────────────────
+    const anomalies = (anomalyRows.ok ? anomalyRows.value : []).map((row) => ({
+        date: row.detected_date instanceof Date
+            ? row.detected_date.toISOString().slice(0, 10)
+            : String(row.detected_date || '').slice(0, 10),
+        resource: String(row.service_name || 'Servicio no identificado'),
+        impactUSD: round2(Number(row.actual_cost_usd || 0) - Number(row.expected_cost_usd || 0)),
+        severity: `${row.severity || 'unknown'} (${round2(Number(row.deviation_percentage || 0))}% de desvío)`,
+    }));
 
-    // 7. Right-Sizing
-    const rightsizingRecommendations = [
-        { resourceName: 'vm-worker-analytics-01', currentSku: 'Standard_D8s_v5', recommendedSku: 'Standard_D4s_v5', monthlySavingsUSD: 180.50 },
-        { resourceName: 'vm-api-gateway-node2', currentSku: 'Standard_E4s_v4', recommendedSku: 'Standard_D4s_v5', monthlySavingsUSD: 95.00 },
-        { resourceName: 'sqldb-reporting-replica', currentSku: 'GeneralPurpose_8vCore', recommendedSku: 'GeneralPurpose_4vCore', monthlySavingsUSD: 310.00 },
-    ];
-    const rightsizingSavings = rightsizingRecommendations.reduce((s, r) => s + r.monthlySavingsUSD, 0);
+    // ── Presupuestos ─────────────────────────────────────────────────────
+    const budgetsExecution = (budgetRows.ok ? budgetRows.value : []).map((row) => {
+        const amountUSD = round2(Number(row.amount_usd || 0));
+        const currentSpendUSD = round2(Number(row.actual_spend_usd || 0));
+        const burnPercent = amountUSD > 0 ? round2((currentSpendUSD / amountUSD) * 100) : 0;
+        return { name: String(row.name || ''), amountUSD, currentSpendUSD, burnPercent, isExceeded: currentSpendUSD > amountUSD };
+    });
+    const budgetBurnPercent = budgetsExecution.length > 0
+        ? round2(budgetsExecution.reduce((acc, b) => acc + b.burnPercent, 0) / budgetsExecution.length)
+        : 0;
 
-    // 8. Presupuestos
-    const budgetsExecution = [
-        { name: 'Presupuesto Infraestructura Core Azure', amountUSD: 5000.00, currentSpendUSD: 3425.00, burnPercent: 68.5, isExceeded: false },
-        { name: 'Presupuesto Laboratorio y Sandbox', amountUSD: 800.00, currentSpendUSD: 720.00, burnPercent: 90.0, isExceeded: false },
-    ];
+    // Rightsizing, tags, compromisos y CO2 todavia no tienen colector: quedan
+    // en vacio/0 a proposito. Antes eran literales hardcodeados que el reporte
+    // presentaba como telemetria del tenant.
+    const rightsizingRecommendations: ExecutiveReportFullData["rightsizingRecommendations"] = [];
 
     return {
         reportId,
         generatedAtIso: new Date().toISOString(),
         tenantId,
-        organizationName: orgName,
+        organizationName: identity.ok ? identity.value.orgName : 'Organización',
         scope,
         scopeDisplayName: scope === 'TENANT_ALL' ? 'Tenant completo (todas las suscripciones)' : (scopeId || 'Suscripción seleccionada'),
         kpiMetrics: {
             mtdSpendUSD: mtdSpend.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber(),
             momVariationPercent: momVariation,
             projectedMonthEndUSD: projectedMonthEnd.toNumber(),
-            monthlySavingsIdentifiedUSD: monthlyWasteTotal + rightsizingSavings,
-            annualizedSavingsUSD: (monthlyWasteTotal + rightsizingSavings) * 12,
-            criticalHighHaRisksCount: haRisks.filter(h => h.severity === 'critical' || h.severity === 'high').length,
-            co2ImpactKg: 206.25,
-            taggingCoveragePercent: 83.0,
-            commitmentsCoveragePercent: 45.0,
+            monthlySavingsIdentifiedUSD: round2(monthlyWasteTotal),
+            annualizedSavingsUSD: round2(monthlyWasteTotal * 12),
+            criticalHighHaRisksCount,
+            co2ImpactKg: 0,
+            taggingCoveragePercent: 0,
+            commitmentsCoveragePercent: 0,
             rightsizingCandidatesCount: rightsizingRecommendations.length,
-            rightsizingSavingsUSD: rightsizingSavings,
+            rightsizingSavingsUSD: 0,
             activeAnomaliesCount: anomalies.length,
-            budgetBurnPercent: 68.5,
+            budgetBurnPercent,
         },
         historicalTrends,
-        inefficiencyDistribution: inefficiencies,
+        inefficiencyDistribution,
         haRisks,
         anomalies,
         rightsizingRecommendations,
         budgetsExecution,
+        resourceFamilies,
+        collectorStatus,
     };
 }
 
@@ -264,6 +398,67 @@ function getMockExecutiveReportFullData(tenantId: string, scope: ExecutiveReport
             { name: 'Presupuesto Infraestructura Producción', amountUSD: 500000.00, currentSpendUSD: 342500.00, burnPercent: 68.5, isExceeded: false },
             { name: 'Presupuesto Innovación e IA Generativa', amountUSD: 50000.00, currentSpendUSD: 48500.00, burnPercent: 97.0, isExceeded: false },
         ],
+        // El demo trae las cinco familias para que la seccion 2 del reporte
+        // (barrido 360) se pueda mostrar; los colectores figuran todos en OK
+        // porque el dataset es sintetico y completo por construccion.
+        resourceFamilies: {
+            compute: {
+                category: 'Compute', monthlyCostUSD: 289450.20, percentageOfTotal: 42.1,
+                momVariationPercent: 6.4, projectedMonthEndUSD: 301200.00,
+                topServices: [
+                    { name: 'Virtual Machines', costUSD: 198300.00, resourceCount: 142 },
+                    { name: 'Azure Kubernetes Service', costUSD: 61150.20, resourceCount: 9 },
+                    { name: 'App Service Plans', costUSD: 30000.00, resourceCount: 24 },
+                ],
+            },
+            databases: {
+                category: 'Databases', monthlyCostUSD: 121880.40, percentageOfTotal: 17.7,
+                momVariationPercent: 2.1, projectedMonthEndUSD: 124500.00,
+                topServices: [
+                    { name: 'Azure SQL Database', costUSD: 68400.00, resourceCount: 31 },
+                    { name: 'PostgreSQL Flexible Server', costUSD: 28980.40, resourceCount: 12 },
+                    { name: 'Cosmos DB', costUSD: 24500.00, resourceCount: 6 },
+                ],
+            },
+            aiAndMachineLearning: {
+                category: 'AI and Machine Learning', monthlyCostUSD: 96320.00, percentageOfTotal: 14.0,
+                momVariationPercent: 38.7, projectedMonthEndUSD: 110400.00,
+                topServices: [
+                    { name: 'Azure OpenAI', costUSD: 71200.00, resourceCount: 4 },
+                    { name: 'AI Search', costUSD: 15120.00, resourceCount: 3 },
+                    { name: 'Azure Machine Learning', costUSD: 10000.00, resourceCount: 2 },
+                ],
+            },
+            networking: {
+                category: 'Networking', monthlyCostUSD: 58940.10, percentageOfTotal: 8.6,
+                momVariationPercent: -1.8, projectedMonthEndUSD: 57800.00,
+                topServices: [
+                    { name: 'ExpressRoute', costUSD: 26280.00, resourceCount: 2 },
+                    { name: 'VPN Gateway', costUSD: 16800.00, resourceCount: 5 },
+                    { name: 'NAT Gateway', costUSD: 9860.10, resourceCount: 7 },
+                ],
+            },
+            storage: {
+                category: 'Storage', monthlyCostUSD: 44210.75, percentageOfTotal: 6.4,
+                momVariationPercent: 0.9, projectedMonthEndUSD: 44800.00,
+                topServices: [
+                    { name: 'Blob Storage (Hot)', costUSD: 24110.75, resourceCount: 38 },
+                    { name: 'Managed Disks', costUSD: 14300.00, resourceCount: 210 },
+                    { name: 'Blob Storage (Archive)', costUSD: 5800.00, resourceCount: 12 },
+                ],
+            },
+            others: [],
+        },
+        collectorStatus: [
+            { collector: 'tenantIdentity', ok: true },
+            { collector: 'historicalTrends', ok: true },
+            { collector: 'mtdSpend', ok: true },
+            { collector: 'resourceFamilies', ok: true },
+            { collector: 'haRisks', ok: true },
+            { collector: 'hardWaste', ok: true },
+            { collector: 'anomalies', ok: true },
+            { collector: 'budgets', ok: true },
+        ],
     };
 }
 
@@ -271,31 +466,36 @@ function getMockExecutiveReportFullData(tenantId: string, scope: ExecutiveReport
  * System Prompt Maestro para la generación del Reporte Ejecutivo C-Level.
  */
 export const EXECUTIVE_REPORT_SYSTEM_PROMPT = `Eres el Arquitecto Principal de Azure FinOps y Asesor Estratégico Cloud (FinOps Copilot) de la plataforma SaaS de CSCloudSolutions.
-Tu objetivo es analizar el JSON del tenant y redactar un Reporte Ejecutivo Estratégico C-Level (dirigido a CFO, CTO, CEO y Líderes de Infraestructura) en Markdown estructurado con 6 secciones obligatorias:
+Tu objetivo es analizar el JSON del tenant y redactar un Reporte Ejecutivo Estratégico C-Level (dirigido a CFO, CTO, CEO y Líderes de Infraestructura) en Markdown estructurado con 7 secciones obligatorias:
 
 ## 1. Resumen Ejecutivo y Diagnóstico Financiero C-Level
 * Tabla de KPIs Financieros: Métrica Clave | Período Actual (USD) | Período Anterior (USD) | Variación MoM (%) | Proyección Cierre Mes (USD) | Meta / Target
 * Diagnóstico de Situación: Síntesis ejecutiva (máximo 3 párrafos) explicando si el comportamiento del gasto es saludable, alcista o crítico, justificando las causas del desvío mensual frente al promedio histórico.
 
-## 2. Economía Unitaria y Eficiencia de Asignación (Showback / Chargeback)
+## 2. Barrido 360° por Familias de Recursos
+* Usa "resourceFamilies" para desglosar Cómputo, Bases de Datos, IA & Inferencia, Redes y Almacenamiento: costo mensual, % del total, variación MoM, proyección de cierre y los servicios que más pesan dentro de cada familia.
+* Una familia en "null" NO es una familia en cero: significa que el tenant no tiene gasto registrado ahí o que el dato no se pudo leer. Declará "Dato no disponible en este tenant" y no la incluyas en las sumas.
+* Señalá qué familia explica el desvío del mes y cuál crece más rápido en términos relativos.
+
+## 3. Economía Unitaria y Eficiencia de Asignación (Showback / Chargeback)
 * Métricas Unitarias: Costo por usuario activo, transacción o unidad de negocio. Si falta el dato, declarar explícitamente: "Dato no disponible en este tenant".
 * Higiene de Asignación: Porcentaje de gasto etiquetado vs. no asignado (Tagging Coverage) y su impacto financiero.
 
-## 3. Matriz de Ineficiencias y Fuga de Capital (Hard Waste & Rightsizing)
+## 4. Matriz de Ineficiencias y Fuga de Capital (Hard Waste & Rightsizing)
 * Desperdicio Inmediato: Desglose del costo mensual de discos huérfanos, IPs sin uso, backups retenidos y recursos vencidos por TTL.
 * Optimización de Cómputo: Oportunidades de downsizing en máquinas virtuales y bases de datos con CPU/memoria < 10%.
 * Cálculo de Ahorro Recuperable: Suma del ahorro mensual inmediato ($USD/mes) y anualizado ($ USD/año).
 
-## 4. Optimización de Tarifas y Cobertura de Compromisos (Rate Optimization)
+## 5. Optimización de Tarifas y Cobertura de Compromisos (Rate Optimization)
 * Cobertura de Reservas y Savings Plans: Porcentaje cubierto vs. exposición a tarifa bajo demanda (Pay-As-You-Go).
 * Beneficio Híbrido de Azure (AHB): Estado de adopción de licencias Windows Server y SQL Server.
 
-## 5. Riesgos Operacionales, Alta Disponibilidad y Gobernanza
+## 6. Riesgos Operacionales, Alta Disponibilidad y Gobernanza
 * Resiliencia vs. Costo: Evaluación de cargas críticas en single-host o sin redundancia zonal/geográfica, evaluando el riesgo de interrupción de SLA vs. el costo de remediación.
 * Anomalías y Presupuestos: Estado de alertas de gasto imprevisto y porcentaje de consumo presupuestario.
 * Sostenibilidad: Estimación de huella de carbono (CO2 en kg) e impacto de optimización.
 
-## 6. Hoja de Ruta y Plan de Acción Priorizado (30 - 60 - 90 Días)
+## 7. Hoja de Ruta y Plan de Acción Priorizado (30 - 60 - 90 Días)
 * Matriz de Decisiones Estratégicas: Fase / Plazo | Acción Recomendada | Impacto Estimado (USD/mes) | Nivel de Esfuerzo | Dueño Sugerido | ROI Clave
   - Inmediato (0-30d): Purgar desperdicio zombi sin riesgo.
   - Medio Plazo (30-60d): Rightsizing y políticas TTL.
@@ -303,6 +503,7 @@ Tu objetivo es analizar el JSON del tenant y redactar un Reporte Ejecutivo Estra
 
 Reglas estrictas:
 1. Cero Alucinación: Basa cada afirmación en números concretos del JSON. Si falta algún dato, declara "Dato no disponible en este tenant".
+1.b. Colectores caídos: el JSON trae "collectorStatus". Si un colector figura con ok:false, su sección NO tiene datos — está rota. NUNCA la reportes como cero, "sin hallazgos" ni "optimizado": decí explícitamente que la lectura de esa fuente falló y que el dato queda pendiente de verificación. Un cero real y una consulta fallida son cosas distintas y confundirlas hace que el reporte mienta.
 2. Moneda y Formato: Todo en USD con formato estándar ($X,XXX.XX USD).
 3. Tono: Ejecutivo, analítico y orientado a la toma de decisiones.`;
 

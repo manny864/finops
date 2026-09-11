@@ -31,6 +31,50 @@ export interface ExecutiveAiAnalysisSections {
     totalEstimatedRoiUSD: number;
 }
 
+/**
+ * Gasto de una familia de recursos en el periodo del reporte.
+ *
+ * `null` y `[]` son respuestas legitimas: significan "este tenant no tiene
+ * datos de esta familia", que NO es lo mismo que cero. El prompt distingue los
+ * dos casos y declara "Dato no disponible" cuando corresponde.
+ */
+export interface ResourceFamilySpend {
+    category: string;
+    monthlyCostUSD: number;
+    percentageOfTotal: number;
+    momVariationPercent: number;
+    projectedMonthEndUSD: number;
+    topServices: Array<{ name: string; costUSD: number; resourceCount: number }>;
+}
+
+/**
+ * Barrido por familias de recursos. Cada campo es `null` cuando el colector no
+ * pudo resolverse (fallo de la fuente) o el tenant no tiene gasto en esa
+ * familia — nunca un numero inventado.
+ */
+export interface ResourceFamilyBreakdown {
+    compute: ResourceFamilySpend | null;
+    databases: ResourceFamilySpend | null;
+    aiAndMachineLearning: ResourceFamilySpend | null;
+    networking: ResourceFamilySpend | null;
+    storage: ResourceFamilySpend | null;
+    /** Las familias restantes, sin desglosar una por una. */
+    others: ResourceFamilySpend[];
+}
+
+/**
+ * Que colectores respondieron y cuales no.
+ *
+ * El reporte lo necesita para no confundir "cero desperdicio" con "no pude
+ * leer el desperdicio": al LLM se le pasa esta lista para que declare el dato
+ * como no disponible en vez de afirmar que el tenant esta optimizado.
+ */
+export interface TelemetryCollectorStatus {
+    collector: string;
+    ok: boolean;
+    error?: string;
+}
+
 export interface ExecutiveReportFullData {
     reportId: string;
     generatedAtIso: string;
@@ -83,6 +127,8 @@ export interface ExecutiveReportFullData {
         burnPercent: number;
         isExceeded: boolean;
     }>;
+    resourceFamilies: ResourceFamilyBreakdown;
+    collectorStatus: TelemetryCollectorStatus[];
 }
 
 export type ExecutiveReportData = ExecutiveReportFullData;
