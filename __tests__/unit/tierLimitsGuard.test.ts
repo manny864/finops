@@ -25,16 +25,20 @@ describe("Tier Limits Guard & Quota Engine", () => {
   describe("Feature Inclusion per Tier", () => {
     it("should allow correct features for Professional tier", () => {
       const features = getFeaturesForTier("Professional");
-      expect(features).toEqual([]);
+      expect(features).toEqual(["FOCUS_EXPORT"]);
       expect(isFeatureIncludedInTier("Professional", "CSP_MARKUP")).toBe(false);
-      expect(isFeatureIncludedInTier("Professional", "FOCUS_EXPORT")).toBe(false);
+      expect(isFeatureIncludedInTier("Professional", "FOCUS_EXPORT")).toBe(true);
     });
 
-    it("should allow FOCUS_EXPORT and CSP_MARKUP in Business tier", () => {
+    // CSP_MARKUP y POWERBI_TEMPLATES salieron de Business en deafd11, para que
+    // el guard coincida con lo que la pagina de precios vende: las dos figuran
+    // solo en Enterprise en FinOpsCapabilitiesTable (cspBillingMarkup,
+    // powerBiFocus, powerBiInvoicing).
+    it("should allow FOCUS_EXPORT in Business tier and keep CSP_MARKUP out", () => {
       const features = getFeaturesForTier("Business");
       expect(features).toContain("FOCUS_EXPORT");
-      expect(features).toContain("CSP_MARKUP");
-      expect(features).toContain("POWERBI_TEMPLATES");
+      expect(features).not.toContain("CSP_MARKUP");
+      expect(features).not.toContain("POWERBI_TEMPLATES");
       expect(isFeatureIncludedInTier("Business", "UNLIMITED_SUBS")).toBe(false);
     });
 
@@ -171,7 +175,7 @@ describe("Tier Limits Guard & Quota Engine", () => {
       );
     });
 
-    it("should pass when accessing CSP_MARKUP on Business tier", async () => {
+    it("should throw when accessing CSP_MARKUP on Business tier", async () => {
       vi.mocked(pool.query).mockImplementation(async (sql: string) => {
         if (sql.includes("FROM Tenants")) {
           return [[{ tier: "Business" }]] as any;
@@ -179,7 +183,20 @@ describe("Tier Limits Guard & Quota Engine", () => {
         return [[]] as any;
       });
 
-      await expect(assertFeatureAccess("real-tenant-biz", "CSP_MARKUP")).resolves.toBeUndefined();
+      await expect(assertFeatureAccess("real-tenant-biz", "CSP_MARKUP")).rejects.toThrowError(
+        TierLimitException
+      );
+    });
+
+    it("should pass when accessing FOCUS_EXPORT on Business tier", async () => {
+      vi.mocked(pool.query).mockImplementation(async (sql: string) => {
+        if (sql.includes("FROM Tenants")) {
+          return [[{ tier: "Business" }]] as any;
+        }
+        return [[]] as any;
+      });
+
+      await expect(assertFeatureAccess("real-tenant-biz", "FOCUS_EXPORT")).resolves.toBeUndefined();
     });
   });
 

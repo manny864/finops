@@ -67,8 +67,11 @@ describe("contractMultiTenant - Capacidad y Límites Heredados por Contrato", ()
             expect(status.currentSubscriptionsCount).toBe(1);
             expect(status.isSubscriptionLimitReached).toBe(false);
             expect(status.canAddMoreSubscriptions).toBe(true);
-            expect(isFeatureIncludedInTier(status.planTier, "CSP_MARKUP")).toBe(true);
+            // CSP_MARKUP es Enterprise desde deafd11, asi que el par
+            // true/false prueba mejor la herencia que el par true/true: el hijo
+            // resolvio a Business y no a Enterprise.
             expect(isFeatureIncludedInTier(status.planTier, "FOCUS_EXPORT")).toBe(true);
+            expect(isFeatureIncludedInTier(status.planTier, "CSP_MARKUP")).toBe(false);
         });
 
         it("Resuelve el tier Enterprise heredado del parent_tenant_id con capacidad ilimitada", async () => {
