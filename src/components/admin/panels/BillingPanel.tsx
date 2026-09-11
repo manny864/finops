@@ -44,16 +44,19 @@ interface ColumnConfig {
     width: number;
 }
 
-const DEFAULT_COLUMNS: ColumnConfig[] = [
-    { id: "invoiceNumber", label: "Número de Factura", visible: true, width: 220 },
-    { id: "billingDate", label: "Fecha de Emisión", visible: true, width: 180 },
-    { id: "amountUSD", label: "Monto (USD)", visible: true, width: 160 },
-    { id: "status", label: "Estado", visible: true, width: 140 },
-    { id: "actions", label: "Acciones", visible: true, width: 140 },
+// Los rotulos salen del catalogo: el menu de columnas se traducia pero
+// sus items seguian en castellano.
+const columnasFacturacion = (t: (k: string) => string): ColumnConfig[] => [
+    { id: "invoiceNumber", label: t("col_invoiceNumber"), visible: true, width: 220 },
+    { id: "billingDate", label: t("col_billingDate"), visible: true, width: 180 },
+    { id: "amountUSD", label: t("col_amountUSD"), visible: true, width: 160 },
+    { id: "status", label: t("col_status"), visible: true, width: 140 },
+    { id: "actions", label: t("col_actions"), visible: true, width: 140 },
 ];
 
 export default function BillingPanel() {
     const t = useTranslations("AdminBilling");
+    const tc = useTranslations("Common");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
 
@@ -93,7 +96,7 @@ export default function BillingPanel() {
                 /* noop */
             }
         }
-        return DEFAULT_COLUMNS;
+        return columnasFacturacion(t);
     });
     const [isColumnPickerOpen, setIsColumnPickerOpen] = useState(false);
     const columnPickerRef = useRef<HTMLDivElement>(null);
@@ -254,7 +257,7 @@ export default function BillingPanel() {
     };
 
     const resetColumnsToDefault = () => {
-        setColumns(DEFAULT_COLUMNS);
+        setColumns(columnasFacturacion(t));
     };
 
     // Filtrado y Paginado de Facturas
@@ -528,7 +531,7 @@ export default function BillingPanel() {
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-200 transition-colors shadow-sm"
                             >
                                 <IconColumns size={15} stroke={1.5} className="text-[#0078D4]" />
-                                <span>Personalizar Columnas</span>
+                                <span>{tc("customizeColumns")}</span>
                             </button>
 
                             {isColumnPickerOpen && (
@@ -658,7 +661,7 @@ export default function BillingPanel() {
                 {/* Paginación Estándar CMP */}
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400">
                     <div className="flex items-center gap-2">
-                        <span>Mostrar:</span>
+                        <span>{tc("showing")}</span>
                         <select
                             value={pageSize}
                             onChange={(e) => {
@@ -672,7 +675,7 @@ export default function BillingPanel() {
                             <option value={45}>45</option>
                             <option value={60}>60</option>
                         </select>
-                        <span>de {filteredInvoices.length} registros</span>
+                        <span>{tc("ofRecords", { count: filteredInvoices.length })}</span>
                     </div>
 
                     <div className="flex items-center gap-1">

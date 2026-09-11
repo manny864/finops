@@ -422,7 +422,7 @@
   "AdminApiKeys": {
     "pageTitle": "Public API",
     "createTooltip": "Generates a pak_live_ key with scope-restricted permissions and a per-minute quota.",
-    "rateLimitLabel": "Rate limit ({rateLimit} req/min)",
+    "rateLimitLabel": "Rate limit",
     "loadingKeys": "Loading API keys…",
     "copied": "Copied!",
     "copy": "Copy",
@@ -449,7 +449,15 @@
     "apiInvocationTitle": "REST API v1 invocation",
     "saveKeyNotice": "Store this key in your CI/CD secrets. For security reasons, it will not be shown in full again.",
     "revokeConfirmTitle": "Revoke this API key?",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "col_name": "Name",
+    "col_keyPrefix": "Masked Key",
+    "col_scopes": "Assigned Scopes",
+    "col_rateLimit": "Rate Limit",
+    "col_createdBy": "Created By",
+    "col_lastUsed": "Last Used",
+    "col_status": "Status",
+    "col_actions": "Actions"
   },
   "AdminAudit": {
     "pageTitle": "Audit Log",
@@ -478,7 +486,14 @@
     "errorLoading": "Error loading audit logs",
     "emptyFiltered": "No audit records match the selected filters.",
     "drawerTitle": "Audit Event Detail",
-    "closeDrawer": "Close Drawer"
+    "closeDrawer": "Close Drawer",
+    "col_timestamp": "Date and Time",
+    "col_user": "User / Actor",
+    "col_action": "Action Executed",
+    "col_resource": "Resource / Target",
+    "col_status": "Status",
+    "col_ip": "IP / Source",
+    "col_actions": "Actions"
   },
   "AdminBilling": {
     "title": "Billing",
@@ -530,7 +545,12 @@
     "pageOf": "Page {page} of {total}",
     "cancelConfirm": "Are you sure you want to cancel your subscription?",
     "cancelKeepAccess": "You will keep access to all your plan's capabilities until the end of the current billing cycle (",
-    "cancelScheduled": "Cancellation scheduled for the end of the period."
+    "cancelScheduled": "Cancellation scheduled for the end of the period.",
+    "col_invoiceNumber": "Invoice Number",
+    "col_billingDate": "Issue Date",
+    "col_amountUSD": "Amount (USD)",
+    "col_status": "Status",
+    "col_actions": "Actions"
   },
   "AdminCapacityAddons": {
     "selfServeUnavailable": "Online purchasing is not available for this account (no active Paddle subscription, or add-ons are not enabled in this environment). Contact sales to expand your capacity.",
@@ -1010,7 +1030,7 @@
     "pageTitle": "MCP API Keys",
     "createTooltip": "Generates a secure token starting with mcp_live_. Only its SHA-256 hash is stored in the database.",
     "tooltipTitle": "Allows AI agents (Claude Desktop, Cursor, Custom GPTs) or Power BI reports to query tenant data through the open Model Context Protocol (MCP) in read-only mode.",
-    "description": "Access keys for the MCP bridge (<code>/api/mcp</code>) and the Power BI feed. Lets AI agents (Claude Desktop, Copilot, GPTs) or Power BI query tenant data in read-only mode.",
+    "description": "Access keys for the MCP bridge (/api/mcp) and the Power BI feed. They let AI agents (Claude Desktop, Copilot, GPTs) or Power BI query tenant data in read-only mode.",
     "createNewKeyTitle": "Create New Key",
     "labelFieldLabel": "Label (e.g. \"Claude Desktop John\")",
     "labelPlaceholder": "Descriptive label",
@@ -1033,7 +1053,14 @@
     "pageOf": "Page {current} of {total}",
     "understoodClose": "Got it / Close",
     "revokeConfirmTitle": "Revoke this MCP API key?",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "col_name": "Label / Name",
+    "col_keyPrefix": "Masked Key",
+    "col_createdBy": "Created By",
+    "col_createdAt": "Created On",
+    "col_lastUsed": "Last Used",
+    "col_status": "Status",
+    "col_actions": "Actions"
   },
   "AdminNotifications": {
     "title": "Notification Channels",
@@ -1459,7 +1486,15 @@
     "deleteSuccessToast": "Historical report deleted successfully.",
     "downloadPdf": "Download PDF Copy (A4)",
     "downloadJson": "Download Snapshot JSON",
-    "daysValue": "{n} Days"
+    "daysValue": "{n} Days",
+    "col_date": "Date and Time",
+    "col_scope": "Scope",
+    "col_requestedBy": "Requested by",
+    "col_cost": "Snapshot Spend",
+    "col_savings": "Snapshot Savings",
+    "col_emailSent": "Sent by Email",
+    "col_storage": "Storage / Retention",
+    "col_actions": "Actions"
   },
   "AdminSecurity": {
     "title": "Security settings",
@@ -4559,7 +4594,9 @@
     "audit": "Audit",
     "viewRisk": "View risk",
     "delete": "Delete",
-    "customizeColumns": "Customize Columns"
+    "customizeColumns": "Customize Columns",
+    "showing": "Show:",
+    "ofRecords": "of {count} records"
   },
   "ComputeContainersFinops": {
     "selectTenant": "Select a tenant to view the containers FinOps/CMP cockpit.",

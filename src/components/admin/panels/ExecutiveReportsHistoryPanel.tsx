@@ -45,15 +45,17 @@ import { ColumnMenu, useColumnConfig, type TableColumnConfig } from "@/component
 import type { ExecutiveReportHistoryItem, ReportHistorySummaryMetrics, SaaSPlanTier } from "@/types/executiveReportHistory.types";
 import toast from "react-hot-toast";
 
-const HISTORY_COLUMNS: TableColumnConfig[] = [
-    { id: "date", label: "Fecha y Hora", visible: true },
-    { id: "scope", label: "Alcance", visible: true },
-    { id: "requestedBy", label: "Solicitado por", visible: true },
-    { id: "cost", label: "Gasto Snapshot", visible: true },
-    { id: "savings", label: "Ahorro Snapshot", visible: true },
-    { id: "emailSent", label: "Enviado por Email", visible: true },
-    { id: "storage", label: "Almacenamiento / Retención", visible: true },
-    { id: "actions", label: "Acciones", visible: true },
+// Los rotulos salen del catalogo: el menu de columnas se traducia pero
+// sus items seguian en castellano.
+const columnasHistorial = (t: (k: string) => string): TableColumnConfig[] => [
+    { id: "date", label: t("col_date"), visible: true },
+    { id: "scope", label: t("col_scope"), visible: true },
+    { id: "requestedBy", label: t("col_requestedBy"), visible: true },
+    { id: "cost", label: t("col_cost"), visible: true },
+    { id: "savings", label: t("col_savings"), visible: true },
+    { id: "emailSent", label: t("col_emailSent"), visible: true },
+    { id: "storage", label: t("col_storage"), visible: true },
+    { id: "actions", label: t("col_actions"), visible: true },
 ];
 
 const MACOS_SCROLL =
@@ -105,7 +107,7 @@ export default function ExecutiveReportsHistoryPanel() {
     const [itemToDelete, setItemToDelete] = useState<ExecutiveReportHistoryItem | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    const tableCols = useColumnConfig(`table_columns_config_reports_history_${tenantId}`, HISTORY_COLUMNS);
+    const tableCols = useColumnConfig(`table_columns_config_reports_history_${tenantId}`, columnasHistorial(t));
 
     const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
         if (isMock) return {};

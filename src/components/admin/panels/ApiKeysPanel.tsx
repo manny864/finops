@@ -43,15 +43,17 @@ interface ColumnConfig {
     width: number;
 }
 
-const DEFAULT_COLUMNS: ColumnConfig[] = [
-    { id: "name", label: "Nombre", visible: true, width: 240 },
-    { id: "keyPrefix", label: "Clave Enmascarada", visible: true, width: 220 },
-    { id: "scopes", label: "Scopes Asignados", visible: true, width: 260 },
-    { id: "rateLimit", label: "Límite Velocidad", visible: true, width: 150 },
-    { id: "createdBy", label: "Creada Por", visible: true, width: 200 },
-    { id: "lastUsed", label: "Último Uso", visible: true, width: 160 },
-    { id: "status", label: "Estado", visible: true, width: 120 },
-    { id: "actions", label: "Acciones", visible: true, width: 90 },
+// Los rotulos salen del catalogo: el menu de columnas se traducia pero
+// sus items seguian en castellano.
+const columnasApiKeys = (t: (k: string) => string): ColumnConfig[] => [
+    { id: "name", label: t("col_name"), visible: true, width: 240 },
+    { id: "keyPrefix", label: t("col_keyPrefix"), visible: true, width: 220 },
+    { id: "scopes", label: t("col_scopes"), visible: true, width: 260 },
+    { id: "rateLimit", label: t("col_rateLimit"), visible: true, width: 150 },
+    { id: "createdBy", label: t("col_createdBy"), visible: true, width: 200 },
+    { id: "lastUsed", label: t("col_lastUsed"), visible: true, width: 160 },
+    { id: "status", label: t("col_status"), visible: true, width: 120 },
+    { id: "actions", label: t("col_actions"), visible: true, width: 90 },
 ];
 
 const SCOPE_DEFINITIONS: { id: PublicApiScope; label: string; desc: string }[] = [
@@ -65,6 +67,7 @@ const SCOPE_DEFINITIONS: { id: PublicApiScope; label: string; desc: string }[] =
 
 export default function ApiKeysPanel() {
     const t = useTranslations("AdminApiKeys");
+    const tc = useTranslations("Common");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
 
@@ -109,7 +112,7 @@ export default function ApiKeysPanel() {
                 /* noop */
             }
         }
-        return DEFAULT_COLUMNS;
+        return columnasApiKeys(t);
     });
     const [isColumnPickerOpen, setIsColumnPickerOpen] = useState(false);
     const columnPickerRef = useRef<HTMLDivElement>(null);
@@ -312,7 +315,7 @@ export default function ApiKeysPanel() {
     };
 
     const resetColumnsToDefault = () => {
-        setColumns(DEFAULT_COLUMNS);
+        setColumns(columnasApiKeys(t));
     };
 
     // Filtrado y Paginado
@@ -575,7 +578,7 @@ $response | ConvertTo-Json`,
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-200 transition-colors shadow-sm"
                             >
                                 <IconColumns size={15} stroke={1.5} className="text-[#0078D4]" />
-                                <span>Personalizar Columnas</span>
+                                <span>{tc("customizeColumns")}</span>
                             </button>
 
                             {isColumnPickerOpen && (
@@ -765,7 +768,7 @@ $response | ConvertTo-Json`,
                 {/* Paginación Estándar CMP */}
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400">
                     <div className="flex items-center gap-2">
-                        <span>Mostrar:</span>
+                        <span>{tc("showing")}</span>
                         <select
                             value={pageSize}
                             onChange={(e) => {
@@ -779,7 +782,7 @@ $response | ConvertTo-Json`,
                             <option value={45}>45</option>
                             <option value={60}>60</option>
                         </select>
-                        <span>de {filteredKeys.length} registros</span>
+                        <span>{tc("ofRecords", { count: filteredKeys.length })}</span>
                     </div>
 
                     <div className="flex items-center gap-1">

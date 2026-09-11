@@ -12,22 +12,26 @@ const SYMBOLS: Record<string, string> = {
     JPY: "¥", CHF: "CHF", CNY: "¥", INR: "₹",
 };
 
+/**
+ * Sin banderas: eran pares de indicadores regionales y Windows no trae esos
+ * glifos (ver LanguageSwitcher). El codigo ISO de la moneda ya la identifica.
+ */
 const CURRENCY_LABELS: Record<string, string> = {
-    USD: "🇺🇸 USD — US Dollar",
-    EUR: "🇪🇺 EUR — Euro",
-    GBP: "🇬🇧 GBP — British Pound",
-    ARS: "🇦🇷 ARS — Peso Argentino",
-    BRL: "🇧🇷 BRL — Real Brasileño",
-    MXN: "🇲🇽 MXN — Peso Mexicano",
-    CLP: "🇨🇱 CLP — Peso Chileno",
-    COP: "🇨🇴 COP — Peso Colombiano",
-    PEN: "🇵🇪 PEN — Sol Peruano",
-    CAD: "🇨🇦 CAD — Canadian Dollar",
-    AUD: "🇦🇺 AUD — Australian Dollar",
-    JPY: "🇯🇵 JPY — Japanese Yen",
-    CHF: "🇨🇭 CHF — Swiss Franc",
-    CNY: "🇨🇳 CNY — Chinese Yuan",
-    INR: "🇮🇳 INR — Indian Rupee",
+    USD: "USD — US Dollar",
+    EUR: "EUR — Euro",
+    GBP: "GBP — British Pound",
+    ARS: "ARS — Peso Argentino",
+    BRL: "BRL — Real Brasileño",
+    MXN: "MXN — Peso Mexicano",
+    CLP: "CLP — Peso Chileno",
+    COP: "COP — Peso Colombiano",
+    PEN: "PEN — Sol Peruano",
+    CAD: "CAD — Canadian Dollar",
+    AUD: "AUD — Australian Dollar",
+    JPY: "JPY — Japanese Yen",
+    CHF: "CHF — Swiss Franc",
+    CNY: "CNY — Chinese Yuan",
+    INR: "INR — Indian Rupee",
 };
 
 const NO_DECIMALS = new Set(["JPY", "CLP", "COP", "ARS"]);

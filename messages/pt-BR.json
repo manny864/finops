@@ -422,7 +422,7 @@
   "AdminApiKeys": {
     "pageTitle": "API Pública",
     "createTooltip": "Gera uma chave pak_live_ com permissões restritas por scope e cota por minuto.",
-    "rateLimitLabel": "Limite de taxa ({rateLimit} req/min)",
+    "rateLimitLabel": "Limite de taxa",
     "loadingKeys": "Carregando chaves de API…",
     "copied": "Copiado!",
     "copy": "Copiar",
@@ -449,7 +449,15 @@
     "apiInvocationTitle": "Invocação da API REST v1",
     "saveKeyNotice": "Guarde esta chave nos seus segredos de CI/CD. Por motivos de segurança, ela não será exibida completa novamente.",
     "revokeConfirmTitle": "Revogar esta Chave de API?",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "col_name": "Nome",
+    "col_keyPrefix": "Chave Mascarada",
+    "col_scopes": "Escopos Atribuídos",
+    "col_rateLimit": "Limite de Taxa",
+    "col_createdBy": "Criada Por",
+    "col_lastUsed": "Último Uso",
+    "col_status": "Status",
+    "col_actions": "Ações"
   },
   "AdminAudit": {
     "pageTitle": "Registro de Auditoria",
@@ -478,7 +486,14 @@
     "errorLoading": "Erro ao carregar registros de auditoria",
     "emptyFiltered": "Nenhum registro de auditoria corresponde aos filtros selecionados.",
     "drawerTitle": "Detalhe do Evento de Auditoria",
-    "closeDrawer": "Fechar Drawer"
+    "closeDrawer": "Fechar Drawer",
+    "col_timestamp": "Data e Hora",
+    "col_user": "Usuário / Ator",
+    "col_action": "Ação Executada",
+    "col_resource": "Recurso / Destino",
+    "col_status": "Status",
+    "col_ip": "IP / Origem",
+    "col_actions": "Ações"
   },
   "AdminBilling": {
     "title": "Faturamento",
@@ -530,7 +545,12 @@
     "pageOf": "Página {page} de {total}",
     "cancelConfirm": "Tem certeza de que deseja cancelar sua assinatura?",
     "cancelKeepAccess": "Você manterá o acesso a todas as capacidades do seu plano até o fim do ciclo de faturamento atual (",
-    "cancelScheduled": "Cancelamento agendado para o fim do período."
+    "cancelScheduled": "Cancelamento agendado para o fim do período.",
+    "col_invoiceNumber": "Número da Fatura",
+    "col_billingDate": "Data de Emissão",
+    "col_amountUSD": "Valor (USD)",
+    "col_status": "Status",
+    "col_actions": "Ações"
   },
   "AdminCapacityAddons": {
     "selfServeUnavailable": "A contratação online não está disponível para esta conta (sem assinatura ativa no Paddle, ou add-ons não habilitados neste ambiente). Fale com vendas para ampliar sua capacidade.",
@@ -1010,7 +1030,7 @@
     "pageTitle": "MCP API Keys",
     "createTooltip": "Gera um token seguro que começa com mcp_live_. Apenas o hash SHA-256 é armazenado no banco.",
     "tooltipTitle": "Permite que agentes de IA (Claude Desktop, Cursor, Custom GPTs) ou relatórios do Power BI consultem dados do tenant pelo protocolo aberto Model Context Protocol (MCP) em modo somente leitura.",
-    "description": "Keys de acesso à bridge MCP (<code>/api/mcp</code>) e ao feed do Power BI. Permite que agentes de IA (Claude Desktop, Copilot, GPTs) ou o Power BI consultem dados do tenant em modo somente leitura.",
+    "description": "Chaves de acesso ao bridge MCP (/api/mcp) e ao feed do Power BI. Permitem que agentes de IA (Claude Desktop, Copilot, GPTs) ou o Power BI consultem dados do tenant em modo somente leitura.",
     "createNewKeyTitle": "Criar nova key",
     "labelFieldLabel": "Rótulo (ex.: \"Claude Desktop João\")",
     "labelPlaceholder": "Rótulo descritivo",
@@ -1033,7 +1053,14 @@
     "pageOf": "Página {current} de {total}",
     "understoodClose": "Entendi / Fechar",
     "revokeConfirmTitle": "Revogar esta MCP API Key?",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "col_name": "Rótulo / Nome",
+    "col_keyPrefix": "Chave Mascarada",
+    "col_createdBy": "Criada Por",
+    "col_createdAt": "Data de Criação",
+    "col_lastUsed": "Último Uso",
+    "col_status": "Status",
+    "col_actions": "Ações"
   },
   "AdminNotifications": {
     "title": "Canais de Notificação",
@@ -1459,7 +1486,15 @@
     "deleteSuccessToast": "Relatório histórico excluído com sucesso.",
     "downloadPdf": "Baixar Cópia em PDF (A4)",
     "downloadJson": "Baixar Snapshot JSON",
-    "daysValue": "{n} Dias"
+    "daysValue": "{n} Dias",
+    "col_date": "Data e Hora",
+    "col_scope": "Escopo",
+    "col_requestedBy": "Solicitado por",
+    "col_cost": "Gasto do Snapshot",
+    "col_savings": "Economia do Snapshot",
+    "col_emailSent": "Enviado por E-mail",
+    "col_storage": "Armazenamento / Retenção",
+    "col_actions": "Ações"
   },
   "AdminSecurity": {
     "title": "Configurações de segurança",
@@ -4559,7 +4594,9 @@
     "audit": "Auditar",
     "viewRisk": "Ver risco",
     "delete": "Excluir",
-    "customizeColumns": "Personalizar Colunas"
+    "customizeColumns": "Personalizar Colunas",
+    "showing": "Mostrar:",
+    "ofRecords": "de {count} registros"
   },
   "ComputeContainersFinops": {
     "selectTenant": "Selecione um tenant para ver o cockpit FinOps/CMP de contêineres.",

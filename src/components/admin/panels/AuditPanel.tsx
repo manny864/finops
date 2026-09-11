@@ -37,14 +37,16 @@ interface ColumnConfig {
     width: number;
 }
 
-const DEFAULT_COLUMNS: ColumnConfig[] = [
-    { id: "timestamp", label: "Fecha y Hora", visible: true, width: 190 },
-    { id: "user", label: "Usuario / Actor", visible: true, width: 220 },
-    { id: "action", label: "Acción Ejecutada", visible: true, width: 210 },
-    { id: "resource", label: "Recurso / Destino", visible: true, width: 260 },
-    { id: "status", label: "Estado", visible: true, width: 120 },
-    { id: "ip", label: "IP / Origen", visible: true, width: 140 },
-    { id: "actions", label: "Acciones", visible: true, width: 110 },
+// Los rotulos salen del catalogo: el menu de columnas se traducia pero
+// sus items seguian en castellano.
+const columnasAuditoria = (t: (k: string) => string): ColumnConfig[] => [
+    { id: "timestamp", label: t("col_timestamp"), visible: true, width: 190 },
+    { id: "user", label: t("col_user"), visible: true, width: 220 },
+    { id: "action", label: t("col_action"), visible: true, width: 210 },
+    { id: "resource", label: t("col_resource"), visible: true, width: 260 },
+    { id: "status", label: t("col_status"), visible: true, width: 120 },
+    { id: "ip", label: t("col_ip"), visible: true, width: 140 },
+    { id: "actions", label: t("col_actions"), visible: true, width: 110 },
 ];
 
 const ACTION_TYPE_OPTIONS: { value: string; label: string }[] = [
@@ -71,6 +73,7 @@ const STATUS_OPTIONS: { value: string; label: string }[] = [
 
 export default function AuditTrailPanel() {
     const t = useTranslations("AdminAudit");
+    const tc = useTranslations("Common");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
 
@@ -108,7 +111,7 @@ export default function AuditTrailPanel() {
                 /* noop */
             }
         }
-        return DEFAULT_COLUMNS;
+        return columnasAuditoria(t);
     });
     const [isColumnPickerOpen, setIsColumnPickerOpen] = useState(false);
     const columnPickerRef = useRef<HTMLDivElement>(null);
@@ -307,7 +310,7 @@ export default function AuditTrailPanel() {
     };
 
     const resetColumnsToDefault = () => {
-        setColumns(DEFAULT_COLUMNS);
+        setColumns(columnasAuditoria(t));
     };
 
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
@@ -555,7 +558,7 @@ export default function AuditTrailPanel() {
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-200 transition-colors shadow-sm"
                         >
                             <IconColumns size={15} stroke={1.5} className="text-[#0078D4]" />
-                            <span>Personalizar Columnas</span>
+                            <span>{tc("customizeColumns")}</span>
                         </button>
 
                         {isColumnPickerOpen && (
@@ -712,7 +715,7 @@ export default function AuditTrailPanel() {
                 {/* Paginación Estándar CMP */}
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400">
                     <div className="flex items-center gap-2">
-                        <span>Mostrar:</span>
+                        <span>{tc("showing")}</span>
                         <select
                             value={pageSize}
                             onChange={(e) => {
@@ -726,7 +729,7 @@ export default function AuditTrailPanel() {
                             <option value={45}>45</option>
                             <option value={60}>60</option>
                         </select>
-                        <span>de {totalCount} registros</span>
+                        <span>{tc("ofRecords", { count: totalCount })}</span>
                     </div>
 
                     <div className="flex items-center gap-1">

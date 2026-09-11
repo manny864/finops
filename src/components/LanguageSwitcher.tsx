@@ -47,9 +47,20 @@ export default function LanguageSwitcher({ className, selectClassName, iconClass
         style={selectStyle}
         className={selectClassName ?? "bg-transparent border-none text-gray-700 dark:text-gray-200 focus:ring-0 cursor-pointer outline-none font-medium dark:bg-slate-800 dark:border-slate-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"}
       >
-        <option value="es">🇪🇸 ES</option>
-        <option value="en">🇺🇸 EN</option>
-        <option value="pt-BR">🇧🇷 PT-BR</option>
+        {/*
+          * Sin banderas a proposito. Eran pares de indicadores regionales
+          * (U+1F1EA U+1F1F8...) y Windows NO trae esos glifos en Segoe UI Emoji
+          * —es una decision de Microsoft, no un font que falte— asi que en
+          * Windows salian dos letras sueltas o cuadrados. En un <option> nativo
+          * tampoco se puede sustituir por un SVG.
+          *
+          * Aparte, una bandera no es un idioma: 🇺🇸 deja afuera al Reino Unido y
+          * el castellano no tiene un pais que lo represente. El codigo ISO
+          * identifica el idioma sin ese problema.
+          */}
+        <option value="es">ES · Español</option>
+        <option value="en">EN · English</option>
+        <option value="pt-BR">PT-BR · Português</option>
       </select>
     </div>
   );

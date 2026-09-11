@@ -41,18 +41,21 @@ interface ColumnConfig {
     width: number;
 }
 
-const DEFAULT_COLUMNS: ColumnConfig[] = [
-    { id: "name", label: "Etiqueta / Nombre", visible: true, width: 260 },
-    { id: "keyPrefix", label: "Clave Enmascarada", visible: true, width: 220 },
-    { id: "createdBy", label: "Creada Por", visible: true, width: 220 },
-    { id: "createdAt", label: "Fecha Creación", visible: true, width: 170 },
-    { id: "lastUsed", label: "Último Uso", visible: true, width: 160 },
-    { id: "status", label: "Estado", visible: true, width: 130 },
-    { id: "actions", label: "Acciones", visible: true, width: 100 },
+// Los rotulos salen del catalogo: el menu de columnas se traducia pero
+// sus items seguian en castellano.
+const columnasMcpKeys = (t: (k: string) => string): ColumnConfig[] => [
+    { id: "name", label: t("col_name"), visible: true, width: 260 },
+    { id: "keyPrefix", label: t("col_keyPrefix"), visible: true, width: 220 },
+    { id: "createdBy", label: t("col_createdBy"), visible: true, width: 220 },
+    { id: "createdAt", label: t("col_createdAt"), visible: true, width: 170 },
+    { id: "lastUsed", label: t("col_lastUsed"), visible: true, width: 160 },
+    { id: "status", label: t("col_status"), visible: true, width: 130 },
+    { id: "actions", label: t("col_actions"), visible: true, width: 100 },
 ];
 
 export default function McpKeysPanel() {
     const t = useTranslations("AdminMcpKeys");
+    const tc = useTranslations("Common");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
 
@@ -93,7 +96,7 @@ export default function McpKeysPanel() {
                 /* noop */
             }
         }
-        return DEFAULT_COLUMNS;
+        return columnasMcpKeys(t);
     });
     const [isColumnPickerOpen, setIsColumnPickerOpen] = useState(false);
     const columnPickerRef = useRef<HTMLDivElement>(null);
@@ -273,7 +276,7 @@ export default function McpKeysPanel() {
     };
 
     const resetColumnsToDefault = () => {
-        setColumns(DEFAULT_COLUMNS);
+        setColumns(columnasMcpKeys(t));
     };
 
     // Filtrado y Paginado
@@ -476,7 +479,7 @@ in
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-200 transition-colors shadow-sm"
                             >
                                 <IconColumns size={15} stroke={1.5} className="text-[#0078D4]" />
-                                <span>Personalizar Columnas</span>
+                                <span>{tc("customizeColumns")}</span>
                             </button>
 
                             {isColumnPickerOpen && (
@@ -655,7 +658,7 @@ in
                 {/* Paginación Estándar CMP */}
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400">
                     <div className="flex items-center gap-2">
-                        <span>Mostrar:</span>
+                        <span>{tc("showing")}</span>
                         <select
                             value={pageSize}
                             onChange={(e) => {
@@ -669,7 +672,7 @@ in
                             <option value={45}>45</option>
                             <option value={60}>60</option>
                         </select>
-                        <span>de {filteredKeys.length} registros</span>
+                        <span>{tc("ofRecords", { count: filteredKeys.length })}</span>
                     </div>
 
                     <div className="flex items-center gap-1">
