@@ -39,6 +39,8 @@ import {
   ZombieIssueType,
   ZombieResourceItem,
   ZombieAuditPayload,
+  ZOMBIE_ISSUE_KEYS,
+  zombieTypeKey,
 } from "@/types/azureZombieAudit.types";
 import { useTranslations } from "next-intl";
 
@@ -1139,7 +1141,10 @@ export default function ZombieAuditPanel() {
                       {isColVisible("type") && (
                         <td className="py-3 px-4">
                           <span className="text-xs text-slate-700 dark:text-slate-300 font-medium break-words whitespace-normal">
-                            {res.typeDisplayName}
+                            {(() => {
+                              const k = zombieTypeKey(res.resourceType);
+                              return k ? t(k) : res.typeDisplayName;
+                            })()}
                           </span>
                         </td>
                       )}
@@ -1160,7 +1165,7 @@ export default function ZombieAuditPanel() {
                             </span>
                           ) : res.category === "HARD_WASTE" ? (
                             <span className="px-2 py-0.5 text-[11px] font-bold rounded-lg border border-rose-200 text-rose-700 bg-white dark:bg-slate-900 inline-block">
-                              {res.issueDisplayName}
+                              {ZOMBIE_ISSUE_KEYS[res.issueType] ? t(ZOMBIE_ISSUE_KEYS[res.issueType]) : res.issueDisplayName}
                             </span>
                           ) : (
                             <span className="px-2 py-0.5 text-[11px] font-bold rounded-lg border border-blue-200 text-[#0078D4] bg-white dark:bg-slate-900 inline-block">
@@ -1172,7 +1177,7 @@ export default function ZombieAuditPanel() {
 
                       {isColVisible("savings") && (
                         <td className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-100">
-                          {res.monthlySavingsUSD > 0 ? money(res.monthlySavingsUSD) + "/mes" : "—"}
+                          {res.monthlySavingsUSD > 0 ? money(res.monthlySavingsUSD) + t("perMonthSuffix") : "—"}
                         </td>
                       )}
 

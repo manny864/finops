@@ -37,6 +37,7 @@ import {
   PrivateEndpointDetailItem,
   NetworkingZombiesSummary,
   TableColumnConfig,
+  NETWORK_ZOMBIE_TYPE_KEYS,
 } from "@/types/azureNetworkingZombies.types";
 import { errorMessage } from "@/lib/apiErrors";
 
@@ -74,6 +75,9 @@ function getNetworkIcon(type: string) {
 
 export default function NetworkingZombiesPanel() {
   const t = useTranslations("NetworkingZombies");
+  // El motivo lo arma el servidor; cuando manda clave, la pantalla la resuelve.
+  const reasonText = (res: NetworkZombieResourceItem) =>
+    res.detectionReasonKey ? t(res.detectionReasonKey, res.detectionReasonParams) : res.detectionReason;
   const { selectedTenant } = useTenant();
   const tenantId = selectedTenant?.id || "demo_tenant";
   const isMock = isMockTenant(tenantId);
@@ -401,7 +405,7 @@ export default function NetworkingZombiesPanel() {
             </span>{" "}
             {t("peActiveWithCost")}{" "}
             <span className="font-semibold text-[#0054A6] dark:text-blue-400">
-              {money(metrics.privateEndpointsMonthlyCostUSD)}/mes
+              {money(metrics.privateEndpointsMonthlyCostUSD)}{t("perMonthSuffix")}
             </span>{" "}
             {t("peAdvice")}
           </div>
@@ -434,7 +438,7 @@ export default function NetworkingZombiesPanel() {
               <InfoTooltip content={t("peFullDetailTip")} />
             </div>
             <span className="text-xs text-slate-500 font-medium">
-              Total: {metrics.privateEndpoints.length} endpoints ({money(metrics.privateEndpointsMonthlyCostUSD)}/mes)
+              Total: {metrics.privateEndpoints.length} endpoints ({money(metrics.privateEndpointsMonthlyCostUSD)}{t("perMonthSuffix")})
             </span>
           </div>
 
@@ -475,7 +479,7 @@ export default function NetworkingZombiesPanel() {
                       )}
                     </td>
                     <td className="py-2.5 px-3 font-semibold text-[#1B2A41] dark:text-slate-100">
-                      {money(pe.monthlyCostUSD)}/mes
+                      {money(pe.monthlyCostUSD)}{t("perMonthSuffix")}
                     </td>
                     <td className="py-2.5 px-3 text-right">
                       {pe.connectionStatus !== "Connected" ? (
@@ -860,7 +864,7 @@ export default function NetworkingZombiesPanel() {
                       {isColVisible("type") && (
                         <td className="py-3 px-4">
                           <span className="text-xs text-slate-700 dark:text-slate-300 font-medium break-words whitespace-normal">
-                            {res.zombieType.replace(/_/g, " ")}
+                            {NETWORK_ZOMBIE_TYPE_KEYS[res.zombieType] ? t(NETWORK_ZOMBIE_TYPE_KEYS[res.zombieType]) : res.zombieType.replace(/_/g, " ")}
                           </span>
                         </td>
                       )}
@@ -880,9 +884,9 @@ export default function NetworkingZombiesPanel() {
                         <td className="py-3 px-4">
                           <span
                             className="text-slate-600 dark:text-slate-300 text-xs break-words whitespace-normal block"
-                            title={res.detectionReason}
+                            title={reasonText(res)}
                           >
-                            {res.detectionReason}
+                            {reasonText(res)}
                           </span>
                         </td>
                       )}
@@ -895,7 +899,7 @@ export default function NetworkingZombiesPanel() {
 
                       {isColVisible("monthlyCost") && (
                         <td className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-100 whitespace-nowrap">
-                          {res.monthlyCostUSD > 0 ? `${money(res.monthlyCostUSD)}/mes` : "$0.00"}
+                          {res.monthlyCostUSD > 0 ? `${money(res.monthlyCostUSD)}${t("perMonthSuffix")}` : "$0.00"}
                         </td>
                       )}
 
@@ -991,7 +995,7 @@ export default function NetworkingZombiesPanel() {
               </div>
               <div>
                 <span className="font-semibold text-slate-500">{t("fieldMonthlySavings")}</span>{" "}
-                <span className="font-bold text-emerald-600">{money(remediatingItem.monthlyCostUSD)}/mes</span>
+                <span className="font-bold text-emerald-600">{money(remediatingItem.monthlyCostUSD)}{t("perMonthSuffix")}</span>
               </div>
             </div>
 

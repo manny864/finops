@@ -21,6 +21,21 @@ describe("Azure Networking Zombies Service", () => {
     expect(formatNetworkZombieType("PLATFORM_WATCHER")).toBe("Network Watcher (Platform)");
   });
 
+  /*
+   * `detectionReason` sale del servicio en castellano — es el fallback y lo que
+   * se loguea — y la tabla muestra `detectionReasonKey`. Un recurso nuevo sin
+   * clave no rompe nada: cae al fallback y pinta castellano en la UI inglesa,
+   * que es exactamente el bug que se estaba arreglando. El guard 4b de
+   * i18nClavesDinamicas verifica que las claves EXISTAN en los tres catalogos;
+   * esto verifica que ningun recurso se quede sin una.
+   */
+  it("cada recurso del seed demo trae detectionReasonKey", () => {
+    const sinClave = getMockNetworkingZombiesPayload("33333333-4444-5555-6666-777777777777")
+      .metrics.zombies.filter((z) => !z.detectionReasonKey)
+      .map((z) => z.name);
+    expect(sinClave).toEqual([]);
+  });
+
   it("computeNetworkingZombiesSummary calculates monthly & annual waste correctly excluding exemptions and platform watchers", () => {
     const mockZombies: NetworkZombieResourceItem[] = [
       {

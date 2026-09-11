@@ -887,20 +887,16 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                       }), { status: 200 });
                   }
 
-                  // Copilot
-                  if (url.includes('/api/intelligence/copilot/quota')) {
-                      return new Response(JSON.stringify({ success: true, mock: true, used: 14, limit: 100, remaining: 86 }), { status: 200 });
-                  }
-                  if (url.includes('/api/intelligence/copilot')) {
-                      return new Response(JSON.stringify({
-                          success: true, mock: true,
-                          message: "¡Hola! Estoy analizando el entorno de demostración. Se detectan oportunidades de optimización en cómputo, almacenamiento y licencias.",
-                          recommendations: [
-                              { title: "Redimensionar VMs sobredimensionadas", potentialSavings: 420 * dm },
-                              { title: "Limpieza de discos huérfanos", potentialSavings: 180 * dm },
-                          ],
-                      }), { status: 200 });
-                  }
+                  // El Copilot NO se intercepta: /api/intelligence/copilot y su
+                  // /quota ya resuelven el caso demo end-to-end (identidad
+                  // sintetica, sin cuota, ver isDemoTenant en ambas rutas) y
+                  // contra el mismo modelo que produccion, que es justo lo que
+                  // se quiere demostrar. El mock de antes devolvia JSON con
+                  // {message, recommendations} mientras la ruta real streamea
+                  // text/plain: el cliente tomaba la rama de streaming y
+                  // pintaba el JSON crudo en el chat. La /quota tenia el mismo
+                  // problema de forma ({used,limit,remaining} plano contra
+                  // {monthly:{...}}), asi que el contador nunca se mostraba.
 
                   // Entra ID
                   if (url.includes('/api/intelligence/entra-id')) {

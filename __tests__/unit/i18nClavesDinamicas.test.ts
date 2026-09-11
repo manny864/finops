@@ -41,6 +41,8 @@ import { DATA_FACTORY_REMEDIATION_CATEGORIES } from "@/types/azureDataFactory.ty
 import { EVENT_GRID_REMEDIATION_CATEGORIES } from "@/types/azureEventGrid.types";
 import { WORKBOOK_REMEDIATION_CATEGORIES } from "@/types/azureWorkbooks.types";
 import { TENANT_HEALTH_ACTION_TYPES, TENANT_HEALTH_STATUS_KEYS } from "@/types/azureTenantHealth.types";
+import { ZOMBIE_TYPE_KEYS, ZOMBIE_ISSUE_KEYS } from "@/types/azureZombieAudit.types";
+import { NETWORK_ZOMBIE_TYPE_KEYS } from "@/types/azureNetworkingZombies.types";
 import { ENTRA_REMEDIATION_CATEGORIES, ENTRA_WASTE_REASON_KEYS } from "@/types/azureEntraId.types";
 import { WAF_REMEDIATION_CATEGORIES } from "@/types/azureWaf.types";
 import { SERVICE_BUS_REMEDIATION_CATEGORIES } from "@/types/azureServiceBus.types";
@@ -321,6 +323,21 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
                 `rem_${c}_desc`,
                 `cat_${c}`,
             ]),
+        },
+        {
+            que: "tipos de recurso zombi (ZOMBIE_TYPE_KEYS)",
+            ns: "ZombiePanel",
+            claves: ZOMBIE_TYPE_KEYS.map(([, clave]) => clave),
+        },
+        {
+            que: "hallazgos del scan de zombis (ZOMBIE_ISSUE_KEYS)",
+            ns: "ZombiePanel",
+            claves: Object.values(ZOMBIE_ISSUE_KEYS),
+        },
+        {
+            que: "tipos de zombi de red (NETWORK_ZOMBIE_TYPE_KEYS)",
+            ns: "NetworkingZombies",
+            claves: Object.values(NETWORK_ZOMBIE_TYPE_KEYS),
         },
         {
             que: "motivos de desperdicio de Entra ID (ENTRA_WASTE_REASON_KEYS)",
@@ -1468,7 +1485,7 @@ describe("i18n · capa 4b: las claves sueltas de los seeds existen en los tres c
      * texto bien hecha, no una fuga. `statusKey` sí entra porque ahí el valor es
      * la clave entera ("status_BUDGET_none").
      */
-    const RE_CLAVE = /\b(?:name|description|desc|title|message|label|status|scopeValue)Key:\s*"([A-Za-z0-9_.]+)"/g;
+    const RE_CLAVE = /\b(?:name|description|desc|title|message|label|status|scopeValue|detectionReason)Key:\s*"([A-Za-z0-9_.]+)"/g;
 
     function namespacesDe(locale: Locale, clave: string): string[] {
         const partes = clave.split(".");
