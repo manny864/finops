@@ -273,6 +273,9 @@ function ScoreSimulatorModal({
 }
 
 // ─── Componente Principal ───
+/** Las cinco notas que tienen clave en el catalogo (`grade_A` .. `grade_F`). */
+const NOTAS_CON_CLAVE = ["A", "B", "C", "D", "F"];
+
 export default function TenantHealthPanel() {
   const t = useTranslations("TenantHealth");
   const { selectedTenant } = useTenant();
@@ -303,6 +306,19 @@ export default function TenantHealthPanel() {
   const summary = data?.summary;
   const overallScore = summary?.overallScore ?? (data ? 100 : 0);
   const grade = summary?.grade ?? (data ? "A" : "—");
+  /**
+   * El texto de la nota sale de una clave por letra, pero `grade` cae al guion
+   * largo cuando todavia no hay datos: esa clave no existe y el lookup tiraba
+   * MISSING_MESSAGE, que dentro de un render se lleva el panel entero.
+   *
+   * Agregar la clave del guion seria tapar el sintoma: no es una nota, es el
+   * marcador de "sin dato". Se busca solo cuando la nota es una de las cinco
+   * reales, y si no, se muestra el propio marcador.
+   *
+   * (El comentario evita escribir la llamada literal: el escaner de
+   * i18nKeyIntegrity no distingue codigo de comentario y la leia como real.)
+   */
+  const etiquetaNota = NOTAS_CON_CLAVE.includes(grade) ? t(`grade_${grade}`) : grade;
   const signals = useMemo(() => summary?.signals || [], [summary]);
   const actionPlan = useMemo(() => summary?.actionPlan || [], [summary]);
   const trend = useMemo(() => summary?.historicalTrend || [], [summary]);
@@ -421,7 +437,7 @@ export default function TenantHealthPanel() {
             label: t("kpiOverall"),
             tip: t("kpiOverallTip"),
             value: `${overallScore} / 100`,
-            sub: t("kpiGradeSub", { grade, label: t(`grade_${grade}`) }),
+            sub: t("kpiGradeSub", { grade, label: etiquetaNota }),
             Icon: IconHeartRateMonitor,
             warn: overallScore < 70,
           },

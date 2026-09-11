@@ -11806,7 +11806,9 @@
     "remediate": "Remediar",
     "totalSavingsAmount": "Ahorro Total: {amount}/mes",
     "suggestedCap": "Límite sugerido: {gb} GB/día",
-    "rulesIdentified": "{count, plural, one {# regla identificada} other {# reglas identificadas}}"
+    "rulesIdentified": "{count, plural, one {# regla identificada} other {# reglas identificadas}}",
+    "seriesIngestion": "Ingesta diaria (GB)",
+    "workspacesCount": "{n, plural, one {# workspace} other {# workspaces}}"
   },
   "Shell": {
     "cloudFinOps": "Cloud FinOps"

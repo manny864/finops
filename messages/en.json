@@ -11806,7 +11806,9 @@
     "remediate": "Remediate",
     "totalSavingsAmount": "Total Savings: {amount}/mo",
     "suggestedCap": "Suggested cap: {gb} GB/day",
-    "rulesIdentified": "{count, plural, one {# rule identified} other {# rules identified}}"
+    "rulesIdentified": "{count, plural, one {# rule identified} other {# rules identified}}",
+    "seriesIngestion": "Daily ingestion (GB)",
+    "workspacesCount": "{n, plural, one {# workspace} other {# workspaces}}"
   },
   "Shell": {
     "cloudFinOps": "Cloud FinOps"

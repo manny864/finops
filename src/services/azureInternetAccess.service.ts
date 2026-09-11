@@ -1,6 +1,7 @@
 import { getResourceGraphClient, getAzureCredential } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
+import { isMockTenant } from "@/lib/mockData";
 import {
     InternetAccessResource,
     InternetAccessServiceType,
@@ -63,16 +64,15 @@ function buildInternetAccessKql(): string {
  * Service to analyze Azure Internet Access & Perimeter Security (Public IPs, NAT GWs, Azure Firewall, DDoS)
  */
 export async function getAzureInternetAccess(tenantId: string): Promise<InternetAccessResponse> {
-    const isMock =
-        tenantId.startsWith("demo-") ||
-        tenantId.startsWith("mock-") ||
-        tenantId === "demo_tenant" ||
-        tenantId === "demo-tenant" ||
-        tenantId === "demo-tenant-id" ||
-        tenantId === "default-tenant" ||
-        tenantId === "default";
-
-    if (isMock) {
+    /**
+     * `isMockTenant` y no un predicado propio: los cuatro tenants demo se
+     * identifican por UUID (`22222222-...`) y esta lista de prefijos no los
+     * matcheaba, asi que caian al camino vivo de Azure y la pantalla salia
+     * vacia. La ruta SI usaba `isMockTenant`, decidia "es demo" y despues
+     * delegaba aca, donde se volvia a decidir que no. Mismo defecto que en
+     * DDoS Protection (74c9048); un solo predicado para los dos.
+     */
+    if (isMockTenant(tenantId)) {
         return getMockInternetAccessData(tenantId);
     }
 

@@ -665,8 +665,9 @@ export default function SentinelPanel() {
           </div>
           <div>
             <div className="text-2xl font-extrabold text-[#1B2A41] dark:text-slate-100 font-sans">
-              {metrics?.commitmentCandidatesCount || 0}
-              <span className="text-xs text-slate-500 font-normal ml-1">workspaces</span>
+              <span className="text-xs text-slate-500 font-normal">
+                {t("workspacesCount", { n: metrics?.commitmentCandidatesCount || 0 })}
+              </span>
             </div>
             <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#0054A6]">
               <span>{t("sustainedIngestion")}</span>
@@ -783,11 +784,9 @@ export default function SentinelPanel() {
                       if (name === t("seriesCost")) return [formatCurrency(Number(val) || 0), name];
                       return [`${Number(val).toFixed(1)} GB`, name];
                     }}
-                    contentStyle={{ ...TOOLTIP_TEMA.contentStyle,
-                      
+                    contentStyle={{
+                      ...TOOLTIP_TEMA.contentStyle,
                       borderRadius: "12px",
-                      
-                      border: "1px solid #334155",
                       fontSize: "12px",
                     }} itemStyle={TOOLTIP_TEMA.itemStyle} labelStyle={TOOLTIP_TEMA.labelStyle} />
                   <Area
@@ -804,7 +803,7 @@ export default function SentinelPanel() {
                     yAxisId="right"
                     type="monotone"
                     dataKey="ingestedGB"
-                    name="Ingesta Diaria (GB)"
+                    name={t("seriesIngestion")}
                     stroke="#00AEEF"
                     strokeWidth={1.5}
                     strokeDasharray="4 4"

@@ -1,6 +1,7 @@
 import { getResourceGraphClient, getAzureCredential } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
+import { isMockTenant } from "@/lib/mockData";
 import {
     HybridNetworkResource,
     HybridNetworkServiceType,
@@ -64,9 +65,15 @@ function buildHybridNetworkingKql(): string {
  * Service to analyze Azure Hybrid Connectivity (VPN Gateways, ExpressRoute, Virtual WAN, Local Gateways, Connections)
  */
 export async function getAzureHybridConnectivity(tenantId: string): Promise<HybridConnectivityResponse> {
-    const isMock = tenantId.startsWith("demo-") || tenantId.startsWith("mock-") || tenantId === "default-tenant";
-
-    if (isMock) {
+    /**
+     * `isMockTenant` y no un predicado propio: los cuatro tenants demo se
+     * identifican por UUID (`22222222-...`) y esta lista de prefijos no los
+     * matcheaba, asi que caian al camino vivo de Azure y la pantalla salia
+     * vacia. La ruta SI usaba `isMockTenant`, decidia "es demo" y despues
+     * delegaba aca, donde se volvia a decidir que no. Mismo defecto que en
+     * DDoS Protection (74c9048); un solo predicado para los dos.
+     */
+    if (isMockTenant(tenantId)) {
         return getMockHybridConnectivityData(tenantId);
     }
 

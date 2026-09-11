@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { getAzureDdosProtection } from "@/services/azureDdosProtection.service";
+import { getAzureLoadBalancing } from "@/services/azureLoadBalancing.service";
+import { getAzureInternetAccess } from "@/services/azureInternetAccess.service";
+import { getAzureHybridConnectivity } from "@/services/azureHybridConnectivity.service";
 import { MOCK_AZURE_TENANTS, isMockTenant } from "@/lib/mockData";
 
 /**
@@ -57,4 +60,30 @@ describe("DDoS Protection · los tenants demo traen datos", () => {
             expect(n, `"${n}" trae acentos del castellano`).not.toMatch(/[áéíóúñÁÉÍÓÚÑ]/);
         }
     });
+});
+
+/**
+ * El mismo defecto vivia en otros tres servicios de red, encontrados buscando
+ * el patron --no reportados-- despues de arreglar DDoS: cada uno decidia con
+ * su propia lista de prefijos y ninguno conocia los UUID de los tenants demo.
+ *
+ * El test se queda aunque el predicado ya este unificado: lo que fija no es la
+ * implementacion sino el contrato, que es lo unico que importa desde afuera —
+ * si `isMockTenant` dice que un tenant es demo, el servicio le tiene que dar
+ * datos.
+ */
+describe("Servicios de red · los tenants demo traen datos", () => {
+    const servicios: Array<[string, (t: string) => Promise<{ resources?: unknown[] }>]> = [
+        ["Load Balancing", getAzureLoadBalancing as never],
+        ["Internet Access", getAzureInternetAccess as never],
+        ["Hybrid Connectivity", getAzureHybridConnectivity as never],
+    ];
+
+    for (const [nombre, fn] of servicios) {
+        it.each(MOCK_AZURE_TENANTS)(`${nombre} · %s devuelve recursos`, async (tenantId) => {
+            const data = await fn(tenantId);
+            const filas = (data as Record<string, unknown[]>).resources ?? [];
+            expect(filas.length, `${nombre}: el tenant demo cayo al camino vivo`).toBeGreaterThan(0);
+        });
+    }
 });
