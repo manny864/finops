@@ -551,7 +551,8 @@
     "col_amountUSD": "Valor (USD)",
     "col_status": "Status",
     "col_actions": "Ações",
-    "downloadPdf": "Baixar PDF"
+    "downloadPdf": "Baixar PDF",
+    "cancellationScheduled": "Cancelamento Agendado"
   },
   "AdminCapacityAddons": {
     "selfServeUnavailable": "A contratação online não está disponível para esta conta (sem assinatura ativa no Paddle, ou add-ons não habilitados neste ambiente). Fale com vendas para ampliar sua capacidade.",

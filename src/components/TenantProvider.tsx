@@ -580,18 +580,10 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                       isEnterprise: tierCap === 'Enterprise',
                   }), { status: 200 });
               }
-              if (url.includes('/api/billing/invoices')) {
-                  const m = tier === 'enterprise' ? 50 : tier === 'business' ? 10 : tier === 'pro' ? 3 : 1;
-                  const invoices = Array.from({ length: 3 }).map((_, i) => ({
-                      id: i + 1,
-                      transactionId: `txn_demo_000${i + 1}`,
-                      amount: 29900 * m,
-                      currency: 'USD',
-                      status: 'paid',
-                      billedAt: new Date(Date.now() - i * 30 * 86400000).toISOString(),
-                  }));
-                  return new Response(JSON.stringify({ success: true, invoices, count: invoices.length }), { status: 200 });
-              }
+              // /api/billing/invoices NO se intercepta: el includes() se tragaba
+              // tambien /api/billing/invoices/[id]/pdf y le devolvia un JSON a una
+              // descarga de PDF. El panel de facturacion no usa ese listado — lee
+              // /api/billing/subscription, que ya resuelve isMockTenant.
               if (url.includes('/api/dashboard/summary')) return new Response(JSON.stringify(getMockDataForRoute('dashboard_summary', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/applied-savings')) {
                   const m = tier === 'enterprise' ? 50 : tier === 'business' ? 10 : tier === 'pro' ? 3 : 1;

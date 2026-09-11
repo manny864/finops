@@ -9,6 +9,7 @@ import pool from '@/modules/storage/db';
 import { isMockTenant } from '@/lib/mockData';
 import { getMarkupSettings, getActiveOverrides } from '@/services/tenantPartnerMarkup.service';
 import { resolvePeriodRange } from '@/lib/invoicingPeriod';
+import type { SaaSInvoiceItem } from '@/types/saasBilling.types';
 import { getAzureCredential } from '@/lib/azure';
 import { getSubscriptionNameMap, resolveSubscriptionName, isUnattributedSubscriptionId } from '@/lib/azureSubscriptionNames';
 import { triggerBackfillIfStale } from '@/lib/historicalGapBackfill';
@@ -521,6 +522,134 @@ export async function generateCustomerInvoicePdf(
     doc.setFontSize(7.5);
     doc.setTextColor(148, 163, 184);
     doc.text('Documento proforma emitido por CSCloudSolutions FinOps Management Platform. No válido como factura fiscal.', 18, 285);
+
+    return Buffer.from(doc.output('arraybuffer'));
+}
+
+/**
+ * Factura de suscripcion del tenant en PDF A4.
+ *
+ * Distinta de `generateCustomerInvoicePdf`: aquella factura el consumo cloud
+ * que el MSP le cobra a SUS clientes; esta es la factura del plan SaaS que el
+ * tenant nos paga a nosotros, que antes no se podia descargar desde ningun
+ * lado — el boton de Invoice History apuntaba a una ruta que no existia.
+ *
+ * Toma el mismo `SaaSInvoiceItem` que pinta la tabla, asi el documento no
+ * puede decir un importe distinto al de la fila que el usuario clickeo.
+ */
+const INVOICE_PDF_I18N: Record<string, Record<string, string>> = {
+    es: {
+        title: 'CSCloudSolutions · Factura de Suscripción',
+        billedTo: 'Facturado a', invoice: 'Factura', issueDate: 'Fecha de emisión',
+        status: 'Estado', concept: 'Concepto', amount: 'Importe', plan: 'Plan',
+        lineItem: 'Suscripción a la plataforma FinOps CSCloudSolutions',
+        total: 'Total', PAID: 'Pagada', PENDING: 'Pendiente', FAILED: 'Fallida',
+        footer: 'CSCloudSolutions FinOps SaaS · Documento generado automáticamente por la plataforma.',
+        demoNotice: 'DOCUMENTO DE DEMOSTRACIÓN — sin validez fiscal.',
+    },
+    en: {
+        title: 'CSCloudSolutions · Subscription Invoice',
+        billedTo: 'Billed to', invoice: 'Invoice', issueDate: 'Issue date',
+        status: 'Status', concept: 'Description', amount: 'Amount', plan: 'Plan',
+        lineItem: 'CSCloudSolutions FinOps platform subscription',
+        total: 'Total', PAID: 'Paid', PENDING: 'Pending', FAILED: 'Failed',
+        footer: 'CSCloudSolutions FinOps SaaS · Document generated automatically by the platform.',
+        demoNotice: 'DEMONSTRATION DOCUMENT — not a valid tax receipt.',
+    },
+    'pt-BR': {
+        title: 'CSCloudSolutions · Fatura de Assinatura',
+        billedTo: 'Faturado para', invoice: 'Fatura', issueDate: 'Data de emissão',
+        status: 'Status', concept: 'Descrição', amount: 'Valor', plan: 'Plano',
+        lineItem: 'Assinatura da plataforma FinOps CSCloudSolutions',
+        total: 'Total', PAID: 'Paga', PENDING: 'Pendente', FAILED: 'Falhou',
+        footer: 'CSCloudSolutions FinOps SaaS · Documento gerado automaticamente pela plataforma.',
+        demoNotice: 'DOCUMENTO DE DEMONSTRAÇÃO — sem validade fiscal.',
+    },
+};
+
+export function generateSubscriptionInvoicePdf(
+    invoice: SaaSInvoiceItem,
+    tenantName: string,
+    planTier: string,
+    locale: string = 'es',
+    isDemo: boolean = false
+): Buffer {
+    const L = INVOICE_PDF_I18N[locale] ?? INVOICE_PDF_I18N.es;
+    const intlLocale = locale === 'pt-BR' ? 'pt-BR' : locale === 'en' ? 'en-US' : 'es-AR';
+    const money = (usd: number) =>
+        new Intl.NumberFormat(intlLocale, { style: 'currency', currency: 'USD' }).format(Number(usd) || 0);
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(0, 84, 166);
+    doc.text(L.title, 18, 20);
+
+    doc.setDrawColor(0, 120, 212);
+    doc.setLineWidth(0.6);
+    doc.line(18, 25, 192, 25);
+
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(18, 30, 174, 30, 2, 2, 'F');
+    doc.setDrawColor(203, 213, 225);
+    doc.roundedRect(18, 30, 174, 30, 2, 2, 'S');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`${L.billedTo}:`, 24, 38);
+    doc.text(`${L.status}:`, 24, 52);
+    doc.text(`${L.invoice}:`, 110, 38);
+    doc.text(`${L.issueDate}:`, 110, 45);
+    doc.text(`${L.plan}:`, 110, 52);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
+    doc.text(tenantName, 24, 44);
+    doc.text(L[invoice.status] ?? invoice.status, 45, 52);
+    doc.text(invoice.invoiceNumber, 142, 38);
+    // La fecha se formatea aca y no se usa `formattedDate`: ese campo lo arma
+    // el servicio con es-ES fijo, asi que en la UI inglesa venia en castellano.
+    doc.text(new Date(invoice.billingDateIso).toLocaleDateString(intlLocale), 142, 45);
+    doc.text(planTier, 142, 52);
+
+    let y = 74;
+    doc.setFillColor(0, 84, 166);
+    doc.rect(18, y - 6, 174, 9, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(255, 255, 255);
+    doc.text(L.concept, 24, y);
+    doc.text(L.amount, 186, y, { align: 'right' });
+
+    y += 12;
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(15, 23, 42);
+    doc.text(L.lineItem, 24, y);
+    doc.text(money(invoice.amountUSD), 186, y, { align: 'right' });
+
+    y += 14;
+    doc.setDrawColor(203, 213, 225);
+    doc.line(120, y - 6, 192, y - 6);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 84, 166);
+    doc.setFontSize(12);
+    doc.text(L.total, 120, y);
+    doc.text(money(invoice.amountUSD), 186, y, { align: 'right' });
+
+    // El aviso de demo va en el DOCUMENTO, no solo en la pantalla: un PDF se
+    // descarga y circula suelto, sin el banner de "datos de ejemplo" al lado.
+    if (isDemo) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(180, 83, 9);
+        doc.text(L.demoNotice, 18, y + 16);
+    }
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text(L.footer, 18, 285);
 
     return Buffer.from(doc.output('arraybuffer'));
 }

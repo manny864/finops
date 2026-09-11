@@ -32,7 +32,6 @@ function getMockBillingDetails(tenantId: string): TenantBillingDetails {
             formattedDate: augDate.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" }),
             amountUSD: 1200.0,
             status: "PAID",
-            downloadPdfUrl: "/api/billing/invoices/mock-0842/pdf",
         },
         {
             id: "inv-mock-0742",
@@ -41,7 +40,6 @@ function getMockBillingDetails(tenantId: string): TenantBillingDetails {
             formattedDate: julDate.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" }),
             amountUSD: 1200.0,
             status: "PAID",
-            downloadPdfUrl: "/api/billing/invoices/mock-0742/pdf",
         },
         {
             id: "inv-mock-0642",
@@ -50,7 +48,6 @@ function getMockBillingDetails(tenantId: string): TenantBillingDetails {
             formattedDate: junDate.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" }),
             amountUSD: 1200.0,
             status: "PAID",
-            downloadPdfUrl: "/api/billing/invoices/mock-0642/pdf",
         },
     ];
 

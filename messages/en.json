@@ -551,7 +551,8 @@
     "col_amountUSD": "Amount (USD)",
     "col_status": "Status",
     "col_actions": "Actions",
-    "downloadPdf": "Download PDF"
+    "downloadPdf": "Download PDF",
+    "cancellationScheduled": "Cancellation Scheduled"
   },
   "AdminCapacityAddons": {
     "selfServeUnavailable": "Online purchasing is not available for this account (no active Paddle subscription, or add-ons are not enabled in this environment). Contact sales to expand your capacity.",
