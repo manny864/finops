@@ -32,11 +32,11 @@ export class TierLimitException extends Error {
 }
 
 const TIER_FEATURES: Record<SaaSPlanTier, RestrictedFeatureKey[]> = {
-  Professional: [],
+  Professional: [
+    "FOCUS_EXPORT",
+  ],
   Business: [
     "FOCUS_EXPORT",
-    "CSP_MARKUP",
-    "POWERBI_TEMPLATES",
     "ZOMBIE_REMEDIATION",
     "TAG_REMEDIATION",
   ],

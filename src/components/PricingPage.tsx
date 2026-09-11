@@ -8,7 +8,17 @@ import EnterpriseLeadModal from './EnterpriseLeadModal';
 import { TIER_BASE_PRICE_USD, getAnnualMonthlyEquivalent, getAnnualDiscountPercent } from '@/lib/pricing';
 import DemoLeadModal from './DemoLeadModal';
 import LanguageSwitcher from './LanguageSwitcher';
-import { IconBuildingLighthouse } from "@tabler/icons-react";
+import { FinOpsCapabilitiesTable } from './FinOpsCapabilitiesTable';
+import {
+  IconBuildingLighthouse,
+  IconCheck,
+  IconAward,
+  IconStarFilled,
+  IconShieldCheck,
+  IconArrowRight,
+  IconTable,
+  IconArrowsMaximize,
+} from "@tabler/icons-react";
 
 interface PricingPageProps {
   onLoginClick?: () => void;
@@ -32,9 +42,15 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
   // el formulario de datos, se abre acá mismo (en la página de precios) y solo
   // tras enviarlo se navega a /demo. Guarda el tier elegido mientras tanto.
   const [pendingDemoTier, setPendingDemoTier] = useState<DemoTier | null>(null);
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+
   const t = useTranslations('pricing');
   const tf = useTranslations('Footer');
   const locale = useLocale();
+
+  const proFeatures = (t.raw('pro.features') as string[]) || [];
+  const businessFeatures = (t.raw('business.features') as string[]) || [];
+  const enterpriseFeatures = (t.raw('enterprise.features') as string[]) || [];
 
   // Email corporativo del usuario ya logueado con MSAL (viene de preferred_username /
   // UPN del tenant Azure AD). Para cuando se llega al checkout, el login/onboarding
@@ -178,6 +194,46 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
     return getAnnualDiscountPercent('Professional') ?? 12;
   })();
 
+  if (viewMode === 'table') {
+    return (
+      <>
+        <FinOpsCapabilitiesTable
+          onRevert={() => setViewMode('cards')}
+          onClose={onLoginClick ? () => onLoginClick() : () => setViewMode('cards')}
+          onSelectPro={() => {
+            setViewMode('cards');
+            goToDemo('pro');
+          }}
+          onSelectBusiness={() => {
+            setViewMode('cards');
+            openCheckout(getPriceId('business'));
+          }}
+          onSelectEnterprise={() => {
+            setViewMode('cards');
+            setEnterpriseModalOpen(true);
+          }}
+        />
+        <EnterpriseLeadModal
+          isOpen={isEnterpriseModalOpen}
+          onClose={() => setEnterpriseModalOpen(false)}
+        />
+        {pendingDemoTier && (
+          <DemoLeadModal
+            onSuccess={handleDemoLeadSuccess}
+            onClose={() => setPendingDemoTier(null)}
+          />
+        )}
+        <CorporateEmailNoticeModal
+          open={!!pendingCheckoutPriceId}
+          email={corporateEmail}
+          onCancel={() => setPendingCheckoutPriceId(undefined)}
+          onConfirm={confirmCheckout}
+          t={t}
+        />
+      </>
+    );
+  }
+
   return (
     <div className="relative overflow-hidden min-h-screen bg-[#0E1A2B] flex flex-col font-sans py-16 px-4 sm:px-6 lg:px-8">
       {/* Fondo: Video interactivo con superposición corporativa y orbes de luz */}
@@ -264,172 +320,235 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         </span>
       </div>
 
-      <div className="relative z-10 max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch animate-in fade-in zoom-in-95 duration-700 delay-150">
+      {/* Botón de Matriz Comparativa Completa */}
+      <div className="relative z-10 flex justify-center -mt-8 mb-12">
+        <button
+          type="button"
+          onClick={() => setViewMode('table')}
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-slate-100 bg-white/10 hover:bg-white/20 border border-white/20 shadow-sm transition-all hover:-translate-y-0.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#00AEEF]"
+        >
+          <IconTable className="w-4 h-4 text-[#00AEEF]" />
+          <span>{t('compareFullscreen')}</span>
+          <IconArrowsMaximize className="w-3.5 h-3.5 text-slate-400" />
+        </button>
+      </div>
+
+      <div className="relative z-10 max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch animate-in fade-in zoom-in-95 duration-700 delay-150">
         {/* Professional */}
-        <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl shadow-md hover:shadow-xl border border-slate-200/80 dark:border-slate-800 p-6 flex flex-col relative transition-all duration-300 hover:-translate-y-1.5 hover:z-20">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-            <h3 className="text-lg font-extrabold text-[#1B2A41] dark:text-slate-100 font-heading min-w-0">{t('pro.name')}</h3>
-            <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-bold px-2 py-0.5 rounded-full flex-shrink-0">
-              {t('trial')}
-            </span>
-          </div>
-          <div className="mb-5">
-            <div className="flex flex-wrap items-baseline text-3xl sm:text-4xl font-extrabold text-[#1B2A41] dark:text-white font-mono break-words">
-              ${getPrice('Professional')}
-              <span className="text-xs font-medium text-slate-500 ml-1">{t('perMonth')}</span>
+        <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl shadow-md hover:shadow-xl border border-slate-200/80 dark:border-slate-800 p-6 flex flex-col justify-between relative transition-all duration-300 hover:-translate-y-1.5 hover:z-20 overflow-hidden">
+          <div>
+            <div className="flex flex-wrap items-center gap-2 justify-between mb-3">
+              <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 text-xs font-bold px-2.5 py-1 rounded-md border border-blue-200">
+                <IconAward className="w-3.5 h-3.5 text-blue-700" stroke={2} />
+                <span>{t('pro.badge')}</span>
+              </span>
+              <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                {t('trial')}
+              </span>
             </div>
-            {isAnnual && (
-              <div className="text-xs text-slate-400 line-through mt-0.5">${(remotePrices?.Professional?.monthly ?? TIER_BASE_PRICE_USD.Professional!).toFixed(2)}{t('perMonth')}</div>
-            )}
+            <h3 className="text-xl font-extrabold text-gray-900 dark:text-white mb-2 font-heading">{t('pro.name')}</h3>
+            <div className="mb-4">
+              <div className="flex flex-wrap items-baseline text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-white font-mono break-words">
+                ${getPrice('Professional')}
+                <span className="text-xs font-medium text-slate-500 ml-1">{t('perMonth')}</span>
+              </div>
+              {isAnnual && (
+                <div className="text-xs text-slate-400 line-through mt-0.5">${(remotePrices?.Professional?.monthly ?? TIER_BASE_PRICE_USD.Professional!).toFixed(2)}{t('perMonth')}</div>
+              )}
+            </div>
+            
+            <div className="flex flex-col space-y-2.5 mb-5">
+              <button 
+                onClick={() => goToDemo('pro')}
+                className="w-full bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-[#00AEEF] hover:bg-blue-50/50 dark:hover:bg-slate-800 rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+              >
+                {t('tryNow')}
+              </button>
+              <button 
+                onClick={() => openCheckout(getPriceId('pro'))}
+                className="w-full bg-[#0054A6] hover:bg-[#004080] text-white rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-xs text-center inline-block cursor-pointer"
+              >
+                {t('buyNow')}
+              </button>
+            </div>
+
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-5 leading-relaxed">
+              {t('pro.desc')}
+            </p>
+
+            <div className="h-px bg-gray-100 dark:bg-slate-800 mb-5" />
+
+            <ul className="space-y-3 text-xs sm:text-sm text-gray-700 dark:text-slate-200">
+              {proFeatures.slice(0, 8).map((f, i) => (
+                <li key={i} className="flex items-start">
+                  <IconCheck className="w-4 h-4 text-[#00AEEF] mr-2.5 mt-0.5 flex-shrink-0" stroke={2.5} />
+                  <span className={i === 0 ? 'font-semibold text-gray-900 dark:text-white' : ''}>{f}</span>
+                </li>
+              ))}
+            </ul>
           </div>
-          
-          <div className="flex flex-col space-y-2.5 mb-5">
-            <button 
-              onClick={() => goToDemo('pro')}
-              className="w-full bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-[#00AEEF] hover:bg-blue-50/50 dark:hover:bg-slate-800 rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+
+          {proFeatures.length > 8 && (
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className="mt-4 pt-2 text-xs font-bold text-[#0078D4] dark:text-[#00AEEF] hover:underline transition-colors text-left flex items-center gap-1.5 focus:outline-none cursor-pointer group"
             >
-              {t('tryNow')}
+              <span>{t('showFeatures', { count: proFeatures.length })}</span>
+              <IconArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" stroke={2.5} />
             </button>
-            <button 
-              onClick={() => openCheckout(getPriceId('pro'))}
-              className="w-full bg-[#0054A6] hover:bg-[#004080] text-white rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-xs text-center inline-block cursor-pointer"
-            >
-              {t('buyNow')}
-            </button>
-          </div>
-          
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
-            {t('pro.desc')}
-          </p>
-          
-          <PlanFeatures
-            features={t.raw('pro.features') as string[]}
-            showLabel={t('showFeatures', {count: (t.raw('pro.features') as string[]).length})}
-            hideLabel={t('hideFeatures')}
-          />
-          <div className="flex-1" />
+          )}
         </div>
 
         {/* Business */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl hover:shadow-2xl border-2 border-[#0054A6] p-6 flex flex-col relative transition-all duration-300 hover:-translate-y-1.5 hover:z-20 ring-4 ring-[#0054A6]/10">
-          <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-            <span className="bg-gradient-to-r from-[#0054A6] to-[#00AEEF] text-white text-[10px] font-extrabold px-3 py-0.5 rounded-full uppercase tracking-wider shadow-md">
-              {t('business.badge')}
-            </span>
-          </div>
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mt-1">
-            <h3 className="text-lg font-extrabold text-[#0054A6] dark:text-[#00AEEF] font-heading min-w-0">{t('business.name')}</h3>
-            <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-bold px-2 py-0.5 rounded-full flex-shrink-0">
-              {t('trial')}
-            </span>
-          </div>
-          <div className="mb-5">
-            <div className="flex flex-wrap items-baseline text-3xl sm:text-4xl font-extrabold text-[#1B2A41] dark:text-white font-mono break-words">
-              ${getPrice('Business')}
-              <span className="text-xs font-medium text-slate-500 ml-1">{t('perMonth')}</span>
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl hover:shadow-2xl border-2 border-[#002244] dark:border-[#0078D4] p-6 flex flex-col justify-between relative transition-all duration-300 hover:-translate-y-1.5 hover:z-20 ring-4 ring-blue-500/10 overflow-hidden">
+          <div className="absolute top-0 right-0 left-0 h-1.5 bg-gradient-to-r from-[#002244] via-[#00AEEF] to-[#002244]" />
+
+          <div>
+            <div className="flex items-center justify-between mb-3 mt-1">
+              <span className="inline-flex items-center gap-1.5 bg-[#002244] dark:bg-[#0054A6] text-white text-xs font-extrabold px-3 py-1 rounded-md tracking-wide uppercase">
+                <IconStarFilled className="w-3.5 h-3.5 text-amber-400" />
+                <span>{t('business.badge')}</span>
+              </span>
+              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-bold px-2 py-0.5 rounded-full flex-shrink-0">
+                {t('trial')}
+              </span>
             </div>
-            {isAnnual && (
-              <div className="text-xs text-slate-400 line-through mt-0.5">${(remotePrices?.Business?.monthly ?? TIER_BASE_PRICE_USD.Business!).toFixed(2)}{t('perMonth')}</div>
-            )}
+            <h3 className="text-xl font-extrabold text-[#002244] dark:text-[#00AEEF] mb-2 font-heading">{t('business.name')}</h3>
+            <div className="mb-4">
+              <div className="flex flex-wrap items-baseline text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-white font-mono break-words">
+                ${getPrice('Business')}
+                <span className="text-xs font-medium text-slate-500 ml-1">{t('perMonth')}</span>
+              </div>
+              {isAnnual && (
+                <div className="text-xs text-slate-400 line-through mt-0.5">${(remotePrices?.Business?.monthly ?? TIER_BASE_PRICE_USD.Business!).toFixed(2)}{t('perMonth')}</div>
+              )}
+            </div>
+            
+            <div className="flex flex-col space-y-2.5 mb-5">
+              <button 
+                onClick={() => goToDemo('business')}
+                className="w-full bg-white dark:bg-slate-900 border border-[#002244] dark:border-slate-600 text-[#002244] dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+              >
+                {t('tryNow')}
+              </button>
+              <button 
+                onClick={() => openCheckout(getPriceId('business'))}
+                className="w-full bg-gradient-to-r from-[#0054A6] to-[#003B75] hover:brightness-110 text-white rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-md text-center inline-block cursor-pointer"
+              >
+                {t('buyNow')}
+              </button>
+            </div>
+
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 mb-5 leading-relaxed">
+              {t('business.desc')}
+            </p>
+
+            <div className="h-px bg-gray-100 dark:bg-slate-800 mb-5" />
+
+            <ul className="space-y-3 text-xs sm:text-sm text-gray-700 dark:text-slate-200">
+              {businessFeatures.slice(0, 8).map((f, i) => (
+                <li key={i} className="flex items-start">
+                  <IconCheck className="w-4 h-4 text-[#002244] dark:text-[#00AEEF] mr-2.5 mt-0.5 flex-shrink-0" stroke={2.5} />
+                  <span className={i === 0 || f.startsWith('Todo lo de') || f.startsWith('Everything in') || f.startsWith('Tudo do') ? 'font-bold text-gray-900 dark:text-white' : ''}>
+                    {f}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
-          
-          <div className="flex flex-col space-y-2.5 mb-5">
-            <button 
-              onClick={() => goToDemo('business')}
-              className="w-full bg-white dark:bg-slate-900 border border-[#1B2A41] dark:border-slate-600 text-[#1B2A41] dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+
+          {businessFeatures.length > 8 && (
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className="mt-4 pt-2 text-xs font-bold text-[#002244] dark:text-[#00AEEF] hover:underline transition-colors text-left flex items-center gap-1.5 focus:outline-none cursor-pointer group"
             >
-              {t('tryNow')}
+              <span>{t('showFeatures', { count: businessFeatures.length })}</span>
+              <IconArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" stroke={2.5} />
             </button>
-            <button 
-              onClick={() => openCheckout(getPriceId('business'))}
-              className="w-full bg-gradient-to-r from-[#0054A6] to-[#003B75] hover:brightness-110 text-white rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-md text-center inline-block cursor-pointer"
-            >
-              {t('buyNow')}
-            </button>
-          </div>
-          
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
-            {t('business.desc')}
-          </p>
-          
-          <PlanFeatures
-            features={t.raw('business.features') as string[]}
-            showLabel={t('showFeatures', {count: (t.raw('business.features') as string[]).length})}
-            hideLabel={t('hideFeatures')}
-          />
-          <div className="flex-1" />
+          )}
         </div>
 
         {/* Enterprise */}
-        <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl shadow-md hover:shadow-xl border border-slate-200/80 dark:border-slate-800 p-6 flex flex-col relative transition-all duration-300 hover:-translate-y-1.5 hover:z-20">
-          <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
-            <div className="absolute top-0 right-0 -mr-8 -mt-8 w-24 h-24 bg-[#00AEEF] rounded-full opacity-10 blur-xl"></div>
-          </div>
+        <div className="bg-gradient-to-b from-[#0F172A] to-[#1E293B] text-white rounded-2xl shadow-xl hover:shadow-2xl border border-slate-700 p-6 flex flex-col justify-between relative overflow-hidden transition-all duration-300 hover:-translate-y-1.5 hover:z-20">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl pointer-events-none" />
 
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 relative z-10">
-            <h3 className="text-lg font-extrabold text-[#1B2A41] dark:text-slate-100 font-heading min-w-0">{t('enterprise.name')}</h3>
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-bold px-2 py-0.5 rounded-full">
+          <div>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 relative z-10">
+              <span className="inline-flex items-center gap-1.5 bg-white/10 text-white text-xs font-bold px-2.5 py-1 rounded-md border border-white/20">
+                <IconShieldCheck className="w-3.5 h-3.5 text-white" stroke={2} />
+                <span className="text-white font-bold">{t('enterprise.badge')}</span>
+              </span>
+              <span className="bg-white/10 text-white border border-white/20 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
                 {t('trial')}
               </span>
-              <span className="bg-[#0E1A2B] text-white border border-slate-700 text-[11px] font-semibold px-2 py-0.5 rounded-full">{t('enterprise.badge')}</span>
             </div>
-          </div>
-          <div className="mb-5 relative z-10">
-            <div className="flex flex-wrap items-baseline text-2xl sm:text-3xl font-extrabold text-[#1B2A41] dark:text-white font-heading mt-1 mb-1 break-words">
-              {t('customPrice')}
-            </div>
-          </div>
-          
-          <div className="flex flex-col space-y-2.5 mb-5 relative z-10">
-            <button 
-              onClick={() => setEnterpriseModalOpen(true)}
-              className="w-full bg-[#0E1A2B] hover:bg-[#1B2A41] text-white rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-md text-center flex justify-center items-center cursor-pointer"
-            >
-              {t('contactSales')}
-            </button>
-            <button
-              onClick={() => goToDemo('enterprise')}
-              className="w-full bg-white dark:bg-slate-900 border border-[#1B2A41] dark:border-slate-600 text-[#1B2A41] dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-2xs text-center cursor-pointer"
-            >
-              {t('tryNow')}
-            </button>
-          </div>
-          
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 relative z-10 leading-relaxed">
-            {t('enterprise.desc')}
-          </p>
 
-          {/*
-            * Lighthouse fuera de la lista de features, no dentro.
-            *
-            * Esa lista arranca colapsada detras de un boton y tiene 34 items:
-            * el diferenciador mas fuerte del plan quedaba invisible salvo que
-            * alguien la desplegara y leyera hasta el final. Aca se ve sin
-            * hacer nada, y sigue estando en la lista para quien la revise.
-            */}
-          <div className="relative z-10 mb-6 rounded-lg border border-[#00AEEF]/40 bg-[#0E1A2B]/60 p-3">
-            <div className="flex items-center gap-1.5">
-              <IconBuildingLighthouse size={15} stroke={1.75} className="text-[#00AEEF] shrink-0" />
-              <span className="text-[11px] font-bold uppercase tracking-wide text-[#00AEEF]">
-                {t('enterprise.lighthouseTitle')}
-              </span>
+            <h3 className="text-xl font-extrabold text-white mb-2 font-heading relative z-10">{t('enterprise.name')}</h3>
+
+            <div className="mb-4 relative z-10">
+              <div className="flex flex-wrap items-baseline text-2xl sm:text-3xl font-extrabold text-white font-heading mt-1 mb-1 break-words">
+                {t('customPrice')}
+              </div>
             </div>
-            <p className="mt-1.5 text-xs text-slate-300 leading-relaxed">
-              {t('enterprise.lighthouseDesc')}
+            
+            <div className="flex flex-col space-y-2.5 mb-5 relative z-10">
+              <button 
+                onClick={() => setEnterpriseModalOpen(true)}
+                className="w-full bg-white hover:bg-slate-100 text-[#0F172A] rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-md text-center flex justify-center items-center cursor-pointer"
+              >
+                {t('contactSales')}
+              </button>
+              <button
+                onClick={() => goToDemo('enterprise')}
+                className="w-full bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-2xs text-center cursor-pointer"
+              >
+                {t('tryNow')}
+              </button>
+            </div>
+            
+            <p className="text-xs sm:text-sm text-slate-300 mb-4 relative z-10 leading-relaxed">
+              {t('enterprise.desc')}
             </p>
+
+            <div className="relative z-10 mb-5 rounded-xl border border-cyan-500/30 bg-cyan-950/40 p-3">
+              <div className="flex items-center gap-1.5">
+                <IconBuildingLighthouse size={15} stroke={1.75} className="text-[#00AEEF] shrink-0" />
+                <span className="text-[11px] font-bold uppercase tracking-wide text-[#00AEEF]">
+                  {t('enterprise.lighthouseTitle')}
+                </span>
+              </div>
+              <p className="mt-1.5 text-xs text-slate-300 leading-relaxed">
+                {t('enterprise.lighthouseDesc')}
+              </p>
+            </div>
+
+            <div className="h-px bg-slate-700 mb-5 relative z-10" />
+
+            <ul className="space-y-3 text-xs sm:text-sm text-white relative z-10">
+              {enterpriseFeatures.slice(0, 8).map((f, i) => (
+                <li key={i} className="flex items-start">
+                  <IconCheck className="w-4 h-4 text-white mr-2.5 mt-0.5 flex-shrink-0" stroke={2.5} />
+                  <span className={i === 0 || f.startsWith('Todo lo de') || f.startsWith('Everything in') || f.startsWith('Tudo do') ? 'font-bold text-white' : 'text-slate-100'}>
+                    {f}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
 
-          <div className="relative z-10">
-            <PlanFeatures
-              features={t.raw('enterprise.features') as string[]}
-              showLabel={t('showFeatures', {count: (t.raw('enterprise.features') as string[]).length})}
-              hideLabel={t('hideFeatures')}
-            />
-          </div>
-          <div className="flex-1" />
+          {enterpriseFeatures.length > 8 && (
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className="mt-4 pt-2 text-xs font-bold text-white hover:text-white/80 transition-colors text-left flex items-center gap-1.5 focus:outline-none cursor-pointer group relative z-10"
+            >
+              <span>{t('showFeatures', { count: enterpriseFeatures.length })}</span>
+              <IconArrowRight className="w-3.5 h-3.5 text-white transition-transform duration-200 group-hover:translate-x-1" stroke={2.5} />
+            </button>
+          )}
         </div>
-
       </div>
 
       <footer className="relative z-10 max-w-7xl mx-auto w-full mt-16 pt-8 border-t border-white/10">
@@ -512,58 +631,3 @@ function CorporateEmailNoticeModal({ open, email, onCancel, onConfirm, t }: Corp
     </div>
   );
 }
-
-
-/**
- * Lista de funciones del plan contraída por defecto (móvil y escritorio):
- * un toggle "Ver funciones (N)" expande la lista completa inline.
- */
-function PlanFeatures({
-  features,
-  showLabel,
-  hideLabel,
-}: {
-  features: string[];
-  showLabel: string;
-  hideLabel: string;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div>
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        aria-expanded={open}
-        className="w-full flex items-center justify-between py-2.5 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/80 text-sm font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-      >
-        <span>{open ? hideLabel : showLabel}</span>
-        <svg
-          className={`w-4 h-4 text-slate-500 dark:text-slate-300 transition-transform ${open ? "rotate-180" : ""}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-      {open && (
-        <ul className="space-y-3 text-sm mt-4 text-slate-700 dark:text-slate-200">
-          {features.map((feature, idx) => (
-            <li key={idx} className="flex items-start font-medium text-slate-800 dark:text-slate-100 leading-relaxed">
-              <svg
-                className="w-5 h-5 mr-2 flex-shrink-0 text-[#0078D4] dark:text-[#00AEEF]"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-              </svg>
-              <span>{feature}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-

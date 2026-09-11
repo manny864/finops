@@ -41,25 +41,56 @@ export const TierLimitGateModal: React.FC<TierLimitGateModalProps> = ({
 
   const targetTierBenefits: Record<SaaSPlanTier, { subLimitText: string; features: string[] }> = {
     Professional: {
-      subLimitText: `Hasta ${SUBSCRIPTION_LIMITS.Professional} Suscripciones Azure`,
-      features: ["Dashboard Ejecutivo", "Limpieza de Zombies básica", "Gobernanza de Tags"],
+      subLimitText: `Hasta ${SUBSCRIPTION_LIMITS.Professional} Suscripciones Azure, hasta 3 usuarios`,
+      features: [
+        "WhiteBoard (Vista Ejecutiva)",
+        "Historial de Costos y Facturación",
+        "Visualización de Presupuestos",
+        "Consumo Real (Dashboard Detallado)",
+        "FOCUS 1.1 Export",
+        "Recursos y Networking Zombies (sin Remediación)",
+        "Cumplimiento de Etiquetas (sin Remediación)",
+        "Asesor de Azure y Puntaje de Salud",
+        "Canales de Notificación (Slack/Teams/Email/Webhook)",
+        "Autenticación Multi-Factor (MFA)",
+        "FinOps Copilot (IA)",
+        "Soporte en plataforma (20 tickets/mes, respuesta en 24 h)",
+      ],
     },
     Business: {
-      subLimitText: `Hasta ${SUBSCRIPTION_LIMITS.Business} Suscripciones Azure`,
+      subLimitText: `Hasta ${SUBSCRIPTION_LIMITS.Business} Suscripciones Azure, hasta 5 usuarios`,
       features: [
-        "Exportaciones FOCUS 1.1 (CSV/Parquet)",
-        "Facturación CSP/MSP con Markup de reventa",
-        "Plantillas Power BI y Webhooks Teams/Slack",
-        "Remediación automática de Tags y Zombies",
+        "Todo lo de Professional",
+        "Recursos Zombies y Networking Zombies (con Remediación)",
+        "Cost Groups (Budget & Forecast por Unidad de Negocio)",
+        "Análisis de Red",
+        "Costos por Categoría e Ingesta CSV",
+        "Expiraciones TTL (sin Remediación)",
+        "Encendido/Apagado Automático (Schedules)",
+        "Alta Disponibilidad de VMs",
+        "Credenciales por Expirar (Entra ID)",
+        "Delegaciones Multi-Tenant (cross-account)",
+        "Reporte Ejecutivo y Flujos de Aprobaciones",
+        "Página de Estado Pública + Historial de Incidentes",
+        "Soporte ilimitado en plataforma (respuesta en 8 h)",
       ],
     },
     Enterprise: {
-      subLimitText: "Suscripciones Azure ILIMITADAS",
+      subLimitText: "Suscripciones Azure y usuarios ILIMITADOS",
       features: [
-        "Capacidad de suscripciones sin límite duro",
-        "Plataforma completa 100% sin restricciones",
-        "Soporte prioritario 24/7 con SLA de 4 horas",
-        "Modelos de IA dedicados y acuerdos a medida",
+        "Todo lo de Business",
+        "Exclusivo: Azure Lighthouse Onboarding",
+        "Hubs completos: Optimización y Ahorro, Analítica Avanzada, Monitoreo, Seguridad, Azure IA e Integration Services",
+        "Beneficios Híbridos (AHB), Reservas (RIs) y Planes de Ahorro",
+        "Escenarios What-If (Simulador de Costos), Rightsizing y Optimización de Tarifas",
+        "Scorecard y Ranking de Equipos, Salud del Tenant",
+        "Control AKS (Kubernetes), AKS Chargeback y Prorrateo de Costos (Allocation)",
+        "AI Cost Analytics y MCP API Keys (Integración con Asistentes IA)",
+        "Motor de Billing para Partners (CSP) / Partner Markup",
+        "Power BI Templates, Exportación FOCUS y Facturación CSP",
+        "Políticas Preventivas as Code (Auto-Block) y Auditorías FinOps Modulares",
+        "SSO Federado (SAML), Azure Key Vault y Billing Marketplace SaaS",
+        "Soporte dedicado ilimitado (SLA máximo 4 h)",
       ],
     },
   };
@@ -132,7 +163,7 @@ export const TierLimitGateModal: React.FC<TierLimitGateModalProps> = ({
           <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-2">
             Beneficios incluidos al actualizar a {targetTier}:
           </span>
-          <ul className="space-y-1.5">
+          <ul className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
             {nextBenefits.features.map((benefit, idx) => (
               <li key={idx} className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-300">
                 <IconCheck size={14} className="text-emerald-500 shrink-0 mt-0.5" />
