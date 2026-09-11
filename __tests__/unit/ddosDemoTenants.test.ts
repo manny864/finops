@@ -33,6 +33,18 @@ describe("DDoS Protection · los tenants demo traen datos", () => {
         expect(data.remediations.length).toBeGreaterThan(0);
     });
 
+    it("el breakdown trae porciones con valor, no solo los niveles en cero", async () => {
+        // El anillo de la pantalla filtra las porciones en 0 y, si no queda
+        // ninguna, muestra el estado vacio. Si el mock diera todo en 0, el
+        // grafico no se dibujaria y el tenant demo quedaria sin nada que ver
+        // --que es justo el sintoma reportado--.
+        for (const tenantId of MOCK_AZURE_TENANTS) {
+            const data = await getAzureDdosProtection(tenantId);
+            const conValor = data.summary.breakdown.filter((b) => b.costUSD > 0);
+            expect(conValor.length, `${tenantId}: el anillo saldria vacio`).toBeGreaterThan(0);
+        }
+    });
+
     it("los nombres de suscripcion de demo no vienen en un solo idioma", async () => {
         const data = await getAzureDdosProtection(MOCK_AZURE_TENANTS[1]);
         const nombres = [...new Set(data.resources.map((r) => r.subscriptionName).filter(Boolean))];

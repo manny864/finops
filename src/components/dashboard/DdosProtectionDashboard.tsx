@@ -187,16 +187,31 @@ export default function DdosProtectionDashboard() {
         return filteredResources.slice(start, start + pageSize);
     }, [filteredResources, currentPage, pageSize]);
 
-    // Donut chart data from breakdown
+    /**
+     * Datos del anillo.
+     *
+     * `breakdown` SIEMPRE trae sus tres niveles --Network, IP y Basic-- aunque
+     * valgan 0: el servicio los arma fijos y despues suma el de huerfanos si
+     * hay. Por eso `breakdown.length > 0` no alcanza como condicion para
+     * dibujar: un tenant sin nada de DDoS pasaba ese filtro y Recharts recibia
+     * tres porciones de valor 0, que no pinta. Quedaba el contenedor vacio, sin
+     * grafico y sin cartel de "no hay datos".
+     *
+     * Se descartan las porciones en 0 --Basic es gratis y vale 0 siempre, asi
+     * que ocupaba una leyenda para un arco inexistente-- y si no queda ninguna,
+     * el componente cae al estado vacio, que es lo que corresponde mostrar.
+     */
     const donutData = useMemo(() => {
         if (!summary?.breakdown?.length) return [];
-        return summary.breakdown.map((b) => ({
-            name: t(b.tierLabelKey),
-            value: b.costUSD,
-            color: b.color,
-            count: b.count,
-            percentage: b.percentage,
-        }));
+        return summary.breakdown
+            .filter((b) => b.costUSD > 0)
+            .map((b) => ({
+                name: t(b.tierLabelKey),
+                value: b.costUSD,
+                color: b.color,
+                count: b.count,
+                percentage: b.percentage,
+            }));
     }, [summary, t]);
 
     // ── Render Helpers ─────────────────────────────────────────────────
@@ -372,11 +387,9 @@ export default function DdosProtectionDashboard() {
                                         ))}
                                     </Pie>
                                     <RechartsTooltip
-                                        contentStyle={{ ...TOOLTIP_TEMA.contentStyle,
-                                            
-                                            border: "1px solid #475569",
+                                        contentStyle={{
+                                            ...TOOLTIP_TEMA.contentStyle,
                                             borderRadius: "8px",
-                                            
                                             fontSize: "11px",
                                         }}
                                         formatter={(_value: any, _name: any, _props: any) => [
