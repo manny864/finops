@@ -133,9 +133,14 @@ export const ALLOC_COLORS = {
 /** Escala para repartir colores entre centros de costo en las gráficas. */
 export const ALLOC_SCALE = ["#0078D4", "#2563EB", "#0284C7", "#38BDF8", "#93C5FD", "#64748B"] as const;
 
-export const STRATEGY_LABELS: Record<AllocationStrategy, string> = {
-  FIXED_PERCENTAGE: "Porcentaje fijo",
-  DYNAMIC_AKS_NAMESPACE: "Dinámico por Namespace de AKS",
-  DYNAMIC_LAW_INGESTION: "Dinámico por ingesta de Log Analytics",
-  PROPORTIONAL_DIRECT_SPEND: "Proporcional al gasto directo",
+/**
+ * CLAVES, no texto. Este mapa vive en un modulo de tipos, donde no existe `t`,
+ * y lo consumen el selector de cada tarjeta de regla y el badge de la columna
+ * Strategy: los dos mostraban la frase en castellano a cualquier lector.
+ */
+export const STRATEGY_LABEL_KEYS: Record<AllocationStrategy, string> = {
+  FIXED_PERCENTAGE: "strategy_FIXED_PERCENTAGE",
+  DYNAMIC_AKS_NAMESPACE: "strategy_DYNAMIC_AKS_NAMESPACE",
+  DYNAMIC_LAW_INGESTION: "strategy_DYNAMIC_LAW_INGESTION",
+  PROPORTIONAL_DIRECT_SPEND: "strategy_PROPORTIONAL_DIRECT_SPEND",
 };

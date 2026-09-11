@@ -157,16 +157,27 @@ function escanearMapasDeClaves() {
     const violations: { file: string; entrada: string; valor: string; ns: string; missing: Locale[] }[] = [];
     let entradasVerificadas = 0;
 
+    // Namespaces de primer nivel del catálogo: el fallback para los mapas que
+    // viven en un archivo SIN `useTranslations` propio.
+    const todosLosNamespaces = Object.keys(messages.es).filter(
+        (k) => typeof (messages.es as Dict)[k] === "object"
+    );
+
     for (const file of walk("src")) {
         const src = readFileSync(file, "utf8");
         const byVar = namespacesByVar(src);
-        if (byVar.size === 0) continue;
 
         // Un archivo puede tener varios namespaces; se prueba la clave contra
         // todos y basta con que resuelva en uno. Afinar más pediría saber qué
         // variable `t` acompaña al mapa, que es justo lo que no se puede leer
         // estáticamente.
-        const namespaces = [...new Set(byVar.values())];
+        //
+        // Y si el archivo NO tiene ninguno, no se saltea: los mapas de este tipo
+        // viven justamente en `types/`, que nunca importa `useTranslations`. Ahí
+        // se prueba contra TODO el catálogo — más débil, pero es la diferencia
+        // entre cubrirlos y no verlos. `STRATEGY_LABEL_KEYS` se colaba por acá.
+        const namespaces =
+            byVar.size > 0 ? [...new Set(byVar.values())] : todosLosNamespaces;
 
         const reMapa = /const\s+\w*LABEL_KEYS\w*\s*:\s*Record<[^>]*>\s*=\s*\{([\s\S]*?)\n\};/g;
         let mapa: RegExpExecArray | null;

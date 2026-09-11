@@ -4515,7 +4515,8 @@
     "totalSavings": "Economia total:",
     "health": "Saúde",
     "audit": "Auditar",
-    "viewRisk": "Ver risco"
+    "viewRisk": "Ver risco",
+    "delete": "Excluir"
   },
   "ComputeContainersFinops": {
     "selectTenant": "Selecione um tenant para ver o cockpit FinOps/CMP de contêineres.",
@@ -5201,7 +5202,12 @@
     "kpiCostCenters": "Centros Beneficiários",
     "kpiCostCentersTip": "Departamentos que recebem alocações virtuais dos recursos compartilhados.",
     "kpiCostCentersSub": "{count} recurso(s) sem regra",
-    "untaggedFallback": "Sem Atribuição (Untagged)"
+    "untaggedFallback": "Sem Atribuição (Untagged)",
+    "strategy_FIXED_PERCENTAGE": "Percentual fixo",
+    "strategy_DYNAMIC_AKS_NAMESPACE": "Dinâmico por namespace do AKS",
+    "strategy_DYNAMIC_LAW_INGESTION": "Dinâmico por ingestão do Log Analytics",
+    "strategy_PROPORTIONAL_DIRECT_SPEND": "Proporcional ao gasto direto",
+    "rulesCount": "{n, plural, one {# regra} other {# regras}}"
   },
   "CostByCategory": {
     "title": "Custo por Categoria FinOps",

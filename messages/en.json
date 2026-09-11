@@ -4515,7 +4515,8 @@
     "totalSavings": "Total savings:",
     "health": "Health",
     "audit": "Audit",
-    "viewRisk": "View risk"
+    "viewRisk": "View risk",
+    "delete": "Delete"
   },
   "ComputeContainersFinops": {
     "selectTenant": "Select a tenant to view the containers FinOps/CMP cockpit.",
@@ -5201,7 +5202,12 @@
     "kpiCostCenters": "Receiving Cost Centers",
     "kpiCostCentersTip": "Departments that receive virtual allocations from the shared resources.",
     "kpiCostCentersSub": "{count} resource(s) without a rule",
-    "untaggedFallback": "Unassigned (Untagged)"
+    "untaggedFallback": "Unassigned (Untagged)",
+    "strategy_FIXED_PERCENTAGE": "Fixed percentage",
+    "strategy_DYNAMIC_AKS_NAMESPACE": "Dynamic by AKS namespace",
+    "strategy_DYNAMIC_LAW_INGESTION": "Dynamic by Log Analytics ingestion",
+    "strategy_PROPORTIONAL_DIRECT_SPEND": "Proportional to direct spend",
+    "rulesCount": "{n, plural, one {# rule} other {# rules}}"
   },
   "CostByCategory": {
     "title": "Cost by FinOps Category",

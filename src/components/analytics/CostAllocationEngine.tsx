@@ -35,7 +35,7 @@ import Pagination, { usePagination } from "@/components/Pagination";
 import InfoTooltip from "@/components/InfoTooltip";
 import {
   ALLOC_SCALE,
-  STRATEGY_LABELS,
+  STRATEGY_LABEL_KEYS,
   type AllocationStrategy,
   type CostAllocationPayload,
   type SharedCostRule,
@@ -121,6 +121,7 @@ function RuleEditorCard({
   saving: boolean;
 }) {
   const t = useTranslations("CostAllocation");
+  const tc = useTranslations("Common");
   const [rows, setRows] = useState(
     rule.targets.map((t) => ({ name: t.targetCostCenterName, pct: String(t.percentage) }))
   );
@@ -139,7 +140,7 @@ function RuleEditorCard({
           <div className="min-w-0">
             <h4 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 truncate">{rule.sharedResourceName}</h4>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              {rule.resourceType} · {money(rule.monthlyCostUSD)}/mes
+              {rule.resourceType} · {tc("amountPerMonth", { amount: money(rule.monthlyCostUSD) })}
             </p>
           </div>
         </div>
@@ -151,9 +152,9 @@ function RuleEditorCard({
         onChange={(e) => setStrategy(e.target.value as AllocationStrategy)}
         className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
       >
-        {(Object.keys(STRATEGY_LABELS) as AllocationStrategy[]).map((s) => (
+        {(Object.keys(STRATEGY_LABEL_KEYS) as AllocationStrategy[]).map((s) => (
           <option key={s} value={s}>
-            {STRATEGY_LABELS[s]}
+            {t(STRATEGY_LABEL_KEYS[s])}
           </option>
         ))}
       </select>
@@ -244,7 +245,7 @@ function RuleEditorCard({
           onClick={() => onDelete(rule)}
           className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 transition cursor-pointer"
         >
-          Eliminar
+          {tc("delete")}
         </button>
       </div>
     </div>
@@ -254,6 +255,7 @@ function RuleEditorCard({
 // ─── Componente Principal ───
 export default function CostAllocationEngine() {
   const t = useTranslations("CostAllocation");
+  const tc = useTranslations("Common");
   const textoRem = useTextoPorCategoria("CostAllocation");
   const nombreBucket = useNombreDeBucket();
   const { selectedTenant } = useTenant();
@@ -498,7 +500,7 @@ export default function CostAllocationEngine() {
                         {r.resourceName}
                       </span>
                       <span className="block text-[10px] text-slate-500">
-                        {r.resourceType} · {r.resourceGroup} · {money(r.monthlyCostUSD)}/mes
+                        {r.resourceType} · {r.resourceGroup} · {tc("amountPerMonth", { amount: money(r.monthlyCostUSD) })}
                       </span>
                     </div>
                     <button
@@ -575,7 +577,7 @@ export default function CostAllocationEngine() {
             {t("matrixTitle")}
           </h3>
           <InfoTooltip content={t("matrixTooltip")} />
-          <span className="ml-auto text-[11px] text-slate-500 dark:text-slate-400">{total} reglas</span>
+          <span className="ml-auto text-[11px] text-slate-500 dark:text-slate-400">{t("rulesCount", { n: total })}</span>
         </div>
 
         <div className={VISIBLE_SCROLLBAR}>
@@ -613,7 +615,7 @@ export default function CostAllocationEngine() {
                       <td className="px-3 py-2.5 text-slate-600 dark:text-slate-400">{r.resourceType}</td>
                       <td className="px-3 py-2.5">
                         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800 text-[#0054A6] dark:text-blue-300 bg-white dark:bg-slate-900">
-                          {STRATEGY_LABELS[r.strategy]}
+                          {t(STRATEGY_LABEL_KEYS[r.strategy])}
                         </span>
                       </td>
                       <td className="px-3 py-2.5 font-bold text-[#1B2A41] dark:text-slate-100 whitespace-nowrap">
@@ -700,7 +702,7 @@ export default function CostAllocationEngine() {
                   </span>
                   {a.estimatedSavingsOrImpactUSD > 0 && (
                     <span className="text-xs font-extrabold text-[#0054A6]">
-                      {money(a.estimatedSavingsOrImpactUSD)}/mes
+                      {tc("amountPerMonth", { amount: money(a.estimatedSavingsOrImpactUSD) })}
                     </span>
                   )}
                 </div>
@@ -709,7 +711,7 @@ export default function CostAllocationEngine() {
                   {textoRem(a, "desc")}
                 </p>
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-[10px] text-slate-400">
-                  Confianza: {a.confidence}
+                  {tc("confidence")}: {a.confidence}
                 </div>
               </div>
             ))
