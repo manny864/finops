@@ -1,5 +1,5 @@
 export type AnnouncementSeverity = "info" | "maintenance" | "warning" | "critical";
-export type AnnouncementChannel = "banner" | "popup";
+export type AnnouncementChannel = "banner" | "popup" | "notification";
 export type AnnouncementStatus = "draft" | "published" | "cancelled";
 
 /** Idioma base del contenido: `title`/`message` se guardan en el defaultLocale

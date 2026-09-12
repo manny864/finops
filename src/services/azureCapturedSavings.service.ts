@@ -68,16 +68,18 @@ export class AzureCapturedSavingsService {
             {
                 id: "azure-201",
                 timestamp: daysAgoIso(4),
-                executedBy: "Detectado en Azure (fuera de la plataforma)",
+                executedBy: "devops-admin@cscloudsolutions.com.ar",
                 resourceName: "bastion-lab-eastus",
                 resourceGroup: "rg-network-lab",
                 resourceType: "Microsoft.Network/bastionHosts",
-                actionCategory: "Baja de recurso detectada en Azure",
+                actionCategory: "Baja de recurso detectada en Azure (delete)",
                 monthlySavingsUSD: round2(140.16 * multiplier),
                 status: "SUCCESS",
                 origin: "azure",
                 savingsMeasured: true,
-                details: "El recurso dejo de facturar hace 4 dias. Run-rate previo: 140,16 USD/mes.",
+                callerType: "user",
+                resourceId: "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-network-lab/providers/Microsoft.Network/bastionHosts/bastion-lab-eastus",
+                details: "El recurso dejo de facturar hace 4 dias. Run-rate previo: 140,16 USD/mes. • Autor en Azure: devops-admin@cscloudsolutions.com.ar [Portal/CLI]",
             },
             {
                 id: "act-102",
@@ -96,16 +98,18 @@ export class AzureCapturedSavingsService {
             {
                 id: "azure-202",
                 timestamp: daysAgoIso(11),
-                executedBy: "Detectado en Azure (fuera de la plataforma)",
+                executedBy: "spn:terraform-pipeline-automation",
                 resourceName: "sql-reporting-legacy",
                 resourceGroup: "rg-data-legacy",
                 resourceType: "Microsoft.Sql/databases",
-                actionCategory: "Reduccion de consumo detectada en Azure",
+                actionCategory: "Reduccion de consumo detectada en Azure (write)",
                 monthlySavingsUSD: round2(58.4 * multiplier),
                 status: "SUCCESS",
                 origin: "azure",
                 savingsMeasured: true,
-                details: "Run-rate mensual de 121,90 a 63,50 USD segun costo facturado (cambio de tier).",
+                callerType: "automation",
+                resourceId: "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-data-legacy/providers/Microsoft.Sql/servers/sql-srv-legacy/databases/sql-reporting-legacy",
+                details: "Run-rate mensual de 121,90 a 63,50 USD segun costo facturado (cambio de tier). • Autor en Azure: spn:terraform-pipeline-automation [Automatización]",
             },
             {
                 id: "act-103",
@@ -305,15 +309,113 @@ export class AzureCapturedSavingsService {
                     status: "SUCCESS",
                     origin: "azure",
                     savingsMeasured: true,
+                    resourceId: String(row.resourceId),
                     details: stopped
                         ? `El recurso dejo de facturar el ${String(row.lastChargeDate).slice(0, 10)} (hace ${daysSinceLastCharge} dias). Run-rate previo: ${round2(runRateBefore)} USD/mes.`
                         : `Run-rate mensual de ${round2(runRateBefore)} a ${round2(runRateAfter)} USD segun costo facturado.`,
                 });
             }
-            return events;
+            return await this.enrichSavingsFromActivityLog(tenantId, events);
         } catch (e) {
             console.warn("[AzureCapturedSavingsService] deteccion de ahorro en Azure fallo:", errorMessage(e));
             return [];
+        }
+    }
+
+    /**
+     * MEJ-01: Enriquece eventos originados en Azure consultando el Activity Log
+     * de Azure Monitor para identificar el autor real (caller), la marca de tiempo exacta
+     * de la acción y la operación ejecutada.
+     */
+    public static async enrichSavingsFromActivityLog(
+        tenantId: string,
+        events: RemediationAuditItem[]
+    ): Promise<RemediationAuditItem[]> {
+        if (!events || events.length === 0) return events;
+
+        try {
+            const { MonitorClient } = await import("@azure/arm-monitor");
+            const { getAzureCredential } = await import("@/lib/azure");
+            const credential = await getAzureCredential(tenantId);
+
+            // Reusar instancias de MonitorClient por subscriptionId
+            const clientsBySub = new Map<string, any>();
+            const getClient = (subId: string) => {
+                if (!clientsBySub.has(subId)) {
+                    clientsBySub.set(subId, new MonitorClient(credential, subId));
+                }
+                return clientsBySub.get(subId);
+            };
+
+            const now = new Date();
+            const maxRetentionMs = 89 * 86400000;
+            const earliestRetention = new Date(now.getTime() - maxRetentionMs);
+
+            // Limitamos a los 25 eventos principales para no penalizar la latencia
+            const topEvents = events.slice(0, 25);
+            const remainingEvents = events.slice(25);
+
+            const enrichedTop = await Promise.all(
+                topEvents.map(async (ev) => {
+                    if (!ev.resourceId) return ev;
+                    const subMatch = ev.resourceId.match(/\/subscriptions\/([^/]+)/i);
+                    const subId = subMatch ? subMatch[1] : null;
+                    if (!subId) return ev;
+
+                    try {
+                        const client = getClient(subId);
+                        const eventDate = new Date(ev.timestamp);
+                        const start = new Date(Math.max(earliestRetention.getTime(), eventDate.getTime() - 14 * 86400000));
+                        const end = new Date(Math.min(now.getTime(), eventDate.getTime() + 5 * 86400000));
+
+                        if (start >= end) return ev;
+
+                        const filter = `eventTimestamp ge '${start.toISOString()}' and eventTimestamp le '${end.toISOString()}' and resourceUri eq '${ev.resourceId}'`;
+                        const iterator = client.activityLogs.list(filter);
+
+                        let matchedEvent: any = null;
+                        for await (const log of iterator) {
+                            const op = (log.operationName?.value || "").toLowerCase();
+                            if (op.includes("delete") || op.includes("write") || op.includes("action") || op.includes("deallocate")) {
+                                matchedEvent = log;
+                                break;
+                            }
+                            if (!matchedEvent && log.caller) {
+                                matchedEvent = log;
+                            }
+                        }
+
+                        if (matchedEvent && matchedEvent.caller) {
+                            const callerStr = String(matchedEvent.caller);
+                            const isAutomation = Boolean(
+                                (matchedEvent.claims?.["appid"] && !matchedEvent.claims?.["upn"]) ||
+                                callerStr.toLowerCase().includes("spn:") ||
+                                callerStr.toLowerCase().includes("runbook") ||
+                                callerStr.toLowerCase().includes("automation")
+                            );
+                            const opName = matchedEvent.operationName?.localizedValue || matchedEvent.operationName?.value;
+                            return {
+                                ...ev,
+                                executedBy: callerStr,
+                                callerType: (isAutomation ? "automation" : "user") as "automation" | "user",
+                                timestamp: matchedEvent.eventTimestamp
+                                    ? new Date(matchedEvent.eventTimestamp).toISOString()
+                                    : ev.timestamp,
+                                actionCategory: opName ? `${ev.actionCategory} (${opName.split("/").pop()})` : ev.actionCategory,
+                                details: `${ev.details} • Autor en Azure: ${callerStr}${isAutomation ? " [Automatización]" : " [Portal/CLI]"}`
+                            };
+                        }
+                    } catch (activityErr) {
+                        console.debug?.("[AzureCapturedSavingsService] Activity Log enrichment error for resource:", ev.resourceId, activityErr);
+                    }
+                    return ev;
+                })
+            );
+
+            return [...enrichedTop, ...remainingEvents];
+        } catch (err) {
+            console.debug?.("[AzureCapturedSavingsService] Activity Log client init skipped:", errorMessage(err));
+            return events;
         }
     }
 

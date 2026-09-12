@@ -68,10 +68,19 @@ export function useColumnConfig(storageKey: string, defaults: TableColumnConfig[
     return { columns, isVisible, toggle, open, setOpen, menuRef };
 }
 
+export interface ColumnMenuProps {
+    columns: TableColumnConfig[];
+    toggle: (id: string) => void;
+    open: boolean;
+    setOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    menuRef: React.RefObject<HTMLDivElement | null>;
+    isVisible?: (id: string) => boolean;
+    label?: string;
+}
+
 // El default estaba en castellano y cuatro tableros lo usaban tal cual, mas
 // dos que pasaban la misma cadena a mano. El componente lo resuelve solo.
-export function ColumnMenu({ columns, toggle, open, setOpen, menuRef, label }:
-    ReturnType<typeof useColumnConfig> & { label?: string }) {
+export function ColumnMenu({ columns, toggle, open, setOpen, menuRef, label }: ColumnMenuProps) {
     const t = useTranslations("Common");
     const buttonLabel = label ?? t("customizeColumns");
     return (

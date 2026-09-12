@@ -53,6 +53,17 @@ export default function CapacityAddonsCard({ tenantId, isMock }: { tenantId: str
     if (!tenantId || tenantId === "default") return;
     setLoading(true);
     try {
+      if (isMock) {
+        setData({
+          tier: "Enterprise",
+          subscriptions: { used: 2, limit: 10, purchased: 0 },
+          tenantSlots: { purchased: 0 },
+          canPurchase: true,
+        });
+        setSubsQty(0);
+        setTenantsQty(0);
+        return;
+      }
       const res = await fetch(`/api/billing/addons/capacity?tenantId=${encodeURIComponent(tenantId)}`, {
         headers: await authHeaders(),
       });
@@ -66,13 +77,31 @@ export default function CapacityAddonsCard({ tenantId, isMock }: { tenantId: str
     } finally {
       setLoading(false);
     }
-  }, [tenantId, authHeaders]);
+  }, [tenantId, authHeaders, isMock, t]);
 
   useEffect(() => { load(); }, [load]);
 
   const apply = async (addonType: AddonKind, quantity: number) => {
     setSaving(addonType);
     try {
+      if (isMock) {
+        await new Promise((r) => setTimeout(r, 400));
+        toast.success(t("addonApplied", { qty: quantity, addon: t(`addon_${addonType}`) }));
+        setData((prev) => {
+          if (!prev) return prev;
+          if (addonType === "additional_subscription_slot") {
+            return {
+              ...prev,
+              subscriptions: { ...prev.subscriptions, purchased: quantity },
+            };
+          }
+          return {
+            ...prev,
+            tenantSlots: { purchased: quantity },
+          };
+        });
+        return;
+      }
       const res = await fetch("/api/billing/addons/capacity", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(await authHeaders()) },

@@ -157,7 +157,7 @@ export async function updateAnnouncement(
   if (input.translations !== undefined) { sets.push("translations = ?"); params.push(sanitizeTranslations(input.translations)); }
   if (input.severity !== undefined) { sets.push("severity = ?"); params.push(input.severity); }
   if (input.channels !== undefined) {
-    if (input.channels.length === 0) throw new Error("Elegí al menos un canal (banner o popup).");
+    if (input.channels.length === 0) throw new Error("Elegí al menos un canal (banner, popup o notification).");
     sets.push("channels = ?"); params.push(input.channels.join(","));
   }
   if (input.targetAllTenants !== undefined) { sets.push("target_all_tenants = ?"); params.push(input.targetAllTenants); }

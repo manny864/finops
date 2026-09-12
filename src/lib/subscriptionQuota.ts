@@ -106,7 +106,15 @@ export async function getEffectiveSubscriptionLimit(tenantId: string, tier: stri
     // de tier no se lleva puesto lo que el cliente ya pagó (ver la migración
     // 20260901-006).
     const purchased = Number(rows[0]?.purchased_subscription_slots) || 0;
-    return base + Math.max(0, purchased);
+
+    // MEJ-13: Sumar suscripciones activas del Marketplace de Add-ons / Pases temporales
+    let marketplaceSlots = 0;
+    try {
+      const { TenantAddonsService } = await import("@/services/tenantAddons.service");
+      marketplaceSlots = await TenantAddonsService.getExtraQuota(tenantId, "quota_subscriptions");
+    } catch { /* graceful fallback */ }
+
+    return base + Math.max(0, purchased) + Math.max(0, marketplaceSlots);
   } catch { /* sin registro de facturación: rige el plan */ }
 
   return planLimit;

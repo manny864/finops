@@ -236,6 +236,16 @@ variable "alert_email" {
   type = string
 }
 
+variable "teams_webhook_url" {
+  # Sin `default` a proposito. Una variable de Automation encriptada que se
+  # escribe vacia rompe en silencio (caso STORAGE_ACCOUNT_NAME, 2026-08-22):
+  # sin default, un tfvars incompleto frena el plan en vez de publicar un
+  # canal de alertas muerto.
+  description = "URL del trigger HTTP del flow de Power Automate que postea en Teams. Lleva `sig=` en el query string: es un secreto, va en TF_VARS_PROD."
+  type        = string
+  sensitive   = true
+}
+
 variable "budget_start_date" {
   type    = string
   default = "2026-08-01T00:00:00Z"

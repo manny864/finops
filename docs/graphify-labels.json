@@ -1,6 +1,5 @@
 {
   "/api/loadtest/probe (exercises Next.js + MySQL SELECT 1 + Redis PING)": "Documentación · Probe (exercises next.js + my sql select 1 + redis ping)",
-  "AIInsightBanner.tsx": "Componentes · Aiinsight banner",
   "AdminConsentButton.tsx": "UI admin · Admin consent button",
   "AnomalyDetectionPanel.tsx": "Anomalías · Anomaly detection panel",
   "ApprovalWorkflowBoard.tsx": "Remediación · Approval workflow board",

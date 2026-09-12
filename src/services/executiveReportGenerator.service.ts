@@ -32,6 +32,10 @@ import type { FinOpsCategoryDetail } from '@/lib/categoryConsumptionTypes';
 import { getRealCategoryOverview } from '@/services/categoryConsumptionService';
 import { evaluateHALive } from '@/services/haService';
 import { isMockTenant } from '@/lib/mockData';
+import { getCachedCarbonFootprint } from '@/lib/carbonFootprint';
+import { getRealTagCompliance } from '@/services/tagComplianceService';
+import { getRealCommitmentsCoverage } from '@/services/commitmentCoverageService';
+import { getRealRightsizingRecommendations } from '@/services/rightsizingAggregator.service';
 
 export const EXECUTIVE_HISTORY_MONTHS = 6;
 
@@ -127,6 +131,10 @@ export async function aggregateExecutiveTelemetry(
         waste,
         anomalyRows,
         budgetRows,
+        carbonRes,
+        tagsRes,
+        commitmentsRes,
+        rightsizingRes,
     ] = await Promise.all([
         collect('tenantIdentity', async () => {
             // `Tenants` no tiene columna `name` ni `currency`: el nombre es
@@ -227,10 +235,25 @@ export async function aggregateExecutiveTelemetry(
             );
             return rows || [];
         }),
+
+        collect('carbon', async () => {
+            const carbon = await getCachedCarbonFootprint(tenantId, scope === 'TENANT_ALL' ? 'All' : (scopeId || 'All'));
+            if (!carbon || carbon.degraded) return 0;
+            const avoided = Number(carbon.avoided || 0);
+            const footprint = Number(carbon.footprint || 0);
+            return round2(avoided > 0 ? avoided : (footprint > 0 ? footprint : 0));
+        }),
+
+        collect('tags', () => getRealTagCompliance(tenantId, scope === 'TENANT_ALL' ? 'All' : (scopeId || 'All'))),
+
+        collect('commitments', () => getRealCommitmentsCoverage(tenantId)),
+
+        collect('rightsizing', () => getRealRightsizingRecommendations(tenantId)),
     ]);
 
     const collectorStatus: TelemetryCollectorStatus[] = [
         identity, history, mtd, families, ha, waste, anomalyRows, budgetRows,
+        carbonRes, tagsRes, commitmentsRes, rightsizingRes,
     ].map((r) => (r.ok ? { collector: r.collector, ok: true } : { collector: r.collector, ok: false, error: r.error }));
 
     // ── Costos y proyeccion ──────────────────────────────────────────────
@@ -302,10 +325,15 @@ export async function aggregateExecutiveTelemetry(
         ? round2(budgetsExecution.reduce((acc, b) => acc + b.burnPercent, 0) / budgetsExecution.length)
         : 0;
 
-    // Rightsizing, tags, compromisos y CO2 todavia no tienen colector: quedan
-    // en vacio/0 a proposito. Antes eran literales hardcodeados que el reporte
-    // presentaba como telemetria del tenant.
-    const rightsizingRecommendations: ExecutiveReportFullData["rightsizingRecommendations"] = [];
+    // ── CO2, Tags, Commitments y Rightsizing (Segunda tanda de colectores reales) ──
+    const co2ImpactKg = carbonRes.ok ? Number(carbonRes.value || 0) : 0;
+    const taggingCoveragePercent = tagsRes.ok ? Number(tagsRes.value.complianceScore || 0) : 0;
+    const commitmentsCoveragePercent = commitmentsRes.ok ? Number(commitmentsRes.value.coveragePercent || 0) : 0;
+    const rightsizingRecommendations: ExecutiveReportFullData["rightsizingRecommendations"] = rightsizingRes.ok
+        ? rightsizingRes.value.recommendations
+        : [];
+    const rightsizingSavingsUSD = rightsizingRes.ok ? Number(rightsizingRes.value.totalSavingsUSD || 0) : 0;
+    const rightsizingCandidatesCount = rightsizingRes.ok ? Number(rightsizingRes.value.candidatesCount || 0) : 0;
 
     return {
         reportId,
@@ -321,11 +349,11 @@ export async function aggregateExecutiveTelemetry(
             monthlySavingsIdentifiedUSD: round2(monthlyWasteTotal),
             annualizedSavingsUSD: round2(monthlyWasteTotal * 12),
             criticalHighHaRisksCount,
-            co2ImpactKg: 0,
-            taggingCoveragePercent: 0,
-            commitmentsCoveragePercent: 0,
-            rightsizingCandidatesCount: rightsizingRecommendations.length,
-            rightsizingSavingsUSD: 0,
+            co2ImpactKg,
+            taggingCoveragePercent,
+            commitmentsCoveragePercent,
+            rightsizingCandidatesCount,
+            rightsizingSavingsUSD,
             activeAnomaliesCount: anomalies.length,
             budgetBurnPercent,
         },

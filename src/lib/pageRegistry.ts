@@ -101,6 +101,7 @@ export const PAGES: PageEntry[] = [
     { id: "rem-approvals", path: "/governance/approvals", icon: "CheckSquare", category: "governance" },
 
     // Admin (solo los que tienen sentido como tablero)
+    { id: "adm-marketplace", path: "/marketplace", icon: "ShoppingBag", category: "admin" },
     { id: "adm-copilot-m365", path: "/admin/copilot-m365", icon: "Bot", category: "admin" },
     { id: "adm-markup", path: "/admin/markup", icon: "Percent", category: "admin" },
     { id: "adm-audit", path: "/admin/audit", icon: "FileSearch", category: "admin" },

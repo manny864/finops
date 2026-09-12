@@ -70,6 +70,8 @@ const PUBLICAS: Record<string, string> = {
     "src/app/api/health/route.ts": "liveness probe del Container App",
     "src/app/api/status/route.ts": "status page publica",
     "src/app/api/pricing/plans/route.ts": "precios de la landing",
+    "src/app/api/pricing/modules/route.ts": "precios de modulos y add-ons",
+    "src/app/api/commitments/breakeven/route.ts": "calculo matematico de breakeven sin datos de tenant",
     "src/app/api/leads/route.ts": "formulario de contacto anonimo",
     "src/app/api/leads/demo/route.ts": "pedido de demo anonimo",
     "src/app/api/v1/docs/route.ts": "documentacion de la API publica",

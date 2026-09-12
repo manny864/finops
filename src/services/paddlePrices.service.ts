@@ -14,6 +14,7 @@
  */
 
 import { tierToPriceId, getPaddleBaseUrl, type TierName } from "@/lib/paddleTierMap";
+import { ADDON_CATALOG } from "@/lib/addonCatalog";
 
 export interface PlanPrices {
     /** Precio mensual, en la unidad mayor de la divisa (299.99, no 29999). */
@@ -27,6 +28,22 @@ export interface PlanPricesResult {
     /** `paddle` si al menos un precio se leyó; `catalog` si hay que usar el fallback. */
     source: "paddle" | "catalog";
     plans: Record<string, PlanPrices>;
+}
+
+export interface ModulePrices {
+    monthly: number;
+    annual?: number;
+    pass1m: number;
+    pass3m: number;
+    pass6m: number;
+    pass9m: number;
+    pass12m: number;
+    currency: string;
+}
+
+export interface ModulePricesResult {
+    source: "paddle" | "catalog";
+    modules: Record<string, ModulePrices>;
 }
 
 /**
@@ -102,6 +119,11 @@ let cache: { at: number; ttl: number; result: PlanPricesResult } | null = null;
 
 export function clearPaddlePriceCache(): void {
     cache = null;
+    moduleCache = null;
+}
+
+export function clearPaddleModulePriceCache(): void {
+    moduleCache = null;
 }
 
 const TIERS: TierName[] = ["Professional", "Business"];
@@ -134,5 +156,124 @@ export async function getPlanPrices(): Promise<PlanPricesResult> {
       ttl: algunoLeido ? CACHE_TTL_MS : CACHE_TTL_DEGRADED_MS,
       result,
     };
+    return result;
+}
+
+/**
+ * Consulta múltiples precios en Paddle en un único llamado HTTP por lote.
+ * Evita múltiples roundtrips secuenciales y protege de rate limits.
+ */
+export async function fetchPricesBatch(
+    priceIds: string[],
+    apiKey: string
+): Promise<Record<string, { amount: number; currency: string }>> {
+    const results: Record<string, { amount: number; currency: string }> = {};
+    if (!priceIds.length || !apiKey) return results;
+
+    const CHUNK_SIZE = 50;
+    for (let i = 0; i < priceIds.length; i += CHUNK_SIZE) {
+        const chunk = priceIds.slice(i, i + CHUNK_SIZE);
+        try {
+            const resp = await fetch(
+                `${getPaddleBaseUrl()}/prices?id=${chunk.join(",")}&per_page=${CHUNK_SIZE}`,
+                {
+                    headers: { Authorization: `Bearer ${apiKey}` },
+                }
+            );
+            if (!resp.ok) {
+                console.warn(`[paddlePrices] fetchPricesBatch devolvió status ${resp.status}`);
+                continue;
+            }
+            const json: any = await resp.json();
+            const data = json?.data;
+            if (Array.isArray(data)) {
+                for (const item of data) {
+                    if (item?.id && item?.unit_price) {
+                        const parsed = parsePaddleUnitPrice(item.unit_price);
+                        if (parsed) {
+                            results[item.id] = parsed;
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn(`[paddlePrices] fetchPricesBatch falló:`, (error as Error).message);
+        }
+    }
+    return results;
+}
+
+let moduleCache: { at: number; ttl: number; result: ModulePricesResult } | null = null;
+
+/**
+ * Lee los precios de todos los módulos y add-ons desde Paddle.
+ * Si Paddle no responde o no hay API key (dev/CI), utiliza los valores base
+ * de ADDON_CATALOG como fallback determinista e identifica source: "catalog".
+ */
+export async function getModulePrices(): Promise<ModulePricesResult> {
+    if (moduleCache && Date.now() - moduleCache.at < moduleCache.ttl) return moduleCache.result;
+
+    const apiKey = process.env.PADDLE_API_KEY;
+    const catalog = ADDON_CATALOG;
+
+    const priceIdsSet = new Set<string>();
+    for (const product of Object.values(catalog)) {
+        for (const id of Object.values(product.prices)) {
+            if (id && typeof id === "string") priceIdsSet.add(id);
+        }
+    }
+
+    const priceMap = apiKey && priceIdsSet.size > 0
+        ? await fetchPricesBatch(Array.from(priceIdsSet), apiKey)
+        : {};
+
+    let algunoLeido = false;
+    const modules: Record<string, ModulePrices> = {};
+
+    for (const [key, product] of Object.entries(catalog)) {
+        const p = product.prices;
+        const b = product.basePriceUSD;
+
+        const monthlyParsed = p.monthly ? priceMap[p.monthly] : null;
+        const pass1mParsed = p.pass1m ? priceMap[p.pass1m] : null;
+        const pass3mParsed = p.pass3m ? priceMap[p.pass3m] : null;
+        const pass6mParsed = p.pass6m ? priceMap[p.pass6m] : null;
+        const pass9mParsed = p.pass9m ? priceMap[p.pass9m] : null;
+        const pass12mParsed = (p.pass12m ? priceMap[p.pass12m] : null) ?? (p.annual ? priceMap[p.annual] : null);
+        const annualParsed = p.annual ? priceMap[p.annual] : null;
+
+        if (monthlyParsed || pass1mParsed || pass3mParsed || pass6mParsed || pass9mParsed || pass12mParsed) {
+            algunoLeido = true;
+        }
+
+        const currency =
+            monthlyParsed?.currency ||
+            pass1mParsed?.currency ||
+            pass12mParsed?.currency ||
+            "USD";
+
+        modules[key] = {
+            monthly: monthlyParsed?.amount ?? b.monthly,
+            pass1m: pass1mParsed?.amount ?? b.pass1m,
+            pass3m: pass3mParsed?.amount ?? b.pass3m,
+            pass6m: pass6mParsed?.amount ?? b.pass6m,
+            pass9m: pass9mParsed?.amount ?? b.pass9m,
+            pass12m: pass12mParsed?.amount ?? b.pass12m,
+            annual: annualParsed?.amount,
+            currency,
+        };
+    }
+
+    const result: ModulePricesResult = {
+        source: algunoLeido ? "paddle" : "catalog",
+        modules,
+    };
+
+    moduleCache = {
+        at: Date.now(),
+        ttl: algunoLeido ? CACHE_TTL_MS : CACHE_TTL_DEGRADED_MS,
+        result,
+    };
+
     return result;
 }

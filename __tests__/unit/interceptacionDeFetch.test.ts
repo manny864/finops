@@ -35,7 +35,7 @@ const PROVIDER = "src/components/TenantProvider.tsx";
  * Bajar este número es progreso: significa que una interceptación redundante se
  * fue y la ruta quedó como única fuente. Subirlo es deuda nueva.
  */
-const TOPE_REDUNDANTES = 62;
+const TOPE_REDUNDANTES = 51;
 
 function rutasInterceptadas(): string[] {
     const src = readFileSync(PROVIDER, "utf8");

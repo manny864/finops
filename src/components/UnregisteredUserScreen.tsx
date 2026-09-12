@@ -31,7 +31,7 @@ export default function UnregisteredUserScreen({ onGoToPricing }: UnregisteredUs
         <div className="min-h-screen bg-gradient-to-br from-[#0B1523] via-[#1B2A41] to-[#0B1523] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative font-sans items-center overflow-hidden">
             {/* Top Bar Switcher */}
             <div className="absolute top-4 right-4 z-50">
-                <LanguageSwitcher />
+                <LanguageSwitcher variant="white" />
             </div>
 
             {/* Glowing Ambient Backdrop */}

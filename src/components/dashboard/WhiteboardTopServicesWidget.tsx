@@ -9,14 +9,12 @@ import {
   Bar,
   XAxis,
   YAxis,
-  Tooltip,
   ResponsiveContainer,
   Cell,
 } from "recharts";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { formatCurrencyAxis } from "@/lib/whiteboard";
 import type { WhiteboardTopService } from "@/types/whiteboard.types";
-import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 const BAR_COLORS = ["#0078D4", "#2563EB", "#0284C7", "#38BDF8"];
 
@@ -47,12 +45,13 @@ export default function WhiteboardTopServicesWidget({
 
   return (
     <div className="space-y-3 h-full flex flex-col">
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 pointer-events-none select-none">
         <ResponsiveContainer width="100%" height="100%" minHeight={140}>
           <BarChart
             data={chartData}
             layout="vertical"
             margin={{ left: 8, right: 16 }}
+            style={{ pointerEvents: "none" }}
           >
             <XAxis
               type="number"
@@ -65,14 +64,7 @@ export default function WhiteboardTopServicesWidget({
               tick={{ fontSize: 10 }}
               width={110}
             />
-            <Tooltip
-              formatter={(v: any) => format(Number(v))}
-              labelFormatter={(label: any) =>
-                typeof label === "string" && label.length > 40
-                  ? label.slice(0, 40) + "…"
-                  : String(label ?? "")
-              } {...TOOLTIP_TEMA} />
-            <Bar dataKey="cost" radius={[0, 4, 4, 0]}>
+            <Bar dataKey="cost" radius={[0, 4, 4, 0]} activeBar={false} isAnimationActive={false}>
               {chartData.map((_, i) => (
                 <Cell key={i} fill={BAR_COLORS[i % BAR_COLORS.length]} />
               ))}

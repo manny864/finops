@@ -85,4 +85,48 @@ describe('Ahorro Capturado — historial de remediación en demo', () => {
       for (const ev of s.auditLog) expect(ev.monthlySavingsUSD).toBeLessThan(500);
     }
   });
+
+  it('MEJ-01: los eventos de origen Azure atribuyen el autor real y tipo de caller', () => {
+    const azureEvents = summary.auditLog.filter((e) => e.origin === 'azure');
+    expect(azureEvents.length).toBeGreaterThanOrEqual(2);
+
+    const userEvent = azureEvents.find((e) => e.callerType === 'user');
+    expect(userEvent).toBeDefined();
+    expect(userEvent?.executedBy).toContain('@');
+    expect(userEvent?.details).toContain('Autor en Azure');
+    expect(userEvent?.resourceId).toContain('/subscriptions/');
+
+    const autoEvent = azureEvents.find((e) => e.callerType === 'automation');
+    expect(autoEvent).toBeDefined();
+    expect(autoEvent?.executedBy).toContain('spn:');
+    expect(autoEvent?.details).toContain('[Automatización]');
+  });
+
+  it('enrichSavingsFromActivityLog devuelve lista vacía si recibe lista vacía', async () => {
+    const res = await AzureCapturedSavingsService.enrichSavingsFromActivityLog('test-tenant', []);
+    expect(res).toEqual([]);
+  });
+
+  it('enrichSavingsFromActivityLog maneja fallos de credenciales con gracia manteniendo el fallback', async () => {
+    const rawEvents = [
+      {
+        id: 'azure-test-1',
+        timestamp: new Date().toISOString(),
+        executedBy: 'Detectado en Azure (fuera de la plataforma)',
+        resourceName: 'test-disk',
+        resourceType: 'Microsoft.Compute/disks',
+        actionCategory: 'Baja de recurso detectada en Azure',
+        monthlySavingsUSD: 25,
+        status: 'SUCCESS' as const,
+        origin: 'azure' as const,
+        resourceId: '/subscriptions/12345678-1234-1234-1234-123456789abc/resourceGroups/rg/providers/Microsoft.Compute/disks/test-disk',
+      }
+    ];
+
+    const result = await AzureCapturedSavingsService.enrichSavingsFromActivityLog('non-existent-tenant-xyz', rawEvents);
+    expect(result).toHaveLength(1);
+    expect(result[0].executedBy).toBe('Detectado en Azure (fuera de la plataforma)');
+  });
 });
+
+

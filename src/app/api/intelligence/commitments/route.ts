@@ -9,6 +9,7 @@ import { getActiveReservations, type ActiveReservationDetail } from "@/services/
 import { recordDailySnapshotAsync } from "@/services/snapshotService";
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError } from "@/lib/azureCostColumn";
 import { errorMessage } from '@/lib/apiErrors';
+import { AzureCommitmentSimulatorService } from "@/services/azureCommitmentSimulator.service";
 
 export async function GET(request: NextRequest) {
     try {
@@ -349,7 +350,23 @@ export async function GET(request: NextRequest) {
 
             recommendations = Array.from(recMap.values()).sort((a, b) => b.monthlySavings - a.monthlySavings);
 
-            return { utilization, coverage, hasReservations, activeReservations, reservationDetails, recommendations };
+            const exchangeQuota = await AzureCommitmentSimulatorService.getExchangeQuota(tenantId);
+            const totalMonthlySavingsRec = recommendations.reduce((acc, r) => acc + (Number(r.monthlySavings) || 0), 0);
+            const breakevenSummary = AzureCommitmentSimulatorService.calculateBreakeven({
+                paygMonthly: totalMonthlySavingsRec > 0 ? totalMonthlySavingsRec * 2.5 : 2500,
+                workloadType: "general"
+            });
+
+            return {
+                utilization,
+                coverage,
+                hasReservations,
+                activeReservations,
+                reservationDetails,
+                recommendations,
+                exchangeQuota,
+                breakevenSummary
+            };
         }, 43200);
 
         // Write-through de historial diario (best-effort, solo tenants reales).

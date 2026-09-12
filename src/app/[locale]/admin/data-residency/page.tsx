@@ -36,17 +36,76 @@ interface ResidencyChange {
     created_at: string;
 }
 
+function EuFlag({ className = "w-8 h-6" }: { className?: string }) {
+    return (
+        <svg
+            viewBox="0 0 640 480"
+            className={`inline-block rounded-xs shadow-xs border border-slate-300/60 dark:border-slate-600 align-middle shrink-0 ${className}`}
+            aria-label="European Union Flag"
+        >
+            <defs>
+                <g id="eu-star">
+                    <polygon
+                        fill="#ffcc00"
+                        points="0,-20 6.18,-3.82 23.51,-6.18 10.59,4.72 14.7,21.82 0,11.8 -14.7,21.82 -10.59,4.72 -23.51,-6.18 -6.18,-3.82"
+                    />
+                </g>
+            </defs>
+            <rect width="640" height="480" fill="#003399" />
+            <g transform="translate(320,240)">
+                {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((angle, i) => (
+                    <use
+                        key={i}
+                        href="#eu-star"
+                        transform={`rotate(${angle}) translate(0,-120) rotate(${-angle}) scale(0.6)`}
+                    />
+                ))}
+            </g>
+        </svg>
+    );
+}
+
+function UsFlag({ className = "w-8 h-6" }: { className?: string }) {
+    return (
+        <svg
+            viewBox="0 0 640 480"
+            className={`inline-block rounded-xs shadow-xs border border-slate-300/60 dark:border-slate-600 align-middle shrink-0 ${className}`}
+            aria-label="United States Flag"
+        >
+            <rect width="640" height="480" fill="#bd3d44" />
+            <path stroke="#fff" strokeWidth="36.92" d="M0 55.38h640M0 129.23h640M0 203.07h640M0 276.92h640M0 350.76h640M0 424.61h640" />
+            <rect width="260" height="258.46" fill="#192f5d" />
+            <g fill="#fff" transform="translate(130, 130) scale(0.8)">
+                <circle cx="-80" cy="-70" r="8" /><circle cx="-40" cy="-70" r="8" /><circle cx="0" cy="-70" r="8" /><circle cx="40" cy="-70" r="8" /><circle cx="80" cy="-70" r="8" />
+                <circle cx="-60" cy="-40" r="8" /><circle cx="-20" cy="-40" r="8" /><circle cx="20" cy="-40" r="8" /><circle cx="60" cy="-40" r="8" />
+                <circle cx="-80" cy="-10" r="8" /><circle cx="-40" cy="-10" r="8" /><circle cx="0" cy="-10" r="8" /><circle cx="40" cy="-10" r="8" /><circle cx="80" cy="-10" r="8" />
+                <circle cx="-60" cy="20" r="8" /><circle cx="-20" cy="20" r="8" /><circle cx="20" cy="20" r="8" /><circle cx="60" cy="20" r="8" />
+                <circle cx="-80" cy="50" r="8" /><circle cx="-40" cy="50" r="8" /><circle cx="0" cy="50" r="8" /><circle cx="40" cy="50" r="8" /><circle cx="80" cy="50" r="8" />
+                <circle cx="-60" cy="80" r="8" /><circle cx="-20" cy="80" r="8" /><circle cx="20" cy="80" r="8" /><circle cx="60" cy="80" r="8" />
+            </g>
+        </svg>
+    );
+}
+
+function RegionFlag({ code, className }: { code: string; className?: string }) {
+    if (code === 'EU') return <EuFlag className={className} />;
+    if (code === 'US') return <UsFlag className={className} />;
+    if (code === 'LATAM') return <span className={className} role="img" aria-label="LATAM">🌎</span>;
+    if (code === 'APAC') return <span className={className} role="img" aria-label="APAC">🌏</span>;
+    return <span className={className} role="img" aria-label="Global">🌐</span>;
+}
+
 export default function DataResidencyPage() {
     const t = useTranslations('AdminDataResidency');
     const { selectedTenant, userRole, systemRole } = useTenant();
     const { instance, accounts } = useMsal();
 
-    const REGIONS = [
-        { code: 'EU', flag: '🇪🇺', label: t('regions.eu') },
-        { code: 'US', flag: '🇺🇸', label: t('regions.us') },
-        { code: 'LATAM', flag: '🌎', label: t('regions.latam') },
-        { code: 'APAC', flag: '🌏', label: t('regions.apac') },
-        { code: 'GLOBAL', flag: '🌐', label: t('regions.global') },
+    const REGIONS: Array<{ code: string; flag: React.ReactNode; label: string }> = [
+        { code: 'EU', flag: <RegionFlag code="EU" className="w-8 h-6" />, label: t('regions.eu') },
+        { code: 'US', flag: <RegionFlag code="US" className="w-8 h-6" />, label: t('regions.us') },
+        { code: 'LATAM', flag: <RegionFlag code="LATAM" />, label: t('regions.latam') },
+        { code: 'APAC', flag: <RegionFlag code="APAC" />, label: t('regions.apac') },
+        { code: 'GLOBAL', flag: <RegionFlag code="GLOBAL" />, label: t('regions.global') },
     ];
 
     const [residencyInfo, setResidencyInfo] = useState<DataResidencyInfo | null>(null);
@@ -288,7 +347,7 @@ export default function DataResidencyPage() {
                                         : 'border-gray-200 hover:border-gray-300'
                                 }`}
                             >
-                                <p className="text-3xl">{region.flag}</p>
+                                <div className="text-3xl h-8 flex items-center">{region.flag}</div>
                                 <p className="mt-2 font-medium">{region.label}</p>
                                 <p className="text-xs text-gray-600">{region.code}</p>
                             </button>
@@ -342,7 +401,7 @@ export default function DataResidencyPage() {
                             }`}
                         >
                             <div className="flex items-start gap-3">
-                                <span className="text-2xl">{region.flag}</span>
+                                <span className="text-2xl flex items-center mt-0.5">{region.flag}</span>
                                 <div className="flex-1">
                                     <p className="font-medium">{region.label}</p>
                                     <p className="text-sm text-gray-600 mt-1">

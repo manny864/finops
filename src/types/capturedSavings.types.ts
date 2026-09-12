@@ -31,6 +31,10 @@ export interface RemediationAuditItem {
     origin?: RemediationOrigin;
     /** true si el ahorro se midió contra costo real y no se estimó. */
     savingsMeasured?: boolean;
+    /** Azure Resource ID para cruce con Activity Log y telemetría */
+    resourceId?: string;
+    /** Distinción entre operador humano y automatización (SPN/Runbook/Managed Identity) */
+    callerType?: "user" | "automation" | "unknown";
 }
 
 export interface CapturedSavingsSummary {

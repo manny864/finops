@@ -296,7 +296,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
       return (
           <div className="min-h-screen bg-gradient-to-br from-nav-bg to-nav-bg2 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative font-sans">
               <div className="absolute top-4 right-4 z-50">
-                  <LanguageSwitcher />
+                  <LanguageSwitcher variant="white" />
               </div>
               
               <div className="absolute inset-0 overflow-hidden pointer-events-none">

@@ -525,6 +525,7 @@ export interface DiscoveredTenantResource {
     sku: string;
     serviceName: string;
     subscriptionId?: string;
+    tags?: Record<string, string>;
 }
 
 export interface TenantInventoryContext {
@@ -602,6 +603,7 @@ export async function fetchTenantRealResourceInventory(tenantId: string): Promis
                         sku,
                         serviceName: mapResourceTypeToServiceName(r.type || ""),
                         subscriptionId: subId,
+                        tags: r.tags || {},
                     });
                 }
             } catch (subErr) {
@@ -680,6 +682,43 @@ export async function getRealConsumptionOverview(
         }
     } catch (costErr) {
         console.warn(`[realConsumptionService] getMtdCostByResourceId fallback:`, errorMessage(costErr));
+    }
+
+    // MEJ-29: Desglose exacto de (ResourceId × ServiceName) y Tags desde CostSnapshots
+    const resourceServiceCosts = new Map<string, number>();
+    const resourceTagsMap = new Map<string, Record<string, string>>();
+    try {
+        const [snapRows]: any = await pool.query(
+            `SELECT 
+                LOWER(COALESCE(ResourceId, resource_id, '')) AS resId,
+                LOWER(COALESCE(NULLIF(service_name, ''), 'Other')) AS svcName,
+                MAX(Tags) AS tagsJson,
+                SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS mtdCost
+             FROM CostSnapshots
+             WHERE tenant_id = ?
+               AND (COALESCE(ResourceId, resource_id) IS NOT NULL AND COALESCE(ResourceId, resource_id) != '')
+               AND COALESCE(ChargePeriodStart, date) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+             GROUP BY LOWER(COALESCE(ResourceId, resource_id, '')), LOWER(COALESCE(NULLIF(service_name, ''), 'Other'))`,
+            [tenantId]
+        );
+
+        for (const row of snapRows || []) {
+            if (row.resId && row.svcName) {
+                const key = `${row.resId}|${row.svcName}`;
+                resourceServiceCosts.set(key, Number(row.mtdCost || 0));
+
+                if (row.tagsJson && !resourceTagsMap.has(row.resId)) {
+                    try {
+                        const parsed = typeof row.tagsJson === "string" ? JSON.parse(row.tagsJson) : row.tagsJson;
+                        if (parsed && typeof parsed === "object") {
+                            resourceTagsMap.set(row.resId, parsed);
+                        }
+                    } catch {}
+                }
+            }
+        }
+    } catch (snapErr) {
+        console.warn(`[realConsumptionService] MEJ-29 CostSnapshots lookup fallback:`, errorMessage(snapErr));
     }
 
     let totalCostDecimal = new Decimal(0);
@@ -770,6 +809,8 @@ export async function getRealConsumptionOverview(
 
                     for (const armRes of matchingArmResources) {
                         const rawCost = realResourceCosts.get(armRes.id.toLowerCase());
+                        const svcKey = `${armRes.id.toLowerCase()}|${rawService.toLowerCase()}`;
+                        const specificSvcCost = resourceServiceCosts.get(svcKey);
                         let costForRes: Decimal;
                         let billedForRes: Decimal;
 
@@ -781,7 +822,12 @@ export async function getRealConsumptionOverview(
                         // recurso, una sola cifra para todo el mes.
                         let isMonthToDateTotal: boolean;
 
-                        if (rawCost !== undefined && rawCost >= 0) {
+                        if (specificSvcCost !== undefined && specificSvcCost >= 0) {
+                            // MEJ-29: Costo exacto atribuido a este (ResourceId × ServiceName)
+                            costForRes = new Decimal(specificSvcCost);
+                            billedForRes = new Decimal(specificSvcCost);
+                            isMonthToDateTotal = true;
+                        } else if (rawCost !== undefined && rawCost >= 0) {
                             // Costo real exacto de Azure Cost Management para este recurso
                             costForRes = new Decimal(rawCost);
                             billedForRes = new Decimal(rawCost);
@@ -800,6 +846,7 @@ export async function getRealConsumptionOverview(
 
                         const rule = getServiceRemediationRule(rawService, costForRes.toNumber(), armRes.sku);
                         const existing = svcData.resources.get(armRes.id);
+                        const resourceTags = resourceTagsMap.get(armRes.id.toLowerCase()) || armRes.tags || {};
                         if (existing) {
                             // Acumular SÓLO el prorrateo diario. Sumar el total
                             // month-to-date una vez por fila diaria multiplicaba el
@@ -821,7 +868,7 @@ export async function getRealConsumptionOverview(
                                 costMtd: Number(costForRes.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
                                 billedCost: Number(billedForRes.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
                                 effectiveCost: Number(costForRes.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
-                                tags: {},
+                                tags: resourceTags,
                                 remediationSuggestedKey: `rc_rec_${rule.remediationActionKey}`,
                                 remediationActionKey: rule.remediationActionKey,
                             });
@@ -834,6 +881,7 @@ export async function getRealConsumptionOverview(
                     const resName = `${cleanSlug}-${resRg.replace(/^rg-/, "") || "primary"}`;
                     const resId = `/subscriptions/${subscriptionId === "All" ? "sub-primary" : subscriptionId}/resourceGroups/${resRg}/providers/Microsoft.Custom/${cleanSlug}/${resName}`;
                     const rule = getServiceRemediationRule(rawService, effective.toNumber(), "Standard");
+                    const fallbackTags = resourceTagsMap.get(resId.toLowerCase()) || {};
 
                     const existing = svcData.resources.get(resId);
                     if (existing) {
@@ -850,7 +898,7 @@ export async function getRealConsumptionOverview(
                             costMtd: Number(effective.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
                             billedCost: Number(billed.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
                             effectiveCost: Number(effective.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
-                            tags: {},
+                            tags: fallbackTags,
                             remediationSuggestedKey: `rc_rec_${rule.remediationActionKey}`,
                             remediationActionKey: rule.remediationActionKey,
                         });
@@ -869,18 +917,19 @@ export async function getRealConsumptionOverview(
             const query = `
                 SELECT 
                     COALESCE(NULLIF(service_name, ''), 'Other') as service_name,
-                    COALESCE(resource_id, '') as resource_id,
+                    COALESCE(ResourceId, resource_id, '') as resource_id,
                     COALESCE(NULLIF(resource_group, ''), '') as resource_group,
                     COALESCE(NULLIF(region, ''), '') as region,
                     COALESCE(NULLIF(sku, ''), '') as sku,
                     COALESCE(NULLIF(MeterName, ''), '') as meter_name,
+                    MAX(Tags) as tags_json,
                     COALESCE(SUM(COALESCE(EffectiveCost, cost_usd, 0)), 0) as effective_cost,
                     COALESCE(SUM(COALESCE(BilledCost, cost_usd, 0)), 0) as billed_cost
                 FROM CostSnapshots
                 WHERE 
                     tenant_id = ?
-                    AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-                GROUP BY service_name, resource_id, resource_group, region, sku, MeterName
+                    AND COALESCE(ChargePeriodStart, date) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+                GROUP BY service_name, COALESCE(ResourceId, resource_id, ''), resource_group, region, sku, MeterName
                 ORDER BY effective_cost DESC
             `;
             const [rows] = await conn.execute<any[]>(query, [tenantId]);
@@ -933,6 +982,14 @@ export async function getRealConsumptionOverview(
 
                 const rule = getServiceRemediationRule(rawService, effective.toNumber(), rowSku);
 
+                let parsedTags: Record<string, string> = {};
+                if (row.tags_json) {
+                    try {
+                        const t = typeof row.tags_json === "string" ? JSON.parse(row.tags_json) : row.tags_json;
+                        if (t && typeof t === "object") parsedTags = t;
+                    } catch {}
+                }
+
                 svcData.resources.set(resId, {
                     id: resId,
                     resourceName: resName,
@@ -942,6 +999,7 @@ export async function getRealConsumptionOverview(
                     costMtd: Number(effective.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
                     billedCost: Number(billed.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
                     effectiveCost: Number(effective.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString()),
+                    tags: parsedTags,
                     remediationSuggestedKey: `rc_rec_${rule.remediationActionKey}`,
                     remediationActionKey: rule.remediationActionKey,
                 });

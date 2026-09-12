@@ -478,6 +478,10 @@ export default function SystemAnnouncementsPanel() {
                       <input type="checkbox" checked={form.channels.includes("popup")} onChange={() => toggleChannel("popup")} />
                       Popup
                     </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                      <input type="checkbox" checked={form.channels.includes("notification")} onChange={() => toggleChannel("notification")} />
+                      Campana / Panel
+                    </label>
                   </div>
                 </div>
               </div>

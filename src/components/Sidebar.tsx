@@ -44,6 +44,7 @@ import {
     Boxes,
     Recycle,
     Search,
+    ShoppingBag,
     X
 } from 'lucide-react';
 import { IconCoins, IconDatabase } from '@tabler/icons-react';
@@ -163,7 +164,8 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/admin/config', label: t('configuration'), icon: Settings },
                 { href: '/admin/reports', label: t('reportes_exportacion'), icon: FileText, requiredTier: 'Professional' },
                 { href: '/admin/integrations', label: t('integraciones_api'), icon: Cpu, requiredTier: 'Enterprise' },
-                { href: '/admin/account', label: t('facturacion_auditoria'), icon: CreditCard, requiredTier: 'Professional' }
+                { href: '/admin/account', label: t('facturacion_auditoria'), icon: CreditCard, requiredTier: 'Professional' },
+                { href: '/marketplace', label: t('marketplace'), icon: ShoppingBag }
                 // Data Residency oculto: hoy sólo tenemos un datacenter (Brasil), ofrecer
                 // selección de región (EU/US/LATAM/APAC) sería engañoso. Página y API
                 // quedan implementadas para cuando haya despliegue multi-región real.

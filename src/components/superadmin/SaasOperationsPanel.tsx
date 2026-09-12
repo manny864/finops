@@ -9,6 +9,7 @@ import { useTenant } from "@/components/TenantProvider";
 import { isMockTenant } from "@/lib/mockData";
 import { errorMessage } from "@/lib/apiErrors";
 import InfoTooltip from "@/components/InfoTooltip";
+import { ColumnMenu } from "@/components/TableColumns";
 import {
     SaaSOperationsSummary,
     SaaSComponentStatus,
@@ -494,47 +495,14 @@ export default function SaasOperationsPanel() {
                             {t("cronTitle")}
                         </h2>
 
-                        {/* Selector de Columnas (z-[100]) */}
-                        <div className="relative" ref={columnPickerRef}>
-                            <button
-                                type="button"
-                                onClick={() => setIsColumnPickerOpen((prev) => !prev)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-200 transition-colors shadow-sm"
-                            >
-                                <IconColumns size={15} stroke={1.5} className="text-[#0078D4]" />
-                                <span>Personalizar Columnas</span>
-                            </button>
-
-                            {isColumnPickerOpen && (
-                                <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl z-[100] p-3 space-y-2 animate-in fade-in">
-                                    <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200">
-                                        <span>Columnas Visibles</span>
-                                        <button
-                                            onClick={resetColumnsToDefault}
-                                            className="text-[11px] font-normal text-[#0078D4] hover:underline"
-                                        >
-                                            Restaurar
-                                        </button>
-                                    </div>
-                                    <div className="space-y-1 max-h-48 overflow-y-auto">
-                                        {columns.map((col) => (
-                                            <label
-                                                key={col.id}
-                                                className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 p-1.5 rounded cursor-pointer"
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={col.visible}
-                                                    onChange={() => toggleColumnVisibility(col.id)}
-                                                    className="rounded border-slate-300 text-[#0078D4] focus:ring-[#0078D4]"
-                                                />
-                                                <span>{t(`col_${col.id}`)}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                        {/* Selector de Columnas */}
+                        <ColumnMenu
+                            columns={columns.map((c) => ({ ...c, label: t(`col_${c.id}`) }))}
+                            toggle={toggleColumnVisibility}
+                            open={isColumnPickerOpen}
+                            setOpen={setIsColumnPickerOpen}
+                            menuRef={columnPickerRef}
+                        />
                     </div>
 
                     {/* Contenedor de Tabla con Scrollbar visible en macOS */}

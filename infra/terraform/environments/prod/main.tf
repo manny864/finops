@@ -256,6 +256,7 @@ module "mysql_backup" {
   key_vault_id = module.stamp[var.default_stamp].key_vault_id
 
   alert_email         = var.alert_email
+  teams_webhook_url   = var.teams_webhook_url
   schedule_start_time = var.mysql_backup_schedule_start_time
 }
 

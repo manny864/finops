@@ -52,6 +52,18 @@ function getDemoNotifications(tenantId: string): TenantNotificationItem[] {
         severity: "warning",
       },
       {
+        id: "mock-notif-00",
+        tenantId,
+        type: "SYSTEM_BROADCAST",
+        title: "Aviso Global: Ventana de Actualización de Infraestructura",
+        message: "Mantenimiento preventivo en la región East US programado para el próximo domingo de 02:00 a 04:00 UTC.",
+        actionUrl: "/status",
+        isRead: false,
+        readAtIso: null,
+        createdAtIso: new Date(Date.now() - 50 * 60 * 1000).toISOString(),
+        severity: "info",
+      },
+      {
         id: "mock-notif-03",
         tenantId,
         type: "SYSTEM_ALERT",
@@ -178,11 +190,42 @@ export async function getTenantNotifications(
       };
     });
 
+    // MEJ-11 Canal 3: Avisos globales de SuperAdmin (SYSTEM_BROADCAST)
+    let broadcastNotifications: TenantNotificationItem[] = [];
+    try {
+      const { getActiveAnnouncementsForTenant } = await import("@/services/systemAnnouncements.service");
+      const activeAnnouncements = await getActiveAnnouncementsForTenant(tenantId, userEmail || "anonymous");
+      const notifAnnouncements = activeAnnouncements.filter((a) => a.channels.includes("notification"));
+
+      broadcastNotifications = notifAnnouncements.map((a) => {
+        const severity: "info" | "warning" | "critical" =
+          a.severity === "critical" ? "critical" : a.severity === "warning" ? "warning" : "info";
+        return {
+          id: `broadcast-${a.id}`,
+          tenantId,
+          type: "SYSTEM_BROADCAST" as NotificationEventType,
+          title: a.resolvedTitle || a.title,
+          message: a.resolvedMessage || a.message,
+          actionUrl: a.actionUrl || undefined,
+          isRead: Boolean(a.dismissedByUser),
+          readAtIso: a.dismissedByUser ? a.updatedAt : null,
+          createdAtIso: a.startsAt || a.createdAt,
+          severity,
+        };
+      });
+    } catch {
+      // Ignorar fallo de anuncios globales para no romper el centro de notificaciones
+    }
+
+    const combined = [...broadcastNotifications, ...notifications];
+    const filtered = unreadOnly ? combined.filter((n) => !n.isRead) : combined;
+    const totalUnread = unreadCount + broadcastNotifications.filter((n) => !n.isRead).length;
+
     return {
       success: true,
-      unreadCount,
-      totalCount: notifications.length,
-      notifications,
+      unreadCount: totalUnread,
+      totalCount: combined.length,
+      notifications: filtered.slice(0, limit),
     };
   } catch (err: any) {
     console.error("[tenantNotifications.service] Error obteniendo notificaciones:", err);
@@ -202,8 +245,9 @@ export async function markNotificationAsRead(params: {
   tenantId: string;
   notificationId?: string | number;
   markAllAsRead?: boolean;
+  userEmail?: string;
 }): Promise<{ success: boolean; updatedCount: number }> {
-  const { tenantId, notificationId, markAllAsRead } = params;
+  const { tenantId, notificationId, markAllAsRead, userEmail } = params;
 
   if (isMockTenant(tenantId)) {
     const items = getDemoNotifications(tenantId);
@@ -216,6 +260,20 @@ export async function markNotificationAsRead(params: {
       }
     });
     return { success: true, updatedCount: count };
+  }
+
+  // Si es un anuncio global broadcast, registrar el descarte para este usuario
+  if (notificationId && String(notificationId).startsWith("broadcast-")) {
+    try {
+      const { recordDismissal } = await import("@/services/systemAnnouncements.service");
+      const aId = Number(String(notificationId).replace("broadcast-", ""));
+      if (!Number.isNaN(aId)) {
+        await recordDismissal(aId, userEmail || "anonymous");
+        return { success: true, updatedCount: 1 };
+      }
+    } catch (e) {
+      console.warn("[tenantNotifications.service] Error registrando descarte de broadcast:", e);
+    }
   }
 
   await initializeDatabase();

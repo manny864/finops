@@ -486,6 +486,14 @@ resource "azurerm_automation_variable_string" "storage_sas_token" {
   encrypted               = true
 }
 
+resource "azurerm_automation_variable_string" "teams_webhook_url" {
+  name                    = "TEAMS_WEBHOOK_URL"
+  resource_group_name     = azurerm_resource_group.this.name
+  automation_account_name = azurerm_automation_account.this.name
+  value                   = var.teams_webhook_url
+  encrypted               = true
+}
+
 resource "azurerm_automation_variable_string" "alert_webhook_url" {
   name                    = "ALERT_WEBHOOK_URL"
   resource_group_name     = azurerm_resource_group.this.name
@@ -536,6 +544,23 @@ resource "azurerm_automation_runbook" "worker" {
     $sasToken = Get-AutomationVariable -Name "STORAGE_SAS_TOKEN"
     $containerName = "${var.storage_container_name}"
 
+    # Una variable de Automation vacia no da error: se interpola como cadena
+    # vacia y el backup "funciona" contra una URL invalida. El 2026-08-22 un
+    # apply recreo STORAGE_ACCOUNT_NAME (paso a encrypted) y la dejo sin valor:
+    # el dump siguio saliendo bien y azcopy subio a https://.blob.core.windows.net
+    # durante 21 dias. Se chequea antes de tocar la base.
+    $requeridas = @{
+      MYSQL_HOST           = $mysqlHost
+      MYSQL_USER           = $mysqlUser
+      MYSQL_PASS           = $mysqlPass
+      STORAGE_ACCOUNT_NAME = $storageAccount
+      STORAGE_SAS_TOKEN    = $sasToken
+    }
+    $vacias = @($requeridas.GetEnumerator() | Where-Object { [string]::IsNullOrWhiteSpace("$($_.Value)") } | ForEach-Object { $_.Key })
+    if ($vacias.Count -gt 0) {
+      throw "Variables de Automation vacias: $($vacias -join ', '). Revisar el Automation Account: un apply que recrea una variable encriptada la deja sin valor."
+    }
+
     $databases = @(${join(", ", [for db in var.mysql_database_names : "\"${db}\""])})
 
     $now = Get-Date
@@ -547,6 +572,7 @@ resource "azurerm_automation_runbook" "worker" {
 
     Write-Output "Configurando entorno seguro para MySQL..."
     $env:MYSQL_PWD = $mysqlPass
+    $fallos = @()
 
     foreach ($db in $databases) {
       Write-Output "--- Iniciando backup para base de datos: $db ---"
@@ -558,7 +584,8 @@ resource "azurerm_automation_runbook" "worker" {
       cmd /c $dumpCommand
 
       if (!(Test-Path $localFilePath) -or (Get-Item $localFilePath).Length -eq 0) {
-        Write-Error "FALLO: El archivo de backup no se generó correctamente para $db."
+        $fallos += "dump de $${db}: no se genero o quedo vacio"
+        Write-Warning "FALLO: El archivo de backup no se generó correctamente para $db."
         if (Test-Path $localFilePath) { Remove-Item $localFilePath -Force }
         continue
       }
@@ -579,7 +606,8 @@ resource "azurerm_automation_runbook" "worker" {
         $uploadProcess = Start-Process -FilePath $toolPath_AzCopy -ArgumentList $azCopyArgs -Wait -PassThru -NoNewWindow
 
         if ($uploadProcess.ExitCode -ne 0) {
-          Write-Error "Error subiendo a Blob Storage. Exit Code: $($uploadProcess.ExitCode). Verifica el SAS Token."
+          $fallos += "$${logUrl}: azcopy exit $($uploadProcess.ExitCode)"
+          Write-Warning "Error subiendo a Blob Storage. Exit Code: $($uploadProcess.ExitCode). Verifica el SAS Token."
         } else {
           Write-Output "Subida completada OK."
         }
@@ -591,6 +619,14 @@ resource "azurerm_automation_runbook" "worker" {
     }
 
     $env:MYSQL_PWD = $null
+
+    # Sin este throw el job termina en "Completed" aunque no se haya subido
+    # nada: Write-Error es non-terminating. El orquestador decide si alertar
+    # mirando el estado terminal del hijo, asi que 19 fallos seguidos de
+    # azcopy no dispararon una sola alerta.
+    if ($fallos.Count -gt 0) {
+      throw "El ciclo de backup termino con $($fallos.Count) fallo(s): $($fallos -join ' | ')"
+    }
     Write-Output "Ciclo finalizado."
   PS1
 
@@ -781,6 +817,32 @@ resource "azurerm_automation_runbook" "orchestrator" {
         Write-Output ">>> ALERTA ENVIADA CORRECTAMENTE."
       } catch {
         Write-Warning "FALLO AL ENVIAR ALERTA. Detalles: $_"
+      }
+
+      # Teams (flow de Power Automate), en un try/catch propio a proposito: si
+      # el POST al Logic App se cae, el aviso a Teams tiene que salir igual, y
+      # al reves. Ningun canal de alerta puede voltear el runbook, por eso los
+      # dos tragan su excepcion.
+      try {
+        $teamsUrlVar = Get-AutomationVariable -Name "TEAMS_WEBHOOK_URL" -ErrorAction Stop
+        $teamsUrl = if ($teamsUrlVar.GetType().Name -eq "AutomationVariable") { $teamsUrlVar.Value } else { $teamsUrlVar }
+        if ([string]::IsNullOrWhiteSpace("$teamsUrl")) { throw "Variable TEAMS_WEBHOOK_URL vacia." }
+
+        Write-Output ">>> INTENTANDO ENVIAR ALERTA A TEAMS..."
+        # Se mandan las dos formas: `text` para un flow que postea directo al
+        # canal, y los campos sueltos para uno que arme la tarjeta. Un flow de
+        # Power Automate ignora las propiedades que no usa.
+        $teamsPayload = @{
+          text         = "**Backup MySQL FinOps - $Subject**`n`nRunbook: $SourceRunbook`n`n$ErrorMessage"
+          Subject      = "ERROR CRITICO: $Subject"
+          RunbookName  = $SourceRunbook
+          ErrorMessage = $ErrorMessage
+        } | ConvertTo-Json -Depth 5
+        $teamsBytes = [System.Text.Encoding]::UTF8.GetBytes($teamsPayload)
+        Invoke-RestMethod -Uri $teamsUrl -Method Post -Body $teamsBytes -ContentType "application/json; charset=utf-8" -ErrorAction Stop
+        Write-Output ">>> ALERTA ENVIADA A TEAMS."
+      } catch {
+        Write-Warning "FALLO AL ENVIAR ALERTA A TEAMS. Detalles: $_"
       }
     }
 

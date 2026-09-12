@@ -154,4 +154,33 @@ describe("getRealConsumptionOverview — costo MTD por recurso", () => {
             expect(suma).toBeLessThanOrEqual(Number(s.totalCost.toFixed(2)) + 0.02);
         }
     });
+
+    it("MEJ-29: cruce con CostSnapshots enriquece tags y costo por (ResourceId × ServiceName)", async () => {
+        const pool = (await import("@/modules/storage/db")).default;
+        (pool.query as any).mockResolvedValueOnce([
+            [
+                {
+                    resId: RESOURCE_ID.toLowerCase(),
+                    svcName: "foundry models",
+                    tagsJson: JSON.stringify({ Environment: "Production", CostCenter: "AI-101" }),
+                    mtdCost: 142.50,
+                }
+            ]
+        ]);
+
+        amortizedMock.mockResolvedValue([
+            { ServiceName: "Foundry Models", EffectiveCost: 150, BilledCost: 150 },
+        ]);
+        mtdByResourceMock.mockResolvedValue(new Map([[RESOURCE_ID.toLowerCase(), 184.01]]));
+
+        const overview = await getRealConsumptionOverview("t1", "All");
+        const service = overview.services.find((s) => s.serviceName === "Foundry Models");
+        const res = service?.resources?.[0];
+
+        expect(res).toBeDefined();
+        // Con MEJ-29, el costo del recurso en este servicio es 142.50 (el específico), no 184.01 (el global)
+        expect(res?.costMtd).toBe(142.50);
+        expect(res?.tags).toEqual({ Environment: "Production", CostCenter: "AI-101" });
+    });
 });
+

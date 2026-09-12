@@ -267,11 +267,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
 
       {/* Top Right: Language switcher + Login link */}
       <div className="absolute top-6 right-8 flex items-center gap-3 z-10">
-        <LanguageSwitcher
-          iconClassName="w-4 h-4 mr-1 text-white shrink-0"
-          selectClassName="bg-transparent border-none focus:ring-0 cursor-pointer outline-none font-medium [color-scheme:dark]"
-          selectStyle={{ color: '#ffffff' }}
-        />
+        <LanguageSwitcher variant="white" />
         {!hideLogin && (
           <>
             <span className="text-sm font-medium text-gray-300">Already have an account?</span>

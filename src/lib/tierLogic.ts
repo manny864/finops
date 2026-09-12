@@ -104,6 +104,23 @@ export function getUserLimit(tier: string): number {
     return normalized ? USER_LIMITS[normalized] : USER_LIMITS.Professional;
 }
 
+export function getEffectiveSubscriptionLimit(tier: string, extraSubscriptions = 0): number {
+    const baseLimit = getSubscriptionLimit(tier);
+    if (baseLimit === Infinity) return Infinity;
+    return baseLimit + Math.max(0, extraSubscriptions);
+}
+
+export function getEffectiveUserLimit(tier: string, extraUsers = 0): number {
+    const baseLimit = getUserLimit(tier);
+    if (baseLimit === Infinity) return Infinity;
+    return baseLimit + Math.max(0, extraUsers);
+}
+
+export function hasFeatureOrAddonAccess(currentTier: string, requiredTier: string, hasAddonActive = false): boolean {
+    if (hasAccess(currentTier, requiredTier)) return true;
+    return Boolean(hasAddonActive);
+}
+
 // Límite de tickets de soporte/mes: ya vive en src/lib/supportConfig.ts
 // (getSupportConfig), con enforcement en /api/support/tickets — no se
 // duplica acá.

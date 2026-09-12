@@ -2165,7 +2165,32 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                         { type: 'VirtualMachines', sku: 'Standard_D4s_v3', recommendedQuantity: 12, monthlySavings: 1240.50, term: 'P3Y' },
                         { type: 'VirtualMachines', sku: 'Standard_E8s_v4', recommendedQuantity: 4, monthlySavings: 890.00, term: 'P1Y' },
                         { type: 'AppService', sku: 'PremiumV3', recommendedQuantity: 2, monthlySavings: 310.25, term: 'P3Y' }
-                    ]
+                    ],
+                    exchangeQuota: {
+                        totalLimitUSD: 50000,
+                        usedRefundsUSD: 8500,
+                        remainingQuotaUSD: 41500,
+                        usagePercentage: 17.0,
+                        isWarning: false,
+                        isCritical: false,
+                        lastRefundDate: new Date(Date.now() - 45 * 86400000).toISOString()
+                    },
+                    breakevenSummary: {
+                        paygMonthly: 3500,
+                        ri1yrMonthly: 2170,
+                        ri3yrMonthly: 1330,
+                        savingsMonthly1yr: 1330,
+                        savingsMonthly3yr: 2170,
+                        breakevenMonths1yr: 7.4,
+                        breakevenMonths3yr: 13.7,
+                        recommendedMix: {
+                            savingsPlansPercent: 55,
+                            reservedInstancesPercent: 30,
+                            paygPercent: 15,
+                            projectedAnnualSavingsUSD: 19100,
+                            explanation: 'Mix balanceado: 55% Savings Plans para cómputo flexible, 30% RIs para bases de datos estables y 15% PAYG elástico para absorción de picos.'
+                        }
+                    }
                 }
             };
         }

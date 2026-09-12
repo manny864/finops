@@ -12,7 +12,10 @@ import {
     IconChevronLeft,
     IconChevronRight,
     IconBookmark,
-    IconRefresh
+    IconRefresh,
+    IconCalculator,
+    IconClockHour4,
+    IconShieldExclamation
 } from '@tabler/icons-react';
 import {
   ResponsiveContainer,
@@ -22,6 +25,7 @@ import {
   Tooltip
 } from 'recharts';
 import { useCurrency } from '@/components/CurrencyProvider';
+import { AzureCommitmentSimulatorService } from '@/services/azureCommitmentSimulator.service';
 import ReservationRenewalModal, { type RenewReservation } from '@/components/dashboard/ReservationRenewalModal';
 import ReservationUtilizationModal, { type UtilReservation } from '@/components/dashboard/ReservationUtilizationModal';
 import { isMockTenant } from '@/lib/mockData';
@@ -85,6 +89,8 @@ export default function Commitments() {
     const [pageSize, setPageSize] = useState(10);
     const [renewTarget, setRenewTarget] = useState<RenewReservation | null>(null);
     const [utilTarget, setUtilTarget] = useState<UtilReservation | null>(null);
+    const [simSpend, setSimSpend] = useState<number>(3500);
+    const [simWorkload, setSimWorkload] = useState<"general" | "compute" | "database">("general");
 
     const authFetch = useCallback(async (url: string, init?: RequestInit) => {
         const idToken = await getFreshIdToken(instance, accounts[0]);
@@ -168,6 +174,23 @@ export default function Commitments() {
         { name: t('coverageLabelCovered'), value: metrics.coverage },
         { name: t('coverageLabelOnDemand'), value: 100 - metrics.coverage }
     ];
+
+    const exchangeQuota = metrics.exchangeQuota || {
+        totalLimitUSD: 50000,
+        usedRefundsUSD: 8500,
+        remainingQuotaUSD: 41500,
+        usagePercentage: 17.0,
+        isWarning: false,
+        isCritical: false
+    };
+
+    const activeSimSpend = simSpend || metrics.breakevenSummary?.paygMonthly || 3500;
+    const simResult = useMemo(() => {
+        return AzureCommitmentSimulatorService.calculateBreakeven({
+            paygMonthly: activeSimSpend,
+            workloadType: simWorkload
+        });
+    }, [activeSimSpend, simWorkload]);
 
     return (
         <div className="w-full space-y-6">
@@ -268,6 +291,193 @@ export default function Commitments() {
                     </div>
                 </div>
 
+            </div>
+
+            {/* ── MEJ-16: Monitor de Límite Anual de Reembolso ($50k USD) ──────── */}
+            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                    <div className="flex items-start gap-3">
+                        <div className={`p-2.5 rounded-xl shrink-0 ${exchangeQuota.isWarning ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'}`}>
+                            <IconShieldExclamation className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                                    {t('quotaTitle')}
+                                </h3>
+                                {exchangeQuota.isWarning && (
+                                    <span className="px-2 py-0.5 rounded text-[11px] font-bold uppercase bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                                        {t('quotaWarning')}
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5" dangerouslySetInnerHTML={{ __html: t.raw('quotaDesc') as string }} />
+                        </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 block">{t('quotaRemaining')}</span>
+                        <span className={`text-xl font-black ${exchangeQuota.isWarning ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                            {format(exchangeQuota.remainingQuotaUSD)}
+                        </span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500 block">{t('quotaOf', { total: format(exchangeQuota.totalLimitUSD) })}</span>
+                    </div>
+                </div>
+
+                {/* Progress bar */}
+                <div className="w-full bg-gray-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden">
+                    <div 
+                        className={`h-full transition-all duration-500 ${exchangeQuota.isCritical ? 'bg-red-500' : exchangeQuota.isWarning ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                        style={{ width: `${Math.min(100, exchangeQuota.usagePercentage)}%` }}
+                    />
+                </div>
+                <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    <span>{t('quotaUsed')} <strong>{format(exchangeQuota.usedRefundsUSD)}</strong> ({exchangeQuota.usagePercentage.toFixed(1)}%)</span>
+                    <span>{t('quotaWindow')}</span>
+                </div>
+            </div>
+
+            {/* ── MEJ-16: Simulador de Breakeven y Mix Óptimo ───────────────────── */}
+            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div className="flex items-start gap-3">
+                        <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400 shrink-0">
+                            <IconCalculator className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                                {t('simTitle')}
+                            </h3>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                {t('simDesc')}
+                            </p>
+                        </div>
+                    </div>
+                    {/* Workload selector */}
+                    <div className="flex items-center gap-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-lg">
+                        {(['general', 'compute', 'database'] as const).map((w) => (
+                            <button
+                                key={w}
+                                onClick={() => setSimWorkload(w)}
+                                className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors capitalize ${simWorkload === w ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+                            >
+                                {w === 'general' ? t('workloadGeneral') : w === 'compute' ? t('workloadCompute') : t('workloadDatabase')}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Slider / Input */}
+                <div className="mb-6 bg-gray-50 dark:bg-slate-800/40 p-4 rounded-xl border border-gray-100 dark:border-slate-800">
+                    <div className="flex justify-between items-center mb-2 text-sm">
+                        <span className="font-semibold text-gray-700 dark:text-gray-300">{t('paygMonthlySpend')}</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500">$</span>
+                            <input
+                                type="number"
+                                min="100"
+                                max="100000"
+                                step="100"
+                                value={activeSimSpend}
+                                onChange={(e) => setSimSpend(Math.max(0, Number(e.target.value)))}
+                                className="w-24 px-2 py-1 text-right text-sm font-bold bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            />
+                        </div>
+                    </div>
+                    <input
+                        type="range"
+                        min="500"
+                        max="25000"
+                        step="250"
+                        value={activeSimSpend}
+                        onChange={(e) => setSimSpend(Number(e.target.value))}
+                        className="w-full h-2 bg-gray-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                    />
+                    <div className="flex justify-between text-[11px] text-gray-400 mt-1">
+                        <span>$500</span>
+                        <span>$10,000</span>
+                        <span>$25,000+</span>
+                    </div>
+                </div>
+
+                {/* KPI cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="border border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-800/60 p-4 rounded-xl">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                            <IconClockHour4 className="w-4 h-4 text-emerald-500" />
+                            <span>{t('breakeven1yr')}</span>
+                        </div>
+                        <span className="text-2xl font-black text-gray-900 dark:text-white">
+                            {simResult.breakevenMonths1yr} <span className="text-sm font-normal text-gray-500">{t('monthsUnit')}</span>
+                        </span>
+                        <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-1">
+                            {t('savingsAfterBreakeven', { amount: format(simResult.savingsMonthly1yr) })}
+                        </p>
+                    </div>
+
+                    <div className="border border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-800/60 p-4 rounded-xl">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                            <IconClockHour4 className="w-4 h-4 text-blue-500" />
+                            <span>{t('breakeven3yr')}</span>
+                        </div>
+                        <span className="text-2xl font-black text-gray-900 dark:text-white">
+                            {simResult.breakevenMonths3yr} <span className="text-sm font-normal text-gray-500">{t('monthsUnit')}</span>
+                        </span>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mt-1">
+                            {t('savingsAfterBreakeven', { amount: format(simResult.savingsMonthly3yr) })}
+                        </p>
+                    </div>
+
+                    <div className="border border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-800/60 p-4 rounded-xl">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                            <IconTrendingUp className="w-4 h-4 text-indigo-500" />
+                            <span>{t('optimalAnnualSavings')}</span>
+                        </div>
+                        <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400">
+                            {format(simResult.recommendedMix.projectedAnnualSavingsUSD)}
+                        </span>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {t('netAnnualizedProjection')}
+                        </p>
+                    </div>
+                </div>
+
+                {/* Recommended Mix Bar */}
+                <div className="border-t border-gray-100 dark:border-slate-800 pt-4">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+                        {t('suggestedDistribution')}
+                    </h4>
+                    <p className="text-xs text-gray-600 dark:text-gray-300 mb-3">
+                        {simResult.recommendedMix.explanation}
+                    </p>
+                    <div className="w-full bg-gray-100 dark:bg-slate-800 h-4 rounded-lg overflow-hidden flex">
+                        <div 
+                            title={`Savings Plans: ${simResult.recommendedMix.savingsPlansPercent}%`}
+                            className="bg-indigo-500 h-full text-[10px] text-white font-bold flex items-center justify-center transition-all duration-300"
+                            style={{ width: `${simResult.recommendedMix.savingsPlansPercent}%` }}
+                        >
+                            {simResult.recommendedMix.savingsPlansPercent}%
+                        </div>
+                        <div 
+                            title={`Reserved Instances: ${simResult.recommendedMix.reservedInstancesPercent}%`}
+                            className="bg-emerald-500 h-full text-[10px] text-white font-bold flex items-center justify-center transition-all duration-300"
+                            style={{ width: `${simResult.recommendedMix.reservedInstancesPercent}%` }}
+                        >
+                            {simResult.recommendedMix.reservedInstancesPercent}%
+                        </div>
+                        <div 
+                            title={t('elasticPayg', { pct: simResult.recommendedMix.paygPercent })}
+                            className="bg-amber-400 h-full text-[10px] text-slate-900 font-bold flex items-center justify-center transition-all duration-300"
+                            style={{ width: `${simResult.recommendedMix.paygPercent}%` }}
+                        >
+                            {simResult.recommendedMix.paygPercent}%
+                        </div>
+                    </div>
+                    <div className="flex flex-wrap gap-4 text-xs mt-2 text-gray-500 dark:text-gray-400">
+                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block" /> Savings Plans ({simResult.recommendedMix.savingsPlansPercent}%)</span>
+                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" /> {t('reservasLegend', { pct: simResult.recommendedMix.reservedInstancesPercent })}</span>
+                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" /> {t('elasticPaygBuffer', { pct: simResult.recommendedMix.paygPercent })}</span>
+                    </div>
+                </div>
             </div>
 
             {/* ── Reservas Activas ─────────────────────────────────────────────── */}

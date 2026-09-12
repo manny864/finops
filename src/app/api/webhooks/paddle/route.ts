@@ -468,6 +468,24 @@ async function handleTransactionCompleted(payload: any, tenantId?: string) {
       billedAt: billedAt ? new Date(billedAt) : null,
     });
 
+    // MEJ-13: Si la transacción corresponde a un pase temporal del Marketplace
+    const customData = payload.data?.custom_data;
+    if (customData?.addon_key && customData?.addon_type === "pass") {
+      try {
+        const { TenantAddonsService } = await import("@/services/tenantAddons.service");
+        await TenantAddonsService.purchaseAddon(
+          tenant,
+          String(customData.addon_key),
+          "pass",
+          Number(customData.months || 1),
+          transactionId
+        );
+        console.log(`[Webhooks] Pase temporal acreditado para tenant ${tenant}: ${customData.addon_key} (${customData.months || 1}m)`);
+      } catch (addonErr) {
+        console.error(`[Webhooks] Error acreditando pase de add-on:`, addonErr);
+      }
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[Webhooks] Error in transaction.completed:", error);

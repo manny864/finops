@@ -17,7 +17,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 
 | ID | Mejora | Módulo | Impacto | Esfuerzo | Estado |
 |---|---|---|---|---|---|
-| [MEJ-01](#mej-01--atribución-de-ahorros-hechos-en-azure-vía-activity-log) | Atribuir a un autor los ahorros hechos fuera de la plataforma | Ahorro Capturado | Alto | Medio | Propuesta |
+| [MEJ-01](#mej-01--atribución-de-ahorros-hechos-en-azure-vía-activity-log) | Atribuir a un autor los ahorros hechos fuera de la plataforma | Ahorro Capturado | Alto | Medio | Hecha |
 | [MEJ-02](#mej-02--animaciones-de-recharts-que-dependen-de-requestanimationframe) | Centralizar el apagado de animaciones de Recharts | Transversal (gráficas) | Medio | Bajo | Parcial |
 | [MEJ-03](#mej-03--auditar-las-intercepciones-demo-restantes-de-tenantprovider) | Auditar las intercepciones demo restantes | Demo / mocks | Alto | Medio | Parcial |
 | [MEJ-04](#mej-04--persistir-el-desperdicio-detectado-como-métrica-propia) | Persistir el desperdicio detectado como métrica propia | Ahorro Capturado | Medio | Bajo | Hecha |
@@ -26,12 +26,12 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-07](#mej-07--migrar-las-posposiciones-históricas-a-la-dedupkey-estable) | Migrar posposiciones históricas a `dedupKey` | Azure Advisor | Bajo | Bajo | Propuesta |
 | [MEJ-08](#mej-08--ponderación-configurable-entre-telemetría-y-autoevaluación) | Ponderación telemetría vs autoevaluación configurable | Madurez FinOps | Bajo | Bajo | Propuesta |
 | [MEJ-09](#mej-09--deuda-de-linting) | Deuda de linting (documento propio) | Transversal | Medio | Alto | En curso |
-| [MEJ-11](#mej-11--módulo-de-comunicaciones-globales-a-usuarios-popups-banners-y-alertas) | Módulo de comunicaciones globales a usuarios (popups, banners y alertas) | SuperAdmin / Transversal | Alto | Medio | Parcial |
+| [MEJ-11](#mej-11--módulo-de-comunicaciones-globales-a-usuarios-popups-banners-y-alertas) | Módulo de comunicaciones globales a usuarios (popups, banners y alertas) | SuperAdmin / Transversal | Alto | Medio | Hecha |
 | [MEJ-12](#mej-12--trazabilidad-de-ciclo-de-vida-de-tenants-fechas-de-activación-suspensión-y-bajas) | Trazabilidad de ciclo de vida de tenants (fechas de activación y bajas) | SuperAdmin / Gobernanza | Alto | Bajo | Hecha |
-| [MEJ-13](#mej-13--marketplace-de-add-ons-y-capacidades-a-la-carta-para-tiers-professional-y-business) | Marketplace de add-ons y features a la carta (Professional y Business) | Facturación / Marketplace | Alto | Medio | Propuesta |
+| [MEJ-13](#mej-13--marketplace-de-add-ons-y-capacidades-a-la-carta-para-tiers-professional-y-business) | Marketplace de add-ons y features a la carta (Professional y Business) | Facturación / Marketplace | Alto | Medio | Hecha |
 | [MEJ-14](#mej-14--trazabilidad-de-ventas-por-comercial-y-cálculo-automatizado-de-comisiones) | Trazabilidad de ventas por comercial y cálculo de comisiones (20%) | SuperAdmin / Comercial | Alto | Medio | Propuesta |
 | [MEJ-15](#mej-15--expansión-multi-tenant-por-contrato-y-adición-de-tenants-con-capacidad-heredada-por-tier) | Expansión multi-tenant por contrato y adición de tenants con capacidad heredada por tier | Facturación / Multi-Tenant | Alto | Medio | Hecha |
-| [MEJ-16](#mej-16--gestión-avanzada-de-compromisos-reservas-y-savings-plans) | Gestión avanzada de compromisos (Reservas y Savings Plans) con simulador de Breakeven, Mix Óptimo, límite de devolución $50k USD y alertas de expiración | Compromisos / FinOps | Alto | Medio | Propuesta |
+| [MEJ-16](#mej-16--gestión-avanzada-de-compromisos-reservas-y-savings-plans) | Gestión avanzada de compromisos (Reservas y Savings Plans) con simulador de Breakeven, Mix Óptimo, límite de devolución $50k USD y alertas de expiración | Compromisos / FinOps | Alto | Medio | Hecha |
 | [MEJ-17](#mej-17--aks-finops-cockpit-costos-por-namespace-workload-y-eficiencia-de-contenedores) | AKS FinOps Cockpit (Costos por Namespace, Workload y Eficiencia de Contenedores con OpenCost/Add-on) | Cómputo / Kubernetes | Alto | Alto | Propuesta |
 | [MEJ-18](#mej-18--cosmos-db--cargas-nosql-finops-cockpit) | Cosmos DB & Cargas NoSQL FinOps Cockpit (Optimizador de RU/s, Detección de Hot Partitions y Matriz Serverless) | Bases de Datos / NoSQL | Alto | Medio | Propuesta |
 | [MEJ-19](#mej-19--mapa-de-tráfico-de-red-egress-y-fugas-de-datos) | Mapa de tráfico de red, egress y fugas de datos (Inter-AZ, Cross-Region, NAT Gateway, Private Endpoints y ExpressRoute/VPN) | Redes / Egress | Alto | Medio | Propuesta |
@@ -44,7 +44,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-26](#mej-26--continuidad-del-copilot-entre-páginas-nueva-conversación) | Continuidad del Copilot entre páginas + botón "Nueva conversación" | FinOps Copilot / IA | Medio | Bajo | Hecha |
 | [MEJ-27](#mej-27--tool-calling-el-copilot-consulta-los-datos-en-vez-de-recibirlos) | Tool-calling: el Copilot consulta los datos en vez de recibirlos | FinOps Copilot / IA | Alto | Alto | Propuesta |
 | [MEJ-28](#mej-28--harness-de-evaluación-de-calidad-de-respuestas-del-copilot) | Harness de evaluación de calidad de respuestas del Copilot | FinOps Copilot / QA | Medio | Alto | Propuesta |
-| [MEJ-29](#mej-29--costo-por-recurso--servicio-en-consumo-real) | Costo por recurso × servicio en Consumo Real | Consumo Real / Costos | Medio | Medio | Propuesta |
+| [MEJ-29](#mej-29--costo-por-recurso--servicio-en-consumo-real) | Costo por recurso × servicio en Consumo Real | Consumo Real / Costos | Medio | Medio | Hecha |
 | [MEJ-30](#mej-30--etiquetas-en-el-pipeline-de-costos-costsnapshotstags--resourceid) | Etiquetas en el pipeline de costos (`CostSnapshots.Tags` / `ResourceId`) | Costos / Ingesta | Alto | Alto | Hecha |
 | [MEJ-32](#mej-32--tres-catálogos-de-precios-duplicados-y-ya-divergidos-mej-10-reabierta) | Tres catálogos de precios duplicados y ya divergidos (MEJ-10 reabierta) | Transversal / Ahorro | Alto | Bajo | Hecha |
 | [MEJ-33](#mej-33--cerrar-el-lazo-del-desvío-dueño-estado-persistente-y-seguimiento) | Cerrar el lazo del desvío: dueño, estado persistente y seguimiento | Anomalías / Gobernanza | Alto | Medio | Hecha |
@@ -54,7 +54,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 
 ## MEJ-01 — Atribución de ahorros hechos en Azure vía Activity Log
 
-**Módulo:** Ahorro Capturado · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Propuesta
+**Módulo:** Ahorro Capturado · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Hecha (2026-09)
 
 ### Contexto
 
@@ -640,7 +640,7 @@ dejar pasar un `number` donde la Regla Cero exige `Decimal`.
 
 ## MEJ-11 — Módulo de comunicaciones globales a usuarios (popups, banners y alertas)
 
-**Módulo:** SuperAdmin / Transversal · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Parcial
+**Módulo:** SuperAdmin / Transversal · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Hecha (2026-09)
 
 ### Contexto
 
@@ -958,7 +958,7 @@ ningún lado (el hueco que MEJ-12 viene a tapar).
 
 ## MEJ-13 — Marketplace de add-ons y capacidades a la carta para tiers Professional y Business
 
-**Módulo:** Facturación / Marketplace / TierLogic / Self-Service · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Propuesta
+**Módulo:** Facturación / Marketplace / TierLogic / Self-Service · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Hecha (2026-09)
 
 ### Contexto
 
@@ -1238,7 +1238,7 @@ falla en el último paso.
 
 ## MEJ-16 — Gestión Avanzada de Compromisos (Reservas y Savings Plans)
 
-**Módulo:** Compromisos / FinOps · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Propuesta
+**Módulo:** Compromisos / FinOps · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Hecha (2026-09)
 
 ### Contexto
 
@@ -1891,7 +1891,7 @@ regresiones groseras sin gastar un centavo en tokens ni pedir keys en CI.
 
 ## MEJ-29 — Costo por recurso × servicio en Consumo Real
 
-**Módulo:** Consumo Real / Costos · **Impacto:** Medio · **Esfuerzo:** Medio · **Estado:** Propuesta
+**Módulo:** Consumo Real / Costos · **Impacto:** Medio · **Esfuerzo:** Medio · **Estado:** Hecha (2026-09)
 
 ### Contexto
 

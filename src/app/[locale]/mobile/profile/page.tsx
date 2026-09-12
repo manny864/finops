@@ -154,7 +154,7 @@ export default function MobileProfilePage() {
                 {/* Idioma (en móvil no está en el header) */}
                 <div className="rounded-2xl border border-line dark:border-slate-800 bg-surface dark:bg-slate-900 p-4">
                     <label className="block text-sm font-bold text-ink dark:text-white mb-2">{tm("language")}</label>
-                    <LanguageSwitcher />
+                    <LanguageSwitcher className="w-full" />
                 </div>
 
                 {/* Aspecto */}

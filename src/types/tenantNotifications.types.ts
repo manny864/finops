@@ -3,7 +3,8 @@ export type NotificationEventType =
     | 'ANOMALY_DETECTED'
     | 'CREDENTIAL_EXPIRING'
     | 'BUDGET_EXCEEDED'
-    | 'SYSTEM_ALERT';
+    | 'SYSTEM_ALERT'
+    | 'SYSTEM_BROADCAST';
 
 export interface TenantNotificationItem {
     id: string | number;

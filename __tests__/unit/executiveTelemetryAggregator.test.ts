@@ -18,12 +18,25 @@ const query = vi.fn();
 vi.mock("@/modules/storage/db", () => ({
     default: { query: (...a: unknown[]) => query(...a) },
     insertPlatformAiUsage: vi.fn(),
+    initializeDatabase: vi.fn(),
 }));
 vi.mock("@/services/categoryConsumptionService", () => ({
     getRealCategoryOverview: vi.fn(async () => ({ categories: [] })),
 }));
 vi.mock("@/services/haService", () => ({
     evaluateHALive: vi.fn(async () => ({ items: [], counts: {}, diagnostics: {} })),
+}));
+vi.mock("@/lib/carbonFootprint", () => ({
+    getCachedCarbonFootprint: vi.fn(async () => ({ footprint: 0, avoided: 0, degraded: false })),
+}));
+vi.mock("@/services/tagComplianceService", () => ({
+    getRealTagCompliance: vi.fn(async () => ({ complianceScore: 0, totalResources: 0, compliantCount: 0 })),
+}));
+vi.mock("@/services/commitmentCoverageService", () => ({
+    getRealCommitmentsCoverage: vi.fn(async () => ({ coveragePercent: 0, hasActiveCommitments: false })),
+}));
+vi.mock("@/services/rightsizingAggregator.service", () => ({
+    getRealRightsizingRecommendations: vi.fn(async () => ({ recommendations: [], totalSavingsUSD: 0, candidatesCount: 0 })),
 }));
 vi.mock("@/modules/core/aiProvider", () => ({
     AIProviderFactory: { getGeminiModel: vi.fn() },
@@ -36,6 +49,10 @@ vi.mock("@/lib/emailHelper", () => ({ sendEmailStrict: vi.fn() }));
 const { aggregateExecutiveTelemetry } = await import("@/services/executiveReportGenerator.service");
 const { getRealCategoryOverview } = await import("@/services/categoryConsumptionService");
 const { evaluateHALive } = await import("@/services/haService");
+const { getCachedCarbonFootprint } = await import("@/lib/carbonFootprint");
+const { getRealTagCompliance } = await import("@/services/tagComplianceService");
+const { getRealCommitmentsCoverage } = await import("@/services/commitmentCoverageService");
+const { getRealRightsizingRecommendations } = await import("@/services/rightsizingAggregator.service");
 
 const TENANT = "11111111-aaaa-4bbb-8ccc-222222222222"; // real: no matchea isMockTenant
 
@@ -112,5 +129,42 @@ describe("aggregateExecutiveTelemetry", () => {
         expect(r.inefficiencyDistribution[0]).toMatchObject({ categoryName: "Disco huérfano", percentageOfTotalWaste: 75 });
         expect(r.budgetsExecution[0]).toMatchObject({ burnPercent: 40, isExceeded: false });
         expect(r.kpiMetrics.budgetBurnPercent).toBe(40);
+    });
+
+    it("conecta CO2, tags, commitments y rightsizing reales", async () => {
+        vi.mocked(getCachedCarbonFootprint).mockResolvedValueOnce({
+            avoided: 12.5,
+            footprint: 50.0,
+            degraded: false,
+        } as never);
+        vi.mocked(getRealTagCompliance).mockResolvedValueOnce({
+            complianceScore: 78,
+            totalResources: 100,
+            compliantCount: 78,
+        });
+        vi.mocked(getRealCommitmentsCoverage).mockResolvedValueOnce({
+            coveragePercent: 62.5,
+            hasActiveCommitments: true,
+        });
+        vi.mocked(getRealRightsizingRecommendations).mockResolvedValueOnce({
+            recommendations: [
+                { resourceName: "sql-srv/db-prod", currentSku: "S3", recommendedSku: "S2", monthlySavingsUSD: 75 },
+            ],
+            totalSavingsUSD: 75,
+            candidatesCount: 1,
+        });
+
+        const r = await aggregateExecutiveTelemetry(TENANT);
+
+        expect(r.kpiMetrics.co2ImpactKg).toBe(12.5);
+        expect(r.kpiMetrics.taggingCoveragePercent).toBe(78);
+        expect(r.kpiMetrics.commitmentsCoveragePercent).toBe(62.5);
+        expect(r.kpiMetrics.rightsizingCandidatesCount).toBe(1);
+        expect(r.kpiMetrics.rightsizingSavingsUSD).toBe(75);
+        expect(r.rightsizingRecommendations).toHaveLength(1);
+        expect(r.rightsizingRecommendations[0]).toMatchObject({
+            resourceName: "sql-srv/db-prod",
+            monthlySavingsUSD: 75,
+        });
     });
 });

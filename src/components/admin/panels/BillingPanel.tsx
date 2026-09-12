@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
 import DemoModeBadge from "@/components/DemoModeBadge";
 import { useTenant } from "@/components/TenantProvider";
@@ -35,6 +36,7 @@ import {
     IconSearch,
     IconCheck,
     IconMail,
+    IconShoppingBag,
 } from "@tabler/icons-react";
 
 interface ColumnConfig {
@@ -443,6 +445,29 @@ export default function BillingPanel() {
 
             {/* ─── BLOQUE 2b: Ampliar capacidad (add-ons, MEJ-15 fase 2) ──────────── */}
             <CapacityAddonsCard tenantId={tenantId} isMock={isMock} />
+
+            {/* ─── BLOQUE 2c: Acceso directo al Marketplace de Add-ons (MEJ-13) ──── */}
+            <div className="bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-white dark:from-slate-900 dark:via-blue-950/20 dark:to-slate-900 border border-blue-200/80 dark:border-blue-900/50 p-5 sm:p-6 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                        <IconShoppingBag size={20} stroke={1.8} className="text-[#0078D4]" />
+                        <h2 className="font-bold text-sm text-[#1B2A41] dark:text-slate-100 font-['Montserrat',sans-serif]">
+                            {t("marketplaceBannerTitle") || "Marketplace de Add-ons y Pases"}
+                        </h2>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed max-w-xl">
+                        {t("marketplaceBannerDesc") || "Desbloqueá simuladores de compromisos, asientos extra, suscripciones adicionales y auditorías on-demand."}
+                    </p>
+                </div>
+                <Link
+                    href={`/${locale}/marketplace`}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#0078D4] hover:bg-[#0060AA] text-white text-xs font-bold shadow-sm hover:shadow transition-all shrink-0"
+                >
+                    <IconShoppingBag size={15} stroke={2} />
+                    <span>{t("goToMarketplace") || "Explorar Marketplace"}</span>
+                    <IconChevronRight size={14} />
+                </Link>
+            </div>
 
             {/* ─── BLOQUE 3: Tarjeta Método de Pago (Ancho 100%) ───────────────────── */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">

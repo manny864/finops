@@ -12,6 +12,7 @@ import {
   IconKey,
   IconAlertCircle,
   IconShieldExclamation,
+  IconSpeakerphone,
   IconTrash,
   IconArrowRight,
   IconInbox,
@@ -108,6 +109,12 @@ export function NotificationBellDropdown() {
         return (
           <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 border border-rose-200 dark:border-rose-800">
             <IconAlertCircle size={18} stroke={1.5} />
+          </div>
+        );
+      case "SYSTEM_BROADCAST":
+        return (
+          <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 border border-indigo-200 dark:border-indigo-800">
+            <IconSpeakerphone size={18} stroke={1.5} />
           </div>
         );
       case "SYSTEM_ALERT":

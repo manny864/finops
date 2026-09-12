@@ -1,9 +1,8 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
-import { getMockDataForRoute, getMockCostGroupDetail, getMockCostCenterResources, getMockNetworkServiceCostV2, isMockTenant, MOCK_CONTAINER_DOMAIN } from '@/lib/mockData';
-import { getMockNetworkAnalyticsResponse } from '@/lib/mockNetworkAnalytics';
-import { getMockExecutiveReportById, getMockExecutiveReportHistory, getMockExecutiveReportJob } from '@/lib/executiveReportMock';
+import { getMockDataForRoute, getMockCostGroupDetail, getMockCostCenterResources, isMockTenant, MOCK_CONTAINER_DOMAIN } from '@/lib/mockData';
+import { getMockExecutiveReportById, getMockExecutiveReportHistory } from '@/lib/executiveReportMock';
 import { usePathname, useRouter } from 'next/navigation';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { parsePermissions, type RoleTag } from '@/lib/pageRoleTags';
@@ -351,12 +350,6 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/audit/full')) return new Response(JSON.stringify(getMockDataForRoute('audit_full', mockKey)), {status: 200});
               if (url.includes('/api/audit/ttl')) return new Response(JSON.stringify(getMockDataForRoute('ttl', mockKey)), {status: 200});
               if (url.includes('/api/tags/compliance')) return new Response(JSON.stringify(getMockDataForRoute('tags_compliance', mockKey)), {status: 200});
-              if (url.includes('/api/intelligence/network/analytics')) return new Response(JSON.stringify(getMockNetworkAnalyticsResponse(mockKey)), {status: 200});
-              if (url.includes('/api/intelligence/network/service-cost-v2')) {
-                  const parsed = new URL(url, window.location.origin);
-                  const family = (parsed.searchParams.get('family') || 'analysis') as "analysis" | "basic" | "hybrid" | "balancing" | "internet";
-                  return new Response(JSON.stringify(getMockNetworkServiceCostV2(mockKey, family)), {status: 200});
-              }
               if (url.includes('/api/intelligence/network')) return new Response(JSON.stringify(getMockDataForRoute('network', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/rates')) return new Response(JSON.stringify(getMockDataForRoute('rates', mockKey)), {status: 200});
               if (url.includes('/api/subscriptions')) return new Response(JSON.stringify({ subscriptions: [{id: 'mock-sub', name: 'Demo Subscription'}]}), {status: 200});
@@ -383,21 +376,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               // panel lee (data.metrics); esta linea devolvia `auditResults`/`mode`, sin `metrics`,
               // asi que en demo la pantalla quedaba vacia. Verificado comparando
               // las dos formas contra lo que el componente accede.
-              if (url.includes('/api/intelligence/executive-report/jobs')) {
-                  const method = (init?.method || 'GET').toUpperCase();
-                  if (method === 'POST') {
-                      return new Response(JSON.stringify({ success: true, jobId: 90003, status: 'queued' }), { status: 200 });
-                  }
-                  const parsed = new URL(url, window.location.origin);
-                  const jobId = Number(parsed.searchParams.get('jobId')) || 90003;
-                  const subscriptionId = parsed.searchParams.get('subscriptionId') || 'All';
-                  const job = getMockExecutiveReportJob({
-                      jobId,
-                      subscriptionId,
-                      subscriptionName: subscriptionId === 'All' ? 'Tenant completo' : subscriptionId,
-                  });
-                  return new Response(JSON.stringify({ success: true, job }), { status: 200 });
-              }
+              // /api/intelligence/executive-report/jobs NO se intercepta: su ruta resuelve su propio mock.
               if (url.includes('/api/intelligence/executive-report/history/')) {
                   const parsed = new URL(url, window.location.origin);
                   const id = Number(parsed.pathname.split('/').pop() || 0);
@@ -428,38 +407,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/cleanup/ttl/unlabeled')) return new Response(JSON.stringify(getMockDataForRoute('ttl_unlabeled', mockKey)), {status: 200});
               if (url.includes('/api/cleanup/ttl/history')) return new Response(JSON.stringify(getMockDataForRoute('ttl_history', mockKey)), {status: 200});
               if (url.includes('/api/tags/apply')) return new Response(JSON.stringify({ success: true, mock: true }), {status: 200});
-              if (url.includes('/api/cleanup/ttl')) {
-                  const m = (selectedTenant?.tier?.toLowerCase()==='enterprise')?50:(selectedTenant?.tier?.toLowerCase()==='business')?10:(selectedTenant?.tier?.toLowerCase()==='pro')?3:1;
-                  const now = Date.now();
-                  const day = 86400000;
-                  const baseResources = [
-                      { name: 'sandbox-poc-payments', type: 'microsoft.resources/subscriptions/resourcegroups', resourceGroup: 'sandbox-poc-payments', location: 'eastus', owner: 'jdoe@contoso.com', daysOverdue: 18, expirationDate: new Date(now - 18*day).toISOString() },
-                      { name: 'dev-vm-loadtest-01', type: 'microsoft.compute/virtualmachines', resourceGroup: 'qa-loadtest-rg', location: 'westeurope', owner: 'qa-team@contoso.com', daysOverdue: 9, expirationDate: new Date(now - 9*day).toISOString() },
-                      { name: 'tmp-aks-experiment', type: 'microsoft.containerservice/managedclusters', resourceGroup: 'aks-lab-rg', location: 'centralus', owner: 'devops@contoso.com', daysOverdue: 31, expirationDate: new Date(now - 31*day).toISOString() },
-                      { name: 'pgsql-test-flex', type: 'microsoft.dbforpostgresql/flexibleservers', resourceGroup: 'db-sandbox-rg', location: 'eastus2', owner: 'data-team@contoso.com', daysOverdue: 4, expirationDate: new Date(now - 4*day).toISOString() },
-                      { name: 'demo-storage-archive', type: 'microsoft.storage/storageaccounts', resourceGroup: 'demo-archive-rg', location: 'northeurope', owner: 'finops@contoso.com', daysOverdue: 2, expirationDate: new Date(now - 2*day).toISOString() },
-                      { name: 'ephemeral-redis-cache', type: 'microsoft.cache/redis', resourceGroup: 'cache-poc-rg', location: 'westus2', owner: 'platform@contoso.com', daysOverdue: 14, expirationDate: new Date(now - 14*day).toISOString() },
-                      { name: 'training-workshop-vnet', type: 'microsoft.network/virtualnetworks', resourceGroup: 'training-rg', location: 'eastus', owner: 'edu@contoso.com', daysOverdue: 22, expirationDate: new Date(now - 22*day).toISOString() },
-                  ];
-                  const data = Array.from({length: Math.min(baseResources.length * m, 80)}).map((_, i) => {
-                      const r = baseResources[i % baseResources.length];
-                      const suffix = i >= baseResources.length ? `-${Math.floor(i / baseResources.length) + 1}` : '';
-                      return {
-                          id: `/subscriptions/mock-sub-${(i % 3) + 1}/resourceGroups/${r.resourceGroup}${suffix}/providers/${r.type}/${r.name}${suffix}`,
-                          name: `${r.name}${suffix}`,
-                          type: r.type,
-                          resourceGroup: `${r.resourceGroup}${suffix}`,
-                          subscriptionId: `mock-sub-${(i % 3) + 1}`,
-                          location: r.location,
-                          owner: r.owner,
-                          expirationDate: r.expirationDate,
-                          daysOverdue: r.daysOverdue,
-                          ttlStatus: r.daysOverdue > 3 ? 'Critical' : 'Warning',
-                          tags: { ExpireOn: r.expirationDate.substring(0,10), Owner: r.owner, Environment: 'Sandbox' }
-                      };
-                  });
-                  return new Response(JSON.stringify({ success: true, mock: true, data }), {status: 200});
-              }
+              // /api/cleanup/ttl NO se intercepta: su ruta resuelve su propio mock completo con metrics y data.
               if (url.includes('/api/power')) {
                   // Para POSTs en DEMO: devolver respuesta explícita de simulación para
                   // que el frontend pueda mostrar "simulación" en vez de "ejecutado".
@@ -490,7 +438,6 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               // datos de costo" con el badge de Demo Sandbox puesto. Mismo
               // defecto que tenia el modal de COIN.
               if (url.includes('/api/intelligence/scorecard')) return new Response(JSON.stringify(getMockDataForRoute('scorecard', mockKey)), {status: 200});
-              if (url.includes('/api/intelligence/whiteboard')) return new Response(JSON.stringify(getMockDataForRoute('white_board', mockKey)), {status: 200});
               // Sub-ruta de detalle de recursos por Centro de Costos debe ir ANTES que /api/intelligence/cost-centers (substring).
               if (url.includes('/api/intelligence/cost-centers/resources')) {
                   const ccName = new URL(url, 'http://x').searchParams.get('costCenterName') || 'Sin asignar';
@@ -541,7 +488,6 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   const totalPotentialSavings = eligibleResources.reduce((s, r) => s + r.savings, 0);
                   return new Response(JSON.stringify({ success: true, mock: true, data: { eligibleResources, totalPotentialSavings } }), {status: 200});
               }
-              if (url.includes('/api/intelligence/licenses')) return new Response(JSON.stringify(getMockDataForRoute('licenses', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/rightsizing')) return new Response(JSON.stringify(getMockDataForRoute('rightsizing', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/anomalies')) return new Response(JSON.stringify(getMockDataForRoute('anomalies', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/kpis/coin')) {
@@ -567,7 +513,6 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               }
               if (url.includes('/api/admin/config/users')) return new Response(JSON.stringify(getMockDataForRoute('users', mockKey)), {status: 200});
               if (url.includes('/api/tags') && !url.includes('/api/tags/compliance')) return new Response(JSON.stringify(getMockDataForRoute('tags', mockKey)), {status: 200});
-              if (url.includes('/api/intelligence/sustainability')) return new Response(JSON.stringify(getMockDataForRoute('sustainability', mockKey)), {status: 200});
               if (url.includes('/api/governance/policies')) return new Response(JSON.stringify(getMockDataForRoute('governance-policies', mockKey)), {status: 200});
               if (url.includes('/api/remediation/workflow')) return new Response(JSON.stringify(getMockDataForRoute('approvals', mockKey)), {status: 200});
               if (url.includes('/api/billing/portal')) return new Response(JSON.stringify(getMockDataForRoute('payments', mockKey)), {status: 200});
@@ -655,28 +600,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               // en `summary`, asi que en demo la pagina entera reventaba con
               // "can't access property delegations". Ademas el includes()
               // tambien tapaba /verify y /[id].
-              if (url.includes('/api/intelligence/storage-efficiency')) {
-                  const m = (selectedTenant?.tier?.toLowerCase()==='enterprise')?50:(selectedTenant?.tier?.toLowerCase()==='business')?10:(selectedTenant?.tier?.toLowerCase()==='pro')?3:1;
-                  const hotGb = 12500 * m, coolGb = 5000 * m, coldGb = 1600 * m, archGb = 1000 * m;
-                  const hotCost = hotGb * 0.0184, coolCost = coolGb * 0.01, coldCost = coldGb * 0.0036, archCost = archGb * 0.00099;
-                  const totalGb = hotGb + coolGb + coldGb + archGb;
-                  const totalCost = hotCost + coolCost + coldCost + archCost;
-                  const movableGb = Math.round(hotGb * 0.28);
-                  const potentialSavings = parseFloat(((0.0184 - 0.01) * movableGb).toFixed(2));
-                  return new Response(JSON.stringify({
-                      success: true, mock: true,
-                      tiers: {
-                          hot:     { percent: Math.round(hotGb/totalGb*100),  gb: hotGb,  cost: parseFloat(hotCost.toFixed(2)) },
-                          cool:    { percent: Math.round(coolGb/totalGb*100), gb: coolGb, cost: parseFloat(coolCost.toFixed(2)) },
-                          cold:    { percent: Math.round(coldGb/totalGb*100), gb: coldGb, cost: parseFloat(coldCost.toFixed(2)) },
-                          archive: { percent: Math.round(archGb/totalGb*100), gb: archGb, cost: parseFloat(archCost.toFixed(2)) }
-                      },
-                      totalGb,
-                      totalCost: parseFloat(totalCost.toFixed(2)),
-                      costPerGb: parseFloat((totalCost/totalGb).toFixed(5)),
-                      recommendation: { movableGb, potentialSavings, fromTier: 'hot', toTier: 'cool' }
-                  }), {status: 200});
-              }
+              // /api/intelligence/storage-efficiency NO se intercepta: su ruta resuelve su propio mock con cuentas reales y tiers.
               // /api/governance/reporting NO se intercepta: su rama mock devuelve la forma que el
               // panel lee (summary, nonCompliantResources, orphanedAssignments); esta linea devolvia `identities`/`policyCompliance`/`resourceInventory`,
               // asi que en demo la pantalla quedaba vacia. Verificado comparando
@@ -700,7 +624,6 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               // sin resourcesCount), asi que la demo mostraba costos por etiqueta
               // desproporcionados respecto a la cantidad de recursos.
               if (url.includes('/api/m365/overview')) return new Response(JSON.stringify(getMockDataForRoute('m365_overview', mockKey)), {status: 200});
-              if (url.includes('/api/m365/user-activity')) return new Response(JSON.stringify(getMockDataForRoute('m365_user_activity', mockKey)), {status: 200});
               // /api/governance/ha NO se intercepta: su rama mock (getMockHaPayload)
               // devuelve {summary, availableSubscriptions, source, lastUpdated}, que es
               // lo que el panel lee. El mock de aca servia {items, counts} plano, asi
@@ -975,26 +898,6 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                           created_at: new Date(nowMs - i * 3 * 3600000).toISOString(),
                       }));
                       return new Response(JSON.stringify({ logs, total: 128, limit: 10, offset: 0, hasMore: true }), { status: 200 });
-                  }
-
-                  // MCP API keys
-                  if (url.includes('/api/admin/mcp-keys')) {
-                      if (init?.method === 'POST') return new Response(JSON.stringify({ success: true, mock: true, key: 'mcp_live_demo_' + Math.random().toString(36).slice(2, 18), key_prefix: 'mcp_demo' }), { status: 200 });
-                      if (init?.method === 'DELETE') return new Response(JSON.stringify({ success: true, mock: true }), { status: 200 });
-                      return new Response(JSON.stringify({ success: true, keys: [
-                          { id: 1, key_prefix: 'mcp_demo1', label: 'Claude Desktop', created_by_email: 'admin@contoso.com', created_at: new Date(nowMs - 40 * dayMs).toISOString(), last_used_at: new Date(nowMs - 2 * dayMs).toISOString(), revoked_at: null },
-                          { id: 2, key_prefix: 'mcp_demo2', label: 'CI Pipeline', created_by_email: 'devops@contoso.com', created_at: new Date(nowMs - 12 * dayMs).toISOString(), last_used_at: null, revoked_at: null },
-                      ] }), { status: 200 });
-                  }
-
-                  // API pública
-                  if (url.includes('/api/admin/public-api-keys')) {
-                      if (init?.method === 'POST') return new Response(JSON.stringify({ success: true, mock: true, key: 'apk_live_demo_' + Math.random().toString(36).slice(2, 18), key_prefix: 'apk_demo' }), { status: 200 });
-                      if (init?.method === 'DELETE' || init?.method === 'PATCH') return new Response(JSON.stringify({ success: true, mock: true }), { status: 200 });
-                      return new Response(JSON.stringify({ success: true, keys: [
-                          { id: 1, name: 'Grafana Integration', key_prefix: 'apk_demo1', scopes: ['read:cost', 'read:resources'], rate_limit_per_min: 60, enabled: 1, last_used_at: new Date(nowMs - dayMs).toISOString(), created_by: 'admin@contoso.com', created_at: new Date(nowMs - 30 * dayMs).toISOString() },
-                          { id: 2, name: 'Data Warehouse ETL', key_prefix: 'apk_demo2', scopes: ['read:cost'], rate_limit_per_min: 120, enabled: 1, last_used_at: null, created_by: 'data@contoso.com', created_at: new Date(nowMs - 7 * dayMs).toISOString() },
-                      ] }), { status: 200 });
                   }
 
                   // Resource groups (Artefactos y Workbooks)
