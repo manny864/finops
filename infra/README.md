@@ -48,7 +48,7 @@ Diagrama completo en `docs/architecture.mmd`.
 | Volumen Docker `support_uploads` | **Blob Storage** | El filesystem de un contenedor es efímero. **La app ya soporta Blob** (`azureBlobStorage.ts`): sólo hay que crear los containers y copiar los archivos |
 | MySQL en compose aparte del VPS | **MySQL Flexible Server** | Backups con PITR, sin host que parchear |
 | Redis en el compose | **Azure Cache Basic** | Para que la app pueda escalar a más de una réplica compartiendo cache |
-| `backup-db.sh` + cron + SAS | Backups del servicio + container `db-backups` | El dump lógico del runbook sigue teniendo sentido; el respaldo diario ya no depende de un script |
+| `backup-db.sh` + cron + SAS | Backups del servicio + container `db-backups` | El dump lógico del runbook sigue teniendo sentido; el respaldo ya no depende de un script — retención y operación en `docs/backups-mysql.md` |
 | Deploy por SSH con downtime | ACR build → job de migraciones → revisión nueva | Sin downtime de build, con rollback por revisión |
 | `.env` plano en el VPS | Secrets del Container App con referencia a Key Vault | Los valores no pasan por el state ni por el portal |
 
@@ -81,6 +81,7 @@ docs/
   cost-optimization.md
   deployment-guide.md
   keyvault-network-hardening.md  cerrar el acceso público del vault — ABIERTO
+  backups-mysql.md         retención daily/monthly/yearly y el incidente del 22/08
 ```
 
 ## Stamps y residencia de datos

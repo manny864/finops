@@ -28,6 +28,23 @@ variable "shared_access_key_enabled" {
   default     = true
 }
 
+variable "backup_database_name" {
+  description = "Nombre de la base cuyos dumps viven en db-backups/. Hace falta porque el `prefix_match` del lifecycle es un prefijo literal: la ruta es db-backups/<base>/<clase>/."
+  type        = string
+}
+
+variable "backup_monthly_retention_days" {
+  description = "Retencion de db-backups/<base>/monthly/. 1095 = 36 meses."
+  type        = number
+  default     = 1095
+}
+
+variable "backup_yearly_retention_days" {
+  description = "Retencion de db-backups/<base>/yearly/. 3650 = 10 anios."
+  type        = number
+  default     = 3650
+}
+
 variable "backup_retention_days" {
   type    = number
   default = 35

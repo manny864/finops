@@ -299,15 +299,18 @@ module "redis" {
 }
 
 module "storage" {
-  source                    = "../storage"
-  name_compact              = local.name_compact
-  location                  = var.location
-  resource_group_name       = module.network.resource_group_name
-  replication_type          = var.storage_replication_type
-  backup_retention_days     = var.storage_backup_retention_days
-  shared_access_key_enabled = true
-  app_principal_id          = azurerm_user_assigned_identity.app.principal_id
-  tags                      = var.tags
+  source                        = "../storage"
+  name_compact                  = local.name_compact
+  location                      = var.location
+  resource_group_name           = module.network.resource_group_name
+  replication_type              = var.storage_replication_type
+  backup_retention_days         = var.storage_backup_retention_days
+  backup_database_name          = var.mysql_database_name
+  backup_monthly_retention_days = var.storage_backup_monthly_retention_days
+  backup_yearly_retention_days  = var.storage_backup_yearly_retention_days
+  shared_access_key_enabled     = true
+  app_principal_id              = azurerm_user_assigned_identity.app.principal_id
+  tags                          = var.tags
 }
 
 resource "azurerm_container_app_environment" "this" {

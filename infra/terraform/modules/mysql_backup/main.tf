@@ -593,11 +593,20 @@ resource "azurerm_automation_runbook" "worker" {
       $fileSize = (Get-Item $localFilePath).Length / 1MB
       Write-Output "Dump generado exitosamente: $fileName ($([math]::Round($fileSize, 2)) MB)"
 
+      # monthly/ y yearly/ usan un nombre fijo por periodo, no el timestamp.
+      # Con la cadencia de 2 horas el dia 1 corre 12 veces: con el nombre
+      # timestampeado eso dejaba 12 "mensuales" distintos. Con nombre fijo y
+      # --overwrite=true (ya puesto mas abajo) las 12 pisan el mismo blob y
+      # queda exactamente uno por mes, sin importar cada cuanto corra el
+      # schedule.
+      $monthlyName = "$${db}_$($now.ToString('yyyy-MM')).sql.gz"
+      $yearlyName = "$${db}_$($now.ToString('yyyy')).sql.gz"
+
       $destinations = @()
       $dbBaseUrl = "https://$storageAccount.blob.core.windows.net/$containerName/$db"
       $destinations += "$dbBaseUrl/daily/$fileName$sasToken"
-      if ($dayOfMonth -eq 1) { $destinations += "$dbBaseUrl/monthly/$fileName$sasToken" }
-      if ($dayOfMonth -eq 1 -and $monthOfYear -eq 1) { $destinations += "$dbBaseUrl/yearly/$fileName$sasToken" }
+      if ($dayOfMonth -eq 1) { $destinations += "$dbBaseUrl/monthly/$monthlyName$sasToken" }
+      if ($dayOfMonth -eq 1 -and $monthOfYear -eq 1) { $destinations += "$dbBaseUrl/yearly/$yearlyName$sasToken" }
 
       foreach ($destUrl in $destinations) {
         $logUrl = $destUrl.Substring(0, $destUrl.IndexOf('?'))
@@ -1057,10 +1066,14 @@ resource "azurerm_automation_schedule" "daily" {
   name                    = "daily-backup"
   resource_group_name     = azurerm_resource_group.this.name
   automation_account_name = azurerm_automation_account.this.name
-  frequency               = "Day"
-  interval                = 1
-  timezone                = var.schedule_timezone
-  start_time              = var.schedule_start_time
+  # Cada 2 horas, como estaba hasta el 2026-08-22. El nombre del schedule
+  # quedo en "daily-backup" a proposito: renombrarlo lo destruye y recrea, y
+  # el `start_time` de la config esta en el pasado (ver el bloque `lifecycle`),
+  # asi que la creacion fallaria con "should be at least 5m0s".
+  frequency  = "Hour"
+  interval   = 2
+  timezone   = var.schedule_timezone
+  start_time = var.schedule_start_time
 
   # `start_time` SOLO importa al crear el schedule.
   #

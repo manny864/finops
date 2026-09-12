@@ -123,6 +123,14 @@ variable "storage_replication_type" {
   default = "ZRS"
 }
 
+variable "storage_backup_monthly_retention_days" {
+  type = number
+}
+
+variable "storage_backup_yearly_retention_days" {
+  type = number
+}
+
 variable "storage_backup_retention_days" {
   type    = number
   default = 35

@@ -139,8 +139,10 @@ module "stamp" {
   redis_sku_name                  = each.value.redis_sku_name
   redis_high_availability_enabled = each.value.redis_high_availability_enabled
 
-  storage_replication_type      = each.value.storage_replication_type
-  storage_backup_retention_days = each.value.storage_backup_retention_days
+  storage_replication_type              = each.value.storage_replication_type
+  storage_backup_retention_days         = each.value.storage_backup_retention_days
+  storage_backup_monthly_retention_days = each.value.storage_backup_monthly_retention_days
+  storage_backup_yearly_retention_days  = each.value.storage_backup_yearly_retention_days
 
   registry_server   = module.acr.login_server
   acr_id            = module.acr.id

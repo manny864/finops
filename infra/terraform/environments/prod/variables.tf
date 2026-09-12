@@ -59,8 +59,14 @@ variable "stamps" {
     redis_sku_name                  = optional(string, "Balanced_B3")
     redis_high_availability_enabled = optional(bool, true)
 
-    storage_replication_type      = optional(string, "ZRS")
-    storage_backup_retention_days = optional(number, 35)
+    storage_replication_type = optional(string, "ZRS")
+    # 90 = el numero que ya publica el DPA ("Backups are retained for disaster
+    # recovery and deleted after 90 days", docs/trust-center/DPA_EN.md:54).
+    # Estaba en 35: la ventana real de recuperacion era menos de la mitad de
+    # la comprometida.
+    storage_backup_retention_days         = optional(number, 90)
+    storage_backup_monthly_retention_days = optional(number, 1095)
+    storage_backup_yearly_retention_days  = optional(number, 3650)
 
     web_cpu                         = optional(number, 1.0)
     web_memory                      = optional(string, "2Gi")

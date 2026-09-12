@@ -64,22 +64,39 @@ resource "azurerm_storage_container" "backups" {
 resource "azurerm_storage_management_policy" "lifecycle" {
   storage_account_id = azurerm_storage_account.this.id
 
-  rule {
-    name    = "backups-cool-then-delete"
-    enabled = true
-
-    filters {
-      prefix_match = ["db-backups/"]
-      blob_types   = ["blockBlob"]
+  # Una regla por clase de backup, con prefijos que NO se solapan.
+  #
+  # Antes habia una sola regla con prefix_match = ["db-backups/"], o sea el
+  # container entero: borraba a los 35 dias sin distinguir daily de monthly ni
+  # de yearly, asi que la jerarquia que escribe el runbook no servia de nada
+  # --un backup "yearly" vivia 35 dias--. No se deja una regla catch-all sobre
+  # "db-backups/" porque se solaparia con estas tres y la retencion efectiva
+  # quedaria ambigua; la contra es que un blob fuera de estos tres prefijos no
+  # lo administra nadie.
+  dynamic "rule" {
+    for_each = {
+      daily   = var.backup_retention_days
+      monthly = var.backup_monthly_retention_days
+      yearly  = var.backup_yearly_retention_days
     }
 
-    actions {
-      base_blob {
-        tier_to_cool_after_days_since_modification_greater_than = 7
-        delete_after_days_since_modification_greater_than       = var.backup_retention_days
+    content {
+      name    = "backups-${rule.key}-cool-then-delete"
+      enabled = true
+
+      filters {
+        prefix_match = ["db-backups/${var.backup_database_name}/${rule.key}/"]
+        blob_types   = ["blockBlob"]
       }
-      version {
-        delete_after_days_since_creation = 7
+
+      actions {
+        base_blob {
+          tier_to_cool_after_days_since_modification_greater_than = 7
+          delete_after_days_since_modification_greater_than       = rule.value
+        }
+        version {
+          delete_after_days_since_creation = 7
+        }
       }
     }
   }
