@@ -25,20 +25,54 @@ import {
  * fila: dos fallaban en silencio dentro de un catch vacío y el tercero
  * (guardar vendedor/comisión) le tiraba el error al usuario.
  */
+export type ContractTerm = "annual" | "monthly";
+
+/**
+ * Normaliza una fecha de venta a `YYYY-MM-DD`, o `null` si no es utilizable.
+ *
+ * Se valida acá y no en MySQL porque una fecha inválida entra como `0000-00-00`
+ * o como NULL según el modo del servidor, y en los dos casos el devengamiento
+ * arrancaría desde una fecha que nadie eligió.
+ */
+export function normalizeSoldAt(raw?: string | null): string | null {
+    if (!raw) return null;
+    const t = String(raw).trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) return null;
+    const d = new Date(`${t}T00:00:00Z`);
+    if (Number.isNaN(d.getTime())) return null;
+    // Round-trip: descarta 2026-02-31, que `new Date` acepta corriéndola a marzo.
+    return d.toISOString().slice(0, 10) === t ? t : null;
+}
+
 async function upsertCommercialDeal(
     tenantId: string,
-    fields: { salesRepName?: string; salesCommissionPercent?: number }
+    fields: {
+        salesRepName?: string;
+        salesCommissionPercent?: number;
+        soldAt?: string | null;
+        contractTerm?: ContractTerm;
+    }
 ): Promise<void> {
     const salesRepName = fields.salesRepName ?? "Directo SuperAdmin";
     const commission = Number(fields.salesCommissionPercent) || 0;
+    // Fecha de venta: la del alta si no se indica otra. Es el arranque del
+    // devengamiento de comisiones (MEJ-14), así que tiene que quedar registrada
+    // en el momento, no reconstruirse después a ojo.
+    const soldAt = normalizeSoldAt(fields.soldAt) ?? new Date().toISOString().slice(0, 10);
+    const contractTerm: ContractTerm = fields.contractTerm === "annual" ? "annual" : "monthly";
 
     await pool.query(
-        `INSERT INTO TenantCommercialDeals (id, tenant_id, sales_rep_name, sales_commission_percent)
-         VALUES (?, ?, ?, ?)
+        `INSERT INTO TenantCommercialDeals (id, tenant_id, sales_rep_name, sales_commission_percent, sold_at, contract_term)
+         VALUES (?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
             sales_rep_name = VALUES(sales_rep_name),
-            sales_commission_percent = VALUES(sales_commission_percent)`,
-        [crypto.randomUUID(), tenantId, salesRepName, commission]
+            sales_commission_percent = VALUES(sales_commission_percent),
+            -- sold_at NO se pisa en el update: la fecha de venta es un hecho
+            -- del pasado. Reescribirla al editar el vendedor correria el inicio
+            -- del devengamiento y recalcularia comisiones ya liquidadas.
+            sold_at = COALESCE(TenantCommercialDeals.sold_at, VALUES(sold_at)),
+            contract_term = VALUES(contract_term)`,
+        [crypto.randomUUID(), tenantId, salesRepName, commission, soldAt, contractTerm]
     );
 }
 
@@ -95,6 +129,8 @@ const MOCK_SUPERADMIN_TENANTS: SuperAdminTenantItem[] = [
         planTier: "Enterprise",
         salesRepName: "Juan Manuel Chavez",
         salesCommissionPercent: 15.0,
+        soldAtIso: "2026-01-15",
+        contractTerm: "monthly",
         paddlePriceId: "pri_01h8acme_ent",
         isManualBypass: true,
         createdAtIso: "2026-01-15T10:00:00.000Z",
@@ -107,6 +143,8 @@ const MOCK_SUPERADMIN_TENANTS: SuperAdminTenantItem[] = [
         planTier: "Enterprise",
         salesRepName: "Carlos Rodriguez",
         salesCommissionPercent: 12.5,
+        soldAtIso: "2026-02-15",
+        contractTerm: "annual",
         paddlePriceId: "pri_01h8globex_ent",
         isManualBypass: true,
         createdAtIso: "2026-02-01T14:30:00.000Z",
@@ -119,6 +157,8 @@ const MOCK_SUPERADMIN_TENANTS: SuperAdminTenantItem[] = [
         planTier: "Business",
         salesRepName: "Mariana Lopez",
         salesCommissionPercent: 10.0,
+        soldAtIso: "2026-03-15",
+        contractTerm: "monthly",
         paddlePriceId: "pri_01h8initech_bus",
         isManualBypass: false,
         createdAtIso: "2026-03-10T09:15:00.000Z",
@@ -131,6 +171,8 @@ const MOCK_SUPERADMIN_TENANTS: SuperAdminTenantItem[] = [
         planTier: "Enterprise",
         salesRepName: "Martin Gomez",
         salesCommissionPercent: 15.0,
+        soldAtIso: "2026-04-15",
+        contractTerm: "annual",
         paddlePriceId: "pri_01h8umbrella_ent",
         isManualBypass: true,
         createdAtIso: "2026-04-05T16:45:00.000Z",
@@ -143,6 +185,8 @@ const MOCK_SUPERADMIN_TENANTS: SuperAdminTenantItem[] = [
         planTier: "Enterprise",
         salesRepName: "Juan Manuel Chavez",
         salesCommissionPercent: 18.0,
+        soldAtIso: "2026-05-15",
+        contractTerm: "monthly",
         paddlePriceId: "pri_01h8stark_ent",
         isManualBypass: true,
         createdAtIso: "2026-05-18T11:20:00.000Z",
@@ -155,6 +199,8 @@ const MOCK_SUPERADMIN_TENANTS: SuperAdminTenantItem[] = [
         planTier: "Enterprise",
         salesRepName: "Carlos Rodriguez",
         salesCommissionPercent: 15.0,
+        soldAtIso: "2026-06-15",
+        contractTerm: "annual",
         paddlePriceId: "pri_01h8wayne_ent",
         isManualBypass: false,
         createdAtIso: "2026-06-22T08:00:00.000Z",
@@ -167,6 +213,8 @@ const MOCK_SUPERADMIN_TENANTS: SuperAdminTenantItem[] = [
         planTier: "Professional",
         salesRepName: "Mariana Lopez",
         salesCommissionPercent: 8.0,
+        soldAtIso: "2026-07-15",
+        contractTerm: "monthly",
         paddlePriceId: "pri_01h8cyber_pro",
         isManualBypass: false,
         createdAtIso: "2026-07-04T13:10:00.000Z",
@@ -192,6 +240,8 @@ export async function listAllTenantsForSuperAdmin(isMock = false): Promise<Super
                 t.trial_ends_at as trial_ends_at,
                 COALESCE(cd.sales_rep_name, 'Directo CSCloudSolutions') as sales_rep_name,
                 COALESCE(cd.sales_commission_percent, 0.0) as sales_commission_percent,
+                cd.sold_at as sold_at,
+                COALESCE(cd.contract_term, 'monthly') as contract_term,
                 ts.paddle_price_id,
                 t.parent_tenant_id,
                 t.contract_id,
@@ -235,6 +285,8 @@ export async function listAllTenantsForSuperAdmin(isMock = false): Promise<Super
                     planTier,
                     salesRepName: String(r.sales_rep_name),
                     salesCommissionPercent: Number(r.sales_commission_percent) || 0,
+                    soldAtIso: r.sold_at ? new Date(r.sold_at).toISOString().slice(0, 10) : undefined,
+                    contractTerm: (r.contract_term === "annual" ? "annual" : "monthly") as ContractTerm,
                     activatedAtIso: r.activated_at ? new Date(r.activated_at).toISOString() : undefined,
                     suspendedAtIso: r.suspended_at ? new Date(r.suspended_at).toISOString() : undefined,
                     canceledAtIso: r.canceled_at ? new Date(r.canceled_at).toISOString() : undefined,
@@ -278,6 +330,9 @@ export async function listAllTenantsForSuperAdmin(isMock = false): Promise<Super
                         planTier,
                         salesRepName: "Directo CSCloudSolutions",
                         salesCommissionPercent: 0,
+                        // El fallback lee sólo `Tenants`, sin join comercial: no hay
+                        // plazo registrado, y 'monthly' es el default de la plataforma.
+                        contractTerm: "monthly" as const,
                         isManualBypass: true,
                         trialEndsAtIso: r.trial_ends_at ? new Date(r.trial_ends_at).toISOString() : undefined,
                         createdAtIso: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
@@ -321,6 +376,10 @@ export async function createManualTenant(
         planTier: initialPlanTier || "Enterprise",
         salesRepName: "Directo SuperAdmin",
         salesCommissionPercent: 0,
+        // El alta manual ES la venta: la fecha se registra en el momento y no se
+        // reconstruye despues a ojo (MEJ-14). El plazo por defecto es mensual.
+        soldAtIso: new Date().toISOString().slice(0, 10),
+        contractTerm: "monthly",
         isManualBypass: true,
         trialEndsAtIso: trialDays
             ? new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toISOString()
@@ -405,7 +464,7 @@ export async function updateCommercialDeal(
     payload: UpdateCommercialDealPayload,
     isMock = false
 ): Promise<{ success: boolean }> {
-    const { tenantId, salesRepName, salesCommissionPercent } = payload;
+    const { tenantId, salesRepName, salesCommissionPercent, soldAt, contractTerm } = payload;
 
     if (!tenantId) throw new Error("Falta tenantId");
 
@@ -415,6 +474,8 @@ export async function updateCommercialDeal(
         await upsertCommercialDeal(tenantId, {
             salesRepName: salesRepName.trim(),
             salesCommissionPercent: Number(salesCommissionPercent) || 0,
+            soldAt,
+            contractTerm,
         });
     } catch (e: any) {
         throw new Error(`Error al actualizar datos comerciales: ${e.message}`);

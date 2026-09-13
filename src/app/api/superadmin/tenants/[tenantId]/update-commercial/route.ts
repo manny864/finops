@@ -32,6 +32,10 @@ export async function PUT(
                 tenantId,
                 salesRepName: body.salesRepName || "Directo",
                 salesCommissionPercent: Number(body.salesCommissionPercent) || 0,
+                // `soldAt` NO se acepta por esta ruta a proposito: la fecha de
+                // venta es un hecho del pasado y moverla recalcularia comisiones
+                // ya devengadas. Corregirla es una operacion aparte y auditada.
+                contractTerm: body.contractTerm === "annual" ? "annual" : "monthly",
             },
             isMock
         );

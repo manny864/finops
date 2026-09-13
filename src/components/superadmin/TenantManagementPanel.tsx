@@ -72,6 +72,8 @@ const DEFAULT_COLUMNS: ColumnConfig[] = [
     { id: "tier", label: "Tier Actual", visible: true, width: 150 },
     { id: "salesRep", label: "Vendedor", visible: true, width: 180 },
     { id: "commission", label: "Comisión (%)", visible: true, width: 120 },
+    { id: "soldAt", label: "Fecha de venta", visible: true, width: 140 },
+    { id: "contractTerm", label: "Plazo", visible: true, width: 120 },
     { id: "saveDeal", label: "Guardar Comercial", visible: true, width: 130 },
     { id: "paddleCheckout", label: "Cobrar vía Paddle", visible: true, width: 240 },
     { id: "impersonate", label: "Acceso / Impersonar", visible: true, width: 140 },
@@ -290,6 +292,9 @@ export default function TenantManagementPanel() {
                 body: JSON.stringify({
                     salesRepName: targetTenant.salesRepName,
                     salesCommissionPercent: targetTenant.salesCommissionPercent,
+                    // `soldAt` no se manda: la fecha de venta no se corrige por acá.
+                    // El backend la conserva con un COALESCE (ver upsertCommercialDeal).
+                    contractTerm: targetTenant.contractTerm,
                 }),
             });
 
@@ -967,6 +972,46 @@ export default function TenantManagementPanel() {
                                                     />
                                                     <span className="text-slate-500 font-semibold text-xs">%</span>
                                                 </div>
+                                            </td>
+                                        )}
+
+                                        {/* Fecha de venta — arranque del devengamiento de comisiones */}
+                                        {columns.find((c) => c.id === "soldAt")?.visible && (
+                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                {tItem.soldAtIso ? (
+                                                    <span className="text-xs text-slate-700 dark:text-slate-300">{tItem.soldAtIso}</span>
+                                                ) : (
+                                                    // Sin fecha registrada no se muestra una inventada: el
+                                                    // devengamiento arranca desde acá y un dato adivinado
+                                                    // produce una comisión que parece correcta.
+                                                    <span
+                                                        className="text-xs text-amber-600 dark:text-amber-500"
+                                                        title="Vendido antes de que se registrara la fecha. Cargala para poder liquidar comisiones."
+                                                    >
+                                                        sin registrar
+                                                    </span>
+                                                )}
+                                            </td>
+                                        )}
+
+                                        {/* Plazo: define qué regla de comisión aplica */}
+                                        {columns.find((c) => c.id === "contractTerm")?.visible && (
+                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                <select
+                                                    value={tItem.contractTerm}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value as "annual" | "monthly";
+                                                        setTenants((prev) =>
+                                                            prev.map((t) =>
+                                                                t.tenantId === tItem.tenantId ? { ...t, contractTerm: val } : t
+                                                            )
+                                                        );
+                                                    }}
+                                                    className="px-2 py-1 text-xs rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                                                >
+                                                    <option value="monthly">Mensual</option>
+                                                    <option value="annual">Anual</option>
+                                                </select>
                                             </td>
                                         )}
 

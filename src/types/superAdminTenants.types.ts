@@ -14,6 +14,14 @@ export interface SuperAdminTenantItem {
     planTier: SaaSPlanTier;
     salesRepName: string;
     salesCommissionPercent: number;
+    /**
+     * Fecha formal de venta, `YYYY-MM-DD`. Ausente en los tenants dados de alta
+     * antes de registrarla: no se inventa una fecha retroactiva, porque el
+     * devengamiento de comisiones arranca desde acá (MEJ-14).
+     */
+    soldAtIso?: string;
+    /** Define qué regla de comisión aplica: anual liquida de una, mensual en 12. */
+    contractTerm: 'annual' | 'monthly';
     paddlePriceId?: string;
     parentTenantId?: string;
     contractId?: string;
@@ -53,6 +61,9 @@ export interface UpdateCommercialDealPayload {
     tenantId: string;
     salesRepName: string;
     salesCommissionPercent: number;
+    /** Sólo se usa si el tenant todavía no tiene fecha registrada. */
+    soldAt?: string | null;
+    contractTerm?: 'annual' | 'monthly';
 }
 
 export interface UpdateTenantTierPayload {
