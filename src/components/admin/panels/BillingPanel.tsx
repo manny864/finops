@@ -8,6 +8,7 @@ import DemoModeBadge from "@/components/DemoModeBadge";
 import { useTenant } from "@/components/TenantProvider";
 import { SUBSCRIPTION_LIMITS } from "@/lib/tierLogic";
 import CapacityAddonsCard from "@/components/admin/panels/CapacityAddonsCard";
+import ChangePlanModal from "@/components/admin/ChangePlanModal";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
@@ -62,6 +63,7 @@ export default function BillingPanel() {
     const tc = useTranslations("Common");
     const locale = useLocale();
     const router = useRouter();
+    const [changePlanOpen, setChangePlanOpen] = useState(false);
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
 
@@ -189,14 +191,15 @@ export default function BillingPanel() {
      * Con suscripcion de Paddle hay que MODIFICAR la que existe --abrir un
      * checkout crearia una segunda suscripcion y la capacidad comprada (slots
      * de tenant y de suscripcion) se calcula desde los items de la principal--,
-     * asi que va al portal del cliente. Sin suscripcion (alta manual, contrato
+     * asi que abre el modal de cambio de plan, que prorratea contra Paddle
+     * (`/preview`) antes de aplicar. Sin suscripcion (alta manual, contrato
      * cargado a mano) no hay nada que modificar: hay que contratarla, y eso es
      * /upgrade, que ya resuelve checkout con precios de Paddle y el modal de
      * contacto para Enterprise.
      */
     const handleChangePlan = () => {
         if (billingData?.hasPaddleSubscription) {
-            handleOpenCustomerPortal();
+            setChangePlanOpen(true);
             return;
         }
         router.push("/upgrade");
@@ -468,6 +471,15 @@ export default function BillingPanel() {
 
             {/* ─── BLOQUE 2b: Ampliar capacidad (add-ons, MEJ-15 fase 2) ──────────── */}
             <CapacityAddonsCard tenantId={tenantId} isMock={isMock} />
+
+            <ChangePlanModal
+                open={changePlanOpen}
+                onClose={() => setChangePlanOpen(false)}
+                tenantId={tenantId}
+                currentTier={currentTier}
+                currentBillingCycle={billingData?.billingCycle || "MONTHLY"}
+                onChanged={loadBilling}
+            />
 
             {/* ─── BLOQUE 2c: Acceso directo al Marketplace de Add-ons (MEJ-13) ──── */}
             <div className="bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-white dark:from-slate-900 dark:via-blue-950/20 dark:to-slate-900 border border-blue-200/80 dark:border-blue-900/50 p-5 sm:p-6 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
