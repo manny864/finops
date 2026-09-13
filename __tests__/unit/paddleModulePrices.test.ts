@@ -100,11 +100,17 @@ describe("paddlePrices.service - getModulePrices", () => {
         vi.stubGlobal("fetch", fetchMock);
 
         const res1 = await getModulePrices();
+        const llamadasTrasLaPrimera = fetchMock.mock.calls.length;
         const res2 = await getModulePrices();
 
         expect(res1.source).toBe("paddle");
         expect(res2.source).toBe("paddle");
-        expect(fetchMock).toHaveBeenCalledTimes(1);
+        // Se compara contra la primera tanda en vez de fijar un numero: el
+        // catalogo se consulta en lotes de 50 price IDs, asi que la cantidad de
+        // requests crece al agregar modulos. Lo que se esta probando es que la
+        // SEGUNDA llamada no pega ninguno, no cuantos pega la primera.
+        expect(llamadasTrasLaPrimera).toBeGreaterThan(0);
+        expect(fetchMock).toHaveBeenCalledTimes(llamadasTrasLaPrimera);
     });
 
     it("recae en el catálogo ante error de red o status no-200 de Paddle", async () => {

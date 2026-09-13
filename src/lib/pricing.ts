@@ -63,10 +63,14 @@ export function getAnnualDiscountPercent(tier: string): number | null {
  * bloques y se negocia; una factura por unidad lo vuelve impredecible, que es
  * justo lo que ese comprador rechaza.
  */
+// `extraUser` se elimino el 2026-09-12: declaraba $30/$25 POR USUARIO mientras
+// el marketplace vende y cobra bloques de +5 asientos a $35 (= $7 por usuario),
+// cuatro veces mas barato. No lo renderizaba ninguna pantalla, pero era un
+// numero listo para que un upsell prometiera un precio inexistente. El precio
+// de los asientos vive en ADDON_CATALOG.quota_user_seats y lo pisa Paddle.
 export const ADDON_PRICE_USD: Record<string, Record<string, number | null>> = {
   extraSubscription: { Professional: 50, Business: 40, Enterprise: null },
   extraTenant:       { Professional: 90, Business: 240, Enterprise: null },
-  extraUser:         { Professional: 30, Business: 25, Enterprise: null },
   extendedRetention: { Professional: 79, Business: 99, Enterprise: 0 }, // 36 meses; incluido en Enterprise
   prioritySupport:   { Professional: 149, Business: 249, Enterprise: 0 },
 };
