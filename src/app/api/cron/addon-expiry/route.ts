@@ -4,7 +4,7 @@ import { serverError } from "@/lib/apiErrors";
 import { createNotification } from "@/lib/notify";
 import { recordCronRun } from "@/lib/cronRunTracker";
 import { ADDON_CATALOG } from "@/lib/addonCatalog";
-import { sendEmailAsync } from "@/lib/emailHelper";
+import { sendEmailStrict } from "@/lib/emailHelper";
 
 /**
  * Avisa que un modulo comprado suelto esta por vencer, y marca como `expired`
@@ -86,8 +86,14 @@ export async function GET(request: NextRequest) {
                     source: "addon_expiry",
                 });
 
+                // `sendEmailStrict` y no `sendEmailAsync`: el segundo se traga la
+                // falla en un IIFE que nadie await-ea, asi que un mail que nunca
+                // salio dejaria igual la corrida en "ok" -- y, peor, marcaria
+                // `expiry_notified_at`, que es el anti-spam: el aviso no se
+                // atrasaria, se perderia. Con strict la excepcion sube, el UPDATE
+                // no corre y la corrida siguiente reintenta.
                 if (fila.email) {
-                    sendEmailAsync(
+                    await sendEmailStrict(
                         titulo,
                         `<p>${mensaje}</p><p>Si no lo renovás, al vencer se cierra el acceso al módulo y a sus pantallas.</p>`,
                         fila.email

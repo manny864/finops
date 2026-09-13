@@ -36,18 +36,22 @@ describe("saasBilling.service", () => {
         expect(mocks.mockPoolQuery).not.toHaveBeenCalled();
     });
 
-    it("getTenantBillingDetails queries TenantSaaSSubscriptions and SaaSInvoices for real tenant", async () => {
+    // El tier sale de `Tenants`, no de `TenantSaaSSubscriptions`: esa tabla NO
+    // EXISTE (sin DDL en el repo, sin otro lector ni escritor). La query moría,
+    // el catch se la tragaba y el panel mostraba el default del inicializador
+    // --"Enterprise"-- a todo tenant real. Y el fallback tampoco servía: filtraba
+    // por `WHERE id = ?` cuando la clave es `tenant_id`.
+    it("getTenantBillingDetails lee el tier de Tenants para un tenant real", async () => {
         mocks.mockPoolQuery.mockImplementation((sql) => {
-            if (sql.includes("SELECT plan_tier, status, billing_cycle, payment_gateway, current_period_end, cancel_at_period_end FROM TenantSaaSSubscriptions")) {
+            if (sql.includes("FROM Tenants WHERE tenant_id = ?")) {
                 return Promise.resolve([
                     [
                         {
-                            plan_tier: "Business",
-                            status: "ACTIVE",
-                            billing_cycle: "MONTHLY",
-                            payment_gateway: "STRIPE",
-                            current_period_end: "2026-09-01T00:00:00Z",
-                            cancel_at_period_end: 0,
+                            tier: "Business",
+                            subscription_status: "ACTIVE",
+                            marketplace_plan_id: null,
+                            marketplace_source: "direct",
+                            paddle_subscription_id: "sub_live_1",
                         },
                     ],
                     [],
@@ -73,7 +77,10 @@ describe("saasBilling.service", () => {
 
         const details = await getTenantBillingDetails("tenant-live-abc");
         expect(details.planTier).toBe("Business");
-        expect(details.paymentGateway).toBe("STRIPE");
+        // La única pasarela es Paddle. Antes esto esperaba "STRIPE", que salía de
+        // una columna de la tabla inexistente.
+        expect(details.paymentGateway).toBe("PADDLE");
+        expect(details.hasPaddleSubscription).toBe(true);
         expect(details.cancelAtPeriodEnd).toBe(false);
         expect(details.invoices.length).toBe(1);
         expect(details.invoices[0].invoiceNumber).toBe("INV-REAL-100");
@@ -94,17 +101,27 @@ describe("saasBilling.service", () => {
     });
 
     it("cancelTenantSubscription updates database and logs audit event for real tenant", async () => {
-        mocks.mockPoolQuery.mockResolvedValue([{}, []]);
+        mocks.mockPoolQuery.mockResolvedValue([{ affectedRows: 1 }, []]);
 
         const result = await cancelTenantSubscription("tenant-live-abc", "owner@company.com");
         expect(result.success).toBe(true);
+        // La baja se registra en `Tenants.cancel_at_period_end`. Antes escribía en
+        // `TenantSaaSSubscriptions` (inexistente) y caía a un fallback con
+        // `WHERE id = ?` y un valor que el ENUM no admite: no persistía nada.
         expect(mocks.mockPoolQuery).toHaveBeenCalledWith(
-            expect.stringContaining("UPDATE TenantSaaSSubscriptions SET cancel_at_period_end = TRUE WHERE tenant_id = ?"),
+            expect.stringContaining("UPDATE Tenants SET cancel_at_period_end = TRUE WHERE tenant_id = ?"),
             ["tenant-live-abc"]
         );
         expect(mocks.mockPoolQuery).toHaveBeenCalledWith(
             expect.stringContaining("INSERT INTO SecurityAuditTrail"),
             expect.arrayContaining(["tenant-live-abc", "SUBSCRIPTION_CANCEL_REQUESTED", "owner@company.com"])
         );
+    });
+
+    // Antes devolvía success aunque no escribiera en ningún lado: el cliente
+    // pedía la baja, la app decía "listo" y no quedaba registro.
+    it("cancelTenantSubscription falla si no actualizó ninguna fila", async () => {
+        mocks.mockPoolQuery.mockResolvedValue([{ affectedRows: 0 }, []]);
+        await expect(cancelTenantSubscription("tenant-que-no-existe")).rejects.toThrow();
     });
 });

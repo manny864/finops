@@ -49,10 +49,20 @@ function rutas(dir: string): string[] {
     return salida;
 }
 
+/**
+ * Se miden las LLAMADAS, no la prosa: los comentarios se sacan antes de buscar.
+ * Un comentario que nombra el helper prohibido para explicar por qué NO se usa
+ * es justo lo que se quiere fomentar, y con el grep crudo lo marcaba culpable —
+ * el detector empujaba a documentar peor para pasar el test.
+ */
+function sinComentarios(fuente: string): string {
+    return fuente.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+}
+
 describe("crons que reportan su resultado", () => {
     it("no mandan mail con el helper que se come la falla", () => {
         const culpables = rutas(CRONS).filter((p) => {
-            const s = readFileSync(p, "utf-8");
+            const s = sinComentarios(readFileSync(p, "utf-8"));
             return s.includes("recordCronRun") && s.includes("sendEmailAsync");
         });
         expect(culpables).toEqual([]);
