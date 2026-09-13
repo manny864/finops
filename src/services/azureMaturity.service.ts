@@ -13,6 +13,7 @@ import type {
   MaturityMilestone,
   MaturitySummary,
   MaturityPayload,
+  MaturityScorePolicy,
 } from "@/types/finopsMaturity.types";
 import {
   calculateMaturityStage,
@@ -187,16 +188,41 @@ export async function getLatestSelfAssessment(
 }
 
 /**
- * Aplica la autoevaluación sobre las dimensiones calculadas por telemetría.
+ * Lee la política de ponderación del tenant. Ante cualquier problema devuelve
+ * `self_assessment`, que es el comportamiento histórico: una caída de la base
+ * no puede cambiarle el radar a nadie en silencio.
+ */
+export async function getMaturityScorePolicy(tenantId: string): Promise<MaturityScorePolicy> {
+  try {
+    const [rows]: any = await pool.query(
+      `SELECT maturity_score_policy FROM TenantGlobalSettings WHERE tenant_id = ? LIMIT 1`,
+      [tenantId]
+    );
+    const v = rows?.[0]?.maturity_score_policy;
+    return v === "telemetry" || v === "blended_50_50" ? v : "self_assessment";
+  } catch (e) {
+    console.warn("[maturity] no se pudo leer maturity_score_policy:", errorMessage(e));
+    return "self_assessment";
+  }
+}
+
+/**
+ * Combina la autoevaluación con las dimensiones calculadas por telemetría,
+ * según la política del tenant (MEJ-08).
  *
  * El módulo ES una autoevaluación (modelo Crawl-Walk-Run de la FinOps
- * Foundation), así que la respuesta del equipo manda sobre su dominio y la
- * telemetría queda como contraste: cuando divergen más de 20 puntos se anota en
- * el plan de acción, que es justamente la conversación FinOps útil.
+ * Foundation), y por eso el default sigue siendo que la respuesta del equipo
+ * mande sobre su dominio. Pero no le sirve a todos: un cliente auditado quiere
+ * que pese la evidencia medida.
+ *
+ * La divergencia se anota SIEMPRE, gane quien gane: que la autoevaluación y la
+ * telemetría no coincidan es la conversación FinOps útil, y perderla al cambiar
+ * de política vaciaría el plan de acción justo para el cliente que más lo mira.
  */
 export function applySelfAssessment(
   dimensions: MaturityDimension[],
-  scoresByDomain: Record<string, number>
+  scoresByDomain: Record<string, number>,
+  policy: MaturityScorePolicy = "self_assessment"
 ): MaturityDimension[] {
   if (Object.keys(scoresByDomain).length === 0) return dimensions;
   return dimensions.map((dim) => {
@@ -210,12 +236,23 @@ export function applySelfAssessment(
         ? ` Autoevaluación declara ${declared}/100 pero la telemetría sugiere ${telemetryScore}/100: validar la evidencia antes de dar el dominio por maduro.`
         : ` La telemetría (${telemetryScore}/100) va por delante de la autoevaluación (${declared}/100): puede haber capacidades ya implementadas sin documentar.`
       : "";
+    const score =
+      policy === "telemetry"
+        ? telemetryScore
+        : policy === "blended_50_50"
+          ? Math.round((declared + telemetryScore) / 2)
+          : declared;
+    const scoreSource =
+      policy === "telemetry" ? ("telemetry" as const)
+        : policy === "blended_50_50" ? ("blended" as const)
+          : ("self_assessment" as const);
+
     return {
       ...dim,
-      score: declared,
-      stage: calculateMaturityStage(declared),
+      score,
+      stage: calculateMaturityStage(score),
       telemetryScore,
-      scoreSource: "self_assessment" as const,
+      scoreSource,
       // La prosa se concatena para los consumidores que no traducen; la UI
       // renderiza `actionPlanKey` y `divergenceKey` por separado, porque
       // concatenar dos textos traducidos en el servidor obliga a saber el idioma.
@@ -247,7 +284,11 @@ export async function getLiveMaturityData(tenantId: string): Promise<MaturityPay
       // Sin suscripciones conectadas la telemetría es 0, pero la autoevaluación
       // sí debe reflejarse: es el único insumo que tiene el tenant todavía.
       const selfNoSubs = await getLatestSelfAssessment(tenantId);
-      const dimsNoSubs = applySelfAssessment(emptyDimensions, selfNoSubs.scoresByDomain);
+      const dimsNoSubs = applySelfAssessment(
+        emptyDimensions,
+        selfNoSubs.scoresByDomain,
+        await getMaturityScorePolicy(tenantId)
+      );
       const overallNoSubs = Math.round(
         dimsNoSubs.reduce((acc, d) => acc + d.score, 0) / Math.max(1, dimsNoSubs.length)
       );
@@ -390,7 +431,11 @@ export async function getLiveMaturityData(tenantId: string): Promise<MaturityPay
     // La autoevaluación manda sobre su dominio (ver applySelfAssessment): sin
     // esto el cuestionario se guardaba y el radar seguía igual.
     const selfAssessment = await getLatestSelfAssessment(tenantId);
-    const effectiveDimensions = applySelfAssessment(dimensions, selfAssessment.scoresByDomain);
+    const effectiveDimensions = applySelfAssessment(
+      dimensions,
+      selfAssessment.scoresByDomain,
+      await getMaturityScorePolicy(tenantId)
+    );
 
     const overallScore = Math.round(
       effectiveDimensions.reduce((acc, d) => acc + d.score, 0) / effectiveDimensions.length

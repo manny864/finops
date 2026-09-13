@@ -683,7 +683,7 @@ motivo.
 
 ## MEJ-08 — Ponderación configurable entre telemetría y autoevaluación
 
-**Módulo:** Madurez FinOps · **Impacto:** Bajo · **Esfuerzo:** Bajo · **Estado:** Propuesta
+**Módulo:** Madurez FinOps · **Impacto:** Bajo · **Esfuerzo:** Bajo · **Estado:** Parcial (backend hecho 2026-09-13; falta poder elegirla)
 
 ### Contexto
 
@@ -704,6 +704,38 @@ equipo en fase de adopción querrá que pese su propia lectura.
 ### Archivos
 
 `src/services/azureMaturity.service.ts` (`applySelfAssessment`), `TenantGlobalSettings`.
+
+### Hecho (2026-09-13) — el backend, no la elección
+
+`TenantGlobalSettings.maturity_score_policy` (`self_assessment` | `telemetry` | `blended_50_50`), migración
+`20260913-002`. `applySelfAssessment` recibe la política y `getMaturityScorePolicy` la lee por tenant.
+
+**El default reproduce exactamente el comportamiento anterior**, así que ningún tenant existente ve cambiar
+su radar: la columna nace en `self_assessment` y el parámetro de la función tiene ese default.
+
+Dos decisiones de diseño que conviene no revertir sin pensarlas:
+
+- **La divergencia se anota con CUALQUIER política.** Que la autoevaluación y la telemetría no coincidan es
+  la conversación FinOps útil, y no depende de cuál de las dos gane. Perderla al pasar a `telemetry`
+  vaciaría el plan de acción justo para el cliente auditado, que es el que más lo mira. Hay un test que lo
+  fija para las tres políticas.
+- **`telemetryScore` queda siempre accesible**, gane quien gane, para que la UI pueda mostrar el contraste
+  sin recalcular nada.
+
+El lector cae a `self_assessment` ante fila ausente, valor desconocido o caída de la base: una caída de
+MySQL no puede cambiarle los números a nadie en silencio. Tests en `azureMaturityService.test.ts` (8 casos)
+y `maturityScorePolicy.test.ts` (4).
+
+### Falta — y el bloqueo no es de esta entrada
+
+**Nadie puede elegir la política todavía, porque NADA en la app escribe `TenantGlobalSettings`.** Buscada
+en todo `src/`: aparece en tres archivos y los tres la LEEN (`azureAdvisor.service.ts` para el nombre
+comercial, `azureMaturity.service.ts` para esta política). No hay un solo `INSERT` ni `UPDATE`.
+
+O sea que `theme_preference`, `organization_display_name`, `custom_logo_blob_url` y
+`is_master_notifications_enabled` tampoco son configurables desde el producto: la tabla se puebla a mano.
+Eso es un hueco más grande que MEJ-08 y merece entrada propia. Hasta que exista ese camino de escritura,
+la política se cambia con un UPDATE.
 
 ---
 

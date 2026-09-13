@@ -35,9 +35,24 @@ export interface MaturityDimension {
   divergenceParams?: Record<string, string | number>;
   /** Score derivado de telemetría de Azure, cuando la autoevaluación lo sustituye. */
   telemetryScore?: number;
-  /** De dónde sale `score`: respuesta del equipo o telemetría. */
-  scoreSource?: 'self_assessment' | 'telemetry';
+  /** De dónde sale `score`: respuesta del equipo, telemetría, o el promedio. */
+  scoreSource?: 'self_assessment' | 'telemetry' | 'blended';
 }
+
+/**
+ * Qué pesa al calcular la madurez de un dominio, elegible por tenant
+ * (`TenantGlobalSettings.maturity_score_policy`).
+ *
+ *  - `self_assessment`: manda la respuesta del equipo. Es el default y la
+ *    lectura del modelo Crawl-Walk-Run de la FinOps Foundation.
+ *  - `telemetry`: manda la evidencia medida en Azure. Para un cliente auditado,
+ *    donde lo declarado no alcanza.
+ *  - `blended_50_50`: el promedio de ambas.
+ *
+ * En los tres casos la divergencia se sigue anotando en el plan de acción: es
+ * la conversación FinOps útil, no un efecto de qué número gana.
+ */
+export type MaturityScorePolicy = 'self_assessment' | 'telemetry' | 'blended_50_50';
 
 export interface MaturityMilestone {
   dimensionKey: string;
