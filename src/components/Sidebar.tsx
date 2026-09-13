@@ -18,6 +18,7 @@ import {
     Power, 
     Users,
     UsersRound,
+    HandCoins,
     Settings,
     ChevronDown,
     ChevronRight,
@@ -209,6 +210,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             href: '/superadmin/affiliates',
             label: t('superadmin_affiliates'),
             icon: UsersRound
+        } as any);
+        categories.find(c => c.id === 'admin')?.items.push({
+            href: '/superadmin/comisiones',
+            label: t('superadmin_commissions'),
+            icon: HandCoins
         } as any);
         categories.find(c => c.id === 'admin')?.items.push({
             href: '/superadmin/pricing-units',

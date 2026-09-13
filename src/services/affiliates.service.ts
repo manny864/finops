@@ -166,10 +166,10 @@ export async function devengarComision(params: {
         if (new Decimal(comision).lte(0)) return { devengada: false, motivo: "comision-cero" };
 
         const [res] = await pool.query<any>(
-            `INSERT IGNORE INTO AffiliateCommissions
-               (affiliate_id, tenant_id, paddle_transaction_id, paddle_subscription_id,
+            `INSERT IGNORE INTO Commissions
+               (beneficiary_type, beneficiary_id, tenant_id, paddle_transaction_id, paddle_subscription_id,
                 base_amount, currency, commission_pct, commission_amount, status, billed_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)`,
+             VALUES ('affiliate', ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)`,
             [referido.affiliate_id, tenantId, transactionId, subscriptionId || null,
              baseAmount, currency, pct, comision, billedAt || null]
         );
@@ -193,8 +193,9 @@ export async function revertirComision(transactionId: string): Promise<{ reverti
     if (!transactionId) return { revertidas: 0 };
     try {
         const [res] = await pool.query<any>(
-            `UPDATE AffiliateCommissions SET status = 'REVERSED'
-             WHERE paddle_transaction_id = ? AND status IN ('PENDING', 'APPROVED')`,
+            `UPDATE Commissions SET status = 'REVERSED'
+             WHERE beneficiary_type = 'affiliate' AND paddle_transaction_id = ?
+               AND status IN ('PENDING', 'DUE', 'APPROVED')`,
             [transactionId]
         );
         const revertidas = Number(res?.affectedRows || 0);
@@ -242,12 +243,15 @@ export async function listarAfiliados(): Promise<AfiliadoConMetricas[]> {
         `SELECT a.id, a.name, a.email, a.referral_code, a.commission_pct, a.status,
                 a.payout_method, a.payout_reference, a.notes, a.created_at,
                 (SELECT COUNT(*) FROM AffiliateReferrals r WHERE r.affiliate_id = a.id) AS tenants_referidos,
-                (SELECT COALESCE(SUM(c.commission_amount), 0) FROM AffiliateCommissions c
-                   WHERE c.affiliate_id = a.id AND c.status IN ('PENDING', 'APPROVED')) AS pendiente,
-                (SELECT COALESCE(SUM(c.commission_amount), 0) FROM AffiliateCommissions c
-                   WHERE c.affiliate_id = a.id AND c.status = 'PAID') AS pagado,
-                (SELECT c.currency FROM AffiliateCommissions c
-                   WHERE c.affiliate_id = a.id ORDER BY c.created_at DESC LIMIT 1) AS moneda
+                (SELECT COALESCE(SUM(c.commission_amount), 0) FROM Commissions c
+                   WHERE c.beneficiary_type = 'affiliate' AND c.beneficiary_id = a.id
+                     AND c.status IN ('PENDING', 'DUE', 'APPROVED')) AS pendiente,
+                (SELECT COALESCE(SUM(c.commission_amount), 0) FROM Commissions c
+                   WHERE c.beneficiary_type = 'affiliate' AND c.beneficiary_id = a.id
+                     AND c.status = 'PAID') AS pagado,
+                (SELECT c.currency FROM Commissions c
+                   WHERE c.beneficiary_type = 'affiliate' AND c.beneficiary_id = a.id
+                   ORDER BY c.created_at DESC LIMIT 1) AS moneda
          FROM Affiliates a
          ORDER BY a.created_at DESC`
     );
@@ -292,16 +296,16 @@ export async function listarComisiones(filtro?: {
 }): Promise<ComisionItem[]> {
     const where: string[] = [];
     const args: unknown[] = [];
-    if (filtro?.affiliateId) { where.push("c.affiliate_id = ?"); args.push(filtro.affiliateId); }
+    if (filtro?.affiliateId) { where.push("c.beneficiary_id = ?"); args.push(filtro.affiliateId); }
     if (filtro?.status) { where.push("c.status = ?"); args.push(filtro.status); }
     const limite = Math.max(1, Math.min(500, filtro?.limite || 200));
 
     const [rows] = await pool.query<any[]>(
-        `SELECT c.id, c.affiliate_id, a.name AS affiliate_name, c.tenant_id, t.company_name,
+        `SELECT c.id, c.beneficiary_id AS affiliate_id, a.name AS affiliate_name, c.tenant_id, t.company_name,
                 c.paddle_transaction_id, c.base_amount, c.currency, c.commission_pct,
                 c.commission_amount, c.status, c.billed_at, c.created_at
-         FROM AffiliateCommissions c
-         JOIN Affiliates a ON a.id = c.affiliate_id
+         FROM Commissions c
+         JOIN Affiliates a ON a.id = c.beneficiary_id AND c.beneficiary_type = 'affiliate'
          LEFT JOIN Tenants t ON t.tenant_id = c.tenant_id
          ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
          ORDER BY c.created_at DESC
@@ -369,9 +373,9 @@ export async function actualizarEstadoComisiones(
 
     const marcadores = limpios.map(() => "?").join(",");
     const [res] = await pool.query<any>(
-        `UPDATE AffiliateCommissions
+        `UPDATE Commissions
          SET status = ?, paid_at = ${estado === "PAID" ? "NOW()" : "paid_at"}
-         WHERE id IN (${marcadores}) AND status <> 'PAID'`,
+         WHERE id IN (${marcadores}) AND beneficiary_type = 'affiliate' AND status <> 'PAID'`,
         [estado, ...limpios]
     );
     return { actualizadas: Number(res?.affectedRows || 0) };
@@ -381,7 +385,7 @@ export async function actualizarEstadoComisiones(
  * Edición de un afiliado. Sólo toca los campos presentes en `datos`.
  *
  * Cambiar `commission_pct` NO reescribe el histórico: cada fila de
- * `AffiliateCommissions` guarda su propia foto del porcentaje vigente al
+ * `Commissions` guarda su propia foto del porcentaje vigente al
  * devengar. Lo nuevo aplica desde el próximo cobro.
  *
  * Cambiar `referral_code` **rompe los links ya compartidos**: quien entre por
@@ -460,10 +464,10 @@ export type ResultadoBaja =
 /**
  * Baja de un afiliado.
  *
- * **Se niega si tiene comisiones, de cualquier estado.** Las FK son
- * `ON DELETE CASCADE`, así que un DELETE liso se lleva `AffiliateCommissions`
- * entero — incluidas las PAGADAS. Eso es destruir el registro de lo que ya se
- * liquidó, y no puede ser el resultado de un click: para dejar de operar con
+ * **Se niega si tiene comisiones, de cualquier estado.** Borrar al beneficiario
+ * dejaría filas de `Commissions` apuntando a un id que ya no existe —incluidas
+ * las PAGADAS—, y el libro mayor no podría decir a quién se le pagó. Eso no
+ * puede ser el resultado de un click: para dejar de operar con
  * alguien está `status = 'SUSPENDED'`, que corta el devengo futuro (la consulta
  * de `devengarComision` filtra por `status = 'ACTIVE'`) y conserva el
  * histórico.
@@ -480,7 +484,7 @@ export async function eliminarAfiliado(id: string): Promise<ResultadoBaja> {
 
     const [conteo] = await pool.query<any[]>(
         `SELECT COUNT(*) AS total, SUM(status = 'PAID') AS pagadas
-         FROM AffiliateCommissions WHERE affiliate_id = ?`,
+         FROM Commissions WHERE beneficiary_type = 'affiliate' AND beneficiary_id = ?`,
         [id]
     );
     const total = Number(conteo?.[0]?.total || 0);

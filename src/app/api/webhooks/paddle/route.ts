@@ -63,6 +63,7 @@ function resolveAccessUntil(payload: any): Date | null {
 }
 import { minorUnitsToDecimalString } from "@/lib/money";
 import { devengarComision, revertirComision } from "@/services/affiliates.service";
+import { devengarComisionComercial, cancelarComisionesPorChurn } from "@/services/commissions.service";
 
 const REPLAY_WINDOW_SECONDS = 5 * 60; // 5 minutes
 
@@ -396,6 +397,11 @@ async function handleSubscriptionCanceled(payload: any, tenantId?: string) {
       metadata: { accessUntil: finalAccessUntil?.toISOString() ?? null },
     });
 
+    // MEJ-14: se cortan las cuotas que todavía no eran exigibles. Las vencidas
+    // y las pagadas quedan: el comercial ya se las ganó, y descontarlas sería
+    // un saldo negativo retroactivo que la regla prohíbe explícitamente.
+    await cancelarComisionesPorChurn(tenantId);
+
     await notifyInternalCancellation(tenantId, "Paddle", finalAccessUntil);
 
     return NextResponse.json({ success: true });
@@ -491,14 +497,20 @@ async function handleTransactionCompleted(payload: any, tenantId?: string) {
     // se resuelve por tenant_id contra AffiliateReferrals: no viene en el
     // custom_data del checkout. Es best-effort e idempotente por
     // paddle_transaction_id, asi que una reentrega no paga dos veces.
-    await devengarComision({
+    const baseDeComision = {
       tenantId: tenant,
       transactionId,
       subscriptionId,
       baseAmount: minorUnitsToDecimalString(amount, currency),
       currency,
       billedAt: billedAt ? new Date(billedAt) : null,
-    });
+    };
+    await devengarComision(baseDeComision);
+
+    // MEJ-14: y la cuota del comercial que vendió el tenant. Las dos pueden
+    // existir sobre el MISMO cobro --un tenant traído por un afiliado y cerrado
+    // por un comercial paga las dos-- y son dos filas distintas del libro.
+    await devengarComisionComercial(baseDeComision);
 
     // MEJ-13: acreditar el add-on comprado en el Marketplace.
     //

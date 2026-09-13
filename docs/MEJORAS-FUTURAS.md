@@ -29,7 +29,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-11](#mej-11--módulo-de-comunicaciones-globales-a-usuarios-popups-banners-y-alertas) | Módulo de comunicaciones globales a usuarios (popups, banners y alertas) | SuperAdmin / Transversal | Alto | Medio | Hecha |
 | [MEJ-12](#mej-12--trazabilidad-de-ciclo-de-vida-de-tenants-fechas-de-activación-suspensión-y-bajas) | Trazabilidad de ciclo de vida de tenants (fechas de activación y bajas) | SuperAdmin / Gobernanza | Alto | Bajo | Hecha |
 | [MEJ-13](#mej-13--marketplace-de-add-ons-y-capacidades-a-la-carta-para-tiers-professional-y-business) | Marketplace de add-ons y features a la carta (Professional y Business) | Facturación / Marketplace | Alto | Medio | Hecha |
-| [MEJ-14](#mej-14--trazabilidad-de-ventas-por-comercial-y-cálculo-automatizado-de-comisiones) | Trazabilidad de ventas por comercial y cálculo de comisiones (20%) | SuperAdmin / Comercial | Alto | Medio | Parcial |
+| [MEJ-14](#mej-14--trazabilidad-de-ventas-por-comercial-y-cálculo-automatizado-de-comisiones) | Trazabilidad de ventas por comercial y cálculo de comisiones (20%) | SuperAdmin / Comercial | Alto | Medio | Hecha |
 | [MEJ-15](#mej-15--expansión-multi-tenant-por-contrato-y-adición-de-tenants-con-capacidad-heredada-por-tier) | Expansión multi-tenant por contrato y adición de tenants con capacidad heredada por tier | Facturación / Multi-Tenant | Alto | Medio | Hecha |
 | [MEJ-16](#mej-16--gestión-avanzada-de-compromisos-reservas-y-savings-plans) | Gestión avanzada de compromisos (Reservas y Savings Plans) con simulador de Breakeven, Mix Óptimo, límite de devolución $50k USD y alertas de expiración | Compromisos / FinOps | Alto | Medio | Hecha |
 | [MEJ-17](#mej-17--aks-finops-cockpit-costos-por-namespace-workload-y-eficiencia-de-contenedores) | AKS FinOps Cockpit (Costos por Namespace, Workload y Eficiencia de Contenedores con OpenCost/Add-on) | Cómputo / Kubernetes | Alto | Alto | Propuesta |
@@ -1229,7 +1229,7 @@ Construir un **Marketplace de Add-ons y Capacidades a la Carta** (`/settings/bil
 
 ## MEJ-14 — Trazabilidad de ventas por comercial y cálculo automatizado de comisiones
 
-**Módulo:** SuperAdmin / Comercial / Ventas & Comisiones · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Parcial (criterio 1 hecho 2026-09-13)
+**Módulo:** SuperAdmin / Comercial / Ventas & Comisiones · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Hecha (2026-09-13)
 
 ### Contexto
 
@@ -1296,9 +1296,37 @@ al editar el vendedor correría el inicio del devengamiento y recalcularía comi
 modo del servidor, y en los dos casos el devengamiento arrancaría desde una fecha que nadie eligió. Rechaza
 además el 31 de febrero, que `new Date` acepta corriéndolo a marzo.
 
-**Lo que sigue faltando es el grueso:** el motor de reglas con `Decimal.js`, el devengamiento ante webhooks
-de Paddle, `SalesCommissionLedger`, el panel `/super-admin/comisiones` y las exportaciones. "Esfuerzo:
-Medio" es optimista para eso: son 3 tablas, un motor de cálculo de plata y un módulo de liquidación.
+### Criterios 2 a 4 hechos (2026-09-13) — y por qué costó menos de lo estimado
+
+**El motor ya existía, para otro beneficiario.** El programa de afiliados (migración `20260907-001`) tenía
+ledger con estados, montos en `Decimal`, foto del porcentaje vigente, idempotencia por transacción de Paddle
+y reversión ante reembolso. Lo único que cambia entre un afiliado y un comercial es CUÁNDO devenga, no cómo
+se guarda ni cómo se liquida. Construir `SalesCommissionLedger` aparte, como pedía esta ficha, habría sido el
+cuarto catálogo duplicado de la casa (ver MEJ-32) — y con un caso que una tabla aparte vuelve invisible:
+alguien que es afiliado Y comercial cobrando por dos lados sin que ninguna consulta lo muestre junto.
+
+Se unificó en `Commissions` (`beneficiary_type` + `beneficiary_id`), con los datos de afiliados migrados.
+`AffiliateCommissions` queda intacta hasta verificar en producción que el libro nuevo cuadra: es plata
+liquidada, el DROP va en una migración posterior.
+
+**La cuenta del comercial mensual se simplifica sola.** 1/12 del 20% del valor anual, y el valor anual es el
+cobro mensual × 12, así que la cuota ES el 20% del cobro mensual. No hace falta proyectar el año ni arrastrar
+el redondeo de dividir por 12. El mes 1 no liquida y vence junto al mes 2 (los 2/12 del criterio 3), del 3 en
+adelante cada cobro devenga su cuota, tope 12. Hay un test que verifica la propiedad: 12 cuotas suman
+exactamente el 20% anual.
+
+**`DUE` no necesita un cron.** Es derivable de `payment_due_date`, así que se promueve al listar el panel —
+el único momento en que el estado importa. Un cron diario para un UPDATE derivable de una fecha sería una
+pieza más que mantener y vigilar, con resultado idéntico.
+
+**Un detalle de MySQL que costó una corrida fallida:** los nombres de constraint son únicos por BASE, no por
+tabla. `fk_commission_tenant` ya lo usaba `AffiliateCommissions`, así que el `CREATE TABLE Commissions` moría
+con `ER_FK_DUP_NAME`... y el runner de migraciones trata ese error como idempotente, así que no se creaba la
+tabla y el fallo recién aparecía en el `INSERT` de abajo. Se verificó aplicando la migración contra la base
+local, no sólo leyéndola.
+
+**Lo que queda anotado:** el runner marca `ER_FK_DUP_NAME` como idempotente, lo cual es correcto para un
+`ALTER ADD CONSTRAINT` repetido pero enmascara un `CREATE TABLE` que no se ejecutó.
 
 
 ### Criterio de Aceptación
