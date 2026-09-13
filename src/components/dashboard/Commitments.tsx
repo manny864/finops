@@ -25,7 +25,7 @@ import {
   Tooltip
 } from 'recharts';
 import { useCurrency } from '@/components/CurrencyProvider';
-import { AzureCommitmentSimulatorService } from '@/services/azureCommitmentSimulator.service';
+import { calculateBreakeven } from '@/lib/commitmentBreakeven';
 import ReservationRenewalModal, { type RenewReservation } from '@/components/dashboard/ReservationRenewalModal';
 import ReservationUtilizationModal, { type UtilReservation } from '@/components/dashboard/ReservationUtilizationModal';
 import { isMockTenant } from '@/lib/mockData';
@@ -186,7 +186,7 @@ export default function Commitments() {
 
     const activeSimSpend = simSpend || metrics.breakevenSummary?.paygMonthly || 3500;
     const simResult = useMemo(() => {
-        return AzureCommitmentSimulatorService.calculateBreakeven({
+        return calculateBreakeven({
             paygMonthly: activeSimSpend,
             workloadType: simWorkload
         });
