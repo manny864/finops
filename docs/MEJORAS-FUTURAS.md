@@ -377,6 +377,35 @@ Llegar a estos números costó tres pasadas, y las tres primeras estuvieron mal 
 
 El test lleva las tres correcciones. Si alguien repite el análisis a mano, que empiece por ahí.
 
+### Qué queda realmente pendiente, y qué NO conviene hacer (2026-09-13)
+
+**El riesgo grave ya está cerrado.** La fuga de mocks a un tenant REAL —lo que motivó esta entrada— está
+mitigada por la guarda `__finopsDemoActive` (se escribe en cada render, se consulta en cada llamada) y
+fijada por `demoFetchLeak.test.ts`. Lo que queda es prolijidad, no plata en juego.
+
+**De las 37 intercepciones, la mayoría NO puede divergir:**
+
+| | ¿Puede divergir? |
+|---|---|
+| 21 verbatim (misma función, misma clave) | no — una sola fuente |
+| 7 sin mock en ningún lado (`audit_full`, `ttl`, `payments`, `chargeback`, `rates`, `rightsizing`, `approvals`) | no — el interceptor ES la única fuente |
+| **~6 con dos mocks independientes** | **sí** |
+
+Los que pueden divergir: `anomalies` (mock inline), `ai-analytics`, `billing`, `users` y `billing-markup`
+(transforman la misma clave) y probablemente `aks_chargeback`. `cost-by-category` también podía —su mock
+vive en `categoryConsumptionService`— pero ya está atado con `satisfies`.
+
+**NO conviene mover el chequeo de mock antes del auth.** Destraba 21 intercepciones, pero ninguna de esas
+21 puede divergir: son idénticas por construcción. Sería tomar una decisión sobre qué se sirve sin token
+para resolver un problema que esas 21 no tienen.
+
+**Lo que sí cierra el pendiente real:** comparar la FORMA del mock del interceptor contra la del mock de la
+ruta, sólo para esas ~6. Acotado, no toca nada de lo que se sirve, y convierte el único modo de falla que
+queda —cambiar el contrato de una ruta y degradar la demo en silencio— en un test rojo.
+
+Ese modo de falla no se pudre con el tiempo: se dispara con una edición. Puede estar dormido meses y
+aparecer recién cuando un prospecto mira la demo.
+
 `__tests__/unit/demoInterceptorRedundante.test.ts` fija las cuatro reglas: falla si aparece una
 intercepción sacable (para que se saque), si una URL genérica tapa a una más específica declarada después
 (`/api/intelligence/aks` matchea `aks-chargeback`), o si una apunta a una ruta que no existe.
