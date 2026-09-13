@@ -30,8 +30,21 @@ export type CapacityAddon = "additional_tenant_slot" | "additional_subscription_
  * negociado, no se compra por unidad.
  */
 const ADDON_ENV_VARS: Array<{ env: string; addon: CapacityAddon; tier: string }> = [
+  // `tier: "*"` = el producto que se contrata HOY, sin importar el plan. La
+  // suscripcion adicional se unifico en el producto del marketplace
+  // (PADDLE_PRICE_SUB_*), que es el mismo que muestra y cobra esa pantalla:
+  // tener dos productos para lo mismo hacia que el panel de capacidad
+  // prometiera $50 a Professional y el marketplace $40.
+  { env: "PADDLE_PRICE_SUB_MONTHLY", addon: "additional_subscription_slot", tier: "*" },
+
+  // Los dos por tier siguen en el MAPA aunque ya no se vendan: un tenant que
+  // los contrato antes los tiene en los items de su suscripcion, y el webhook
+  // FIJA la capacidad desde esos items. Sacarlos de aca no "limpia" nada: le
+  // baja la capacidad a cero a alguien que la esta pagando. Se van el dia que
+  // la consulta de tenants con estos price IDs de cero.
   { env: "PADDLE_ADDON_SUBSCRIPTION_PRICE_ID_PROFESSIONAL", addon: "additional_subscription_slot", tier: "Professional" },
   { env: "PADDLE_ADDON_SUBSCRIPTION_PRICE_ID_BUSINESS",     addon: "additional_subscription_slot", tier: "Business" },
+
   { env: "PADDLE_ADDON_TENANT_PRICE_ID_PROFESSIONAL",       addon: "additional_tenant_slot",       tier: "Professional" },
   { env: "PADDLE_ADDON_TENANT_PRICE_ID_BUSINESS",           addon: "additional_tenant_slot",       tier: "Business" },
 ];
@@ -62,7 +75,11 @@ export function getAddonPriceIdMap(): Record<string, CapacityAddon> {
  * cualquier tier cuyo ID falte en el entorno.
  */
 export function getAddonPriceIdForTier(addon: CapacityAddon, tier: string): string | null {
-  const entry = ADDON_ENV_VARS.find((e) => e.addon === addon && e.tier === tier);
+  // El producto unificado (`*`) gana sobre el del tier: es el que se cobra en
+  // las compras nuevas. Los de tier quedan solo para reconocer lo ya vendido.
+  const entry =
+    ADDON_ENV_VARS.find((e) => e.addon === addon && e.tier === "*") ||
+    ADDON_ENV_VARS.find((e) => e.addon === addon && e.tier === tier);
   return entry ? process.env[entry.env] || null : null;
 }
 

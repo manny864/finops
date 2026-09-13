@@ -7,7 +7,6 @@ import { IconStack2, IconLoader2, IconInfoCircle } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { errorMessage } from "@/lib/apiErrors";
-import { ADDON_PRICE_USD } from "@/lib/pricing";
 
 /**
  * Autoservicio de capacidad (MEJ-15 fase 2).
@@ -26,6 +25,7 @@ interface Capacity {
   subscriptions: { used: number; limit: number | null; purchased: number };
   tenantSlots: { purchased: number };
   canPurchase: boolean;
+  prices: { subscription: number | null; tenant: number | null };
 }
 
 type AddonKind = "additional_subscription_slot" | "additional_tenant_slot";
@@ -59,6 +59,7 @@ export default function CapacityAddonsCard({ tenantId, isMock }: { tenantId: str
           subscriptions: { used: 2, limit: 10, purchased: 0 },
           tenantSlots: { purchased: 0 },
           canPurchase: true,
+          prices: { subscription: 40, tenant: 240 },
         });
         setSubsQty(0);
         setTenantsQty(0);
@@ -132,8 +133,10 @@ export default function CapacityAddonsCard({ tenantId, isMock }: { tenantId: str
   if (!data) return null;
 
   const unlimited = data.subscriptions.limit === null;
-  const priceSub = ADDON_PRICE_USD.extraSubscription[data.tier];
-  const priceTenant = ADDON_PRICE_USD.extraTenant[data.tier];
+  // Los dos vienen de la API. El de suscripcion lo cotiza Paddle; el de tenant
+  // sale todavia de la tabla de precios de lista (ver el GET de la ruta).
+  const priceSub = data.prices?.subscription ?? null;
+  const priceTenant = data.prices?.tenant ?? null;
 
   const Row = ({ label, help, unitPrice, qty, setQty, current, kind }: {
     label: string; help: string; unitPrice: number | null; qty: number;

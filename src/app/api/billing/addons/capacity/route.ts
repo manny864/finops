@@ -5,6 +5,9 @@ import { errorMessage, errorStatus } from "@/lib/apiErrors";
 import { getPaddleBaseUrl } from "@/lib/paddleTierMap";
 import { normalizeTier } from "@/lib/tierLogic";
 import { getAddonPriceIdMap, getAddonPriceIdForTier, type CapacityAddon } from "@/lib/paddleAddons";
+import { getModulePrices } from "@/services/paddlePrices.service";
+import { ADDON_CATALOG } from "@/lib/addonCatalog";
+import { ADDON_PRICE_USD } from "@/lib/pricing";
 import { getEffectiveSubscriptionLimit, countStoredSubscriptions } from "@/lib/subscriptionQuota";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +57,16 @@ export async function GET(request: NextRequest) {
       countStoredSubscriptions(tenantId),
     ]);
 
+    // Best-effort: si Paddle no responde queda el fallback del catalogo. Nunca
+    // se muestra "sin precio" por una caida del proveedor.
+    let precioSuscripcion = ADDON_CATALOG.quota_subscriptions.basePriceUSD.monthly;
+    try {
+      const live = await getModulePrices();
+      precioSuscripcion = live.modules.quota_subscriptions?.monthly ?? precioSuscripcion;
+    } catch {
+      /* fallback del catalogo */
+    }
+
     return NextResponse.json({
       success: true,
       tier,
@@ -63,6 +76,17 @@ export async function GET(request: NextRequest) {
         purchased: Number(rows[0].purchased_subscription_slots) || 0,
       },
       tenantSlots: { purchased: Number(rows[0].additional_tenant_slots) || 0 },
+      // El precio viaja en la respuesta, no lo escribe el cliente: la
+      // suscripcion adicional se cotiza desde Paddle, igual que en el
+      // marketplace y en la pagina de planes. Antes la tarjeta tenia el numero
+      // escrito y le mostraba $50 a Professional mientras el marketplace decia
+      // $40 por lo mismo.
+      prices: {
+        subscription: precioSuscripcion,
+        // El tenant adicional todavia no esta en ADDON_CATALOG, asi que sigue
+        // saliendo de la tabla de precios de lista. Se unifica cuando entre.
+        tenant: ADDON_PRICE_USD.extraTenant?.[tier] ?? null,
+      },
       // Sin esto la UI no puede ofrecer la compra: no hay a qué suscripción
       // agregarle el ítem.
       canPurchase: Boolean(rows[0].paddle_subscription_id) && Object.keys(getAddonPriceIdMap()).length > 0,
