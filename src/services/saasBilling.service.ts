@@ -13,6 +13,7 @@ import {
     CancelSubscriptionResponse,
 } from "@/types/saasBilling.types";
 import { azurePlanToBillingCycle } from "@/lib/marketplace/planMapping";
+import { getPaddleBaseUrl } from "@/lib/paddleTierMap";
 import { normalizeTier } from "@/lib/tierLogic";
 
 /**
@@ -196,12 +197,51 @@ export async function getCustomerPortalUrl(tenantId: string): Promise<CustomerPo
         };
     }
 
-    // En producción, consulta el external_customer_id o genera la sesión con Paddle/Stripe
+    // La URL del portal es PERSONAL de cada suscripción: Paddle Billing la
+    // devuelve en `management_urls` de GET /subscriptions/{id}, firmada y ya
+    // apuntada a la suscripción del cliente.
+    //
+    // Antes esto devolvía `PADDLE_PORTAL_URL` o un link fijo a
+    // checkout.paddle.com/portal, igual para todos: el cliente aterrizaba en una
+    // página genérica a buscar su propia suscripción.
+    const [rows]: any = await pool.query(
+        "SELECT paddle_subscription_id FROM Tenants WHERE tenant_id = ? LIMIT 1",
+        [tenantId]
+    );
+    const subscriptionId = rows?.[0]?.paddle_subscription_id;
+    const apiKey = process.env.PADDLE_API_KEY;
+
+    if (subscriptionId && apiKey) {
+        try {
+            const resp = await fetch(`${getPaddleBaseUrl()}/subscriptions/${subscriptionId}`, {
+                headers: { Authorization: `Bearer ${apiKey}` },
+            });
+            const json: any = await resp.json();
+            if (resp.ok) {
+                // `update_payment_method` es la que sirve para gestionar el medio
+                // de pago; `cancel` es la de baja. Se prefiere la primera porque
+                // es a lo que viene el usuario desde "Gestionar suscripción".
+                const urls = json?.data?.management_urls;
+                const url = urls?.update_payment_method || urls?.cancel;
+                if (typeof url === "string" && url.startsWith("https://")) {
+                    return { success: true, portalUrl: url, gateway: "PADDLE" };
+                }
+            }
+            console.warn(`[saasBilling] Paddle no devolvió management_urls para ${subscriptionId} (status ${resp.status}).`);
+        } catch (e) {
+            console.warn("[saasBilling] No se pudo pedir el portal a Paddle:", (e as Error)?.message);
+        }
+    }
+
+    // Sin suscripción (alta manual) o con Paddle caído: el link genérico es lo
+    // único que queda. No es bueno, pero es mejor que un botón que no lleva a
+    // ningún lado.
     const portalUrl = process.env.PADDLE_PORTAL_URL || "https://checkout.paddle.com/portal";
     return {
         success: true,
         portalUrl,
         gateway: "PADDLE",
+        generic: true,
     };
 }
 

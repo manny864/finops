@@ -641,7 +641,7 @@
       "PAST_DUE": "Vencida",
       "CANCELED": "Cancelada"
     },
-    "manageHint": "Gestioná el plan contratado, tus métodos de pago con Paddle o Stripe y el historial descargable de facturas fiscales.",
+    "manageHint": "Gestioná el plan contratado, tus métodos de pago con Paddle y el historial descargable de facturas fiscales.",
     "planEnterprise": "Tu plan <b>Enterprise</b> incluye suscripciones de Azure ilimitadas, usuarios ilimitados y soporte prioritario 24/7 con SLA de respuesta en 4 h.",
     "planBusiness": "Tu plan <b>Business</b> incluye hasta 15 suscripciones de Azure, exportaciones FOCUS 1.1 y soporte prioritario con SLA de 8 h.",
     "planProfessional": "Tu plan <b>Professional</b> incluye hasta {limit} suscripciones de Azure y reportes ejecutivos con IA.",

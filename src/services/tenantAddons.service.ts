@@ -143,6 +143,41 @@ export class TenantAddonsService {
         }
 
         await this.ensureTableExists();
+
+        // Un add-on RECURRENTE se cobra todos los meses, y cada cobro llega como
+        // su propio `transaction.completed`. Sin esto, la renovacion nº12 dejaba
+        // 12 filas activas del mismo modulo -- y para los add-ons de cuota
+        // (`getExtraQuota` suma las filas) eso le habria regalado 12 slots al
+        // que paga uno. El pase temporal si se apila a proposito: comprar otro
+        // extiende el acceso.
+        if (addonType === "recurring") {
+            const [yaActivo]: any = await pool.query(
+                `SELECT id FROM TenantAddons
+                  WHERE tenant_id = ? AND addon_key = ? AND addon_type = 'recurring' AND status = 'active'
+                  LIMIT 1`,
+                [tenantId, addonKey]
+            );
+            if (Array.isArray(yaActivo) && yaActivo.length > 0) {
+                await pool.query(
+                    "UPDATE TenantAddons SET paddle_transaction_id = ?, expiry_notified_at = NULL WHERE id = ?",
+                    [transactionId || null, yaActivo[0].id]
+                );
+                return {
+                    id: yaActivo[0].id,
+                    tenantId,
+                    addonKey,
+                    addonType,
+                    quantity: product.extraQuantity || 1,
+                    status: "active",
+                    startsAt: startsAt.toISOString(),
+                    expiresAt: null,
+                    name: product.name,
+                    description: product.description,
+                    category: product.category,
+                };
+            }
+        }
+
         const [result]: any = await pool.query(
             `INSERT INTO TenantAddons (tenant_id, addon_key, addon_type, status, quantity, starts_at, expires_at, paddle_transaction_id)
              VALUES (?, ?, ?, 'active', ?, ?, ?, ?)`,

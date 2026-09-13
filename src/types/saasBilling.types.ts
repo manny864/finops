@@ -46,6 +46,12 @@ export interface CustomerPortalResponse {
     success: boolean;
     portalUrl: string;
     gateway: string;
+    /**
+     * `true` cuando no se pudo resolver la URL personal de la suscripción y se
+     * devuelve el link genérico de Paddle. La UI lo usa para avisar que ahí hay
+     * que buscar la suscripción a mano, en vez de prometer algo que no es.
+     */
+    generic?: boolean;
 }
 
 export interface CancelSubscriptionResponse {

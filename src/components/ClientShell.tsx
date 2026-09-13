@@ -76,7 +76,6 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showPricing, setShowPricing] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [hasPendingUpgrade, setHasPendingUpgrade] = useState(false);
   const { selectedTenant, setSelectedTenant, isAdmin, tenants, isUserRegistered, systemRole } = useTenant();
   useBrowserNotifications(selectedTenant?.id);
   const { instance, accounts, inProgress } = useMsal();
@@ -123,42 +122,15 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
       }
   }, [pathname, isAuthenticated, router]);
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      const pendingPlan = sessionStorage.getItem('pendingUpgrade');
-      if (pendingPlan && pendingPlan !== 'login') {
-        setHasPendingUpgrade(true);
-        sessionStorage.removeItem('pendingUpgrade');
-        // Handle checkout post-login
-        const triggerCheckout = async () => {
-          try {
-             const tokenResponse = await instance.acquireTokenSilent({
-               scopes: ["User.Read"],
-               account: accounts[0]
-             });
-             const res = await fetch('/api/checkout', {
-               method: 'POST',
-               headers: {
-                   'Authorization': `Bearer ${tokenResponse.idToken}`,
-                   'Content-Type': 'application/json'
-               },
-               body: JSON.stringify({ plan: pendingPlan })
-             });
-             const data = await res.json();
-             if (res.ok && data.checkoutUrl) {
-                 window.location.href = data.checkoutUrl;
-             }
-          } catch(e) {
-             console.error("Error trigger auto checkout", e);
-          }
-        };
-        triggerCheckout();
-      } else if (pendingPlan === 'login') {
-        setHasPendingUpgrade(false);
-        sessionStorage.removeItem('pendingUpgrade');
-      }
-    }
-  }, [isAuthenticated, accounts, instance]);
+  // Acá había un segundo manejador de `pendingUpgrade` que llamaba a
+  // /api/checkout con `{plan}` --la ruta espera `{tier, billing}`, o sea 400
+  // siempre-- y después buscaba `data.checkoutUrl`, un campo que esa ruta NO
+  // devuelve (devuelve `{priceId, customData}` para abrir el overlay con
+  // Paddle.js). Fallaba en silencio de las dos formas.
+  //
+  // Y no era inocuo: borraba `pendingUpgrade` del sessionStorage, que es lo que
+  // `AuthProvider` le pasa a /api/onboard para dar de alta al tenant con el plan
+  // elegido. El alta post-login ya la resuelve ese camino.
 
   const navItems = [
       { id: 'dashboard', label: 'Dashboard', icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z' },

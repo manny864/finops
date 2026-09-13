@@ -180,7 +180,32 @@ async function syncAddonCapacity(payload: any, tenantId: string): Promise<void> 
   }
 }
 
+/**
+ * Una suscripción de ADD-ON no es el plan del tenant.
+ *
+ * El marketplace vende módulos con suscripción mensual propia, y esa alta llega
+ * por `subscription.created` con el mismo `tenant_id`. Sin este corte, el
+ * handler del plan la trataba como si fuera la suscripción principal:
+ *
+ *  - `resolveTier` no mapea el price de un módulo, así que caía en la rama que
+ *    igual PISA `Tenants.paddle_subscription_id` -- el tenant quedaba apuntando
+ *    a la suscripción del módulo en vez de a la de su plan.
+ *  - y `syncAddonCapacity` FIJA la capacidad desde los ítems de ese payload, que
+ *    no tiene ninguno de slots: le ponía en CERO los tenants y suscripciones
+ *    adicionales que el cliente estaba pagando.
+ */
+function esSuscripcionDeAddon(payload: any): boolean {
+  return Boolean(payload?.data?.custom_data?.addon_key);
+}
+
 async function handleSubscriptionCreated(payload: any, tenantId?: string) {
+  if (esSuscripcionDeAddon(payload)) {
+    console.log(
+      `[Webhooks] ${payload.event_type} de un add-on (${payload.data.custom_data.addon_key}): no toca el plan del tenant ${tenantId}.`
+    );
+    return NextResponse.json({ success: true, message: "Addon subscription: plan untouched" });
+  }
+
   if (!tenantId) {
     console.warn("[Webhooks] No tenant_id in custom_data for subscription.created");
     return NextResponse.json({ success: true, message: "Ignored: No tenantId" });
@@ -251,6 +276,13 @@ async function handleSubscriptionCreated(payload: any, tenantId?: string) {
 }
 
 async function handleSubscriptionUpdated(payload: any, tenantId?: string) {
+  if (esSuscripcionDeAddon(payload)) {
+    console.log(
+      `[Webhooks] ${payload.event_type} de un add-on (${payload.data.custom_data.addon_key}): no toca el plan del tenant ${tenantId}.`
+    );
+    return NextResponse.json({ success: true, message: "Addon subscription: plan untouched" });
+  }
+
   if (!tenantId) {
     console.warn("[Webhooks] No tenant_id in custom_data for subscription.updated");
     return NextResponse.json({ success: true, message: "Ignored: No tenantId" });
@@ -468,21 +500,27 @@ async function handleTransactionCompleted(payload: any, tenantId?: string) {
       billedAt: billedAt ? new Date(billedAt) : null,
     });
 
-    // MEJ-13: Si la transacción corresponde a un pase temporal del Marketplace
+    // MEJ-13: acreditar el add-on comprado en el Marketplace.
+    //
+    // Antes esto exigía `addon_type === "pass"`, y el marketplace vende las dos
+    // formas: pase temporal Y suscripción mensual. El que compraba la mensual
+    // pagaba y NO recibía el módulo -- la transacción se cobraba, el add-on no
+    // se acreditaba en ningún lado y el acceso nunca se abría.
     const customData = payload.data?.custom_data;
-    if (customData?.addon_key && customData?.addon_type === "pass") {
+    const addonType = customData?.addon_type === "recurring" ? "recurring" : "pass";
+    if (customData?.addon_key) {
       try {
         const { TenantAddonsService } = await import("@/services/tenantAddons.service");
         await TenantAddonsService.purchaseAddon(
           tenant,
           String(customData.addon_key),
-          "pass",
+          addonType,
           Number(customData.months || 1),
           transactionId
         );
-        console.log(`[Webhooks] Pase temporal acreditado para tenant ${tenant}: ${customData.addon_key} (${customData.months || 1}m)`);
+        console.log(`[Webhooks] Add-on acreditado para tenant ${tenant}: ${customData.addon_key} (${addonType}, ${customData.months || 1}m)`);
       } catch (addonErr) {
-        console.error(`[Webhooks] Error acreditando pase de add-on:`, addonErr);
+        console.error(`[Webhooks] Error acreditando add-on:`, addonErr);
       }
     }
 
