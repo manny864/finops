@@ -119,3 +119,37 @@ export async function getEffectiveSubscriptionLimit(tenantId: string, tier: stri
 
   return planLimit;
 }
+
+/**
+ * Cuántos tenants HIJOS puede colgar este contrato, y cuántos ya tiene.
+ *
+ * `Tenants.additional_tenant_slots` existía y NADIE la comparaba contra nada:
+ * `/api/admin/tenants/contract-tenant` la traía en el SELECT y no la usaba, así
+ * que cualquier Admin podía sumar tenants ilimitados sin comprar un slot.
+ *
+ * Se suman los slots comprados por capacidad (la columna, que actualiza
+ * `applyAddonCapacity` desde la suscripción de Paddle) y los pases del
+ * marketplace (`quota_tenant`), igual que hace la cuota de suscripciones.
+ * Un pase vencido deja de contar solo, porque `getExtraQuota` filtra por
+ * `expires_at`.
+ */
+export async function getTenantSlotUsage(tenantId: string): Promise<{ used: number; limit: number }> {
+  const [slotRows] = await pool.query<RowDataPacket[]>(
+    `SELECT additional_tenant_slots FROM Tenants WHERE tenant_id = ? LIMIT 1`,
+    [tenantId]
+  );
+  const comprados = Math.max(0, Number(slotRows[0]?.additional_tenant_slots) || 0);
+
+  let delMarketplace = 0;
+  try {
+    const { TenantAddonsService } = await import("@/services/tenantAddons.service");
+    delMarketplace = await TenantAddonsService.getExtraQuota(tenantId, "quota_tenant");
+  } catch { /* sin add-ons: rige la columna */ }
+
+  const [hijos] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS n FROM Tenants WHERE parent_tenant_id = ?`,
+    [tenantId]
+  );
+
+  return { used: Number(hijos[0]?.n) || 0, limit: comprados + Math.max(0, delMarketplace) };
+}

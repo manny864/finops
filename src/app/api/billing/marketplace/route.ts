@@ -5,6 +5,7 @@ import { ADDON_CATALOG, isAddonVisibleForTier, resolveAddonForTier } from "@/lib
 import { TenantAddonsService } from "@/services/tenantAddons.service";
 import pool from "@/modules/storage/db";
 import { normalizeTier } from "@/lib/tierLogic";
+import { isMockTenant } from "@/lib/mockData";
 
 import { getModulePrices } from "@/services/paddlePrices.service";
 
@@ -26,16 +27,34 @@ export async function GET(request: NextRequest) {
         await requireTenantRole(request, tenantId, ["Admin", "Owner", "Viewer", "Contributor"]);
 
         let currentTier = "Professional";
+        let porMarketplaceDeMicrosoft = false;
         try {
             const [rows]: any = await pool.query(
-                `SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1`,
+                `SELECT tier, marketplace_source FROM Tenants WHERE tenant_id = ? LIMIT 1`,
                 [tenantId]
             );
             if (rows?.[0]?.tier) {
                 currentTier = normalizeTier(rows[0].tier) || "Professional";
             }
+            porMarketplaceDeMicrosoft = rows?.[0]?.marketplace_source === "azure_marketplace";
         } catch {
             // Si la base no está disponible en mock mode, default a Professional
+        }
+
+        // Un tenant que compró por el marketplace de Azure factura por Microsoft,
+        // que exige que lo transaccionable por su canal se cobre por su canal (y
+        // se lleva su fee). Cobrarle un módulo por Paddle abriría una suscripción
+        // paralela por fuera de ese contrato. Hasta que los módulos existan como
+        // planes de la oferta de Azure, a estos tenants no se les ofrece nada.
+        if (porMarketplaceDeMicrosoft) {
+            return NextResponse.json({
+                success: true,
+                tenantId,
+                currentTier,
+                catalog: [],
+                activeAddons: await TenantAddonsService.getActiveAddons(tenantId),
+                unavailableReason: "azure_marketplace",
+            });
         }
 
         const [activeAddons, modulePricesResult] = await Promise.all([
@@ -91,7 +110,14 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/billing/marketplace
- * Permite adquirir un add-on recurrente o pase temporal a la carta (1m, 3m, 6m, 9m).
+ * Activa un add-on SIN COBRAR, y por eso es solo para tenants demo/mock: es el
+ * camino que usa la UI cuando no hay pasarela (`isMock`). En un tenant real la
+ * compra pasa por el checkout de Paddle y la acredita el webhook contra la
+ * transaccion.
+ *
+ * El guard no es decorativo: desde que el modulo comprado abre tambien las APIs
+ * (`requireTenantTier`), un Admin podia pegarle a este endpoint con curl y
+ * quedarse con cualquier modulo gratis.
  */
 export async function POST(request: NextRequest) {
     try {
@@ -106,6 +132,13 @@ export async function POST(request: NextRequest) {
         }
 
         await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
+
+        if (!isMockTenant(tenantId)) {
+            return NextResponse.json(
+                { error: "Los add-ons de un tenant real se activan al confirmarse el pago en el checkout, no desde acá." },
+                { status: 403 }
+            );
+        }
 
         const product = ADDON_CATALOG[addonKey];
         if (!product) {

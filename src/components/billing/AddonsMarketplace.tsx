@@ -52,6 +52,9 @@ export default function AddonsMarketplace({
     const [activeFilter, setActiveFilter] = useState<"all" | "feature" | "quota">("all");
     const [selectedDurations, setSelectedDurations] = useState<Record<string, number>>({});
     const [purchasingKey, setPurchasingKey] = useState<string | null>(null);
+    // Motivo por el que no hay nada que ofrecer (hoy solo: el tenant factura por
+    // el marketplace de Microsoft). Sin esto la pantalla quedaba vacia sin explicar nada.
+    const [unavailableReason, setUnavailableReason] = useState<string | null>(null);
 
     const getProductName = (key: string, fallbackName?: string) => {
         try {
@@ -124,6 +127,7 @@ export default function AddonsMarketplace({
             }
             setCatalog(data.catalog || []);
             setActiveAddons(data.activeAddons || []);
+            setUnavailableReason(data.unavailableReason || null);
 
             // Duraciones iniciales por default a 1 mes
             const initialDurations: Record<string, number> = {};
@@ -327,6 +331,16 @@ export default function AddonsMarketplace({
                     </button>
                 </div>
             </div>
+
+            {/* El tenant factura por Microsoft: los modulos no se venden por este canal */}
+            {unavailableReason === "azure_marketplace" && (
+                <div className="mt-6 p-4 rounded-xl border border-amber-300/50 bg-amber-50 dark:bg-amber-900/20 flex items-start gap-3">
+                    <IconShieldCheck className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                    <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                        {t("unavailable_azure_marketplace")}
+                    </p>
+                </div>
+            )}
 
             {/* Banner Informativo si el plan es Enterprise */}
             {currentTier?.toUpperCase() === "ENTERPRISE" && (

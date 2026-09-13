@@ -18,6 +18,15 @@ export interface AddonProduct {
     /** Ruta que habilita el modulo. Sin esto no se puede filtrar por tier ni gatear el acceso. */
     route?: string;
     /**
+     * Prefijos de `/api` que sirven a ese modulo. `route` gatea la UI y esto
+     * gatea el servidor: sin esta lista el modulo comprado abre la pantalla y
+     * cada fetch de adentro vuelve 403, que es peor que no venderlo.
+     *
+     * Solo hacen falta los endpoints que llaman a `requireTenantTier`; los que
+     * usan `requireTenantAccess` ya pasan con cualquier tier.
+     */
+    apiPrefixes?: string[];
+    /**
      * Price IDs y precios que dependen del tier del comprador. Se resuelven en
      * `resolveAddonForTier` antes de que el catalogo salga de la API, asi el
      * cliente recibe un producto normal y no tiene que saber de tiers.
@@ -215,6 +224,7 @@ export const ADDON_CATALOG: Record<string, AddonProduct> = {
         description: "Inventario completo de recursos Azure del tenant con filtros, exportación y detalle por recurso.",
         category: "feature",
         route: "/overview/resources",
+        apiPrefixes: ["/resources"],
         requiredTierFallback: "Business",
         prices: {
             monthly: process.env.PADDLE_PRICE_RESOURCES_MONTHLY || "pri_01m2bs9qc19ew9d59bgm195z3b",
@@ -265,6 +275,7 @@ export const ADDON_CATALOG: Record<string, AddonProduct> = {
         description: "Eficiencia de VMs, VMSS, App Service, AKS y Container Apps, con rightsizing y detección de ociosos.",
         category: "feature",
         route: "/intelligence/computo",
+        apiPrefixes: ["/intelligence/container-apps", "/intelligence/aks-chargeback"],
         requiredTierFallback: "Business",
         prices: {
             monthly: process.env.PADDLE_PRICE_COMPUTE_MONTHLY || "pri_01m2bt32v3vjv35zft7tvw5pt0",
@@ -315,6 +326,7 @@ export const ADDON_CATALOG: Record<string, AddonProduct> = {
         description: "Vencimiento programado de recursos temporales, con avisos y remediación.",
         category: "feature",
         route: "/cleanup/ttl",
+        apiPrefixes: ["/cleanup/ttl"],
         requiredTierFallback: "Business",
         prices: {
             monthly: process.env.PADDLE_PRICE_TTL_MONTHLY || "pri_01m2bvb95kc6pngesa2mesez4y",
@@ -340,6 +352,7 @@ export const ADDON_CATALOG: Record<string, AddonProduct> = {
         description: "Encendido y apagado programado de recursos por calendario, con ahorro estimado.",
         category: "feature",
         route: "/governance/power",
+        apiPrefixes: ["/governance/power-management", "/power/schedule"],
         requiredTierFallback: "Business",
         prices: {
             monthly: process.env.PADDLE_PRICE_POWER_MONTHLY || "pri_01m2bwcahr92szjnavz2nwke3q",
@@ -365,6 +378,7 @@ export const ADDON_CATALOG: Record<string, AddonProduct> = {
         description: "Recomendaciones de redundancia, zonas y recuperación por servicio.",
         category: "feature",
         route: "/governance/ha",
+        apiPrefixes: ["/governance/ha"],
         requiredTierFallback: "Business",
         prices: {
             monthly: process.env.PADDLE_PRICE_HA_MONTHLY || "pri_01m2bwm362k8rxb91gampmwaf6",
@@ -390,6 +404,7 @@ export const ADDON_CATALOG: Record<string, AddonProduct> = {
         description: "Secretos, certificados y service principals proximos a vencer, con aviso anticipado por servicio.",
         category: "feature",
         route: "/governance/credentials",
+        apiPrefixes: ["/governance/credentials", "/governance/expiring-credentials"],
         requiredTierFallback: "Business",
         prices: {
             monthly: process.env.PADDLE_PRICE_CREDENTIALS_MONTHLY || "pri_01m2byx24k9xmvw3rr2da368bq",
@@ -415,6 +430,7 @@ export const ADDON_CATALOG: Record<string, AddonProduct> = {
         description: "Circuito de aprobación para acciones de remediación y cambios de capacidad.",
         category: "feature",
         route: "/governance/approvals",
+        apiPrefixes: ["/governance/approvals"],
         requiredTierFallback: "Business",
         prices: {
             monthly: process.env.PADDLE_PRICE_APPROVALS_MONTHLY || "pri_01m2bx0234yh13m7ghz440m42h",
@@ -440,6 +456,7 @@ export const ADDON_CATALOG: Record<string, AddonProduct> = {
         description: "Hub de oportunidades de ahorro consolidadas con priorización por impacto.",
         category: "feature",
         route: "/intelligence/optimizacion-y-ahorro",
+        apiPrefixes: ["/intelligence/kpis/coin"],
         requiredTierFallback: "Enterprise",
         prices: {
             monthly: process.env.PADDLE_PRICE_OPTIMIZATION_MONTHLY || "pri_01m2bx7tpnzny0y9h123v2p7vy",
@@ -490,6 +507,7 @@ export const ADDON_CATALOG: Record<string, AddonProduct> = {
         description: "Licenciamiento de Microsoft 365 y Entra ID, asignaciones sin uso y costo por usuario.",
         category: "feature",
         route: "/intelligence/licenses",
+        apiPrefixes: ["/m365"],
         requiredTierFallback: "Enterprise",
         prices: {
             monthly: process.env.PADDLE_PRICE_LICENSES_MONTHLY || "pri_01m2bxrgmhhwtzsgabq7aa9zm9",
@@ -540,6 +558,7 @@ export const ADDON_CATALOG: Record<string, AddonProduct> = {
         description: "Costo de Logic Apps, Service Bus, Event Grid, API Management y Data Factory.",
         category: "feature",
         route: "/intelligence/integration-services",
+        apiPrefixes: ["/intelligence/integration-services"],
         requiredTierFallback: "Enterprise",
         prices: {
             monthly: process.env.PADDLE_PRICE_INTEGRATION_MONTHLY || "pri_01m2bztxw50haynfejjndv0gm1",
@@ -565,6 +584,7 @@ export const ADDON_CATALOG: Record<string, AddonProduct> = {
         description: "Costo de Log Analytics, Application Insights y retención, con ingesta por tabla.",
         category: "feature",
         route: "/intelligence/monitoreo",
+        apiPrefixes: ["/intelligence/monitoring"],
         requiredTierFallback: "Enterprise",
         prices: {
             monthly: process.env.PADDLE_PRICE_MONITORING_MONTHLY || "pri_01m2c5cxf2a1a7es6358bgb2se",
@@ -590,6 +610,7 @@ export const ADDON_CATALOG: Record<string, AddonProduct> = {
         description: "Costo y cobertura de Defender for Cloud, Key Vault y postura de seguridad.",
         category: "feature",
         route: "/intelligence/seguridad",
+        apiPrefixes: ["/intelligence/security", "/intelligence/defender", "/intelligence/waf"],
         requiredTierFallback: "Enterprise",
         prices: {
             monthly: process.env.PADDLE_PRICE_SECURITY_MONTHLY || "pri_01m2c10x2htb10wbbsxjmas57z",
@@ -615,6 +636,7 @@ export const ADDON_CATALOG: Record<string, AddonProduct> = {
         description: "Synapse, Databricks, Fabric y Data Explorer: costo por workspace y capacidad.",
         category: "feature",
         route: "/intelligence/analitica-avanzada",
+        apiPrefixes: ["/analytics/tenant-health"],
         requiredTierFallback: "Enterprise",
         prices: {
             monthly: process.env.PADDLE_PRICE_ANALYTICS_MONTHLY || "pri_01m2c46kcmbs5ajb1es7nak7f2",
@@ -640,6 +662,7 @@ export const ADDON_CATALOG: Record<string, AddonProduct> = {
         description: "Políticas de gobierno con bloqueo automático de recursos fuera de norma.",
         category: "feature",
         route: "/governance/policies",
+        apiPrefixes: ["/governance/auto-block"],
         requiredTierFallback: "Enterprise",
         prices: {
             monthly: process.env.PADDLE_PRICE_POLICIES_MONTHLY || "pri_01m2c4csgna3mzvwe8qtg40sbf",
@@ -665,6 +688,7 @@ export const ADDON_CATALOG: Record<string, AddonProduct> = {
         description: "Reportes de cumplimiento, tagging y desvíos de gobierno, exportables.",
         category: "feature",
         route: "/governance/reporting",
+        apiPrefixes: ["/governance/reporting"],
         requiredTierFallback: "Enterprise",
         prices: {
             monthly: process.env.PADDLE_PRICE_GOVREPORTING_MONTHLY || "pri_01m2c4j2kpkxbeh3fxzytppved",
@@ -740,4 +764,18 @@ export function addonUnlocksPath(activeAddonKeys: string[], path: string): boole
         if (!route) return false;
         return limpio === route || limpio.startsWith(route + "/");
     });
+}
+
+/**
+ * Contraparte server-side de `addonUnlocksPath`: si algun add-on activo cubre
+ * este endpoint. `requireTenantTier` la consulta antes de rechazar por tier,
+ * asi el modulo comprado tambien abre las APIs que su pantalla usa.
+ */
+export function addonUnlocksApiPath(activeAddonKeys: string[], pathname: string): boolean {
+    const limpio = pathname.split("?")[0].replace(/^\/api/, "").replace(/\/+$/, "");
+    return activeAddonKeys.some((key) =>
+        (ADDON_CATALOG[key]?.apiPrefixes ?? []).some(
+            (prefijo) => limpio === prefijo || limpio.startsWith(prefijo + "/")
+        )
+    );
 }

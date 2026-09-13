@@ -37,6 +37,7 @@ export class TenantAddonsService {
                 expires_at DATETIME NULL,
                 paddle_subscription_id VARCHAR(255) NULL,
                 paddle_transaction_id VARCHAR(255) NULL,
+                expiry_notified_at DATETIME NULL DEFAULT NULL,
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 INDEX idx_tenant_status_expires (tenant_id, status, expires_at)

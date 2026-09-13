@@ -3,6 +3,7 @@ import pool, { initializeDatabase } from "@/modules/storage/db";
 import { AuthError, requireTenantAccess, hasSystemRole, requireRequestIdentity } from "@/lib/requestAuth";
 import { errorMessage, errorStatus } from "@/lib/apiErrors";
 import { normalizeTier, SUBSCRIPTION_LIMITS, USER_LIMITS } from "@/lib/tierLogic";
+import { getTenantSlotUsage } from "@/lib/subscriptionQuota";
 
 export async function POST(request: NextRequest) {
     try {
@@ -75,6 +76,25 @@ export async function POST(request: NextRequest) {
                 { error: "El tenant indicado ya se encuentra registrado en la plataforma." },
                 { status: 409 }
             );
+        }
+
+        // 3.b Cobrar el slot: sin uno libre no se agrega el tenant.
+        // El SuperAdmin queda afuera del tope porque es quien carga a mano los
+        // contratos Enterprise negociados, donde la capacidad va por contrato y
+        // no por compra en el marketplace.
+        if (!isSuperAdmin) {
+            const { used, limit } = await getTenantSlotUsage(cleanParent);
+            if (used >= limit) {
+                return NextResponse.json(
+                    {
+                        error: limit === 0
+                            ? "Tu contrato no tiene tenants adicionales incluidos. Comprá un slot de tenant adicional en el marketplace para agregarlo."
+                            : `Ya usaste los ${limit} tenant(s) adicional(es) de tu contrato. Comprá otro slot en el marketplace para agregar uno más.`,
+                        slots: { used, limit },
+                    },
+                    { status: 409 }
+                );
+            }
         }
 
         // 4. Insertar el nuevo tenant vinculado al contrato

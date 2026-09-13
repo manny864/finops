@@ -497,10 +497,34 @@ export async function requireTenantTier(
   const tier = row?.tier || "Professional";
 
   if (!hasAccess(tier, minTier)) {
+    if (await addonCubreLaRuta(tenantId, request.nextUrl.pathname)) return identity;
     throw new AuthError(`Esta función requiere el plan ${minTier} o superior.`, 403);
   }
 
   return identity;
+}
+
+/**
+ * Un modulo comprado suelto (marketplace de add-ons) habilita las APIs que su
+ * pantalla consume, aunque el tier base no llegue. Se consulta SOLO cuando el
+ * tier ya fallo, asi el camino normal no paga la query.
+ *
+ * El corte por vencimiento sale gratis: `getActiveAddons` ya filtra por
+ * `expires_at > NOW()`, asi que al vencer el pase esto vuelve a dar false sin
+ * que nadie tenga que marcar la fila como expirada.
+ */
+async function addonCubreLaRuta(tenantId: string, pathname: string): Promise<boolean> {
+  try {
+    const [{ TenantAddonsService }, { addonUnlocksApiPath }] = await Promise.all([
+      import("@/services/tenantAddons.service"),
+      import("@/lib/addonCatalog"),
+    ]);
+    const activos = await TenantAddonsService.getActiveAddons(tenantId);
+    return addonUnlocksApiPath(activos.map((a) => a.addonKey), pathname);
+  } catch (e) {
+    console.warn("[requireTenantTier] No se pudieron leer los add-ons del tenant:", e);
+    return false;
+  }
 }
 
 /**
