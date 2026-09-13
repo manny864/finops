@@ -79,17 +79,26 @@ export async function POST(request: NextRequest) {
         }
 
         // 3.b Cobrar el slot: sin uno libre no se agrega el tenant.
-        // El SuperAdmin queda afuera del tope porque es quien carga a mano los
-        // contratos Enterprise negociados, donde la capacidad va por contrato y
-        // no por compra en el marketplace.
-        if (!isSuperAdmin) {
+        //
+        // Professional y Business compran el slot (Mi cuenta -> Facturacion, o
+        // la tarjeta "Tenant Adicional" del marketplace): tienen precio de lista
+        // y price ID en Paddle, asi que el tope es accionable por el cliente.
+        //
+        // Enterprise queda afuera del tope A PROPOSITO: su capacidad va en el
+        // contrato negociado --`ADDON_PRICE_USD.extraTenant.Enterprise` es null
+        // y el panel de capacidad le responde "se ajusta por contrato"--, o sea
+        // que no tiene forma de comprar un slot. Topearlo aca lo dejaria sin
+        // salida por autoservicio para algo que su contrato ya le da.
+        //
+        // El SuperAdmin tampoco paga tope: es quien carga esos contratos a mano.
+        if (!isSuperAdmin && effectiveTier !== "Enterprise") {
             const { used, limit } = await getTenantSlotUsage(cleanParent);
             if (used >= limit) {
                 return NextResponse.json(
                     {
                         error: limit === 0
-                            ? "Tu contrato no tiene tenants adicionales incluidos. Comprá un slot de tenant adicional en el marketplace para agregarlo."
-                            : `Ya usaste los ${limit} tenant(s) adicional(es) de tu contrato. Comprá otro slot en el marketplace para agregar uno más.`,
+                            ? "Tu contrato no tiene tenants adicionales incluidos. Comprá un slot en Mi cuenta → Facturación para agregarlo."
+                            : `Ya usaste los ${limit} tenant(s) adicional(es) de tu contrato. Comprá otro en Mi cuenta → Facturación para agregar uno más.`,
                         slots: { used, limit },
                     },
                     { status: 409 }

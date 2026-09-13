@@ -62,6 +62,19 @@ describe("el tenant adicional se cobra: no se regala capacidad", () => {
         expect(res.status).toBe(200);
         expect(queryMock.mock.calls.some(([sql]) => String(sql).includes("INSERT INTO Tenants"))).toBe(true);
     });
+
+    // Enterprise no puede comprar un slot (su capacidad va por contrato), asi
+    // que topearlo lo dejaria sin salida por autoservicio.
+    it("Enterprise no paga tope de slots", async () => {
+        queryMock
+            .mockResolvedValueOnce([[{ role: "Admin" }]])
+            .mockResolvedValueOnce([[{ tier: "Enterprise", additional_tenant_slots: 0, contract_id: "c1" }]])
+            .mockResolvedValueOnce([[]])
+            .mockResolvedValue([{ affectedRows: 1 }]);
+
+        const res = await contratarTenant(pedido({ parentTenantId: "t1", newTenantId: GUID, organizationName: "Nueva SA" }));
+        expect(res.status).toBe(200);
+    });
 });
 
 describe("a los que compraron por el marketplace de Microsoft no se les ofrecen modulos", () => {
