@@ -19,12 +19,13 @@ import pool from "@/modules/storage/db";
 import { backfillMissingDaysOneByOne, backfillTenantHistoricalGaps } from "@/lib/historicalGapBackfill";
 import { recordCronRun } from "@/lib/cronRunTracker";
 import { rotateDaily } from "@/lib/rotacionDiaria";
-import { redis } from "@/lib/redis";
 import { errorMessage } from '@/lib/apiErrors';
+import { escribirEstado, leerEstado, tomarLock, iniciarLatido, soltarLock } from "@/lib/cronAsyncJob";
 
-const STATUS_KEY = "cron:historical-gap-backfill:status";
-const LOCK_KEY = "cron:historical-gap-backfill:lock";
-const LOCK_TTL_SECONDS = 60 * 60; // 1 h, alineado con timeout_seconds del job
+// Las claves pasan a la convención del helper (`cron:<job>:status:v1`): antes
+// eran las únicas sin `:v1`. Una corrida en vuelo durante el deploy pierde su
+// estado y se rehace al día siguiente, que es el ciclo de este cron.
+const JOB = "historical-gap-backfill";
 
 type BackfillStatus = {
     startedAt: number;
@@ -40,14 +41,7 @@ type BackfillStatus = {
     error?: string;
 };
 
-async function writeStatus(status: BackfillStatus): Promise<void> {
-    await redis.set(STATUS_KEY, JSON.stringify(status), "EX", 86400);
-}
 
-async function readStatus(): Promise<BackfillStatus | null> {
-    const raw = await redis.get(STATUS_KEY);
-    return raw ? JSON.parse(raw) : null;
-}
 
 /**
  * Techo de tiempo del barrido.
@@ -147,7 +141,7 @@ function launchBackfill(startedAt: number): void {
         .then(async (result) => {
             const finishedAt = Date.now();
             const hadErrors = Object.keys(result.tenantErrors).length > 0;
-            await writeStatus({ startedAt, finishedAt, done: true, ok: true, ...result });
+            await escribirEstado(JOB, { startedAt, finishedAt, done: true, ok: true, ...result });
             await recordCronRun({
                 cronName: "historical-gap-backfill",
                 status: hadErrors || result.throttledTenants > 0 ? "warning" : "ok",
@@ -158,7 +152,7 @@ function launchBackfill(startedAt: number): void {
         })
         .catch(async (e: any) => {
             console.error("Historical gap backfill fatal failure:", e);
-            await writeStatus({ startedAt, finishedAt: Date.now(), done: true, ok: false, error: errorMessage(e) });
+            await escribirEstado(JOB, { startedAt, finishedAt: Date.now(), done: true, ok: false, error: errorMessage(e) });
             await recordCronRun({
                 cronName: "historical-gap-backfill",
                 status: "error",
@@ -168,7 +162,7 @@ function launchBackfill(startedAt: number): void {
             });
         })
         .finally(() => {
-            redis.del(LOCK_KEY).catch(() => {});
+            void soltarLock(JOB);
         });
 }
 
@@ -197,23 +191,27 @@ async function handle(request: NextRequest) {
     // depende del wrapper de Next, así el contrato es testeable directamente.
     const { searchParams } = new URL(request.url);
     if (searchParams.get("status") === "1") {
-        const status = await readStatus();
+        const status = await leerEstado(JOB);
         return NextResponse.json(status || { done: null });
     }
 
     const startedAt = Date.now();
-    const acquired = await redis.set(LOCK_KEY, "1", "EX", LOCK_TTL_SECONDS, "NX");
+    const acquired = await tomarLock(JOB);
     if (!acquired) {
         // Ya hay una corrida en vuelo: se devuelve su estado en vez de arrancar
         // otra en paralelo contra la misma cuota de Cost Management.
-        const status = await readStatus();
+        const status = await leerEstado(JOB);
         return NextResponse.json(
             { status: "already-running", ...(status || {}) },
             { status: 202 }
         );
     }
 
-    await writeStatus({ startedAt, done: false });
+    await escribirEstado(JOB, { startedAt, finishedAt: null, done: false, ok: null });
+    // El latido renueva el lock mientras el backfill vive. Antes el TTL era de
+    // 1 h fija: si el contenedor se caía a los 5 minutos, el cron quedaba
+    // bloqueado los 55 restantes.
+    iniciarLatido(JOB);
     launchBackfill(startedAt);
 
     return NextResponse.json(

@@ -80,9 +80,9 @@ describe("contrato asíncrono de prewarm-mysql-finops", () => {
     });
 
     it("hay lock y se suelta pase lo que pase", () => {
-        expect(ruta).toMatch(/"NX"/);
+        expect(ruta).toContain("tomarLock(JOB)");
         expect(ruta).toContain("already_running");
-        expect(ruta).toMatch(/\.finally\(async \(\) => \{[\s\S]{0,200}redis\.del\(LOCK_KEY\)/);
+        expect(ruta).toMatch(/\.finally\([\s\S]{0,200}soltarLock\(JOB\)/);
     });
 
     it("reporta tenantsOk/tenantsTotal para el fix de falla parcial", () => {

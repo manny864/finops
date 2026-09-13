@@ -35,12 +35,11 @@ import { getInternalBaseUrl } from "@/lib/internalBaseUrl";
 import { redis } from "@/lib/redis";
 import { recordCronRun } from "@/lib/cronRunTracker";
 import { errorMessage } from "@/lib/apiErrors";
+import { escribirEstado, leerEstado, tomarLock, iniciarLatido, soltarLock } from "@/lib/cronAsyncJob";
 
 export const dynamic = "force-dynamic";
 
-const PREWARM_STATUS_KEY = "cron:prewarm-dashboard:status:v1";
-const PREWARM_LOCK_KEY = "cron:prewarm-dashboard:lock:v1";
-const PREWARM_LOCK_TTL_SECONDS = Number(process.env.CRON_PREWARM_DASHBOARD_LOCK_TTL_SECONDS || 1800);
+const JOB = "prewarm-dashboard";
 
 type PrewarmDashboardResult = { tenantId: string; name?: string; ok: boolean; ms: number; error?: string };
 
@@ -56,27 +55,6 @@ export type PrewarmDashboardStatus = {
     error?: string;
 };
 
-async function writeStatus(status: PrewarmDashboardStatus): Promise<void> {
-    try {
-        if (redis?.status === "ready" || redis?.status === "connect") {
-            await redis.set(PREWARM_STATUS_KEY, JSON.stringify(status), "EX", 86400);
-        }
-    } catch (e) {
-        console.warn("[prewarm-dashboard] Warning writing status to Redis:", errorMessage(e));
-    }
-}
-
-async function readStatus(): Promise<PrewarmDashboardStatus | null> {
-    try {
-        if (redis?.status === "ready" || redis?.status === "connect") {
-            const raw = await redis.get(PREWARM_STATUS_KEY);
-            return raw ? JSON.parse(raw) : null;
-        }
-    } catch (e) {
-        console.warn("[prewarm-dashboard] Warning reading status from Redis:", errorMessage(e));
-    }
-    return null;
-}
 
 async function runPrewarmDashboardCore(): Promise<{ results: PrewarmDashboardResult[] }> {
     const [tenants] = await pool.query<any[]>(
@@ -134,9 +112,9 @@ function launchPrewarmCore(startedAt: number): void {
                 tenantsFailed: results.length - okCount,
                 totalMs,
             };
-            await writeStatus(status);
+            await escribirEstado(JOB, status);
             if (redis?.status === "ready" || redis?.status === "connect") {
-                await redis.del(PREWARM_LOCK_KEY).catch(() => {});
+                await soltarLock(JOB);
             }
             await recordCronRun({
                 cronName: "prewarm-dashboard",
@@ -149,9 +127,9 @@ function launchPrewarmCore(startedAt: number): void {
         .catch(async (e: any) => {
             console.error("[cron-prewarm] fatal:", e);
             const finishedAt = Date.now();
-            await writeStatus({ startedAt, finishedAt, done: true, ok: false, error: e?.message || String(e) });
+            await escribirEstado(JOB, { startedAt, finishedAt, done: true, ok: false, error: e?.message || String(e) });
             if (redis?.status === "ready" || redis?.status === "connect") {
-                await redis.del(PREWARM_LOCK_KEY).catch(() => {});
+                await soltarLock(JOB);
             }
             await recordCronRun({
                 cronName: "prewarm-dashboard",
@@ -187,7 +165,7 @@ async function handlePrewarmDashboard(request: NextRequest) {
 
         // 1. Polling de status (?status=1)
         if (request.nextUrl.searchParams.get("status") === "1") {
-            const status = await readStatus();
+            const status = await leerEstado(JOB);
             if (!status) {
                 return NextResponse.json({ done: false, ok: null, status: "idle" });
             }
@@ -195,12 +173,10 @@ async function handlePrewarmDashboard(request: NextRequest) {
         }
 
         // 2. Disparo con protección de Lock en Redis
-        const lockAcquired = await redis
-            .set(PREWARM_LOCK_KEY, String(Date.now()), "EX", PREWARM_LOCK_TTL_SECONDS, "NX")
-            .catch(() => "OK");
+        const lockAcquired = await tomarLock(JOB);
 
         if (!lockAcquired) {
-            const current = await readStatus();
+            const current = await leerEstado(JOB);
             return NextResponse.json(
                 { status: "already_running", message: "Hay una ejecución de prewarm-dashboard activa.", current },
                 { status: 200 }
@@ -208,8 +184,13 @@ async function handlePrewarmDashboard(request: NextRequest) {
         }
 
         const startedAt = Date.now();
-        await writeStatus({ startedAt, finishedAt: null, done: false, ok: null });
+        await escribirEstado(JOB, { startedAt, finishedAt: null, done: false, ok: null });
 
+        // El latido arranca ANTES del trabajo: renueva el TTL corto del lock
+        // mientras el proceso viva. Si el contenedor se cae con el barrido
+        // adentro, nadie renueva y el lock expira en minutos -- el disparo
+        // siguiente arranca limpio en vez de esperar media hora.
+        iniciarLatido(JOB);
         launchPrewarmCore(startedAt);
 
         return NextResponse.json(

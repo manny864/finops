@@ -10,9 +10,14 @@ const redisSet = vi.fn(async (k: string, v: string, _ex?: string, _ttl?: number,
 
 vi.mock("@/lib/redis", () => ({
     redis: {
+        // `status` y `exists` los usa `cronAsyncJob`: sin ellos el helper cree
+        // que Redis no está disponible y deja pasar todo sin lock ni estado.
+        status: "ready",
         set: (...a: any[]) => (redisSet as any)(...a),
         get: async (k: string) => store.get(k) ?? null,
         del: async (k: string) => { store.delete(k); return 1; },
+        exists: async (k: string) => (store.has(k) ? 1 : 0),
+        expire: async () => 1,
     },
 }));
 vi.mock("@/modules/storage/db", () => ({ default: { query: vi.fn(async () => [[]]) } }));

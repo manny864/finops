@@ -4,6 +4,7 @@ import { errorMessage, serverError } from '@/lib/apiErrors';
 import { runAnomalyDetection, persistAndNotifyAnomalies } from "@/services/anomalyDetectionService";
 import { recordCronRun } from "@/lib/cronRunTracker";
 import { redis } from "@/lib/redis";
+import { escribirEstado, leerEstado, tomarLock, iniciarLatido, soltarLock } from "@/lib/cronAsyncJob";
 
 /**
  * Evaluador REAL de detección de anomalías — antes esta feature solo se
@@ -31,9 +32,7 @@ import { redis } from "@/lib/redis";
  * tenant). El grueso de las corridas son cache hits (lectura de Redis +
  * cálculo de Z-Score en memoria, sub-segundo).
  */
-const STATUS_KEY = "cron:anomaly-detection:status:v1";
-const LOCK_KEY = "cron:anomaly-detection:lock:v1";
-const LOCK_TTL_SECONDS = Number(process.env.CRON_ANOMALY_LOCK_TTL_SECONDS || 900);
+const JOB = "anomaly-detection";
 
 export type AnomalyDetectionStatus = {
     startedAt: number;
@@ -49,27 +48,6 @@ export type AnomalyDetectionStatus = {
     error?: string;
 };
 
-async function writeStatus(status: AnomalyDetectionStatus): Promise<void> {
-    try {
-        if (redis?.status === "ready" || redis?.status === "connect") {
-            await redis.set(STATUS_KEY, JSON.stringify(status), "EX", 86400);
-        }
-    } catch (e) {
-        console.warn("[anomaly-detection] no se pudo escribir el estado:", errorMessage(e));
-    }
-}
-
-async function readStatus(): Promise<AnomalyDetectionStatus | null> {
-    try {
-        if (redis?.status === "ready" || redis?.status === "connect") {
-            const raw = await redis.get(STATUS_KEY);
-            return raw ? JSON.parse(raw) : null;
-        }
-    } catch (e) {
-        console.warn("[anomaly-detection] no se pudo leer el estado:", errorMessage(e));
-    }
-    return null;
-}
 
 /** El barrido real. Antes vivía inline en el GET y por eso lo mataba el ingress. */
 async function runAnomalySweep(dashboardUrl: string) {
@@ -119,7 +97,7 @@ function launchAnomalySweep(startedAt: number, dashboardUrl: string): void {
         .then(async (r) => {
             const finishedAt = Date.now();
             const tenantsOk = r.evaluated - r.errors.length;
-            await writeStatus({
+            await escribirEstado(JOB, {
                 startedAt, finishedAt, done: true,
                 ok: r.errors.length === 0,
                 tenantsTotal: r.evaluated,
@@ -138,7 +116,7 @@ function launchAnomalySweep(startedAt: number, dashboardUrl: string): void {
             });
         })
         .catch(async (e) => {
-            await writeStatus({
+            await escribirEstado(JOB, {
                 startedAt, finishedAt: Date.now(), done: true, ok: false,
                 error: errorMessage(e) || String(e),
             });
@@ -153,7 +131,7 @@ function launchAnomalySweep(startedAt: number, dashboardUrl: string): void {
         .finally(async () => {
             try {
                 if (redis?.status === "ready" || redis?.status === "connect") {
-                    await redis.del(LOCK_KEY);
+                    await soltarLock(JOB);
                 }
             } catch { /* el lock expira solo por TTL */ }
         });
@@ -175,24 +153,27 @@ export async function GET(request: NextRequest) {
         // 1. Polling de estado. Sin este contrato el runner no puede esperar un
         //    barrido largo sin que el ingress lo corte a los 240s.
         if (request.nextUrl.searchParams.get("status") === "1") {
-            const status = await readStatus();
+            const status = await leerEstado(JOB);
             return NextResponse.json(status ?? { done: false, ok: null, status: "idle" });
         }
 
         // 2. Lock: el job corre cada 5 minutos y el barrido puede tardar mucho
         //    más cuando expira el caché. Sin lock se pisarían y multiplicarían
         //    la carga sobre Cost Management, que es justo lo que lo hace lento.
-        const lockAcquired = await redis
-            .set(LOCK_KEY, String(Date.now()), "EX", LOCK_TTL_SECONDS, "NX")
-            .catch(() => "OK");
+        const lockAcquired = await tomarLock(JOB);
         if (!lockAcquired) {
             return NextResponse.json(
-                { status: "already_running", message: "Hay un barrido de anomalías activo.", current: await readStatus() },
+                { status: "already_running", message: "Hay un barrido de anomalías activo.", current: await leerEstado(JOB) },
                 { status: 200 }
             );
         }
 
-        await writeStatus({ startedAt, finishedAt: null, done: false, ok: null });
+        await escribirEstado(JOB, { startedAt, finishedAt: null, done: false, ok: null });
+        // El latido arranca ANTES del trabajo: renueva el TTL corto del lock
+        // mientras el proceso viva. Si el contenedor se cae con el barrido
+        // adentro, nadie renueva y el lock expira en minutos -- el disparo
+        // siguiente arranca limpio en vez de esperar media hora.
+        iniciarLatido(JOB);
         launchAnomalySweep(startedAt, `${request.nextUrl.origin}/intelligence/anomalies`);
 
         return NextResponse.json(
@@ -205,7 +186,7 @@ export async function GET(request: NextRequest) {
         );
     } catch (e: unknown) {
         try {
-            if (redis?.status === "ready" || redis?.status === "connect") await redis.del(LOCK_KEY);
+            if (redis?.status === "ready" || redis?.status === "connect") await soltarLock(JOB);
         } catch { /* el lock expira solo */ }
         return serverError(e, { context: "GET /api/cron/anomaly-detection" });
     }

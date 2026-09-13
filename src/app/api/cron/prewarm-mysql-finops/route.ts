@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { getInternalBaseUrl } from "@/lib/internalBaseUrl";
-import { redis } from "@/lib/redis";
 import { errorMessage } from "@/lib/apiErrors";
+import { escribirEstado, leerEstado, tomarLock, iniciarLatido, soltarLock } from "@/lib/cronAsyncJob";
 
 export const dynamic = "force-dynamic";
 
-const STATUS_KEY = "cron:prewarm-mysql-finops:status:v1";
-const LOCK_KEY = "cron:prewarm-mysql-finops:lock:v1";
-const LOCK_TTL_SECONDS = Number(process.env.CRON_PREWARM_MYSQL_LOCK_TTL_SECONDS || 900);
+const JOB = "prewarm-mysql-finops";
 
 export type PrewarmMysqlStatus = {
   startedAt: number;
@@ -20,28 +18,6 @@ export type PrewarmMysqlStatus = {
   tenantsFailed?: number;
   error?: string;
 };
-
-async function writeStatus(status: PrewarmMysqlStatus): Promise<void> {
-  try {
-    if (redis?.status === "ready" || redis?.status === "connect") {
-      await redis.set(STATUS_KEY, JSON.stringify(status), "EX", 86400);
-    }
-  } catch (e) {
-    console.warn("[prewarm-mysql-finops] no se pudo escribir el estado:", errorMessage(e));
-  }
-}
-
-async function readStatus(): Promise<PrewarmMysqlStatus | null> {
-  try {
-    if (redis?.status === "ready" || redis?.status === "connect") {
-      const raw = await redis.get(STATUS_KEY);
-      return raw ? JSON.parse(raw) : null;
-    }
-  } catch (e) {
-    console.warn("[prewarm-mysql-finops] no se pudo leer el estado:", errorMessage(e));
-  }
-  return null;
-}
 
 /**
  * Fire-and-forget: NO se espera acá.
@@ -56,7 +32,7 @@ function launchPrewarm(startedAt: number, cronSecret: string): void {
   runPrewarmSweep(cronSecret)
     .then(async (results) => {
       const okCount = results.filter((r) => r.ok).length;
-      await writeStatus({
+      await escribirEstado(JOB, {
         startedAt,
         finishedAt: Date.now(),
         done: true,
@@ -67,16 +43,15 @@ function launchPrewarm(startedAt: number, cronSecret: string): void {
       });
     })
     .catch(async (e) => {
-      await writeStatus({
+      await escribirEstado(JOB, {
         startedAt, finishedAt: Date.now(), done: true, ok: false,
         error: errorMessage(e) || String(e),
       });
     })
-    .finally(async () => {
-      try {
-        if (redis?.status === "ready" || redis?.status === "connect") await redis.del(LOCK_KEY);
-      } catch { /* el lock expira solo por TTL */ }
-    });
+    // Soltar el lock ACÁ es lo que corta el latido: mientras el trabajo vive, el
+    // latido renueva el TTL corto; si el proceso muere, nadie renueva y el lock
+    // expira en minutos en vez de bloquear el cron hasta agotar un TTL largo.
+    .finally(() => soltarLock(JOB));
 }
 
 export async function GET(request: NextRequest) {
@@ -102,23 +77,21 @@ async function runPrewarmMysqlFinops(request: NextRequest) {
     // Polling de estado: sin este contrato el runner no puede esperar un
     // barrido largo sin que el ingress lo corte a los 240s.
     if (request.nextUrl.searchParams.get("status") === "1") {
-      const status = await readStatus();
+      const status = await leerEstado(JOB);
       return NextResponse.json(status ?? { done: false, ok: null, status: "idle" });
     }
 
     // Lock: el job corre cada 20 minutos y el barrido puede pasarse. Sin esto,
     // dos barridos concurrentes duplicarían las consultas de métricas.
-    const lockAcquired = await redis
-      .set(LOCK_KEY, String(Date.now()), "EX", LOCK_TTL_SECONDS, "NX")
-      .catch(() => "OK");
-    if (!lockAcquired) {
+    if (!(await tomarLock(JOB))) {
       return NextResponse.json(
-        { status: "already_running", message: "Hay un prewarm de MySQL activo.", current: await readStatus() },
+        { status: "already_running", message: "Hay un prewarm de MySQL activo.", current: await leerEstado(JOB) },
         { status: 200 }
       );
     }
 
-    await writeStatus({ startedAt, finishedAt: null, done: false, ok: null });
+    await escribirEstado(JOB, { startedAt, finishedAt: null, done: false, ok: null });
+    iniciarLatido(JOB);
     launchPrewarm(startedAt, cronSecret);
 
     return NextResponse.json(
@@ -130,9 +103,7 @@ async function runPrewarmMysqlFinops(request: NextRequest) {
       { status: 202 }
     );
   } catch (error: unknown) {
-    try {
-      if (redis?.status === "ready" || redis?.status === "connect") await redis.del(LOCK_KEY);
-    } catch { /* el lock expira solo */ }
+    await soltarLock(JOB);
     return NextResponse.json(
       { error: "Internal Server Error", details: errorMessage(error) },
       { status: 500 }

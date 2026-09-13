@@ -41,7 +41,7 @@ describe("contrato asíncrono de anomaly-detection", () => {
 
     it("responde al polling de estado", () => {
         expect(ruta).toMatch(/searchParams\.get\("status"\) === "1"/);
-        expect(ruta).toContain("readStatus()");
+        expect(ruta).toContain("leerEstado(JOB)");
     });
 
     it("dispara en background y responde 202, no espera el barrido", () => {
@@ -54,13 +54,18 @@ describe("contrato asíncrono de anomaly-detection", () => {
     it("hay lock: el job corre cada 5 min y el barrido puede tardar más", () => {
         // Sin lock se pisarían y multiplicarían la carga sobre Cost Management,
         // que es justo lo que los hace lentos.
-        expect(ruta).toContain("LOCK_KEY");
-        expect(ruta).toMatch(/"NX"/);
+        expect(ruta).toContain("tomarLock(JOB)");
         expect(ruta).toContain("already_running");
     });
 
     it("el lock se suelta pase lo que pase", () => {
-        expect(ruta).toMatch(/\.finally\(async \(\) => \{[\s\S]{0,200}redis\.del\(LOCK_KEY\)/);
+        expect(ruta).toMatch(/\.finally\([\s\S]{0,200}soltarLock\(JOB\)/);
+    });
+
+    // El latido es lo que impide que un deploy deje el lock tomado media hora
+    // con el trabajo ya muerto (ver `cronAsyncJob`).
+    it("late mientras el barrido corre", () => {
+        expect(ruta).toContain("iniciarLatido(JOB)");
     });
 
     it("reporta tenantsOk/tenantsTotal para que el runner distinga parcial de fallido", () => {

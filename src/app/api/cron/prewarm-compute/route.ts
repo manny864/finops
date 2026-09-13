@@ -12,13 +12,12 @@ import { getInternalBaseUrl } from "@/lib/internalBaseUrl";
 import { redis } from "@/lib/redis";
 import { recordCronRun } from "@/lib/cronRunTracker";
 import { errorMessage } from "@/lib/apiErrors";
+import { escribirEstado, leerEstado, tomarLock, iniciarLatido, soltarLock } from "@/lib/cronAsyncJob";
 import type { ComputeFamily } from "@/lib/computeWorkloadTypes";
 
 export const dynamic = "force-dynamic";
 
-const PREWARM_STATUS_KEY = "cron:prewarm-compute:status:v1";
-const PREWARM_LOCK_KEY = "cron:prewarm-compute:lock:v1";
-const PREWARM_LOCK_TTL_SECONDS = Number(process.env.CRON_PREWARM_COMPUTE_LOCK_TTL_SECONDS || 1800);
+const JOB = "prewarm-compute";
 
 const FAMILIES: ComputeFamily[] = ["webapps", "functions", "vms", "vmss", "aro"];
 
@@ -35,27 +34,6 @@ export type PrewarmComputeStatus = {
     error?: string;
 };
 
-async function writeStatus(status: PrewarmComputeStatus): Promise<void> {
-    try {
-        if (redis?.status === "ready" || redis?.status === "connect") {
-            await redis.set(PREWARM_STATUS_KEY, JSON.stringify(status), "EX", 86400);
-        }
-    } catch (e) {
-        console.warn("[prewarm-compute] Warning writing status to Redis:", errorMessage(e));
-    }
-}
-
-async function readStatus(): Promise<PrewarmComputeStatus | null> {
-    try {
-        if (redis?.status === "ready" || redis?.status === "connect") {
-            const raw = await redis.get(PREWARM_STATUS_KEY);
-            return raw ? JSON.parse(raw) : null;
-        }
-    } catch (e) {
-        console.warn("[prewarm-compute] Warning reading status from Redis:", errorMessage(e));
-    }
-    return null;
-}
 
 function launchPrewarmCore(startedAt: number): void {
     runPrewarmComputeCore(startedAt)
@@ -68,9 +46,9 @@ function launchPrewarmCore(startedAt: number): void {
                 ok: result.workloadsFailed === 0,
                 ...result,
             };
-            await writeStatus(status);
+            await escribirEstado(JOB, status);
             if (redis?.status === "ready" || redis?.status === "connect") {
-                await redis.del(PREWARM_LOCK_KEY).catch(() => {});
+                await soltarLock(JOB);
             }
             await recordCronRun({
                 cronName: "prewarm-compute",
@@ -88,7 +66,7 @@ function launchPrewarmCore(startedAt: number): void {
         .catch(async (e: any) => {
             console.error("[prewarm-compute] Fatal failure in background run:", e);
             const finishedAt = Date.now();
-            await writeStatus({
+            await escribirEstado(JOB, {
                 startedAt,
                 finishedAt,
                 done: true,
@@ -96,7 +74,7 @@ function launchPrewarmCore(startedAt: number): void {
                 error: e?.message || String(e),
             });
             if (redis?.status === "ready" || redis?.status === "connect") {
-                await redis.del(PREWARM_LOCK_KEY).catch(() => {});
+                await soltarLock(JOB);
             }
             await recordCronRun({
                 cronName: "prewarm-compute",
@@ -184,7 +162,7 @@ async function handlePrewarmCompute(request: NextRequest) {
 
         // 1. Polling de status (?status=1)
         if (request.nextUrl.searchParams.get("status") === "1") {
-            const status = await readStatus();
+            const status = await leerEstado(JOB);
             if (!status) {
                 return NextResponse.json({ done: false, ok: null, status: "idle" });
             }
@@ -192,16 +170,10 @@ async function handlePrewarmCompute(request: NextRequest) {
         }
 
         // 2. Disparo con protección de Lock en Redis
-        const lockAcquired = await redis.set(
-            PREWARM_LOCK_KEY,
-            String(Date.now()),
-            "EX",
-            PREWARM_LOCK_TTL_SECONDS,
-            "NX"
-        ).catch(() => "OK");
+        const lockAcquired = await tomarLock(JOB);
 
         if (!lockAcquired) {
-            const current = await readStatus();
+            const current = await leerEstado(JOB);
             return NextResponse.json(
                 {
                     status: "already_running",
@@ -213,13 +185,18 @@ async function handlePrewarmCompute(request: NextRequest) {
         }
 
         const startedAt = Date.now();
-        await writeStatus({
+        await escribirEstado(JOB, {
             startedAt,
             finishedAt: null,
             done: false,
             ok: null,
         });
 
+        // El latido arranca ANTES del trabajo: renueva el TTL corto del lock
+        // mientras el proceso viva. Si el contenedor se cae con el barrido
+        // adentro, nadie renueva y el lock expira en minutos -- el disparo
+        // siguiente arranca limpio en vez de esperar media hora.
+        iniciarLatido(JOB);
         launchPrewarmCore(startedAt);
 
         return NextResponse.json(
