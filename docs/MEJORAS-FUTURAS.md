@@ -354,14 +354,28 @@ Medido sobre los 37 mapeos vivos del interceptor:
 | | Cantidad |
 |---|---|
 | Sacables hoy (cumplen 1 y 2) | **0** |
-| Payload idéntico pero **bloqueadas** por auth-antes-que-mock | **8** |
-| Resto (mock distinto, o sin mock propio) | 29 |
+| Payload idéntico pero **bloqueadas** por auth-antes-que-mock | **21** |
+| Resto (mock distinto, o sin mock propio) | 16 |
 
-Las 8 bloqueadas son `aks`, `alerts`, `macc`, `scorecard`, `zero-cost`, `allocation-rules`,
-`compute-cost-per-core` y `admin/governance-policies`. **Se intentó sacarlas y se revirtió**: el payload es
-byte a byte el mismo —se verificó que el multiplicador coincide por los dos caminos, porque el interceptor
-pasa el tier y la ruta el tenantId, y `MOCK_TENANT_TIER` los mapea al mismo valor en los tres tiers— pero
-en demo no se puede llegar a él.
+Las 21 bloqueadas incluyen `aks`, `alerts`, `macc`, `scorecard`, `zero-cost`, `allocation-rules`,
+`compute-cost-per-core`, `forecast`, `tenant_health`, `m365_overview`, `cost_groups`, `network`, `tags`,
+`tags_compliance`, `cost-projection`, `cost_centers`, `commitment-simulator`, `ttl_history`,
+`ttl_unlabeled` y las dos de `governance-policies`. Se intentó sacar un subconjunto y **se revirtió**: el
+payload es byte a byte el mismo —se verificó que el multiplicador coincide por los dos caminos, porque el
+interceptor pasa el tier y la ruta el tenantId, y `MOCK_TENANT_TIER` los mapea al mismo valor en los tres
+tiers— pero en demo no se puede llegar a él.
+
+Llegar a estos números costó tres pasadas, y las tres primeras estuvieron mal por detectar de menos:
+
+- El primer barrido buscaba el mock sólo entre **comillas simples**; media docena de rutas lo llaman con
+  dobles y quedaron fuera.
+- El segundo buscaba `requireTenantAccess|requireTenantRole` y no `requireTenantTier`, que es el que usan
+  `tenant_health` y `m365_overview`. Con eso parecían sacables y no lo son.
+- El tercero miraba el archivo entero en vez de **cada handler**. El interceptor NO filtra por método, así
+  que atrapa GET y POST por igual: en `/api/cost-groups` el GET mockea antes del auth pero el POST no, y
+  sacar esa intercepción cambiaría las escrituras de la demo por un 401.
+
+El test lleva las tres correcciones. Si alguien repite el análisis a mano, que empiece por ahí.
 
 `__tests__/unit/demoInterceptorRedundante.test.ts` fija las cuatro reglas: falla si aparece una
 intercepción sacable (para que se saque), si una URL genérica tapa a una más específica declarada después

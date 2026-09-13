@@ -53,15 +53,30 @@ const escapar = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 function analizar(url: string, clave: string) {
     const f = rutaDe(url);
     if (!fs.existsSync(f)) return null;
-    const lineas = fs.readFileSync(f, "utf8").split("\n");
-    const src = lineas.join("\n");
-    const idx = (re: RegExp) => lineas.findIndex((l) => re.test(l));
-    const auth = idx(/await require(TenantAccess|TenantRole)\(/);
-    const mock = idx(/if \(isMockTenant\(/);
+    const src = fs.readFileSync(f, "utf8");
+
+    // Las rutas usan comillas simples Y dobles indistintamente. Mirar una sola
+    // forma daba un falso negativo que escondió tres intercepciones sacables.
     const verbatim = new RegExp(
-        `return\\s+NextResponse\\.json\\(\\s*getMockDataForRoute\\(\\s*'${escapar(clave)}'\\s*,[^)]*\\)\\s*\\)`
+        `return\\s+NextResponse\\.json\\(\\s*getMockDataForRoute\\(\\s*['"]${escapar(clave)}['"]\\s*,[^)]*\\)\\s*\\)`
     ).test(src);
-    return { verbatim, alcanzableSinToken: mock !== -1 && (auth === -1 || mock < auth) };
+
+    // Por HANDLER y no por archivo: el interceptor NO filtra por método, así que
+    // atrapa el GET y el POST por igual. Si un solo handler autentica antes de
+    // mockear, sacar la intercepción le cambia esa llamada por un 401 en demo
+    // (caso /api/cost-groups: el GET mockea primero, el POST no).
+    const handlers = src.split(/^export async function (?=GET|POST|PUT|DELETE|PATCH)/m).slice(1);
+    const alcanzableSinToken =
+        handlers.length > 0 &&
+        handlers.every((h) => {
+            const lineas = h.split("\n");
+            const idx = (re: RegExp) => lineas.findIndex((l) => re.test(l));
+            const auth = idx(/await require(TenantAccess|TenantRole|TenantTier)\(/);
+            const mock = idx(/isMockTenant\(/);
+            return auth === -1 || (mock !== -1 && mock < auth);
+        });
+
+    return { verbatim, alcanzableSinToken };
 }
 
 describe("interceptor de demo", () => {
