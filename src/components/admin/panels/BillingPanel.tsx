@@ -159,7 +159,7 @@ export default function BillingPanel() {
 
             setBillingData({
                 tenantId: json.tenantId || tenantId,
-                planTier: json.planTier || "Enterprise",
+                planTier: json.planTier || "Professional",
                 status: json.status || "ACTIVE",
                 billingCycle: json.billingCycle || "MONTHLY",
                 paymentGateway: json.paymentGateway || "PADDLE",
@@ -290,7 +290,9 @@ export default function BillingPanel() {
         return filteredInvoices.slice(start, start + pageSize);
     }, [filteredInvoices, currentPage, pageSize]);
 
-    const currentTier = billingData?.planTier || "Enterprise";
+    // Ante una lectura fallida se muestra el tier MAS BAJO, no el mas alto:
+    // defaultear a Enterprise le prometia al cliente capacidades que no tiene.
+    const currentTier = billingData?.planTier || "Professional";
     const isEnterprise = billingData?.isEnterprise || currentTier.toLowerCase() === "enterprise";
 
     return (

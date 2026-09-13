@@ -13,6 +13,7 @@ import {
     CancelSubscriptionResponse,
 } from "@/types/saasBilling.types";
 import { azurePlanToBillingCycle } from "@/lib/marketplace/planMapping";
+import { normalizeTier } from "@/lib/tierLogic";
 
 /**
  * Retorna la información de suscripción y facturación sintética para tenants de demostración.
@@ -74,7 +75,11 @@ export async function getTenantBillingDetails(tenantId: string): Promise<TenantB
         return getMockBillingDetails(tenantId);
     }
 
-    let planTier: SaaSPlanTier = "Enterprise";
+    // El default NO es Enterprise: si la lectura falla, mostrar el tier MAS ALTO
+    // le promete al cliente capacidades que no tiene ("suscripciones ilimitadas",
+    // "soporte 24/7") y esconde el boton de cambiar plan. Professional es el
+    // mismo default que usa `requireTenantTier` cuando no encuentra el tier.
+    let planTier: SaaSPlanTier = "Professional";
     let status: SaaSSubscriptionStatus = "ACTIVE";
     let billingCycle: "MONTHLY" | "ANNUAL" = "MONTHLY";
     let paymentGateway = "PADDLE";
@@ -82,52 +87,56 @@ export async function getTenantBillingDetails(tenantId: string): Promise<TenantB
     let cancelAtPeriodEnd = false;
     let isEnterprise = false;
 
-    // 1. Consultar tabla TenantSaaSSubscriptions o fallback a Tenants
+    // 1. El tier sale de `Tenants`, que es la fuente que usa el resto de la app
+    //    para AUTORIZAR (`requireTenantTier`, cuotas, marketplace). Mostrar otra
+    //    cosa aca es prometer un plan distinto del que realmente se aplica.
+    //
+    //    BUG QUE ARREGLA (2026-09-13): esto consultaba `TenantSaaSSubscriptions`,
+    //    una tabla que NO EXISTE --no tiene DDL en el repo y nadie mas la toca--,
+    //    asi que la query tiraba "Table doesn't exist", el catch se la tragaba y
+    //    los valores quedaban en el inicializador. Y el fallback tampoco servia:
+    //    filtraba por `WHERE id = ?` cuando la clave es `tenant_id` (`Tenants.id`
+    //    es un INT autoincrement, asi que comparar un GUID daba cero filas).
+    //    Resultado: TODO tenant real veia "Enterprise" en Mi cuenta, sin importar
+    //    lo que pagara.
     try {
-        const [subRows]: any = await pool.query(
-            `SELECT plan_tier, status, billing_cycle, payment_gateway, current_period_end, cancel_at_period_end FROM TenantSaaSSubscriptions WHERE tenant_id = ? LIMIT 1`,
+        const [tRows]: any = await pool.query(
+            `SELECT tier, subscription_status, marketplace_plan_id, marketplace_source
+               FROM Tenants WHERE tenant_id = ? LIMIT 1`,
             [tenantId]
         );
 
-        if (Array.isArray(subRows) && subRows.length > 0) {
-            const row = subRows[0];
-            planTier = (row.plan_tier as SaaSPlanTier) || "Business";
-            status = (row.status as SaaSSubscriptionStatus) || "ACTIVE";
-            billingCycle = row.billing_cycle === "ANNUAL" ? "ANNUAL" : "MONTHLY";
-            paymentGateway = row.payment_gateway || "PADDLE";
-            currentPeriodEndIso = row.current_period_end ? new Date(row.current_period_end).toISOString() : currentPeriodEndIso;
-            cancelAtPeriodEnd = Boolean(row.cancel_at_period_end);
-            isEnterprise = planTier.toLowerCase() === "enterprise";
-        } else {
-            // Fallback a Tenants
-            const [tRows]: any = await pool.query(
-                `SELECT tier, subscription_status, marketplace_plan_id FROM Tenants WHERE id = ? LIMIT 1`,
-                [tenantId]
-            );
-            if (Array.isArray(tRows) && tRows.length > 0) {
-                const tRow = tRows[0];
-                const rawTier = (tRow.tier || "Enterprise").toLowerCase();
-                planTier = rawTier.includes("pro") ? "Professional" : rawTier.includes("bus") ? "Business" : "Enterprise";
-                status = (tRow.subscription_status as SaaSSubscriptionStatus) || "ACTIVE";
-                isEnterprise = planTier === "Enterprise";
+        if (Array.isArray(tRows) && tRows.length > 0) {
+            const tRow = tRows[0];
+            planTier = (normalizeTier(tRow.tier) as SaaSPlanTier) || "Professional";
+            status = (tRow.subscription_status as SaaSSubscriptionStatus) || "ACTIVE";
+            isEnterprise = planTier === "Enterprise";
 
-                // Los tenants que entran por Azure Marketplace SIEMPRE caen a esta
-                // rama: el activate escribe en `Tenants` y nunca crea la fila de
-                // `TenantSaaSSubscriptions`. Sin esto, los dos valores quedaban en el
-                // default del inicializador y el panel le decía "mensual, cobrado por
-                // Paddle" a alguien que compró anual y le factura Microsoft.
-                //
-                // El ciclo se deriva de `marketplace_plan_id` porque es el único lugar
-                // donde sobrevive: `azurePlanToTier()` lo descarta al quedarse con el
-                // tier.
-                if (tRow.marketplace_plan_id) {
-                    billingCycle = azurePlanToBillingCycle(tRow.marketplace_plan_id);
-                    paymentGateway = "AZURE_MARKETPLACE";
-                }
+            // Los tenants que entran por Azure Marketplace no tienen suscripcion de
+            // Paddle: el ciclo se deriva de `marketplace_plan_id`, que es el unico
+            // lugar donde sobrevive (`azurePlanToTier()` lo descarta al quedarse
+            // con el tier). Sin esto el panel le decia "mensual, cobrado por
+            // Paddle" a alguien que compro anual y le factura Microsoft.
+            if (tRow.marketplace_source === "azure_marketplace" || tRow.marketplace_plan_id) {
+                billingCycle = azurePlanToBillingCycle(tRow.marketplace_plan_id);
+                paymentGateway = "AZURE_MARKETPLACE";
             }
         }
+    } catch (e) {
+        console.warn("[saasBilling] No se pudo leer el plan del tenant:", (e as Error)?.message);
+    }
+
+    // La cancelacion programada vive en su propia columna (migracion 005). Va
+    // aparte porque es la unica que puede no existir todavia en un entorno sin
+    // migrar, y no debe llevarse puesto el tier si falta.
+    try {
+        const [cRows]: any = await pool.query(
+            `SELECT cancel_at_period_end FROM Tenants WHERE tenant_id = ? LIMIT 1`,
+            [tenantId]
+        );
+        cancelAtPeriodEnd = Boolean(cRows?.[0]?.cancel_at_period_end);
     } catch {
-        // Fallback resiliente
+        /* entorno sin migrar: no hay cancelacion programada que mostrar */
     }
 
     // 2. Consultar facturas reales
@@ -214,20 +223,17 @@ export async function cancelTenantSubscription(
         };
     }
 
-    try {
-        await pool.query(
-            `UPDATE TenantSaaSSubscriptions SET cancel_at_period_end = TRUE WHERE tenant_id = ?`,
-            [tenantId]
-        );
-    } catch {
-        try {
-            await pool.query(
-                `UPDATE Tenants SET subscription_status = 'CANCELED_PENDING' WHERE id = ?`,
-                [tenantId]
-            );
-        } catch {
-            /* noop */
-        }
+    // Antes esto escribia en `TenantSaaSSubscriptions` (tabla inexistente) y
+    // caia a un fallback que filtraba por `WHERE id = ?` y seteaba
+    // 'CANCELED_PENDING', un valor que el ENUM de la columna no admite. O sea:
+    // no persistia NADA y la funcion devolvia success igual. El cliente pedia la
+    // baja, la app le decia "listo" y no quedaba registro en ningun lado.
+    const [res]: any = await pool.query(
+        `UPDATE Tenants SET cancel_at_period_end = TRUE WHERE tenant_id = ?`,
+        [tenantId]
+    );
+    if (!res?.affectedRows) {
+        throw new Error("No se pudo registrar la cancelación: el tenant no existe.");
     }
 
     // Registro en auditoría
