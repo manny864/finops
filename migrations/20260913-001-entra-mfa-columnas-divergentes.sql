@@ -1,0 +1,28 @@
+-- Repara las bases donde `20260822-002-tenant-users-access-control.sql` se
+-- aplicó ANTES de que se corrigiera, y por eso les faltan dos columnas.
+--
+-- QUÉ PASÓ
+-- El 2026-08-22 esa migración se editó en el lugar, 13 minutos después de
+-- haberse creado (b7014cd 17:56 UTC -> d9b2a84 18:09 UTC). La versión original
+-- agregaba `Users.mfa_enabled` y `Users.mfa_checked_at`; la corregida agrega
+-- `entra_mfa_registered` y `entra_mfa_checked_at`. No fue un rename: son dos
+-- conceptos distintos que habían quedado pisados —`mfa_enabled` ya existía y
+-- significa el 2FA PROPIO de la plataforma (TOTP, ver /api/mfa/*), mientras que
+-- lo nuevo es si el usuario tiene MFA registrado en Entra ID—.
+--
+-- El runner compara el hash del archivo contra el de `SchemaMigrations`: si
+-- difiere avisa por consola pero NO reaplica. Así que una base que alcanzó a
+-- correr la versión vieja se queda sin las columnas para siempre, y
+-- `/api/admin/config/users` muere con
+-- `ER_BAD_FIELD_ERROR: Unknown column 'entra_mfa_registered' in 'field list'`.
+--
+-- A QUIÉN AFECTA
+-- A producción NO: el primer deploy que llevó esa migración fue e484310
+-- (2026-08-22 21:39 UTC), que ya incluía el fix. Verificado por ascendencia de
+-- commits contra el historial de deploys. Afecta a las bases locales y a
+-- cualquier entorno que haya corrido el árbol de trabajo dentro de esa ventana.
+--
+-- Los ALTER van pelados a propósito: el runner traga ER_DUP_FIELDNAME, así que
+-- esto es un no-op donde las columnas ya existen.
+ALTER TABLE Users ADD COLUMN entra_mfa_registered TINYINT(1) NULL;
+ALTER TABLE Users ADD COLUMN entra_mfa_checked_at DATETIME NULL;
