@@ -17,12 +17,39 @@ describe("modulos del marketplace", () => {
         }
     });
 
-    it("un modulo sin price ID mensual no se ofrece a nadie", () => {
-        // Azure Integration Services todavia no tiene productos en Paddle.
-        expect(ADDON_CATALOG.mod_integration.prices.monthly).toBe("");
-        for (const tier of ["Professional", "Business", "Enterprise"]) {
-            expect(visibles(tier)).not.toContain("mod_integration");
+    it("todos los modulos tienen sus 6 price IDs cargados", () => {
+        for (const m of modulos) {
+            for (const d of ["monthly", "pass1m", "pass3m", "pass6m", "pass9m", "pass12m"] as const) {
+                expect(m.prices[d], `${m.key}.${d}`).toMatch(/^pri_[a-z0-9]{26}$/);
+            }
         }
+    });
+
+    it("un modulo sin price ID mensual no se ofreceria a nadie", () => {
+        // Se prueba la REGLA con un item sintetico y no con un modulo real:
+        // atarlo a uno concreto hace que el test se caiga solo el dia que ese
+        // modulo recibe su price ID, que es justo cuando todo esta bien.
+        const sinPrecio = { ...ADDON_CATALOG.mod_databases, prices: { ...ADDON_CATALOG.mod_databases.prices, monthly: "" } };
+        for (const tier of ["Professional", "Business", "Enterprise"]) {
+            expect(isAddonVisibleForTier(sinPrecio, tier)).toBe(false);
+        }
+    });
+
+    it("Computo y Bases de Datos usan la escalera de $129", () => {
+        for (const k of ["mod_compute", "mod_databases"]) {
+            expect(ADDON_CATALOG[k].basePriceUSD).toMatchObject({
+                monthly: 129, pass3m: 341, pass6m: 627, pass9m: 871, pass12m: 1099,
+            });
+        }
+    });
+
+    it("comprar todos los modulos Business sale mas caro que subir a Business", () => {
+        // La cerca que sostiene el escalon de precio: si juntar los modulos
+        // sueltos saliera menos que el upgrade, el plan Business no se vende.
+        const suelto = modulos
+            .filter((m) => m.requiredTierFallback === "Business")
+            .reduce((a, m) => a + m.basePriceUSD.monthly, 0);
+        expect(suelto).toBeGreaterThan(999.99 - 299.99);
     });
 
     it("Business no ve los modulos que su plan ya incluye, pero si los de Enterprise", () => {
