@@ -1,3 +1,4 @@
+import type { MaturityScorePolicy } from './finopsMaturity.types';
 /**
  * Contratos de la pestaña General de Configuración Global.
  *
@@ -33,6 +34,11 @@ export interface TenantGlobalConfig {
     theme: ThemePreferenceType;
     branding: TenantBrandingConfig;
     integrations: TenantIntegrationsConfig;
+    /**
+     * Qué pesa al calcular el radar de madurez: la autoevaluación del equipo,
+     * la telemetría de Azure, o el promedio (MEJ-08).
+     */
+    maturityScorePolicy: MaturityScorePolicy;
     /** true sólo en tenants demo — la UI muestra el banner ámbar. */
     mock?: boolean;
 }

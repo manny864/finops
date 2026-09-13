@@ -21,6 +21,8 @@ import {
     getTenantConfiguration,
     saveItsmConfiguration,
     saveThemePreference,
+    saveMaturityScorePolicy,
+    isMaturityScorePolicy,
 } from '@/services/tenantConfiguration.service';
 import { isItsmSystem } from '@/types/tenantConfiguration.types';
 import { assertPublicHttpsUrl } from '@/lib/webhookSecurity';
@@ -62,9 +64,10 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
     try {
         const body = await request.json().catch(() => ({}));
-        const { tenantId, theme, itsm } = body as {
+        const { tenantId, theme, itsm, maturityScorePolicy } = body as {
             tenantId?: string;
             theme?: string;
+            maturityScorePolicy?: string;
             itsm?: { system?: string; baseUrl?: string; apiKey?: string; userEmail?: string; projectKey?: string };
         };
 
@@ -81,6 +84,18 @@ export async function PUT(request: NextRequest) {
 
         if (theme !== undefined) {
             await saveThemePreference(tenantId, String(theme));
+        }
+
+        if (maturityScorePolicy !== undefined) {
+            // Se valida contra la lista antes de tocar MySQL: un valor fuera del
+            // ENUM moriría en el driver con un error que no dice nada al admin.
+            if (!isMaturityScorePolicy(maturityScorePolicy)) {
+                return NextResponse.json(
+                    { error: 'Política inválida. Valores: self_assessment, telemetry, blended_50_50.' },
+                    { status: 400 }
+                );
+            }
+            await saveMaturityScorePolicy(tenantId, maturityScorePolicy);
         }
 
         if (itsm !== undefined) {

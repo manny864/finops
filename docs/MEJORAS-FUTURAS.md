@@ -683,7 +683,7 @@ motivo.
 
 ## MEJ-08 — Ponderación configurable entre telemetría y autoevaluación
 
-**Módulo:** Madurez FinOps · **Impacto:** Bajo · **Esfuerzo:** Bajo · **Estado:** Parcial (backend hecho 2026-09-13; falta poder elegirla)
+**Módulo:** Madurez FinOps · **Impacto:** Bajo · **Esfuerzo:** Bajo · **Estado:** Hecha (2026-09-13)
 
 ### Contexto
 
@@ -726,7 +726,35 @@ El lector cae a `self_assessment` ante fila ausente, valor desconocido o caída 
 MySQL no puede cambiarle los números a nadie en silencio. Tests en `azureMaturityService.test.ts` (8 casos)
 y `maturityScorePolicy.test.ts` (4).
 
-### Falta — y el bloqueo no es de esta entrada
+### Corrección: la columna estaba en la tabla equivocada
+
+La primera versión puso `maturity_score_policy` en `TenantGlobalSettings`, que es donde parecería
+corresponder por el nombre. **Está abandonada:** 0 filas, y NADA en la app la escribe. Sus cuatro columnas
+están duplicadas en `Tenants`, que es la que el producto realmente usa:
+
+| `TenantGlobalSettings` (muerta) | `Tenants` (viva) |
+|---|---|
+| `theme_preference` | `theme_preference` ← `saveThemePreference` |
+| `organization_display_name` | `company_name` ← `superAdminTenants.service.ts:339` |
+| `custom_logo_blob_url` | `logo_stored_name` |
+| `is_master_notifications_enabled` | `notifications_enabled` |
+
+La columna se movió a `Tenants` reescribiendo la migración (todavía no estaba pusheada), así que no queda
+un add-and-drop en el historial. Con eso el write path ya existía: `/api/admin/config/general` +
+`tenantConfiguration.service.ts` escriben `Tenants`, y sólo hubo que exponer un campo más.
+
+`PUT /api/admin/config/general` acepta `maturityScorePolicy` y valida contra la lista ANTES de tocar MySQL:
+un valor fuera del ENUM moriría en el driver con un error que no le dice nada al admin que lo mandó.
+
+### Deuda que esto destapó, y no es de esta entrada
+
+`TenantGlobalSettings` es un esquema duplicado y vacío que miente sobre lo que el producto hace: el
+`COALESCE(gs.organization_display_name, t.company_name)` de `azureAdvisor.service.ts:694` **siempre cae a
+la segunda rama**, y hace un `LEFT JOIN` en cada llamada del Advisor para nada. Borrar la tabla y
+simplificar ese JOIN merece entrada propia; no se hizo acá porque un `DROP TABLE` no va mezclado con una
+feature.
+
+### Nota
 
 **Nadie puede elegir la política todavía, porque NADA en la app escribe `TenantGlobalSettings`.** Buscada
 en todo `src/`: aparece en tres archivos y los tres la LEEN (`azureAdvisor.service.ts` para el nombre

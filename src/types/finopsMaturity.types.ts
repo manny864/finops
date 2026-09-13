@@ -41,7 +41,7 @@ export interface MaturityDimension {
 
 /**
  * Qué pesa al calcular la madurez de un dominio, elegible por tenant
- * (`TenantGlobalSettings.maturity_score_policy`).
+ * (`Tenants.maturity_score_policy`).
  *
  *  - `self_assessment`: manda la respuesta del equipo. Es el default y la
  *    lectura del modelo Crawl-Walk-Run de la FinOps Foundation.

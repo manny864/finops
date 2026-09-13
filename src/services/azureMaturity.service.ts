@@ -195,7 +195,7 @@ export async function getLatestSelfAssessment(
 export async function getMaturityScorePolicy(tenantId: string): Promise<MaturityScorePolicy> {
   try {
     const [rows]: any = await pool.query(
-      `SELECT maturity_score_policy FROM TenantGlobalSettings WHERE tenant_id = ? LIMIT 1`,
+      `SELECT maturity_score_policy FROM Tenants WHERE tenant_id = ? LIMIT 1`,
       [tenantId]
     );
     const v = rows?.[0]?.maturity_score_policy;

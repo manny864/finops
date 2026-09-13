@@ -1754,6 +1754,8 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
             const isEnt = tier.toLowerCase() === 'enterprise';
             return {
                 theme: 'SYSTEM',
+                // El default del producto: la autoevaluación manda sobre su dominio.
+                maturityScorePolicy: 'self_assessment',
                 branding: {
                     organizationName: isEnt ? 'Contoso Global (Demo)' : isBiz ? 'Fabrikam SA (Demo)' : 'Empresa Demo',
                     hasCustomLogo: isBiz,

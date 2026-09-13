@@ -10,6 +10,7 @@
  * porqué de no crear tablas nuevas).
  */
 import pool from '@/modules/storage/db';
+import type { MaturityScorePolicy } from '@/types/finopsMaturity.types';
 import { decryptSecret, encryptSecret } from '@/lib/secretCrypto';
 import type {
     ItsmSystemType,
@@ -24,6 +25,8 @@ interface TenantConfigRow {
     logo_stored_name: string | null;
     webhook_url: string | null;
     theme_preference: ThemePreferenceType | null;
+    /** Opcional: el fallback de esquema previo (ER_BAD_FIELD_ERROR) no la trae. */
+    maturity_score_policy?: MaturityScorePolicy | null;
     itsm_system: ItsmSystemType | null;
     itsm_base_url: string | null;
     itsm_user_email: string | null;
@@ -55,7 +58,7 @@ export async function getTenantConfiguration(
 
     try {
         const [rows] = await pool.query<any[]>(
-            `SELECT company_name, logo_stored_name, webhook_url, theme_preference,
+            `SELECT company_name, logo_stored_name, webhook_url, theme_preference, maturity_score_policy,
                     itsm_system, itsm_base_url, itsm_user_email, itsm_api_key_encrypted, itsm_project_key
              FROM Tenants WHERE tenant_id = ? LIMIT 1`,
             [tenantId]
@@ -77,6 +80,9 @@ export async function getTenantConfiguration(
 
     return {
         tenantId,
+        maturityScorePolicy: isMaturityScorePolicy(row.maturity_score_policy)
+            ? row.maturity_score_policy
+            : 'self_assessment',
         theme: row.theme_preference || 'SYSTEM',
         branding: {
             organizationName: row.company_name || '',
@@ -95,6 +101,25 @@ export async function getTenantConfiguration(
             isItsmConfigured: Boolean(row.itsm_api_key_encrypted && row.itsm_base_url),
         },
     };
+}
+
+/**
+ * Valida contra la lista y no contra el ENUM de MySQL: un valor fuera de rango
+ * tiene que rebotar en la API con un 400 legible, no morir en el driver.
+ */
+export function isMaturityScorePolicy(v: unknown): v is MaturityScorePolicy {
+    return v === 'self_assessment' || v === 'telemetry' || v === 'blended_50_50';
+}
+
+export async function saveMaturityScorePolicy(
+    tenantId: string,
+    policy: MaturityScorePolicy
+): Promise<MaturityScorePolicy> {
+    await pool.query('UPDATE Tenants SET maturity_score_policy = ? WHERE tenant_id = ?', [
+        policy,
+        tenantId,
+    ]);
+    return policy;
 }
 
 export async function saveThemePreference(
