@@ -338,6 +338,46 @@ El camino seguro es de a una: comparar el shape que sirve el interceptor contra
 el que devuelve la ruta, verificar en la demo, y recién entonces quitar la
 intercepción. El listado categorizado para hacerlo está en esta auditoría.
 
+### Medición (2026-09-13): "redundante" no alcanza — y no hay ninguna sacable hoy
+
+Se automatizó el criterio y **el resultado contradice la premisa de arriba**. Para poder sacar una
+intercepción hacen falta DOS condiciones, no una:
+
+1. Que la ruta devuelva el MISMO payload (`return NextResponse.json(getMockDataForRoute('<misma clave>', tenantId))`).
+2. Que el short-circuit de `isMockTenant` esté **antes** de `requireTenantAccess`.
+
+La segunda no estaba en el análisis original y es la que manda: **la demo no tiene token**. Si la ruta
+autentica primero, sacar la intercepción cambia un panel con datos por un **401**.
+
+Medido sobre los 37 mapeos vivos del interceptor:
+
+| | Cantidad |
+|---|---|
+| Sacables hoy (cumplen 1 y 2) | **0** |
+| Payload idéntico pero **bloqueadas** por auth-antes-que-mock | **8** |
+| Resto (mock distinto, o sin mock propio) | 29 |
+
+Las 8 bloqueadas son `aks`, `alerts`, `macc`, `scorecard`, `zero-cost`, `allocation-rules`,
+`compute-cost-per-core` y `admin/governance-policies`. **Se intentó sacarlas y se revirtió**: el payload es
+byte a byte el mismo —se verificó que el multiplicador coincide por los dos caminos, porque el interceptor
+pasa el tier y la ruta el tenantId, y `MOCK_TENANT_TIER` los mapea al mismo valor en los tres tiers— pero
+en demo no se puede llegar a él.
+
+`__tests__/unit/demoInterceptorRedundante.test.ts` fija las cuatro reglas: falla si aparece una
+intercepción sacable (para que se saque), si una URL genérica tapa a una más específica declarada después
+(`/api/intelligence/aks` matchea `aks-chargeback`), o si una apunta a una ruta que no existe.
+
+**El desbloqueo real no es borrar intercepciones: es mover el chequeo de mock antes del auth** en esas 8
+rutas. Eso hace que el interceptor deje de hacer falta y encoge la superficie del parche a `window.fetch`,
+que es el riesgo que esta entrada persigue. Pero cambia QUÉ se sirve sin token —fixtures de tres tenants
+demo hardcodeados con datos falsos— así que es una decisión de producto, no una limpieza.
+
+**Sobre la parte 2 (contratos tipados):** el doc dice que atar una clave es "una línea más el `satisfies`".
+Eso vale sólo cuando ya existe un tipo de respuesta con nombre, y esa vía está agotada: de los 68 `case`,
+2 están atados (los 2 que tenían tipo servido por un servicio) y **30 de los 37 mapeos no tienen ningún
+tipo declarado**. Para el resto hay que escribir la interfaz a mano, que son 30 fuentes de verdad nuevas
+sobre formas que ya existen — el mismo patrón de duplicación que MEJ-32 documenta como bug recurrente.
+
 ### Parte 2 (2026-09-02): contratos tipados — y el bug que destapó
 
 `getMockDataForRoute` devolvía `any`, así que un cambio de contrato dejaba el
