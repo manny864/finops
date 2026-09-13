@@ -29,7 +29,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-11](#mej-11--módulo-de-comunicaciones-globales-a-usuarios-popups-banners-y-alertas) | Módulo de comunicaciones globales a usuarios (popups, banners y alertas) | SuperAdmin / Transversal | Alto | Medio | Hecha |
 | [MEJ-12](#mej-12--trazabilidad-de-ciclo-de-vida-de-tenants-fechas-de-activación-suspensión-y-bajas) | Trazabilidad de ciclo de vida de tenants (fechas de activación y bajas) | SuperAdmin / Gobernanza | Alto | Bajo | Hecha |
 | [MEJ-13](#mej-13--marketplace-de-add-ons-y-capacidades-a-la-carta-para-tiers-professional-y-business) | Marketplace de add-ons y features a la carta (Professional y Business) | Facturación / Marketplace | Alto | Medio | Hecha |
-| [MEJ-14](#mej-14--trazabilidad-de-ventas-por-comercial-y-cálculo-automatizado-de-comisiones) | Trazabilidad de ventas por comercial y cálculo de comisiones (20%) | SuperAdmin / Comercial | Alto | Medio | Propuesta |
+| [MEJ-14](#mej-14--trazabilidad-de-ventas-por-comercial-y-cálculo-automatizado-de-comisiones) | Trazabilidad de ventas por comercial y cálculo de comisiones (20%) | SuperAdmin / Comercial | Alto | Medio | Parcial |
 | [MEJ-15](#mej-15--expansión-multi-tenant-por-contrato-y-adición-de-tenants-con-capacidad-heredada-por-tier) | Expansión multi-tenant por contrato y adición de tenants con capacidad heredada por tier | Facturación / Multi-Tenant | Alto | Medio | Hecha |
 | [MEJ-16](#mej-16--gestión-avanzada-de-compromisos-reservas-y-savings-plans) | Gestión avanzada de compromisos (Reservas y Savings Plans) con simulador de Breakeven, Mix Óptimo, límite de devolución $50k USD y alertas de expiración | Compromisos / FinOps | Alto | Medio | Hecha |
 | [MEJ-17](#mej-17--aks-finops-cockpit-costos-por-namespace-workload-y-eficiencia-de-contenedores) | AKS FinOps Cockpit (Costos por Namespace, Workload y Eficiencia de Contenedores con OpenCost/Add-on) | Cómputo / Kubernetes | Alto | Alto | Propuesta |
@@ -1229,7 +1229,7 @@ Construir un **Marketplace de Add-ons y Capacidades a la Carta** (`/settings/bil
 
 ## MEJ-14 — Trazabilidad de ventas por comercial y cálculo automatizado de comisiones
 
-**Módulo:** SuperAdmin / Comercial / Ventas & Comisiones · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Propuesta
+**Módulo:** SuperAdmin / Comercial / Ventas & Comisiones · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Parcial (criterio 1 hecho 2026-09-13)
 
 ### Contexto
 
@@ -1274,6 +1274,32 @@ Implementar un **Módulo de Trazabilidad Comercial y Liquidación Automatizada d
 - `src/app/api/super-admin/commissions/[id]/pay/route.ts` (endpoint para marcar liquidación como pagada).
 - `src/app/api/webhooks/paddle/route.ts` (disparo de eventos de devengamiento tras pago exitoso).
 - `src/components/super-admin/SalesCommissionsDashboard.tsx` y `CommissionsLedgerTable.tsx`.
+
+### Criterio 1 hecho (2026-09-13) — y corrección de estimación
+
+Esta entrada figuraba como no empezada, pero ya existía el muñón de atribución: `TenantCommercialDeals` con
+`sales_rep_name` y `sales_commission_percent`, escrita desde `superAdminTenants.service.ts`. Lo que faltaba
+del criterio 1 —y es lo que bloqueaba todo lo demás— eran las DOS columnas de las que depende el
+devengamiento:
+
+- **`sold_at`** (migración `20260913-003`): desde dónde se devenga. **NULL para los tenants ya cargados**:
+  no se inventa una fecha retroactiva, porque una comisión calculada sobre una fecha adivinada es peor que
+  no calcularla — parece un dato. El panel muestra "sin registrar" en ámbar para esos.
+- **`contract_term`** (`annual` | `monthly`): qué regla aplica. Anual liquida el 20% de una vez a partir del
+  2do mes; mensual liquida 2/12 tras el segundo cobro y 1/12 por mes.
+
+**`sold_at` no se pisa nunca en el update** (`COALESCE(TenantCommercialDeals.sold_at, VALUES(sold_at))`) y la
+ruta de actualización comercial **no acepta el campo**: la fecha de venta es un hecho del pasado, y moverla
+al editar el vendedor correría el inicio del devengamiento y recalcularía comisiones ya liquidadas.
+
+`normalizeSoldAt` valida en Node y no en MySQL: una fecha inválida entra como `0000-00-00` o NULL según el
+modo del servidor, y en los dos casos el devengamiento arrancaría desde una fecha que nadie eligió. Rechaza
+además el 31 de febrero, que `new Date` acepta corriéndolo a marzo.
+
+**Lo que sigue faltando es el grueso:** el motor de reglas con `Decimal.js`, el devengamiento ante webhooks
+de Paddle, `SalesCommissionLedger`, el panel `/super-admin/comisiones` y las exportaciones. "Esfuerzo:
+Medio" es optimista para eso: son 3 tablas, un motor de cálculo de plata y un módulo de liquidación.
+
 
 ### Criterio de Aceptación
 
