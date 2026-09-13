@@ -32,6 +32,13 @@ export interface TenantBillingDetails {
     currentPeriodEndIso: string;
     cancelAtPeriodEnd: boolean;
     isEnterprise?: boolean;
+    /**
+     * Si el tenant tiene una suscripcion viva en Paddle. Decide a donde lleva
+     * "Modificar Suscripcion": con suscripcion hay que MODIFICARLA (un checkout
+     * nuevo abriria una segunda y la capacidad comprada se perderia); sin
+     * suscripcion --alta manual, contrato cargado a mano-- hay que contratarla.
+     */
+    hasPaddleSubscription?: boolean;
     invoices: SaaSInvoiceItem[];
 }
 

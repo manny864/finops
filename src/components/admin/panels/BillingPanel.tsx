@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import DemoModeBadge from "@/components/DemoModeBadge";
 import { useTenant } from "@/components/TenantProvider";
@@ -60,6 +61,7 @@ export default function BillingPanel() {
     const t = useTranslations("AdminBilling");
     const tc = useTranslations("Common");
     const locale = useLocale();
+    const router = useRouter();
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
 
@@ -76,8 +78,6 @@ export default function BillingPanel() {
     const [canceledMessage, setCanceledMessage] = useState<string | null>(null);
 
     // Modal de cambio de plan (para Pro / Business)
-    const [showChangePlanModal, setShowChangePlanModal] = useState(false);
-    const [selectedTierToChange, setSelectedTierToChange] = useState<SaaSPlanTier>("Business");
     const [changingPlan, setChangingPlan] = useState(false);
 
     // Portal de cliente
@@ -167,6 +167,7 @@ export default function BillingPanel() {
                 currentPeriodEndIso: json.currentPeriodEndIso || new Date(Date.now() + 30 * 86400000).toISOString(),
                 cancelAtPeriodEnd: Boolean(json.cancelAtPeriodEnd),
                 isEnterprise: json.isEnterprise !== undefined ? json.isEnterprise : json.planTier === "Enterprise",
+                hasPaddleSubscription: Boolean(json.hasPaddleSubscription),
                 invoices: json.invoices || [],
             });
         } catch (e: any) {
@@ -181,6 +182,26 @@ export default function BillingPanel() {
     }, [loadBilling]);
 
     // Redirección al Portal de Cliente
+    /**
+     * "Modificar Suscripcion". Antes hacia `setShowChangePlanModal(true)` sobre
+     * un estado que NADIE leia: no habia modal, el boton no hacia nada.
+     *
+     * Con suscripcion de Paddle hay que MODIFICAR la que existe --abrir un
+     * checkout crearia una segunda suscripcion y la capacidad comprada (slots
+     * de tenant y de suscripcion) se calcula desde los items de la principal--,
+     * asi que va al portal del cliente. Sin suscripcion (alta manual, contrato
+     * cargado a mano) no hay nada que modificar: hay que contratarla, y eso es
+     * /upgrade, que ya resuelve checkout con precios de Paddle y el modal de
+     * contacto para Enterprise.
+     */
+    const handleChangePlan = () => {
+        if (billingData?.hasPaddleSubscription) {
+            handleOpenCustomerPortal();
+            return;
+        }
+        router.push("/upgrade");
+    };
+
     const handleOpenCustomerPortal = async () => {
         setLoadingPortal(true);
         try {
@@ -436,7 +457,7 @@ export default function BillingPanel() {
                         </div>
                         <button
                             type="button"
-                            onClick={() => setShowChangePlanModal(true)}
+                            onClick={handleChangePlan}
                             className="inline-flex items-center justify-center gap-1.5 bg-[#0078D4] text-white hover:bg-[#0060AA] px-4 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all"
                         >
                             <span>{t("modifySubscription")}</span>

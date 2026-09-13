@@ -55,6 +55,21 @@ describe("el panel de Mi cuenta muestra el tier que el tenant realmente paga", (
         expect(d.planTier).toBe("Enterprise");
         expect(d.isEnterprise).toBe(true);
     });
+
+    // "Modificar Suscripcion" bifurca con esto: con suscripcion va al portal de
+    // Paddle (modificar la que existe), sin suscripcion va a contratar.
+    it("avisa si el tenant tiene suscripcion de Paddle o es alta manual", async () => {
+        queryMock
+            .mockResolvedValueOnce([[{ tier: "Professional", subscription_status: "ACTIVE", paddle_subscription_id: null }]])
+            .mockResolvedValue([[]]);
+        expect((await getTenantBillingDetails(TENANT)).hasPaddleSubscription).toBe(false);
+
+        queryMock.mockReset();
+        queryMock
+            .mockResolvedValueOnce([[{ tier: "Professional", subscription_status: "ACTIVE", paddle_subscription_id: "sub_1" }]])
+            .mockResolvedValue([[]]);
+        expect((await getTenantBillingDetails(TENANT)).hasPaddleSubscription).toBe(true);
+    });
 });
 
 describe("la baja pedida por el cliente queda registrada", () => {

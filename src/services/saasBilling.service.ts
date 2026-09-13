@@ -86,6 +86,7 @@ export async function getTenantBillingDetails(tenantId: string): Promise<TenantB
     let currentPeriodEndIso = new Date(Date.now() + 30 * 86400000).toISOString();
     let cancelAtPeriodEnd = false;
     let isEnterprise = false;
+    let hasPaddleSubscription = false;
 
     // 1. El tier sale de `Tenants`, que es la fuente que usa el resto de la app
     //    para AUTORIZAR (`requireTenantTier`, cuotas, marketplace). Mostrar otra
@@ -101,7 +102,7 @@ export async function getTenantBillingDetails(tenantId: string): Promise<TenantB
     //    lo que pagara.
     try {
         const [tRows]: any = await pool.query(
-            `SELECT tier, subscription_status, marketplace_plan_id, marketplace_source
+            `SELECT tier, subscription_status, marketplace_plan_id, marketplace_source, paddle_subscription_id
                FROM Tenants WHERE tenant_id = ? LIMIT 1`,
             [tenantId]
         );
@@ -111,6 +112,7 @@ export async function getTenantBillingDetails(tenantId: string): Promise<TenantB
             planTier = (normalizeTier(tRow.tier) as SaaSPlanTier) || "Professional";
             status = (tRow.subscription_status as SaaSSubscriptionStatus) || "ACTIVE";
             isEnterprise = planTier === "Enterprise";
+            hasPaddleSubscription = Boolean(tRow.paddle_subscription_id);
 
             // Los tenants que entran por Azure Marketplace no tienen suscripcion de
             // Paddle: el ciclo se deriva de `marketplace_plan_id`, que es el unico
@@ -173,6 +175,7 @@ export async function getTenantBillingDetails(tenantId: string): Promise<TenantB
         currentPeriodEndIso,
         cancelAtPeriodEnd,
         isEnterprise,
+        hasPaddleSubscription,
         invoices,
     };
 }
