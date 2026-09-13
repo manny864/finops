@@ -11658,7 +11658,9 @@
     "chartResources": "resources",
     "chartCount": "Count",
     "resourceCount": "{count, plural, one {# resource} other {# resources}}",
-    "costPerMonthMtd": "{amount} / mo MTD"
+    "costPerMonthMtd": "{amount} / mo MTD",
+    "billed_in_parent": "in {parent} · {amount}",
+    "tooltip_billed_in_parent": "This resource has no direct charge: what it consumes is billed on {parent}, which costs {amount} per month. The amount is NOT added on this row, to avoid counting it twice."
   },
   "Rightsizing": {
     "title": "Rightsizing Engine",

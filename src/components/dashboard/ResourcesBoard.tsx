@@ -446,7 +446,24 @@ function SearchResourcesTab() {
                                         {fmtDate(r.createdDate || (r as any).createdTime, locale)}
                                     </td>
                                     <td className="p-3.5 text-right font-bold text-[#0054A6] dark:text-blue-400 whitespace-nowrap">
-                                        {r.costSource === "unmeasured" && !(r.monthlyCostUSD > 0) ? (
+                                        {r.costSource === "parent" && r.billedIn ? (
+                                            // El recurso no tiene cargo propio, pero lo que consume se
+                                            // factura en su padre. Se muestra en gris y sin el signo de
+                                            // suma para que no se lea como costo de esta fila: el total
+                                            // de la tabla no lo incluye, y con razón.
+                                            <span
+                                                className="text-slate-500 dark:text-slate-400 font-normal"
+                                                title={t("tooltip_billed_in_parent", {
+                                                    parent: r.billedIn.name,
+                                                    amount: fmtUsd(r.billedIn.monthlyCostUSD),
+                                                })}
+                                            >
+                                                {t("billed_in_parent", {
+                                                    parent: r.billedIn.name,
+                                                    amount: fmtUsd(r.billedIn.monthlyCostUSD),
+                                                })}
+                                            </span>
+                                        ) : r.costSource === "unmeasured" && !(r.monthlyCostUSD > 0) ? (
                                             <span
                                                 className="text-slate-400 dark:text-slate-500"
                                                 title={t("tooltip_no_direct_cost")}

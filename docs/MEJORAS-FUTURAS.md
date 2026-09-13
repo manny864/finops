@@ -565,7 +565,7 @@ fallback histórico).
 
 ## MEJ-05 — Atribuir el costo de recursos hijos a su recurso padre
 
-**Módulo:** Recursos · **Impacto:** Medio · **Esfuerzo:** Medio · **Estado:** Propuesta
+**Módulo:** Recursos · **Impacto:** Medio · **Esfuerzo:** Medio · **Estado:** Hecha (2026-09-13)
 
 ### Contexto
 
@@ -590,6 +590,36 @@ correctamente para no doble-contar en los KPIs: el costo se sigue contando **una
 `src/services/azureResourcesInventory.service.ts` (`searchLiveResources`, `getResourceCostsById`),
 `src/components/dashboard/ResourcesBoard.tsx` (celda de costo),
 `src/lib/advisorI18n.ts` (`extractResourceDisplayName`, que ya resuelve tipos anidados).
+
+### Solución implementada (2026-09-13)
+
+`src/lib/armResourceId.ts` resuelve la jerarquía por PARES `tipo/nombre` después de `/providers/`, no por
+"el penúltimo segmento": el namespace (`Microsoft.Compute`) no es un par, y contarlo como tal haría que una
+VM de primer nivel "tuviera padre" y mostrara su propio costo como ajeno. 8 tests, incluido el caso de
+anidamiento de tres niveles y el de pares incompletos.
+
+`searchLiveResources` resuelve el padre sólo para las filas SIN cargo propio medido y consulta sus costos en
+una llamada aparte. `attributeResourceCost` —pura y exportada— decide qué se atribuye:
+
+| cargo propio | padre con costo | resultado |
+|---|---|---|
+| medido | — | `cost_management`, su costo |
+| ausente | sí | `parent`, **`monthlyCostUSD: 0`** + `billedIn` |
+| ausente | no | `unmeasured`, sigue el "—" |
+
+**El invariante es que `monthlyCostUSD` queda en 0 cuando el cargo va al padre.** El costo se cuenta UNA
+vez, en el padre; sumarlo también en el hijo duplicaría el total de la tabla y los KPIs, que es el riesgo
+que la propuesta marcaba. Hay un test que suma una página con tres hijos de la misma VM y verifica que el
+total sea el de la VM sola.
+
+Un `0` medido NO se confunde con "sin cargo": son ramas distintas y hay test.
+
+La UI muestra `en res-virtualmachines-100 · $266.40` en gris y sin signo de suma, con el tooltip explicando
+que el importe no se suma en esa fila. Claves i18n en los tres idiomas.
+
+El mock de recursos suma una extensión de VM: sin eso sólo generaba recursos de primer nivel y la fila
+"facturado en…" no aparecía nunca en la demo, que es donde un prospecto la vería. Verificado en el browser.
+
 
 ---
 

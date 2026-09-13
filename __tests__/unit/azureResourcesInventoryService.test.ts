@@ -5,6 +5,7 @@ import {
     generateMockCreatedByAggregation,
     generateMockCostsByTagSummary,
     getLiveResourcesInventory,
+    attributeResourceCost,
 } from "@/services/azureResourcesInventory.service";
 import * as azureLib from "@/lib/azure";
 import pool from "@/modules/storage/db";
@@ -105,5 +106,55 @@ describe("Azure Resources Inventory Service", () => {
             subsSpy.mockRestore();
             querySpy.mockRestore();
         });
+    });
+});
+
+describe("attributeResourceCost — costo del padre (MEJ-05)", () => {
+    const VM = "/subscriptions/s1/resourceGroups/rg1/providers/Microsoft.Compute/virtualMachines/vm-app-01";
+
+    it("con cargo propio medido, gana el cargo propio", () => {
+        const r = attributeResourceCost(142.005, { id: VM, cost: 999 });
+        expect(r.monthlyCostUSD).toBe(142.01);
+        expect(r.costSource).toBe("cost_management");
+        expect(r.billedIn).toBeUndefined();
+    });
+
+    it("sin cargo propio, informa el padre y NO suma su costo en la fila", () => {
+        // El invariante de MEJ-05: el costo se cuenta una sola vez, en el padre.
+        // Si esta fila trajera 142, el total de la tabla lo contaría dos veces.
+        const r = attributeResourceCost(undefined, { id: VM, cost: 142 });
+        expect(r.monthlyCostUSD).toBe(0);
+        expect(r.costSource).toBe("parent");
+        expect(r.billedIn).toEqual({ id: VM, name: "vm-app-01", monthlyCostUSD: 142 });
+    });
+
+    it("un cargo propio de 0 medido NO se confunde con no tener cargo", () => {
+        const r = attributeResourceCost(0, { id: VM, cost: 142 });
+        expect(r.costSource).toBe("cost_management");
+        expect(r.billedIn).toBeUndefined();
+    });
+
+    it("si el padre tampoco tiene costo medido, queda sin medir", () => {
+        // Decir "facturado en X" sin número no agrega nada sobre el "—".
+        const r = attributeResourceCost(undefined, { id: VM, cost: undefined });
+        expect(r.costSource).toBe("unmeasured");
+        expect(r.billedIn).toBeUndefined();
+        expect(r.monthlyCostUSD).toBe(0);
+    });
+
+    it("sin padre resuelto, queda sin medir", () => {
+        const r = attributeResourceCost(undefined, undefined);
+        expect(r.costSource).toBe("unmeasured");
+        expect(r.monthlyCostUSD).toBe(0);
+    });
+
+    it("la suma de una página no cambia por atribuir padres", () => {
+        // Tres hijos de la misma VM: el total tiene que ser el de la VM sola.
+        const vm = attributeResourceCost(142, undefined);
+        const hijos = ["ext1", "ext2", "nic1"].map(() =>
+            attributeResourceCost(undefined, { id: VM, cost: 142 })
+        );
+        const total = [vm, ...hijos].reduce((a, x) => a + x.monthlyCostUSD, 0);
+        expect(total).toBe(142);
     });
 });

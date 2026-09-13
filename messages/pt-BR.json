@@ -11658,7 +11658,9 @@
     "chartResources": "recursos",
     "chartCount": "Quantidade",
     "resourceCount": "{count, plural, one {# recurso} other {# recursos}}",
-    "costPerMonthMtd": "{amount} / mês MTD"
+    "costPerMonthMtd": "{amount} / mês MTD",
+    "billed_in_parent": "em {parent} · {amount}",
+    "tooltip_billed_in_parent": "Este recurso não tem cobrança própria: o que ele consome é faturado em {parent}, que custa {amount} por mês. O valor NÃO é somado nesta linha, para não contar duas vezes."
   },
   "Rightsizing": {
     "title": "Rightsizing Engine",

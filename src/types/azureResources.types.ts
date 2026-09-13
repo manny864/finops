@@ -20,7 +20,18 @@ export interface CloudResourceItem {
      * Origen del costo: medido por Cost Management o sin cargo directo medido.
      * Nunca estimado — ver searchLiveResources.
      */
-    costSource?: 'cost_management' | 'unmeasured';
+    /**
+     * `parent`: el recurso no tiene cargo propio y lo que consume se factura en
+     * su padre (ver `billedIn`). Su `monthlyCostUSD` sigue siendo 0 a propósito:
+     * el costo se cuenta UNA vez, en el padre, o los KPIs lo duplicarían.
+     */
+    costSource?: 'cost_management' | 'unmeasured' | 'parent';
+    /** Dónde se factura de verdad lo que consume este recurso (MEJ-05). */
+    billedIn?: {
+        id: string;
+        name: string;
+        monthlyCostUSD: number;
+    };
     tags: Record<string, string>;
     properties?: Record<string, any>;
 }

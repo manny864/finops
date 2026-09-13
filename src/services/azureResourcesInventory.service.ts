@@ -20,6 +20,7 @@ import type {
     ResourcesCreatedByResponse,
     ResourcesCostsByTagResponse,
 } from "@/types/azureResources.types";
+import { resolveParentResourceId, parseArmLeaf, subscriptionIdFromArmId } from "@/lib/armResourceId";
 import { errorMessage } from '@/lib/apiErrors';
 
 const round2 = (x: number) => Math.round(x * 100) / 100;
@@ -108,6 +109,29 @@ export function generateMockResourcesSearch(
     }
     if (filters.tagKey) {
         allRows = allRows.filter((r) => Boolean(r.tags[filters.tagKey!]));
+    }
+
+    // Un hijo real para que la demo muestre la atribución al padre (MEJ-05): sin
+    // esto el mock sólo genera recursos de primer nivel y la fila "facturado en
+    // …" no aparece nunca, que es justo lo que un prospecto tendría que ver.
+    const vmPadre = allRows.find((r) => r.type.toLowerCase().includes("virtualmachines"));
+    if (vmPadre) {
+        allRows.push({
+            ...vmPadre,
+            id: `${vmPadre.id}/extensions/AzureMonitorAgent`,
+            name: "AzureMonitorAgent",
+            type: "Microsoft.Compute/virtualMachines/extensions",
+            typeDisplayName: formatResourceType("Microsoft.Compute/virtualMachines/extensions"),
+            skuName: undefined,
+            // Cero a propósito: el costo se cuenta UNA vez, en la VM.
+            monthlyCostUSD: 0,
+            costSource: "parent" as const,
+            billedIn: {
+                id: vmPadre.id,
+                name: vmPadre.name,
+                monthlyCostUSD: vmPadre.monthlyCostUSD,
+            },
+        });
     }
 
     allRows.sort((a, b) => b.monthlyCostUSD - a.monthlyCostUSD);
@@ -421,6 +445,37 @@ export async function getResourceCostsById(
     return result;
 }
 
+/**
+ * Decide qué costo se le atribuye a una fila y de dónde sale (MEJ-05).
+ *
+ * El invariante que importa: cuando el cargo va al padre, `monthlyCostUSD`
+ * queda en 0. El costo se cuenta UNA vez, en el padre; sumarlo también acá
+ * duplicaría el total de la tabla y los KPIs.
+ *
+ * Se informa el padre sólo si SU costo está medido: decir "facturado en X" sin
+ * número no agrega nada sobre el "—" que ya se mostraba.
+ */
+export function attributeResourceCost(
+    measuredCost: number | undefined,
+    parent: { id: string; cost: number | undefined } | undefined
+): Pick<CloudResourceItem, "monthlyCostUSD" | "costSource" | "billedIn"> {
+    if (measuredCost !== undefined) {
+        return { monthlyCostUSD: round2(measuredCost), costSource: "cost_management" };
+    }
+    if (parent && parent.cost !== undefined) {
+        return {
+            monthlyCostUSD: 0,
+            costSource: "parent",
+            billedIn: {
+                id: parent.id,
+                name: parseArmLeaf(parent.id)?.name || parent.id,
+                monthlyCostUSD: round2(parent.cost),
+            },
+        };
+    }
+    return { monthlyCostUSD: 0, costSource: "unmeasured" };
+}
+
 export async function searchLiveResources(
     tenantId: string,
     filters: {
@@ -477,6 +532,30 @@ export async function searchLiveResources(
         pageRows.map((r) => ({ id: r.id, subscriptionId: r.subscriptionId }))
     );
 
+    // MEJ-05: un recurso sin cargo propio (extensión de VM, NIC, subred…) SÍ
+    // consume; lo que gasta se factura en su padre. Se resuelve la jerarquía del
+    // ARM ID y se consulta el costo del padre para poder mostrar "facturado en
+    // vm-app-01" en vez de un "—" exacto pero inútil.
+    //
+    // Los padres se consultan aparte y NO se suman a la fila del hijo: el costo
+    // se cuenta una sola vez, en el padre. Si el padre está en esta misma página
+    // ya trae su costo por el camino normal.
+    const padresPorHijo = new Map<string, string>();
+    for (const r of pageRows) {
+        if (costMap.get(String(r.id).toLowerCase()) !== undefined) continue;
+        const padre = resolveParentResourceId(String(r.id));
+        if (padre) padresPorHijo.set(String(r.id).toLowerCase(), padre);
+    }
+    const costoDePadres = padresPorHijo.size
+        ? await getResourceCostsById(
+              tenantId,
+              [...new Set(padresPorHijo.values())].map((id) => ({
+                  id,
+                  subscriptionId: subscriptionIdFromArmId(id) || "",
+              }))
+          )
+        : new Map<string, number>();
+
     const [rgCountRows, costGroupRows] = await Promise.all([
         runResourceGraphQuery(tenantId, subs, `${baseQuery} | summarize by resourceGroup, subscriptionId`),
         runResourceGraphQuery(tenantId, subs, `${baseQuery} | project cc = tostring(tags['CostCenter']) | where isnotempty(cc) | summarize by cc`),
@@ -490,7 +569,12 @@ export async function searchLiveResources(
         // salían los "$20" uniformes y los "$95" en cualquier cosa cuyo tipo
         // contuviera "virtualmachines". Un recurso sin cargo directo vale 0.
         const measuredCost = costMap.get(String(r.id).toLowerCase());
-        const costUSD = measuredCost ?? 0;
+        const padreId = padresPorHijo.get(String(r.id).toLowerCase());
+        const costo = attributeResourceCost(
+            measuredCost,
+            padreId ? { id: padreId, cost: costoDePadres.get(padreId.toLowerCase()) } : undefined
+        );
+
         return {
             id: r.id,
             name: r.name,
@@ -504,10 +588,10 @@ export async function searchLiveResources(
             owner: tags.Owner || tags.owner || tags.CreatedBy || tags.createdBy || undefined,
             costGroup: tags.CostCenter || tags.Costcenter || tags.Project || undefined,
             createdDate: r.createdTime ? String(r.createdTime).slice(0, 10) : undefined,
-            monthlyCostUSD: round2(costUSD),
-            // Distingue "sin cargo directo medido" de "0 medido", para que la
-            // tabla pueda mostrar "—" en vez de un $0.00 que parece un dato.
-            costSource: measuredCost === undefined ? "unmeasured" : "cost_management",
+            // monthlyCostUSD / costSource / billedIn los decide
+            // `attributeResourceCost`, que es donde vive el invariante de no
+            // contar dos veces el costo del padre.
+            ...costo,
             tags,
             properties: r.properties || undefined,
         };
