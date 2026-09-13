@@ -55,6 +55,13 @@ export default function AddonsMarketplace({
     // Motivo por el que no hay nada que ofrecer (hoy solo: el tenant factura por
     // el marketplace de Microsoft). Sin esto la pantalla quedaba vacia sin explicar nada.
     const [unavailableReason, setUnavailableReason] = useState<string | null>(null);
+    // El tier que MANDA es el que devuelve la API: sale de `Tenants.tier`, que es
+    // la misma fuente que decide que se puede comprar y que autoriza el acceso.
+    // La prop viene de `selectedTenant` (contexto del cliente, persistido en
+    // localStorage) y puede quedar vieja: mostraba el banner "tu plan Enterprise"
+    // sobre un catalogo filtrado como Professional, en la misma pantalla.
+    const [tierDelServidor, setTierDelServidor] = useState<string | null>(null);
+    const tierEfectivo = tierDelServidor || currentTier;
 
     const getProductName = (key: string, fallbackName?: string) => {
         try {
@@ -128,6 +135,7 @@ export default function AddonsMarketplace({
             setCatalog(data.catalog || []);
             setActiveAddons(data.activeAddons || []);
             setUnavailableReason(data.unavailableReason || null);
+            if (data.currentTier) setTierDelServidor(data.currentTier);
 
             // Duraciones iniciales por default a 1 mes
             const initialDurations: Record<string, number> = {};
@@ -343,7 +351,7 @@ export default function AddonsMarketplace({
             )}
 
             {/* Banner Informativo si el plan es Enterprise */}
-            {currentTier?.toUpperCase() === "ENTERPRISE" && (
+            {tierEfectivo?.toUpperCase() === "ENTERPRISE" && (
                 <div className="mt-6 p-4 rounded-xl border border-[#0078D4]/30 bg-[#0078D4]/5 dark:bg-[#0078D4]/10 flex items-start gap-3">
                     <IconShieldCheck className="w-5 h-5 text-[#0078D4] shrink-0 mt-0.5" />
                     <div>
@@ -505,7 +513,7 @@ export default function AddonsMarketplace({
 
                                 {/* Acciones de Compra con texto blanco y alto contraste */}
                                 <div className="space-y-2 pt-2 border-t border-slate-200/70 dark:border-slate-800/70">
-                                    {currentTier?.toUpperCase() === "ENTERPRISE" ? (
+                                    {tierEfectivo?.toUpperCase() === "ENTERPRISE" ? (
                                         <div className="w-full py-2.5 px-3 rounded-lg text-xs font-semibold bg-blue-50 dark:bg-blue-950/40 text-[#0078D4] dark:text-blue-300 text-center border border-blue-200/60 dark:border-blue-800/60 flex items-center justify-center gap-1.5">
                                             <IconShieldCheck className="w-4 h-4 text-[#0078D4]" />
                                             <span>{t("included_in_enterprise")}</span>

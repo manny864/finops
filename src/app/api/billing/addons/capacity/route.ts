@@ -60,9 +60,15 @@ export async function GET(request: NextRequest) {
     // Best-effort: si Paddle no responde queda el fallback del catalogo. Nunca
     // se muestra "sin precio" por una caida del proveedor.
     let precioSuscripcion = ADDON_CATALOG.quota_subscriptions.basePriceUSD.monthly;
+    // El tenant adicional cuesta distinto por tier, asi que su precio vive en
+    // `monthlyByTier`. Antes salia de `ADDON_PRICE_USD` escrito a mano: Paddle
+    // cobraba una cosa y la tarjeta mostraba otra en cuanto se tocara el precio
+    // alla, que es justo lo que esta pantalla ya evitaba para la suscripcion.
+    let precioTenant = ADDON_PRICE_USD.extraTenant?.[tier] ?? null;
     try {
       const live = await getModulePrices();
       precioSuscripcion = live.modules.quota_subscriptions?.monthly ?? precioSuscripcion;
+      precioTenant = live.modules.quota_tenant?.monthlyByTier?.[tier] ?? precioTenant;
     } catch {
       /* fallback del catalogo */
     }
@@ -83,9 +89,9 @@ export async function GET(request: NextRequest) {
       // $40 por lo mismo.
       prices: {
         subscription: precioSuscripcion,
-        // El tenant adicional todavia no esta en ADDON_CATALOG, asi que sigue
-        // saliendo de la tabla de precios de lista. Se unifica cuando entre.
-        tenant: ADDON_PRICE_USD.extraTenant?.[tier] ?? null,
+        // Enterprise queda en null a proposito: su capacidad va por contrato,
+        // no tiene precio por unidad ni price ID en Paddle.
+        tenant: precioTenant,
       },
       // Sin esto la UI no puede ofrecer la compra: no hay a qué suscripción
       // agregarle el ítem.

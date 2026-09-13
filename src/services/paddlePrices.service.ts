@@ -31,6 +31,14 @@ export interface PlanPricesResult {
 }
 
 export interface ModulePrices {
+    /**
+     * Precio mensual por tier, para los add-ons que cuestan distinto segun el
+     * plan del comprador (el tenant adicional: $90 en Professional, $240 en
+     * Business). Sale de `pricesByTier` del catalogo, y como esos IDs no viven
+     * en `prices`, antes NI SIQUIERA se le pedian a Paddle: el precio salia
+     * siempre de la tabla escrita a mano.
+     */
+    monthlyByTier?: Record<string, number>;
     monthly: number;
     annual?: number;
     pass1m: number;
@@ -221,6 +229,11 @@ export async function getModulePrices(): Promise<ModulePricesResult> {
         for (const id of Object.values(product.prices)) {
             if (id && typeof id === "string") priceIdsSet.add(id);
         }
+        for (const porTier of Object.values(product.pricesByTier ?? {})) {
+            for (const id of Object.values(porTier ?? {})) {
+                if (id && typeof id === "string") priceIdsSet.add(id);
+            }
+        }
     }
 
     const priceMap = apiKey && priceIdsSet.size > 0
@@ -252,7 +265,21 @@ export async function getModulePrices(): Promise<ModulePricesResult> {
             pass12mParsed?.currency ||
             "USD";
 
+        // Precio por tier: se cobra por Paddle, asi que se muestra lo que Paddle
+        // dice. `ADDON_PRICE_USD` queda de fallback cuando no responde.
+        const porTier: Record<string, number> = {};
+        for (const [tier, precios] of Object.entries(product.pricesByTier ?? {})) {
+            const parsed = precios?.monthly ? priceMap[precios.monthly] : null;
+            if (parsed) {
+                porTier[tier] = parsed.amount;
+                algunoLeido = true;
+            } else if (product.basePriceUSDByTier?.[tier] !== undefined) {
+                porTier[tier] = product.basePriceUSDByTier[tier];
+            }
+        }
+
         modules[key] = {
+            ...(Object.keys(porTier).length > 0 ? { monthlyByTier: porTier } : {}),
             monthly: monthlyParsed?.amount ?? b.monthly,
             pass1m: pass1mParsed?.amount ?? b.pass1m,
             pass3m: pass3mParsed?.amount ?? b.pass3m,

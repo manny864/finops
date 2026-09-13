@@ -77,6 +77,24 @@ export async function GET(request: NextRequest) {
 
             const live = modulePricesResult.modules[item.key];
             if (!live) return { ...item, prices };
+
+            // Los add-ons que cuestan distinto por tier (el tenant adicional)
+            // traen su precio en `monthlyByTier`: `live.monthly` es el del
+            // producto sin tier y para estos vale 0. Pisarlo con eso mostraba
+            // el tenant adicional a $0.
+            const porTier = live.monthlyByTier?.[currentTier];
+            if (porTier !== undefined) {
+                return {
+                    ...item,
+                    prices,
+                    currency: live.currency,
+                    basePriceUSD: {
+                        monthly: porTier, pass1m: porTier, pass3m: porTier,
+                        pass6m: porTier, pass9m: porTier, pass12m: porTier,
+                    },
+                };
+            }
+
             return {
                 ...item,
                 prices,

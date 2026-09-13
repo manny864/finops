@@ -18,6 +18,7 @@
     "typecheck": "tsc --noEmit",
     "db:delete-admin": "node scripts/delete-admin-user.js",
     "migrate": "tsx scripts/migrate.ts",
+    "migrate:local": "bash -c 'set -a; source .env.development; set +a; npx tsx scripts/migrate.ts'",
     "seed:pricing-units": "tsx scripts/seed-pricing-units.ts",
     "migrate:infra-secrets": "tsx scripts/migrate-infra-secrets-to-kv.ts",
     "verify:demo-tenant": "tsx scripts/verify-demo-tenant.ts",
