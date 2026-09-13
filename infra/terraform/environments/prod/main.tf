@@ -157,7 +157,18 @@ module "stamp" {
   web_max_replicas                = each.value.web_max_replicas
   concurrent_requests_per_replica = each.value.concurrent_requests_per_replica
 
-  extra_env_vars       = merge(var.extra_env_vars, each.value.extra_env_vars)
+  # Los price IDs de Paddle salen del MISMO archivo que el catalogo de la app
+  # (generado desde src/lib/addonCatalog.ts) en vez de escribirse a mano aca o
+  # en TF_VARS_PROD: dos listas de 144 entradas se desincronizan solas. No son
+  # secretos --viajan al browser en el checkout y estan versionados-- asi que
+  # van como env vars planas y no por Key Vault.
+  # `__tests__/unit/paddlePriceIdsTerraform.test.ts` falla si el JSON se separa
+  # del catalogo.
+  extra_env_vars = merge(
+    var.extra_env_vars,
+    each.value.extra_env_vars,
+    jsondecode(file("${path.module}/paddle-price-ids.json")),
+  )
   key_vault_secret_ids = var.key_vault_secret_ids
   key_vault_secret_env = var.key_vault_secret_env
   allowed_ip_ranges    = var.allowed_ip_ranges

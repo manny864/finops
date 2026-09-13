@@ -4,6 +4,7 @@ import { Link, usePathname } from '@/i18n/routing';
 import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { hasAccess } from '@/lib/tierLogic';
+import { addonUnlocksPath } from '@/lib/addonCatalog';
 import { getTagsForRoute, hasAnyTag } from '@/lib/pageRoleTags';
 import {
     LayoutDashboard,
@@ -252,7 +253,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
     // ProductOwner) = DOMINIO: qué páginas puede ver — son independientes y
     // se aplican JUNTAS, no una en lugar de la otra. Un usuario puede ser
     // Reader (solo lectura) + permiso FinOps (solo ve páginas de ese dominio).
-    const { userRole, userPermissions, systemRole } = useTenant();
+    const { userRole, userPermissions, systemRole, activeAddonKeys } = useTenant();
     // Rutas siempre visibles con cualquier combinación de rol/permisos (orientación mínima).
     const ALWAYS_VISIBLE_HREFS = ['/', '/support', '/academy'];
     // Admin/Owner no se acotan por permisos: gestionan la plataforma completa
@@ -353,7 +354,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                             const isActive = isRouteActive(item.href);
                             // Mismo criterio que en roleCategories.map: navega igual, el
                             // mensaje de plan lo muestra RouteTierGate en la página destino.
-                            const isLocked = (item as any).requiredTier && !hasAccess(tier, (item as any).requiredTier);
+                            const isLocked = Boolean((item as any).requiredTier)
+                                && !hasAccess(tier, (item as any).requiredTier)
+                                // Un modulo comprado deja de estar gris: el add-on lo
+                                // habilita igual que el tier (mismo criterio que RouteTierGate).
+                                && !addonUnlocksPath(activeAddonKeys, item.href);
                             return (
                                 <Link
                                     key={item.href}
@@ -411,7 +416,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                                     // pensado para tarjetas sueltas dentro de una página, no para
                                     // rutas de navegación reales). Solo aplicamos el estilo
                                     // blureado/sin-candado para dar la misma pista visual.
-                                    const isLocked = (item as any).requiredTier && !hasAccess(tier, (item as any).requiredTier);
+                                    const isLocked = Boolean((item as any).requiredTier)
+                                && !hasAccess(tier, (item as any).requiredTier)
+                                // Un modulo comprado deja de estar gris: el add-on lo
+                                // habilita igual que el tier (mismo criterio que RouteTierGate).
+                                && !addonUnlocksPath(activeAddonKeys, item.href);
                                     const renderedLink = (
                                         <Link
                                             key={item.href}

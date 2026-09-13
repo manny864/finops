@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantRole } from "@/lib/requestAuth";
 import { errorMessage, errorStatus } from "@/lib/apiErrors";
-import { ADDON_CATALOG, isAddonVisibleForTier } from "@/lib/addonCatalog";
+import { ADDON_CATALOG, isAddonVisibleForTier, resolveAddonForTier } from "@/lib/addonCatalog";
 import { TenantAddonsService } from "@/services/tenantAddons.service";
 import pool from "@/modules/storage/db";
 import { normalizeTier } from "@/lib/tierLogic";
@@ -43,7 +43,13 @@ export async function GET(request: NextRequest) {
             getModulePrices(),
         ]);
 
-        const catalog = Object.values(ADDON_CATALOG).filter((a) => isAddonVisibleForTier(a, currentTier)).map((item) => {
+        const catalog = Object.values(ADDON_CATALOG)
+            // Resolver ANTES de filtrar: los add-ons con precio por tier no
+            // tienen price ID mensual hasta que se resuelve, y el filtro los
+            // descartaria por "sin precio".
+            .map((a) => resolveAddonForTier(a, currentTier))
+            .filter((a) => isAddonVisibleForTier(a, currentTier))
+            .map((item) => {
             // Una duracion sin price ID se saca de la oferta por el mismo
             // motivo que el modulo entero: no hay contra que cobrar.
             const prices = Object.fromEntries(

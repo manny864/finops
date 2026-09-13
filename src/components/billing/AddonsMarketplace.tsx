@@ -24,6 +24,7 @@ import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { errorMessage } from "@/lib/apiErrors";
 import type { AddonProduct } from "@/lib/addonCatalog";
+import { useRouter } from "@/i18n/routing";
 import type { ActiveTenantAddon } from "@/services/tenantAddons.service";
 
 interface AddonsMarketplaceProps {
@@ -43,6 +44,7 @@ export default function AddonsMarketplace({
     const { instance, accounts } = useMsal();
     const userEmail = accounts?.[0]?.username;
 
+    const router = useRouter();
     const [paddle, setPaddle] = useState<Paddle | null>(null);
     const [catalog, setCatalog] = useState<AddonProduct[]>([]);
     const [activeAddons, setActiveAddons] = useState<ActiveTenantAddon[]>([]);
@@ -153,6 +155,15 @@ export default function AddonsMarketplace({
             const months = selectedDurations[addonKey] || 1;
             const product = catalog.find((p) => p.key === addonKey);
             if (!product) return;
+
+            // Add-ons que NO pasan por el checkout: se contratan modificando la
+            // suscripcion existente. Abrir el checkout crearia una segunda
+            // suscripcion, y como el webhook FIJA la capacidad desde los items,
+            // la proxima actualizacion de la principal la pondria en cero.
+            if (product.fulfilledBy === "capacity" && product.fulfillmentHref) {
+                router.push(product.fulfillmentHref);
+                return;
+            }
 
             // En modo Mock o Demo sin pasarela real conectada
             if (isMock) {

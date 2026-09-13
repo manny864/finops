@@ -5,6 +5,7 @@ import { ShieldOff } from 'lucide-react';
 import { useTenant } from './TenantProvider';
 import { hasAccess } from '@/lib/tierLogic';
 import { getRequiredTierForPath, stripLocale } from '@/lib/routeTiers';
+import { addonUnlocksPath } from '@/lib/addonCatalog';
 import { getTagsForRoute, hasAnyTag, ROLE_TAG_META } from '@/lib/pageRoleTags';
 import TierLockedNotice from './TierLockedNotice';
 
@@ -26,14 +27,17 @@ const ALWAYS_VISIBLE_ROUTES = ['/', '/support', '/academy'];
  */
 export default function RouteTierGate({ children }: { children: React.ReactNode }) {
     const pathname = usePathname() || '/';
-    const { selectedTenant, systemRole, userRole, userPermissions } = useTenant();
+    const { selectedTenant, systemRole, userRole, userPermissions, activeAddonKeys } = useTenant();
 
     const requiredTier = getRequiredTierForPath(pathname);
     const currentTier = (selectedTenant as any)?.tier || 'Professional';
 
     if (systemRole === 'SUPERADMIN') return <>{children}</>;
 
-    if (requiredTier && !hasAccess(currentTier, requiredTier)) {
+    // Un modulo comprado habilita su ruta y TODAS sus sub-rutas, aunque el tier
+    // no alcance: para eso se vende. Se evalua despues del tier porque el tier
+    // es lo barato y lo que cubre la mayoria de los casos.
+    if (requiredTier && !hasAccess(currentTier, requiredTier) && !addonUnlocksPath(activeAddonKeys, pathname)) {
         return <TierBlocked requiredTier={requiredTier} currentTier={currentTier} />;
     }
 

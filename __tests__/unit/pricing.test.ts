@@ -9,6 +9,13 @@ import {
     getAnnualDiscountPercent,
 } from "@/lib/pricing";
 import { SUBSCRIPTION_LIMITS, USER_LIMITS } from "@/lib/tierLogic";
+import { ADDON_CATALOG, isAddonVisibleForTier } from "@/lib/addonCatalog";
+
+// La capacidad dejo de tener precio por tier en pricing.ts: hay un solo
+// producto de Paddle y un solo precio, que vive en el catalogo (ver el
+// comentario de ADDON_PRICE_USD). Los invariantes comerciales siguen valiendo,
+// solo que ahora se miden contra ahi.
+const precioSuscripcionExtra = ADDON_CATALOG.quota_subscriptions.basePriceUSD.monthly;
 
 describe("catálogo de precios", () => {
     // Los números son los de la oferta de Paddle, que es quien cobra. El
@@ -60,7 +67,7 @@ describe("catálogo de precios", () => {
     it("la suscripción extra es más barata que una incluida en el plan", () => {
         for (const tier of ["Professional", "Business"]) {
             const incluida = TIER_BASE_PRICE_USD[tier]! / SUBSCRIPTION_LIMITS[tier];
-            expect(ADDON_PRICE_USD.extraSubscription[tier]!).toBeLessThan(incluida);
+            expect(precioSuscripcionExtra).toBeLessThan(incluida);
         }
     });
 
@@ -88,20 +95,29 @@ describe("add-ons", () => {
     // cliente se iría al upgrade (o a la competencia).
     it("sumar una suscripción suelta es más barato que saltar de tier", () => {
         const saltoDeTier = TIER_BASE_PRICE_USD.Business! - TIER_BASE_PRICE_USD.Professional!;
-        expect(ADDON_PRICE_USD.extraSubscription.Professional!).toBeLessThan(saltoDeTier);
+        expect(precioSuscripcionExtra).toBeLessThan(saltoDeTier);
     });
 
-    it("el add-on baja de precio en el tier más alto (descuento por volumen)", () => {
-        expect(ADDON_PRICE_USD.extraSubscription.Business!).toBeLessThan(ADDON_PRICE_USD.extraSubscription.Professional!);
-        expect(ADDON_PRICE_USD.extraUser.Business!).toBeLessThan(ADDON_PRICE_USD.extraUser.Professional!);
+    it("la capacidad ya no tiene precio por tier", () => {
+        // Reemplaza al viejo test de "descuento por volumen". Habia dos precios
+        // ($50 Professional / $40 Business) y dos productos en Paddle para el
+        // mismo add-on: el panel de capacidad mostraba uno y el marketplace el
+        // otro. Ahora hay un producto y un precio; que no vuelva a haber dos es
+        // el invariante que importa.
+        expect(ADDON_PRICE_USD.extraSubscription).toBeUndefined();
+        expect(ADDON_PRICE_USD.extraUser).toBeUndefined();
     });
 
     // Enterprise se negocia por contrato: una factura por unidad lo vuelve
     // impredecible, que es lo que ese comprador rechaza.
     it("Enterprise no tiene precio por unidad de capacidad", () => {
-        expect(getAddonPrice("extraSubscription", "Enterprise")).toBeNull();
         expect(getAddonPrice("extraTenant", "Enterprise")).toBeNull();
-        expect(getAddonPrice("extraUser", "Enterprise")).toBeNull();
+        // Suscripciones y usuarios ya no se cotizan por tier: a Enterprise no
+        // se le ofrecen porque sus limites son Infinity, y eso lo decide el
+        // filtro del marketplace, no una tabla de precios.
+        for (const key of ["quota_subscriptions", "quota_user_seats", "quota_tenant"]) {
+            expect(isAddonVisibleForTier(ADDON_CATALOG[key], "Enterprise"), key).toBe(false);
+        }
     });
 
     it("soporte y retención vienen incluidos en Enterprise", () => {

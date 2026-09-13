@@ -1,4 +1,6 @@
 import { hasAccess } from "./tierLogic";
+import { ADDON_PRICE_USD } from "./pricing";
+import { stripLocale } from "./stripLocale";
 
 /**
  * Catálogo Centralizado de Add-ons y Capacidades a la Carta (MEJ-13).
@@ -15,6 +17,25 @@ export interface AddonProduct {
     category: AddonCategory;
     /** Ruta que habilita el modulo. Sin esto no se puede filtrar por tier ni gatear el acceso. */
     route?: string;
+    /**
+     * Price IDs y precios que dependen del tier del comprador. Se resuelven en
+     * `resolveAddonForTier` antes de que el catalogo salga de la API, asi el
+     * cliente recibe un producto normal y no tiene que saber de tiers.
+     */
+    pricesByTier?: Record<string, Partial<AddonProduct["prices"]>>;
+    basePriceUSDByTier?: Record<string, number>;
+    /**
+     * Add-on que NO se cobra por el checkout del marketplace.
+     *
+     * El checkout abre una transaccion NUEVA, y `applyAddonCapacity` FIJA la
+     * capacidad desde los items de la suscripcion. Un slot comprado asi vivria
+     * en una segunda suscripcion, y la proxima actualizacion de la principal
+     * pondria la capacidad en cero. Estos add-ons se muestran para que se
+     * encuentren, pero se contratan en `fulfillmentHref`, que modifica la
+     * suscripcion existente.
+     */
+    fulfilledBy?: "capacity";
+    fulfillmentHref?: string;
     unit?: string;
     extraQuantity?: number;
     requiredTierFallback: "Business" | "Enterprise";
@@ -162,6 +183,31 @@ export const ADDON_CATALOG: Record<string, AddonProduct> = {
             pass9m: 263.0,
             pass12m: 332.0,
         },
+    },
+    quota_tenant: {
+        key: "quota_tenant",
+        name: "Tenant Adicional",
+        description: "Suma otro tenant de Azure a tu contrato, con tu misma cuenta y tus accesos actuales. Hereda los limites de tu plan: usuarios y suscripciones incluidas.",
+        category: "quota",
+        unit: "tenant",
+        extraQuantity: 1,
+        requiredTierFallback: "Business",
+        // Se contrata en el panel de capacidad, no por el checkout. Ver el
+        // comentario de `fulfilledBy`.
+        fulfilledBy: "capacity",
+        fulfillmentHref: "/admin/account?tab=billing",
+        prices: {},
+        pricesByTier: {
+            Professional: { monthly: process.env.PADDLE_ADDON_TENANT_PRICE_ID_PROFESSIONAL || "" },
+            Business: { monthly: process.env.PADDLE_ADDON_TENANT_PRICE_ID_BUSINESS || "" },
+        },
+        // El precio sale de ADDON_PRICE_USD y no de una copia: es ~30% del plan
+        // base y ese criterio ya esta escrito y justificado en pricing.ts.
+        basePriceUSDByTier: {
+            Professional: ADDON_PRICE_USD.extraTenant.Professional ?? 0,
+            Business: ADDON_PRICE_USD.extraTenant.Business ?? 0,
+        },
+        basePriceUSD: { monthly: 0, pass1m: 0, pass3m: 0, pass6m: 0, pass9m: 0, pass12m: 0 },
     },
     mod_resources: {
         key: "mod_resources",
@@ -656,4 +702,42 @@ export function isAddonVisibleForTier(item: AddonProduct, tier: string): boolean
     if (!item.prices.monthly) return false;
     if (item.category === "quota") return tier !== "Enterprise";
     return !hasAccess(tier, item.requiredTierFallback);
+}
+
+/**
+ * Aplica al add-on los valores que dependen del tier del comprador. Se llama
+ * ANTES de filtrar por visibilidad: `isAddonVisibleForTier` exige un price ID
+ * mensual, y para estos add-ons ese ID recien existe una vez resuelto.
+ */
+export function resolveAddonForTier(item: AddonProduct, tier: string): AddonProduct {
+    if (!item.pricesByTier && !item.basePriceUSDByTier) return item;
+    const precio = item.basePriceUSDByTier?.[tier];
+    return {
+        ...item,
+        prices: { ...item.prices, ...(item.pricesByTier?.[tier] ?? {}) },
+        basePriceUSD:
+            precio === undefined
+                ? item.basePriceUSD
+                : { monthly: precio, pass1m: precio, pass3m: precio, pass6m: precio, pass9m: precio, pass12m: precio },
+    };
+}
+
+/**
+ * Si algun add-on activo habilita esta ruta.
+ *
+ * Tener el modulo es tener TODOS sus componentes, asi que la comparacion es por
+ * PREFIJO: `mod_databases` (/intelligence/bases-de-datos) habilita tambien
+ * /intelligence/bases-de-datos/cosmos-db y cualquier sub-ruta que se agregue
+ * despues, sin tener que enumerarlas.
+ *
+ * El prefijo se compara por segmento completo: /governance/policies no habilita
+ * /governance/policies-draft.
+ */
+export function addonUnlocksPath(activeAddonKeys: string[], path: string): boolean {
+    const limpio = (stripLocale(path).split("?")[0].replace(/\/+$/, "") || "/");
+    return activeAddonKeys.some((key) => {
+        const route = ADDON_CATALOG[key]?.route;
+        if (!route) return false;
+        return limpio === route || limpio.startsWith(route + "/");
+    });
 }

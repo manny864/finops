@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { ADDON_CATALOG, isAddonVisibleForTier } from "@/lib/addonCatalog";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { ADDON_CATALOG, isAddonVisibleForTier, resolveAddonForTier } from "@/lib/addonCatalog";
 
 const modulos = Object.values(ADDON_CATALOG).filter((a) => a.key.startsWith("mod_"));
 const visibles = (tier: string) =>
@@ -75,5 +75,56 @@ describe("modulos del marketplace", () => {
 
     it("las cuotas se siguen ofreciendo a Business aunque el plan las incluya", () => {
         expect(visibles("Business")).toContain("quota_subscriptions");
+    });
+});
+
+describe("tenant adicional", () => {
+    // El catalogo lee process.env al importarse, asi que hay que stubear ANTES
+    // y reimportar. Sin esto el test mide como esta configurado el ambiente que
+    // lo corre, no la logica.
+    beforeEach(() => {
+        vi.resetModules();
+        vi.stubEnv("PADDLE_ADDON_TENANT_PRICE_ID_PROFESSIONAL", "pri_tenant_prof");
+        vi.stubEnv("PADDLE_ADDON_TENANT_PRICE_ID_BUSINESS", "pri_tenant_bus");
+    });
+    afterEach(() => vi.unstubAllEnvs());
+
+    it("resuelve price ID y precio segun el tier", async () => {
+        const { ADDON_CATALOG: cat, resolveAddonForTier: resolve } = await import("@/lib/addonCatalog");
+        const prof = resolve(cat.quota_tenant, "Professional");
+        const bus = resolve(cat.quota_tenant, "Business");
+        expect(prof.basePriceUSD.monthly).toBe(90);
+        expect(bus.basePriceUSD.monthly).toBe(240);
+        expect(prof.prices.monthly).toBe("pri_tenant_prof");
+        expect(bus.prices.monthly).toBe("pri_tenant_bus");
+    });
+
+    it("NO se cobra por el checkout del marketplace", async () => {
+        // Abrir el checkout crearia una segunda suscripcion y el webhook, que
+        // FIJA la capacidad desde los items, la pondria en cero en la proxima
+        // actualizacion de la principal.
+        const { ADDON_CATALOG: cat } = await import("@/lib/addonCatalog");
+        expect(cat.quota_tenant.fulfilledBy).toBe("capacity");
+        expect(cat.quota_tenant.fulfillmentHref).toBeTruthy();
+    });
+
+    it("lo ven Professional y Business, no Enterprise", async () => {
+        const { ADDON_CATALOG: cat, resolveAddonForTier: resolve, isAddonVisibleForTier: visible } =
+            await import("@/lib/addonCatalog");
+        const ve = (t: string) => visible(resolve(cat.quota_tenant, t), t);
+        expect(ve("Professional")).toBe(true);
+        expect(ve("Business")).toBe(true);
+        expect(ve("Enterprise")).toBe(false);
+    });
+
+    it("sin price ID configurado no se muestra en ningun tier", async () => {
+        vi.stubEnv("PADDLE_ADDON_TENANT_PRICE_ID_PROFESSIONAL", "");
+        vi.stubEnv("PADDLE_ADDON_TENANT_PRICE_ID_BUSINESS", "");
+        vi.resetModules();
+        const { ADDON_CATALOG: cat, resolveAddonForTier: resolve, isAddonVisibleForTier: visible } =
+            await import("@/lib/addonCatalog");
+        for (const t of ["Professional", "Business"]) {
+            expect(visible(resolve(cat.quota_tenant, t), t)).toBe(false);
+        }
     });
 });

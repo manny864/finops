@@ -47,6 +47,13 @@ interface TenantContextType {
   // apurado echaría al SuperAdmin real antes de que responda el backend.
   authzResolved: boolean;
   userScope?: any;
+  /**
+   * Claves de los add-ons vigentes. Gatean por MODULO: tener uno habilita su
+   * ruta y todas sus sub-rutas (ver `addonUnlocksPath`). Arranca en [] y se
+   * llena async, asi que un gate que lo use tiene que esperar a
+   * `authzResolved` igual que con el rol, o bloquea un modulo comprado.
+   */
+  activeAddonKeys: string[];
   requiresRbacUpdate?: boolean;
   isUserRegistered: boolean | null;
   // Certificación de Academia FinOps del USUARIO actual (no del tenant — cada
@@ -115,6 +122,33 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   // certificados. Se resuelve consultando el progreso propio vía
   // /api/academy/content, que ya está scopeado por usuario en el backend.
   const [academyCertified, setAcademyCertified] = useState<boolean | null>(null);
+  const [activeAddonKeys, setActiveAddonKeys] = useState<string[]>([]);
+
+  // Add-ons vigentes del tenant. Endpoint propio y no el del marketplace: ese
+  // consulta precios a Paddle, y atar el menu a que Paddle responda seria
+  // dejar al usuario sin modulos comprados por una caida del proveedor.
+  useEffect(() => {
+    if (!authzResolved) return;
+    if (selectedTenant.id === 'default' || accounts.length === 0) {
+      setActiveAddonKeys([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const idToken = await getFreshIdToken(instance, accounts[0]);
+        const res = await fetch(`/api/billing/addons/active?tenantId=${selectedTenant.id}`, {
+          headers: { Authorization: `Bearer ${idToken}` }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setActiveAddonKeys(Array.isArray(data.addonKeys) ? data.addonKeys : []);
+      } catch (e) {
+        console.error('[TenantProvider] No se pudieron leer los add-ons activos:', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedTenant.id, accounts, accounts.length, instance, authzResolved]);
 
   useEffect(() => {
     if (!authzResolved) return;
@@ -1102,7 +1136,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   const requiresRbacUpdate = selectedTenant?.requires_rbac_update;
 
   return (
-    <TenantContext.Provider value={{ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole, userPermissions, systemRole, authzResolved, userScope, requiresRbacUpdate, isUserRegistered, academyCertified, setAcademyCertified }}>
+    <TenantContext.Provider value={{ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole, userPermissions, systemRole, authzResolved, userScope, requiresRbacUpdate, isUserRegistered, academyCertified, setAcademyCertified, activeAddonKeys }}>
       {children}
     </TenantContext.Provider>
   );
