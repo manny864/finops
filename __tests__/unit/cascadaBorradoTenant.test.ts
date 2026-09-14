@@ -25,6 +25,10 @@ const EXCEPCIONES: Record<string, string> = {
     DataResidencyChanges: "registro de cumplimiento",
     MarketplaceEvents: "webhooks crudos, llegan antes de que el tenant exista",
     PlatformAiUsage: "gasto de IA que absorbe la plataforma, no el tenant",
+    AzureApiUsageHourly:
+        "consumo de cuota de API de la casa: la columna guarda 'sin-tenant' para " +
+        "las llamadas que no informan uno, y el histórico tiene que sobrevivir a " +
+        "la baja del cliente para poder explicar el throttling de ese período",
     Tenants: "es la tabla padre",
 };
 

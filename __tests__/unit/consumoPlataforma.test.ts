@@ -30,7 +30,13 @@ const { store, redisMock } = vi.hoisted(() => {
 });
 vi.mock("@/lib/redis", () => ({ redis: redisMock }));
 
-import { registrarLlamadaAzure, leerUsoApiAzure, normalizarOperacion, SIN_TENANT } from "@/lib/azureApiMetrics";
+const poolQuery = vi.fn(async () => [[]]);
+vi.mock("@/modules/storage/db", () => ({ default: { query: (...a: unknown[]) => poolQuery(...(a as [])) } }));
+
+import {
+    registrarLlamadaAzure, leerUsoApiAzure, normalizarOperacion, SIN_TENANT,
+    volcarUsoApiAzureAMysql,
+} from "@/lib/azureApiMetrics";
 
 beforeEach(() => { store.clear(); vi.clearAllMocks(); });
 
@@ -92,5 +98,35 @@ describe("telemetría de llamadas a Azure", () => {
         expect(() => registrarLlamadaAzure("BillingService", "x", "ok", 0)).not.toThrow();
         expect(await leerUsoApiAzure(24)).toEqual([]);
         redisMock.status = "ready";
+    });
+});
+
+/**
+ * Redis acá no es un almacén: el cache de producción no tiene persistencia
+ * (`rdbEnabled=false`, `aofEnabled=false`), su política es `AllKeysLRU` --puede
+ * desalojar claves vigentes-- y el TTL es de 8 días. Sin volcado a MySQL, la
+ * telemetría se pierde en cada reinicio, que es justo cuando se quiere mirar.
+ */
+describe("persistencia del consumo de API", () => {
+    it("vuelca los contadores a MySQL", async () => {
+        registrarLlamadaAzure("BillingService", "cost-mtd(sub a)", "ok", 1200, "t1");
+        await new Promise((r) => setTimeout(r, 0));
+
+        const { filas } = await volcarUsoApiAzureAMysql(12);
+        expect(filas).toBe(1);
+
+        const [sql, args] = poolQuery.mock.calls.at(-1) as unknown as [string, unknown[]];
+        expect(sql).toContain("INSERT INTO AzureApiUsageHourly");
+        // Repisar la misma hora no puede duplicar: los contadores de Redis son
+        // acumulados, así que el UPSERT deja siempre el valor más completo.
+        expect(sql).toContain("ON DUPLICATE KEY UPDATE");
+        expect((args[0] as unknown[])[0]).toHaveLength(9);
+    });
+
+    it("sin datos no toca la base", async () => {
+        poolQuery.mockClear();
+        const { filas } = await volcarUsoApiAzureAMysql(12);
+        expect(filas).toBe(0);
+        expect(poolQuery).not.toHaveBeenCalled();
     });
 });

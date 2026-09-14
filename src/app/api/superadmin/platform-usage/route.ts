@@ -14,7 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireSuperAdmin } from "@/lib/requestAuth";
 import { errorMessage, errorStatus } from "@/lib/apiErrors";
 import pool from "@/modules/storage/db";
-import { leerUsoApiAzure } from "@/lib/azureApiMetrics";
+import { leerUsoApiAzure, leerUsoApiAzureHistorico } from "@/lib/azureApiMetrics";
 import { isMockTenant } from "@/lib/mockData";
 
 export const dynamic = "force-dynamic";
@@ -26,8 +26,12 @@ export async function GET(request: NextRequest) {
         const view = searchParams.get("view") || "ai";
 
         if (view === "azure") {
-            const horas = Math.min(168, Math.max(1, Number(searchParams.get("horas")) || 24));
-            const filas = await leerUsoApiAzure(horas);
+            const horas = Math.min(24 * 90, Math.max(1, Number(searchParams.get("horas")) || 24));
+            // Hasta 24 h se lee de Redis, que tiene la hora en curso al minuto.
+            // Más atrás se lee del histórico en MySQL, porque el cache guarda 8
+            // días y encima puede desalojar claves vigentes (`AllKeysLRU`) o
+            // perderlo todo en un reinicio -- no tiene persistencia.
+            const filas = horas <= 24 ? await leerUsoApiAzure(horas) : await leerUsoApiAzureHistorico(horas);
 
             const acumular = (
                 mapa: Map<string, { llamadas: number; throttle: number; error: number; esperaMs: number }>,
@@ -86,6 +90,7 @@ export async function GET(request: NextRequest) {
                         minutosEsperando: Number((v.esperaMs / 60000).toFixed(1)),
                     }))
                     .sort((a, b) => b.llamadas - a.llamadas),
+                fuente: horas <= 24 ? "redis" : "mysql",
                 detalle: filas.slice(0, 200),
             });
         }

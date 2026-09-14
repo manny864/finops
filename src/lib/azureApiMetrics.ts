@@ -1,4 +1,5 @@
 import { redis } from "@/lib/redis";
+import pool from "@/modules/storage/db";
 
 /**
  * Cuántas veces le pegamos a las APIs de Azure, y cuántas nos frenan.
@@ -130,4 +131,69 @@ export async function leerUsoApiAzure(horas = 24): Promise<UsoApiAzure[]> {
     } while (cursor !== "0");
 
     return filas.sort((a, b) => (a.hora === b.hora ? b.llamadas - a.llamadas : b.hora.localeCompare(a.hora)));
+}
+
+/**
+ * Vuelca los contadores de Redis a MySQL. Lo llama el cron horario.
+ *
+ * POR QUÉ HACE FALTA. El cache no tiene persistencia --`rdbEnabled=false`,
+ * `aofEnabled=false`-- así que un reinicio se lleva la telemetría entera, y con
+ * `AllKeysLRU` puede desalojar claves aunque no hayan vencido. Sumado al TTL de
+ * 8 días, no hay forma de comparar un mes contra otro ni de conservar evidencia
+ * después de un incidente -- que es justo cuando se quiere mirar.
+ *
+ * Es idempotente por construcción: los contadores de Redis son ACUMULADOS por
+ * hora, así que volver a volcar la misma ventana pisa con un valor igual o más
+ * completo. Correrlo dos veces no duplica nada.
+ *
+ * La hora EN CURSO se vuelca igual, aunque todavía sume: la próxima corrida la
+ * completa. Dejarla afuera perdería la última hora ante un reinicio, que es
+ * exactamente el caso que esto viene a cubrir.
+ */
+export async function volcarUsoApiAzureAMysql(horas = 12): Promise<{ filas: number }> {
+    const filas = await leerUsoApiAzure(horas);
+    if (filas.length === 0) return { filas: 0 };
+
+    const valores = filas.map((f) => [
+        f.hora, f.servicio, f.tenantId, f.operacion,
+        f.llamadas, f.ok, f.throttle, f.error, f.esperaMs,
+    ]);
+
+    await pool.query(
+        `INSERT INTO AzureApiUsageHourly
+            (hora, servicio, tenant_id, operacion, llamadas, ok, throttle, error, espera_ms)
+         VALUES ?
+         ON DUPLICATE KEY UPDATE
+            llamadas = VALUES(llamadas), ok = VALUES(ok), throttle = VALUES(throttle),
+            error = VALUES(error), espera_ms = VALUES(espera_ms)`,
+        [valores]
+    );
+
+    return { filas: filas.length };
+}
+
+/**
+ * El histórico, para ventanas que Redis ya no tiene. Misma forma que
+ * `leerUsoApiAzure` para que el llamador no tenga que distinguir de dónde salió.
+ */
+export async function leerUsoApiAzureHistorico(horas: number): Promise<UsoApiAzure[]> {
+    const [rows]: any = await pool.query(
+        `SELECT hora, servicio, tenant_id, operacion, llamadas, ok, throttle, error, espera_ms
+           FROM AzureApiUsageHourly
+          WHERE hora >= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL ? HOUR), '%Y-%m-%dT%H')
+          ORDER BY hora DESC, llamadas DESC
+          LIMIT 5000`,
+        [Math.max(1, Math.min(24 * 90, horas))]
+    );
+    return (rows || []).map((r: any) => ({
+        hora: r.hora,
+        servicio: r.servicio,
+        tenantId: r.tenant_id,
+        operacion: r.operacion,
+        llamadas: Number(r.llamadas || 0),
+        ok: Number(r.ok || 0),
+        throttle: Number(r.throttle || 0),
+        error: Number(r.error || 0),
+        esperaMs: Number(r.espera_ms || 0),
+    }));
 }
