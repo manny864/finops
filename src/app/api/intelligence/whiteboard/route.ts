@@ -383,6 +383,53 @@ async function getCostAnomalyTrend(tenantId: string) {
     return trend;
 }
 
+/**
+ * Techo de tiempo y medición por fuente del whiteboard.
+ *
+ * EL 524 (prod, 2026-09-13). El whiteboard ensambla 12 fuentes --Cost
+ * Management, cuatro consultas a Resource Graph, Advisor, Graph API y MySQL-- y
+ * en caché frío las espera a TODAS de forma sincrónica. Una sola lenta arrastra
+ * al resto y el proxy corta la respuesta a los 100 s: el usuario no ve un
+ * whiteboard degradado, no ve nada.
+ *
+ * Cada fuente ya tenía su valor de respaldo para cuando falla; lo que faltaba
+ * era que TARDAR contara como fallar. Con el techo, el peor caso del ensamblado
+ * pasa de "lo que tarde Azure" a ~25 s y la tarjeta lenta se degrada sola.
+ *
+ * El tiempo de cada una se loguea siempre, no sólo cuando falla: sin eso, saber
+ * cuál de las doce es la lenta era adivinar. Es lo primero que hay que mirar la
+ * próxima vez que esto se ponga lento.
+ *
+ * OJO: `Promise.race` deja de ESPERAR a la fuente, no la cancela --los clientes
+ * de Azure no aceptan AbortSignal acá--. La llamada sigue viva hasta que
+ * responda; lo que se corta es la espera del usuario.
+ */
+const TECHO_POR_FUENTE_MS = Number(process.env.WHITEBOARD_SOURCE_TIMEOUT_MS || 25_000);
+
+async function fuente<T>(
+    nombre: string,
+    respaldo: T,
+    fn: () => Promise<T>,
+    alDegradar?: () => void
+): Promise<T> {
+    const t0 = Date.now();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+        const conTecho = new Promise<never>((_, rechazar) => {
+            timer = setTimeout(() => rechazar(new Error(`superó el techo de ${TECHO_POR_FUENTE_MS} ms`)), TECHO_POR_FUENTE_MS);
+        });
+        const datos = await Promise.race([fn(), conTecho]);
+        console.log(`[whiteboard] fuente=${nombre} ms=${Date.now() - t0} ok`);
+        return datos;
+    } catch (e) {
+        console.warn(`[whiteboard] fuente=${nombre} ms=${Date.now() - t0} degradada: ${(e as Error)?.message || e}`);
+        alDegradar?.();
+        return respaldo;
+    } finally {
+        if (timer) clearTimeout(timer);
+    }
+}
+
 export async function GET(request: NextRequest) {
     try {
         const tenantId = request.nextUrl.searchParams.get("tenantId");
@@ -408,6 +455,7 @@ export async function GET(request: NextRequest) {
             } catch (credErr) {
                 console.warn("[whiteboard] Azure credential resolution failed:", credErr);
             }
+            const ensambladoDesde = Date.now();
             const currentMonth = await getCurrentMonthCostAggregation(tenantId);
 
             // Si Cost Management tira 429/error en los KPIs de costo, no queremos
@@ -429,34 +477,27 @@ export async function GET(request: NextRequest) {
                 recommendationTrend,
                 costAnomalyTrend,
             ] = await Promise.all([
-                getCostFigures(tenantId, currentMonth).catch(e => {
-                    console.warn("[whiteboard] costFigures:", e.message);
-                    costDegraded = true;
-                    return {
-                        costMtdUSD: 0,
-                        forecastEomUSD: 0,
-                        currentFYCost: 0,
-                        previousFYCost: 0,
-                        costProjected: 0,
-                        costChangePct: 0,
-                        top3Services: [],
-                        topServices: [],
-                        last3MonthsTrend: [],
-                    };
-                }),
-                getTop5CostGroups(tenantId).catch(e => { console.warn("[whiteboard] costGroups:", e.message); costDegraded = true; return { totalCost: 0, groups: [] }; }),
-                getWhiteboardBudgets(tenantId, currentMonth).catch(e => { console.warn("[whiteboard] budgets:", e.message); return []; }),
-                getUntaggedResources(tenantId, argClient).catch(e => { console.warn("[whiteboard] untagged:", e.message); return { count: 0, total: 0, countPct: 0, cost: 0, costPct: 0, trend: [] }; }),
-                getComplianceWins(tenantId, argClient).catch(e => { console.warn("[whiteboard] complianceWins:", e.message); return []; }),
-                getTop5(argClient, tenantId, "location").catch(e => { console.warn("[whiteboard] locations:", e.message); return []; }),
-                getTop5(argClient, tenantId, "type").catch(e => { console.warn("[whiteboard] inventory:", e.message); return []; }),
-                getSecurityScore(tenantId).catch(e => { console.warn("[whiteboard] security:", e.message); return { pct: 0, withMfa: 0, total: 0 }; }),
-                getAdvisorExecutiveData(tenantId, locale).catch(e => {
-                    console.warn("[whiteboard] advisor:", e.message);
-                    return null;
-                }),
-                getRecommendationTrend(tenantId).catch(e => { console.warn("[whiteboard] recTrend:", e.message); return []; }),
-                getCostAnomalyTrend(tenantId).catch(e => { console.warn("[whiteboard] anomalyTrend:", e.message); return []; }),
+                fuente("costFigures", {
+                    costMtdUSD: 0,
+                    forecastEomUSD: 0,
+                    currentFYCost: 0,
+                    previousFYCost: 0,
+                    costProjected: 0,
+                    costChangePct: 0,
+                    top3Services: [] as any[],
+                    topServices: [] as any[],
+                    last3MonthsTrend: [] as any[],
+                }, () => getCostFigures(tenantId, currentMonth), () => { costDegraded = true; }),
+                fuente("costGroups", { totalCost: 0, groups: [] as any[] }, () => getTop5CostGroups(tenantId), () => { costDegraded = true; }),
+                fuente("budgets", [] as any[], () => getWhiteboardBudgets(tenantId, currentMonth)),
+                fuente("untagged", { count: 0, total: 0, countPct: 0, cost: 0, costPct: 0, trend: [] as any[] }, () => getUntaggedResources(tenantId, argClient)),
+                fuente("complianceWins", [] as any[], () => getComplianceWins(tenantId, argClient)),
+                fuente("locations", [] as any[], () => getTop5(argClient, tenantId, "location")),
+                fuente("inventory", [] as any[], () => getTop5(argClient, tenantId, "type")),
+                fuente("security", { pct: 0, withMfa: 0, total: 0 }, () => getSecurityScore(tenantId)),
+                fuente("advisor", null as any, () => getAdvisorExecutiveData(tenantId, locale)),
+                fuente("recTrend", [] as any[], () => getRecommendationTrend(tenantId)),
+                fuente("anomalyTrend", [] as any[], () => getCostAnomalyTrend(tenantId)),
             ]);
 
             // Se consume getAdvisorExecutiveData (el mismo servicio que el panel
@@ -594,7 +635,7 @@ export async function GET(request: NextRequest) {
                 momVariationPct,
             };
 
-            return {
+            const armado = {
                 success: true,
                 mock: false,
                 costs: costFigures,
@@ -628,7 +669,27 @@ export async function GET(request: NextRequest) {
                 top5CostGroups: costGroups,
                 _costDegraded: costDegraded,
             };
-        }, 3600, 900, (result) => result._costDegraded ? 300 : 3600);
+
+            // El total del ensamblado, que es exactamente lo que el 524 tapaba:
+            // cuando el proxy corta a los 100 s no queda registro de cuánto
+            // tardó ni de quién. Con esto y el `ms=` de cada fuente, la próxima
+            // vez se lee en el log en vez de deducirse.
+            console.log(
+                `[whiteboard] ensamblado tenant=${tenantId} ms=${Date.now() - ensambladoDesde} degradado=${costDegraded}`
+            );
+            return armado;
+        // TTL DURO LARGO, SOFT CORTO. El 524 pasaba sólo con caché VACÍO: mientras
+        // haya algo guardado, `getWithStaleWhileRevalidate` devuelve lo viejo al
+        // instante y refresca en background. Con el TTL duro en 1 h, cualquier
+        // pausa de más de una hora sin visitas dejaba al próximo usuario pagando
+        // el ensamblado completo -- y el caso degradado era peor todavía: se
+        // guardaba 5 minutos, así que justo cuando Azure venía lento el respaldo
+        // duraba menos y el siguiente volvía a esperarlo todo.
+        //
+        // Ahora el respaldo vive 12 h y el degradado 1 h. El `soft` sigue en 15
+        // min, así que el número no se congela: el primero que entre pasados 15
+        // minutos ve el valor viejo al instante y dispara la actualización.
+        }, 43200, 900, (result) => result._costDegraded ? 3600 : 43200);
 
         // Traducción post-cache defensiva para cubrir texto que no quedó
         // localizado por Azure en tiempo de recolección.
