@@ -14340,7 +14340,7 @@
     "ha_no_data": "No data",
     "ha_tooltip_resources": "resources",
     "wb_budgets_title": "Budget by Cost Center",
-    "wb_forecast_title": "Spend Projection (ML Forecast)",
+    "wb_forecast_title": "Spend Projection (scenario)",
     "wb_top_services_title": "Top Dominant Services",
     "wb_governance_title": "Governance & Tagging",
     "wb_advisor_title": "Security & Advisor Score",

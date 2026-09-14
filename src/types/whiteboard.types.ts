@@ -3,6 +3,13 @@
 export interface WhiteboardSummary {
   costMtdUSD: number;
   forecastEomUSD: number;
+  /**
+   * De dónde salió la proyección: `azure` es el pronóstico de Cost Management
+   * --el mismo número que el cliente ve en el portal-- y `lineal` el respaldo por
+   * regla de tres cuando Azure no responde. Viaja para que la UI pueda decirlo
+   * en vez de presentar los dos como si fueran lo mismo.
+   */
+  forecastSource?: "azure" | "lineal";
   zombieCount: number;
   zombieSavingsUSD: number;
   potentialSavingsUSD: number;

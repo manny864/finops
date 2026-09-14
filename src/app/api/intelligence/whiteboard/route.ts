@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { getAzureCredential } from "@/lib/azure";
+import { getCostForecast } from "@/modules/collectors/azure/billingService";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
@@ -143,9 +144,40 @@ async function getCostFigures(tenantId: string, currentMonth: CurrentMonthCostAg
             .sort((a, b) => b.cost - a.cost)
             .slice(0, 4);
 
+    // PROYECCIÓN A FIN DE MES: la de Azure, no una regla de tres.
+    //
+    // Esto era `(costMtdUSD / diasTranscurridos) * diasDelMes`, o sea repartir el
+    // gasto del mes en partes iguales y multiplicar. Da un número plausible y NO
+    // coincide con el que el cliente ve en Cost Management, que es contra el que
+    // lo compara: Azure proyecta por día con su propio modelo, no linealmente.
+    //
+    // `getCostForecast` --que ya existía y sólo usaba /api/intelligence/forecast--
+    // devuelve el pronóstico diario de HOY a fin de mes. El EOM es entonces lo
+    // gastado (MTD) más los días que faltan; se descarta el día de hoy del
+    // pronóstico porque ya está contado dentro del MTD.
+    //
+    // La regla de tres queda de respaldo: si Azure no responde --sin
+    // credenciales, throttling, último día del mes-- se muestra la lineal en vez
+    // de un cero. `forecastSource` dice cuál de las dos salió.
     const daysElapsedMonth = Math.max(1, now.getUTCDate());
     const daysInMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
-    const forecastEomUSD = Number(((costMtdUSD / daysElapsedMonth) * daysInMonth).toFixed(2));
+    const forecastLinealUSD = Number(((costMtdUSD / daysElapsedMonth) * daysInMonth).toFixed(2));
+
+    let forecastEomUSD = forecastLinealUSD;
+    let forecastSource: "azure" | "lineal" = "lineal";
+    try {
+        const pronostico = await getCostForecast(tenantId, "All");
+        if (pronostico.length > 0) {
+            const hoy = now.toISOString().slice(0, 10);
+            const diasQueFaltan = pronostico
+                .filter((p) => p.date > hoy)
+                .reduce((total, p) => total + (Number(p.forecastCost) || 0), 0);
+            forecastEomUSD = Number((costMtdUSD + diasQueFaltan).toFixed(2));
+            forecastSource = "azure";
+        }
+    } catch (e) {
+        console.warn("[whiteboard] forecast de Azure no disponible, queda la proyección lineal:", (e as Error)?.message);
+    }
 
     // Proyección FY heredada para compatibilidad con widgets anteriores.
     const startOfYear = new Date(Date.UTC(currentYear, 0, 1));
@@ -170,6 +202,8 @@ async function getCostFigures(tenantId: string, currentMonth: CurrentMonthCostAg
     return {
         costMtdUSD: Number(costMtdUSD.toFixed(2)),
         forecastEomUSD,
+        forecastSource,
+        forecastLinealUSD,
         currentFYCost: Number(currentFYCost.toFixed(2)),
         previousFYCost: Number(previousFYCost.toFixed(2)),
         costProjected,
@@ -480,6 +514,8 @@ export async function GET(request: NextRequest) {
                 fuente("costFigures", {
                     costMtdUSD: 0,
                     forecastEomUSD: 0,
+                    forecastSource: "lineal" as "azure" | "lineal",
+                    forecastLinealUSD: 0,
                     currentFYCost: 0,
                     previousFYCost: 0,
                     costProjected: 0,
@@ -624,6 +660,7 @@ export async function GET(request: NextRequest) {
             const summary: WhiteboardSummaryMetrics = {
                 costMtdUSD: Number(costFigures.costMtdUSD || 0),
                 forecastEomUSD: Number(costFigures.forecastEomUSD || 0),
+                forecastSource: costFigures.forecastSource,
                 zombieCount: Number(executiveEnrichment.zombieResourcesCount || 0),
                 zombieSavingsUSD: Number(executiveEnrichment.zombieMonthlyWasteUSD || 0),
                 zombieResourcesCount: executiveEnrichment.zombieResourcesCount,

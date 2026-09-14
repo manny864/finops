@@ -37,6 +37,12 @@ export default function WhiteboardForecastWidget({
     );
   }
 
+  // Proyección de ESCENARIO, no un pronóstico: se toma el último mes real y se
+  // lo capitaliza al crecimiento que elige el usuario (`lastValue * (1+g)^i`).
+  // Sirve para responder "¿y si crecemos 5% por mes?", no para decir qué va a
+  // facturar Azure -- ese número es el KPI de arriba, que sale del forecast de
+  // Cost Management. La tarjeta se llamaba "ML Forecast" y no hay ningún modelo
+  // acá: el título ahora dice "escenario".
   // Generate 12-month projection from last actual point
   const lastPoint = costTrend[costTrend.length - 1];
   const lastValue = lastPoint?.actualCostUSD || 0;
@@ -118,6 +124,17 @@ export default function WhiteboardForecastWidget({
               width={52}
             />
             <Tooltip formatter={(v: any) => format(Number(v))} {...TOOLTIP_TEMA} />
+            {/*
+              * `isAnimationActive={false}` es lo que saca el temblor (MEJ-02).
+              *
+              * La animación de Recharts corre sobre requestAnimationFrame y
+              * arranca de cero en CADA render. Esta tarjeta vive dentro del grid
+              * del Resumen Ejecutivo, que re-renderiza seguido --refrescos de
+              * datos, resize del layout, el propio ResponsiveContainer midiendo--,
+              * así que la animación se reiniciaba constantemente y el área
+              * parpadeaba sin parar. El widget de servicios de al lado ya lo
+              * tenía apagado y por eso se ve quieto.
+              */}
             <Area
               type="monotone"
               dataKey="actual"
@@ -125,6 +142,7 @@ export default function WhiteboardForecastWidget({
               strokeWidth={2}
               fill="url(#forecastGrad)"
               name={t("actual_cost")}
+              isAnimationActive={false}
             />
             <Area
               type="monotone"
@@ -134,6 +152,7 @@ export default function WhiteboardForecastWidget({
               strokeDasharray="5 5"
               fill="url(#projectionGrad)"
               name={t("projected_cost")}
+              isAnimationActive={false}
             />
           </AreaChart>
         </ResponsiveContainer>
