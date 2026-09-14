@@ -48,3 +48,22 @@ describe("el respaldo de costos del whiteboard filtra igual que el dashboard", (
         expect(whiteboard).toMatch(/costMtd=\$\{/);
     });
 });
+
+describe("el botón Actualizar atraviesa el caché del servidor", () => {
+    const board = sin("src/components/dashboard/ExecutiveSummaryBoard.tsx");
+
+    // Hacía `mutate()` a secas: SWR repetía la MISMA URL y el servidor devolvía
+    // lo cacheado (12 h, o 1 h si el costo vino degradado). Con un número malo
+    // en pantalla, el botón no podía cambiarlo -- parecía roto.
+    it("el click manda bust=1", () => {
+        expect(board).toMatch(/bust=1/);
+        expect(board).not.toMatch(/onClick=\{\(\) => mutate\(\)\}/);
+    });
+
+    // El bust sólo va en el click: si fuera siempre, cada apertura pagaría el
+    // ensamblado completo contra Azure.
+    it("la carga normal no bustea", () => {
+        const useSwrPrincipal = board.slice(board.indexOf("const { data, error, isLoading, mutate } = useSWR"));
+        expect(useSwrPrincipal.slice(0, 260)).not.toContain("bust=1");
+    });
+});

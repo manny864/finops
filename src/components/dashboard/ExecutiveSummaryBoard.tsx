@@ -259,6 +259,33 @@ export default function ExecutiveSummaryBoard() {
     { revalidateOnFocus: false }
   );
 
+  /**
+   * "Actualizar" pide el ensamblado de nuevo, no la copia cacheada.
+   *
+   * El botón hacía `mutate()` a secas: SWR volvía a pedir la MISMA URL y el
+   * servidor devolvía lo que tenía en Redis --el caché del whiteboard dura 12 h,
+   * y 1 h cuando el costo vino degradado--. O sea que apretarlo con un número
+   * malo en pantalla no podía cambiarlo: mostraba el mismo valor y parecía que
+   * el botón no hacía nada.
+   *
+   * `bust=1` borra la clave del lado del servidor antes de rearmar. Sólo va en
+   * el click explícito: la carga normal sigue aprovechando el caché, que es lo
+   * que evita esperar el ensamblado completo cada vez que alguien abre la
+   * pantalla.
+   */
+  const refrescarDeVerdad = useCallback(async () => {
+    if (!canFetch || !selectedTenant) return;
+    const url =
+      `/api/overview/whiteboard?tenantId=${selectedTenant.id}&locale=${locale}` +
+      `${isDemo ? "&mock=true" : ""}&bust=1`;
+    try {
+      await fetcher(url);
+    } catch {
+      /* el mutate de abajo reporta el error por el camino normal */
+    }
+    await mutate();
+  }, [canFetch, selectedTenant, locale, isDemo, mutate]);
+
   const summarySub = "All";
   const { data: summaryData, isLoading: summaryLoading } = useSWR(
     canFetch
@@ -546,7 +573,7 @@ export default function ExecutiveSummaryBoard() {
 
           <button
             type="button"
-            onClick={() => mutate()}
+            onClick={refrescarDeVerdad}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-[#0078D4] text-[#0078D4] dark:text-blue-400 hover:bg-[#0078D4] hover:text-white transition-all shadow-xs cursor-pointer"
           >
             <IconRotateClockwise className="w-3.5 h-3.5" stroke={2} />
