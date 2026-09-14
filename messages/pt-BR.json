@@ -12163,6 +12163,7 @@
     "scopeLabel": "Escopo (Scope)",
     "scopeValuePlaceholder": "Selecione um valor…",
     "scopeNoOptions": "Nao ha valores disponiveis para este tipo de escopo.",
+    "scopeOptionsError": "Nao foi possivel carregar os valores de escopo.",
     "saveFailed": "Nao foi possivel salvar a regra.",
     "destinationLabel": "Destino / Endpoint / E-mails",
     "emailPlaceholder": "alertas@empresa.com, lead@empresa.com",

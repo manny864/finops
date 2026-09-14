@@ -16,6 +16,18 @@
 -- el runner, así que bloqueaba TODAS las migraciones siguientes. Un tenant
 -- borrado dejando una fila huérfana acá es inofensivo: nunca se consulta esta
 -- tabla sin filtrar por tenant_id.
+--
+-- PROD SÍ TIENE ESA FK. Este archivo se editó DESPUÉS de que la versión con FK
+-- ya se hubiera aplicado en producción (2026-08-29 15:06 UTC, 117 ms, con
+-- éxito: ahí la colación coincidía y el error 3780 nunca apareció). Como el
+-- runner no re-ejecuta una migración ya aplicada, prod quedó con la FK y las
+-- bases creadas desde entonces no la tienen. La diferencia es deliberada y no
+-- se corrige: sacarla de prod perdería el borrado en cascada sin ganar nada, y
+-- ponerla en las nuevas es justamente lo que rompía el CREATE TABLE.
+--
+-- El checksum de este archivo se reconcilió en 20260914-005; si volvés a
+-- editarlo, el aviso de "fue modificada desde su aplicación" vuelve, que es lo
+-- que tiene que pasar.
 CREATE TABLE IF NOT EXISTS TenantExcludedSubscriptions (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     tenant_id VARCHAR(255) NOT NULL,

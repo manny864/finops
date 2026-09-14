@@ -161,6 +161,15 @@ describe("el modal de edición", () => {
         expect(panel).toMatch(/onSaved=\{\(\) => mutate\(\)\}/);
     });
 
+    it("pide las opciones de alcance con token", () => {
+        // Un `fetch` pelado devuelve 401 (la ruta exige bearer, no hay cookie) y
+        // el usuario ve "no hay valores para este tipo de alcance" en vez de un
+        // error: la lista queda vacia por permisos, no porque no haya datos.
+        const bloque = panel.slice(panel.indexOf("scope-options?tenantId=") - 600, panel.indexOf("scope-options?tenantId=") + 300);
+        expect(bloque).toContain("buildFetcher");
+        expect(bloque).not.toMatch(/\(url: string\) => fetch\(url\)/);
+    });
+
     it("no deja un guardado fallido sin mensaje", () => {
         expect(panel).toContain("setSaveError");
         expect(panel).toMatch(/\{saveError && \(/);

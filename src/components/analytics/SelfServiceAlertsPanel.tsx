@@ -183,9 +183,17 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
   const { subscriptions } = useSubscription();
   // Los RG y centros de costos salen de la DB (consumo real); las suscripciones
   // ya las tiene el provider con nombre, sin pegarle otra vez a Azure.
-  const { data: scopeData } = useSWR<{ resourceGroups?: string[]; costCenters?: string[] }>(
+  //
+  // Con el MISMO fetcher que el resto del panel: un `fetch` pelado no manda el
+  // bearer y la ruta contesta 401, que se veia en la UI como "no hay valores
+  // para este tipo de alcance" en vez de como un error.
+  const fetcherConToken = useMemo(
+    () => buildFetcher(instance, accounts, isMockTenant(tenantId), () => "scope-options"),
+    [instance, accounts, tenantId]
+  );
+  const { data: scopeData, error: scopeError } = useSWR<{ resourceGroups?: string[]; costCenters?: string[] }>(
     tenantId ? `/api/analytics/self-service-alerts/scope-options?tenantId=${encodeURIComponent(tenantId)}` : null,
-    (url: string) => fetch(url).then((r) => (r.ok ? r.json() : { resourceGroups: [], costCenters: [] })),
+    fetcherConToken,
     { revalidateOnFocus: false }
   );
 
@@ -415,7 +423,9 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
                   {/* Sin valores no se puede elegir un alcance: decirlo es mejor
                       que dejar escribir uno que no va a coincidir con nada. */}
                   {opcionesDeAlcance.length === 0 && (
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{t("scopeNoOptions")}</p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                      {scopeError ? t("scopeOptionsError") : t("scopeNoOptions")}
+                    </p>
                   )}
                 </div>
               )}

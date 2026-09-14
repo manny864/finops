@@ -12163,6 +12163,7 @@
     "scopeLabel": "Alcance (Scope)",
     "scopeValuePlaceholder": "Seleccioná un valor…",
     "scopeNoOptions": "No hay valores disponibles para este tipo de alcance.",
+    "scopeOptionsError": "No se pudieron cargar los valores de alcance.",
     "saveFailed": "No se pudo guardar la regla.",
     "destinationLabel": "Destino / Endpoint / Emails",
     "emailPlaceholder": "alertas@empresa.com, lead@empresa.com",
