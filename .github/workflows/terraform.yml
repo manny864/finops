@@ -277,8 +277,36 @@ jobs:
             az keyvault network-rule add --name "$V" --ip-address "$IP" --only-show-errors >/dev/null
             echo "Abierto $V para $IP"
           done
-          # La regla de red tarda unos segundos en propagar al data plane.
-          sleep 20
+
+          # ESPERAR A QUE PROPAGUE, no un tiempo fijo.
+          #
+          # Acá había `sleep 20`. No alcanza: el 2026-09-14 el plan arrancó 38 s
+          # después de abrir la regla y murió igual con
+          #   403 ForbiddenByFirewall ... Client address: 4.154.245.224
+          # para la MISMA IP que el paso acababa de autorizar. La propagación al
+          # data plane del Key Vault no tiene un tiempo garantizado, así que
+          # cualquier número fijo es una carrera que se gana a veces -- y cuando
+          # se pierde, el apply de infraestructura queda rojo por nada.
+          #
+          # Sólo se espera mientras el error sea del FIREWALL: un 403 por RBAC o
+          # cualquier otra falla corta el bucle en vez de comerse el timeout
+          # entero por un problema que esperar no resuelve.
+          for V in $VAULTS; do
+            for i in $(seq 1 24); do
+              if SALIDA=$(az keyvault secret list --vault-name "$V" --maxresults 1 --only-show-errors 2>&1); then
+                echo "Data plane de $V accesible (intento $i)"
+                break
+              fi
+              if ! echo "$SALIDA" | grep -q "ForbiddenByFirewall"; then
+                echo "$V responde algo que no es el firewall; se sigue sin esperar más."
+                break
+              fi
+              if [ "$i" -eq 24 ]; then
+                echo "::warning title=Key Vault::$V sigue rechazando al runner tras 120 s; el plan puede fallar con 403."
+              fi
+              sleep 5
+            done
+          done
 
       - name: Terraform plan
         env:
@@ -406,8 +434,36 @@ jobs:
             az keyvault network-rule add --name "$V" --ip-address "$IP" --only-show-errors >/dev/null
             echo "Abierto $V para $IP"
           done
-          # La regla de red tarda unos segundos en propagar al data plane.
-          sleep 20
+
+          # ESPERAR A QUE PROPAGUE, no un tiempo fijo.
+          #
+          # Acá había `sleep 20`. No alcanza: el 2026-09-14 el plan arrancó 38 s
+          # después de abrir la regla y murió igual con
+          #   403 ForbiddenByFirewall ... Client address: 4.154.245.224
+          # para la MISMA IP que el paso acababa de autorizar. La propagación al
+          # data plane del Key Vault no tiene un tiempo garantizado, así que
+          # cualquier número fijo es una carrera que se gana a veces -- y cuando
+          # se pierde, el apply de infraestructura queda rojo por nada.
+          #
+          # Sólo se espera mientras el error sea del FIREWALL: un 403 por RBAC o
+          # cualquier otra falla corta el bucle en vez de comerse el timeout
+          # entero por un problema que esperar no resuelve.
+          for V in $VAULTS; do
+            for i in $(seq 1 24); do
+              if SALIDA=$(az keyvault secret list --vault-name "$V" --maxresults 1 --only-show-errors 2>&1); then
+                echo "Data plane de $V accesible (intento $i)"
+                break
+              fi
+              if ! echo "$SALIDA" | grep -q "ForbiddenByFirewall"; then
+                echo "$V responde algo que no es el firewall; se sigue sin esperar más."
+                break
+              fi
+              if [ "$i" -eq 24 ]; then
+                echo "::warning title=Key Vault::$V sigue rechazando al runner tras 120 s; el plan puede fallar con 403."
+              fi
+              sleep 5
+            done
+          done
 
       - name: Detectar drift
         run: terraform plan -var-file=terraform.tfvars -detailed-exitcode
