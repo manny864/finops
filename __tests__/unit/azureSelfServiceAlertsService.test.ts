@@ -281,16 +281,26 @@ describe("azureSelfServiceAlerts.service", () => {
         );
       });
 
-      it("incluye el disclaimer en todos los canales (Teams, Slack, ServiceNow, Webhook)", () => {
-        const channels = ["TEAMS", "SLACK", "SERVICENOW", "WEBHOOK"] as const;
-        for (const ch of channels) {
+      it("el disclaimer de casilla no-reply es exclusivo de EMAIL y no aparece en Teams, Slack, ServiceNow ni Webhook", () => {
+        // En EMAIL sí está presente
+        const emailPreview = generateAlertTestPayloadPreview(
+          { ...emailRule, notificationChannel: "EMAIL" },
+          "es"
+        );
+        const emailStr = JSON.stringify(emailPreview);
+        expect(emailStr).toContain("alerts@cscloudsolutions.com.ar");
+        expect(emailStr).toContain("soporte@cscloudsolutions.com.ar");
+
+        // En canales no-email NO debe aparecer el aviso de casilla no-reply
+        const otherChannels = ["TEAMS", "SLACK", "SERVICENOW", "WEBHOOK"] as const;
+        for (const ch of otherChannels) {
           const preview = generateAlertTestPayloadPreview(
             { ...emailRule, notificationChannel: ch },
             "es"
           );
           const previewStr = JSON.stringify(preview);
-          expect(previewStr).toContain("alerts@cscloudsolutions.com.ar");
-          expect(previewStr).toContain("soporte@cscloudsolutions.com.ar");
+          expect(previewStr).not.toContain("alerts@cscloudsolutions.com.ar");
+          expect(previewStr).not.toContain("soporte@cscloudsolutions.com.ar");
         }
       });
 

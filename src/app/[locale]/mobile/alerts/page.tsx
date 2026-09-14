@@ -139,7 +139,7 @@ export default function MobileAlertsPage() {
                         })
                     )}
 
-                    <Link href="/intelligence/alerts" className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-brand-deep/40 p-4 text-base font-bold text-brand-deep dark:text-brand-sky active:bg-brand-soft/30">
+                    <Link href="/governance/alerts" className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-brand-deep/40 p-4 text-base font-bold text-brand-deep dark:text-brand-sky active:bg-brand-soft/30">
                         <BellRing className="w-5 h-5" /> {t("manageRules")}
                     </Link>
                 </div>

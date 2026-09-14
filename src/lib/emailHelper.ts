@@ -362,7 +362,7 @@ export function getAlertTestEmailHtml(params: {
               </div>
 
               <div class="cta-wrapper">
-                <a href="${baseUrl}/intelligence/alerts" class="cta-button">${i18n.ctaButton} &rarr;</a>
+                <a href="${baseUrl}/governance/alerts" class="cta-button">${i18n.ctaButton} &rarr;</a>
               </div>
             </div>
 

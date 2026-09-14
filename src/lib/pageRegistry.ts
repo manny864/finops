@@ -77,6 +77,7 @@ export const PAGES: PageEntry[] = [
     { id: "int-cost-centers", path: "/intelligence/cost-centers", icon: "Wallet", category: "intelligence" },
 
     // Governance
+    { id: "gov-alerts", path: "/governance/alerts", icon: "Bell", category: "governance" },
     { id: "gov-power", path: "/governance/power", icon: "Power", category: "governance" },
     { id: "gov-policies", path: "/governance/policies", icon: "FileLock", category: "governance" },
     { id: "gov-reporting", path: "/governance/reporting", icon: "ShieldCheck", category: "governance" },

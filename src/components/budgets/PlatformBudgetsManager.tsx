@@ -388,7 +388,7 @@ export default function PlatformBudgetsManager() {
             )}
 
             <div className="mt-4 text-xs text-gray-400">
-                <Link href="/intelligence/alerts" className="inline-flex items-center gap-1 text-[#0054A6] dark:text-[#00AEEF] hover:underline font-semibold">
+                <Link href="/governance/alerts" className="inline-flex items-center gap-1 text-[#0054A6] dark:text-[#00AEEF] hover:underline font-semibold">
                     {t("platformGoToAlerts")} <ExternalLink className="w-3 h-3" />
                 </Link>
             </div>

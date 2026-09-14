@@ -67,7 +67,7 @@ export const ROUTE_TIERS: Record<string, 'Professional' | 'Business' | 'Enterpri
     '/intelligence/compute-efficiency': 'Enterprise',
     '/intelligence/cost-by-category': 'Business',
     '/intelligence/commitment-simulator': 'Enterprise',
-    '/intelligence/alerts': 'Enterprise',
+    '/intelligence/alerts': 'Professional',
     '/intelligence/ai-analytics': 'Enterprise',
     '/intelligence/macc': 'Enterprise',
     '/intelligence/upload': 'Business',
@@ -80,6 +80,7 @@ export const ROUTE_TIERS: Record<string, 'Professional' | 'Business' | 'Enterpri
     // Gobernanza — Tags gratis desde Professional (vista; remediación desde
     // Business, ver canRemediateTags en tierLogic.ts).
     '/governance/tags': 'Professional',
+    '/governance/alerts': 'Professional',
     '/governance/power': 'Business',
     '/governance/policies': 'Enterprise',
     // Reporting de Gobernanza absorbe el KPI que antes vivía en

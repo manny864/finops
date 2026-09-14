@@ -123,15 +123,9 @@ async function sendToSlack(config: SlackConfig, payload: NotificationPayload): P
         });
     }
 
-    const disclaimer = getDisclaimer(payload.locale || 'es');
-
     (body.blocks as any).push({
         type: "context",
         elements: [
-            {
-                type: "mrkdwn",
-                text: `_${disclaimer}_`,
-            },
             {
                 type: "mrkdwn",
                 text: `FinOps SaaS · ${new Date().toISOString()}`,
@@ -158,7 +152,6 @@ interface TeamsConfig {
 async function sendToTeams(config: TeamsConfig, payload: NotificationPayload): Promise<void> {
     const emoji = payload.severity === 'warning' ? '🟡' : payload.severity === 'error' ? '🔴' : '🟢';
     const color = payload.severity === 'warning' ? 'Warning' : payload.severity === 'error' ? 'Attention' : 'Good';
-    const disclaimer = getDisclaimer(payload.locale || 'es');
 
     const adaptiveCard = {
         type: "message",
@@ -180,13 +173,6 @@ async function sendToTeams(config: TeamsConfig, payload: NotificationPayload): P
                         {
                             type: "TextBlock",
                             text: payload.message,
-                            wrap: true,
-                        },
-                        {
-                            type: "TextBlock",
-                            text: disclaimer,
-                            isSubtle: true,
-                            size: "Small",
                             wrap: true,
                         },
                     ],
@@ -426,13 +412,12 @@ export async function notifyTenant(tenantId: string, payload: NotificationPayloa
 // donde el webhook (Slack/Teams/Power Automate) viene en channel_target.
 export async function sendLegacyWebhookAlert(webhookUrl: string, payload: NotificationPayload): Promise<void> {
     const isPowerAutomate = webhookUrl.includes("powerautomate") || webhookUrl.includes("powerplatform");
-    const disclaimer = getDisclaimer(payload.locale || 'es');
     let body: any;
 
     if (isPowerAutomate) {
         body = {
             contentType: "html",
-            content: `🚨 <b>${payload.title}</b><br/>${payload.message}<br/><br/><small style="color: #64748b;">${disclaimer}</small>`,
+            content: `🚨 <b>${payload.title}</b><br/>${payload.message}`,
         };
     } else {
         let color = "#36a64f";
@@ -445,7 +430,7 @@ export async function sendLegacyWebhookAlert(webhookUrl: string, payload: Notifi
                     fallback: `${payload.title}: ${payload.message}`,
                     color: color,
                     title: payload.title,
-                    text: `${payload.message}\n\n_${disclaimer}_`,
+                    text: payload.message,
                     footer: "FinOps SaaS Platform",
                     ts: Math.floor(Date.now() / 1000),
                 },

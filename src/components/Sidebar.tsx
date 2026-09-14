@@ -145,6 +145,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             title: t('governance'),
             items: [
                 { href: '/governance/tags', label: t('tag_compliance'), icon: Tags, requiredTier: 'Professional' },
+                { href: '/governance/alerts', label: t('self_service_alerts'), icon: BellRing, requiredTier: 'Professional' },
                 { href: '/governance/power', label: t('power_schedules'), icon: Power, requiredTier: 'Business' },
                 { href: '/governance/policies', label: t('policies_autoblock'), icon: ShieldAlert, requiredTier: 'Enterprise' },
                 { href: '/governance/reporting', label: t('governance_reporting'), icon: ShieldCheck, requiredTier: 'Enterprise' },

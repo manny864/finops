@@ -217,7 +217,6 @@ export function generateAlertTestPayloadPreview(
                     { title: `${i18n.thresholdLabel}:`, value: rule.formattedThreshold },
                     { title: `${i18n.detectedLabel}:`, value: i18n.detectedValue },
                     { title: `${i18n.timestampLabel}:`, value: timestamp },
-                    { title: `${i18n.noticeLabel}:`, value: i18n.disclaimer },
                   ],
                 },
               ],
@@ -234,7 +233,7 @@ export function generateAlertTestPayloadPreview(
             type: "section",
             text: {
               type: "mrkdwn",
-              text: `*${i18n.ruleLabel}:* ${rule.name}\n*${i18n.typeLabel}:* ${rule.alertType}\n*${i18n.scopeLabel}:* ${rule.scopeType} - ${scopeDesc}\n*${i18n.thresholdLabel}:* ${rule.formattedThreshold}\n*${i18n.statusLabel}:* ${i18n.statusValue}\n\n_${i18n.disclaimer}_`,
+              text: `*${i18n.ruleLabel}:* ${rule.name}\n*${i18n.typeLabel}:* ${rule.alertType}\n*${i18n.scopeLabel}:* ${rule.scopeType} - ${scopeDesc}\n*${i18n.thresholdLabel}:* ${rule.formattedThreshold}\n*${i18n.statusLabel}:* ${i18n.statusValue}`,
             },
           },
         ],
@@ -243,7 +242,7 @@ export function generateAlertTestPayloadPreview(
     case "SERVICENOW":
       return {
         short_description: `${i18n.serviceNowShort}: ${rule.name}`,
-        description: `${i18n.serviceNowDesc} for scope ${rule.scopeType}:${scopeDesc} surpassing threshold ${rule.formattedThreshold}. ${i18n.disclaimer}`,
+        description: `${i18n.serviceNowDesc} for scope ${rule.scopeType}:${scopeDesc} surpassing threshold ${rule.formattedThreshold}.`,
         urgency: "2",
         impact: "2",
         category: "Cloud Cost Management",
@@ -283,9 +282,6 @@ export function generateAlertTestPayloadPreview(
           value: rule.thresholdValue,
           unit: rule.thresholdUnit,
           formatted: rule.formattedThreshold,
-        },
-        metadata: {
-          disclaimer: i18n.disclaimer,
         },
         timestamp,
         isTest: true,

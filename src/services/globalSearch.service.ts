@@ -153,7 +153,7 @@ export async function searchTenantContent(tenantId: string, rawQuery: string): P
             title: String(r.name),
             subtitleKey: "alertChannel",
             subtitleParams: { channel: String(r.channel || "") },
-            href: "/intelligence/analitica-avanzada/alertas-self-service",
+            href: "/governance/alerts",
         })),
     ];
 

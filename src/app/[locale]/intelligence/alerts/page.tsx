@@ -1,10 +1,8 @@
-import React from "react";
-import SelfServiceAlertsPanel from "@/components/analytics/SelfServiceAlertsPanel";
+import { redirect } from "next/navigation";
 
-export default function AlertsPage() {
-  return (
-    <div className="w-full max-w-full py-2 animate-in fade-in">
-      <SelfServiceAlertsPanel />
-    </div>
-  );
+// Movida a /governance/alerts: el módulo de alertas self-service pertenece a Gobernanza.
+// Se conserva este redirect para no romper links, bookmarks o emails existentes.
+export default async function LegacyIntelligenceAlertsPage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
+  redirect(`/${locale}/governance/alerts`);
 }

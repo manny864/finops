@@ -108,6 +108,7 @@ export const PAGE_ROLE_TAGS: Record<string, RoleTag[]> = {
 
     // Gobernanza
     "/governance/tags": ["Security"],
+    "/governance/alerts": ["FinOps"],
     "/governance/power": ["CloudAdmin"],
     "/governance/policies": ["CloudAdmin"],
     "/governance/reporting": ["Security"],

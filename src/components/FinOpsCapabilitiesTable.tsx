@@ -27,6 +27,7 @@ import {
   IconFileSpreadsheet,
   IconClock,
   IconBolt,
+  IconBellRinging,
 } from '@tabler/icons-react';
 
 interface FinOpsCapabilitiesTableProps {
@@ -114,6 +115,13 @@ export function FinOpsCapabilitiesTable({
         {
           itemKey: 'costHistory',
           icon: <IconClock className="w-4.5 h-4.5 text-white" stroke={1.75} />,
+          pro: true,
+          business: true,
+          enterprise: true,
+        },
+        {
+          itemKey: 'selfServiceAlerts',
+          icon: <IconBellRinging className="w-4.5 h-4.5 text-white" stroke={1.75} />,
           pro: true,
           business: true,
           enterprise: true,

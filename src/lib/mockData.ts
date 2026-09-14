@@ -61,7 +61,7 @@ export const getMockSearchResults = (query: string) => {
         { kind: "subscription" as const, title: "CSCS-LandingZone-Production", href: "/intelligence/billing" },
         { kind: "waste" as const, title: "disk-temp-unattached-01", subtitleKey: "wastePerMonth", subtitleParams: { amount: "19.05", type: "microsoft.compute/disks" }, href: "/cleanup/zombies" },
         { kind: "waste" as const, title: "pip-legacy-gateway", subtitleKey: "wastePerMonth", subtitleParams: { amount: "4.25", type: "microsoft.network/publicipaddresses" }, href: "/cleanup/zombies" },
-        { kind: "alertRule" as const, title: "Overall Budget Consumption > 80%", subtitleKey: "alertChannel", subtitleParams: { channel: "teams" }, href: "/intelligence/analitica-avanzada/alertas-self-service" },
+        { kind: "alertRule" as const, title: "Overall Budget Consumption > 80%", subtitleKey: "alertChannel", subtitleParams: { channel: "teams" }, href: "/governance/alerts" },
     ];
     return {
         results: todo.filter((r) => r.title.toLowerCase().includes(q)),
