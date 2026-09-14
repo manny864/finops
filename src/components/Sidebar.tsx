@@ -19,6 +19,7 @@ import {
     Users,
     UsersRound,
     HandCoins,
+    Gauge,
     Settings,
     ChevronDown,
     ChevronRight,
@@ -215,6 +216,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             href: '/superadmin/comisiones',
             label: t('superadmin_commissions'),
             icon: HandCoins
+        } as any);
+        categories.find(c => c.id === 'admin')?.items.push({
+            href: '/superadmin/consumo',
+            label: t('superadmin_platform_usage'),
+            icon: Gauge
         } as any);
         categories.find(c => c.id === 'admin')?.items.push({
             href: '/superadmin/pricing-units',

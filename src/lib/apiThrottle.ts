@@ -1,3 +1,4 @@
+import { registrarLlamadaAzure } from "@/lib/azureApiMetrics";
 /**
  * Limitador global de concurrencia con pausa compartida ante 429.
  *
@@ -143,6 +144,13 @@ export function crearLimitadorGlobal(
             pausadoHasta = Math.max(pausadoHasta, ahoraMs() + esperaPendiente);
         };
 
+        // Telemetría: cuántas llamadas hacemos y cuántas nos frenan. El
+        // denominador es lo que faltaba para decidir cadencias con datos en vez
+        // de a ojo -- contar 429 sin saber sobre cuántas llamadas no distingue
+        // "hacemos demasiadas" de "Azure cerró la ventana".
+        const arranque = ahoraMs();
+        let esperaAcumulada = 0;
+
         while (true) {
             if (opts.signal?.aborted) throw opts.signal.reason ?? new Error("Aborted");
             try {
@@ -163,7 +171,12 @@ export function crearLimitadorGlobal(
                         // reinicien.
                         try {
                             Promise.resolve(fn()).then(
-                                (valor) => { activos--; siguiente(); resolve(valor); },
+                                (valor) => {
+                                    activos--;
+                                    siguiente();
+                                    registrarLlamadaAzure(cfg.nombre, opts.label, "ok", esperaAcumulada);
+                                    resolve(valor);
+                                },
                                 soltarTurno,
                             );
                         } catch (error) {
@@ -174,12 +187,16 @@ export function crearLimitadorGlobal(
                     siguiente();
                 });
             } catch (err) {
-                if (!es429(err) || intento >= maxRetries) throw err;
+                if (!es429(err) || intento >= maxRetries) {
+                    registrarLlamadaAzure(cfg.nombre, opts.label, es429(err) ? "throttle" : "error", ahoraMs() - arranque);
+                    throw err;
+                }
                 // La cola ya quedo frenada en `pausarCola`; aca solo se espera.
                 const backoff = esperaPendiente;
                 console.warn(
                     `[${cfg.nombre}] 429 on ${opts.label || "azure call"}. Pausing global queue & retrying ${intento + 1}/${maxRetries} in ${backoff}ms`,
                 );
+                esperaAcumulada += backoff;
                 await dormir(backoff, opts.signal);
                 intento++;
             }
