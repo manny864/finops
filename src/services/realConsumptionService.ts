@@ -685,20 +685,28 @@ export async function getRealConsumptionOverview(
     }
 
     // MEJ-29: Desglose exacto de (ResourceId × ServiceName) y Tags desde CostSnapshots
+    //
+    // La columna es `ResourceId` y nada más. Estas consultas decían
+    // `COALESCE(ResourceId, resource_id, '')` para tolerar un nombre viejo que
+    // NUNCA existió --ninguna migración lo crea-- y ese fallback defensivo era
+    // el bug: MySQL valida las columnas del SELECT antes de evaluar el COALESCE,
+    // así que nombrar una inexistente mata la consulta ENTERA con
+    // "Unknown column 'resource_id' in 'field list'". El catch de abajo lo
+    // tragaba y el desglose por recurso quedaba vacío en silencio.
     const resourceServiceCosts = new Map<string, number>();
     const resourceTagsMap = new Map<string, Record<string, string>>();
     try {
         const [snapRows]: any = await pool.query(
             `SELECT 
-                LOWER(COALESCE(ResourceId, resource_id, '')) AS resId,
+                LOWER(COALESCE(ResourceId, '')) AS resId,
                 LOWER(COALESCE(NULLIF(service_name, ''), 'Other')) AS svcName,
                 MAX(Tags) AS tagsJson,
                 SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS mtdCost
              FROM CostSnapshots
              WHERE tenant_id = ?
-               AND (COALESCE(ResourceId, resource_id) IS NOT NULL AND COALESCE(ResourceId, resource_id) != '')
+               AND (ResourceId IS NOT NULL AND ResourceId != '')
                AND COALESCE(ChargePeriodStart, date) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-             GROUP BY LOWER(COALESCE(ResourceId, resource_id, '')), LOWER(COALESCE(NULLIF(service_name, ''), 'Other'))`,
+             GROUP BY LOWER(COALESCE(ResourceId, '')), LOWER(COALESCE(NULLIF(service_name, ''), 'Other'))`,
             [tenantId]
         );
 
@@ -917,7 +925,7 @@ export async function getRealConsumptionOverview(
             const query = `
                 SELECT 
                     COALESCE(NULLIF(service_name, ''), 'Other') as service_name,
-                    COALESCE(ResourceId, resource_id, '') as resource_id,
+                    COALESCE(ResourceId, '') as resource_id,
                     COALESCE(NULLIF(resource_group, ''), '') as resource_group,
                     COALESCE(NULLIF(region, ''), '') as region,
                     COALESCE(NULLIF(sku, ''), '') as sku,
@@ -929,7 +937,7 @@ export async function getRealConsumptionOverview(
                 WHERE 
                     tenant_id = ?
                     AND COALESCE(ChargePeriodStart, date) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-                GROUP BY service_name, COALESCE(ResourceId, resource_id, ''), resource_group, region, sku, MeterName
+                GROUP BY service_name, COALESCE(ResourceId, ''), resource_group, region, sku, MeterName
                 ORDER BY effective_cost DESC
             `;
             const [rows] = await conn.execute<any[]>(query, [tenantId]);

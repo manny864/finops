@@ -689,7 +689,16 @@ export async function GET(request: NextRequest) {
         // Ahora el respaldo vive 12 h y el degradado 1 h. El `soft` sigue en 15
         // min, así que el número no se congela: el primero que entre pasados 15
         // minutos ve el valor viejo al instante y dispara la actualización.
-        }, 43200, 900, (result) => result._costDegraded ? 3600 : 43200);
+        //
+        // Y el costo en CERO cuenta como degradado aunque nadie haya tirado un
+        // error. Azure Cost Management viene devolviendo 429 de forma crónica:
+        // cuando agota los reintentos, `getCostFigures` no falla -- devuelve 0 y
+        // sale "ok". Con el respaldo de 12 h, ese cero se quedaba en pantalla
+        // medio día. Un tenant sin gasto real revalida cada hora, que es barato;
+        // un cero por throttling se corrige en el próximo refresco.
+        }, 43200, 900, (result) =>
+            result._costDegraded || Number(result?.summary?.costMtdUSD || 0) === 0 ? 3600 : 43200
+        );
 
         // Traducción post-cache defensiva para cubrir texto que no quedó
         // localizado por Azure en tiempo de recolección.

@@ -45,7 +45,7 @@ describe("el whiteboard no espera a Azure más de lo que el proxy tolera", () =>
     // El 524 sólo ocurre con caché VACÍO: mientras haya algo guardado, el SWR
     // responde al instante y refresca en background.
     it("el respaldo en caché dura mucho más que la ventana de refresco", () => {
-        const m = sinComentarios.match(/\}, (\d+), (\d+), \(result\) => result\._costDegraded \? (\d+) : (\d+)\)/);
+        const m = sinComentarios.match(/\}, (\d+), (\d+), \(result\) =>[\s\S]{0,200}\? (\d+) : (\d+)/);
         expect(m, "no encontré la política de caché").not.toBeNull();
         const [, duro, soft, degradado] = m!.map(Number);
         expect(duro).toBeGreaterThanOrEqual(12 * 3600);
@@ -53,5 +53,12 @@ describe("el whiteboard no espera a Azure más de lo que el proxy tolera", () =>
         // El degradado era de 5 min: el respaldo se vencía justo cuando Azure
         // venía lento, y el siguiente usuario volvía a esperar el ensamblado.
         expect(degradado).toBeGreaterThanOrEqual(3600);
+    });
+
+    // Cost Management devuelve 429 de forma crónica y, al agotar reintentos,
+    // `getCostFigures` no falla: devuelve 0 y sale "ok". Sin esto, el respaldo
+    // largo dejaba ese cero en pantalla medio día.
+    it("un costo en cero no se cachea con el TTL largo", () => {
+        expect(sinComentarios).toMatch(/costMtdUSD[^)]*\)\s*===\s*0/);
     });
 });
