@@ -20,8 +20,12 @@ import { IconCpu, IconCloudDataConnection, IconRefresh } from "@tabler/icons-rea
  *
  * Los tokens se muestran crudos, sin convertir a dólares: el precio por modelo
  * cambia por proveedor y por contrato, y poner un número inventado acá sería
- * peor que no ponerlo. Lo que sí importa y está: cuánto consume cada tenant y
- * cuánto absorbe la casa (`platform`) contra lo que paga el cliente (`byok`).
+ * peor que no ponerlo.
+ *
+ * El consumo `platform` lo ABSORBE la casa: no se le factura al cliente
+ * (decisión comercial, 2026-09-14). O sea que esta pantalla no es una base de
+ * facturación sino un costo operativo a vigilar -- y por eso lo que importa de
+ * cada fila es si alguien se está yendo de escala, no cuánto cobrarle.
  */
 
 type FilaIa = {
@@ -34,6 +38,15 @@ type FilaIa = {
     llamadas: number;
     inputTokens: number;
     outputTokens: number;
+};
+
+type TenantApi = {
+    tenantId: string;
+    nombre: string | null;
+    llamadas: number;
+    throttle: number;
+    pctThrottle: number;
+    minutosEsperando: number;
 };
 
 type ServicioAzure = {
@@ -57,6 +70,7 @@ export default function PlatformUsagePanel() {
     const [porTenant, setPorTenant] = useState<FilaIa[]>([]);
     const [porFeature, setPorFeature] = useState<FilaIa[]>([]);
     const [servicios, setServicios] = useState<ServicioAzure[]>([]);
+    const [tenantsApi, setTenantsApi] = useState<TenantApi[]>([]);
     const [dias, setDias] = useState(30);
     const [horas, setHoras] = useState(24);
     const [loading, setLoading] = useState(true);
@@ -85,6 +99,7 @@ export default function PlatformUsagePanel() {
             setPorTenant(jIa.porTenant || []);
             setPorFeature(jIa.porFeature || []);
             setServicios(jAzure.servicios || []);
+            setTenantsApi(jAzure.tenants || []);
         } catch (e) {
             toast.error(errorMessage(e));
         } finally {
@@ -242,6 +257,43 @@ export default function PlatformUsagePanel() {
                                 ))}
                             </tbody>
                         </table>
+                    </div>
+                )}
+
+                {tenantsApi.length > 0 && (
+                    <div className="mt-6">
+                        <h3 className="text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">{t("byTenant")}</h3>
+                        <p className="text-[11px] text-slate-500 mb-2">{t("byTenantHint")}</p>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                                <thead className="text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                                    <tr>
+                                        <th className="text-left py-2 pr-3">{t("tenant")}</th>
+                                        <th className="text-right py-2 pr-3">{t("calls")}</th>
+                                        <th className="text-right py-2 pr-3">{t("throttled")}</th>
+                                        <th className="text-right py-2 pr-3">{t("pctThrottle")}</th>
+                                        <th className="text-right py-2">{t("waiting")}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {tenantsApi.map((x) => (
+                                        <tr key={x.tenantId} className="border-b border-slate-100 dark:border-slate-800/60">
+                                            <td className="py-2 pr-3 text-slate-800 dark:text-slate-100">
+                                                {x.nombre || (x.tenantId === "sin-tenant" ? t("noTenantApi") : x.tenantId)}
+                                            </td>
+                                            <td className="py-2 pr-3 text-right text-slate-600 dark:text-slate-300">{miles(x.llamadas)}</td>
+                                            <td className="py-2 pr-3 text-right text-slate-600 dark:text-slate-300">{miles(x.throttle)}</td>
+                                            <td className={`py-2 pr-3 text-right font-semibold ${
+                                                x.pctThrottle >= 20 ? "text-rose-600" : x.pctThrottle >= 5 ? "text-amber-600" : "text-emerald-600"
+                                            }`}>
+                                                {x.pctThrottle}%
+                                            </td>
+                                            <td className="py-2 text-right text-slate-600 dark:text-slate-300">{x.minutosEsperando} min</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 )}
             </section>

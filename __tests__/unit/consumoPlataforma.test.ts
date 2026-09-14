@@ -30,7 +30,7 @@ const { store, redisMock } = vi.hoisted(() => {
 });
 vi.mock("@/lib/redis", () => ({ redis: redisMock }));
 
-import { registrarLlamadaAzure, leerUsoApiAzure, normalizarOperacion } from "@/lib/azureApiMetrics";
+import { registrarLlamadaAzure, leerUsoApiAzure, normalizarOperacion, SIN_TENANT } from "@/lib/azureApiMetrics";
 
 beforeEach(() => { store.clear(); vi.clearAllMocks(); });
 
@@ -61,6 +61,30 @@ describe("telemetría de llamadas a Azure", () => {
         expect(costMtd?.throttle).toBe(1);
         // El costo real del throttling no es la llamada perdida: es el tiempo.
         expect(costMtd?.esperaMs).toBe(47500);
+    });
+
+    // El límite de Cost Management es por suscripción y se comparte: sin esta
+    // dimensión se sabe cuánto pegamos, pero no qué cliente se come la cuota de
+    // todos.
+    it("separa el consumo por tenant", async () => {
+        registrarLlamadaAzure("BillingService", "cost-mtd(sub a)", "ok", 0, "tenant-grande");
+        registrarLlamadaAzure("BillingService", "cost-mtd(sub b)", "throttle", 3000, "tenant-grande");
+        registrarLlamadaAzure("BillingService", "cost-mtd(sub c)", "ok", 0, "tenant-chico");
+        await new Promise((r) => setTimeout(r, 0));
+
+        const filas = await leerUsoApiAzure(24);
+        const grande = filas.find((f) => f.tenantId === "tenant-grande");
+        const chico = filas.find((f) => f.tenantId === "tenant-chico");
+        expect(grande?.llamadas).toBe(2);
+        expect(grande?.throttle).toBe(1);
+        expect(chico?.llamadas).toBe(1);
+    });
+
+    it("las llamadas sin tenant se ven como tales, no se atribuyen a nadie", async () => {
+        registrarLlamadaAzure("ARG", "resources", "ok", 0);
+        await new Promise((r) => setTimeout(r, 0));
+        const filas = await leerUsoApiAzure(24);
+        expect(filas.some((f) => f.tenantId === SIN_TENANT)).toBe(true);
     });
 
     it("sin Redis no rompe la llamada que está midiendo", async () => {

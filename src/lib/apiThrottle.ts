@@ -45,6 +45,12 @@ export interface OpcionesLimitador {
 }
 
 export interface OpcionesLlamada {
+    /**
+     * Tenant en cuyo nombre se hace la llamada. Sólo para la telemetría: sin
+     * esto el consumo queda agregado por servicio y no se puede ver qué cliente
+     * gasta la cuota de API de todos.
+     */
+    tenantId?: string;
     maxRetries?: number;
     label?: string;
     signal?: AbortSignal;
@@ -174,7 +180,7 @@ export function crearLimitadorGlobal(
                                 (valor) => {
                                     activos--;
                                     siguiente();
-                                    registrarLlamadaAzure(cfg.nombre, opts.label, "ok", esperaAcumulada);
+                                    registrarLlamadaAzure(cfg.nombre, opts.label, "ok", esperaAcumulada, opts.tenantId);
                                     resolve(valor);
                                 },
                                 soltarTurno,
@@ -188,7 +194,7 @@ export function crearLimitadorGlobal(
                 });
             } catch (err) {
                 if (!es429(err) || intento >= maxRetries) {
-                    registrarLlamadaAzure(cfg.nombre, opts.label, es429(err) ? "throttle" : "error", ahoraMs() - arranque);
+                    registrarLlamadaAzure(cfg.nombre, opts.label, es429(err) ? "throttle" : "error", ahoraMs() - arranque, opts.tenantId);
                     throw err;
                 }
                 // La cola ya quedo frenada en `pausarCola`; aca solo se espera.

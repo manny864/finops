@@ -92,14 +92,14 @@ async function _fetchCostData(
 
         let result: any;
         try {
-            result = await withRetry(() => client.query.usage(scope, mtdOptions), { label: `usage(MG ${tenantId})`, maxRetries: 0 });
+            result = await withRetry(() => client.query.usage(scope, mtdOptions), { tenantId, label: `usage(MG ${tenantId})`, maxRetries: 0 });
         } catch (colErr) {
             if (activeCol === 'CostUSD' && isCostUsdUnsupportedError(colErr)) {
                 console.warn(`[BillingService] CostUSD no soportado (MG scope) para tenant ${tenantId} — degradando a PreTaxCost.`);
                 await degradeCostColumn(tenantId);
                 activeCol = 'PreTaxCost';
                 mtdOptions = buildOptions('MonthToDate', activeCol);
-                result = await withRetry(() => client.query.usage(scope, mtdOptions), { label: `usage(MG ${tenantId}, PreTaxCost)`, maxRetries: 0 });
+                result = await withRetry(() => client.query.usage(scope, mtdOptions), { tenantId, label: `usage(MG ${tenantId}, PreTaxCost)`, maxRetries: 0 });
             } else {
                 throw colErr;
             }
@@ -156,7 +156,7 @@ async function _fetchCostData(
             try {
                 const res = await withRetry(
                     () => client.query.usage(`/subscriptions/${subId}`, mtdOptions),
-                    { label: `usage(sub ${subId})`, maxRetries: 4, baseDelayMs: 2500 }
+                    { tenantId, label: `usage(sub ${subId})`, maxRetries: 4, baseDelayMs: 2500 }
                 );
                 diagnostics.subsSucceeded++;
                 const n = processResult(res);
@@ -168,7 +168,7 @@ async function _fetchCostData(
                         const fallbackOptions = buildOptions('MonthToDate', 'PreTaxCost');
                         const res = await withRetry(
                             () => client.query.usage(`/subscriptions/${subId}`, fallbackOptions),
-                            { label: `usage(sub ${subId}, PreTaxCost)`, maxRetries: 4, baseDelayMs: 2500 }
+                            { tenantId, label: `usage(sub ${subId}, PreTaxCost)`, maxRetries: 4, baseDelayMs: 2500 }
                         );
                         diagnostics.subsSucceeded++;
                         const n = processResult(res);
@@ -198,7 +198,7 @@ async function _fetchCostData(
                         };
                         const res = await withRetry(
                             () => client.query.usage(`/subscriptions/${subId}`, simplifiedOptions),
-                            { label: `usage(sub ${subId}, simplified 2d)`, maxRetries: 2, baseDelayMs: 1500 }
+                            { tenantId, label: `usage(sub ${subId}, simplified 2d)`, maxRetries: 2, baseDelayMs: 1500 }
                         );
                         diagnostics.subsSucceeded++;
                         const n = processResult(res);
@@ -221,7 +221,7 @@ async function _fetchCostData(
                             };
                             const res = await withRetry(
                                 () => client.query.usage(`/subscriptions/${subId}`, minimalOptions),
-                                { label: `usage(sub ${subId}, minimal 1d)`, maxRetries: 2, baseDelayMs: 1500 }
+                                { tenantId, label: `usage(sub ${subId}, minimal 1d)`, maxRetries: 2, baseDelayMs: 1500 }
                             );
                             diagnostics.subsSucceeded++;
                             const n = processResult(res);
@@ -267,7 +267,7 @@ async function _fetchCostData(
                 try {
                     const res = await withRetry(
                         () => client.query.usage(`/subscriptions/${subId}`, last30Options),
-                        { label: `fallback30d(sub ${subId})`, maxRetries: 3, baseDelayMs: 2000 }
+                        { tenantId, label: `fallback30d(sub ${subId})`, maxRetries: 3, baseDelayMs: 2000 }
                     );
                     if (res?.rows && res?.columns) {
                         const n = processResult(res);

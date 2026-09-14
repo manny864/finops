@@ -28,16 +28,42 @@ export async function GET(request: NextRequest) {
             const horas = Math.min(168, Math.max(1, Number(searchParams.get("horas")) || 24));
             const filas = await leerUsoApiAzure(horas);
 
-            // Por servicio: el resumen que responde "¿estamos pegando de más?".
-            const porServicio = new Map<string, { llamadas: number; throttle: number; error: number; esperaMs: number }>();
-            for (const f of filas) {
-                const acc = porServicio.get(f.servicio) || { llamadas: 0, throttle: 0, error: 0, esperaMs: 0 };
+            const acumular = (
+                mapa: Map<string, { llamadas: number; throttle: number; error: number; esperaMs: number }>,
+                clave: string,
+                f: (typeof filas)[number]
+            ) => {
+                const acc = mapa.get(clave) || { llamadas: 0, throttle: 0, error: 0, esperaMs: 0 };
                 acc.llamadas += f.llamadas;
                 acc.throttle += f.throttle;
                 acc.error += f.error;
                 acc.esperaMs += f.esperaMs;
-                porServicio.set(f.servicio, acc);
+                mapa.set(clave, acc);
+            };
+
+            // Por servicio: "¿estamos pegando de más?".
+            // Por tenant: "¿quién se come la cuota compartida?" -- el limite de
+            // Cost Management es por suscripcion, asi que un solo cliente con
+            // muchas suscripciones puede frenar al resto.
+            const porServicio = new Map<string, { llamadas: number; throttle: number; error: number; esperaMs: number }>();
+            const porTenantApi = new Map<string, { llamadas: number; throttle: number; error: number; esperaMs: number }>();
+            for (const f of filas) {
+                acumular(porServicio, f.servicio, f);
+                acumular(porTenantApi, f.tenantId, f);
             }
+
+            // El nombre sale de la base: en el panel, un GUID no dice nada.
+            const nombres = new Map<string, string>();
+            try {
+                const ids = [...porTenantApi.keys()].filter((k) => k !== "sin-tenant");
+                if (ids.length > 0) {
+                    const [filasTenant]: any = await pool.query(
+                        `SELECT tenant_id, company_name FROM Tenants WHERE tenant_id IN (${ids.map(() => "?").join(",")})`,
+                        ids
+                    );
+                    for (const r of filasTenant || []) nombres.set(r.tenant_id, r.company_name);
+                }
+            } catch { /* sin nombres se muestra el id */ }
 
             return NextResponse.json({
                 success: true,
@@ -50,6 +76,15 @@ export async function GET(request: NextRequest) {
                     pctThrottle: v.llamadas > 0 ? Number(((v.throttle / v.llamadas) * 100).toFixed(1)) : 0,
                     minutosEsperando: Number((v.esperaMs / 60000).toFixed(1)),
                 })),
+                tenants: [...porTenantApi.entries()]
+                    .map(([tenantId, v]) => ({
+                        tenantId,
+                        nombre: nombres.get(tenantId) || null,
+                        ...v,
+                        pctThrottle: v.llamadas > 0 ? Number(((v.throttle / v.llamadas) * 100).toFixed(1)) : 0,
+                        minutosEsperando: Number((v.esperaMs / 60000).toFixed(1)),
+                    }))
+                    .sort((a, b) => b.llamadas - a.llamadas),
                 detalle: filas.slice(0, 200),
             });
         }

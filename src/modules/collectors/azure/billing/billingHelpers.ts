@@ -117,10 +117,13 @@ const limitadorCosto = crearLimitadorGlobal(
  */
 export async function withRetry<T>(
     fn: () => Promise<T>,
-    opts: { maxRetries?: number; baseDelayMs?: number; label?: string; signal?: AbortSignal } = {},
+    // `tenantId` es sólo para la telemetría: permite ver qué cliente consume la
+    // cuota de API compartida, que agregado por servicio no se distingue.
+    opts: { tenantId?: string; maxRetries?: number; baseDelayMs?: number; label?: string; signal?: AbortSignal } = {},
 ): Promise<T> {
     throwIfAborted(opts.signal);
     return limitadorCosto(fn, {
+        tenantId: opts.tenantId,
         maxRetries: opts.maxRetries,
         label: opts.label,
         signal: opts.signal,

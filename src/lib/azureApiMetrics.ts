@@ -22,6 +22,13 @@ import { redis } from "@/lib/redis";
  * falla de Redis no puede tumbar una consulta de costos por no poder contarla.
  */
 
+/**
+ * El tenant no lo conoce el limitador: lo pasa quien hace la llamada. Los que
+ * no lo pasan caen acá, y es honesto que se vea -- decir "sin-tenant" es mejor
+ * que atribuirle el consumo a cualquiera.
+ */
+export const SIN_TENANT = "sin-tenant";
+
 /** Ventana de agregación: una clave por hora. */
 function claveHora(fecha = new Date()): string {
     return fecha.toISOString().slice(0, 13); // YYYY-MM-DDTHH
@@ -51,12 +58,17 @@ export function registrarLlamadaAzure(
     servicio: string,
     label: string | undefined,
     resultado: ResultadoLlamada,
-    esperaMs = 0
+    esperaMs = 0,
+    tenantId?: string
 ): void {
     try {
         if (redis?.status !== "ready" && redis?.status !== "connect") return;
         const operacion = normalizarOperacion(label);
-        const clave = `azureapi:v1:${claveHora()}:${servicio}:${operacion}`;
+        // El tenant va en la clave y no en un hash aparte: la pregunta que hay
+        // que poder responder es "qué cliente nos hace consumir más cuota de
+        // API", y con el consumo agregado por servicio eso no se ve.
+        const tenant = (tenantId || SIN_TENANT).slice(0, 64);
+        const clave = `azureapi:v1:${claveHora()}:${servicio}:${tenant}:${operacion}`;
 
         const pipe = redis.pipeline();
         pipe.hincrby(clave, "llamadas", 1);
@@ -72,6 +84,7 @@ export function registrarLlamadaAzure(
 export interface UsoApiAzure {
     hora: string;
     servicio: string;
+    tenantId: string;
     operacion: string;
     llamadas: number;
     ok: number;
@@ -99,12 +112,13 @@ export async function leerUsoApiAzure(horas = 24): Promise<UsoApiAzure[]> {
         const [siguiente, claves] = await redis.scan(cursor, "MATCH", "azureapi:v1:*", "COUNT", 200);
         cursor = siguiente;
         for (const clave of claves) {
-            const [, , hora, servicio, ...resto] = clave.split(":");
+            const [, , hora, servicio, tenantId, ...resto] = clave.split(":");
             if (!horasValidas.has(hora)) continue;
             const datos = await redis.hgetall(clave);
             filas.push({
                 hora,
                 servicio,
+                tenantId: tenantId || SIN_TENANT,
                 operacion: resto.join(":"),
                 llamadas: Number(datos.llamadas || 0),
                 ok: Number(datos.ok || 0),

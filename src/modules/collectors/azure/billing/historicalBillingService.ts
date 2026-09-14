@@ -74,7 +74,7 @@ export async function getHistoricalDailyCosts(
                 try {
                     res = await withRetry(
                         () => client.query.usage(scope, buildQueryOptions(chunks[i], includeUsd)),
-                        { label: `historical(${label}, chunk ${i + 1}/${chunks.length})`, maxRetries: 4, baseDelayMs: 2500 }
+                        { tenantId, label: `historical(${label}, chunk ${i + 1}/${chunks.length})`, maxRetries: 4, baseDelayMs: 2500 }
                     );
                 } catch (aggErr) {
                     if (includeUsd && isCostUsdUnsupportedError(aggErr)) {
@@ -83,7 +83,7 @@ export async function getHistoricalDailyCosts(
                         await degradeCostColumn(tenantId);
                         res = await withRetry(
                             () => client.query.usage(scope, buildQueryOptions(chunks[i], false)),
-                            { label: `historical(${label}, chunk ${i + 1}/${chunks.length}, sin USD)`, maxRetries: 4, baseDelayMs: 2500 }
+                            { tenantId, label: `historical(${label}, chunk ${i + 1}/${chunks.length}, sin USD)`, maxRetries: 4, baseDelayMs: 2500 }
                         );
                     } else {
                         throw aggErr;
@@ -209,7 +209,7 @@ export async function getHistoricalDetailedCosts(
     };
 
     async function runOnScope(scope: string, opts: any): Promise<{ rows: any[][]; columns: any[] }> {
-        const res: any = await withRetry(() => client.query.usage(scope, opts), { label: `histDetailed(${scope})`, maxRetries: 3 });
+        const res: any = await withRetry(() => client.query.usage(scope, opts), { tenantId, label: `histDetailed(${scope})`, maxRetries: 3 });
         return { rows: res?.rows || [], columns: res?.columns || [] };
     }
 

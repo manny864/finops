@@ -69,7 +69,7 @@ export async function getCostForecast(
 
     try {
       result = await withRetry(() => client.forecast.usage(scope, forecastOptions(activeCol)), {
-        label: `forecast(${scope})`,
+        tenantId, label: `forecast(${scope})`,
         maxRetries: 0,
       });
     } catch (colErr) {
@@ -78,7 +78,7 @@ export async function getCostForecast(
         await degradeCostColumn(tenantId);
         activeCol = "PreTaxCost";
         result = await withRetry(() => client.forecast.usage(scope, forecastOptions(activeCol)), {
-          label: `forecast(${scope}, PreTaxCost)`,
+          tenantId, label: `forecast(${scope}, PreTaxCost)`,
           maxRetries: 0,
         });
       } else {
@@ -120,7 +120,7 @@ export async function getCostForecast(
             }
             try {
               const res = await withRetry(() => client.forecast.usage(`/subscriptions/${sub.subscriptionId}`, forecastOptions(activeCol)), {
-                label: `forecast(sub ${sub.subscriptionId})`,
+                tenantId, label: `forecast(sub ${sub.subscriptionId})`,
                 maxRetries: 4,
                 baseDelayMs: 2500,
               });

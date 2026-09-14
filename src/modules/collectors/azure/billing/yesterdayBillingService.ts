@@ -38,7 +38,7 @@ export async function getYesterdaysCost(tenantId: string, targetDate?: Date, sig
         try {
             const res = await withRetry(
                 () => client.query.usage(scope, buildQueryOptions(activeCol)),
-                { label: `yesterday(${label})`, maxRetries: 2, baseDelayMs: 1500, signal }
+                { tenantId, label: `yesterday(${label})`, maxRetries: 2, baseDelayMs: 1500, signal }
             );
             if (res.rows && res.rows.length > 0 && res.rows[0].length > 0) {
                 return Number(res.rows[0][0]) || 0;
@@ -50,7 +50,7 @@ export async function getYesterdaysCost(tenantId: string, targetDate?: Date, sig
                 activeCol = 'PreTaxCost';
                 const retryRes = await withRetry(
                     () => client.query.usage(scope, buildQueryOptions(activeCol)),
-                    { label: `yesterday(${label}, PreTaxCost)`, maxRetries: 2, baseDelayMs: 1500, signal }
+                    { tenantId, label: `yesterday(${label}, PreTaxCost)`, maxRetries: 2, baseDelayMs: 1500, signal }
                 );
                 if (retryRes.rows && retryRes.rows.length > 0 && retryRes.rows[0].length > 0) {
                     return Number(retryRes.rows[0][0]) || 0;
@@ -125,7 +125,7 @@ export async function getYesterdaysDetailedCosts(tenantId: string, targetDate?: 
     async function runOnScope(scope: string, opts: any): Promise<{ rows: any[][]; columns: any[] }> {
         const res: any = await withRetry(
             () => client.query.usage(scope, opts, { abortSignal: signal }),
-            { label: `detailed(${scope})`, maxRetries: 3, signal },
+            { tenantId, label: `detailed(${scope})`, maxRetries: 3, signal },
         );
         return { rows: res?.rows || [], columns: res?.columns || [] };
     }
@@ -326,7 +326,7 @@ export async function getYesterdaysTagCosts(
         const exec = async (col: CostColumn) => {
             const res: any = await withRetry(
                 () => client.query.usage(scope, buildOpts(tagKey, col), { abortSignal: signal }),
-                { label: `tagCost(${tagKey})`, maxRetries: 2, baseDelayMs: 1500, signal },
+                { tenantId, label: `tagCost(${tagKey})`, maxRetries: 2, baseDelayMs: 1500, signal },
             );
             return { rows: res?.rows || [], columns: res?.columns || [] };
         };
