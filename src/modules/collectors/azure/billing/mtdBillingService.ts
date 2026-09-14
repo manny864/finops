@@ -293,7 +293,11 @@ async function _fetchCostData(
 }
 
 const MTD_SHARED_TTL_SECONDS = 1800; // 30 minutos (sincronizado con cadencia de Azure Cost Management)
-const MTD_DEGRADED_TTL_SECONDS = 60;  // 1 minuto si vino vacío para reintentar pronto
+// Un minuto era demasiado corto para el caso que más se da: Cost Management
+// throttleando. Reintentar cada 60 s contra un servicio que está pidiendo que
+// aflojes es lo que sostiene el throttle. 5 minutos sigue siendo un reintento
+// rápido para un dato que Azure consolida cada 8-24 h.
+const MTD_DEGRADED_TTL_SECONDS = 300;
 
 export async function getCurrentMonthAmortizedCostsWithDiagnostics(
     tenantId: string,
@@ -319,6 +323,10 @@ export async function getCurrentMonthAmortizedCostsWithDiagnostics(
         MTD_SHARED_TTL_SECONDS,
         undefined,
         (result) => {
+            // Throttleado y sin datos: no se guarda este vacío Y --desde el
+            // arreglo en `cache.ts`-- tampoco se borra el último valor bueno.
+            // Antes se borraba, y era el bucle: cada 429 dejaba el caché vacío,
+            // la request siguiente volvía a consultar, Azure seguía throttleado.
             if (result?.diagnostics?.isThrottled && result?.data?.length === 0) {
                 return 0;
             }

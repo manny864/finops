@@ -153,11 +153,18 @@ export async function getWithStaleWhileRevalidate<T>(
         if (effTtl > 0) {
           const envelope: Envelope<T> = { __sw: true, t: Date.now(), data: freshData };
           await redis.set(key, JSON.stringify(envelope), 'EX', effTtl);
-        } else {
-          // Resultado no cacheable (p.ej. degradado): borramos cualquier
-          // entrada previa para forzar un fetch fresco en la próxima request.
-          await redis.del(key).catch(() => {});
         }
+        // `effTtl <= 0` = NO GUARDAR ESTO, y tampoco borrar lo que ya está.
+        //
+        // Antes borraba la entrada previa "para forzar un fetch fresco en la
+        // próxima request", y eso armaba un bucle que se alimenta solo: el único
+        // caso que devuelve 0 es el costo degradado por 429 de Azure, así que
+        // cada throttle borraba el respaldo, la request siguiente no encontraba
+        // nada, volvía a consultar, Azure seguía throttleado y volvía a borrar.
+        // Cuanto peor estaba Cost Management, más lo consultábamos -- y la
+        // pantalla quedaba en $0.00 porque ni siquiera había un valor viejo que
+        // mostrar. Conservarlo sirve un número de hasta `ttl` de antigüedad,
+        // que para un costo MTD que Azure consolida cada 8-24 h no se nota.
       } catch (bgError) {
         if (errorMessage(bgError) !== 'Connection is closed') {
           console.warn(`[SWR] Revalidación fallida en background para key ${key}:`, errorMessage(bgError) || bgError);
@@ -205,6 +212,7 @@ export async function getWithStaleWhileRevalidate<T>(
   if (isRedisReady()) {
     try {
       const effTtl = resolveTtl(freshData);
+      // `effTtl <= 0` = no se guarda (ver el comentario en `revalidate`).
       if (effTtl > 0) {
         const envelope: Envelope<T> = { __sw: true, t: Date.now(), data: freshData };
         await redis.set(key, JSON.stringify(envelope), 'EX', effTtl);
