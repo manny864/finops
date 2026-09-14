@@ -4,10 +4,12 @@ import { useTranslations, useLocale } from "next-intl";
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
+import { useSubscription } from "@/components/SubscriptionProvider";
 import { useSearchParams } from "next/navigation";
 import { useMsal } from "@azure/msal-react";
 import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
+import { errorMessage } from "@/lib/apiErrors";
 import Pagination, { usePagination } from "@/components/Pagination";
 import InfoTooltip from "@/components/InfoTooltip";
 import {
@@ -174,6 +176,30 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
   const [channelTarget, setChannelTarget] = useState(
     initialRule?.channelConfig?.channelTarget || initialRule?.channelConfig?.webhookUrl || ""
   );
+  // Un guardado que falla no puede quedar mudo: antes el modal se quedaba
+  // abierto sin decir nada y parecia que el boton no hacia nada.
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const { subscriptions } = useSubscription();
+  // Los RG y centros de costos salen de la DB (consumo real); las suscripciones
+  // ya las tiene el provider con nombre, sin pegarle otra vez a Azure.
+  const { data: scopeData } = useSWR<{ resourceGroups?: string[]; costCenters?: string[] }>(
+    tenantId ? `/api/analytics/self-service-alerts/scope-options?tenantId=${encodeURIComponent(tenantId)}` : null,
+    (url: string) => fetch(url).then((r) => (r.ok ? r.json() : { resourceGroups: [], costCenters: [] })),
+    { revalidateOnFocus: false }
+  );
+
+  const opcionesDeAlcance = useMemo(() => {
+    const lista = (nombres: string[] = []) => nombres.map((n) => ({ valor: n, etiqueta: n }));
+    if (scopeType === "SUBSCRIPTION") {
+      // El valor guardado es el id --es lo que identifica la suscripcion-- pero
+      // se muestra el nombre, que es lo unico que el usuario reconoce.
+      return subscriptions.map((s) => ({ valor: s.id, etiqueta: s.name || s.id }));
+    }
+    if (scopeType === "RESOURCE_GROUP") return lista(scopeData?.resourceGroups);
+    if (scopeType === "TAG") return lista(scopeData?.costCenters);
+    return [];
+  }, [scopeType, subscriptions, scopeData]);
 
   if (!isOpen) return null;
 
@@ -222,6 +248,7 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
+    setSaveError(null);
     try {
       const isMock = isMockTenant(tenantId);
       const token = isMock ? "demo" : await getFreshIdToken(instance, accounts[0], ["User.Read"]);
@@ -237,8 +264,15 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
         channelTarget,
       };
 
-      const res = await fetch(`/api/analytics/self-service-alerts?tenantId=${encodeURIComponent(tenantId)}`, {
-        method: "POST",
+      // Editar es PUT sobre la regla: con POST se creaba una segunda regla
+      // identica en vez de modificar la que se estaba editando.
+      const esEdicion = Boolean(initialRule?.id);
+      const url = esEdicion
+        ? `/api/analytics/self-service-alerts?tenantId=${encodeURIComponent(tenantId)}&ruleId=${encodeURIComponent(initialRule!.id)}`
+        : `/api/analytics/self-service-alerts?tenantId=${encodeURIComponent(tenantId)}`;
+
+      const res = await fetch(url, {
+        method: esEdicion ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -249,9 +283,13 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
       if (res.ok) {
         onSaved();
         onClose();
+      } else {
+        const detalle = await res.json().catch(() => null);
+        setSaveError(detalle?.error || t("saveFailed"));
       }
     } catch (err) {
       console.error("Error guardando regla:", err);
+      setSaveError(errorMessage(err) || t("saveFailed"));
     } finally {
       setIsSaving(false);
     }
@@ -340,7 +378,11 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
                   </label>
                   <select
                     value={scopeType}
-                    onChange={(e) => setScopeType(e.target.value as AlertScopeType)}
+                    onChange={(e) => {
+                      const tipo = e.target.value as AlertScopeType;
+                      setScopeType(tipo);
+                      setScopeValue(tipo === "TENANT" ? t("scopeTenant") : "");
+                    }}
                     className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[#1B2A41] dark:text-slate-100 focus:outline-none focus:border-[#0054A6]"
                   >
                     <option value="TENANT">{t("scopeTenant")}</option>
@@ -351,19 +393,32 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-[#1B2A41] dark:text-slate-200 mb-1">
-                  {t("scopeValue")}
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={scopeValue}
-                  onChange={(e) => setScopeValue(e.target.value)}
-                  placeholder={t("scopeValuePlaceholder")}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[#1B2A41] dark:text-slate-100 focus:outline-none focus:border-[#0054A6]"
-                />
-              </div>
+              {scopeType !== "TENANT" && (
+                <div>
+                  <label className="block text-xs font-bold text-[#1B2A41] dark:text-slate-200 mb-1">
+                    {t("scopeValue")}
+                  </label>
+                  <select
+                    required
+                    value={scopeValue}
+                    onChange={(e) => setScopeValue(e.target.value)}
+                    disabled={opcionesDeAlcance.length === 0}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[#1B2A41] dark:text-slate-100 focus:outline-none focus:border-[#0054A6] disabled:opacity-60"
+                  >
+                    <option value="">{t("scopeValuePlaceholder")}</option>
+                    {opcionesDeAlcance.map((o) => (
+                      <option key={o.valor} value={o.valor}>
+                        {o.etiqueta}
+                      </option>
+                    ))}
+                  </select>
+                  {/* Sin valores no se puede elegir un alcance: decirlo es mejor
+                      que dejar escribir uno que no va a coincidir con nada. */}
+                  {opcionesDeAlcance.length === 0 && (
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{t("scopeNoOptions")}</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -516,11 +571,16 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
             ) : <div />}
 
             <div className="flex items-center gap-2">
+              {saveError && (
+                <span className="text-[11px] font-semibold text-red-600 dark:text-red-400 max-w-[240px] text-right">
+                  {saveError}
+                </span>
+              )}
               {step < 3 ? (
                 <button
                   type="button"
                   onClick={() => setStep((s) => (s + 1) as any)}
-                  disabled={!name || !scopeValue}
+                  disabled={!name || (scopeType !== "TENANT" && !scopeValue)}
                   className="px-4 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition cursor-pointer shadow-xs disabled:opacity-50"
                 >
                   {t("next")}
@@ -1129,16 +1189,23 @@ export default function SelfServiceAlertsPanel() {
       </div>
 
       {/* ─── Modales ─── */}
-      <CreateOrEditRuleModal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setEditingRule(null);
-        }}
-        onSaved={() => mutate()}
-        tenantId={tenantId}
-        initialRule={editingRule}
-      />
+      {/* Montado solo mientras esta abierto: el modal inicializa su estado con
+          useState(initialRule?...), que en React corre una unica vez por
+          montaje. Estando siempre montado, abrir "editar" mostraba el
+          formulario vacio y guardaba como si fuera una regla nueva. */}
+      {isModalOpen && (
+        <CreateOrEditRuleModal
+          key={editingRule?.id || "nueva"}
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingRule(null);
+          }}
+          onSaved={() => mutate()}
+          tenantId={tenantId}
+          initialRule={editingRule}
+        />
+      )}
 
       <TestResultModal
         rule={testingRule}
