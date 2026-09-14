@@ -76,6 +76,20 @@ function getDetailsLabel(locale: string = "es"): string {
     return "Ver detalle";
 }
 
+function getDisclaimer(locale: string = "es"): string {
+    if (typeof getNoReplyDisclaimer === "function") {
+        return getNoReplyDisclaimer(locale);
+    }
+    const loc = (locale || "es").toLowerCase();
+    if (loc.startsWith("en")) {
+        return "Important: This email is sent from an unattended notification box (alerts@cscloudsolutions.com.ar). Please do not reply directly to this message. If you need support, contact soporte@cscloudsolutions.com.ar.";
+    }
+    if (loc.startsWith("pt")) {
+        return "Aviso importante: Este e-mail é enviado a partir de uma caixa de notificações automática (alerts@cscloudsolutions.com.ar) e não é monitorada. Não responda a esta mensagem. Para suporte, entre em contato com suporte@cscloudsolutions.com.ar.";
+    }
+    return "Nota importante: Esta es una casilla automatizada de solo envío (alerts@cscloudsolutions.com.ar) y no es monitoreada. Por favor, no respondas a este correo. Para soporte o asistencia técnica, comunícate con soporte@cscloudsolutions.com.ar.";
+}
+
 async function sendToSlack(config: SlackConfig, payload: NotificationPayload): Promise<void> {
     const emoji = payload.severity === 'warning' ? '🟡' : payload.severity === 'error' ? '🔴' : '🟢';
     const body = {
@@ -109,7 +123,7 @@ async function sendToSlack(config: SlackConfig, payload: NotificationPayload): P
         });
     }
 
-    const disclaimer = getNoReplyDisclaimer(payload.locale || 'es');
+    const disclaimer = getDisclaimer(payload.locale || 'es');
 
     (body.blocks as any).push({
         type: "context",
@@ -144,7 +158,7 @@ interface TeamsConfig {
 async function sendToTeams(config: TeamsConfig, payload: NotificationPayload): Promise<void> {
     const emoji = payload.severity === 'warning' ? '🟡' : payload.severity === 'error' ? '🔴' : '🟢';
     const color = payload.severity === 'warning' ? 'Warning' : payload.severity === 'error' ? 'Attention' : 'Good';
-    const disclaimer = getNoReplyDisclaimer(payload.locale || 'es');
+    const disclaimer = getDisclaimer(payload.locale || 'es');
 
     const adaptiveCard = {
         type: "message",
@@ -211,14 +225,16 @@ interface EmailConfig {
 // nunca estuvieron configurados en prod — el canal de email de Alertas
 // Self-Service fallaba en silencio (console.warn, sin error visible).
 async function sendToEmail(config: EmailConfig, payload: NotificationPayload): Promise<void> {
-    const html = getStandardAlertNotificationEmailHtml({
-        title: payload.title,
-        message: payload.message,
-        severity: payload.severity,
-        link: payload.link,
-        locale: payload.locale,
-        metadata: payload.metadata,
-    });
+    const html = typeof getStandardAlertNotificationEmailHtml === "function"
+        ? getStandardAlertNotificationEmailHtml({
+            title: payload.title,
+            message: payload.message,
+            severity: payload.severity,
+            link: payload.link,
+            locale: payload.locale,
+            metadata: payload.metadata,
+        })
+        : `<h2>${payload.title}</h2><p>${payload.message}</p>`;
     const subject = `[${(payload.severity || "info").toUpperCase()}] ${payload.title}`;
 
     await Promise.all(
@@ -410,7 +426,7 @@ export async function notifyTenant(tenantId: string, payload: NotificationPayloa
 // donde el webhook (Slack/Teams/Power Automate) viene en channel_target.
 export async function sendLegacyWebhookAlert(webhookUrl: string, payload: NotificationPayload): Promise<void> {
     const isPowerAutomate = webhookUrl.includes("powerautomate") || webhookUrl.includes("powerplatform");
-    const disclaimer = getNoReplyDisclaimer(payload.locale || 'es');
+    const disclaimer = getDisclaimer(payload.locale || 'es');
     let body: any;
 
     if (isPowerAutomate) {

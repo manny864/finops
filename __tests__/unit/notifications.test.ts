@@ -16,6 +16,8 @@ global.fetch = vi.fn();
 // (emailHelper.ts), no SMTP/nodemailer.
 vi.mock("@/lib/emailHelper", () => ({
   sendEmailAsync: vi.fn().mockResolvedValue(undefined),
+  getNoReplyDisclaimer: vi.fn().mockReturnValue("Disclaimer no-reply"),
+  getStandardAlertNotificationEmailHtml: vi.fn().mockReturnValue("<p>Alerta</p>"),
 }));
 
 describe("notifyTenant", () => {
