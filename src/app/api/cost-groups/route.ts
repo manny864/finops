@@ -454,19 +454,9 @@ export async function POST(request: NextRequest) {
 
             if (budget != null) {
                 await pool.query(
-                    `INSERT INTO Budgets (
-                        tenant_id,
-                        cost_center_tag_key,
-                        cost_center_tag_value,
-                        monthly_limit_usd,
-                        alert_threshold_percent,
-                        active,
-                        subscription_id,
-                        period,
-                        created_at,
-                        updated_at
-                    ) VALUES (?, 'CostCenter', ?, ?, 80, 1, 'default', 'monthly', NOW(), NOW())
-                    ON DUPLICATE KEY UPDATE monthly_limit_usd = VALUES(monthly_limit_usd), updated_at = NOW()`,
+                    `INSERT INTO Budgets (tenant_id, cost_center_tag_value, monthly_limit_usd)
+                 VALUES (?, ?, ?)
+                 ON DUPLICATE KEY UPDATE monthly_limit_usd = VALUES(monthly_limit_usd)`,
                     [tenantId, name.trim(), Number(budget)]
                 );
             }

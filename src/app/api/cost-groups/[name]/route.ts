@@ -469,19 +469,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
                 return NextResponse.json({ error: "budget debe ser un número >= 0" }, { status: 400 });
             }
             await pool.query(
-                `INSERT INTO Budgets (
-                    tenant_id,
-                    cost_center_tag_key,
-                    cost_center_tag_value,
-                    monthly_limit_usd,
-                    alert_threshold_percent,
-                    active,
-                    subscription_id,
-                    period,
-                    created_at,
-                    updated_at
-                ) VALUES (?, 'CostCenter', ?, ?, 80, 1, 'default', 'monthly', NOW(), NOW())
-                ON DUPLICATE KEY UPDATE monthly_limit_usd = VALUES(monthly_limit_usd), updated_at = NOW()`,
+                `INSERT INTO Budgets (tenant_id, cost_center_tag_value, monthly_limit_usd)
+                 VALUES (?, ?, ?)
+                 ON DUPLICATE KEY UPDATE monthly_limit_usd = VALUES(monthly_limit_usd)`,
                 [tenantId, name, numBudget]
             );
         }
