@@ -12827,6 +12827,8 @@
       "paidByClient": "Tokens on customer key",
       "tokensHint": "source = platform · we pay for these",
       "byokHint": "source = byok · the tenant pays with their own key",
+      "demoBadge": "demo",
+      "demoTokens": "tokens consumed by demo tenants. They are real --Copilot and the executive report call the provider even for a synthetic tenant-- and we pay for them, but they belong to no customer.",
       "tenant": "Tenant",
       "source": "Source",
       "calls": "Calls",

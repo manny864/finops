@@ -15,6 +15,7 @@ import { AuthError, requireSuperAdmin } from "@/lib/requestAuth";
 import { errorMessage, errorStatus } from "@/lib/apiErrors";
 import pool from "@/modules/storage/db";
 import { leerUsoApiAzure } from "@/lib/azureApiMetrics";
+import { isMockTenant } from "@/lib/mockData";
 
 export const dynamic = "force-dynamic";
 
@@ -132,6 +133,12 @@ export async function GET(request: NextRequest) {
 
         const fila = (r: any) => ({
             ...r,
+            // Los tenants DEMO gastan tokens de verdad: el Copilot y el reporte
+            // ejecutivo llaman al proveedor real aunque el tenant sea sintético.
+            // El consumo es real y no se oculta --la casa lo paga-- pero se
+            // marca, porque mezclarlo con clientes en la misma lista hace ver
+            // "datos mock" en un panel operativo y ensucia la lectura.
+            esDemo: r.tenant_id ? isMockTenant(r.tenant_id) : false,
             llamadas: Number(r.llamadas || 0),
             inputTokens: Number(r.inputTokens || 0),
             outputTokens: Number(r.outputTokens || 0),
@@ -143,6 +150,12 @@ export async function GET(request: NextRequest) {
             // `platform` es lo que absorbe la casa y `byok` lo que el cliente
             // paga con su propia clave: mezclarlos haría ver un costo que no es.
             porTenant: (porTenant || []).map(fila),
+            // Total aparte para que se vea de un vistazo cuánto se va en demos
+            // sin tener que sumar filas a mano.
+            demoTokens: (porTenant || [])
+                .map(fila)
+                .filter((r: any) => r.esDemo)
+                .reduce((t: number, r: any) => t + r.inputTokens + r.outputTokens, 0),
             porFeature: (porFeature || []).map(fila),
             porDia: (porDia || []).map((r: any) => ({
                 dia: r.dia instanceof Date ? r.dia.toISOString().slice(0, 10) : String(r.dia),

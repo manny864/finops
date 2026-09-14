@@ -12827,6 +12827,8 @@
       "paidByClient": "Tokens con clave del cliente",
       "tokensHint": "source = platform · los paga la casa",
       "byokHint": "source = byok · los paga el tenant con su propia clave",
+      "demoBadge": "demo",
+      "demoTokens": "tokens consumidos por tenants de demostración. Son reales --el Copilot y el reporte ejecutivo llaman al proveedor aunque el tenant sea sintético-- y los paga la casa, pero no son de ningún cliente.",
       "tenant": "Tenant",
       "source": "Origen",
       "calls": "Llamadas",

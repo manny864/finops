@@ -35,6 +35,7 @@ type FilaIa = {
     provider?: string;
     model_name?: string;
     source: "platform" | "byok";
+    esDemo?: boolean;
     llamadas: number;
     inputTokens: number;
     outputTokens: number;
@@ -110,8 +111,15 @@ export default function PlatformUsagePanel() {
     useEffect(() => { cargar(); }, [cargar]);
 
     const totales = useMemo(() => {
-        const acc = { platform: 0, byok: 0 };
-        for (const f of porTenant) acc[f.source] += f.inputTokens + f.outputTokens;
+        // El consumo de los tenants DEMO se cuenta aparte: es real --la casa
+        // paga esos tokens-- pero no es de ningún cliente, y sumarlo al resto
+        // haría ver un costo por tenant que no existe.
+        const acc = { platform: 0, byok: 0, demo: 0 };
+        for (const f of porTenant) {
+            const tok = f.inputTokens + f.outputTokens;
+            if (f.esDemo) acc.demo += tok;
+            else acc[f.source] += tok;
+        }
         return acc;
     }, [porTenant]);
 
@@ -155,6 +163,14 @@ export default function PlatformUsagePanel() {
                     </div>
                 </div>
 
+                {totales.demo > 0 && (
+                    <div className="mb-5 rounded-lg border border-amber-300/50 bg-amber-50 dark:bg-amber-950/20 px-3 py-2">
+                        <p className="text-xs text-slate-700 dark:text-slate-300">
+                            <strong>{miles(totales.demo)}</strong> {t("demoTokens")}
+                        </p>
+                    </div>
+                )}
+
                 {porTenant.length === 0 ? (
                     <p className="text-xs text-slate-500">{t("aiEmpty")}</p>
                 ) : (
@@ -174,6 +190,11 @@ export default function PlatformUsagePanel() {
                                     <tr key={`${f.tenant_id}-${f.source}-${i}`} className="border-b border-slate-100 dark:border-slate-800/60">
                                         <td className="py-2 pr-3 text-slate-800 dark:text-slate-100">
                                             {f.company_name || f.tenant_id || t("noTenant")}
+                                            {f.esDemo && (
+                                                <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300">
+                                                    {t("demoBadge")}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="py-2 pr-3">
                                             <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
