@@ -267,7 +267,8 @@ allowed_ip_ranges = []
 
 # El resto del .env que NO es secreto. Los secretos van por key_vault_secret_ids.
 extra_env_vars = {
-  NEXT_PUBLIC_SSO_ENABLED = "true"
+  NEXT_PUBLIC_SSO_ENABLED   = "true"
+  AZURE_SENDER_EMAIL_ALERTS = "alerts@cscloudsolutions.com.ar"
   # APP_BASE_URL, NEXT_PUBLIC_CLIENT_ID, AZURE_TENANT_ID, etc.
   # Local/dev fallback only (prod recomendado vía Key Vault):
   # PARTNER_MPN_ID = "7111700"

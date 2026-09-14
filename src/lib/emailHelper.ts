@@ -19,9 +19,13 @@ export async function sendEmailAsync(
   attachments?: EmailAttachment[]
 ): Promise<void> {
   try {
-    const senderEmail = process.env.AZURE_SENDER_EMAIL;
-    if (!senderEmail) {
-      console.warn("[Email] AZURE_SENDER_EMAIL not configured. Skipping email.");
+    const senderEmail = process.env.AZURE_SENDER_EMAIL_ALERTS || process.env.AZURE_SENDER_EMAIL || "alerts@cscloudsolutions.com.ar";
+    const tenantId = process.env.MAIL_AZURE_TENANT_ID || process.env.AZURE_TENANT_ID;
+    const clientId = process.env.MAIL_AZURE_CLIENT_ID || process.env.AZURE_CLIENT_ID || '';
+    const clientSecret = process.env.MAIL_AZURE_CLIENT_SECRET || process.env.AZURE_CLIENT_SECRET || '';
+
+    if (!tenantId || !clientId || !clientSecret) {
+      console.warn("[Email] Azure MS Graph credentials not configured. Skipping email.");
       return;
     }
 
@@ -29,14 +33,14 @@ export async function sendEmailAsync(
     (async () => {
       try {
         const tokenResponse = await fetch(
-          `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID}/oauth2/v2.0/token`,
+          `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({
-              client_id: process.env.AZURE_CLIENT_ID || '',
+              client_id: clientId,
               scope: 'https://graph.microsoft.com/.default',
-              client_secret: process.env.AZURE_CLIENT_SECRET || '',
+              client_secret: clientSecret,
               grant_type: 'client_credentials',
             }),
           }
@@ -66,7 +70,7 @@ export async function sendEmailAsync(
         };
 
         const sendResponse = await fetch(
-          `https://graph.microsoft.com/v1.0/users/${senderEmail}/sendMail`,
+          `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(senderEmail)}/sendMail`,
           {
             method: 'POST',
             headers: {
@@ -99,22 +103,27 @@ export async function sendEmailStrict(
   subject: string,
   htmlContent: string,
   recipientEmail: string,
-  attachments?: EmailAttachment[]
+  attachments?: EmailAttachment[],
+  senderOverride?: string
 ): Promise<void> {
-  const senderEmail = process.env.AZURE_SENDER_EMAIL;
-  if (!senderEmail) {
-    throw new Error("AZURE_SENDER_EMAIL not configured");
+  const senderEmail = senderOverride || process.env.AZURE_SENDER_EMAIL_ALERTS || process.env.AZURE_SENDER_EMAIL || "alerts@cscloudsolutions.com.ar";
+  const tenantId = process.env.MAIL_AZURE_TENANT_ID || process.env.AZURE_TENANT_ID;
+  const clientId = process.env.MAIL_AZURE_CLIENT_ID || process.env.AZURE_CLIENT_ID || '';
+  const clientSecret = process.env.MAIL_AZURE_CLIENT_SECRET || process.env.AZURE_CLIENT_SECRET || '';
+
+  if (!tenantId || !clientId || !clientSecret) {
+    throw new Error("Credenciales de Azure / Microsoft Graph no configuradas (AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET)");
   }
 
   const tokenResponse = await fetch(
-    `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID}/oauth2/v2.0/token`,
+    `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        client_id: process.env.AZURE_CLIENT_ID || '',
+        client_id: clientId,
         scope: 'https://graph.microsoft.com/.default',
-        client_secret: process.env.AZURE_CLIENT_SECRET || '',
+        client_secret: clientSecret,
         grant_type: 'client_credentials',
       }),
     }
@@ -143,7 +152,7 @@ export async function sendEmailStrict(
   };
 
   const sendResponse = await fetch(
-    `https://graph.microsoft.com/v1.0/users/${senderEmail}/sendMail`,
+    `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(senderEmail)}/sendMail`,
     {
       method: 'POST',
       headers: {
@@ -157,6 +166,304 @@ export async function sendEmailStrict(
   if (!sendResponse.ok) {
     throw new Error(`[Email] Failed to send email: ${await sendResponse.text()}`);
   }
+}
+
+/**
+ /**
+ * Retorna el aviso legal corporativo indicando que alerts@cscloudsolutions.com.ar es no-reply
+ * y derivando las consultas a soporte@cscloudsolutions.com.ar de forma profesional y formal.
+ */
+export function getNoReplyDisclaimer(locale: string = "es"): string {
+  const loc = (locale || "es").toLowerCase();
+  if (loc.startsWith("en")) {
+    return "Automated send-only mailbox notice: The alerts@cscloudsolutions.com.ar account is a send-only mailbox dedicated exclusively to system notifications. This mailbox is unmonitored and cannot receive incoming messages; please do not reply directly to this email. For technical support, assistance, or inquiries, please reach out to soporte@cscloudsolutions.com.ar.";
+  }
+  if (loc.startsWith("pt")) {
+    return "Aviso de caixa postal automática e exclusiva para envio: A conta alerts@cscloudsolutions.com.ar é uma caixa postal exclusiva para envio de notificações do sistema, não sendo monitorada para recebimento de mensagens. Por favor, não responda a este e-mail. Para suporte técnico, dúvidas ou assistência, entre em contato através de soporte@cscloudsolutions.com.ar.";
+  }
+  return "Aviso de casilla automática de solo envío: La cuenta alerts@cscloudsolutions.com.ar es una casilla de distribución automatizada y de solo envío para notificaciones del sistema. Este buzón no es monitoreado ni admite recepción de correos entrantes; por favor, no responda a este mensaje. Para asistencia técnica, soporte o consultas, contáctenos en soporte@cscloudsolutions.com.ar.";
+}
+
+export function getAlertTestEmailHtml(params: {
+  ruleName: string;
+  alertType: string;
+  scopeType: string;
+  scopeValue: string;
+  threshold: string;
+  testedAt: string;
+  locale?: string;
+}): string {
+  const { ruleName, alertType, scopeType, scopeValue, threshold, testedAt, locale = "es" } = params;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://finops.cscloudsolutions.com.ar";
+  const loc = (locale || "es").toLowerCase();
+  const alertSender = process.env.AZURE_SENDER_EMAIL_ALERTS || process.env.AZURE_SENDER_EMAIL || "alerts@cscloudsolutions.com.ar";
+
+  const i18n = loc.startsWith("en")
+    ? {
+        headerTitle: "Azure FinOps Platform",
+        headerSubtitle: "CSCloudSolutions · Cloud Financial Operations",
+        badge: "Delivery Verification",
+        alertHeading: "System Alert Test Dispatched",
+        leadText: `An automated alert test notification has been successfully dispatched for rule <strong>"${ruleName}"</strong> from the Self-Service Alerts control center.`,
+        ruleLabel: "Alert Rule",
+        typeLabel: "Detection Type",
+        scopeLabel: "Monitored Scope",
+        thresholdLabel: "Trigger Threshold",
+        channelLabel: "Notification Channel",
+        channelValue: "Email Notification (EMAIL)",
+        senderLabel: "Sender Mailbox",
+        dateLabel: "Timestamp (UTC)",
+        verifiedBannerTitle: "Delivery Channel Confirmed",
+        verifiedBannerBody: "Your mailbox credentials and Microsoft Graph API application permissions (<code>Mail.Send</code>) are properly configured, authenticated, and ready for production alerts.",
+        ctaButton: "Open Alerts Console",
+        disclaimerTitle: "Automated Send-Only Address",
+        disclaimerBody: "The alerts@cscloudsolutions.com.ar account is a send-only mailbox dedicated exclusively to system notifications. This mailbox is unmonitored and cannot receive incoming messages; please do not reply directly to this email. For technical support, assistance, or inquiries, please reach out to soporte@cscloudsolutions.com.ar.",
+        rightsReserved: "All rights reserved.",
+        autoGeneratedNote: "This message was generated automatically by the FinOps alert verification engine.",
+        supportLabel: "Technical Support",
+      }
+    : loc.startsWith("pt")
+    ? {
+        headerTitle: "Plataforma Azure FinOps",
+        headerSubtitle: "CSCloudSolutions · Gestão Financeira na Nuvem",
+        badge: "Verificação de Entrega",
+        alertHeading: "Teste de Alerta do Sistema Disparado",
+        leadText: `Uma notificação de teste automatizada foi enviada com sucesso para a regra <strong>"${ruleName}"</strong> a partir da central de Alertas Self-Service.`,
+        ruleLabel: "Regra de Alerta",
+        typeLabel: "Tipo de Detecção",
+        scopeLabel: "Escopo Monitorado",
+        thresholdLabel: "Limite Configurado",
+        channelLabel: "Canal de Notificação",
+        channelValue: "Correio Eletrônico (EMAIL)",
+        senderLabel: "Caixa Emissora",
+        dateLabel: "Data e Hora (UTC)",
+        verifiedBannerTitle: "Canal de Entrega Confirmado",
+        verifiedBannerBody: "As credenciais da sua caixa postal e as permissões de aplicativo do Microsoft Graph (<code>Mail.Send</code>) estão configuradas, autenticadas e operacionais para produção.",
+        ctaButton: "Acessar Painel de Alertas",
+        disclaimerTitle: "Caixa Automática Exclusiva para Envio",
+        disclaimerBody: "A conta alerts@cscloudsolutions.com.ar é uma caixa postal exclusiva para envio de notificações do sistema, não sendo monitorada para recebimento de mensagens. Por favor, não responda a este e-mail. Para suporte técnico, dúvidas ou assistência, entre em contato através de soporte@cscloudsolutions.com.ar.",
+        rightsReserved: "Todos os direitos reservados.",
+        autoGeneratedNote: "Esta mensagem foi gerada automaticamente pelo motor de verificação de alertas FinOps.",
+        supportLabel: "Suporte Técnico",
+      }
+    : {
+        headerTitle: "Plataforma Azure FinOps",
+        headerSubtitle: "CSCloudSolutions · Gestión Financiera Cloud",
+        badge: "Verificación de Entrega",
+        alertHeading: "Prueba de Alerta de Sistema Despachada",
+        leadText: `Se ha ejecutado y validado exitosamente una prueba automatizada de entrega para la regla de alerta <strong>"${ruleName}"</strong> desde el panel de Alertas Self-Service.`,
+        ruleLabel: "Regla de Alerta",
+        typeLabel: "Tipo de Detección",
+        scopeLabel: "Alcance Monitoreado",
+        thresholdLabel: "Umbral de Disparo",
+        channelLabel: "Canal de Notificación",
+        channelValue: "Correo Electrónico (EMAIL)",
+        senderLabel: "Casilla Emisora",
+        dateLabel: "Fecha y Hora (UTC)",
+        verifiedBannerTitle: "Canal de Entrega Confirmado",
+        verifiedBannerBody: "Las credenciales de tu buzón y los permisos de aplicación de Microsoft Graph (<code>Mail.Send</code>) están correctamente configurados, autenticados y listos para alertas en producción.",
+        ctaButton: "Ir a la Consola de Alertas",
+        disclaimerTitle: "Casilla Automática de Solo Envío",
+        disclaimerBody: "La cuenta alerts@cscloudsolutions.com.ar es una casilla de distribución automatizada y de solo envío para notificaciones del sistema. Este buzón no es monitoreado ni admite recepción de correos entrantes; por favor, no responda a este mensaje. Para asistencia técnica, soporte o consultas, contáctenos en soporte@cscloudsolutions.com.ar.",
+        rightsReserved: "Todos los derechos reservados.",
+        autoGeneratedNote: "Este mensaje fue generado automáticamente por el motor de verificación de alertas FinOps.",
+        supportLabel: "Soporte Técnico",
+      };
+
+  return `
+    <!DOCTYPE html>
+    <html lang="${loc}">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body { margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+          .email-wrapper { width: 100%; background-color: #f1f5f9; padding: 32px 12px; }
+          .email-card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); }
+          .header { background: linear-gradient(135deg, #0054A6 0%, #002D62 100%); padding: 32px 36px; text-align: left; }
+          .brand-title { margin: 0; font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: -0.02em; }
+          .brand-sub { margin: 6px 0 0 0; font-size: 11px; font-weight: 600; color: #93c5fd; text-transform: uppercase; letter-spacing: 0.08em; }
+          .content { padding: 36px 36px 28px 36px; }
+          .pill-badge { display: inline-block; padding: 5px 12px; font-size: 11px; font-weight: 700; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.05em; background-color: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; margin-bottom: 16px; }
+          .lead-heading { margin: 0 0 10px 0; font-size: 19px; font-weight: 700; color: #0f172a; letter-spacing: -0.01em; line-height: 1.3; }
+          .lead-text { margin: 0 0 22px 0; font-size: 14px; line-height: 1.6; color: #475569; }
+          .summary-card { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px 22px; margin: 20px 0 24px 0; }
+          .detail-table { width: 100%; border-collapse: collapse; }
+          .detail-table td { padding: 10px 0; border-bottom: 1px solid #edf2f7; font-size: 13px; }
+          .detail-table tr:last-child td { border-bottom: none; }
+          .label { color: #64748b; font-weight: 600; width: 38%; }
+          .value { color: #0f172a; font-weight: 500; }
+          .highlight { font-weight: 700; color: #0054A6; }
+          .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; }
+          .banner { background-color: #f0fdf4; border: 1px solid #bbf7d0; border-left: 4px solid #16a34a; padding: 14px 18px; border-radius: 6px; font-size: 13px; color: #15803d; margin: 20px 0; line-height: 1.5; }
+          .banner-title { font-weight: 700; margin-bottom: 4px; display: block; }
+          .disclaimer-card { background-color: #fffbeb; border: 1px solid #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 16px 20px; font-size: 12px; color: #92400e; margin: 24px 0 16px 0; line-height: 1.6; }
+          .disclaimer-title { font-weight: 700; font-size: 13px; color: #78350f; margin-bottom: 6px; }
+          .cta-wrapper { margin-top: 28px; text-align: left; }
+          .cta-button { display: inline-block; padding: 12px 28px; background: linear-gradient(135deg, #0054A6 0%, #003e7e 100%); color: #ffffff !important; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600; box-shadow: 0 2px 6px rgba(0, 84, 166, 0.25); }
+          .footer { background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 24px 36px; font-size: 11px; color: #94a3b8; text-align: center; line-height: 1.6; }
+          .footer p { margin: 0 0 6px 0; }
+          .footer a { color: #0054A6; text-decoration: underline; font-weight: 600; }
+        </style>
+      </head>
+      <body>
+        <div class="email-wrapper">
+          <div class="email-card">
+            <div class="header">
+              <h1 class="brand-title">☁️ ${i18n.headerTitle}</h1>
+              <p class="brand-sub">${i18n.headerSubtitle}</p>
+            </div>
+            <div class="content">
+              <span class="pill-badge">${i18n.badge}</span>
+              <h2 class="lead-heading">${i18n.alertHeading}</h2>
+              <p class="lead-text">${i18n.leadText}</p>
+              
+              <div class="summary-card">
+                <table class="detail-table">
+                  <tr>
+                    <td class="label">${i18n.ruleLabel}</td>
+                    <td class="value highlight">${ruleName}</td>
+                  </tr>
+                  <tr>
+                    <td class="label">${i18n.typeLabel}</td>
+                    <td class="value">${alertType}</td>
+                  </tr>
+                  <tr>
+                    <td class="label">${i18n.scopeLabel}</td>
+                    <td class="value">${scopeType}: ${scopeValue || "Tenant"}</td>
+                  </tr>
+                  <tr>
+                    <td class="label">${i18n.thresholdLabel}</td>
+                    <td class="value highlight">${threshold}</td>
+                  </tr>
+                  <tr>
+                    <td class="label">${i18n.channelLabel}</td>
+                    <td class="value">${i18n.channelValue}</td>
+                  </tr>
+                  <tr>
+                    <td class="label">${i18n.senderLabel}</td>
+                    <td class="value font-mono">${alertSender}</td>
+                  </tr>
+                  <tr>
+                    <td class="label">${i18n.dateLabel}</td>
+                    <td class="value">${testedAt}</td>
+                  </tr>
+                </table>
+              </div>
+
+              <div class="banner">
+                <span class="banner-title">✅ ${i18n.verifiedBannerTitle}</span>
+                ${i18n.verifiedBannerBody}
+              </div>
+
+              <div class="disclaimer-card">
+                <div class="disclaimer-title">⚠️ ${i18n.disclaimerTitle}</div>
+                <div>${i18n.disclaimerBody}</div>
+              </div>
+
+              <div class="cta-wrapper">
+                <a href="${baseUrl}/intelligence/alerts" class="cta-button">${i18n.ctaButton} &rarr;</a>
+              </div>
+            </div>
+
+            <div class="footer">
+              <p>© 2026 CSCloudSolutions · Cloud Financial Management. ${i18n.rightsReserved}</p>
+              <p>${i18n.autoGeneratedNote}</p>
+              <p>${i18n.supportLabel}: <a href="mailto:soporte@cscloudsolutions.com.ar">soporte@cscloudsolutions.com.ar</a></p>
+            </div>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+}
+
+/**
+ * Plantilla HTML corporativa estándar para cualquier alerta despachada por correo a los tenants.
+ * Garantiza consistencia visual, badge de severidad, tarjeta de datos y aviso no-reply formal.
+ */
+export function getStandardAlertNotificationEmailHtml(params: {
+  title: string;
+  message: string;
+  severity?: "info" | "warning" | "error";
+  link?: string;
+  locale?: string;
+  metadata?: Record<string, unknown>;
+}): string {
+  const { title, message, severity = "info", link, locale = "es", metadata } = params;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://finops.cscloudsolutions.com.ar";
+  const loc = (locale || "es").toLowerCase();
+  const alertSender = process.env.AZURE_SENDER_EMAIL_ALERTS || process.env.AZURE_SENDER_EMAIL || "alerts@cscloudsolutions.com.ar";
+  const disclaimerText = getNoReplyDisclaimer(loc);
+
+  const badgeColor =
+    severity === "error"
+      ? { bg: "#fee2e2", text: "#991b1b", border: "#fecaca", label: loc.startsWith("en") ? "Critical Alert" : loc.startsWith("pt") ? "Alerta Crítico" : "Alerta Crítico", icon: "🚨" }
+      : severity === "warning"
+      ? { bg: "#fef3c7", text: "#92400e", border: "#fde68a", label: loc.startsWith("en") ? "Warning" : loc.startsWith("pt") ? "Aviso" : "Advertencia", icon: "⚠️" }
+      : { bg: "#e0f2fe", text: "#0369a1", border: "#bae6fd", label: loc.startsWith("en") ? "Information" : loc.startsWith("pt") ? "Informativo" : "Informativo", icon: "ℹ️" };
+
+  const ctaTitle = loc.startsWith("en") ? "View in FinOps Platform" : loc.startsWith("pt") ? "Ver no Painel FinOps" : "Ver en la Plataforma FinOps";
+  const disclaimerTitle = loc.startsWith("en") ? "Automated Send-Only Address" : loc.startsWith("pt") ? "Caixa Automática Exclusiva para Envio" : "Casilla Automática de Solo Envío";
+  const supportLabel = loc.startsWith("en") ? "Technical Support" : loc.startsWith("pt") ? "Suporte Técnico" : "Soporte Técnico";
+
+  const metaRows = metadata && Object.keys(metadata).length > 0
+    ? Object.entries(metadata)
+        .filter(([k]) => k !== "disclaimer")
+        .map(([k, v]) => {
+          const val = typeof v === "object" && v !== null ? JSON.stringify(v) : String(v);
+          return `<tr><td style="color:#64748b;font-weight:600;padding:8px 0;border-bottom:1px solid #edf2f7;font-size:13px;width:38%;">${k}</td><td style="color:#0f172a;padding:8px 0;border-bottom:1px solid #edf2f7;font-size:13px;">${val}</td></tr>`;
+        })
+        .join("")
+    : "";
+
+  return `
+    <!DOCTYPE html>
+    <html lang="${loc}">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin:0;padding:0;background-color:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+        <div style="width:100%;background-color:#f1f5f9;padding:32px 12px;">
+          <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 20px -2px rgba(0,0,0,0.05);">
+            <div style="background:linear-gradient(135deg, #0054A6 0%, #002D62 100%);padding:28px 36px;text-align:left;">
+              <h1 style="margin:0;font-size:20px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;">☁️ Azure FinOps Platform</h1>
+              <p style="margin:6px 0 0 0;font-size:11px;font-weight:600;color:#93c5fd;text-transform:uppercase;letter-spacing:0.08em;">CSCloudSolutions · Cloud Financial Operations</p>
+            </div>
+            <div style="padding:36px 36px 28px 36px;">
+              <span style="display:inline-block;padding:5px 12px;font-size:11px;font-weight:700;border-radius:9999px;text-transform:uppercase;letter-spacing:0.05em;background-color:${badgeColor.bg};color:${badgeColor.text};border:1px solid ${badgeColor.border};margin-bottom:16px;">
+                ${badgeColor.icon} ${badgeColor.label}
+              </span>
+              <h2 style="margin:0 0 12px 0;font-size:19px;font-weight:700;color:#0f172a;line-height:1.3;">${title}</h2>
+              <div style="font-size:14px;line-height:1.6;color:#334155;margin:0 0 20px 0;white-space:pre-line;">${message}</div>
+
+              ${metaRows ? `
+              <div style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 20px;margin:20px 0;">
+                <table style="width:100%;border-collapse:collapse;">
+                  ${metaRows}
+                </table>
+              </div>` : ""}
+
+              ${link ? `
+              <div style="margin:24px 0;">
+                <a href="${link}" style="display:inline-block;padding:12px 28px;background:linear-gradient(135deg, #0054A6 0%, #003e7e 100%);color:#ffffff !important;text-decoration:none;border-radius:6px;font-size:13px;font-weight:600;box-shadow:0 2px 6px rgba(0,84,166,0.25);">${ctaTitle} &rarr;</a>
+              </div>` : ""}
+
+              <div style="background-color:#fffbeb;border:1px solid #fef3c7;border-left:4px solid #f59e0b;border-radius:8px;padding:16px 20px;font-size:12px;color:#92400e;margin:26px 0 16px 0;line-height:1.6;">
+                <div style="font-weight:700;font-size:13px;color:#78350f;margin-bottom:6px;">⚠️ ${disclaimerTitle}</div>
+                <div>${disclaimerText}</div>
+              </div>
+            </div>
+
+            <div style="background-color:#f8fafc;border-top:1px solid #e2e8f0;padding:24px 36px;font-size:11px;color:#94a3b8;text-align:center;line-height:1.6;">
+              <p style="margin:0 0 6px 0;">© 2026 CSCloudSolutions · Cloud Financial Management. All rights reserved.</p>
+              <p style="margin:0;">${supportLabel}: <a href="mailto:soporte@cscloudsolutions.com.ar" style="color:#0054A6;text-decoration:underline;font-weight:600;">soporte@cscloudsolutions.com.ar</a></p>
+            </div>
+          </div>
+        </div>
+      </body>
+  `;
 }
 
 export function getWelcomeEmailHtml(userEmail: string, companyName: string, planName: string): string {

@@ -184,7 +184,8 @@ jobs:
       - name: Deploy de la app
         run: |
           az containerapp update -g "$RG" -n "$APP" \
-            --image "$ACR.azurecr.io/$IMAGE:${{ github.sha }}"
+            --image "$ACR.azurecr.io/$IMAGE:${{ github.sha }}" \
+            --set-env-vars AZURE_SENDER_EMAIL_ALERTS="${{ vars.AZURE_SENDER_EMAIL_ALERTS || 'alerts@cscloudsolutions.com.ar' }}"
 
       # Los 14 cron jobs corren la MISMA imagen de runtime. Se actualizan en
       # paralelo (hasta 8 a la vez) para reducir el tiempo de deploy.

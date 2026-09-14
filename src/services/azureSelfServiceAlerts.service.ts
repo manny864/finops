@@ -14,6 +14,7 @@ import {
   SelfServiceAlertsPayload,
   AlertTestResult,
 } from "@/types/azureSelfServiceAlerts.types";
+import { sendEmailStrict, getAlertTestEmailHtml, getNoReplyDisclaimer } from "@/lib/emailHelper";
 
 /**
  * Formateo Riguroso y Estandarizado de Umbrales
@@ -21,20 +22,32 @@ import {
 export function formatAlertThreshold(
   alertType: AlertRuleType,
   thresholdValue: number,
-  thresholdUnit: "PERCENT" | "USD"
+  thresholdUnit: "PERCENT" | "USD",
+  locale: string = "es"
 ): string {
   const dec = new Decimal(thresholdValue || 0);
+  const loc = (locale || "es").toLowerCase();
+  const isEn = loc.startsWith("en");
+  const isPt = loc.startsWith("pt");
 
   switch (alertType) {
     case "BUDGET":
-      return `${dec.toFixed(1)}% del Presupuesto`;
+      return isEn
+        ? `${dec.toFixed(1)}% of Budget`
+        : isPt
+        ? `${dec.toFixed(1)}% do Orçamento`
+        : `${dec.toFixed(1)}% del Presupuesto`;
     case "FIXED_THRESHOLD":
       return `$${dec.toNumber().toLocaleString("en-US", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       })} USD`;
     case "ANOMALY_PERCENT":
-      return `+${dec.toFixed(1)}% Desvío Diario`;
+      return isEn
+        ? `+${dec.toFixed(1)}% Daily Deviation`
+        : isPt
+        ? `+${dec.toFixed(1)}% Desvio Diário`
+        : `+${dec.toFixed(1)}% Desvío Diario`;
     case "FORECAST_OVERRUN":
       return `${dec.toFixed(1)}% Forecast EOM`;
     default:
@@ -42,6 +55,94 @@ export function formatAlertThreshold(
         ? `${dec.toFixed(1)}%`
         : `$${dec.toFixed(2)} USD`;
   }
+}
+
+/**
+ * Textos localizados para el despacho multicanal de alertas (Teams, Slack, ServiceNow, Email, Webhook)
+ */
+export function getAlertPayloadI18n(locale: string = "es") {
+  const loc = (locale || "es").toLowerCase();
+  const alertSender = process.env.AZURE_SENDER_EMAIL_ALERTS || process.env.AZURE_SENDER_EMAIL || "alerts@cscloudsolutions.com.ar";
+  const disclaimer = getNoReplyDisclaimer(loc);
+  if (loc.startsWith("en")) {
+    return {
+      titlePrefix: "🚨 FinOps Alert",
+      slackHeader: "🚨 *FinOps Alert (CSCloudSolutions)*",
+      serviceNowShort: "FinOps Cost Alert",
+      serviceNowDesc: "Automated alert triggered by CSCloudSolutions FinOps Platform",
+      webhookEvent: "FINOPS_ALERT_TRIGGERED",
+      webhookMessage: "Automated FinOps alert notification",
+      ruleLabel: "Alert Rule",
+      typeLabel: "Alert Type",
+      scopeLabel: "Scope",
+      thresholdLabel: "Configured Threshold",
+      detectedLabel: "Detected Value",
+      detectedValue: "Exceeded (Test)",
+      timestampLabel: "Timestamp",
+      statusLabel: "Status",
+      statusValue: "Connectivity Test Succeeded",
+      noticeLabel: "Notice",
+      entireTenant: "Entire Tenant",
+      disclaimer,
+      testEmailSubject: "🚨 [FinOps Alert Test]",
+      testEmailSent: `Test email successfully sent to: {dest} (Sender: ${alertSender}).`,
+      noValidRecipient: "No valid email address was specified in the destination.",
+      endpointNotConfigured: "No valid URL or destination was configured for channel {channel}.",
+      simulatedDemo: "[DEMO SIMULATION] Successful delivery to {channel} ({target}).",
+    };
+  }
+  if (loc.startsWith("pt")) {
+    return {
+      titlePrefix: "🚨 Alerta FinOps",
+      slackHeader: "🚨 *Alerta FinOps (CSCloudSolutions)*",
+      serviceNowShort: "Alerta de Custos FinOps",
+      serviceNowDesc: "Alerta automático gerado pela plataforma CSCloudSolutions FinOps",
+      webhookEvent: "FINOPS_ALERT_TRIGGERED",
+      webhookMessage: "Notificação automática de alerta FinOps",
+      ruleLabel: "Regra de Alerta",
+      typeLabel: "Tipo de Alerta",
+      scopeLabel: "Escopo",
+      thresholdLabel: "Limite Configurado",
+      detectedLabel: "Valor Detectado",
+      detectedValue: "Excedido (Teste)",
+      timestampLabel: "Data de Emissão",
+      statusLabel: "Status",
+      statusValue: "Teste de Conectividade Bem-Sucedido",
+      noticeLabel: "Aviso",
+      entireTenant: "Tenant Completo",
+      disclaimer,
+      testEmailSubject: "🚨 [Teste de Alerta FinOps]",
+      testEmailSent: `E-mail de teste enviado com sucesso para: {dest} (Remitente: ${alertSender}).`,
+      noValidRecipient: "Nenhum endereço de e-mail válido foi especificado no destino.",
+      endpointNotConfigured: "Nenhuma URL ou destino válido foi configurado para o canal {channel}.",
+      simulatedDemo: "[SIMULAÇÃO DEMO] Entrega bem-sucedida para {channel} ({target}).",
+    };
+  }
+  return {
+    titlePrefix: "🚨 Alerta FinOps",
+    slackHeader: "🚨 *Alerta FinOps (CSCloudSolutions)*",
+    serviceNowShort: "Alerta de Costos FinOps",
+    serviceNowDesc: "Alerta automático generado por la plataforma CSCloudSolutions FinOps",
+    webhookEvent: "FINOPS_ALERT_TRIGGERED",
+    webhookMessage: "Notificación automática de alerta FinOps",
+    ruleLabel: "Regla de Alerta",
+    typeLabel: "Tipo de Alerta",
+    scopeLabel: "Alcance",
+    thresholdLabel: "Umbral Configurado",
+    detectedLabel: "Valor Detectado",
+    detectedValue: "Excedido (Prueba)",
+    timestampLabel: "Fecha de Emisión",
+    statusLabel: "Estado",
+    statusValue: "Prueba de Conectividad Exitosa",
+    noticeLabel: "Aviso",
+    entireTenant: "Tenant Completo",
+    disclaimer,
+    testEmailSubject: "🚨 [Prueba de Alerta FinOps]",
+    testEmailSent: `Correo de prueba enviado exitosamente a: {dest} (Remitente: ${alertSender}).`,
+    noValidRecipient: "No se especificó ninguna dirección de correo válida en el destino.",
+    endpointNotConfigured: "No se configuró una URL o destino válido para el canal {channel}.",
+    simulatedDemo: "[SIMULACIÓN DEMO] Entrega exitosa hacia {channel} ({target}).",
+  };
 }
 
 /**
@@ -80,12 +181,15 @@ export function computeAlertsSummaryMetrics(
 }
 
 /**
- * Genera el payload de prueba simulado para la regla y canal respectivo
+ * Genera el payload de prueba simulado para la regla y canal respectivo en el idioma solicitado
  */
 export function generateAlertTestPayloadPreview(
-  rule: SelfServiceAlertRule
+  rule: SelfServiceAlertRule,
+  locale = "es"
 ): Record<string, any> {
   const timestamp = new Date().toISOString();
+  const i18n = getAlertPayloadI18n(locale);
+  const scopeDesc = rule.scopeValue || i18n.entireTenant;
 
   switch (rule.notificationChannel) {
     case "TEAMS":
@@ -100,7 +204,7 @@ export function generateAlertTestPayloadPreview(
               body: [
                 {
                   type: "TextBlock",
-                  text: `🚨 Alerta FinOps: ${rule.name}`,
+                  text: `${i18n.titlePrefix}: ${rule.name}`,
                   weight: "Bolder",
                   size: "Medium",
                   color: "Attention",
@@ -108,11 +212,12 @@ export function generateAlertTestPayloadPreview(
                 {
                   type: "FactSet",
                   facts: [
-                    { title: "Tipo de Alerta:", value: rule.alertType },
-                    { title: "Alcance:", value: `${rule.scopeType} (${rule.scopeValue})` },
-                    { title: "Umbral Configurado:", value: rule.formattedThreshold },
-                    { title: "Valor Detectado:", value: "Excedido (Prueba)" },
-                    { title: "Fecha de Emisión:", value: timestamp },
+                    { title: `${i18n.typeLabel}:`, value: rule.alertType },
+                    { title: `${i18n.scopeLabel}:`, value: `${rule.scopeType} (${scopeDesc})` },
+                    { title: `${i18n.thresholdLabel}:`, value: rule.formattedThreshold },
+                    { title: `${i18n.detectedLabel}:`, value: i18n.detectedValue },
+                    { title: `${i18n.timestampLabel}:`, value: timestamp },
+                    { title: `${i18n.noticeLabel}:`, value: i18n.disclaimer },
                   ],
                 },
               ],
@@ -123,13 +228,13 @@ export function generateAlertTestPayloadPreview(
 
     case "SLACK":
       return {
-        text: `🚨 *Alerta FinOps (CSCloudSolutions)*: ${rule.name}`,
+        text: `${i18n.slackHeader}: ${rule.name}`,
         blocks: [
           {
             type: "section",
             text: {
               type: "mrkdwn",
-              text: `*Regla:* ${rule.name}\n*Tipo:* ${rule.alertType}\n*Alcance:* ${rule.scopeType} - ${rule.scopeValue}\n*Umbral:* ${rule.formattedThreshold}\n*Estado:* Prueba de Conectividad Exitosa`,
+              text: `*${i18n.ruleLabel}:* ${rule.name}\n*${i18n.typeLabel}:* ${rule.alertType}\n*${i18n.scopeLabel}:* ${rule.scopeType} - ${scopeDesc}\n*${i18n.thresholdLabel}:* ${rule.formattedThreshold}\n*${i18n.statusLabel}:* ${i18n.statusValue}\n\n_${i18n.disclaimer}_`,
             },
           },
         ],
@@ -137,28 +242,39 @@ export function generateAlertTestPayloadPreview(
 
     case "SERVICENOW":
       return {
-        short_description: `FinOps Cost Alert: ${rule.name}`,
-        description: `Automated alert triggered by CSCloudSolutions FinOps Platform for scope ${rule.scopeType}:${rule.scopeValue} surpassing threshold ${rule.formattedThreshold}.`,
+        short_description: `${i18n.serviceNowShort}: ${rule.name}`,
+        description: `${i18n.serviceNowDesc} for scope ${rule.scopeType}:${scopeDesc} surpassing threshold ${rule.formattedThreshold}. ${i18n.disclaimer}`,
         urgency: "2",
         impact: "2",
         category: "Cloud Cost Management",
         assigned_group: "FinOps-Ops",
       };
 
-    case "EMAIL":
+    case "EMAIL": {
+      const target = rule.channelConfig?.channelTarget || "";
+      const recipients = rule.channelConfig?.recipients?.length
+        ? rule.channelConfig.recipients
+        : target ? [target] : ["finops-alerts@empresa.com"];
+      const fromSender = process.env.AZURE_SENDER_EMAIL_ALERTS || process.env.AZURE_SENDER_EMAIL || "alerts@cscloudsolutions.com.ar";
+
       return {
-        to: rule.channelConfig.recipients || ["finops-alerts@empresa.com"],
-        subject: `[Alerta FinOps] ${rule.name} - ${rule.formattedThreshold}`,
-        bodyText: `Notificación automática de costo cloud para el alcance ${rule.scopeType}: ${rule.scopeValue}.`,
+        from: fromSender,
+        to: recipients,
+        subject: `[${i18n.titlePrefix.replace(/[🚨\s]+/g, "")}] ${rule.name} - ${rule.formattedThreshold}`,
+        bodyText: `${i18n.webhookMessage} (${rule.scopeType}: ${scopeDesc}). ${i18n.disclaimer}`,
+        disclaimer: i18n.disclaimer,
       };
+    }
 
     case "WEBHOOK":
     default:
       return {
-        event: "FINOPS_ALERT_TRIGGERED",
+        event: i18n.webhookEvent,
         ruleId: rule.id,
         ruleName: rule.name,
         alertType: rule.alertType,
+        locale: locale || "es",
+        message: `${i18n.webhookMessage}: ${rule.name}`,
         scope: {
           type: rule.scopeType,
           value: rule.scopeValue,
@@ -168,6 +284,9 @@ export function generateAlertTestPayloadPreview(
           unit: rule.thresholdUnit,
           formatted: rule.formattedThreshold,
         },
+        metadata: {
+          disclaimer: i18n.disclaimer,
+        },
         timestamp,
         isTest: true,
       };
@@ -175,14 +294,16 @@ export function generateAlertTestPayloadPreview(
 }
 
 /**
- * Motor de Prueba de Entrega (Test Payload Engine)
+ * Motor de Prueba de Entrega (Test Payload Engine) multilingüe y con soporte de canales
  */
 export async function testAlertRuleDelivery(
   rule: SelfServiceAlertRule,
-  isMock = false
+  isMock = false,
+  locale = "es"
 ): Promise<AlertTestResult> {
   const testedAt = new Date().toISOString();
-  const payloadPreview = generateAlertTestPayloadPreview(rule);
+  const i18n = getAlertPayloadI18n(locale);
+  const payloadPreview = generateAlertTestPayloadPreview(rule, locale);
 
   if (isMock) {
     // El guion es el placeholder cuando la regla no trae destino: cualquier
@@ -191,7 +312,7 @@ export async function testAlertRuleDelivery(
     return {
       success: true,
       httpStatusCode: 200,
-      responseMessage: `[SIMULACIÓN DEMO] Entrega exitosa hacia ${rule.notificationChannel} (${target}).`,
+      responseMessage: i18n.simulatedDemo.replace("{channel}", rule.notificationChannel).replace("{target}", target),
       messageKey: "testDemoSuccess",
       messageParams: { channel: rule.notificationChannel, target },
       testedAt,
@@ -199,7 +320,85 @@ export async function testAlertRuleDelivery(
     };
   }
 
-  // Si es un Webhook real o Teams/Slack URL, ejecutar el dispatch HTTP
+  // 1. Si es canal EMAIL, enviar correo de prueba real mediante Microsoft Graph
+  if (rule.notificationChannel === "EMAIL") {
+    const rawTargets: string[] = [];
+    if (Array.isArray(rule.channelConfig?.recipients) && rule.channelConfig.recipients.length > 0) {
+      rawTargets.push(...rule.channelConfig.recipients);
+    }
+    if (rule.channelConfig?.channelTarget) {
+      rawTargets.push(rule.channelConfig.channelTarget);
+    }
+    if (rule.channelConfig?.webhookUrl && !rule.channelConfig.webhookUrl.startsWith("http")) {
+      rawTargets.push(rule.channelConfig.webhookUrl);
+    }
+
+    const recipients = Array.from(
+      new Set(
+        rawTargets
+          .flatMap((r) => (r || "").split(/[,;\s]+/))
+          .map((r) => r.trim())
+          .filter((r) => r.includes("@"))
+      )
+    );
+
+    if (recipients.length === 0) {
+      return {
+        success: false,
+        httpStatusCode: 400,
+        responseMessage: i18n.noValidRecipient,
+        messageKey: "testEndpointError",
+        messageParams: { status: 400, statusText: i18n.noValidRecipient },
+        testedAt,
+        payloadPreview,
+      };
+    }
+
+    try {
+      const subject = `${i18n.testEmailSubject} ${rule.name || "Regla de Alerta"} - ${rule.formattedThreshold}`;
+      const emailHtml = getAlertTestEmailHtml({
+        ruleName: rule.name || "Regla de Alerta",
+        alertType: rule.alertType,
+        scopeType: rule.scopeType,
+        scopeValue: rule.scopeValue,
+        threshold: rule.formattedThreshold,
+        testedAt,
+        locale,
+      });
+
+      for (const recipient of recipients) {
+        await sendEmailStrict(subject, emailHtml, recipient);
+      }
+
+      const destList = recipients.join(", ");
+      return {
+        success: true,
+        httpStatusCode: 200,
+        responseMessage: i18n.testEmailSent.replace("{dest}", destList),
+        messageKey: "testDeliveryConfirmed",
+        messageParams: { status: 200 },
+        testedAt,
+        payloadPreview: {
+          ...payloadPreview,
+          to: recipients,
+        },
+      };
+    } catch (err: any) {
+      const detail = err.message || "Error al enviar correo vía Microsoft Graph";
+      console.error("[SelfServiceAlerts:testAlertRuleDelivery] Fallo de envío Graph:", detail);
+      return {
+        success: false,
+        httpStatusCode: 500,
+        responseMessage: `Fallo al enviar correo vía Microsoft Graph: ${detail}`,
+        messageKey: "testConnectionFailed",
+        messageParams: { error: detail },
+        testedAt,
+        payloadPreview,
+      };
+    }
+  }
+
+  // 2. Si es un Webhook real o Teams/Slack URL, ejecutar el dispatch HTTP
   const targetUrl = rule.channelConfig.webhookUrl || rule.channelConfig.channelTarget;
 
   if (targetUrl && (targetUrl.startsWith("http://") || targetUrl.startsWith("https://"))) {
@@ -241,13 +440,13 @@ export async function testAlertRuleDelivery(
     }
   }
 
-  // Para Email u otros canales sin URL HTTP directa
+  // Para otros canales sin URL HTTP o destino directo
   return {
-    success: true,
-    httpStatusCode: 200,
-    responseMessage: `Notificación de prueba generada correctamente para ${rule.notificationChannel}.`,
-    messageKey: "testGenerated",
-    messageParams: { channel: rule.notificationChannel },
+    success: false,
+    httpStatusCode: 400,
+    responseMessage: i18n.endpointNotConfigured.replace("{channel}", rule.notificationChannel),
+    messageKey: "testEndpointError",
+    messageParams: { status: 400, statusText: "Destino no configurado" },
     testedAt,
     payloadPreview,
   };

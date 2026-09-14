@@ -13,6 +13,7 @@ import { errorMessage } from "@/lib/apiErrors";
 export async function POST(request: NextRequest) {
   try {
     const tenantId = request.nextUrl.searchParams.get("tenantId");
+    const locale = request.nextUrl.searchParams.get("locale") || request.headers.get("x-locale") || "es";
     if (!tenantId) {
       return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
     }
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Regla de alerta no válida para la prueba." }, { status: 400 });
     }
 
-    const testResult = await testAlertRuleDelivery(rule, isMock);
+    const testResult = await testAlertRuleDelivery(rule, isMock, locale);
 
     return NextResponse.json(testResult);
   } catch (error) {

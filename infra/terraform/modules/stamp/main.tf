@@ -371,6 +371,7 @@ locals {
     AZURE_STORAGE_CONTAINER_COST_EXPORTS        = "finops-cost-exports"
     OTEL_SERVICE_NAME                           = "finops-web"
     OTEL_RESOURCE_ATTRIBUTES                    = "service.namespace=${var.data_region},deployment.environment=${var.environment}"
+    AZURE_SENDER_EMAIL_ALERTS                   = "alerts@cscloudsolutions.com.ar"
   }, var.extra_env_vars)
 
   app_secrets = {

@@ -158,6 +158,7 @@ interface RuleModalProps {
 
 function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule }: RuleModalProps) {
   const t = useTranslations("SelfServiceAlerts");
+  const locale = useLocale();
   const { instance, accounts } = useMsal();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [isSaving, setIsSaving] = useState(false);
@@ -174,11 +175,19 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
     initialRule?.notificationChannel || "TEAMS"
   );
   const [channelTarget, setChannelTarget] = useState(
-    initialRule?.channelConfig?.channelTarget || initialRule?.channelConfig?.webhookUrl || ""
+    initialRule?.channelConfig?.channelTarget ||
+      initialRule?.channelConfig?.webhookUrl ||
+      (initialRule?.channelConfig?.recipients ? initialRule.channelConfig.recipients.join(", ") : "") ||
+      initialRule?.channelConfig?.serviceNowEndpoint ||
+      ""
   );
   // Un guardado que falla no puede quedar mudo: antes el modal se quedaba
   // abierto sin decir nada y parecia que el boton no hacia nada.
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  const canAdvanceStep1 = Boolean(name.trim() && (scopeType === "TENANT" || Boolean(scopeValue)));
+  const canAdvanceStep2 = thresholdValue !== undefined && thresholdValue !== null && !isNaN(thresholdValue);
+  const isFormValid = Boolean(canAdvanceStep1 && canAdvanceStep2 && channelTarget.trim());
 
   const { subscriptions, selectedSubscription } = useSubscription();
   const subQuery =
@@ -235,14 +244,17 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
         channelConfig: { channelTarget, webhookUrl: channelTarget },
       };
 
-      const res = await fetch(`/api/analytics/self-service-alerts/test?tenantId=${encodeURIComponent(tenantId)}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(syntheticRule),
-      });
+      const res = await fetch(
+        `/api/analytics/self-service-alerts/test?tenantId=${encodeURIComponent(tenantId)}&locale=${encodeURIComponent(locale)}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(syntheticRule),
+        }
+      );
 
       const data = await res.json();
       setTestResult(data);
@@ -257,8 +269,9 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
     }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!isFormValid || isSaving) return;
     setIsSaving(true);
     setSaveError(null);
     try {
@@ -266,14 +279,14 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
       const token = isMock ? "demo" : await getFreshIdToken(instance, accounts[0], ["User.Read"]);
 
       const payload = {
-        name,
+        name: name.trim(),
         alertType,
         scopeType,
         scopeValue,
         thresholdValue,
         thresholdUnit,
         notificationChannel,
-        channelTarget,
+        channelTarget: channelTarget.trim(),
       };
 
       // Editar es PUT sobre la regla: con POST se creaba una segunda regla
@@ -309,7 +322,10 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 z-[100] space-y-6">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white dark:bg-slate-900 rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 z-[100] space-y-6"
+      >
         {/* Encabezado */}
         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
           <div className="flex items-center gap-2">
@@ -322,6 +338,7 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
           >
@@ -329,27 +346,53 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
           </button>
         </div>
 
-        {/* Indicador de Pasos */}
+        {/* Indicador de Pasos Interactivo */}
         <div className="grid grid-cols-3 gap-2">
           {[
             { n: 1, label: t("step1") },
             { n: 2, label: t("step2") },
             { n: 3, label: t("step3") },
-          ].map((s) => (
-            <div
-              key={s.n}
-              className={`py-1.5 px-3 rounded-lg text-xs font-semibold text-center border transition ${
-                step === s.n
-                  ? "border-[#0054A6] text-[#0054A6] bg-white dark:bg-slate-900"
-                  : "border-slate-200 dark:border-slate-800 text-slate-400 bg-slate-50 dark:bg-slate-800/30"
-              }`}
-            >
-              {s.n}. {s.label}
-            </div>
-          ))}
+          ].map((s) => {
+            const isCurrent = step === s.n;
+            // En modo edición siempre se puede saltar directamente a cualquier paso.
+            // En modo creación se permite navegar a pasos anteriores o si los campos previos están completos.
+            const canNavigate =
+              Boolean(initialRule) ||
+              s.n <= step ||
+              (s.n === 2 && canAdvanceStep1) ||
+              (s.n === 3 && canAdvanceStep1 && canAdvanceStep2);
+
+            return (
+              <button
+                key={s.n}
+                type="button"
+                disabled={!canNavigate}
+                onClick={() => setStep(s.n as 1 | 2 | 3)}
+                aria-current={isCurrent ? "step" : undefined}
+                className={`py-2 px-3 rounded-xl text-xs font-semibold text-center border transition flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
+                  isCurrent
+                    ? "border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-blue-50/40 dark:bg-blue-950/30 shadow-xs font-bold ring-1 ring-[#0054A6]/20"
+                    : canNavigate
+                    ? "border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-[#0078D4] hover:text-[#0078D4] bg-slate-50 dark:bg-slate-800/30"
+                    : "border-slate-200 dark:border-slate-800 text-slate-400 bg-slate-50 dark:bg-slate-800/30"
+                }`}
+              >
+                <span>{s.n}.</span>
+                <span className="truncate">{s.label}</span>
+              </button>
+            );
+          })}
         </div>
 
-        <form onSubmit={handleSave} className="space-y-4">
+        <form
+          onSubmit={handleSave}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.target as HTMLElement).tagName !== "TEXTAREA") {
+              e.preventDefault();
+            }
+          }}
+          className="space-y-4"
+        >
           {/* PASO 1 */}
           {step === 1 && (
             <div className="space-y-4">
@@ -585,13 +628,23 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
           <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-4">
             {step > 1 ? (
               <button
+                key="btn-prev"
                 type="button"
-                onClick={() => setStep((s) => (s - 1) as any)}
-                className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition cursor-pointer shadow-xs"
+                onClick={() => setStep((s) => (s - 1) as 1 | 2 | 3)}
+                className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer shadow-xs"
               >
                 {t("prev")}
               </button>
-            ) : <div />}
+            ) : (
+              <button
+                key="btn-cancel"
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer shadow-xs"
+              >
+                {t("cancel")}
+              </button>
+            )}
 
             <div className="flex items-center gap-2">
               {saveError && (
@@ -599,23 +652,54 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
                   {saveError}
                 </span>
               )}
-              {step < 3 ? (
-                <button
-                  type="button"
-                  onClick={() => setStep((s) => (s + 1) as any)}
-                  disabled={!name || (scopeType !== "TENANT" && !scopeValue)}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition cursor-pointer shadow-xs disabled:opacity-50"
-                >
-                  {t("next")}
-                </button>
+
+              {/* En modo edición: botón directo de Guardar Cambios accesible desde cualquier paso */}
+              {initialRule ? (
+                <>
+                  <button
+                    key="btn-save-direct"
+                    type="button"
+                    onClick={() => handleSave()}
+                    disabled={isSaving || !isFormValid}
+                    className="px-4 py-2 text-xs font-semibold rounded-xl bg-[#0078D4] text-white hover:bg-[#0060AA] transition cursor-pointer shadow-xs disabled:opacity-50"
+                  >
+                    {isSaving ? t("saving") : t("saveChanges")}
+                  </button>
+
+                  {step < 3 && (
+                    <button
+                      key="btn-next"
+                      type="button"
+                      onClick={() => setStep((s) => (s + 1) as 1 | 2 | 3)}
+                      disabled={step === 1 ? !canAdvanceStep1 : !canAdvanceStep2}
+                      className="px-4 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition cursor-pointer shadow-xs disabled:opacity-50"
+                    >
+                      {t("next")}
+                    </button>
+                  )}
+                </>
               ) : (
-                <button
-                  type="submit"
-                  disabled={isSaving || !channelTarget}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-[#0078D4] text-white hover:bg-[#0060AA] transition cursor-pointer shadow-xs disabled:opacity-50"
-                >
-                  {isSaving ? t("saving") : t("saveRule")}
-                </button>
+                /* En modo creación */
+                step < 3 ? (
+                  <button
+                    key="btn-next"
+                    type="button"
+                    onClick={() => setStep((s) => (s + 1) as 1 | 2 | 3)}
+                    disabled={step === 1 ? !canAdvanceStep1 : !canAdvanceStep2}
+                    className="px-4 py-2 text-xs font-semibold rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 text-[#0054A6] dark:text-blue-400 hover:bg-blue-50/50 transition cursor-pointer shadow-xs disabled:opacity-50"
+                  >
+                    {t("next")}
+                  </button>
+                ) : (
+                  <button
+                    key="btn-create-rule"
+                    type="submit"
+                    disabled={isSaving || !isFormValid}
+                    className="px-4 py-2 text-xs font-semibold rounded-xl bg-[#0078D4] text-white hover:bg-[#0060AA] transition cursor-pointer shadow-xs disabled:opacity-50"
+                  >
+                    {isSaving ? t("saving") : t("saveRule")}
+                  </button>
+                )
               )}
             </div>
           </div>
@@ -634,6 +718,7 @@ interface TestModalProps {
 
 function TestResultModal({ rule, onClose, tenantId }: TestModalProps) {
   const t = useTranslations("SelfServiceAlerts");
+  const locale = useLocale();
   const { instance, accounts } = useMsal();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AlertTestResult | null>(null);
@@ -648,14 +733,17 @@ function TestResultModal({ rule, onClose, tenantId }: TestModalProps) {
       try {
         const isMock = isMockTenant(tenantId);
         const token = isMock ? "demo" : await getFreshIdToken(instance, accounts[0], ["User.Read"]);
-        const res = await fetch(`/api/analytics/self-service-alerts/test?tenantId=${encodeURIComponent(tenantId)}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(rule),
-        });
+        const res = await fetch(
+          `/api/analytics/self-service-alerts/test?tenantId=${encodeURIComponent(tenantId)}&locale=${encodeURIComponent(locale)}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(rule),
+          }
+        );
         const data = await res.json();
         setResult(data);
       } catch (err: any) {

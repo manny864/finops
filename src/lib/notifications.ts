@@ -1,6 +1,6 @@
 import pool from "@/modules/storage/db";
 import { assertSafeWebhookUrl } from "@/lib/webhookSecurity";
-import { sendEmailAsync } from "@/lib/emailHelper";
+import { sendEmailAsync, getNoReplyDisclaimer, getStandardAlertNotificationEmailHtml } from "@/lib/emailHelper";
 import { errorMessage } from '@/lib/apiErrors';
 
 export type Severity = 'info' | 'warning' | 'error';
@@ -10,6 +10,7 @@ export interface NotificationPayload {
     message: string;
     severity?: Severity;
     link?: string;
+    locale?: string;
     metadata?: Record<string, unknown>;
 }
 
@@ -68,6 +69,13 @@ async function describeWebhookFailure(
     return `${canal} webhook returned ${response.status}: ${response.statusText}.${hint}${detalle ? ` Respuesta: ${detalle}` : ""}`;
 }
 
+function getDetailsLabel(locale: string = "es"): string {
+    const loc = (locale || "es").toLowerCase();
+    if (loc.startsWith("en")) return "View details";
+    if (loc.startsWith("pt")) return "Ver detalhes";
+    return "Ver detalle";
+}
+
 async function sendToSlack(config: SlackConfig, payload: NotificationPayload): Promise<void> {
     const emoji = payload.severity === 'warning' ? '🟡' : payload.severity === 'error' ? '🔴' : '🟢';
     const body = {
@@ -91,18 +99,25 @@ async function sendToSlack(config: SlackConfig, payload: NotificationPayload): P
     };
 
     if (payload.link) {
+        const linkLabel = getDetailsLabel(payload.locale);
         (body.blocks as any).push({
             type: "section",
             text: {
                 type: "mrkdwn",
-                text: `<${payload.link}|Ver detalle>`,
+                text: `<${payload.link}|${linkLabel}>`,
             },
         });
     }
 
+    const disclaimer = getNoReplyDisclaimer(payload.locale || 'es');
+
     (body.blocks as any).push({
         type: "context",
         elements: [
+            {
+                type: "mrkdwn",
+                text: `_${disclaimer}_`,
+            },
             {
                 type: "mrkdwn",
                 text: `FinOps SaaS · ${new Date().toISOString()}`,
@@ -129,6 +144,7 @@ interface TeamsConfig {
 async function sendToTeams(config: TeamsConfig, payload: NotificationPayload): Promise<void> {
     const emoji = payload.severity === 'warning' ? '🟡' : payload.severity === 'error' ? '🔴' : '🟢';
     const color = payload.severity === 'warning' ? 'Warning' : payload.severity === 'error' ? 'Attention' : 'Good';
+    const disclaimer = getNoReplyDisclaimer(payload.locale || 'es');
 
     const adaptiveCard = {
         type: "message",
@@ -152,12 +168,19 @@ async function sendToTeams(config: TeamsConfig, payload: NotificationPayload): P
                             text: payload.message,
                             wrap: true,
                         },
+                        {
+                            type: "TextBlock",
+                            text: disclaimer,
+                            isSubtle: true,
+                            size: "Small",
+                            wrap: true,
+                        },
                     ],
                     actions: payload.link
                         ? [
                             {
                                 type: "Action.OpenUrl",
-                                title: "Ver detalle",
+                                title: getDetailsLabel(payload.locale),
                                 url: payload.link,
                             },
                         ]
@@ -188,13 +211,14 @@ interface EmailConfig {
 // nunca estuvieron configurados en prod — el canal de email de Alertas
 // Self-Service fallaba en silencio (console.warn, sin error visible).
 async function sendToEmail(config: EmailConfig, payload: NotificationPayload): Promise<void> {
-    const html = `
-        <h2>${payload.title}</h2>
-        <p>${payload.message}</p>
-        ${payload.link ? `<p><a href="${payload.link}">Ver detalle</a></p>` : ""}
-        <hr />
-        <p style="color: #999; font-size: 12px;">FinOps SaaS · ${new Date().toISOString()}</p>
-    `;
+    const html = getStandardAlertNotificationEmailHtml({
+        title: payload.title,
+        message: payload.message,
+        severity: payload.severity,
+        link: payload.link,
+        locale: payload.locale,
+        metadata: payload.metadata,
+    });
     const subject = `[${(payload.severity || "info").toUpperCase()}] ${payload.title}`;
 
     await Promise.all(
@@ -386,12 +410,13 @@ export async function notifyTenant(tenantId: string, payload: NotificationPayloa
 // donde el webhook (Slack/Teams/Power Automate) viene en channel_target.
 export async function sendLegacyWebhookAlert(webhookUrl: string, payload: NotificationPayload): Promise<void> {
     const isPowerAutomate = webhookUrl.includes("powerautomate") || webhookUrl.includes("powerplatform");
+    const disclaimer = getNoReplyDisclaimer(payload.locale || 'es');
     let body: any;
 
     if (isPowerAutomate) {
         body = {
             contentType: "html",
-            content: `🚨 <b>${payload.title}</b><br/>${payload.message}`,
+            content: `🚨 <b>${payload.title}</b><br/>${payload.message}<br/><br/><small style="color: #64748b;">${disclaimer}</small>`,
         };
     } else {
         let color = "#36a64f";
@@ -404,7 +429,7 @@ export async function sendLegacyWebhookAlert(webhookUrl: string, payload: Notifi
                     fallback: `${payload.title}: ${payload.message}`,
                     color: color,
                     title: payload.title,
-                    text: payload.message,
+                    text: `${payload.message}\n\n_${disclaimer}_`,
                     footer: "FinOps SaaS Platform",
                     ts: Math.floor(Date.now() / 1000),
                 },

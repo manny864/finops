@@ -12116,6 +12116,8 @@
     "conditionPreviewText": "The alert will fire when spend on <b>{scope}</b> exceeds <b>{threshold}</b> under the <b>{type}</b> criterion.",
     "prev": "Previous",
     "next": "Next",
+    "cancel": "Cancel",
+    "saveChanges": "Save Changes",
     "saving": "Saving...",
     "saveRule": "Save Alert Rule",
     "demoEnv": "Demo Environment",

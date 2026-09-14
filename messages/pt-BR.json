@@ -12116,6 +12116,8 @@
     "conditionPreviewText": "O alerta será emitido quando o gasto em <b>{scope}</b> ultrapassar <b>{threshold}</b> sob o critério de <b>{type}</b>.",
     "prev": "Anterior",
     "next": "Próximo",
+    "cancel": "Cancelar",
+    "saveChanges": "Salvar Alterações",
     "saving": "Salvando...",
     "saveRule": "Salvar Regra de Alerta",
     "demoEnv": "Ambiente de Demonstração",

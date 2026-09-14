@@ -172,6 +172,149 @@ describe("azureSelfServiceAlerts.service", () => {
         esperarClaveUsable(await testAlertRuleDelivery(testRule, false));
       });
     });
+
+    describe("canal EMAIL: despacho real, remitente y validación", () => {
+      const emailRule: SelfServiceAlertRule = {
+        id: "r-email",
+        name: "Alerta Presupuesto FinOps",
+        alertType: "BUDGET",
+        scopeType: "RESOURCE_GROUP",
+        scopeValue: "rg-produccion",
+        thresholdValue: 90,
+        thresholdUnit: "PERCENT",
+        formattedThreshold: "90.0% del Presupuesto",
+        notificationChannel: "EMAIL",
+        channelConfig: { channelTarget: "admin@empresa.com, devops@empresa.com" },
+        isEnabled: true,
+        fireCount: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      it("genera preview con remitente alerts@cscloudsolutions.com.ar y disclaimer no-reply", () => {
+        const preview = generateAlertTestPayloadPreview(emailRule, "es");
+        expect(preview.from).toBe("alerts@cscloudsolutions.com.ar");
+        expect(preview.to).toEqual(["admin@empresa.com, devops@empresa.com"]);
+        expect(preview.subject).toContain("Alerta Presupuesto FinOps");
+        expect(preview.disclaimer).toContain("alerts@cscloudsolutions.com.ar");
+        expect(preview.disclaimer).toContain("soporte@cscloudsolutions.com.ar");
+      });
+
+      it("prioriza AZURE_SENDER_EMAIL_ALERTS sobre AZURE_SENDER_EMAIL si ambas están definidas", () => {
+        const originalAlerts = process.env.AZURE_SENDER_EMAIL_ALERTS;
+        const originalGeneral = process.env.AZURE_SENDER_EMAIL;
+        try {
+          process.env.AZURE_SENDER_EMAIL_ALERTS = "custom-alerts@cscloudsolutions.com.ar";
+          process.env.AZURE_SENDER_EMAIL = "sales@cscloudsolutions.com.ar";
+
+          const preview = generateAlertTestPayloadPreview(emailRule, "es");
+          expect(preview.from).toBe("custom-alerts@cscloudsolutions.com.ar");
+        } finally {
+          if (originalAlerts !== undefined) {
+            process.env.AZURE_SENDER_EMAIL_ALERTS = originalAlerts;
+          } else {
+            delete process.env.AZURE_SENDER_EMAIL_ALERTS;
+          }
+          if (originalGeneral !== undefined) {
+            process.env.AZURE_SENDER_EMAIL = originalGeneral;
+          } else {
+            delete process.env.AZURE_SENDER_EMAIL;
+          }
+        }
+      });
+
+      it("despacha correo a todos los destinatarios válidos vía sendEmailStrict con remitente alerts@ y disclaimer", async () => {
+        const emailHelper = await import("@/lib/emailHelper");
+        const spySend = vi.spyOn(emailHelper, "sendEmailStrict").mockResolvedValue();
+
+        const res = await testAlertRuleDelivery(emailRule, false, "es");
+
+        expect(res.success).toBe(true);
+        expect(res.httpStatusCode).toBe(200);
+        expect(res.responseMessage).toContain("admin@empresa.com");
+        expect(res.responseMessage).toContain("devops@empresa.com");
+        expect(res.responseMessage).toContain("alerts@cscloudsolutions.com.ar");
+        expect(spySend).toHaveBeenCalledTimes(2);
+        expect(spySend).toHaveBeenCalledWith(
+          expect.stringContaining("Alerta Presupuesto FinOps"),
+          expect.stringContaining("alerts@cscloudsolutions.com.ar"),
+          "admin@empresa.com"
+        );
+        expect(spySend).toHaveBeenCalledWith(
+          expect.stringContaining("Alerta Presupuesto FinOps"),
+          expect.stringContaining("soporte@cscloudsolutions.com.ar"),
+          "admin@empresa.com"
+        );
+      });
+
+      it("genera templates e inspección en idioma inglés (en)", async () => {
+        const emailHelper = await import("@/lib/emailHelper");
+        const spySend = vi.spyOn(emailHelper, "sendEmailStrict").mockResolvedValue();
+        spySend.mockClear();
+
+        const res = await testAlertRuleDelivery(emailRule, false, "en");
+        expect(res.success).toBe(true);
+        expect(res.responseMessage).toContain("Test email successfully sent to");
+        expect(res.responseMessage).toContain("alerts@cscloudsolutions.com.ar");
+
+        expect(spySend).toHaveBeenCalledWith(
+          expect.stringContaining("[FinOps Alert Test]"),
+          expect.stringContaining("The alerts@cscloudsolutions.com.ar account is a send-only mailbox"),
+          "admin@empresa.com"
+        );
+      });
+
+      it("genera templates e inspección en idioma portugués (pt-BR)", async () => {
+        const emailHelper = await import("@/lib/emailHelper");
+        const spySend = vi.spyOn(emailHelper, "sendEmailStrict").mockResolvedValue();
+        spySend.mockClear();
+
+        const res = await testAlertRuleDelivery(emailRule, false, "pt-BR");
+        expect(res.success).toBe(true);
+        expect(res.responseMessage).toContain("E-mail de teste enviado com sucesso para");
+        expect(res.responseMessage).toContain("alerts@cscloudsolutions.com.ar");
+
+        expect(spySend).toHaveBeenCalledWith(
+          expect.stringContaining("[Teste de Alerta FinOps]"),
+          expect.stringContaining("A conta alerts@cscloudsolutions.com.ar é uma caixa postal exclusiva para envio"),
+          "admin@empresa.com"
+        );
+      });
+
+      it("incluye el disclaimer en todos los canales (Teams, Slack, ServiceNow, Webhook)", () => {
+        const channels = ["TEAMS", "SLACK", "SERVICENOW", "WEBHOOK"] as const;
+        for (const ch of channels) {
+          const preview = generateAlertTestPayloadPreview(
+            { ...emailRule, notificationChannel: ch },
+            "es"
+          );
+          const previewStr = JSON.stringify(preview);
+          expect(previewStr).toContain("alerts@cscloudsolutions.com.ar");
+          expect(previewStr).toContain("soporte@cscloudsolutions.com.ar");
+        }
+      });
+
+      it("rechaza destinos vacíos o sin correo válido con HTTP 400", async () => {
+        const res = await testAlertRuleDelivery(
+          { ...emailRule, channelConfig: { channelTarget: "   " } },
+          false,
+          "es"
+        );
+        expect(res.success).toBe(false);
+        expect(res.httpStatusCode).toBe(400);
+        expect(res.responseMessage).toContain("No se especificó ninguna dirección de correo válida");
+      });
+
+      it("propaga el error de Microsoft Graph con HTTP 500 cuando el envío falla", async () => {
+        const emailHelper = await import("@/lib/emailHelper");
+        vi.spyOn(emailHelper, "sendEmailStrict").mockRejectedValue(new Error("Graph API: Mail.Send permission required"));
+
+        const res = await testAlertRuleDelivery(emailRule, false, "es");
+        expect(res.success).toBe(false);
+        expect(res.httpStatusCode).toBe(500);
+        expect(res.responseMessage).toContain("Mail.Send permission required");
+      });
+    });
   });
 
   describe("getMockSelfServiceAlertsPayload & assembleLiveSelfServiceAlerts", () => {

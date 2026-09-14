@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
         const accessToken = tokenData.access_token;
 
         // Prepare email payload for MS Graph
-        const sender = process.env.AZURE_SENDER_EMAIL || process.env.CONTACT_EMAIL_SENDER;
+        const sender = process.env.AZURE_SENDER_EMAIL || process.env.CONTACT_EMAIL_SENDER || "alerts@cscloudsolutions.com.ar";
         if (!sender) {
             return NextResponse.json(
                 { error: "Sender email not configured (AZURE_SENDER_EMAIL)" },
