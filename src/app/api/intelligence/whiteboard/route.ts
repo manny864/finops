@@ -84,6 +84,21 @@ async function getCurrentMonthCostAggregation(tenantId: string): Promise<Current
 
     if (entries.length === 0) {
         try {
+            // EL FILTRO VA POR `date`, igual que /api/dashboard/summary.
+            //
+            // Acá decía `DATE(COALESCE(ChargePeriodStart, date))`, que prioriza
+            // el inicio del PERÍODO DE CARGO. Cuando ese período arranca antes
+            // del mes en curso --que es lo normal en un ciclo de facturación
+            // que no empieza el día 1-- la fila queda fuera del filtro y el
+            // respaldo devuelve vacío.
+            //
+            // El síntoma en producción (2026-09-14): el mismo tenant mostraba
+            // $0.00 en el Resumen Ejecutivo mientras el log del dashboard decía
+            //   actualCost DEGRADADO ... sale de CostSnapshots (243.25470456)
+            // O sea: el dato estaba, y dos caminos de la misma app calculaban
+            // "el costo del mes" con criterios distintos. Que difieran es peor
+            // que que falten: el usuario ve dos números y ninguno explica al
+            // otro.
             const [rows]: any = await pool.query(
                 `SELECT
                     COALESCE(service_name, 'Other') AS serviceName,
@@ -91,7 +106,7 @@ async function getCurrentMonthCostAggregation(tenantId: string): Promise<Current
                     COALESCE(EffectiveCost, cost_usd, 0) AS effectiveCost
                  FROM CostSnapshots
                  WHERE tenant_id = ?
-                   AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')`,
+                   AND DATE(COALESCE(date, ChargePeriodStart)) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')`,
                 [tenantId]
             );
             entries = (rows as Array<Record<string, unknown>>) || [];
@@ -712,7 +727,9 @@ export async function GET(request: NextRequest) {
             // tardó ni de quién. Con esto y el `ms=` de cada fuente, la próxima
             // vez se lee en el log en vez de deducirse.
             console.log(
-                `[whiteboard] ensamblado tenant=${tenantId} ms=${Date.now() - ensambladoDesde} degradado=${costDegraded}`
+                `[whiteboard] ensamblado tenant=${tenantId} ms=${Date.now() - ensambladoDesde}` +
+                ` degradado=${costDegraded} costMtd=${armado.summary?.costMtdUSD ?? "?"}` +
+                ` forecast=${armado.summary?.forecastEomUSD ?? "?"} fuenteForecast=${costFigures.forecastSource}`
             );
             return armado;
         // TTL DURO LARGO, SOFT CORTO. El 524 pasaba sólo con caché VACÍO: mientras
