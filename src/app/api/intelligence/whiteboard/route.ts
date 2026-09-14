@@ -188,34 +188,17 @@ async function getCostFigures(tenantId: string, currentMonth: CurrentMonthCostAg
     // de un cero. `forecastSource` dice cuál de las dos salió.
     const forecastLinealUSD = proyeccionLineal(costMtdUSD);
 
-    let forecastEomUSD = forecastLinealUSD;
-    let forecastSource: "azure" | "lineal" = "lineal";
-    try {
-        // TECHO PROPIO Y CORTO (8 s). El pronóstico es un EXTRA: si Azure no
-        // responde hay una proyección lineal que sirve igual. Sin este techo la
-        // llamada se comía el de la fuente entera --25 s-- y al degradar
-        // `costFigures` se perdía tambien el COSTO DEL MES, que es el dato
-        // principal y ya estaba calculado. Pasó en producción el 2026-09-14:
-        //   fuente=costFigures ms=25001 degradada: superó el techo de 25000 ms
-        // y la pantalla mostró $0.00 con la base llena.
-        const pronostico = await fuente(
-            "forecastAzure",
-            [] as Awaited<ReturnType<typeof getCostForecast>>,
-            () => getCostForecast(tenantId, "All"),
-            undefined,
-            8_000
-        );
-        if (pronostico.length > 0) {
-            const hoy = now.toISOString().slice(0, 10);
-            const diasQueFaltan = pronostico
-                .filter((p) => p.date > hoy)
-                .reduce((total, p) => total + (Number(p.forecastCost) || 0), 0);
-            forecastEomUSD = Number((costMtdUSD + diasQueFaltan).toFixed(2));
-            forecastSource = "azure";
-        }
-    } catch (e) {
-        console.warn("[whiteboard] forecast de Azure no disponible, queda la proyección lineal:", (e as Error)?.message);
-    }
+    // El pronóstico de Azure NO se pide acá: es una llamada a Cost Management y
+    // esta función corre bajo el techo de su fuente. Cuando estaba adentro se
+    // comía los 25 s, degradaba `costFigures` entera y se perdía el costo del
+    // mes -- con la base llena, la pantalla mostraba $0.00. Ahora va como fuente
+    // propia del ensamblado, con su propio techo: si Azure no llega, se pierde
+    // el pronóstico y nada más.
+    //
+    // Acá queda la proyección lineal, que es el respaldo. El ensamblado la pisa
+    // con la de Azure cuando esa fuente responde.
+    const forecastEomUSD = forecastLinealUSD;
+    const forecastSource: "azure" | "lineal" = "lineal";
 
     // Proyección FY heredada para compatibilidad con widgets anteriores.
     const startOfYear = new Date(Date.UTC(currentYear, 0, 1));
@@ -549,6 +532,7 @@ export async function GET(request: NextRequest) {
                 advisorData,
                 recommendationTrend,
                 costAnomalyTrend,
+                pronosticoAzure,
             ] = await Promise.all([
                 // EL RESPALDO NO ES CERO. `currentMonth` ya viene calculado
                 // --con su propio fallback a CostSnapshots-- antes de este
@@ -582,6 +566,18 @@ export async function GET(request: NextRequest) {
                 fuente("advisor", null as any, () => getAdvisorExecutiveData(tenantId, locale)),
                 fuente("recTrend", [] as any[], () => getRecommendationTrend(tenantId)),
                 fuente("anomalyTrend", [] as any[], () => getCostAnomalyTrend(tenantId)),
+                // Techo de 25 s: el pronóstico de Azure tarda cuando Cost
+                // Management throttlea, y es el número que el cliente compara
+                // contra el portal. Vale esperarlo -- degradarlo sólo cuesta
+                // mostrar la proyección lineal, que es notoriamente distinta
+                // (con throttling daba 551,87 contra los 800,01 de Azure).
+                fuente(
+                    "forecastAzure",
+                    [] as Awaited<ReturnType<typeof getCostForecast>>,
+                    () => getCostForecast(tenantId, "All"),
+                    undefined,
+                    25_000
+                ),
             ]);
 
             // Se consume getAdvisorExecutiveData (el mismo servicio que el panel
@@ -705,10 +701,26 @@ export async function GET(request: NextRequest) {
                 ...quickWinCandidates.filter((win) => !distinctByTitle.includes(win)),
             ].slice(0, 4);
 
+            // EOM: lo gastado más lo que Azure pronostica para los días que
+            // faltan. El día en curso se descarta del pronóstico porque ya está
+            // contado en el MTD. Si la fuente degradó queda la proyección
+            // lineal que trae `costFigures` -- peor número, pero número.
+            const costMtdUSD = Number(costFigures.costMtdUSD || 0);
+            let forecastEomUSD = Number(costFigures.forecastEomUSD || 0);
+            let forecastSource: "azure" | "lineal" = costFigures.forecastSource;
+            if (pronosticoAzure.length > 0) {
+                const hoy = new Date().toISOString().slice(0, 10);
+                const diasQueFaltan = pronosticoAzure
+                    .filter((p) => p.date > hoy)
+                    .reduce((total, p) => total + (Number(p.forecastCost) || 0), 0);
+                forecastEomUSD = Number((costMtdUSD + diasQueFaltan).toFixed(2));
+                forecastSource = "azure";
+            }
+
             const summary: WhiteboardSummaryMetrics = {
-                costMtdUSD: Number(costFigures.costMtdUSD || 0),
-                forecastEomUSD: Number(costFigures.forecastEomUSD || 0),
-                forecastSource: costFigures.forecastSource,
+                costMtdUSD,
+                forecastEomUSD,
+                forecastSource,
                 zombieCount: Number(executiveEnrichment.zombieResourcesCount || 0),
                 zombieSavingsUSD: Number(executiveEnrichment.zombieMonthlyWasteUSD || 0),
                 zombieResourcesCount: executiveEnrichment.zombieResourcesCount,
@@ -762,7 +774,7 @@ export async function GET(request: NextRequest) {
             console.log(
                 `[whiteboard] ensamblado tenant=${tenantId} ms=${Date.now() - ensambladoDesde}` +
                 ` degradado=${costDegraded} costMtd=${armado.summary?.costMtdUSD ?? "?"}` +
-                ` forecast=${armado.summary?.forecastEomUSD ?? "?"} fuenteForecast=${costFigures.forecastSource}`
+                ` forecast=${armado.summary?.forecastEomUSD ?? "?"} fuenteForecast=${armado.summary?.forecastSource ?? "?"}`
             );
             return armado;
         // TTL DURO LARGO, SOFT CORTO. El 524 pasaba sólo con caché VACÍO: mientras
