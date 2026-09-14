@@ -12163,6 +12163,7 @@
     "scopeLabel": "Scope",
     "scopeValuePlaceholder": "Select a value…",
     "scopeNoOptions": "No values available for this scope type.",
+    "scopeOptionsLoading": "Loading scope options...",
     "scopeOptionsError": "The scope values could not be loaded.",
     "saveFailed": "The rule could not be saved.",
     "destinationLabel": "Target / Endpoint / Emails",

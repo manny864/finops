@@ -15,6 +15,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync } from "fs";
 
 const queryMock = vi.fn();
+const argClientMock = { resources: vi.fn() };
 vi.mock("@/modules/storage/db", () => ({
     default: { query: (...args: unknown[]) => queryMock(...args) },
     initializeDatabase: async () => {},
@@ -23,8 +24,12 @@ vi.mock("@/lib/requestAuth", async () => {
     const real: any = await vi.importActual("@/lib/requestAuth");
     return { ...real, requireTenantAccess: async () => {}, requireTenantRole: async () => {} };
 });
+vi.mock("@/lib/azure", () => ({
+    getResourceGraphClient: vi.fn(() => Promise.resolve(argClientMock)),
+}));
 
 import { GET, POST, PUT } from "@/app/api/analytics/self-service-alerts/route";
+import { GET as getScopeOptions } from "@/app/api/analytics/self-service-alerts/scope-options/route";
 import { NextRequest } from "next/server";
 
 // Un GUID cualquiera NO: los de MOCK_AZURE_TENANTS entran por el camino
@@ -173,5 +178,73 @@ describe("el modal de edición", () => {
     it("no deja un guardado fallido sin mensaje", () => {
         expect(panel).toContain("setSaveError");
         expect(panel).toMatch(/\{saveError && \(/);
+    });
+});
+
+describe("opciones de alcance (scope-options)", () => {
+    it("combina Grupos de Recursos de Azure Resource Graph con la base de datos y unifica Centros de Costo", async () => {
+        argClientMock.resources.mockResolvedValueOnce({
+            data: [{ name: "rg-azure-arg-live" }]
+        });
+        queryMock.mockImplementation(async (sql: unknown) => {
+            const s = typeof sql === "string" ? sql : String((sql as any)?.sql || "");
+            if (s.includes("CostSnapshots") && s.includes("resource_group")) {
+                return [[{ nombre: "rg-db-snapshot" }]];
+            }
+            if (s.includes("CostCenterBudgets")) {
+                return [[{ nombre: "Engineering-Ops" }]];
+            }
+            if (s.includes("CostGroups")) {
+                return [[{ nombre: "Data-Analytics-Group" }]];
+            }
+            if (s.includes("Budgets")) {
+                return [[{ nombre: "Marketing-Budget" }]];
+            }
+            if (s.includes("CostSnapshots") && s.includes("Tags")) {
+                return [[{ nombre: "Finance-Tag" }]];
+            }
+            return [[]];
+        });
+
+        const res = await getScopeOptions(pedido(`/api/analytics/self-service-alerts/scope-options?tenantId=${TENANT}`, "GET"));
+        expect(res.status).toBe(200);
+        const data = await res.json();
+        expect(data.success).toBe(true);
+        expect(data.resourceGroups).toContain("rg-azure-arg-live");
+        expect(data.resourceGroups).toContain("rg-db-snapshot");
+        expect(data.costCenters).toEqual([
+            "Data-Analytics-Group",
+            "Engineering-Ops",
+            "Finance-Tag",
+            "Marketing-Budget",
+        ]);
+    });
+
+    it("degrada con elegancia si Azure Resource Graph falla", async () => {
+        argClientMock.resources.mockRejectedValueOnce(new Error("ARG rate limit"));
+        queryMock.mockImplementation(async (sql: unknown) => {
+            const s = typeof sql === "string" ? sql : String((sql as any)?.sql || "");
+            if (s.includes("CostSnapshots") && s.includes("resource_group")) {
+                return [[{ nombre: "rg-solo-bd" }]];
+            }
+            return [[]];
+        });
+
+        const res = await getScopeOptions(pedido(`/api/analytics/self-service-alerts/scope-options?tenantId=${TENANT}`, "GET"));
+        expect(res.status).toBe(200);
+        const data = await res.json();
+        expect(data.success).toBe(true);
+        expect(data.resourceGroups).toEqual(["rg-solo-bd"]);
+    });
+
+    it("provee RGs y centros de costo mock para tenants demo", async () => {
+        const res = await getScopeOptions(pedido(`/api/analytics/self-service-alerts/scope-options?tenantId=demo-tenant-enterprise`, "GET"));
+        expect(res.status).toBe(200);
+        const data = await res.json();
+        expect(data.success).toBe(true);
+        expect(data.resourceGroups.length).toBeGreaterThan(0);
+        expect(data.costCenters.length).toBeGreaterThan(0);
+        expect(data.resourceGroups).toContain("rg-aks-production-eastus");
+        expect(data.costCenters).toContain("IT");
     });
 });

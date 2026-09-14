@@ -180,8 +180,12 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
   // abierto sin decir nada y parecia que el boton no hacia nada.
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const { subscriptions } = useSubscription();
-  // Los RG y centros de costos salen de la DB (consumo real); las suscripciones
+  const { subscriptions, selectedSubscription } = useSubscription();
+  const subQuery =
+    selectedSubscription && selectedSubscription !== "All"
+      ? `&subscriptionId=${encodeURIComponent(selectedSubscription)}`
+      : "";
+  // Los RG y centros de costos salen de Azure ARG y de la DB; las suscripciones
   // ya las tiene el provider con nombre, sin pegarle otra vez a Azure.
   //
   // Con el MISMO fetcher que el resto del panel: un `fetch` pelado no manda el
@@ -191,8 +195,8 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
     () => buildFetcher(instance, accounts, isMockTenant(tenantId), () => "scope-options"),
     [instance, accounts, tenantId]
   );
-  const { data: scopeData, error: scopeError } = useSWR<{ resourceGroups?: string[]; costCenters?: string[] }>(
-    tenantId ? `/api/analytics/self-service-alerts/scope-options?tenantId=${encodeURIComponent(tenantId)}` : null,
+  const { data: scopeData, error: scopeError, isLoading: scopeLoading } = useSWR<{ resourceGroups?: string[]; costCenters?: string[] }>(
+    tenantId ? `/api/analytics/self-service-alerts/scope-options?tenantId=${encodeURIComponent(tenantId)}${subQuery}` : null,
     fetcherConToken,
     { revalidateOnFocus: false }
   );
@@ -410,22 +414,31 @@ function CreateOrEditRuleModal({ isOpen, onClose, onSaved, tenantId, initialRule
                     required
                     value={scopeValue}
                     onChange={(e) => setScopeValue(e.target.value)}
-                    disabled={opcionesDeAlcance.length === 0}
+                    disabled={(scopeType !== "SUBSCRIPTION" && scopeLoading) || opcionesDeAlcance.length === 0}
                     className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-[#1B2A41] dark:text-slate-100 focus:outline-none focus:border-[#0054A6] disabled:opacity-60"
                   >
-                    <option value="">{t("scopeValuePlaceholder")}</option>
+                    <option value="">
+                      {scopeType !== "SUBSCRIPTION" && scopeLoading
+                        ? t("scopeOptionsLoading")
+                        : t("scopeValuePlaceholder")}
+                    </option>
                     {opcionesDeAlcance.map((o) => (
                       <option key={o.valor} value={o.valor}>
                         {o.etiqueta}
                       </option>
                     ))}
                   </select>
-                  {/* Sin valores no se puede elegir un alcance: decirlo es mejor
-                      que dejar escribir uno que no va a coincidir con nada. */}
-                  {opcionesDeAlcance.length === 0 && (
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                      {scopeError ? t("scopeOptionsError") : t("scopeNoOptions")}
+                  {scopeType !== "SUBSCRIPTION" && scopeLoading ? (
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1.5">
+                      <IconRotateClockwise className="w-3.5 h-3.5 animate-spin text-[#0078D4]" />
+                      {t("scopeOptionsLoading")}
                     </p>
+                  ) : (
+                    opcionesDeAlcance.length === 0 && (
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                        {scopeError ? t("scopeOptionsError") : t("scopeNoOptions")}
+                      </p>
+                    )
                   )}
                 </div>
               )}
