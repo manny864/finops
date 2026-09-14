@@ -135,6 +135,18 @@ async function getCurrentMonthCostAggregation(tenantId: string): Promise<Current
     };
 }
 
+/**
+ * Proyección lineal a fin de mes: el gasto por día del mes en curso llevado a
+ * los días que tiene. Es el respaldo del pronóstico de Azure, y la usa también
+ * el valor de reserva de `costFigures` cuando esa fuente degrada.
+ */
+function proyeccionLineal(costMtdUSD: number): number {
+    const ahora = new Date();
+    const diasTranscurridos = Math.max(1, ahora.getUTCDate());
+    const diasDelMes = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth() + 1, 0)).getUTCDate();
+    return Number(((costMtdUSD / diasTranscurridos) * diasDelMes).toFixed(2));
+}
+
 async function getCostFigures(tenantId: string, currentMonth: CurrentMonthCostAggregation) {
     const now = new Date();
     const currentYear = now.getUTCFullYear();
@@ -174,14 +186,25 @@ async function getCostFigures(tenantId: string, currentMonth: CurrentMonthCostAg
     // La regla de tres queda de respaldo: si Azure no responde --sin
     // credenciales, throttling, último día del mes-- se muestra la lineal en vez
     // de un cero. `forecastSource` dice cuál de las dos salió.
-    const daysElapsedMonth = Math.max(1, now.getUTCDate());
-    const daysInMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
-    const forecastLinealUSD = Number(((costMtdUSD / daysElapsedMonth) * daysInMonth).toFixed(2));
+    const forecastLinealUSD = proyeccionLineal(costMtdUSD);
 
     let forecastEomUSD = forecastLinealUSD;
     let forecastSource: "azure" | "lineal" = "lineal";
     try {
-        const pronostico = await getCostForecast(tenantId, "All");
+        // TECHO PROPIO Y CORTO (8 s). El pronóstico es un EXTRA: si Azure no
+        // responde hay una proyección lineal que sirve igual. Sin este techo la
+        // llamada se comía el de la fuente entera --25 s-- y al degradar
+        // `costFigures` se perdía tambien el COSTO DEL MES, que es el dato
+        // principal y ya estaba calculado. Pasó en producción el 2026-09-14:
+        //   fuente=costFigures ms=25001 degradada: superó el techo de 25000 ms
+        // y la pantalla mostró $0.00 con la base llena.
+        const pronostico = await fuente(
+            "forecastAzure",
+            [] as Awaited<ReturnType<typeof getCostForecast>>,
+            () => getCostForecast(tenantId, "All"),
+            undefined,
+            8_000
+        );
         if (pronostico.length > 0) {
             const hoy = now.toISOString().slice(0, 10);
             const diasQueFaltan = pronostico
@@ -459,13 +482,14 @@ async function fuente<T>(
     nombre: string,
     respaldo: T,
     fn: () => Promise<T>,
-    alDegradar?: () => void
+    alDegradar?: () => void,
+    techoMs: number = TECHO_POR_FUENTE_MS
 ): Promise<T> {
     const t0 = Date.now();
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
         const conTecho = new Promise<never>((_, rechazar) => {
-            timer = setTimeout(() => rechazar(new Error(`superó el techo de ${TECHO_POR_FUENTE_MS} ms`)), TECHO_POR_FUENTE_MS);
+            timer = setTimeout(() => rechazar(new Error(`superó el techo de ${techoMs} ms`)), techoMs);
         });
         const datos = await Promise.race([fn(), conTecho]);
         console.log(`[whiteboard] fuente=${nombre} ms=${Date.now() - t0} ok`);
@@ -526,16 +550,25 @@ export async function GET(request: NextRequest) {
                 recommendationTrend,
                 costAnomalyTrend,
             ] = await Promise.all([
+                // EL RESPALDO NO ES CERO. `currentMonth` ya viene calculado
+                // --con su propio fallback a CostSnapshots-- antes de este
+                // Promise.all, así que si `getCostFigures` degrada se pierden
+                // los extras (año fiscal, tendencia) pero NO el costo del mes,
+                // que es lo que el usuario mira primero. Devolver ceros acá
+                // borraba un dato que ya estaba en memoria.
                 fuente("costFigures", {
-                    costMtdUSD: 0,
-                    forecastEomUSD: 0,
+                    costMtdUSD: Number(currentMonth.totalUSD.toFixed(2)),
+                    forecastEomUSD: proyeccionLineal(currentMonth.totalUSD),
                     forecastSource: "lineal" as "azure" | "lineal",
-                    forecastLinealUSD: 0,
-                    currentFYCost: 0,
+                    forecastLinealUSD: proyeccionLineal(currentMonth.totalUSD),
+                    currentFYCost: Number(currentMonth.totalUSD.toFixed(2)),
                     previousFYCost: 0,
                     costProjected: 0,
                     costChangePct: 0,
-                    top3Services: [] as any[],
+                    top3Services: [...currentMonth.byService.entries()]
+                        .map(([name, cost]) => ({ name, cost: Number(cost.toFixed(2)) }))
+                        .sort((a, b) => b.cost - a.cost)
+                        .slice(0, 4),
                     topServices: [] as any[],
                     last3MonthsTrend: [] as any[],
                 }, () => getCostFigures(tenantId, currentMonth), () => { costDegraded = true; }),

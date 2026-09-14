@@ -24,6 +24,24 @@ describe("el respaldo de costos del whiteboard filtra igual que el dashboard", (
         expect(whiteboard).not.toContain("COALESCE(ChargePeriodStart, date)) >= DATE_FORMAT");
     });
 
+    // EL BUG (prod, 2026-09-14): meter el pronóstico de Azure dentro de
+    // `getCostFigures` lo puso bajo el techo de la fuente entera. Con Cost
+    // Management throttleado la llamada se comía los 25 s, la fuente degradaba
+    //   fuente=costFigures ms=25001 degradada: superó el techo de 25000 ms
+    // y el respaldo de ceros borraba el costo del mes, que YA estaba calculado.
+    // La pantalla mostraba $0.00 con la base llena.
+    it("el pronóstico de Azure tiene su propio techo, más corto que el de la fuente", () => {
+        expect(whiteboard).toMatch(/fuente\(\s*"forecastAzure"[\s\S]{0,220}8_000/);
+    });
+
+    it("si costFigures degrada, el respaldo conserva el costo del mes", () => {
+        // `currentMonth` ya trae su propio fallback a CostSnapshots y se calcula
+        // ANTES del Promise.all: devolver ceros acá tiraba un dato que ya estaba
+        // en memoria.
+        expect(whiteboard).toMatch(/costMtdUSD: Number\(currentMonth\.totalUSD/);
+        expect(whiteboard).not.toMatch(/fuente\("costFigures", \{\s*costMtdUSD: 0/);
+    });
+
     it("el ensamblado loguea el monto, no sólo el tiempo", () => {
         // Sin el valor en el log, un $0.00 en pantalla no distingue "Cost
         // Management falló" de "el respaldo filtró mal".
