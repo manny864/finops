@@ -26,10 +26,14 @@ type Rule = {
 
 type Budget = { id: number; costCenter: string; monthlyLimit: number };
 
-const RULE_TYPES = ["budget", "anomaly", "forecast", "threshold", "credential_expiry", "ttl_expiry"] as const;
+const RULE_TYPES = ["budget", "anomaly", "forecast", "threshold", "credential_expiry", "ttl_expiry", "idle_resources"] as const;
 // Tipos con umbral fijo en días (no editable, sin unidad %/USD) — comparten
 // la misma UI condicional del formulario.
 const DAYS_ONLY_TYPES = new Set(["credential_expiry", "ttl_expiry"]);
+// El umbral de recursos ociosos es PLATA por mes, no un porcentaje: "avisame
+// cuando haya más de USD 50 al mes tirados". Un % no tendría contra qué
+// medirse, porque el desperdicio no es una fracción de un presupuesto.
+const USD_ONLY_TYPES = new Set(["idle_resources"]);
 const CHANNELS = ["email", "webhook", "teams", "slack", "servicenow"] as const;
 
 const CHANNEL_BADGE: Record<string, string> = {
@@ -46,6 +50,7 @@ const TYPE_BADGE: Record<string, string> = {
     threshold: "bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-400",
     credential_expiry: "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400",
     ttl_expiry: "bg-teal-100 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400",
+    idle_resources: "bg-lime-100 dark:bg-lime-950/40 text-lime-700 dark:text-lime-400",
 };
 
 export default function AlertRulesManager() {
@@ -141,7 +146,11 @@ export default function AlertRulesManager() {
                     ruleName: form.ruleName,
                     ruleType: form.ruleType,
                     thresholdValue: parseFloat(form.thresholdValue),
-                    thresholdUnit: DAYS_ONLY_TYPES.has(form.ruleType) ? "days" : form.thresholdUnit,
+                    thresholdUnit: DAYS_ONLY_TYPES.has(form.ruleType)
+                        ? "days"
+                        : USD_ONLY_TYPES.has(form.ruleType)
+                          ? "usd"
+                          : form.thresholdUnit,
                     channel: form.channel,
                     channelTarget: form.channelTarget,
                     budgetId: form.ruleType === "budget" && form.budgetId ? Number(form.budgetId) : null,
@@ -337,9 +346,15 @@ export default function AlertRulesManager() {
                                             className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                                         />
                                         <select
-                                            value={DAYS_ONLY_TYPES.has(form.ruleType) ? "days" : form.thresholdUnit}
+                                            value={
+                                                DAYS_ONLY_TYPES.has(form.ruleType)
+                                                    ? "days"
+                                                    : USD_ONLY_TYPES.has(form.ruleType)
+                                                      ? "usd"
+                                                      : form.thresholdUnit
+                                            }
                                             onChange={(e) => setForm((f) => ({ ...f, thresholdUnit: e.target.value }))}
-                                            disabled={DAYS_ONLY_TYPES.has(form.ruleType)}
+                                            disabled={DAYS_ONLY_TYPES.has(form.ruleType) || USD_ONLY_TYPES.has(form.ruleType)}
                                             className="px-2 py-2 text-sm rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 disabled:opacity-70"
                                         >
                                             {DAYS_ONLY_TYPES.has(form.ruleType) ? (

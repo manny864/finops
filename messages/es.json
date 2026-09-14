@@ -2343,7 +2343,8 @@
       "forecast": "Forecast",
       "threshold": "Umbral",
       "credential_expiry": "Vencimiento de credenciales",
-      "ttl_expiry": "Expiración TTL"
+      "ttl_expiry": "Expiración TTL",
+      "idle_resources": "Recursos ociosos"
     },
     "channels": {
       "email": "Email",
