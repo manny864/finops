@@ -9719,6 +9719,8 @@
     "page_int-log-analytics_desc": "Cost control for Log Analytics Workspaces: ingestion, retention and Commitment Tiers.",
     "page_int-alerts_title": "Self-Service Alerts",
     "page_int-alerts_desc": "Configurable cost alert rules.",
+    "page_gov-alerts_title": "Self-Service Alerts",
+    "page_gov-alerts_desc": "Configurable cost alert rules.",
     "page_int-simulator_title": "Cost Simulator",
     "page_int-simulator_desc": "Simulate changes and project their impact.",
     "page_int-cost-projection_title": "Spend Projection",
