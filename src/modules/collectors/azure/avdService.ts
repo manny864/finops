@@ -21,6 +21,15 @@ import type { AvdRemediationAction } from "@/lib/computeWorkloadTypes";
 const HOSTPOOL_TYPE = "microsoft.desktopvirtualization/hostpools";
 const WORKSPACE_TYPE = "microsoft.desktopvirtualization/workspaces";
 const APPGROUP_TYPE = "microsoft.desktopvirtualization/applicationgroups";
+const ROLEASSIGNMENT_TYPE = "microsoft.authorization/roleassignments";
+/** Las asignaciones de rol tampoco estan en `Resources`: tienen tabla propia. */
+const ROLEASSIGNMENT_TABLA = "authorizationresources";
+/**
+ * "Desktop Virtualization User": el rol que efectivamente le da a alguien
+ * acceso a las aplicaciones de un Application Group. Es un rol integrado, o sea
+ * que el GUID es el mismo en todos los tenants.
+ */
+const ROL_AVD_USER = "1d18fff3-a72a-46b5-b4a9-0b38a3cd7e63";
 const SESSIONHOST_TYPE = "microsoft.desktopvirtualization/hostpools/sessionhosts";
 /**
  * Los session hosts NO estan en la tabla `Resources` de Resource Graph: tienen
@@ -89,6 +98,13 @@ export interface AvdApplicationGroup {
     /** Workspace que lo publica; null = no se le muestra a ningún usuario. */
     workspaceId: string | null;
     workspaceName: string | null;
+    /**
+     * Asignaciones del rol "Desktop Virtualization User" que alcanzan a este
+     * grupo, contando las heredadas del grupo de recursos o la suscripción.
+     * `null` = no se pudieron leer (no es lo mismo que cero).
+     */
+    usuariosAsignados: number | null;
+    gruposAsignados: number | null;
 }
 
 export interface AvdWorkspace {
@@ -147,6 +163,13 @@ export interface AvdStorageResource {
 }
 
 export interface AvdInventory {
+    /**
+     * Falso cuando la consulta de asignaciones de rol no devolvió NADA en todo
+     * el tenant, que en la práctica significa que la credencial no las puede
+     * leer y no que nadie tenga acceso. Con esto en falso, la pantalla muestra
+     * "sin dato" y el motor NO acusa a ningún pool de no tener usuarios.
+     */
+    asignacionesVisibles: boolean;
     hostPools: AvdHostPool[];
     workspaces: AvdWorkspace[];
     workspaceCount: number;
@@ -162,6 +185,23 @@ export interface AvdInventory {
         monthlyStorageCostUsd: number;
         monthlyCostUsd: number;
     };
+}
+
+/**
+ * Si una asignacion hecha en `scope` alcanza al recurso `recursoId`.
+ *
+ * RBAC HEREDA: un "Desktop Virtualization User" puesto en la suscripcion o en
+ * el grupo de recursos tambien da acceso al app group de adentro. Comparar solo
+ * por igualdad marcaria como "sin usuarios" a un app group que si tiene gente,
+ * y de ahi a recomendar apagarlo hay un paso.
+ *
+ * El corte por `/` no es cosmetico: sin el, el scope `.../resourceGroups/rg-a`
+ * daria por alcanzado un recurso de `.../resourceGroups/rg-avd`.
+ */
+export function alcanceCubre(scope: string, recursoId: string): boolean {
+    const s = scope.toLowerCase().replace(/\/+$/, "");
+    const r = recursoId.toLowerCase();
+    return r === s || r.startsWith(`${s}/`);
 }
 
 function parentHostPoolId(sessionHostId: string): string | null {
@@ -253,6 +293,12 @@ export function evaluateHostPoolRemediations(hp: {
     /** Ver `alcanzable` en AvdHostPool. Por defecto true para no inventar hallazgos. */
     alcanzable?: boolean;
     applicationGroupCount?: number;
+    /**
+     * Todos sus app groups sin una sola asignación del rol de usuario.
+     * `undefined` = no se pudieron leer las asignaciones, y entonces no se
+     * reporta nada: un falso positivo acá termina en apagar algo que se usa.
+     */
+    sinUsuariosAsignados?: boolean;
 }): AvdRemediationAction[] {
     const actions: AvdRemediationAction[] = [];
     const isPooled = hp.hostPoolType === "Pooled";
@@ -276,6 +322,29 @@ export function evaluateHostPoolRemediations(hp: {
             risk: "medium",
             confidence: "medium",
             commandCli: `az desktopvirtualization applicationgroup list --query "[?hostPoolArmPath!=null]" -o table`,
+        });
+    }
+
+    // Mismo desperdicio, otra causa: el grupo esta publicado pero no hay un
+    // solo usuario ni grupo con el rol. La maquina corre, la ruta existe, y no
+    // hay nadie del otro lado. Se reporta aparte porque el arreglo es otro:
+    // aca se asignan usuarios, no se publica en una workspace.
+    if (
+        hp.sinUsuariosAsignados === true &&
+        hp.alcanzable !== false &&
+        hp.sessionHostCount > 0 &&
+        hp.monthlyCostUsd > 0
+    ) {
+        actions.push({
+            id: `rec-avd-sin-usuarios-${hp.name}`,
+            type: "unreachable_host_pool",
+            titleKey: "rec_avd_no_users_title",
+            descKey: "rec_avd_no_users_desc",
+            params: { hostPool: hp.name, hosts: hp.sessionHostCount },
+            monthlySavingsUsd: Number(hp.monthlyCostUsd.toFixed(2)),
+            risk: "medium",
+            confidence: "medium",
+            commandCli: `az role assignment list --role "Desktop Virtualization User" --scope <APP_GROUP_ID> -o table`,
         });
     }
 
@@ -320,7 +389,7 @@ export async function getAvdInventory(
     credential: any,
     subscriptionIds: string[],
 ): Promise<AvdInventory> {
-    const [rows, sessionHostRows] = await Promise.all([
+    const [rows, sessionHostRows, roleAssignmentRows] = await Promise.all([
         listResourcesByTypes(
             tenantId,
             [HOSTPOOL_TYPE, WORKSPACE_TYPE, APPGROUP_TYPE, SCALINGPLAN_TYPE, COMPUTE_VM_TYPE, STORAGE_TYPE, NETAPP_TYPE],
@@ -328,6 +397,7 @@ export async function getAvdInventory(
             credential,
         ),
         listResourcesByTypes(tenantId, [SESSIONHOST_TYPE], subscriptionIds, credential, SESSIONHOST_TABLA),
+        listResourcesByTypes(tenantId, [ROLEASSIGNMENT_TYPE], subscriptionIds, credential, ROLEASSIGNMENT_TABLA),
     ]);
 
     const hostPoolRows = rows.filter((r) => r.type === HOSTPOOL_TYPE);
@@ -349,6 +419,28 @@ export async function getAvdInventory(
         }
     }
 
+    // Cero asignaciones EN TODO EL TENANT no es un hallazgo, es una credencial
+    // sin permiso para leerlas: cualquier tenant real tiene role assignments.
+    const asignacionesVisibles = roleAssignmentRows.length > 0;
+    const asignacionesAvd = roleAssignmentRows
+        .map((ra) => ({
+            scope: String(ra.properties?.scope ?? ""),
+            principalType: String(ra.properties?.principalType ?? ""),
+            roleDefinitionId: String(ra.properties?.roleDefinitionId ?? "").toLowerCase(),
+        }))
+        .filter((ra) => ra.scope.length > 0 && ra.roleDefinitionId.endsWith(ROL_AVD_USER));
+
+    const contarAsignaciones = (appGroupId: string): { usuarios: number; grupos: number } => {
+        let usuarios = 0;
+        let grupos = 0;
+        for (const ra of asignacionesAvd) {
+            if (!alcanceCubre(ra.scope, appGroupId)) continue;
+            if (ra.principalType.toLowerCase() === "group") grupos++;
+            else usuarios++;
+        }
+        return { usuarios, grupos };
+    };
+
     const appGroupsPorHostPool = new Map<string, AvdApplicationGroup[]>();
     for (const ag of appGroupRows) {
         const hostPoolArmPath = prop(ag, "hostPoolArmPath");
@@ -358,6 +450,7 @@ export async function getAvdInventory(
         const workspaceId = desdeWorkspace || desdeAppGroup || null;
         const clave = hostPoolArmPath.toLowerCase();
         const lista = appGroupsPorHostPool.get(clave) ?? [];
+        const conteo = asignacionesVisibles ? contarAsignaciones(ag.id) : null;
         lista.push({
             id: ag.id,
             name: ag.name,
@@ -365,6 +458,8 @@ export async function getAvdInventory(
             tipo: prop(ag, "applicationGroupType") || null,
             workspaceId,
             workspaceName: workspaceId ? nombreWorkspacePorId.get(workspaceId.toLowerCase()) || null : null,
+            usuariosAsignados: conteo ? conteo.usuarios : null,
+            gruposAsignados: conteo ? conteo.grupos : null,
         });
         appGroupsPorHostPool.set(clave, lista);
     }
@@ -516,6 +611,12 @@ export async function getAvdInventory(
             monthlyCostUsd: hostPool.monthlyCostUsd,
             alcanzable: hostPool.alcanzable,
             applicationGroupCount: hostPool.applicationGroups.length,
+            // Solo se pasa cuando las asignaciones se pudieron leer: `undefined`
+            // significa "no sé", y el motor no acusa con eso.
+            sinUsuariosAsignados: asignacionesVisibles
+                ? hostPool.applicationGroups.length > 0 &&
+                  hostPool.applicationGroups.every((ag) => (ag.usuariosAsignados ?? 0) + (ag.gruposAsignados ?? 0) === 0)
+                : undefined,
         });
         const sessionHostSavings = hostPool.sessionHosts.reduce((acc, sh) => acc + sh.potentialSavingUsd, 0);
         hostPool.potentialSavingUsd = cappedMonthlySavings(
@@ -580,6 +681,7 @@ export async function getAvdInventory(
     }));
 
     return {
+        asignacionesVisibles,
         hostPools,
         workspaces,
         workspaceCount: workspaceRows.length,

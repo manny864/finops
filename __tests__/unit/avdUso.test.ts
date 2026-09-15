@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
 import { filasDeRespuestaLA, resumirUso, kqlUsoHostPool } from "@/modules/collectors/azure/avdUsageService";
-import { evaluateHostPoolRemediations } from "@/modules/collectors/azure/avdService";
+import { evaluateHostPoolRemediations, alcanceCubre } from "@/modules/collectors/azure/avdService";
 
 const HOSTPOOL = "/subscriptions/abc/resourceGroups/rg/providers/Microsoft.DesktopVirtualization/hostPools/hp-Prod";
 
@@ -131,5 +131,66 @@ describe("host pool inalcanzable", () => {
         // a un pool que si lo es lleva a apagar algo que se usa.
         const acciones = evaluateHostPoolRemediations(base);
         expect(acciones.some((a) => a.type === "unreachable_host_pool")).toBe(false);
+    });
+});
+
+/**
+ * RBAC hereda: un rol puesto en la suscripcion o el grupo de recursos alcanza
+ * al app group de adentro. Comparar solo por igualdad marcaria como "sin
+ * usuarios" a un grupo que si tiene gente, y de ahi a recomendar apagarlo hay
+ * un paso.
+ */
+describe("alcance de una asignacion de rol", () => {
+    const AG = "/subscriptions/s1/resourceGroups/rg-avd/providers/Microsoft.DesktopVirtualization/applicationGroups/ag1";
+
+    it("alcanza en el scope exacto", () => {
+        expect(alcanceCubre(AG, AG)).toBe(true);
+    });
+
+    it("alcanza heredando del grupo de recursos y de la suscripcion", () => {
+        expect(alcanceCubre("/subscriptions/s1/resourceGroups/rg-avd", AG)).toBe(true);
+        expect(alcanceCubre("/subscriptions/s1", AG)).toBe(true);
+    });
+
+    it("NO alcanza a un grupo de recursos con nombre parecido", () => {
+        // Sin el corte por "/", `rg-a` daria por alcanzado todo `rg-avd`.
+        expect(alcanceCubre("/subscriptions/s1/resourceGroups/rg-a", AG)).toBe(false);
+    });
+
+    it("NO alcanza desde otra suscripcion", () => {
+        expect(alcanceCubre("/subscriptions/s2", AG)).toBe(false);
+    });
+
+    it("tolera la barra final", () => {
+        expect(alcanceCubre("/subscriptions/s1/resourceGroups/rg-avd/", AG)).toBe(true);
+    });
+
+    it("es insensible a mayusculas, como los ids de ARM", () => {
+        expect(alcanceCubre("/SUBSCRIPTIONS/S1/RESOURCEGROUPS/RG-AVD", AG)).toBe(true);
+    });
+});
+
+describe("no acusar sin datos de asignaciones", () => {
+    const base = {
+        name: "hp-x",
+        hostPoolType: "Pooled" as string | null,
+        maxSessionLimit: 10,
+        hasScalingPlan: true,
+        sessionHostCount: 2,
+        totalSessions: 0,
+        monthlyCostUsd: 200,
+        alcanzable: true,
+    };
+
+    it("reporta cuando consta que no hay nadie asignado", () => {
+        const acciones = evaluateHostPoolRemediations({ ...base, sinUsuariosAsignados: true });
+        expect(acciones.some((a) => a.descKey === "rec_avd_no_users_desc")).toBe(true);
+    });
+
+    it("NO reporta cuando las asignaciones no se pudieron leer", () => {
+        // `undefined` = la credencial no ve los role assignments. Tratarlo como
+        // cero haria que la pantalla recomiende apagar TODOS los pools.
+        const acciones = evaluateHostPoolRemediations({ ...base, sinUsuariosAsignados: undefined });
+        expect(acciones.some((a) => a.descKey === "rec_avd_no_users_desc")).toBe(false);
     });
 });

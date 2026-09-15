@@ -287,9 +287,25 @@ export default function AvdFinopsCmpBoard() {
                         {hp.applicationGroups.length === 0 ? (
                           <span className="text-rose-600 dark:text-rose-400">{t("sinAppGroups")}</span>
                         ) : (
-                          hp.applicationGroups
-                            .map((ag) => `${ag.friendlyName || ag.name}${ag.tipo ? ` (${ag.tipo})` : ""}${ag.workspaceName ? "" : ` · ${t("sinWorkspace")}`}`)
-                            .join(", ")
+                          hp.applicationGroups.map((ag) => {
+                            const asignados = (ag.usuariosAsignados ?? 0) + (ag.gruposAsignados ?? 0);
+                            const acceso =
+                              ag.usuariosAsignados === null
+                                ? ` · ${t("accesoSinDato")}`
+                                : asignados === 0
+                                  ? ` · ${t("sinUsuarios")}`
+                                  : ` · ${t("accesoResumen", { usuarios: ag.usuariosAsignados ?? 0, grupos: ag.gruposAsignados ?? 0 })}`;
+                            return (
+                              <div key={ag.id} className="whitespace-nowrap">
+                                {ag.friendlyName || ag.name}
+                                {ag.tipo ? ` (${ag.tipo})` : ""}
+                                {!ag.workspaceName && <span className="text-rose-600 dark:text-rose-400"> · {t("sinWorkspace")}</span>}
+                                <span className={asignados === 0 && ag.usuariosAsignados !== null ? "text-rose-600 dark:text-rose-400" : "text-slate-400 dark:text-slate-500"}>
+                                  {acceso}
+                                </span>
+                              </div>
+                            );
+                          })
                         )}
                       </td>
                       <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-300">

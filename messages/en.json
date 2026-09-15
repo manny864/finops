@@ -13980,7 +13980,10 @@
     "workspacesTitle": "Workspaces",
     "workspacesHint": "A workspace is what the user sees in their Remote Desktop client.",
     "workspaceVaciaTooltip": "This workspace publishes no application groups.",
-    "emptyWorkspaces": "No Azure Virtual Desktop workspaces found in this tenant"
+    "emptyWorkspaces": "No Azure Virtual Desktop workspaces found in this tenant",
+    "accesoResumen": "{usuarios} user(s), {grupos} group(s)",
+    "sinUsuarios": "no users assigned",
+    "accesoSinDato": "access unknown"
   },
   "VmFinopsCmp": {
     "loading": "Loading Virtual Machines FinOps cockpit...",
@@ -15451,6 +15454,8 @@
     "rec_aro_savings_plan_desc": "Master and worker nodes run steadily 24/7 on Pay-As-You-Go. Covering them with a Compute Savings Plan yields an estimated 38% saving on Azure compute.",
     "rec_aro_orphan_pvc_title": "Purge Orphaned Persistent Volume Claims (PVCs)",
     "rec_aro_orphan_pvc_desc": "There are {count} managed disk(s) in the Managed Resource Group not attached to any instance. Check the cluster and delete them if they are not mounted to active pods.",
+    "rec_avd_no_users_title": "Published host pool with no user assigned",
+    "rec_avd_no_users_desc": "{hostPool} has {hosts} session host(s) running and its application groups are published, but nobody holds the \"Desktop Virtualization User\" role: no user can get in. Assign users or shut the hosts down.",
     "rec_avd_unreachable_host_pool_title": "Unreachable host pool with session hosts running",
     "rec_avd_unreachable_host_pool_desc": "{hostPool} has {hosts} session host(s) running, but none of its {grupos} application group(s) is published in a workspace: no user can connect. Publish it or shut the hosts down; until then the spend is 100% waste.",
     "rec_avd_ahub_title": "Enable Azure Hybrid Benefit (AHUB)",

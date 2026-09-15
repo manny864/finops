@@ -13980,7 +13980,10 @@
     "workspacesTitle": "Áreas de trabalho (Workspaces)",
     "workspacesHint": "Uma workspace é o que o usuário vê no seu cliente de Área de Trabalho Remota.",
     "workspaceVaciaTooltip": "Esta workspace não publica nenhum grupo de aplicativos.",
-    "emptyWorkspaces": "Nenhuma área de trabalho do Azure Virtual Desktop foi encontrada no tenant"
+    "emptyWorkspaces": "Nenhuma área de trabalho do Azure Virtual Desktop foi encontrada no tenant",
+    "accesoResumen": "{usuarios} usuário(s), {grupos} grupo(s)",
+    "sinUsuarios": "sem usuários atribuídos",
+    "accesoSinDato": "acesso sem dado"
   },
   "VmFinopsCmp": {
     "loading": "Carregando cockpit FinOps de Virtual Machines...",
@@ -15451,6 +15454,8 @@
     "rec_aro_savings_plan_desc": "Os nós master e worker rodam 24/7 de forma estável em Pay-As-You-Go. Cobri-los com um Compute Savings Plan gera uma economia estimada de 38% na computação do Azure.",
     "rec_aro_orphan_pvc_title": "Limpeza de Persistent Volume Claims (PVC) órfãos",
     "rec_aro_orphan_pvc_desc": "Há {count} disco(s) gerenciado(s) no Managed Resource Group sem estar anexado a nenhuma instância. Verificar no cluster e excluí-los se não estiverem montados em pods ativos.",
+    "rec_avd_no_users_title": "Host pool publicado mas sem nenhum usuário atribuído",
+    "rec_avd_no_users_desc": "{hostPool} tem {hosts} session host(s) rodando e seus grupos de aplicativos estão publicados, mas ninguém tem o papel \"Desktop Virtualization User\": nenhum usuário consegue entrar. Atribuir usuários ou desligar os hosts.",
     "rec_avd_unreachable_host_pool_title": "Host pool inalcançável com session hosts ligados",
     "rec_avd_unreachable_host_pool_desc": "{hostPool} tem {hosts} session host(s) rodando, mas nenhum dos seus {grupos} grupo(s) de aplicativos está publicado em uma workspace: nenhum usuário consegue se conectar. Publicar ou desligar os hosts; até lá o gasto é 100% desperdício.",
     "rec_avd_ahub_title": "Ativar Azure Hybrid Benefit (AHUB)",

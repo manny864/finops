@@ -95,6 +95,7 @@ function mockInventory(): AvdInventory {
     const hp2SessionHosts = [{ ...hp2SessionHostBase, remediationActions: hp2Actions0, potentialSavingUsd: cappedMonthlySavings(hp2Actions0.map((a) => a.monthlySavingsUsd), hp2SessionHostBase.monthlyCostUsd) }];
 
     return {
+        asignacionesVisibles: true,
         hostPools: [
             {
                 id: "mock-hostpool-1",
@@ -108,7 +109,7 @@ function mockInventory(): AvdInventory {
                 maxSessionLimit: 10,
                 hasScalingPlan: false,
                 applicationGroups: [
-                    { id: "mock-ag-1", name: "ag-finanzas-desktop", friendlyName: "Escritorio Finanzas", tipo: "Desktop", workspaceId: "mock-ws-1", workspaceName: "Workspace Corporativa" },
+                    { id: "mock-ag-1", name: "ag-finanzas-desktop", friendlyName: "Escritorio Finanzas", tipo: "Desktop", workspaceId: "mock-ws-1", workspaceName: "Workspace Corporativa", usuariosAsignados: 24, gruposAsignados: 2 },
                 ],
                 alcanzable: true,
                 totalSessions: 4,
@@ -134,7 +135,7 @@ function mockInventory(): AvdInventory {
                 maxSessionLimit: 1,
                 hasScalingPlan: false,
                 applicationGroups: [
-                    { id: "mock-ag-2", name: "ag-desarrollo-desktop", friendlyName: null, tipo: "Desktop", workspaceId: null, workspaceName: null },
+                    { id: "mock-ag-2", name: "ag-desarrollo-desktop", friendlyName: null, tipo: "Desktop", workspaceId: null, workspaceName: null, usuariosAsignados: 0, gruposAsignados: 0 },
                 ],
                 alcanzable: false,
                 totalSessions: 0,
@@ -214,6 +215,7 @@ export async function GET(request: NextRequest) {
                 const subscriptionIds = await getSubscriptionsForTenant(tenantId, credential);
                 if (subscriptionIds.length === 0) {
                     return {
+                        asignacionesVisibles: false,
                         hostPools: [],
                         workspaces: [],
                         workspaceCount: 0,
