@@ -107,3 +107,45 @@ describe("el botón Actualizar atraviesa el caché del servidor", () => {
         expect(useSwrPrincipal.slice(0, 260)).not.toContain("bust=1");
     });
 });
+
+/**
+ * "Carga los datos y despues los pierde" (prod, 2026-09-15). El payload bueno
+ * estaba cacheado y se mostraba; al refrescar, el ensamblado corria con Cost
+ * Management throttleado, devolvia 0 SIN tirar error, y ese 0 se guardaba
+ * encima del bueno. El numero aparecia y desaparecia.
+ *
+ * Son dos capas de cache distintas y las dos tenian el mismo agujero.
+ */
+describe("un cero degradado no pisa al ultimo valor bueno", () => {
+    const inteligencia = sin("src/app/api/intelligence/whiteboard/route.ts");
+    const overview = sin("src/app/api/overview/whiteboard/route.ts");
+
+    it("el SWR de inteligencia no cachea un degradado en cero", () => {
+        // `getWithStaleWhileRevalidate` entiende ttl <= 0 como "no guardes esto
+        // y tampoco borres lo que ya esta". Antes devolvia 3600 y lo pisaba.
+        expect(inteligencia).toMatch(/if \(mtd === 0 && result\?\._costDegraded\) return 0;/);
+    });
+
+    it("el cero SIN degradacion si se cachea: es un dato, no una falla", () => {
+        // Un tenant que de verdad no gasto tiene que poder cachear su cero.
+        expect(inteligencia).toMatch(/if \(mtd === 0 \|\| result\?\._costDegraded\) return 3600;/);
+    });
+
+    it("el refresco NO borra el payload bueno antes de buscar", () => {
+        // Borrarlo primero era lo que hacia que el boton Actualizar perdiera el
+        // dato: si el recalculo volvia en cero, ya no habia a que caer.
+        const bloqueBust = overview.slice(overview.indexOf("const bust ="), overview.indexOf("const leerCache"));
+        expect(bloqueBust).not.toMatch(/redis\.del\(cacheKey\)/);
+        // Las del ensamblado si se borran: es lo que el boton promete.
+        expect(bloqueBust).toContain("whiteboard:v5:azure:");
+    });
+
+    it("overview conserva el previo cuando lo fresco viene degradado y en cero", () => {
+        expect(overview).toContain("degradadoEnCero(payload) && previo && !degradadoEnCero(previo.payload)");
+    });
+
+    it("si el ensamblado se cae entero, sirve el previo en vez de un 500", () => {
+        const bloqueCatch = overview.slice(overview.lastIndexOf("catch (err)"));
+        expect(bloqueCatch).toMatch(/if \(previo\)/);
+    });
+});

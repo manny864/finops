@@ -71,40 +71,72 @@ export async function GET(request: NextRequest) {
     const bust = searchParams.get('bust') === '1';
     if (bust) {
         try {
-            await redis.del(cacheKey);
+            // OJO: NO se borra `cacheKey`. Se borran las del ensamblado de
+            // inteligencia para forzar un recálculo real --que es lo que el
+            // botón Actualizar promete-- pero el payload bueno de acá se
+            // conserva como red: si el recálculo vuelve degradado y en cero,
+            // abajo se sigue sirviendo este en vez de dejar la pantalla vacía.
+            // Borrarlo primero era lo que hacía que refrescar PERDIERA el dato.
             await redis.del(`whiteboard:v5:azure:${tenantId}:es`);
             await redis.del(`whiteboard:v5:azure:${tenantId}:en`);
             await redis.del(`whiteboard:v5:azure:${tenantId}:pt-BR`);
         } catch { /* ignore */ }
     }
 
-    // Try to get from Redis cache. mock=true usa una key separada para impedir
-    // contaminación entre previews demo y tenants reales conectados.
-    try {
-        const cached = await redis.get(cacheKey);
-        if (cached) {
-            const data = JSON.parse(cached);
-            const payloadForClient = { ...(data.payload || {}) };
-            delete payloadForClient._costDegraded;
-            return NextResponse.json(
-                {
-                    success: true,
-                    cache_source: 'redis',
-                    cached_at: data.cached_at,
-                    cache_ttl_seconds: CACHE_TTL_SECONDS,
-                    ...payloadForClient,
-                },
-                { status: 200, headers: NO_STORE_HEADERS }
-            );
+    /** Lo cacheado, si lo hay. Se lee incluso con `bust`, como respaldo. */
+    const leerCache = async (): Promise<{ cached_at: string; payload: any } | null> => {
+        try {
+            const crudo = await redis.get(cacheKey);
+            return crudo ? JSON.parse(crudo) : null;
+        } catch (err) {
+            console.error('Redis cache read error:', err);
+            return null;
         }
-    } catch (err) {
-        console.error('Redis cache read error:', err);
-        // Fall through to fetch fresh data
+    };
+
+    const servir = (cached_at: string, payload: any, fuente: 'redis' | 'azure') => {
+        const payloadForClient = { ...(payload || {}) };
+        delete payloadForClient._costDegraded;
+        return NextResponse.json(
+            {
+                success: true,
+                cache_source: fuente,
+                cached_at,
+                cache_ttl_seconds: CACHE_TTL_SECONDS,
+                ...payloadForClient,
+            },
+            { status: 200, headers: NO_STORE_HEADERS }
+        );
+    };
+
+    /** Un payload que no aporta nada: degradado Y sin costo. */
+    const degradadoEnCero = (payload: any): boolean =>
+        Boolean(payload?._costDegraded) && Number(payload?.summary?.costMtdUSD || 0) === 0;
+
+    const previo = await leerCache();
+
+    // mock=true usa una key separada para impedir contaminación entre previews
+    // demo y tenants reales conectados.
+    if (previo && !bust) {
+        return servir(previo.cached_at, previo.payload, 'redis');
     }
 
-    // Cache miss or error: fetch fresh data
+    // Cache miss, error o refresco explícito: traer dato fresco.
     try {
         const payload = await fetchWhiteboardFromIntelligence(tenantId, request, forceMock, locale, bust);
+
+        // UN CERO DEGRADADO NO PISA AL ÚLTIMO VALOR BUENO (2026-09-15). Es la
+        // otra mitad de "carga los datos y después los pierde": con Cost
+        // Management throttleado el ensamblado devuelve 0 sin tirar error, y
+        // guardarlo --aunque fuera por 5 minutos-- borraba el número que el
+        // usuario acababa de ver. Se conserva el anterior y se sirve ese.
+        if (degradadoEnCero(payload) && previo && !degradadoEnCero(previo.payload)) {
+            console.warn(
+                `[whiteboard] ensamblado degradado en cero para ${tenantId}: se conserva el valor previo de ${previo.cached_at}`,
+            );
+            return servir(previo.cached_at, previo.payload, 'redis');
+        }
+
         const cacheData = {
             cached_at: new Date().toISOString(),
             payload,
@@ -133,6 +165,12 @@ export async function GET(request: NextRequest) {
         );
     } catch (err) {
         console.error('Whiteboard fetch error:', err);
+        // Si el ensamblado se cayó entero pero hay un valor previo, servirlo:
+        // un número de hace un rato es mucho mejor que una pantalla de error,
+        // y el costo MTD que Azure consolida cada 8-24 h no cambia tanto.
+        if (previo) {
+            return servir(previo.cached_at, previo.payload, 'redis');
+        }
         return NextResponse.json(
             { error: 'Failed to fetch whiteboard data' },
             { status: 500 }

@@ -832,9 +832,28 @@ export async function GET(request: NextRequest) {
         // sale "ok". Con el respaldo de 12 h, ese cero se quedaba en pantalla
         // medio día. Un tenant sin gasto real revalida cada hora, que es barato;
         // un cero por throttling se corrige en el próximo refresco.
-        }, 43200, 900, (result) =>
-            result._costDegraded || Number(result?.summary?.costMtdUSD || 0) === 0 ? 3600 : 43200
-        );
+        //
+        // UN CERO DEGRADADO NO PISA AL ÚLTIMO VALOR BUENO (2026-09-15). Cachearlo
+        // una hora --como se hacía-- es lo que producía "carga los datos y después
+        // los pierde": la primera lectura servía el payload bueno del caché, la
+        // revalidación en background corría con Cost Management throttleado,
+        // devolvía 0, y ESE 0 reemplazaba al bueno durante una hora. El usuario
+        // veía el número y al refrescar lo veía desaparecer.
+        //
+        // Devolver 0 acá le dice a `getWithStaleWhileRevalidate` que no guarde
+        // ESTO y que tampoco borre lo que ya estaba: se sigue sirviendo el último
+        // valor bueno hasta que una revalidación traiga uno nuevo de verdad.
+        // `mtdBillingService` ya usaba este mismo mecanismo para este mismo
+        // problema; al whiteboard le faltaba.
+        //
+        // Se distingue el cero SIN degradación --un tenant que de verdad no
+        // gastó-- que sí se cachea, corto, porque es un dato y no una falla.
+        }, 43200, 900, (result) => {
+            const mtd = Number(result?.summary?.costMtdUSD || 0);
+            if (mtd === 0 && result?._costDegraded) return 0;
+            if (mtd === 0 || result?._costDegraded) return 3600;
+            return 43200;
+        });
 
         // Traducción post-cache defensiva para cubrir texto que no quedó
         // localizado por Azure en tiempo de recolección.

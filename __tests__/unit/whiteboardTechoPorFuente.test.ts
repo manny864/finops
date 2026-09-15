@@ -45,13 +45,19 @@ describe("el whiteboard no espera a Azure más de lo que el proxy tolera", () =>
     // El 524 sólo ocurre con caché VACÍO: mientras haya algo guardado, el SWR
     // responde al instante y refresca en background.
     it("el respaldo en caché dura mucho más que la ventana de refresco", () => {
-        const m = sinComentarios.match(/\}, (\d+), (\d+), \(result\) =>[\s\S]{0,200}\? (\d+) : (\d+)/);
+        // La política pasó de un ternario en una línea a un bloque cuando se
+        // agregó el caso "degradado en cero no pisa al bueno" (2026-09-15), así
+        // que se verifican los números y no la forma de escribirlos.
+        const m = sinComentarios.match(/\}, (\d+), (\d+), \(result\) =>/);
         expect(m, "no encontré la política de caché").not.toBeNull();
-        const [, duro, soft, degradado] = m!.map(Number);
+        const [, duro, soft] = m!.map(Number);
         expect(duro).toBeGreaterThanOrEqual(12 * 3600);
         expect(soft).toBeLessThanOrEqual(1800);
         // El degradado era de 5 min: el respaldo se vencía justo cuando Azure
         // venía lento, y el siguiente usuario volvía a esperar el ensamblado.
+        const degradado = Number(
+            sinComentarios.match(/mtd === 0 \|\| result\?\._costDegraded\) return (\d+);/)?.[1],
+        );
         expect(degradado).toBeGreaterThanOrEqual(3600);
     });
 
@@ -59,6 +65,7 @@ describe("el whiteboard no espera a Azure más de lo que el proxy tolera", () =>
     // `getCostFigures` no falla: devuelve 0 y sale "ok". Sin esto, el respaldo
     // largo dejaba ese cero en pantalla medio día.
     it("un costo en cero no se cachea con el TTL largo", () => {
-        expect(sinComentarios).toMatch(/costMtdUSD[^)]*\)\s*===\s*0/);
+        expect(sinComentarios).toMatch(/const mtd = Number\(result\?\.summary\?\.costMtdUSD \|\| 0\);/);
+        expect(sinComentarios).toMatch(/mtd === 0/);
     });
 });
