@@ -41,6 +41,52 @@ describe("el respaldo de costos del whiteboard filtra igual que el dashboard", (
         // Management falló" de "el respaldo filtró mal".
         expect(whiteboard).toMatch(/costMtd=\$\{/);
     });
+
+    it("el respaldo suma la misma columna que el dashboard", () => {
+        // El dashboard hace COALESCE(EffectiveCost, BilledCost, cost_usd) y acá
+        // faltaba BilledCost: misma tabla, dos totales posibles.
+        expect(whiteboard).toContain("COALESCE(EffectiveCost, BilledCost, cost_usd, 0)");
+    });
+});
+
+/**
+ * El costo del mes se resuelve ANTES del `Promise.all` --alimenta a
+ * `getCostFigures`--, así que era la única fuente de costo que quedó fuera de
+ * `fuente()` y sin techo. Medido en prod el 2026-09-15 sobre el mismo tenant,
+ * el ensamblado tardaba 104, 162, 201 y 261 s mientras las doce fuentes con
+ * techo respondían entre 12 y 440 ms. Cloudflare corta a los 100 s: el usuario
+ * no veía un costo degradado, veía un 524.
+ */
+describe("la consulta en vivo del costo del mes tiene techo", () => {
+    const whiteboard = sin("src/app/api/intelligence/whiteboard/route.ts");
+    const agregacion = whiteboard.slice(
+        whiteboard.indexOf("async function getCurrentMonthCostAggregation"),
+        whiteboard.indexOf("function proyeccionLineal"),
+    );
+
+    it("la llamada a Cost Management pasa por `fuente`", () => {
+        expect(agregacion).toMatch(/fuente\(\s*"costMtdLive"/);
+    });
+
+    it("el techo envuelve la consulta en vivo y no a toda la función", () => {
+        // Con el techo por fuera, al vencer devolvería la agregación vacía y la
+        // tarjeta mostraría $0 sin llegar a mirar CostSnapshots -- que es
+        // justamente lo que el respaldo existe para evitar.
+        expect(agregacion).toContain("FROM CostSnapshots");
+        expect(agregacion.indexOf("costMtdLive")).toBeLessThan(agregacion.indexOf("FROM CostSnapshots"));
+    });
+
+    it("un costo degradado no se cachea con el TTL largo", () => {
+        // `alDegradar` marca `costDegraded`, que el dynamicTtl usa para cachear
+        // 1 h en vez de 12 h. Sin esto, un timeout congelaba el número malo.
+        expect(whiteboard).toMatch(/getCurrentMonthCostAggregation\(tenantId, \(\) => \{\s*costDegraded = true;/);
+    });
+
+    it("el log dice de dónde salió el número", () => {
+        // Un `costMtd=0` puede ser "Azure no contestó", "la tabla no tiene el
+        // mes" o "gastaste cero", y los tres se veían igual.
+        expect(agregacion).toMatch(/costMtd origen=\$\{origen\}/);
+    });
 });
 
 describe("el botón Actualizar atraviesa el caché del servidor", () => {

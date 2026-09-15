@@ -74,13 +74,39 @@ function readCostCenter(tags: unknown): string {
     return "Sin asignar";
 }
 
-async function getCurrentMonthCostAggregation(tenantId: string): Promise<CurrentMonthCostAggregation> {
-    let entries: Array<Record<string, unknown>> = [];
-    try {
-        entries = await getCurrentMonthAmortizedCosts(tenantId, "All", "ActualCost") as unknown as Array<Record<string, unknown>>;
-    } catch (error) {
-        console.warn("[whiteboard] live Cost Management aggregation failed:", error);
-    }
+async function getCurrentMonthCostAggregation(
+    tenantId: string,
+    alDegradar?: () => void,
+): Promise<CurrentMonthCostAggregation> {
+    // ESTA LLAMADA TAMBIEN LLEVA TECHO. Es la unica fuente de costo que no
+    // pasaba por `fuente()`, porque se resuelve ANTES del `Promise.all` --su
+    // resultado alimenta a `getCostFigures`--, y al quedar afuera se quedo sin
+    // el techo que el resto tiene desde el 2026-09-13.
+    //
+    // Medido en prod el 2026-09-15, cuatro ensamblados del mismo tenant:
+    //   ms=162411 costMtd=0 / ms=201302 costMtd=0
+    //   ms=104474 costMtd=271.92 / ms=261514 costMtd=0
+    // Las doce fuentes con techo tardaban entre 12 y 440 ms --salvo el
+    // pronostico, que degrada solo a los 25 s--. O sea que de esos 104 a 261
+    // segundos, casi todo se iba ACA, esperando a un Cost Management
+    // throttleado (48 respuestas 429 en 13 minutos). Cloudflare corta a los
+    // 100 s: el usuario no veia un costo degradado, veia un 524.
+    //
+    // El techo va alrededor de la consulta en vivo y NO de toda la funcion a
+    // proposito: al vencer, `entries` queda vacio y corre el respaldo de
+    // CostSnapshots de abajo. Con el techo por fuera se perderia tambien ese
+    // respaldo y la tarjeta mostraria $0 --justo lo que el respaldo evita--.
+    let entries: Array<Record<string, unknown>> = await fuente(
+        "costMtdLive",
+        [] as Array<Record<string, unknown>>,
+        async () =>
+            (await getCurrentMonthAmortizedCosts(tenantId, "All", "ActualCost")) as unknown as Array<
+                Record<string, unknown>
+            >,
+        alDegradar,
+    );
+
+    let origen: "live" | "snapshot" | "vacio" = entries.length > 0 ? "live" : "vacio";
 
     if (entries.length === 0) {
         try {
@@ -103,13 +129,14 @@ async function getCurrentMonthCostAggregation(tenantId: string): Promise<Current
                 `SELECT
                     COALESCE(service_name, 'Other') AS serviceName,
                     Tags,
-                    COALESCE(EffectiveCost, cost_usd, 0) AS effectiveCost
+                    COALESCE(EffectiveCost, BilledCost, cost_usd, 0) AS effectiveCost
                  FROM CostSnapshots
                  WHERE tenant_id = ?
                    AND DATE(COALESCE(date, ChargePeriodStart)) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')`,
                 [tenantId]
             );
             entries = (rows as Array<Record<string, unknown>>) || [];
+            origen = entries.length > 0 ? "snapshot" : "vacio";
         } catch (dbErr) {
             console.warn("[whiteboard] database fallback query failed:", dbErr);
         }
@@ -127,6 +154,13 @@ async function getCurrentMonthCostAggregation(tenantId: string): Promise<Current
         byService.set(service, (byService.get(service) || 0) + cost);
         byCostCenter.set(costCenter, (byCostCenter.get(costCenter) || 0) + cost);
     }
+
+    // De donde salio el numero, siempre. Un `costMtd=0` puede ser "Azure no
+    // contesto", "la tabla no tiene el mes" o "gastaste cero", y sin esta linea
+    // los tres se ven exactamente igual en los logs.
+    console.log(
+        `[whiteboard] costMtd origen=${origen} filas=${entries.length} total=${totalUSD.toFixed(2)}`,
+    );
 
     return {
         totalUSD: Number(totalUSD.toFixed(2)),
@@ -512,13 +546,16 @@ export async function GET(request: NextRequest) {
                 console.warn("[whiteboard] Azure credential resolution failed:", credErr);
             }
             const ensambladoDesde = Date.now();
-            const currentMonth = await getCurrentMonthCostAggregation(tenantId);
 
             // Si Cost Management tira 429/error en los KPIs de costo, no queremos
             // cachear los $0 degradados con el TTL normal (1h) — dynamicTtl más
             // abajo los cachea 5 min en su lugar para que el próximo refresh del
             // usuario reintente pronto en vez de congelar el número incompleto.
             let costDegraded = false;
+
+            const currentMonth = await getCurrentMonthCostAggregation(tenantId, () => {
+                costDegraded = true;
+            });
 
             const [
                 costFigures,
