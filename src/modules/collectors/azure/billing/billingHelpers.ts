@@ -100,6 +100,11 @@ const limitadorCosto = crearLimitadorGlobal(
         nombre: "BillingService",
         // Cost Management aguanta bastante menos que ARG y ya venia saturado.
         maxConcurrent: Number(process.env.COST_MAX_CONCURRENT || 2),
+        // Un turno siempre libre para lo interactivo. Los prewarm arrancan de a
+        // tres en el mismo minuto y su trabajo sigue corriendo dentro del web
+        // app durante minutos: sin la reserva, ocupaban los dos turnos y el
+        // whiteboard esperaba a que alguno terminara.
+        reservaInteractiva: 1,
         pacingMs: 250,
         minBackoffMs: 2000,
         maxBackoffMs: 45_000,

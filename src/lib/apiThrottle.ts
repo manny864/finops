@@ -1,4 +1,5 @@
 import { registrarLlamadaAzure } from "@/lib/azureApiMetrics";
+import { prioridadActual, type Prioridad } from "@/lib/prioridadDeLlamada";
 /**
  * Limitador global de concurrencia con pausa compartida ante 429.
  *
@@ -42,6 +43,21 @@ export interface OpcionesLimitador {
     jitterMs: number;
     /** Piso a aplicar sobre el `Retry-After` que manda el servicio. */
     minRetryAfterMs: number;
+    /**
+     * Slots de `maxConcurrent` que el trabajo de fondo NO puede ocupar.
+     *
+     * La fila de prioridad sola no alcanza: con `maxConcurrent: 2`, si dos
+     * consultas de un prewarm ya estan corriendo --y bajo throttling cada una
+     * se puede quedar decenas de segundos-- la consulta interactiva que llega
+     * despues espera a que se libere un turno igual, por mas que sea la
+     * primera de la fila.
+     *
+     * Con 1 reservado, el fondo se serializa y siempre queda un turno para
+     * quien esta mirando la pantalla. Que el prewarm vaya mas lento es el
+     * objetivo, no un efecto colateral: es justamente lo que estaba generando
+     * los 429.
+     */
+    reservaInteractiva?: number;
 }
 
 export interface OpcionesLlamada {
@@ -56,6 +72,11 @@ export interface OpcionesLlamada {
     signal?: AbortSignal;
     /** Pisa `minBackoffMs` solo para esta llamada. */
     minBackoffMs?: number;
+    /**
+     * Pisa la prioridad que viene del `AsyncLocalStorage` de la request. Casi
+     * nunca hace falta: lo normal es que la marque `requireTenantAccess`.
+     */
+    prioridad?: Prioridad;
 }
 
 export interface Limitador {
@@ -102,10 +123,15 @@ export function crearLimitadorGlobal(
     let activos = 0;
     let pausadoHasta = 0;
     let ultimoArranque = 0;
-    const cola: Array<() => void> = [];
+    // Dos filas y no una con orden: lo interactivo se atiende entero antes que
+    // el fondo, y dentro de cada una se respeta el orden de llegada.
+    const colaAlta: Array<() => void> = [];
+    const colaBaja: Array<() => void> = [];
+    const reserva = Math.max(0, Math.min(cfg.reservaInteractiva ?? 0, cfg.maxConcurrent - 1));
 
     function siguiente() {
         if (activos >= cfg.maxConcurrent) return;
+        if (colaAlta.length === 0 && colaBaja.length === 0) return;
         const ahora = ahoraMs();
         if (ahora < pausadoHasta) {
             setTimeout(siguiente, Math.max(50, pausadoHasta - ahora));
@@ -116,7 +142,15 @@ export function crearLimitadorGlobal(
             setTimeout(siguiente, cfg.pacingMs - desdeElUltimo);
             return;
         }
-        const correr = cola.shift();
+        // El fondo solo arranca si no hay nadie interactivo esperando Y si deja
+        // libres los turnos reservados. Cuando no puede, se sale sin
+        // reprogramar: al terminar cualquier llamada activa se vuelve a llamar
+        // a `siguiente()`, que es cuando el turno realmente se libera.
+        let correr = colaAlta.shift();
+        if (!correr) {
+            if (activos >= cfg.maxConcurrent - reserva) return;
+            correr = colaBaja.shift();
+        }
         if (!correr) return;
         activos++;
         ultimoArranque = ahoraMs();
@@ -129,6 +163,10 @@ export function crearLimitadorGlobal(
     ): Promise<T> {
         const maxRetries = opts.maxRetries ?? 4;
         const minBackoff = opts.minBackoffMs ?? cfg.minBackoffMs;
+        // Se resuelve UNA vez, al entrar: los reintentos tienen que volver a la
+        // misma fila. Si se leyera el ALS en cada vuelta, un reintento podria
+        // caer en otro contexto async y cambiar de prioridad a mitad de camino.
+        const prioridad = opts.prioridad ?? prioridadActual();
         let intento = 0;
         let esperaPendiente = 0;
 
@@ -189,7 +227,7 @@ export function crearLimitadorGlobal(
                             soltarTurno(error);
                         }
                     };
-                    cola.push(correr);
+                    (prioridad === "fondo" ? colaBaja : colaAlta).push(correr);
                     siguiente();
                 });
             } catch (err) {

@@ -156,28 +156,36 @@ cron_jobs = {
   # ARM pesados por tenant) lo supera y Azure marca la ejecución Failed
   # (bandeja de alertas llena) aunque el barrido complete bien del lado del
   # servidor. Ver el comentario grande en src/app/api/cron/prewarm-dashboard/route.ts.
-  prewarm-dashboard = { cron = "*/10 * * * *", timeout_seconds = 1800, async_poll = true }
+  #
+  # LOS PREWARM NO COMPARTEN MINUTO. Todos consultan Cost Management, que
+  # throttlea con facilidad, y `*/N` los hace coincidir: con tres en `*/30` los
+  # tres arrancan juntos a las :00 y a las :30. Verificado en prod el
+  # 2026-09-15, y peor de lo que parece --el job reporta Succeeded a los 30 s
+  # porque solo dispara el HTTP, mientras el trabajo real sigue corriendo dentro
+  # del web app varios minutos--. Se declara la lista de minutos explicita
+  # (`0,30`) en vez de `*/30` para poder repartirlos.
+  prewarm-dashboard = { cron = "0,30 * * * *", timeout_seconds = 1800, async_poll = true }
 
   # Pre-warm de bases de datos (cache versionada + redis metrics).
-  prewarm-databases = { cron = "*/15 * * * *", timeout_seconds = 1800, async_poll = true }
+  prewarm-databases = { cron = "10,40 * * * *", timeout_seconds = 1800, async_poll = true }
 
   # Pre-warm de cómputo (workloads).
-  prewarm-compute = { cron = "*/15 * * * *", timeout_seconds = 1800, async_poll = true }
+  prewarm-compute = { cron = "20,50 * * * *", timeout_seconds = 1800, async_poll = true }
 
   # Pre-warm dedicado del cockpit FinOps/CMP de MySQL.
-  prewarm-mysql-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
+  prewarm-mysql-finops = { cron = "15 * * * *", timeout_seconds = 300 }
 
   # Pre-warm dedicado del cockpit FinOps/CMP de Cosmos DB.
-  prewarm-cosmos-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
+  prewarm-cosmos-finops = { cron = "25 * * * *", timeout_seconds = 300 }
 
   # Pre-warm dedicado del cockpit FinOps/CMP de MongoDB.
-  prewarm-mongo-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
+  prewarm-mongo-finops = { cron = "35 * * * *", timeout_seconds = 300 }
 
   # Pre-warm dedicado del cockpit FinOps/CMP de Azure SQL / MI.
-  prewarm-sql-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
+  prewarm-sql-finops = { cron = "45 * * * *", timeout_seconds = 300 }
 
   # Pre-warm dedicado del cockpit FinOps/CMP de PostgreSQL.
-  prewarm-postgres-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }
+  prewarm-postgres-finops = { cron = "55 * * * *", timeout_seconds = 300 }
 
   # Pre-warm dedicado de cockpits FinOps/CMP de Almacenamiento.
   prewarm-storage-finops = { cron = "*/20 * * * *", timeout_seconds = 300 }

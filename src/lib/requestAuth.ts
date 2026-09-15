@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import pool from "@/modules/storage/db";
 import { hasAccess } from "@/lib/tierLogic";
 import { isCorporateEmail } from "@/lib/authGuard";
+import { marcarComoFondo } from "@/lib/prioridadDeLlamada";
 
 /**
  * Tenant well-known de Microsoft para CUENTAS PERSONALES (MSA / "consumers"):
@@ -403,7 +404,14 @@ export async function requireTenantAccess(
   // Bypass interno-cron: si llega el header X-Cron-Auth válido, retornamos
   // identidad sintética del tenant. NO degrada la seguridad para callers humanos.
   const cronIdentity = tryCronAuth(request, tenantId);
-  if (cronIdentity) return cronIdentity;
+  if (cronIdentity) {
+    // Un cron autenticado es, por definición, trabajo de fondo: sus consultas a
+    // Azure van a la fila de baja prioridad y no le sacan el turno a nadie que
+    // esté esperando una pantalla. Es el único lugar donde se puede distinguir,
+    // porque los prewarm pegan contra estas mismas rutas ([[prioridadDeLlamada]]).
+    marcarComoFondo();
+    return cronIdentity;
+  }
 
   const identity = await requireRequestIdentity(request);
   const allowSuperAdmin = options?.allowSuperAdmin ?? true;

@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi } from "vitest";
 import { crearLimitadorGlobal } from "@/lib/apiThrottle";
+import { conPrioridadDeFondo, prioridadActual } from "@/lib/prioridadDeLlamada";
 
 /** Un 429 con la forma que devuelve Azure. */
 const err429 = (retryAfterSegs?: number) => ({
@@ -118,5 +119,111 @@ describe("el turno se libera pase lo que pase", () => {
                 new Promise((_r, rej) => setTimeout(() => rej(new Error("cola trabada")), 500)),
             ]),
         ).resolves.toBe("vivo");
+    });
+});
+
+/**
+ * Los prewarm pegan HTTP contra las MISMAS rutas que una persona, asi que la
+ * cola FIFO atendia por orden de llegada el pedido de alguien mirando la
+ * pantalla y el de un job precalentando caches. Medido en prod el 2026-09-15:
+ * tres prewarm arrancan en el mismo minuto, su trabajo sigue corriendo dentro
+ * del web app por minutos, y entre eso, el backfill y el audit dejaron 48
+ * respuestas 429 en 13 minutos. El whiteboard esperaba detras de todo eso.
+ */
+describe("lo interactivo no hace fila detras del trabajo de fondo", () => {
+    it("lo interactivo se atiende antes que el fondo ya encolado", async () => {
+        const limite = nuevoLimitador({ maxConcurrent: 1 });
+        const orden: string[] = [];
+        const tarea = (nombre: string, prioridad: "interactiva" | "fondo") =>
+            limite(async () => { orden.push(nombre); await new Promise((r) => setTimeout(r, 5)); }, { prioridad });
+
+        // El primero toma el unico turno; el resto se encola detras.
+        const enCurso = tarea("fondo-en-curso", "fondo");
+        const pendientes = [
+            tarea("fondo-1", "fondo"),
+            tarea("fondo-2", "fondo"),
+            tarea("interactiva", "interactiva"),
+        ];
+        await Promise.all([enCurso, ...pendientes]);
+
+        // Al que ya estaba corriendo no se lo puede desalojar; a los encolados si.
+        expect(orden[0]).toBe("fondo-en-curso");
+        expect(orden[1]).toBe("interactiva");
+    });
+
+    it("el fondo no ocupa el turno reservado", async () => {
+        const limite = nuevoLimitador({ maxConcurrent: 2, reservaInteractiva: 1 });
+        let enVuelo = 0;
+        let pico = 0;
+        await Promise.all(
+            Array.from({ length: 6 }, () =>
+                limite(async () => {
+                    pico = Math.max(pico, ++enVuelo);
+                    await new Promise((r) => setTimeout(r, 5));
+                    enVuelo--;
+                }, { prioridad: "fondo" }),
+            ),
+        );
+        // De los dos turnos, el fondo solo puede usar uno.
+        expect(pico).toBe(1);
+    });
+
+    it("lo interactivo si usa los dos turnos", async () => {
+        const limite = nuevoLimitador({ maxConcurrent: 2, reservaInteractiva: 1 });
+        let enVuelo = 0;
+        let pico = 0;
+        await Promise.all(
+            Array.from({ length: 6 }, () =>
+                limite(async () => {
+                    pico = Math.max(pico, ++enVuelo);
+                    await new Promise((r) => setTimeout(r, 5));
+                    enVuelo--;
+                }, { prioridad: "interactiva" }),
+            ),
+        );
+        expect(pico).toBe(2);
+    });
+
+    it("con un solo turno total, la reserva no mata al fondo", async () => {
+        // `COST_MAX_CONCURRENT=1` con reserva 1 dejaria al fondo sin ningun
+        // turno posible: los prewarm no volverian a correr nunca y nadie se
+        // enteraria. La reserva se capa en maxConcurrent - 1.
+        const limite = nuevoLimitador({ maxConcurrent: 1, reservaInteractiva: 1 });
+        await expect(
+            Promise.race([
+                limite(async () => "corrio", { prioridad: "fondo" }),
+                new Promise((_r, rej) => setTimeout(() => rej(new Error("fondo hambreado")), 500)),
+            ]),
+        ).resolves.toBe("corrio");
+    });
+});
+
+/**
+ * Sin esto habria que pasar un parametro por los 28 call sites de `withRetry`
+ * en 8 archivos. La prioridad la marca `requireTenantAccess` al validar el
+ * `X-Cron-Auth` y viaja sola hasta la cola.
+ */
+describe("la prioridad viaja por el contexto async", () => {
+    it("lo que corre dentro de conPrioridadDeFondo cae en la fila baja", async () => {
+        const limite = nuevoLimitador({ maxConcurrent: 1 });
+        const orden: string[] = [];
+        const tarea = (nombre: string) =>
+            limite(async () => { orden.push(nombre); await new Promise((r) => setTimeout(r, 5)); });
+
+        const enCurso = tarea("en-curso");
+        // Sin pasar `prioridad`: la toma del contexto.
+        const pendientes = [
+            conPrioridadDeFondo(() => tarea("fondo-por-contexto")),
+            tarea("interactiva-por-defecto"),
+        ];
+        await Promise.all([enCurso, ...pendientes]);
+
+        expect(orden).toEqual(["en-curso", "interactiva-por-defecto", "fondo-por-contexto"]);
+    });
+
+    it("sin contexto, el default es interactiva", () => {
+        // Fail-safe: un job nuevo que no pase por requireTenantAccess se
+        // comporta como hoy en vez de quedar postergado sin que nadie lo note.
+        expect(prioridadActual()).toBe("interactiva");
     });
 });
