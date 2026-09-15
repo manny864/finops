@@ -10,6 +10,7 @@ import {
   IconDatabase,
   IconUsers,
   IconSparkles,
+  IconLayoutGrid,
 } from "@tabler/icons-react";
 import { useTenant } from "@/components/TenantProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
@@ -85,6 +86,7 @@ export default function AvdFinopsCmpBoard() {
 
   const hostPools = useMemo(() => data?.hostPools || [], [data]);
   const storage = useMemo(() => data?.storage || [], [data]);
+  const workspaces = useMemo(() => data?.workspaces || [], [data]);
 
   const recommendations = useMemo<FlatRecommendation[]>(() => {
     const list: FlatRecommendation[] = [];
@@ -243,6 +245,7 @@ export default function AvdFinopsCmpBoard() {
                 <th className="px-4 py-2 text-left">{t("colType")}</th>
                 <th className="px-4 py-2 text-left">{t("colLoadBalancer")}</th>
                 <th className="px-4 py-2 text-left">{t("colRegion")}</th>
+                <th className="px-4 py-2 text-left">{t("colAppGroups")}</th>
                 <th className="px-4 py-2 text-right">{t("colSessionHosts")}</th>
                 <th className="px-4 py-2 text-right">{t("colSessions")}</th>
                 <th className="px-4 py-2 text-right">{t("colUsers")}</th>
@@ -268,10 +271,27 @@ export default function AvdFinopsCmpBoard() {
                       </td>
                       <td className="px-4 py-2 font-medium text-slate-900 dark:text-slate-100">
                         {hp.friendlyName || hp.name}
+                        {!hp.alcanzable && (
+                          <span
+                            className="ml-2 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700 dark:bg-rose-950/50 dark:text-rose-300"
+                            title={t("unreachableTooltip")}
+                          >
+                            {t("unreachableBadge")}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-2 text-slate-600 dark:text-slate-300">{hp.hostPoolType || t("na")}</td>
                       <td className="px-4 py-2 text-slate-600 dark:text-slate-300">{hp.loadBalancerType || t("na")}</td>
                       <td className="px-4 py-2 text-slate-600 dark:text-slate-300">{hp.region}</td>
+                      <td className="px-4 py-2 text-slate-600 dark:text-slate-300">
+                        {hp.applicationGroups.length === 0 ? (
+                          <span className="text-rose-600 dark:text-rose-400">{t("sinAppGroups")}</span>
+                        ) : (
+                          hp.applicationGroups
+                            .map((ag) => `${ag.friendlyName || ag.name}${ag.tipo ? ` (${ag.tipo})` : ""}${ag.workspaceName ? "" : ` · ${t("sinWorkspace")}`}`)
+                            .join(", ")
+                        )}
+                      </td>
                       <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-300">
                         {hp.sessionHosts.length}
                       </td>
@@ -312,7 +332,7 @@ export default function AvdFinopsCmpBoard() {
                           <td className="px-4 py-2 text-right text-slate-500 dark:text-slate-400">
                             {sh.cpuAvgPercent != null ? `${sh.cpuAvgPercent.toFixed(1)}% CPU` : t("na")}
                           </td>
-                          <td className="px-4 py-2 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                          <td className="px-4 py-2 text-right text-slate-500 dark:text-slate-400" colSpan={4}>
                             {sh.sessions}
                           </td>
                           <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-300">
@@ -323,6 +343,45 @@ export default function AvdFinopsCmpBoard() {
                   </React.Fragment>
                 );
               })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Workspaces */}
+      <div className="rounded-2xl border border-slate-200/80 bg-white/80 shadow-sm dark:border-slate-800 dark:bg-slate-900/80 overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2">
+          <IconLayoutGrid className="h-4 w-4 text-[#0054A6]" />
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t("workspacesTitle")}</h3>
+          <span className="text-[11px] text-slate-400 dark:text-slate-500">{t("workspacesHint")}</span>
+        </div>
+        {workspaces.length === 0 ? (
+          <p className="p-6 text-center text-sm text-slate-500 dark:text-slate-400">{t("emptyWorkspaces")}</p>
+        ) : (
+          <table className="w-full text-xs">
+            <thead className="bg-slate-50 dark:bg-slate-800/60 text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <tr>
+                <th className="px-4 py-2 text-left">{t("colName")}</th>
+                <th className="px-4 py-2 text-left">{t("colRegion")}</th>
+                <th className="px-4 py-2 text-right">{t("colAppGroups")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {workspaces.map((w) => (
+                <tr key={w.id} className="border-t border-slate-100 dark:border-slate-800">
+                  <td className="px-4 py-2 font-medium text-slate-900 dark:text-slate-100">
+                    {w.friendlyName || w.name}
+                  </td>
+                  <td className="px-4 py-2 text-slate-600 dark:text-slate-300">{w.region}</td>
+                  <td className="px-4 py-2 text-right">
+                    {w.applicationGroupCount === 0 ? (
+                      <span className="text-amber-600 dark:text-amber-400" title={t("workspaceVaciaTooltip")}>0</span>
+                    ) : (
+                      <span className="text-slate-600 dark:text-slate-300">{w.applicationGroupCount}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}

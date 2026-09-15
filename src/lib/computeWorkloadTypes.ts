@@ -323,7 +323,13 @@ export interface AroRemediationAction {
 
 export interface AvdRemediationAction {
     id: string;
-    type: "rightsizing_sku" | "ahub" | "enable_scaling_plan" | "consolidate_host_pool" | "idle_personal_host";
+    type:
+        | "rightsizing_sku"
+        | "ahub"
+        | "enable_scaling_plan"
+        | "consolidate_host_pool"
+        | "idle_personal_host"
+        | "unreachable_host_pool";
     /**
      * Claves i18n del titulo y la descripcion, en el namespace
      * `ComputeRecommendations`. Van claves y no la frase armada porque **este

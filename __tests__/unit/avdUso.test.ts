@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
 import { filasDeRespuestaLA, resumirUso, kqlUsoHostPool } from "@/modules/collectors/azure/avdUsageService";
+import { evaluateHostPoolRemediations } from "@/modules/collectors/azure/avdService";
 
 const HOSTPOOL = "/subscriptions/abc/resourceGroups/rg/providers/Microsoft.DesktopVirtualization/hostPools/hp-Prod";
 
@@ -81,5 +82,54 @@ describe("KQL de uso por host pool", () => {
     it("no se puede romper con una comilla en el id", () => {
         const malicioso = kqlUsoHostPool("/subscriptions/x'/hostPools/y");
         expect(malicioso).not.toContain("x'/");
+    });
+});
+
+/**
+ * Un host pool solo es usable si tiene un Application Group y ese grupo esta
+ * publicado en una Workspace. Si falta cualquiera de los dos, los session hosts
+ * siguen encendidos y facturando mientras NADIE puede conectarse. Es el
+ * desperdicio mas caro de AVD y el que no se ve en ningun grafico de CPU.
+ */
+describe("host pool inalcanzable", () => {
+    const base = {
+        name: "hp-dev",
+        hostPoolType: "Pooled" as string | null,
+        maxSessionLimit: 10,
+        hasScalingPlan: true,
+        sessionHostCount: 3,
+        totalSessions: 0,
+        monthlyCostUsd: 300,
+    };
+
+    it("se reporta cuando hay hosts encendidos y ningun grupo publicado", () => {
+        const acciones = evaluateHostPoolRemediations({ ...base, alcanzable: false, applicationGroupCount: 1 });
+        const rec = acciones.find((a) => a.type === "unreachable_host_pool");
+        expect(rec).toBeDefined();
+        // El ahorro es el costo COMPLETO: no es rightsizing, no se usa nada.
+        expect(rec!.monthlySavingsUsd).toBe(300);
+    });
+
+    it("no se reporta si el pool es alcanzable", () => {
+        const acciones = evaluateHostPoolRemediations({ ...base, alcanzable: true, applicationGroupCount: 1 });
+        expect(acciones.some((a) => a.type === "unreachable_host_pool")).toBe(false);
+    });
+
+    it("no se reporta sin session hosts: no hay nada encendido que apagar", () => {
+        const acciones = evaluateHostPoolRemediations({
+            ...base,
+            sessionHostCount: 0,
+            monthlyCostUsd: 0,
+            alcanzable: false,
+            applicationGroupCount: 0,
+        });
+        expect(acciones.some((a) => a.type === "unreachable_host_pool")).toBe(false);
+    });
+
+    it("sin el dato de alcance no inventa el hallazgo", () => {
+        // `alcanzable` ausente = no se pudo determinar. Acusar de inalcanzable
+        // a un pool que si lo es lleva a apagar algo que se usa.
+        const acciones = evaluateHostPoolRemediations(base);
+        expect(acciones.some((a) => a.type === "unreachable_host_pool")).toBe(false);
     });
 });

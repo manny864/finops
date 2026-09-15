@@ -13971,7 +13971,16 @@
     "usoMotivo_sin_diagnostico": "The host pool has no diagnostic setting pointing to a Log Analytics workspace, so there is no connection data.",
     "usoMotivo_sin_permiso": "No permission to read the Log Analytics workspace (Log Analytics Reader required).",
     "usoMotivo_sin_datos": "The workspace recorded no connections in the period.",
-    "usoMotivo_error": "Could not query usage"
+    "usoMotivo_error": "Could not query usage",
+    "colAppGroups": "Application groups",
+    "sinAppGroups": "No groups",
+    "sinWorkspace": "no workspace",
+    "unreachableBadge": "UNREACHABLE",
+    "unreachableTooltip": "No application group of this host pool is published in a workspace, so no user can connect.",
+    "workspacesTitle": "Workspaces",
+    "workspacesHint": "A workspace is what the user sees in their Remote Desktop client.",
+    "workspaceVaciaTooltip": "This workspace publishes no application groups.",
+    "emptyWorkspaces": "No Azure Virtual Desktop workspaces found in this tenant"
   },
   "VmFinopsCmp": {
     "loading": "Loading Virtual Machines FinOps cockpit...",
@@ -15442,6 +15451,8 @@
     "rec_aro_savings_plan_desc": "Master and worker nodes run steadily 24/7 on Pay-As-You-Go. Covering them with a Compute Savings Plan yields an estimated 38% saving on Azure compute.",
     "rec_aro_orphan_pvc_title": "Purge Orphaned Persistent Volume Claims (PVCs)",
     "rec_aro_orphan_pvc_desc": "There are {count} managed disk(s) in the Managed Resource Group not attached to any instance. Check the cluster and delete them if they are not mounted to active pods.",
+    "rec_avd_unreachable_host_pool_title": "Unreachable host pool with session hosts running",
+    "rec_avd_unreachable_host_pool_desc": "{hostPool} has {hosts} session host(s) running, but none of its {grupos} application group(s) is published in a workspace: no user can connect. Publish it or shut the hosts down; until then the spend is 100% waste.",
     "rec_avd_ahub_title": "Enable Azure Hybrid Benefit (AHUB)",
     "rec_avd_ahub_desc": "{host} runs Windows Server paying the OS license at full rate. Applying an existing Windows Server license with Software Assurance cuts compute cost by 40%. Does not apply to Windows 10/11 multi-session hosts: those are already covered by the user's M365 license.",
     "rec_avd_rightsizing_sku_title": "Rightsize the Session Host",

@@ -13971,7 +13971,16 @@
     "usoMotivo_sin_diagnostico": "El host pool no tiene diagnóstico hacia un workspace de Log Analytics, así que no hay datos de conexión.",
     "usoMotivo_sin_permiso": "Sin permiso para leer el workspace de Log Analytics (se requiere Log Analytics Reader).",
     "usoMotivo_sin_datos": "El workspace no registró conexiones en el período.",
-    "usoMotivo_error": "No se pudo consultar el uso"
+    "usoMotivo_error": "No se pudo consultar el uso",
+    "colAppGroups": "Grupos de aplicaciones",
+    "sinAppGroups": "Sin grupos",
+    "sinWorkspace": "sin workspace",
+    "unreachableBadge": "INALCANZABLE",
+    "unreachableTooltip": "Ningún grupo de aplicaciones de este host pool está publicado en una workspace, así que ningún usuario puede conectarse.",
+    "workspacesTitle": "Áreas de trabajo (Workspaces)",
+    "workspacesHint": "Una workspace es lo que el usuario ve en su cliente de Escritorio Remoto.",
+    "workspaceVaciaTooltip": "La workspace no publica ningún grupo de aplicaciones.",
+    "emptyWorkspaces": "No se encontraron áreas de trabajo de Azure Virtual Desktop en el tenant"
   },
   "VmFinopsCmp": {
     "loading": "Cargando cockpit FinOps de Virtual Machines...",
@@ -15442,6 +15451,8 @@
     "rec_aro_savings_plan_desc": "Los nodos master y worker corren 24/7 de forma estable bajo Pay-As-You-Go. Cubrirlos con un Compute Savings Plan da un ahorro estimado del 38% en el cómputo de Azure.",
     "rec_aro_orphan_pvc_title": "Purga de Persistent Volume Claims (PVC) huérfanos",
     "rec_aro_orphan_pvc_desc": "Hay {count} disco(s) administrado(s) en el Managed Resource Group sin adjuntar a ninguna instancia. Verificar en el clúster y eliminarlos si no están montados a pods activos.",
+    "rec_avd_unreachable_host_pool_title": "Host pool inalcanzable con session hosts encendidos",
+    "rec_avd_unreachable_host_pool_desc": "{hostPool} tiene {hosts} session host(s) corriendo, pero ninguno de sus {grupos} grupo(s) de aplicaciones está publicado en una workspace: ningún usuario puede conectarse. Publicarlo o apagar los hosts; mientras tanto el gasto es del 100%.",
     "rec_avd_ahub_title": "Activar Azure Hybrid Benefit (AHUB)",
     "rec_avd_ahub_desc": "{host} corre Windows Server pagando la licencia de SO a tarifa completa. Aplicar una licencia existente de Windows Server con Software Assurance reduce el costo de cómputo un 40%. No aplica a session hosts con Windows 10/11 multisesión: esos ya se cubren con la licencia M365 del usuario.",
     "rec_avd_rightsizing_sku_title": "Rightsizing del Session Host",

@@ -81,6 +81,17 @@ function mockInventory(): AvdInventory {
         ahubActive: false,
     };
     const hp2Actions0 = evaluateSessionHostRemediations(hp2SessionHostBase, "Personal");
+    const hp2Actions = evaluateHostPoolRemediations({
+        name: "hp-desarrollo-personal",
+        hostPoolType: "Personal",
+        maxSessionLimit: 1,
+        hasScalingPlan: false,
+        sessionHostCount: 1,
+        totalSessions: 0,
+        monthlyCostUsd: 96.0,
+        alcanzable: false,
+        applicationGroupCount: 1,
+    });
     const hp2SessionHosts = [{ ...hp2SessionHostBase, remediationActions: hp2Actions0, potentialSavingUsd: cappedMonthlySavings(hp2Actions0.map((a) => a.monthlySavingsUsd), hp2SessionHostBase.monthlyCostUsd) }];
 
     return {
@@ -96,6 +107,10 @@ function mockInventory(): AvdInventory {
                 loadBalancerType: "BreadthFirst",
                 maxSessionLimit: 10,
                 hasScalingPlan: false,
+                applicationGroups: [
+                    { id: "mock-ag-1", name: "ag-finanzas-desktop", friendlyName: "Escritorio Finanzas", tipo: "Desktop", workspaceId: "mock-ws-1", workspaceName: "Workspace Corporativa" },
+                ],
+                alcanzable: true,
                 totalSessions: 4,
                 monthlyCostUsd: 842.5,
                 uso: { disponible: true, usuariosUnicos: 26, conexiones: 412, horasConexion: 1893.4, picoConcurrencia: 9, diasAnalizados: 30 },
@@ -118,13 +133,30 @@ function mockInventory(): AvdInventory {
                 loadBalancerType: null,
                 maxSessionLimit: 1,
                 hasScalingPlan: false,
+                applicationGroups: [
+                    { id: "mock-ag-2", name: "ag-desarrollo-desktop", friendlyName: null, tipo: "Desktop", workspaceId: null, workspaceName: null },
+                ],
+                alcanzable: false,
                 totalSessions: 0,
                 monthlyCostUsd: 96.0,
                 uso: { disponible: false, motivo: "sin_diagnostico", usuariosUnicos: 0, conexiones: 0, horasConexion: 0, picoConcurrencia: 0, diasAnalizados: 30 },
                 costoPorUsuarioUsd: null,
                 sessionHosts: hp2SessionHosts,
-                remediationActions: [],
-                potentialSavingUsd: hp2SessionHosts[0].potentialSavingUsd,
+                remediationActions: hp2Actions,
+                potentialSavingUsd: cappedMonthlySavings(
+                    [...hp2Actions.map((a) => a.monthlySavingsUsd), hp2SessionHosts[0].potentialSavingUsd],
+                    96.0,
+                ),
+            },
+        ],
+        workspaces: [
+            {
+                id: "mock-ws-1",
+                name: "ws-corporativa",
+                friendlyName: "Workspace Corporativa",
+                region: "eastus",
+                resourceGroup: "rg-avd-demo",
+                applicationGroupCount: 1,
             },
         ],
         workspaceCount: 1,
@@ -145,6 +177,8 @@ function mockInventory(): AvdInventory {
         ],
         summary: {
             hostPoolCount: 2,
+            applicationGroupCount: 2,
+            hostPoolsInalcanzables: 1,
             sessionHostCount: 3,
             totalSessions: 4,
             monthlyComputeCostUsd: 938.5,
@@ -181,10 +215,13 @@ export async function GET(request: NextRequest) {
                 if (subscriptionIds.length === 0) {
                     return {
                         hostPools: [],
+                        workspaces: [],
                         workspaceCount: 0,
                         storage: [],
                         summary: {
                             hostPoolCount: 0,
+                            applicationGroupCount: 0,
+                            hostPoolsInalcanzables: 0,
                             sessionHostCount: 0,
                             totalSessions: 0,
                             monthlyComputeCostUsd: 0,

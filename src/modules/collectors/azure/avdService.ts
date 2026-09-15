@@ -20,6 +20,7 @@ import type { AvdRemediationAction } from "@/lib/computeWorkloadTypes";
 
 const HOSTPOOL_TYPE = "microsoft.desktopvirtualization/hostpools";
 const WORKSPACE_TYPE = "microsoft.desktopvirtualization/workspaces";
+const APPGROUP_TYPE = "microsoft.desktopvirtualization/applicationgroups";
 const SESSIONHOST_TYPE = "microsoft.desktopvirtualization/hostpools/sessionhosts";
 /**
  * Los session hosts NO estan en la tabla `Resources` de Resource Graph: tienen
@@ -72,6 +73,33 @@ export interface AvdSessionHost {
     potentialSavingUsd: number;
 }
 
+/**
+ * Un Application Group es lo que hace usable a un host pool: publica un
+ * escritorio completo (`Desktop`) o aplicaciones sueltas (`RemoteApp`), y solo
+ * llega a la gente si a su vez cuelga de una Workspace. Sin app group, o con
+ * app groups que ninguna workspace publica, el host pool corre y **nadie puede
+ * conectarse**: el gasto es del 100%.
+ */
+export interface AvdApplicationGroup {
+    id: string;
+    name: string;
+    friendlyName: string | null;
+    /** "Desktop" o "RemoteApp". */
+    tipo: string | null;
+    /** Workspace que lo publica; null = no se le muestra a ningún usuario. */
+    workspaceId: string | null;
+    workspaceName: string | null;
+}
+
+export interface AvdWorkspace {
+    id: string;
+    name: string;
+    friendlyName: string | null;
+    region: string;
+    resourceGroup: string;
+    applicationGroupCount: number;
+}
+
 export interface AvdHostPool {
     id: string;
     name: string;
@@ -83,6 +111,9 @@ export interface AvdHostPool {
     loadBalancerType: string | null;
     maxSessionLimit: number | null;
     hasScalingPlan: boolean;
+    applicationGroups: AvdApplicationGroup[];
+    /** Falso cuando ningún app group suyo está publicado en una workspace. */
+    alcanzable: boolean;
     sessionHosts: AvdSessionHost[];
     totalSessions: number;
     monthlyCostUsd: number;
@@ -117,10 +148,14 @@ export interface AvdStorageResource {
 
 export interface AvdInventory {
     hostPools: AvdHostPool[];
+    workspaces: AvdWorkspace[];
     workspaceCount: number;
     storage: AvdStorageResource[];
     summary: {
         hostPoolCount: number;
+        applicationGroupCount: number;
+        /** Host pools que corren pero a los que nadie puede conectarse. */
+        hostPoolsInalcanzables: number;
         sessionHostCount: number;
         totalSessions: number;
         monthlyComputeCostUsd: number;
@@ -215,9 +250,34 @@ export function evaluateHostPoolRemediations(hp: {
     sessionHostCount: number;
     totalSessions: number;
     monthlyCostUsd: number;
+    /** Ver `alcanzable` en AvdHostPool. Por defecto true para no inventar hallazgos. */
+    alcanzable?: boolean;
+    applicationGroupCount?: number;
 }): AvdRemediationAction[] {
     const actions: AvdRemediationAction[] = [];
     const isPooled = hp.hostPoolType === "Pooled";
+
+    // El desperdicio mas caro de AVD y el mas facil de no ver: session hosts
+    // encendidos en un pool al que NADIE puede conectarse, porque no tiene
+    // application group o porque ninguno de los suyos cuelga de una workspace.
+    // No es rightsizing, es gasto del 100%.
+    if (hp.alcanzable === false && hp.sessionHostCount > 0 && hp.monthlyCostUsd > 0) {
+        actions.push({
+            id: `rec-avd-inalcanzable-${hp.name}`,
+            type: "unreachable_host_pool",
+            titleKey: "rec_avd_unreachable_host_pool_title",
+            descKey: "rec_avd_unreachable_host_pool_desc",
+            params: {
+                hostPool: hp.name,
+                hosts: hp.sessionHostCount,
+                grupos: hp.applicationGroupCount ?? 0,
+            },
+            monthlySavingsUsd: Number(hp.monthlyCostUsd.toFixed(2)),
+            risk: "medium",
+            confidence: "medium",
+            commandCli: `az desktopvirtualization applicationgroup list --query "[?hostPoolArmPath!=null]" -o table`,
+        });
+    }
 
     if (isPooled && hp.sessionHostCount > 0 && !hp.hasScalingPlan) {
         actions.push({
@@ -263,7 +323,7 @@ export async function getAvdInventory(
     const [rows, sessionHostRows] = await Promise.all([
         listResourcesByTypes(
             tenantId,
-            [HOSTPOOL_TYPE, WORKSPACE_TYPE, SCALINGPLAN_TYPE, COMPUTE_VM_TYPE, STORAGE_TYPE, NETAPP_TYPE],
+            [HOSTPOOL_TYPE, WORKSPACE_TYPE, APPGROUP_TYPE, SCALINGPLAN_TYPE, COMPUTE_VM_TYPE, STORAGE_TYPE, NETAPP_TYPE],
             subscriptionIds,
             credential,
         ),
@@ -273,6 +333,50 @@ export async function getAvdInventory(
     const hostPoolRows = rows.filter((r) => r.type === HOSTPOOL_TYPE);
     const workspaceRows = rows.filter((r) => r.type === WORKSPACE_TYPE);
     const scalingPlanRows = rows.filter((r) => r.type === SCALINGPLAN_TYPE);
+    const appGroupRows = rows.filter((r) => r.type === APPGROUP_TYPE);
+
+    // Una workspace publica app groups por `applicationGroupReferences`, y el
+    // app group ademas apunta a su workspace por `workspaceArmPath`. Se usan
+    // las dos direcciones: alcanza con que una lo confirme.
+    const nombreWorkspacePorId = new Map<string, string>();
+    const workspacePorAppGroup = new Map<string, string>();
+    for (const w of workspaceRows) {
+        nombreWorkspacePorId.set(w.id.toLowerCase(), prop(w, "friendlyName") || w.name);
+        const refs = w.properties?.applicationGroupReferences;
+        if (!Array.isArray(refs)) continue;
+        for (const ref of refs) {
+            if (typeof ref === "string") workspacePorAppGroup.set(ref.toLowerCase(), w.id);
+        }
+    }
+
+    const appGroupsPorHostPool = new Map<string, AvdApplicationGroup[]>();
+    for (const ag of appGroupRows) {
+        const hostPoolArmPath = prop(ag, "hostPoolArmPath");
+        if (!hostPoolArmPath) continue;
+        const desdeWorkspace = workspacePorAppGroup.get(ag.id.toLowerCase());
+        const desdeAppGroup = prop(ag, "workspaceArmPath");
+        const workspaceId = desdeWorkspace || desdeAppGroup || null;
+        const clave = hostPoolArmPath.toLowerCase();
+        const lista = appGroupsPorHostPool.get(clave) ?? [];
+        lista.push({
+            id: ag.id,
+            name: ag.name,
+            friendlyName: prop(ag, "friendlyName") || null,
+            tipo: prop(ag, "applicationGroupType") || null,
+            workspaceId,
+            workspaceName: workspaceId ? nombreWorkspacePorId.get(workspaceId.toLowerCase()) || null : null,
+        });
+        appGroupsPorHostPool.set(clave, lista);
+    }
+
+    const appGroupsPorWorkspace = new Map<string, number>();
+    for (const lista of appGroupsPorHostPool.values()) {
+        for (const ag of lista) {
+            if (!ag.workspaceId) continue;
+            const k = ag.workspaceId.toLowerCase();
+            appGroupsPorWorkspace.set(k, (appGroupsPorWorkspace.get(k) ?? 0) + 1);
+        }
+    }
     // Trae todas las VMs del tenant en la misma consulta KQL (una sola llamada,
     // no una por session host) y se filtran acá las que son session host.
     const vmRowsById = new Map<string, ArgResourceRow>();
@@ -330,6 +434,8 @@ export async function getAvdInventory(
             loadBalancerType: prop(r, "loadBalancerType") || null,
             maxSessionLimit: propNumber(r, "maxSessionLimit") ?? null,
             hasScalingPlan: hostPoolIdsWithScalingPlan.has(r.id.toLowerCase()),
+            applicationGroups: appGroupsPorHostPool.get(r.id.toLowerCase()) ?? [],
+            alcanzable: (appGroupsPorHostPool.get(r.id.toLowerCase()) ?? []).some((ag) => ag.workspaceId !== null),
             sessionHosts: [],
             totalSessions: 0,
             monthlyCostUsd: 0,
@@ -408,6 +514,8 @@ export async function getAvdInventory(
             sessionHostCount: hostPool.sessionHosts.length,
             totalSessions: hostPool.totalSessions,
             monthlyCostUsd: hostPool.monthlyCostUsd,
+            alcanzable: hostPool.alcanzable,
+            applicationGroupCount: hostPool.applicationGroups.length,
         });
         const sessionHostSavings = hostPool.sessionHosts.reduce((acc, sh) => acc + sh.potentialSavingUsd, 0);
         hostPool.potentialSavingUsd = cappedMonthlySavings(
@@ -462,12 +570,24 @@ export async function getAvdInventory(
     const monthlyComputeCostUsd = hostPools.reduce((acc, hp) => acc + hp.monthlyCostUsd, 0);
     const monthlyStorageCostUsd = storage.reduce((acc, s) => acc + s.monthlyCostUsd, 0);
 
+    const workspaces: AvdWorkspace[] = workspaceRows.map((w) => ({
+        id: w.id,
+        name: w.name,
+        friendlyName: prop(w, "friendlyName") || null,
+        region: w.location || "unknown",
+        resourceGroup: w.resourceGroup || "unknown",
+        applicationGroupCount: appGroupsPorWorkspace.get(w.id.toLowerCase()) ?? 0,
+    }));
+
     return {
         hostPools,
+        workspaces,
         workspaceCount: workspaceRows.length,
         storage,
         summary: {
             hostPoolCount: hostPools.length,
+            applicationGroupCount: appGroupRows.length,
+            hostPoolsInalcanzables: hostPools.filter((hp) => !hp.alcanzable && hp.sessionHosts.length > 0).length,
             sessionHostCount: sessionHostRows.length,
             totalSessions: hostPools.reduce((acc, hp) => acc + hp.totalSessions, 0),
             monthlyComputeCostUsd,
