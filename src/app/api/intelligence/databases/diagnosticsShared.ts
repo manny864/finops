@@ -42,6 +42,18 @@ export async function listResourcesByTypes(
   resourceTypes: string[],
   subscriptionIds: string[] = [],
   credential?: any,
+  /**
+   * Tabla de Resource Graph a consultar.
+   *
+   * NO todo recurso ARM vive en `Resources`. Los recursos hijos de varios
+   * proveedores tienen tabla propia, y consultarlos en `Resources` no da error:
+   * da CERO FILAS, que es indistinguible de "el tenant no tiene ninguno". Eso
+   * fue exactamente lo que paso con los session hosts de AVD
+   * (`microsoft.desktopvirtualization/hostpools/sessionhosts`, tabla
+   * `desktopvirtualizationresources`): la pantalla mostraba 2 host pools con 0
+   * session hosts y $0, como si los pools estuvieran vacios.
+   */
+  tabla: string = "Resources",
 ): Promise<ArgResourceRow[]> {
   const mapRows = (rows: any[]): ArgResourceRow[] => {
     const itemMap = new Map<string, ArgResourceRow>();
@@ -77,13 +89,13 @@ export async function listResourcesByTypes(
     const uniqueTypes = Array.from(new Set(resourceTypes.map((t) => t.toLowerCase())));
     const types = uniqueTypes.map((t) => `'${t}'`).join(",");
     const query = `
-      Resources
+      ${tabla}
       | where type in~ (${types})
       | extend powerState = tostring(properties.extended.instanceView.powerState.code)
       | extend provisioningState = tostring(properties.provisioningState)
       | project id, name, type = tolower(type), location, resourceGroup, subscriptionId, kind, skuName = tostring(sku.name), skuTier = tostring(sku.tier), skuCapacity = toint(sku.capacity), powerState, provisioningState, properties
     `;
-    console.log(`[listResourcesByTypes] KQL query: where type in~ (${types})`);
+    console.log(`[listResourcesByTypes] KQL query: ${tabla} | where type in~ (${types})`);
     const response: any = await argClient.resources({
       subscriptions: subscriptionIds.length > 0 ? subscriptionIds : undefined,
       query,
@@ -108,7 +120,10 @@ export async function listResourcesByTypes(
     console.log(`[listResourcesByTypes] KQL error, will try ARM fallback:`, err);
   }
 
-  if (!credential || subscriptionIds.length === 0) return [];
+  // El respaldo por ARM lista `/resources`, que es el equivalente de la tabla
+  // `Resources`: para una tabla de recursos hijos no devolveria nada y solo
+  // gastaria cuota.
+  if (!credential || subscriptionIds.length === 0 || tabla !== "Resources") return [];
   return listResourcesViaArm(credential, subscriptionIds, resourceTypes);
 }
 

@@ -20,6 +20,13 @@ import type { AvdRemediationAction } from "@/lib/computeWorkloadTypes";
 const HOSTPOOL_TYPE = "microsoft.desktopvirtualization/hostpools";
 const WORKSPACE_TYPE = "microsoft.desktopvirtualization/workspaces";
 const SESSIONHOST_TYPE = "microsoft.desktopvirtualization/hostpools/sessionhosts";
+/**
+ * Los session hosts NO estan en la tabla `Resources` de Resource Graph: tienen
+ * tabla propia. Consultarlos en `Resources` no falla, devuelve cero filas, que
+ * es indistinguible de "el host pool esta vacio" -- y asi salio a produccion el
+ * 2026-09-15: dos host pools reales mostrando 0 session hosts y $0.00.
+ */
+const SESSIONHOST_TABLA = "desktopvirtualizationresources";
 const SCALINGPLAN_TYPE = "microsoft.desktopvirtualization/scalingplans";
 const COMPUTE_VM_TYPE = "microsoft.compute/virtualmachines";
 const STORAGE_TYPE = "microsoft.storage/storageaccounts";
@@ -237,16 +244,18 @@ export async function getAvdInventory(
     credential: any,
     subscriptionIds: string[],
 ): Promise<AvdInventory> {
-    const rows = await listResourcesByTypes(
-        tenantId,
-        [HOSTPOOL_TYPE, WORKSPACE_TYPE, SESSIONHOST_TYPE, SCALINGPLAN_TYPE, COMPUTE_VM_TYPE, STORAGE_TYPE, NETAPP_TYPE],
-        subscriptionIds,
-        credential,
-    );
+    const [rows, sessionHostRows] = await Promise.all([
+        listResourcesByTypes(
+            tenantId,
+            [HOSTPOOL_TYPE, WORKSPACE_TYPE, SCALINGPLAN_TYPE, COMPUTE_VM_TYPE, STORAGE_TYPE, NETAPP_TYPE],
+            subscriptionIds,
+            credential,
+        ),
+        listResourcesByTypes(tenantId, [SESSIONHOST_TYPE], subscriptionIds, credential, SESSIONHOST_TABLA),
+    ]);
 
     const hostPoolRows = rows.filter((r) => r.type === HOSTPOOL_TYPE);
     const workspaceRows = rows.filter((r) => r.type === WORKSPACE_TYPE);
-    const sessionHostRows = rows.filter((r) => r.type === SESSIONHOST_TYPE);
     const scalingPlanRows = rows.filter((r) => r.type === SCALINGPLAN_TYPE);
     // Trae todas las VMs del tenant en la misma consulta KQL (una sola llamada,
     // no una por session host) y se filtran acá las que son session host.
