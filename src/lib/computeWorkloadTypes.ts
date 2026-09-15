@@ -321,8 +321,29 @@ export interface AroRemediationAction {
     yamlManifest?: string;
 }
 
+export interface AvdRemediationAction {
+    id: string;
+    type: "rightsizing_sku" | "ahub" | "enable_scaling_plan" | "consolidate_host_pool" | "idle_personal_host";
+    /**
+     * Claves i18n del titulo y la descripcion, en el namespace
+     * `ComputeRecommendations`. Van claves y no la frase armada porque **este
+     * payload se cachea en Redis con una clave que no incluye el locale**: armar
+     * el texto en el servidor le sirve al segundo lector el idioma del primero.
+     */
+    titleKey: string;
+    descKey: string;
+    /** Valores a interpolar en las dos claves. Numeros y nombres, nunca frases. */
+    params?: Record<string, string | number>;
+    monthlySavingsUsd: number;
+    risk: "low" | "medium" | "high";
+    confidence: "low" | "medium" | "high";
+    commandCli?: string;
+    commandTerraform?: string;
+    commandArm?: string;
+}
+
 /* Union type for all remediation actions across compute workload families */
-export type RemediationAction = VmRemediationAction | AroRemediationAction;
+export type RemediationAction = VmRemediationAction | AroRemediationAction | AvdRemediationAction;
 
 export interface AroWorkloadItem extends ComputeWorkloadItemBase {
     // Identidad & Red

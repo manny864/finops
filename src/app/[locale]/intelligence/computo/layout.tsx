@@ -7,6 +7,7 @@ import {
   IconBrowser,
   IconCode,
   IconDeviceDesktop,
+  IconDeviceDesktopAnalytics,
   IconTrendingUp,
   IconServer2,
 } from "@tabler/icons-react";
@@ -23,6 +24,7 @@ export default async function ComputoLayout({ children }: { children: ReactNode 
         { href: "/intelligence/computo/waas", label: t("tabWebAppsFinopsCmp"), icon: <IconBrowser className="w-4 h-4 text-[#0054A6]" />, tooltip: t("tooltip_tab_web_apps") },
         { href: "/intelligence/computo/fapps", label: t("tabFunctionsFinopsCmp"), icon: <IconCode className="w-4 h-4 text-[#0054A6]" />, tooltip: t("tooltip_tab_functions") },
         { href: "/intelligence/computo/avm", label: t("tabVirtualMachinesFinopsCmp"), icon: <IconDeviceDesktop className="w-4 h-4 text-[#0054A6]" />, tooltip: t("tooltip_tab_virtual_machines") },
+        { href: "/intelligence/computo/avd", label: t("tabAvdFinopsCmp"), icon: <IconDeviceDesktopAnalytics className="w-4 h-4 text-[#0054A6]" />, tooltip: t("tooltip_tab_avd") },
         { href: "/intelligence/computo/vmss", label: t("tabVmssFinopsCmp"), icon: <IconTrendingUp className="w-4 h-4 text-[#0054A6]" />, tooltip: t("tooltip_tab_vmss") },
         { href: "/intelligence/computo/arhos", label: t("tabAroFinopsCmp"), icon: <IconServer2 className="w-4 h-4 text-[#0054A6]" />, tooltip: t("tooltip_tab_aro") },
     ];

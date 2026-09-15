@@ -5023,7 +5023,11 @@
     "tabVmss": "Virtual Machine Scale Sets",
     "tabAro": "Azure Red Hat OpenShift",
     "aksTabHint": "Managed cluster inventory, health, and optimization",
-    "chargebackTabHint": "Infrastructure cost allocation by Namespace and Workload"
+    "chargebackTabHint": "Infrastructure cost allocation by Namespace and Workload",
+    "tabAvdFinopsCmp": "Azure Virtual Desktop",
+    "tooltip_tab_avd": "Host Pool, Session Host and FSLogix profile storage inventory, with real per-session compute cost.",
+    "avdFinopsTitle": "Azure Virtual Desktop",
+    "avdFinopsSubtitle": "Host Pools, Session Hosts and FSLogix profile storage, with real compute cost per session."
   },
   "ComputeWorkloadFinops": {
     "selectTenant": "Select a tenant to view the FinOps/CMP cockpit.",
@@ -13927,6 +13931,36 @@
     "btnLogout": "Sign Out / Switch Account",
     "allRightsReserved": "All rights reserved."
   },
+  "AvdFinopsCmp": {
+    "loading": "Loading Azure Virtual Desktop data...",
+    "errorTitle": "Error loading AVD",
+    "errorFetch": "Could not fetch the Azure Virtual Desktop inventory.",
+    "errorUnauthorized": "You are not authorized to view this data.",
+    "errorUnknown": "An unexpected error occurred.",
+    "retry": "Retry",
+    "tooltip_page_header": "Host Pools, their Session Hosts (underlying VM and real cost) and FSLogix profile storage.",
+    "kpiHostPools": "Host Pools",
+    "kpiSessionHosts": "Session Hosts",
+    "kpiActiveSessions": "{count} active sessions",
+    "kpiComputeCost": "Monthly compute cost",
+    "kpiStorageCost": "FSLogix storage cost",
+    "hostPoolsTitle": "Host Pools & Session Hosts",
+    "emptyHostPools": "No Azure Virtual Desktop Host Pools found in this tenant.",
+    "colName": "Name",
+    "colType": "Type",
+    "colLoadBalancer": "Load balancing",
+    "colRegion": "Region",
+    "colSessionHosts": "Session Hosts",
+    "colSessions": "Sessions",
+    "colMonthlyCost": "Monthly cost",
+    "na": "N/A",
+    "storageTitle": "Profile storage (FSLogix)",
+    "storageHint": "Detected by resource name, no direct link exists in Azure Resource Manager.",
+    "emptyStorage": "No storage identified as FSLogix was found in this tenant.",
+    "kpiPotentialSaving": "Potential saving",
+    "recommendationsTitle": "Remediation Recommendations",
+    "viewRemediation": "View remediation"
+  },
   "VmFinopsCmp": {
     "loading": "Loading Virtual Machines FinOps cockpit...",
     "errorTitle": "Error loading Virtual Machines",
@@ -15395,7 +15429,17 @@
     "rec_aro_savings_plan_title": "Compute Coverage with Savings Plans (1 or 3 Years)",
     "rec_aro_savings_plan_desc": "Master and worker nodes run steadily 24/7 on Pay-As-You-Go. Covering them with a Compute Savings Plan yields an estimated 38% saving on Azure compute.",
     "rec_aro_orphan_pvc_title": "Purge Orphaned Persistent Volume Claims (PVCs)",
-    "rec_aro_orphan_pvc_desc": "There are {count} managed disk(s) in the Managed Resource Group not attached to any instance. Check the cluster and delete them if they are not mounted to active pods."
+    "rec_aro_orphan_pvc_desc": "There are {count} managed disk(s) in the Managed Resource Group not attached to any instance. Check the cluster and delete them if they are not mounted to active pods.",
+    "rec_avd_ahub_title": "Enable Azure Hybrid Benefit (AHUB)",
+    "rec_avd_ahub_desc": "{host} runs Windows Server paying the OS license at full rate. Applying an existing Windows Server license with Software Assurance cuts compute cost by 40%. Does not apply to Windows 10/11 multi-session hosts: those are already covered by the user's M365 license.",
+    "rec_avd_rightsizing_sku_title": "Rightsize the Session Host",
+    "rec_avd_rightsizing_sku_desc": "Average CPU of {cpu}% on {host} (<10%). Consider moving this session host to a smaller VM size.",
+    "rec_avd_idle_personal_host_title": "Deallocate idle Personal Desktop",
+    "rec_avd_idle_personal_host_desc": "{host} has no active sessions and is sitting available unused. Deallocating the VM while the assigned user isn't using it saves compute while it's off.",
+    "rec_avd_enable_scaling_plan_title": "Enable a Scaling Plan",
+    "rec_avd_enable_scaling_plan_desc": "Host pool {hostPool} has no Scaling Plan assigned and keeps every session host powered on all day. Setting up ramp-up/ramp-down schedules cuts compute outside peak hours.",
+    "rec_avd_consolidate_host_pool_title": "Consolidate host pool session hosts",
+    "rec_avd_consolidate_host_pool_desc": "Host pool {hostPool} averages {avgSessions} sessions per host against a limit of {maxSessions}. Reducing the session host count by {hosts} keeps available capacity while lowering the fixed cost."
   },
   "finopsPopup": {
     "title": "FinOps Plans and Capabilities",

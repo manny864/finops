@@ -1,8 +1,12 @@
 /**
  * Misc Services Cost Service — visibilidad básica de costo (sin motor de
  * optimización) para servicios de Azure que hoy no aparecen en ninguna
- * página dedicada: AVD, ACI, Batch, Azure NetApp Files, PostgreSQL/MySQL,
+ * página dedicada: ACI, Batch, Azure NetApp Files, PostgreSQL/MySQL,
  * Synapse/Data Factory, Databricks, Azure Cache for Redis, Key Vault.
+ *
+ * AVD (hostpools/workspaces) SALIÓ de esta lista: tiene su propia página
+ * dedicada en `/intelligence/computo/avd` (ver `avdService.ts`). Dejarlo acá
+ * también hubiera duplicado el costo en cualquier total que sume ambas rutas.
  *
  * RBAC mínimo: Cost Management Reader (tier Professional del onboarding, ya
  * otorgado a todos los tenants). Feature gratuita — solo visibilidad, no hay
@@ -13,8 +17,6 @@ import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError } from 
 import { isMockTenant } from "@/lib/mockData";
 
 export const MISC_SERVICE_TYPES: Record<string, string> = {
-    "microsoft.desktopvirtualization/hostpools": "Azure Virtual Desktop",
-    "microsoft.desktopvirtualization/workspaces": "Azure Virtual Desktop",
     "microsoft.containerinstance/containergroups": "Container Instances (ACI)",
     "microsoft.batch/batchaccounts": "Azure Batch",
     "microsoft.netapp/netappaccounts": "Azure NetApp Files",

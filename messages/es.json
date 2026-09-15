@@ -5023,7 +5023,11 @@
     "tabVmss": "Virtual Machine Scale Sets",
     "tabAro": "Azure Red Hat OpenShift",
     "aksTabHint": "Inventario, estado y optimización de clústeres administrados",
-    "chargebackTabHint": "Asignación de costos de infraestructura por Namespace y Workload"
+    "chargebackTabHint": "Asignación de costos de infraestructura por Namespace y Workload",
+    "tabAvdFinopsCmp": "Azure Virtual Desktop",
+    "tooltip_tab_avd": "Inventario de Host Pools, Session Hosts y storage de perfiles FSLogix, con costo real de cómputo por sesión.",
+    "avdFinopsTitle": "Azure Virtual Desktop",
+    "avdFinopsSubtitle": "Host Pools, Session Hosts y storage de perfiles FSLogix, con costo de cómputo real por sesión."
   },
   "ComputeWorkloadFinops": {
     "selectTenant": "Selecciona un tenant para ver el cockpit FinOps/CMP.",
@@ -13927,6 +13931,36 @@
     "btnLogout": "Cerrar Sesión / Cambiar Cuenta",
     "allRightsReserved": "Todos los derechos reservados."
   },
+  "AvdFinopsCmp": {
+    "loading": "Cargando datos de Azure Virtual Desktop...",
+    "errorTitle": "Error al cargar AVD",
+    "errorFetch": "No se pudo obtener el inventario de Azure Virtual Desktop.",
+    "errorUnauthorized": "No tenés autorización para ver estos datos.",
+    "errorUnknown": "Ocurrió un error inesperado.",
+    "retry": "Reintentar",
+    "tooltip_page_header": "Host Pools, sus Session Hosts (VM subyacente y costo real) y storage de perfiles FSLogix.",
+    "kpiHostPools": "Host Pools",
+    "kpiSessionHosts": "Session Hosts",
+    "kpiActiveSessions": "{count} sesiones activas",
+    "kpiComputeCost": "Costo de cómputo mensual",
+    "kpiStorageCost": "Costo de storage FSLogix",
+    "hostPoolsTitle": "Host Pools y Session Hosts",
+    "emptyHostPools": "No se encontraron Host Pools de Azure Virtual Desktop en el tenant.",
+    "colName": "Nombre",
+    "colType": "Tipo",
+    "colLoadBalancer": "Balanceo",
+    "colRegion": "Región",
+    "colSessionHosts": "Session Hosts",
+    "colSessions": "Sesiones",
+    "colMonthlyCost": "Costo mensual",
+    "na": "N/D",
+    "storageTitle": "Storage de perfiles (FSLogix)",
+    "storageHint": "Detección por nombre de recurso, no hay vínculo directo en Azure Resource Manager.",
+    "emptyStorage": "No se encontró storage identificado como FSLogix en el tenant.",
+    "kpiPotentialSaving": "Ahorro potencial",
+    "recommendationsTitle": "Recomendaciones de Remediación",
+    "viewRemediation": "Ver remediación"
+  },
   "VmFinopsCmp": {
     "loading": "Cargando cockpit FinOps de Virtual Machines...",
     "errorTitle": "Error al cargar Virtual Machines",
@@ -15395,7 +15429,17 @@
     "rec_aro_savings_plan_title": "Cobertura de cómputo con Savings Plans (1 o 3 años)",
     "rec_aro_savings_plan_desc": "Los nodos master y worker corren 24/7 de forma estable bajo Pay-As-You-Go. Cubrirlos con un Compute Savings Plan da un ahorro estimado del 38% en el cómputo de Azure.",
     "rec_aro_orphan_pvc_title": "Purga de Persistent Volume Claims (PVC) huérfanos",
-    "rec_aro_orphan_pvc_desc": "Hay {count} disco(s) administrado(s) en el Managed Resource Group sin adjuntar a ninguna instancia. Verificar en el clúster y eliminarlos si no están montados a pods activos."
+    "rec_aro_orphan_pvc_desc": "Hay {count} disco(s) administrado(s) en el Managed Resource Group sin adjuntar a ninguna instancia. Verificar en el clúster y eliminarlos si no están montados a pods activos.",
+    "rec_avd_ahub_title": "Activar Azure Hybrid Benefit (AHUB)",
+    "rec_avd_ahub_desc": "{host} corre Windows Server pagando la licencia de SO a tarifa completa. Aplicar una licencia existente de Windows Server con Software Assurance reduce el costo de cómputo un 40%. No aplica a session hosts con Windows 10/11 multisesión: esos ya se cubren con la licencia M365 del usuario.",
+    "rec_avd_rightsizing_sku_title": "Rightsizing del Session Host",
+    "rec_avd_rightsizing_sku_desc": "CPU promedio de {cpu}% en {host} (<10%). Evaluar migrar a una VM de menor tamaño para este session host.",
+    "rec_avd_idle_personal_host_title": "Desasignar Personal Desktop inactivo",
+    "rec_avd_idle_personal_host_desc": "{host} no tiene sesiones activas y está disponible sin uso. Desasignar la VM cuando el usuario asignado no la esté usando ahorra el cómputo mientras permanece apagada.",
+    "rec_avd_enable_scaling_plan_title": "Activar un Scaling Plan",
+    "rec_avd_enable_scaling_plan_desc": "El host pool {hostPool} no tiene un Scaling Plan asignado y sostiene todos sus session hosts encendidos todo el día. Configurar rampas de encendido/apagado por horario reduce el cómputo fuera de horario pico.",
+    "rec_avd_consolidate_host_pool_title": "Consolidar session hosts del host pool",
+    "rec_avd_consolidate_host_pool_desc": "El host pool {hostPool} promedia {avgSessions} sesiones por host sobre un límite de {maxSessions}. Reducir en {hosts} la cantidad de session hosts mantiene la capacidad disponible y baja el costo fijo."
   },
   "finopsPopup": {
     "title": "Planes y Capacidades de FinOps",
