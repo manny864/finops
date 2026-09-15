@@ -22,6 +22,12 @@ import VmRemediationModal from "@/components/dashboard/VmRemediationModal";
 import type { AvdRemediationAction } from "@/lib/computeWorkloadTypes";
 import type { AvdInventory, AvdHostPool } from "@/modules/collectors/azure/avdService";
 
+/** Bytes a GB legibles; `null` cuando la metrica no vino. */
+function gb(bytes: number | null): string {
+  if (bytes == null) return "—";
+  return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
+}
+
 interface FlatRecommendation {
   action: AvdRemediationAction;
   resourceName: string;
@@ -239,6 +245,8 @@ export default function AvdFinopsCmpBoard() {
                 <th className="px-4 py-2 text-left">{t("colRegion")}</th>
                 <th className="px-4 py-2 text-right">{t("colSessionHosts")}</th>
                 <th className="px-4 py-2 text-right">{t("colSessions")}</th>
+                <th className="px-4 py-2 text-right">{t("colUsers")}</th>
+                <th className="px-4 py-2 text-right">{t("colCostPerUser")}</th>
                 <th className="px-4 py-2 text-right">{t("colMonthlyCost")}</th>
               </tr>
             </thead>
@@ -268,6 +276,20 @@ export default function AvdFinopsCmpBoard() {
                         {hp.sessionHosts.length}
                       </td>
                       <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-300">{hp.totalSessions}</td>
+                      <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-300">
+                        {hp.uso.disponible ? (
+                          <span title={t("usersTooltip", { dias: hp.uso.diasAnalizados, horas: hp.uso.horasConexion, pico: hp.uso.picoConcurrencia })}>
+                            {hp.uso.usuariosUnicos}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 dark:text-slate-500" title={t(`usoMotivo_${hp.uso.motivo ?? "error"}`)}>
+                            {t("na")}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-300">
+                        {hp.costoPorUsuarioUsd != null ? format(hp.costoPorUsuarioUsd) : t("na")}
+                      </td>
                       <td className="px-4 py-2 text-right font-semibold text-slate-900 dark:text-slate-100">
                         {format(hp.monthlyCostUsd)}
                       </td>
@@ -290,7 +312,9 @@ export default function AvdFinopsCmpBoard() {
                           <td className="px-4 py-2 text-right text-slate-500 dark:text-slate-400">
                             {sh.cpuAvgPercent != null ? `${sh.cpuAvgPercent.toFixed(1)}% CPU` : t("na")}
                           </td>
-                          <td className="px-4 py-2 text-right text-slate-500 dark:text-slate-400">{sh.sessions}</td>
+                          <td className="px-4 py-2 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                            {sh.sessions}
+                          </td>
                           <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-300">
                             {sh.costDataAvailable ? format(sh.monthlyCostUsd) : t("na")}
                           </td>
@@ -320,6 +344,9 @@ export default function AvdFinopsCmpBoard() {
                 <th className="px-4 py-2 text-left">{t("colName")}</th>
                 <th className="px-4 py-2 text-left">{t("colType")}</th>
                 <th className="px-4 py-2 text-left">{t("colRegion")}</th>
+                <th className="px-4 py-2 text-right">{t("colUsed")}</th>
+                <th className="px-4 py-2 text-right">{t("colQuota")}</th>
+                <th className="px-4 py-2 text-right">{t("colUtilization")}</th>
                 <th className="px-4 py-2 text-right">{t("colMonthlyCost")}</th>
               </tr>
             </thead>
@@ -329,6 +356,17 @@ export default function AvdFinopsCmpBoard() {
                   <td className="px-4 py-2 font-medium text-slate-900 dark:text-slate-100">{s.name}</td>
                   <td className="px-4 py-2 text-slate-600 dark:text-slate-300">{s.type}</td>
                   <td className="px-4 py-2 text-slate-600 dark:text-slate-300">{s.region}</td>
+                  <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-300">{gb(s.usedBytes)}</td>
+                  <td className="px-4 py-2 text-right text-slate-600 dark:text-slate-300">{gb(s.quotaBytes)}</td>
+                  <td className="px-4 py-2 text-right">
+                    {s.utilizacionPct != null ? (
+                      <span className={s.utilizacionPct < 50 ? "font-semibold text-amber-600 dark:text-amber-400" : "text-slate-600 dark:text-slate-300"}>
+                        {s.utilizacionPct.toFixed(1)}%
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">{t("na")}</span>
+                    )}
+                  </td>
                   <td className="px-4 py-2 text-right font-semibold text-slate-900 dark:text-slate-100">
                     {s.costDataAvailable ? format(s.monthlyCostUsd) : t("na")}
                   </td>

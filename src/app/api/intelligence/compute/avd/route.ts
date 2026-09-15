@@ -98,6 +98,8 @@ function mockInventory(): AvdInventory {
                 hasScalingPlan: false,
                 totalSessions: 4,
                 monthlyCostUsd: 842.5,
+                uso: { disponible: true, usuariosUnicos: 26, conexiones: 412, horasConexion: 1893.4, picoConcurrencia: 9, diasAnalizados: 30 },
+                costoPorUsuarioUsd: 32.4,
                 sessionHosts: hp1SessionHosts,
                 remediationActions: hp1Actions,
                 potentialSavingUsd: cappedMonthlySavings(
@@ -118,6 +120,8 @@ function mockInventory(): AvdInventory {
                 hasScalingPlan: false,
                 totalSessions: 0,
                 monthlyCostUsd: 96.0,
+                uso: { disponible: false, motivo: "sin_diagnostico", usuariosUnicos: 0, conexiones: 0, horasConexion: 0, picoConcurrencia: 0, diasAnalizados: 30 },
+                costoPorUsuarioUsd: null,
                 sessionHosts: hp2SessionHosts,
                 remediationActions: [],
                 potentialSavingUsd: hp2SessionHosts[0].potentialSavingUsd,
@@ -133,6 +137,10 @@ function mockInventory(): AvdInventory {
                 resourceGroup: "rg-avd-demo",
                 monthlyCostUsd: 38.4,
                 costDataAvailable: true,
+                usedBytes: 41_231_686_042,
+                quotaBytes: 107_374_182_400,
+                fileCount: 1842,
+                utilizacionPct: 38.4,
             },
         ],
         summary: {
@@ -158,7 +166,10 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ ok: true, mock: true, data: mockInventory() });
         }
 
-        const cacheKey = `avd:inventory:v1:${tenantId}`;
+        // v2: el payload sumó uso real, costo por usuario y métricas de los
+        // shares. Un payload v1 cacheado no los trae y la pantalla mostraría
+        // campos vacíos hasta que expire el TTL.
+        const cacheKey = `avd:inventory:v2:${tenantId}`;
         if (searchParams.get("bust") === "1") {
             await redis.del(cacheKey).catch(() => undefined);
         }

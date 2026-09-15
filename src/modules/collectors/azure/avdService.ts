@@ -15,6 +15,7 @@ import {
 } from "@/app/api/intelligence/databases/diagnosticsShared";
 import { getAzureResourceMetricsSummary } from "@/lib/computeMetricsShared";
 import { cappedMonthlySavings } from "@/lib/costAccrual";
+import { getUsoPorHostPool, type AvdUsoHostPool } from "@/modules/collectors/azure/avdUsageService";
 import type { AvdRemediationAction } from "@/lib/computeWorkloadTypes";
 
 const HOSTPOOL_TYPE = "microsoft.desktopvirtualization/hostpools";
@@ -85,6 +86,14 @@ export interface AvdHostPool {
     sessionHosts: AvdSessionHost[];
     totalSessions: number;
     monthlyCostUsd: number;
+    /** Uso real medido en Log Analytics; trae su propio motivo si no hay dato. */
+    uso: AvdUsoHostPool;
+    /**
+     * Costo mensual dividido por los usuarios REALES del periodo, no por las
+     * sesiones abiertas en este instante. `null` cuando no hay dato de uso: un
+     * costo por usuario inventado es peor que no mostrarlo.
+     */
+    costoPorUsuarioUsd: number | null;
     remediationActions: AvdRemediationAction[];
     potentialSavingUsd: number;
 }
@@ -97,6 +106,13 @@ export interface AvdStorageResource {
     resourceGroup: string;
     monthlyCostUsd: number;
     costDataAvailable: boolean;
+    /** Bytes realmente ocupados por los perfiles (metrica FileCapacity). */
+    usedBytes: number | null;
+    /** Cuota aprovisionada (FileShareCapacityQuota): lo que se paga en Premium. */
+    quotaBytes: number | null;
+    fileCount: number | null;
+    /** Porcentaje de la cuota en uso; es donde se ve el sobreaprovisionamiento. */
+    utilizacionPct: number | null;
 }
 
 export interface AvdInventory {
@@ -317,6 +333,8 @@ export async function getAvdInventory(
             sessionHosts: [],
             totalSessions: 0,
             monthlyCostUsd: 0,
+            uso: { disponible: false, motivo: "error", usuariosUnicos: 0, conexiones: 0, horasConexion: 0, picoConcurrencia: 0, diasAnalizados: 30 },
+            costoPorUsuarioUsd: null,
             remediationActions: [],
             potentialSavingUsd: 0,
         });
@@ -368,7 +386,20 @@ export async function getAvdInventory(
         hostPool.monthlyCostUsd = new Decimal(hostPool.monthlyCostUsd).plus(monthlyCostUsd).toNumber();
     }
 
+    // Uso real por pool. Va despues de armar los pools porque necesita sus ids,
+    // y en paralelo entre pools.
+    const usoPorPool = await getUsoPorHostPool(
+        credential,
+        Array.from(hostPoolsById.values()).map((hp) => hp.id),
+    );
+
     for (const hostPool of hostPoolsById.values()) {
+        hostPool.uso = usoPorPool.get(hostPool.id.toLowerCase()) ?? hostPool.uso;
+        hostPool.costoPorUsuarioUsd =
+            hostPool.uso.disponible && hostPool.uso.usuariosUnicos > 0
+                ? Number((hostPool.monthlyCostUsd / hostPool.uso.usuariosUnicos).toFixed(2))
+                : null;
+
         hostPool.remediationActions = evaluateHostPoolRemediations({
             name: hostPool.name,
             hostPoolType: hostPool.hostPoolType,
@@ -385,15 +416,47 @@ export async function getAvdInventory(
         );
     }
 
-    const storage: AvdStorageResource[] = storageRows.map((r) => ({
-        id: r.id,
-        name: r.name,
-        type: r.type,
-        region: r.location || "unknown",
-        resourceGroup: r.resourceGroup || "unknown",
-        monthlyCostUsd: storageCosts.get(r.id.toLowerCase()) ?? 0,
-        costDataAvailable: storageCosts.has(r.id.toLowerCase()),
-    }));
+    // Consumo real de los perfiles. Las metricas de Files cuelgan del
+    // sub-recurso `fileServices/default`, no de la cuenta de storage.
+    const storage: AvdStorageResource[] = await Promise.all(
+        storageRows.map(async (r) => {
+            let usedBytes: number | null = null;
+            let quotaBytes: number | null = null;
+            let fileCount: number | null = null;
+            let utilizacionPct: number | null = null;
+
+            if (r.type === STORAGE_TYPE) {
+                const m = await getAzureResourceMetricsSummary(credential, `${r.id}/fileServices/default`, [
+                    "FileCapacity",
+                    "FileShareCapacityQuota",
+                    "FileCount",
+                    "PercentFileShareUtilization",
+                ]);
+                usedBytes = m["FileCapacity"] ?? null;
+                quotaBytes = m["FileShareCapacityQuota"] ?? null;
+                fileCount = m["FileCount"] ?? null;
+                utilizacionPct =
+                    m["PercentFileShareUtilization"] ??
+                    (usedBytes !== null && quotaBytes && quotaBytes > 0
+                        ? Number(((usedBytes / quotaBytes) * 100).toFixed(1))
+                        : null);
+            }
+
+            return {
+                id: r.id,
+                name: r.name,
+                type: r.type,
+                region: r.location || "unknown",
+                resourceGroup: r.resourceGroup || "unknown",
+                monthlyCostUsd: storageCosts.get(r.id.toLowerCase()) ?? 0,
+                costDataAvailable: storageCosts.has(r.id.toLowerCase()),
+                usedBytes,
+                quotaBytes,
+                fileCount,
+                utilizacionPct,
+            };
+        }),
+    );
 
     const hostPools = Array.from(hostPoolsById.values()).sort((a, b) => b.monthlyCostUsd - a.monthlyCostUsd);
     const monthlyComputeCostUsd = hostPools.reduce((acc, hp) => acc + hp.monthlyCostUsd, 0);

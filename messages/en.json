@@ -13961,7 +13961,17 @@
     "emptyStorage": "No storage identified as FSLogix was found in this tenant.",
     "kpiPotentialSaving": "Potential saving",
     "recommendationsTitle": "Remediation Recommendations",
-    "viewRemediation": "View remediation"
+    "viewRemediation": "View remediation",
+    "colUsers": "Users",
+    "colCostPerUser": "Cost/user",
+    "colUsed": "Used",
+    "colQuota": "Quota",
+    "colUtilization": "Utilization",
+    "usersTooltip": "Last {dias} days: {horas} connection hours, peak of {pico} concurrent users",
+    "usoMotivo_sin_diagnostico": "The host pool has no diagnostic setting pointing to a Log Analytics workspace, so there is no connection data.",
+    "usoMotivo_sin_permiso": "No permission to read the Log Analytics workspace (Log Analytics Reader required).",
+    "usoMotivo_sin_datos": "The workspace recorded no connections in the period.",
+    "usoMotivo_error": "Could not query usage"
   },
   "VmFinopsCmp": {
     "loading": "Loading Virtual Machines FinOps cockpit...",
