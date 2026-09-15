@@ -149,3 +149,20 @@ describe("un cero degradado no pisa al ultimo valor bueno", () => {
         expect(bloqueCatch).toMatch(/if \(previo\)/);
     });
 });
+
+describe("un tenant sin permiso recibe 401, no 500", () => {
+    const overview = sin("src/app/api/overview/whiteboard/route.ts");
+
+    it("la verificacion de acceso no queda fuera de un try", () => {
+        // El await iba suelto: el AuthError escapaba del handler y Next
+        // respondia 500. El cliente no podia distinguir "no tenes acceso" de
+        // "el servidor se rompio", y ensuciaba las alertas de 5xx.
+        const bloque = overview.slice(
+            overview.indexOf("if (!forceMock && !isMockTenant(tenantId))"),
+            overview.indexOf("const cacheKey"),
+        );
+        expect(bloque).toContain("try {");
+        expect(bloque).toContain("error instanceof AuthError");
+        expect(bloque).toContain("status: error.status");
+    });
+});

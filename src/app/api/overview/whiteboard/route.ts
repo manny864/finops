@@ -2,8 +2,10 @@
  * GET /api/overview/whiteboard
  *
  * Whiteboard with Redis caching strategy:
- * - First request (or after 2h TTL): Fetch from Azure, cache in Redis (2h TTL)
- * - Subsequent requests within 2h: Serve from Redis cache
+ * - First request (or after the TTL): Fetch from Azure, cache in Redis
+ * - Subsequent requests within the TTL: Serve from Redis cache
+ * - Los TTL reales son las constantes de abajo (5 min, 1 min si vino
+ *   degradado); el texto decía 2 h y quedó viejo.
  * - Includes cached_at and cache_source in response metadata
  *
  * RBAC: Requires tenant access
@@ -11,7 +13,7 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { redis } from '@/lib/redis';
-import { requireTenantAccess } from '@/lib/requestAuth';
+import { requireTenantAccess, AuthError } from '@/lib/requestAuth';
 import { isMockTenant } from '@/lib/mockData';
 import { getInternalBaseUrl } from '@/lib/internalBaseUrl';
 
@@ -64,7 +66,18 @@ export async function GET(request: NextRequest) {
     }
 
     if (!forceMock && !isMockTenant(tenantId)) {
-        await requireTenantAccess(request, tenantId);
+        // El `await` iba suelto, fuera de todo try: un tenant sin permiso hacía
+        // escapar el AuthError del handler y Next respondía 500. El cliente no
+        // podía distinguir "no tenés acceso" de "el servidor se rompió", y cada
+        // acceso indebido ensuciaba las alertas de error 5xx.
+        try {
+            await requireTenantAccess(request, tenantId);
+        } catch (error: unknown) {
+            if (error instanceof AuthError) {
+                return NextResponse.json({ error: error.message }, { status: error.status });
+            }
+            throw error;
+        }
     }
 
     const cacheKey = `whiteboard:v4:${tenantId}:${locale}:${forceMock ? 'mock' : 'live'}`;
@@ -142,7 +155,7 @@ export async function GET(request: NextRequest) {
             payload,
         };
 
-        // Store in Redis with 2h TTL (o 5 min si el payload viene degradado).
+        // Se guarda con el TTL normal, o el corto si el payload vino degradado.
         try {
             const ttl = payload?._costDegraded ? DEGRADED_CACHE_TTL_SECONDS : CACHE_TTL_SECONDS;
             await redis.setex(cacheKey, ttl, JSON.stringify(cacheData));
