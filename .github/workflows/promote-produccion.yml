@@ -89,7 +89,17 @@ jobs:
           JOBS=$(az containerapp job list -g "$RG" \
               --query "[?properties.configuration.triggerType=='Schedule'].name" -o tsv)
           if [ -n "$JOBS" ]; then
-            echo "$JOBS" | xargs -P 8 -I {} sh -c 'echo "-> {}" && az containerapp job update -g "'"$RG"'" -n "{}" --image "'"$IMG"'"'
+            FAILED=""
+            for JOB in $JOBS; do
+              echo "-> $JOB"
+              az containerapp job update -g "$RG" -n "$JOB" --image "$IMG" \
+                || az containerapp job update -g "$RG" -n "$JOB" --image "$IMG" \
+                || FAILED="$FAILED $JOB"
+            done
+            if [ -n "$FAILED" ]; then
+              echo "No se pudieron actualizar estos cron jobs:$FAILED"
+              exit 1
+            fi
           fi
 
       - name: Desactivar revisiones viejas

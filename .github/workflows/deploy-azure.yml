@@ -19,6 +19,7 @@ on:
     paths-ignore:
       - 'infra/**'
       - 'docs/**'
+      - '.github/workflows/**'
       - '**.md'
       # Los tests no se despliegan: la etapa `runner` del Dockerfile copia solo
       # public/, .next/standalone y .next/static, asi que __tests__ nunca llega
