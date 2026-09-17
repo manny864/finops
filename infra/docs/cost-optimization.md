@@ -4,7 +4,7 @@
 
 | Recurso | Config | USD/mes |
 |---|---|---|
-| Container App `web` | 1–5 réplicas, 1 vCPU / 2 GiB, min 1 | 45 – 90 |
+| Container App `web` | 1–3 réplicas, 1 vCPU / 2 GiB, min 1 | 45 – 70 |
 | Container Apps Jobs (15) | ~23.000 ejecuciones/mes de ~10 s a 0.25 vCPU | 5 – 15 |
 | MySQL Flexible B2s | 2 vCore burstable, 64 GB, backup 14 d | 55 |
 | Azure Cache for Redis Basic C0 | 250 MB | 16 |
@@ -50,12 +50,22 @@ pena mirar la métrica antes de asumir que sigue siendo gratis.
 | Síntoma | Cambio | Delta USD/mes |
 |---|---|---|
 | El dashboard va lento con varios tenants | subir `web_max_replicas` | +20 por réplica activa |
-| Deploys con corte molestan | `web_min_replicas = 2` | +45 |
 | MySQL >80% CPU sostenido | B2s → GP_Standard_D2ds_v4 | +70 |
 | Primer SLA contractual | `mysql_high_availability = true` (exige GP) | +125 |
 | Redis se llena (evictions) | Basic C0 → C1, o Standard con réplica | +25 a +60 |
 | Cliente europeo exige residencia | stamp `eu` + Front Door | +210 (stamp) +35 |
 | Compliance pide red privada | `keyvault_private_endpoint_enabled = true` | +7 |
+
+> **Antes de subir `web_max_replicas`:** el limitador de Cost Management
+> (`src/lib/apiThrottle.ts`) vive en memoria de cada proceso, así que son 2
+> llamadas concurrentes **por réplica**. Más réplicas = más presión sobre una
+> API que responde 429 con facilidad. Si el síntoma es lentitud contra Azure y
+> no CPU alta, escalar lo empeora: el cuello está en la cuota, no en el cómputo.
+>
+> **Durante la ventana blue/green** conviven dos revisiones activas, cada una
+> con su `min_replicas`. Son ~USD 20/mes extra si una revisión queda en
+> `testing` sin promover mucho tiempo; el workflow de promoción desactiva las
+> viejas.
 
 ## Cuando se termine el crédito
 
