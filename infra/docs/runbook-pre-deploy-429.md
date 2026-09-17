@@ -57,11 +57,10 @@ entera, no por clave.
 
 ---
 
-## Paso 2 — `terraform apply` (recrea el ingress)
+## Paso 2 — `terraform apply`
 
-El módulo pasa de `revision_mode = "Single"` a `"Multiple"`, que es lo que
-habilita el despliegue por etiquetas. **Ese cambio recrea el ingress del
-Container App**, así que hay un corte breve: hacerlo en ventana tranquila.
+El módulo queda en `revision_mode = "Single"`: cada deploy actualiza producción
+directamente. Hacerlo en ventana tranquila si el plan muestra cambios de ingress.
 
 Se dispara con el workflow `terraform.yml` (`workflow_dispatch`), escribiendo
 exactamente `APPLY-PROD` en el input `confirm`.
@@ -78,17 +77,13 @@ Omitir el segundo `-var-file` planifica los crons viejos del secret.
 
 ### Qué mirar en el plan antes de aprobar
 
-- El `azurerm_container_app` del web **se actualiza** (no se recrea el app; sí
-  el ingress).
+- El `azurerm_container_app` del web puede actualizarse.
 - Los `azurerm_container_app_job` cambian de horario: son los crons repartidos.
 - No debería haber ningún `destroy` de MySQL, Key Vault ni Storage. Si aparece
   alguno, **frenar**.
 - Pueden aparecer warnings de los `check` blocks de `checks.tf`. Son
   informativos y no bloquean; si salta el de `web_max_replicas` significa que el
   paso 1 no se hizo.
-
-El workflow de deploy contempla el arranque sin etiqueta `produccion` previa: la
-primera revisión que se cree toma el 100 % del tráfico y se etiqueta sola.
 
 ---
 
@@ -170,10 +165,8 @@ con el comando de remediación.
 
 Una vez hechos los tres pasos y desplegada la revisión nueva:
 
-1. **Que la revisión nueva esté sirviendo.** El deploy deja la revisión con
-   etiqueta `testing` y 0 % de tráfico; recién `promote-produccion.yml` hace el
-   swap. Hasta promover, prod sigue con el código viejo y los 429 **no** van a
-   bajar.
+1. **Que la revisión nueva esté sirviendo.** El deploy actualiza producción
+   directamente y luego corre health check.
 
 2. **En el stream log, que no aparezca más esto:**
 

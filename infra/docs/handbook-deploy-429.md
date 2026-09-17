@@ -18,27 +18,21 @@ Commits ya en `origin/main`:
 | Commit | Contenido |
 | --- | --- |
 | `f62d2288` | `fix(billing)` — caché de forecast/historical, pausa por Redis, fix de `isStructuralScopeFailure`, caché de suscripciones, timeout en prewarm |
-| `a2a594c4` | `feat(infra)` — `cron-jobs.tfvars` versionado, blue/green por etiquetas, `checks.tf`, `web_max_replicas = 3` |
+| `a2a594c4` | `feat(infra)` — `cron-jobs.tfvars` versionado, `checks.tf`, `web_max_replicas = 3` |
 | `b20c0bf9` | `feat(onboarding)` — rol de Cost Management Reader sobre el MG, visible cuando falla |
 | `fc5c5938` | `docs(infra)` — runbook de pasos manuales |
 
-**Nada de esto está sirviendo tráfico todavía.** El push disparó
-`deploy-azure.yml`, que construye la imagen y crea una revisión nueva con la
-etiqueta `testing` y **0 % de tráfico**. Producción sigue con el código viejo
-hasta el paso 5.
+**El deploy ahora es directo.** `deploy-azure.yml` construye la imagen, corre
+migraciones, actualiza la app, actualiza los cron jobs y hace health check de
+producción.
 
 Checklist de lo que falta:
 
 - [ ] 1. Sacar `web_max_replicas` del secret `TF_VARS_PROD`
 - [ ] 2. `terraform apply` (recrea el ingress)
 - [ ] 3. Rol `Cost Management Reader` sobre el MG de cada tenant cliente
-- [ ] 4. Verificar la revisión `testing`
-- [ ] 5. Promover a producción
-- [ ] 6. Verificar que los 429 bajaron
-
-> El orden importa. El paso 2 **tiene que ir antes** del 5: hasta que Terraform
-> no pase el Container App a `revision_mode = "Multiple"`, las etiquetas no
-> existen y la promoción no tiene qué intercambiar.
+- [ ] 4. Ejecutar/verificar `deploy-azure.yml`
+- [ ] 5. Verificar que los 429 bajaron
 
 ---
 
@@ -81,9 +75,7 @@ medición de 24 h en prod además nunca pasó de 1 réplica (CPU 5-15 %).
 con Owner sobre la suscripción `ec03e8ce-ceee-4638-b303-64ae431d5b1e`
 (tenant `81ebe027…`, CSCS).
 
-> ⚠️ **Este apply recrea el ingress del Container App.** El cambio de
-> `revision_mode` de `Single` a `Multiple` obliga a recrearlo. Hay un corte
-> breve: hacerlo en ventana tranquila.
+> ⚠️ Si el plan muestra cambios de ingress, hacerlo en ventana tranquila.
 
 ### Opción A — por workflow (recomendado)
 
@@ -199,9 +191,9 @@ debe dar `OK`. Si da `MISSING`, el `hint` trae el comando de remediación.
 
 ---
 
-## 4. Verificar la revisión `testing`
+## 4. Ejecutar/verificar `deploy-azure.yml`
 
-El deploy ya dejó una revisión nueva sin tráfico. Antes de promover, probarla.
+El deploy actualiza producción directamente.
 
 ```bash
 az containerapp revision list \
@@ -210,50 +202,17 @@ az containerapp revision list \
   -o table
 ```
 
-La revisión nueva tiene que estar en `healthState = Healthy`,
-`trafficWeight = 0` y etiqueta `testing`.
-
-Se le pega directo por su FQDN de etiqueta, sin tocar producción:
-
-```
-https://cscs-finops-prod-westus2-web---testing.<region>.azurecontainerapps.io
-```
-
-El workflow de deploy imprime esa URL en el summary del run.
+La revisión nueva tiene que estar `Healthy` y la app debe responder `/api/health`.
 
 Qué probar como mínimo: que cargue el dashboard, que el costo MTD muestre datos
 y que el histórico no quede vacío.
 
-> ⚠️ **Las migraciones ya corrieron**, antes del split de tráfico. Durante esta
-> ventana la revisión **vieja** (la que sirve producción) está corriendo contra
-> el esquema **nuevo**. Por eso toda migración tiene que ser compatible hacia
-> atrás. Si algo se ve raro en producción en este momento, esa es la primera
-> sospecha.
+> ⚠️ **Las migraciones corren antes de actualizar la app.** Toda migración tiene
+> que ser compatible hacia atrás.
 
 ---
 
-## 5. Promover a producción
-
-Actions → **Promover a producción** → *Run workflow*:
-
-- `confirmar`: `promover` (exacto)
-
-Qué hace: verifica que la revisión esté `Healthy`, intercambia las etiquetas
-(`produccion` ↔ `testing`), actualiza los cron jobs a la imagen promovida y
-desactiva las revisiones viejas.
-
-Los crons se actualizan **acá** y no en el deploy, a propósito: corren contra
-datos reales y no pueden apuntar a una revisión sin aprobar.
-
-### Rollback
-
-Volver atrás es **ejecutar este mismo workflow otra vez**. Después del swap,
-`testing` apunta a la revisión que estaba en producción, así que un segundo
-swap la devuelve. No hace falta redeployar ni revertir commits.
-
----
-
-## 6. Verificar que los 429 bajaron
+## 5. Verificar que los 429 bajaron
 
 En el stream log del Container App, lo que **no** debería volver a aparecer:
 
@@ -304,11 +263,6 @@ e `infra/`) y ambos necesitan la excepción `!cron-jobs.tfvars`. Verificar con:
 git check-ignore -v infra/terraform/environments/prod/cron-jobs.tfvars
 # exit 1 = no está ignorado = correcto
 ```
-
-**La promoción dice que no encuentra la etiqueta `produccion`.**
-Es el primer despliegue con etiquetas. El workflow lo contempla: la primera
-revisión toma el 100 % del tráfico y se etiqueta sola. Si igual falla, revisar
-que el paso 2 (`revision_mode = "Multiple"`) se haya aplicado.
 
 **`az` pide MFA (`AADSTS50078`).**
 Token vencido. `az logout` y `az login --tenant <id>` de nuevo.

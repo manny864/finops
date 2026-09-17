@@ -61,11 +61,6 @@ pena mirar la métrica antes de asumir que sigue siendo gratis.
 > llamadas concurrentes **por réplica**. Más réplicas = más presión sobre una
 > API que responde 429 con facilidad. Si el síntoma es lentitud contra Azure y
 > no CPU alta, escalar lo empeora: el cuello está en la cuota, no en el cómputo.
->
-> **Durante la ventana blue/green** conviven dos revisiones activas, cada una
-> con su `min_replicas`. Son ~USD 20/mes extra si una revisión queda en
-> `testing` sin promover mucho tiempo; el workflow de promoción desactiva las
-> viejas.
 
 ## Cuando se termine el crédito
 

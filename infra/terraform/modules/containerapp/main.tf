@@ -13,13 +13,8 @@ resource "azurerm_container_app" "this" {
   name                         = "${var.name_base}-web"
   resource_group_name          = var.resource_group_name
   container_app_environment_id = var.environment_id
-  # "Multiple" habilita el despliegue por etiquetas: una revisión nueva entra
-  # SIN tráfico con la etiqueta `testing`, se valida contra su propio FQDN, y
-  # recién cuando se da el OK se promueve intercambiando etiquetas con
-  # `produccion`. En "Single" esto es imposible: cada `az containerapp update`
-  # se lleva el 100% del tráfico al instante, sin ventana de revisión.
-  revision_mode = "Multiple"
-  tags          = var.tags
+  revision_mode                = "Single"
+  tags                         = var.tags
 
   identity {
     type         = "UserAssigned"
@@ -64,13 +59,7 @@ resource "azurerm_container_app" "this" {
     target_port      = var.target_port
     transport        = "auto"
 
-    # Sólo el arranque: deja la primera revisión como `produccion` con todo el
-    # tráfico. A partir de ahí el reparto lo maneja el pipeline (etiquetas
-    # `produccion`/`testing` y `revision label swap`), por eso este bloque
-    # está en `ignore_changes` — si no, cada `terraform apply` devolvería el
-    # tráfico a la revisión que figure en el state y desharía una promoción.
     traffic_weight {
-      label           = "produccion"
       latest_revision = true
       percentage      = 100
     }
@@ -149,14 +138,6 @@ resource "azurerm_container_app" "this" {
     # state; la configuración no lo declara, así que sin esto cada plan quiere
     # ponerlo en null y el apply nunca llega a "No changes". Mismo patrón que
     # infrastructure_resource_group_name en el Container App Environment.
-    # traffic_weight: el reparto entre `produccion` y `testing` lo maneja el
-    # pipeline (revision label swap). Sin esto, el primer `terraform apply`
-    # posterior a una promoción devolvería el 100% a la revisión que figure en
-    # el state, deshaciendo el despliegue aprobado.
-    ignore_changes = [
-      template[0].container[0].image,
-      workload_profile_name,
-      ingress[0].traffic_weight,
-    ]
+    ignore_changes = [template[0].container[0].image, workload_profile_name]
   }
 }

@@ -146,57 +146,33 @@ contra el VPS antes de cortar. El detalle completo del corte está en
 4. Registrar la nueva URL como redirect URI en la App Registration de login.
 5. Actualizar la URL del webhook de Paddle (sandbox y live).
 
-## Despliegue por etiquetas (blue/green)
+## Despliegue directo
 
-El Container App corre en `revision_mode = "Multiple"` con dos etiquetas:
-
-| Etiqueta | Qué es |
-|---|---|
-| `produccion` | La revisión que recibe el **100%** del tráfico |
-| `testing` | La revisión recién desplegada, con **0%** de tráfico |
+El Container App corre en `revision_mode = "Single"`: cada deploy a `main`
+actualiza producción directamente y deja una sola revisión activa.
 
 Flujo de un cambio:
 
-1. **Push a `main`** → `deploy-azure.yml` corre las migraciones, crea la
-   revisión nueva con la etiqueta `testing` y **cero tráfico**, y le hace el
-   health check contra su propia URL. Producción no se entera.
-2. **Revisión manual** en `https://<app>---testing.<region>.azurecontainerapps.io`
-   (el workflow la imprime en el summary del run).
-3. **OK** → ejecutar el workflow **Promover a producción** y escribir
-   `promover`. Intercambia las etiquetas, actualiza los cron jobs a la imagen
-   promovida y desactiva las revisiones viejas.
+1. **Push a `main`** → `deploy-azure.yml` corre migraciones.
+2. Actualiza la app con la imagen nueva.
+3. Actualiza los cron jobs a la misma imagen.
+4. Hace health check de producción.
 
-Los **cron jobs no se actualizan en el paso 1** a propósito: corren contra datos
-de producción, así que siguen con la imagen aprobada hasta la promoción.
-
-> **Migraciones:** corren ANTES del split, así que durante la ventana de
-> revisión la revisión vieja está sirviendo contra el esquema nuevo. Toda
-> migración tiene que ser compatible hacia atrás (agregar columnas, no
-> renombrarlas ni borrarlas en el mismo deploy).
+> **Migraciones:** corren antes de actualizar la app. Si el health check falla,
+> el rollback es volver a desplegar una imagen anterior contra el esquema ya
+> migrado.
 
 ## Rollback
 
-Ejecutar **Promover a producción** otra vez. Después de un swap, `testing`
-apunta a la revisión que estaba en producción, así que promover de nuevo la
-devuelve al 100%.
+Volver a desplegar un commit anterior o cambiar la imagen del Container App y
+de los cron jobs al tag anterior.
 
 Para inspeccionar el estado:
 
 ```bash
 RG=cscs-finops-prod-westus2-rg
 APP=cscs-finops-prod-westus2-web
-# Qué revisión tiene cada etiqueta y cuánto tráfico recibe
-az containerapp show -g $RG -n $APP \
-  --query "properties.configuration.ingress.traffic" -o table
 az containerapp revision list -g $RG -n $APP -o table
-```
-
-Para mover el tráfico a mano (por ejemplo a una revisión sin etiqueta):
-
-```bash
-az containerapp revision label add -g $RG -n $APP \
-  --revision <revision> --label produccion --yes
-az containerapp ingress traffic set -g $RG -n $APP --label-weight produccion=100
 ```
 
 Las migraciones **no** hacen rollback solas: si una migración rompe, el rollback
