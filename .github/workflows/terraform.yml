@@ -241,6 +241,12 @@ jobs:
       # por la falla de auth que se arregló antes en este mismo archivo.
       # env (no interpolación directa en el run) para no romper el contenido
       # multilínea con el shell.
+      #
+      # OJO con cron_jobs: si el secret todavía trae un bloque `cron_jobs`, NO
+      # es el que se aplica. Los plan de abajo pasan un segundo
+      # `-var-file=cron-jobs.tfvars` (versionado en git) y Terraform resuelve
+      # los -var-file en orden, ganando el último para una misma variable. Los
+      # horarios se cambian en ese archivo, por PR; nunca editando el secret.
       - name: Escribir terraform.tfvars desde el secret
         env:
           TF_VARS_CONTENT: ${{ secrets.TF_VARS_PROD }}
@@ -317,9 +323,9 @@ jobs:
           # una cadena de shell es como se inyecta un flag de mas.
           if [ -n "$REPLACE_ADDR" ]; then
             echo "::warning title=Replace solicitado::Se va a RECREAR $REPLACE_ADDR (destroy + create)."
-            terraform plan -var-file=terraform.tfvars -replace="$REPLACE_ADDR" -out=tfplan
+            terraform plan -var-file=terraform.tfvars -var-file=cron-jobs.tfvars -replace="$REPLACE_ADDR" -out=tfplan
           else
-            terraform plan -var-file=terraform.tfvars -out=tfplan
+            terraform plan -var-file=terraform.tfvars -var-file=cron-jobs.tfvars -out=tfplan
           fi
 
       # Resumen auditable del plan: SÓLO dirección y acción, sin valores.
@@ -399,6 +405,9 @@ jobs:
             -backend-config="client_id=${{ secrets.AZURE_CLIENT_ID }}" \
             -backend-config="key=${{ matrix.environment }}/terraform.tfstate"
       # Mismo motivo que en el job plan-apply: terraform.tfvars está gitignored.
+      # El `-var-file=cron-jobs.tfvars` del plan de drift tiene que estar acá
+      # también: sin él, el drift se calcularía contra el cron_jobs viejo del
+      # secret y reportaría diferencias falsas en cada cron job.
       - name: Escribir terraform.tfvars desde el secret
         env:
           TF_VARS_CONTENT: ${{ secrets.TF_VARS_PROD }}
@@ -466,7 +475,7 @@ jobs:
           done
 
       - name: Detectar drift
-        run: terraform plan -var-file=terraform.tfvars -detailed-exitcode
+        run: terraform plan -var-file=terraform.tfvars -var-file=cron-jobs.tfvars -detailed-exitcode
 
       # Corre pase lo que pase: si el plan o el apply fallan, la IP de este
       # runner NO debe quedar en la allowlist del vault.

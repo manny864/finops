@@ -181,29 +181,62 @@ jobs:
           done
           echo "Timeout esperando la migración"; exit 1
 
-      - name: Deploy de la app
+      # Despliegue por etiquetas (blue/green).
+      #
+      # La revisión nueva entra SIN tráfico con la etiqueta `testing`. El 100%
+      # sigue yendo a `produccion` hasta que alguien valide y ejecute el
+      # workflow "Promover a producción". Antes, en revision_mode Single, este
+      # mismo paso se llevaba todo el tráfico al instante y la única forma de
+      # revisar un cambio era en caliente contra usuarios reales.
+      - name: Deploy de la app (revisión testing, sin tráfico)
         run: |
+          SUFFIX="r${{ github.run_number }}-$(echo '${{ github.sha }}' | cut -c1-7)"
+          echo "REV_SUFFIX=$SUFFIX" >> "$GITHUB_ENV"
+
           az containerapp update -g "$RG" -n "$APP" \
             --image "$ACR.azurecr.io/$IMAGE:${{ github.sha }}" \
+            --revision-suffix "$SUFFIX" \
             --set-env-vars AZURE_SENDER_EMAIL_ALERTS="${{ vars.AZURE_SENDER_EMAIL_ALERTS || 'alerts@cscloudsolutions.com.ar' }}"
 
-      # Los 14 cron jobs corren la MISMA imagen de runtime. Se actualizan en
-      # paralelo (hasta 8 a la vez) para reducir el tiempo de deploy.
-      - name: Deploy de los cron jobs (en paralelo)
-        run: |
-          JOBS=$(az containerapp job list -g "$RG" \
-              --query "[?properties.configuration.triggerType=='Schedule'].name" -o tsv)
-          if [ -n "$JOBS" ]; then
-            echo "$JOBS" | xargs -P 8 -I {} sh -c 'echo "-> {}" && az containerapp job update -g "'"$RG"'" -n "{}" --image "'"$ACR"'.azurecr.io/'"$IMAGE"':${{ github.sha }}"'
+          REV="$APP--$SUFFIX"
+
+          # Primer deploy tras pasar a revision_mode Multiple: si todavía no hay
+          # una revisión con la etiqueta `produccion`, esta pasa a serlo. Sin
+          # esto el `traffic set` de abajo fallaría y quedaría el sitio sin ruta.
+          if ! az containerapp show -g "$RG" -n "$APP" \
+                --query "properties.configuration.ingress.traffic[?label=='produccion']" -o tsv | grep -q .; then
+            echo "No hay revisión con etiqueta 'produccion': se inicializa con esta."
+            az containerapp revision label add -g "$RG" -n "$APP" --revision "$REV" --label produccion --yes
+            az containerapp ingress traffic set -g "$RG" -n "$APP" --label-weight produccion=100
+            exit 0
           fi
 
-      - name: Health check
+          az containerapp revision label add -g "$RG" -n "$APP" --revision "$REV" --label testing --yes
+          az containerapp ingress traffic set -g "$RG" -n "$APP" --label-weight produccion=100 testing=0
+
+      # Los cron jobs NO se tocan acá a propósito: corren contra datos de
+      # producción, así que siguen con la imagen promovida hasta que se apruebe
+      # la revisión. Se actualizan en el workflow de promoción.
+
+      - name: Health check de la revisión testing
         run: |
           FQDN=$(az containerapp show -g "$RG" -n "$APP" \
             --query properties.configuration.ingress.fqdn -o tsv)
+          # El FQDN de una etiqueta es el de la app con `---<etiqueta>` intercalado.
+          TEST_FQDN="${FQDN/$APP./$APP---testing.}"
+          echo "Revisión en pruebas: https://$TEST_FQDN"
           for i in $(seq 1 30); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "https://$FQDN/api/health" || true)
-            [ "$code" = "200" ] && exit 0
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://$TEST_FQDN/api/health" || true)
+            [ "$code" = "200" ] && break
+            [ "$i" = "30" ] && { echo "Health check falló en la revisión testing"; exit 1; }
             sleep 10
           done
-          echo "Health check falló — revisar la revisión y hacer rollback"; exit 1
+          {
+            echo "### Revisión lista para revisar"
+            echo ""
+            echo "- Revisión: \`$APP--$REV_SUFFIX\`"
+            echo "- URL de pruebas: https://$TEST_FQDN"
+            echo ""
+            echo "Producción sigue sirviendo la revisión anterior. Para promover,"
+            echo "ejecutar el workflow **Promover a producción**."
+          } >> "$GITHUB_STEP_SUMMARY"

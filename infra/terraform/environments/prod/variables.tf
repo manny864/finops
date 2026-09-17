@@ -68,10 +68,16 @@ variable "stamps" {
     storage_backup_monthly_retention_days = optional(number, 1095)
     storage_backup_yearly_retention_days  = optional(number, 3650)
 
-    web_cpu                         = optional(number, 1.0)
-    web_memory                      = optional(string, "2Gi")
-    web_min_replicas                = optional(number, 1)
-    web_max_replicas                = optional(number, 5)
+    web_cpu          = optional(number, 1.0)
+    web_memory       = optional(string, "2Gi")
+    web_min_replicas = optional(number, 1)
+    # 3 y no 5 (2026-09-16). El limitador de concurrencia contra Azure Cost
+    # Management (COST_MAX_CONCURRENT=2 en billingHelpers.ts) es estado de
+    # modulo: vive POR PROCESO, no por servicio. Cada replica extra multiplica
+    # la concurrencia real contra una API que ya throttlea con 2, asi que
+    # escalar horizontalmente EMPEORA los 429 en vez de aliviarlos. La medicion
+    # de 24 h en prod ademas nunca paso de 1 replica (CPU 5-15%).
+    web_max_replicas                = optional(number, 3)
     concurrent_requests_per_replica = optional(number, 40)
 
     extra_env_vars = optional(map(string), {})

@@ -134,6 +134,11 @@ tfplan
 .terraform.tfstate.lock.info
 *.tfvars
 !*.tfvars.example
+# cron-jobs.tfvars SÍ se commitea. Son horarios de cron: configuración pura,
+# sin GUIDs ni credenciales, que necesita revisión en PR. Se pasa como
+# -var-file DESPUÉS de terraform.tfvars (que sale del secret TF_VARS_PROD),
+# así que pisa el cron_jobs del secret. Ver el encabezado de ese archivo.
+!cron-jobs.tfvars
 
 # ---------------------------------------------------------------------------
 # Directivas, SOPs, Skills, Agentes y Handoffs (Exclusivo Local)

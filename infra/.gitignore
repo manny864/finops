@@ -3,4 +3,9 @@
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
+# cron-jobs.tfvars SÍ se commitea: son horarios de cron (configuración pura, sin
+# GUIDs ni credenciales) que necesitan revisión en PR. Se pasa como -var-file
+# DESPUÉS de terraform.tfvars, así que pisa el cron_jobs del secret TF_VARS_PROD.
+# Ver el encabezado de environments/prod/cron-jobs.tfvars.
+!cron-jobs.tfvars
 crash.log
