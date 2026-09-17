@@ -105,11 +105,22 @@ const limitadorCosto = crearLimitadorGlobal(
         // app durante minutos: sin la reserva, ocupaban los dos turnos y el
         // whiteboard esperaba a que alguno terminara.
         reservaInteractiva: 1,
-        pacingMs: 250,
-        minBackoffMs: 2000,
-        maxBackoffMs: 45_000,
+        // Subido de 250 a 400ms (2026-09-17): con varios prewarm (databases,
+        // compute, dashboard) corriendo dentro de la misma ventana de 10-20 min
+        // y 4-5 subscripciones por tenant, el ritmo anterior seguia saturando
+        // Cost Management apenas se liberaba el turno reservado, encadenando
+        // 429 en vez de darle tiempo a la cuota de vaciarse.
+        pacingMs: 400,
+        // Backoff mas largo (2000->3000 piso, 45s->60s techo, jitter 800->1500):
+        // los logs de prod del 2026-09-17 mostraban el mismo patron de siempre
+        // -- 429 tras 429 aun con la cola compartida -- porque el piso de 2s
+        // alcanzaba para chocar de nuevo contra la misma ventana de cuota. Mas
+        // espera de entrada evita gastar los 4 reintentos en volver a pegarle
+        // al mismo muro.
+        minBackoffMs: 3000,
+        maxBackoffMs: 60_000,
         factor: 2.2,
-        jitterMs: 800,
+        jitterMs: 1500,
         minRetryAfterMs: 1200,
     },
     is429,

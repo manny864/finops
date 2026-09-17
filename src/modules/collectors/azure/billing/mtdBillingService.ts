@@ -262,7 +262,13 @@ async function _fetchCostData(
             from.setDate(from.getDate() - 30);
             const last30Options = buildOptions('Custom', activeCol, from, to);
 
-            await mapWithConcurrency(diagnostics.subsList, 2, async (subId, idx) => {
+            // Bajado de 2 a 1 (2026-09-17): igual motivo que en
+            // historicalBillingService — con concurrencia 2, el stagger de
+            // 350ms de abajo no sirve de nada (corren dos workers en paralelo,
+            // cada uno con su propio idx 0,2,4.../1,3,5...), así que dos subs
+            // seguían pegándole a Cost Management en el mismo instante. Con 1
+            // el stagger sí actúa como pacing real entre subs.
+            await mapWithConcurrency(diagnostics.subsList, 1, async (subId, idx) => {
                 if (idx > 0) await new Promise((r) => setTimeout(r, 350));
                 try {
                     const res = await withRetry(

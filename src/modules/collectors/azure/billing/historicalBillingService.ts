@@ -378,7 +378,14 @@ export async function getHistoricalDetailedCosts(
             markMgScopeUnusable(tenantId, errorMessage(probeErr));
         }
         const subs = (await listTenantSubscriptions(tenantId, credential)).filter((s) => s.state === 'Enabled');
-        await mapWithConcurrency(subs, 2, async (sub: any) => {
+        // Bajado de 2 a 1 (2026-09-17): con `reservaInteractiva: 1` en el
+        // limitador global, sólo hay UN turno de fondo disponible en la
+        // práctica. Disparar 2 subs a la vez sólo hace que la segunda se
+        // encole detrás de la primera igual, pero ambas cuentan como
+        // "consultando ahora" en los logs — la falla concurrente de 429 que
+        // se veía en prod (varias subs del mismo tenant fallando casi en el
+        // mismo segundo) era esto, no la cuota real de Cost Management.
+        await mapWithConcurrency(subs, 1, async (sub: any) => {
             const subId: string = sub.subscriptionId;
             try {
                 const rows = await runForScope(`/subscriptions/${subId}`, subId);
