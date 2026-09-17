@@ -75,6 +75,7 @@ import {
   IconLock,
   IconCheck,
   IconDatabase,
+  IconExternalLink,
 } from "@tabler/icons-react";
 import { errorMessage } from '@/lib/apiErrors';
 
@@ -640,8 +641,9 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
         id: "select",
         header: ({ table }) => {
           const rows = table.getRowModel().rows;
-          const allSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.original.id));
-          const someSelected = !allSelected && rows.some((r) => selectedIds.has(r.original.id));
+          const selectableRows = rows.filter((r) => !r.original.manualDelete && !isPending(r.original.id));
+          const allSelected = selectableRows.length > 0 && selectableRows.every((r) => selectedIds.has(r.original.id));
+          const someSelected = !allSelected && selectableRows.some((r) => selectedIds.has(r.original.id));
           return (
             <input
               type="checkbox"
@@ -652,8 +654,8 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
               onChange={() => {
                 setSelectedIds((prev) => {
                   const next = new Set(prev);
-                  if (allSelected) rows.forEach((r) => next.delete(r.original.id));
-                  else rows.forEach((r) => next.add(r.original.id));
+                  if (allSelected) selectableRows.forEach((r) => next.delete(r.original.id));
+                  else selectableRows.forEach((r) => next.add(r.original.id));
                   return next;
                 });
               }}
@@ -666,9 +668,10 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
             type="checkbox"
             checked={selectedIds.has(row.original.id)}
             onChange={() => toggleSelected(row.original.id)}
-            disabled={isPending(row.original.id)}
+            disabled={isPending(row.original.id) || row.original.manualDelete}
+            title={row.original.manualDelete ? t("manageInAzureTooltip") : ""}
             className={`rounded border-slate-300 text-[#0078D4] focus:ring-[#0078D4] cursor-pointer ${
-              isPending(row.original.id) ? "opacity-50 cursor-not-allowed" : ""
+              isPending(row.original.id) || row.original.manualDelete ? "opacity-40 cursor-not-allowed" : ""
             }`}
           />
         ),
@@ -909,7 +912,18 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                     </button>
                   </>
                 )}
-                {canDeleteDirect ? (
+                {item.manualDelete ? (
+                  <a
+                    href={item.id ? (item.id.startsWith('/') ? `https://portal.azure.com/#@/resource${item.id}` : `https://portal.azure.com/#@/resource/${item.id}`) : "https://portal.azure.com"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold shadow-xs transition-all flex items-center gap-1 bg-white dark:bg-slate-900 text-[#0078D4] dark:text-sky-400 border border-[#0078D4]/40 hover:bg-sky-50/70 dark:hover:bg-sky-950/40 cursor-pointer active:scale-95 shrink-0"
+                    title={t("manageInAzureTooltip")}
+                  >
+                    <IconExternalLink className="w-3.5 h-3.5 stroke-[1.5]" />
+                    <span>{t("manageInAzure")}</span>
+                  </a>
+                ) : canDeleteDirect ? (
                   <button
                     type="button"
                     onClick={() => handleDelete(item)}

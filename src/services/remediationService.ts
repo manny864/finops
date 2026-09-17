@@ -109,7 +109,17 @@ export async function deleteResource(tenantId: string, userEmail: string, subscr
             if (!res.ok) {
                 const bodyText = await res.text().catch(() => "No response body");
                 console.error(`[RemediationService] Azure REST API returned ${res.status}: ${bodyText}`);
-                throw new Error(`Azure API error ${res.status}: ${bodyText}`);
+                let parsedError: any = null;
+                try {
+                    parsedError = JSON.parse(bodyText);
+                } catch {}
+                const msg = parsedError?.error?.message || `Azure API error ${res.status}: ${bodyText}`;
+                const azureError: any = new Error(msg);
+                azureError.status = res.status;
+                azureError.statusCode = res.status;
+                azureError.code = parsedError?.error?.code || (res.status === 403 ? 'AuthorizationFailed' : undefined);
+                azureError.details = parsedError || bodyText;
+                throw azureError;
             }
             result = { success: true };
         }

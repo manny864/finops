@@ -57,7 +57,7 @@ export function errorMessage(error: unknown, fallback = 'Unknown error'): string
  */
 export function errorStatus(error: unknown): number | undefined {
     if (!error || typeof error !== 'object') return undefined;
-    const e = error as { status?: unknown; statusCode?: unknown; code?: unknown };
+    const e = error as { status?: unknown; statusCode?: unknown; code?: unknown; message?: unknown };
     for (const v of [e.status, e.statusCode, e.code]) {
         const n = typeof v === 'number' ? v : typeof v === 'string' && /^\d+$/.test(v) ? Number(v) : NaN;
         // Acotado al rango HTTP valido: `code` tambien lleva errnos de driver
@@ -65,14 +65,28 @@ export function errorStatus(error: unknown): number | undefined {
         // RangeError al construir la respuesta.
         if (n >= 100 && n <= 599) return n;
     }
+    if (typeof e.message === 'string') {
+        const match = e.message.match(/Azure API error (\d{3})/i);
+        if (match) {
+            const n = Number(match[1]);
+            if (n >= 100 && n <= 599) return n;
+        }
+    }
     return undefined;
 }
 
 /** Codigo de error no numerico de un SDK (p. ej. 'ETIMEDOUT', 'AuthorizationFailed'). */
 export function errorCode(error: unknown): string | undefined {
     if (!error || typeof error !== 'object') return undefined;
-    const c = (error as { code?: unknown }).code;
-    return typeof c === 'string' ? c : undefined;
+    const e = error as { code?: unknown; message?: unknown };
+    const c = e.code;
+    if (typeof c === 'string') return c;
+    if (typeof e.message === 'string') {
+        if (/AuthorizationFailed/i.test(e.message)) return 'AuthorizationFailed';
+        if (/ResourceNotFound/i.test(e.message)) return 'ResourceNotFound';
+        if (/Conflict/i.test(e.message)) return 'Conflict';
+    }
+    return undefined;
 }
 
 /**
