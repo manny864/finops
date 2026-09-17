@@ -2,10 +2,24 @@ import { getAzureCredential, getCostManagementClient, listTenantSubscriptions } 
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from '@/lib/azureCostColumn';
 import { AZURE_COST_HISTORY_MAX_MONTHS, HistoricalDetailedCostRow } from './billingTypes';
 import { withRetry, mapWithConcurrency } from './billingHelpers';
+import { getWithStaleWhileRevalidate } from '@/lib/cache';
 import { errorMessage } from '@/lib/apiErrors';
 import { isMgScopeKnownUnusable, markMgScopeUnusable, isStructuralScopeFailure } from './billingHelpers';
 
 export { AZURE_COST_HISTORY_MAX_MONTHS };
+
+/**
+ * La serie histórica es la consulta más cara del servicio: 12 meses con
+ * granularidad diaria, partidos en chunks de 350 días, y cuando el scope de
+ * Management Group no sirve se repite el trabajo suscripción por suscripción
+ * con `maxRetries: 4`. En los logs de producción es el mayor emisor de 429.
+ *
+ * Los días ya cerrados no cambian, así que se cachea con TTL duro de 24 h y
+ * refresco en segundo plano a las 6 h: sólo el día en curso queda algo atrás,
+ * y a cambio el fan-out contra Cost Management desaparece.
+ */
+const HISTORICAL_TTL_S = 24 * 60 * 60;
+const HISTORICAL_SOFT_TTL_S = 6 * 60 * 60;
 
 export async function getHistoricalDailyCosts(
     tenantId: string,
@@ -13,6 +27,24 @@ export async function getHistoricalDailyCosts(
     monthsBack: number
 ): Promise<{ date: string; cost: number }[]> {
     const months = Math.min(Math.max(1, Math.round(monthsBack)), AZURE_COST_HISTORY_MAX_MONTHS);
+    const scopeKey = (subscriptionId || 'all').toLowerCase();
+    return getWithStaleWhileRevalidate(
+        `historical:v1:${tenantId}:${scopeKey}:${months}`,
+        () => fetchHistoricalDailyCosts(tenantId, subscriptionId, months),
+        HISTORICAL_TTL_S,
+        HISTORICAL_SOFT_TTL_S,
+        // Una serie vacía es el resultado de un 429 que agotó los reintentos,
+        // no un tenant sin gasto. Con TTL 0 no se guarda y `cache.ts` conserva
+        // la última serie buena en lugar de dejar el gráfico plano 24 h.
+        (serie) => (serie?.length ? HISTORICAL_TTL_S : 0)
+    );
+}
+
+async function fetchHistoricalDailyCosts(
+    tenantId: string,
+    subscriptionId: string | undefined,
+    months: number
+): Promise<{ date: string; cost: number }[]> {
     const credential = await getAzureCredential(tenantId);
     const client = await getCostManagementClient(tenantId);
 

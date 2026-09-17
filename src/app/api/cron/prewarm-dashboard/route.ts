@@ -32,6 +32,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { getInternalBaseUrl } from "@/lib/internalBaseUrl";
+import { prewarmFetch } from "@/lib/prewarmFetch";
 import { redis } from "@/lib/redis";
 import { recordCronRun } from "@/lib/cronRunTracker";
 import { errorMessage } from "@/lib/apiErrors";
@@ -74,7 +75,7 @@ async function runPrewarmDashboardCore(): Promise<{ results: PrewarmDashboardRes
         const start = Date.now();
         try {
             const url = `${origin}/api/dashboard/summary?tenantId=${encodeURIComponent(t.id)}&subscriptionId=All`;
-            const res = await fetch(url, { headers, cache: "no-store" });
+            const res = await prewarmFetch(url, { headers, cache: "no-store" });
             const ms = Date.now() - start;
             if (res.ok) {
                 results.push({ tenantId: t.id, name: t.name, ok: true, ms });

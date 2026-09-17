@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { getInternalBaseUrl } from "@/lib/internalBaseUrl";
+import { prewarmFetch } from "@/lib/prewarmFetch";
 import { recordCronRun } from "@/lib/cronRunTracker";
 
 export const dynamic = "force-dynamic";
@@ -47,7 +48,7 @@ async function runPrewarmSecurity(request: NextRequest) {
             for (const endpoint of endpoints) {
                 const started = Date.now();
                 try {
-                    const res = await fetch(endpoint, { headers, cache: "no-store" });
+                    const res = await prewarmFetch(endpoint, { headers, cache: "no-store" });
                     const ms = Date.now() - started;
                     if (!res.ok) {
                         const detail = await res.text().catch(() => "");

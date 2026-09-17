@@ -291,7 +291,10 @@ type SubscriptionCostSnapshot = {
   errors: string[];
 };
 
-const COST_SNAPSHOT_TTL_SECONDS = 600;
+// 30 min en vez de 10: el coste MTD de un recurso se mueve por céntimos dentro
+// de la hora, pero cada expiración dispara una consulta por suscripción y en
+// los logs esas ráfagas de `cost-mtd` son una fuente constante de 429.
+const COST_SNAPSHOT_TTL_SECONDS = 1800;
 
 async function fetchSubscriptionCosts(
   tenantId: string,

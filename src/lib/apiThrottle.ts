@@ -115,6 +115,62 @@ function dormir(ms: number, signal?: AbortSignal): Promise<void> {
     });
 }
 
+/**
+ * PAUSA COMPARTIDA ENTRE REPLICAS
+ *
+ * El problema que resuelve: todo el estado de esta cola --`activos`,
+ * `pausadoHasta`, las dos filas-- vive en variables del modulo, o sea en el
+ * PROCESO. Y `web_max_replicas = 5`.
+ *
+ * Con cinco replicas eso significa cinco colas independientes, cada una
+ * creyendo que es la unica:
+ *
+ *   - La concurrencia real contra Cost Management no es `maxConcurrent` (2),
+ *     es 5 x 2 = 10.
+ *   - Peor: cuando la replica A se come un 429 y frena su cola, las otras
+ *     cuatro NO se enteran y siguen golpeando --que es exactamente el modo de
+ *     falla que el comentario de arriba dice que esta cola vino a evitar
+ *     ("mientras una espera las otras siguen golpeando y renuevan la
+ *     penalidad"). Lo resolvia, pero solo dentro de un proceso.
+ *
+ * La solucion es publicar el `Retry-After` en Redis --que ya esta conectado y
+ * es compartido-- para que las cinco replicas frenen juntas.
+ *
+ * DOS RELOJES. Adentro del proceso todo se mide con `performance.now()`
+ * (monotonico, ver el comentario de `ahoraMs`), pero ese reloj arranca en un
+ * punto distinto en cada proceso, asi que no se puede compartir. En Redis va el
+ * epoch de pared (`Date.now()`), y al leerlo se convierte de vuelta a
+ * monotonico calculando lo que FALTA: `restante = epochRemoto - Date.now()`.
+ * Asi el valor viaja entre procesos sin depender de que sus relojes monotonicos
+ * coincidan, y el reloj de pared solo se usa para una resta de duracion corta,
+ * donde un ajuste de NTP es despreciable.
+ *
+ * BEST-EFFORT SIEMPRE. Si Redis no esta, cada replica se comporta como antes
+ * --cola local, que ya funcionaba-- en vez de romperse. La pausa compartida es
+ * una mejora, no una dependencia.
+ */
+const PAUSA_REMOTA_REFRESCO_MS = 1000;
+
+/**
+ * Import perezoso de ioredis.
+ *
+ * `@/lib/redis` abre la conexion al importarse. Esta cola la usan tanto Cost
+ * Management como Resource Graph, y se importa desde muchos lados; un import
+ * estatico obligaria a abrir un socket incluso donde no hace falta. Con el
+ * import adentro de la funcion, quien no llega a pausarse nunca lo carga.
+ */
+async function clienteRedis(): Promise<typeof import("@/lib/redis").redis | null> {
+    try {
+        const { redis } = await import("@/lib/redis");
+        // `enableOfflineQueue: false` hace que los comandos fallen en vez de
+        // encolarse cuando la conexion no esta lista, asi que se chequea antes.
+        if (redis?.status !== "ready" && redis?.status !== "connect") return null;
+        return redis;
+    } catch {
+        return null;
+    }
+}
+
 export function crearLimitadorGlobal(
     cfg: OpcionesLimitador,
     es429: (err: unknown) => boolean,
@@ -128,6 +184,57 @@ export function crearLimitadorGlobal(
     const colaAlta: Array<() => void> = [];
     const colaBaja: Array<() => void> = [];
     const reserva = Math.max(0, Math.min(cfg.reservaInteractiva ?? 0, cfg.maxConcurrent - 1));
+
+    // La clave lleva el nombre del limitador a proposito: ARG y Cost Management
+    // tienen cuotas independientes y compartir la pausa haria que un 429 de uno
+    // frenara al otro sin motivo (misma razon por la que el estado local es por
+    // instancia de limitador).
+    const clavePausa = `throttle:${cfg.nombre}:pausedUntil`;
+    let ultimaLecturaRemota = 0;
+
+    /** Aplica una pausa expresada en epoch de pared al reloj monotonico local. */
+    function aplicarPausaRemota(epochRemoto: number) {
+        const restante = epochRemoto - Date.now();
+        if (restante <= 0) return;
+        pausadoHasta = Math.max(pausadoHasta, ahoraMs() + restante);
+    }
+
+    /** Avisa a las otras replicas. Best-effort: un fallo no afecta la llamada. */
+    async function publicarPausa(esperaMs: number) {
+        const redis = await clienteRedis();
+        if (!redis) return;
+        try {
+            const hasta = Date.now() + esperaMs;
+            const actual = await redis.get(clavePausa);
+            // Nunca acortar una pausa que otra replica ya extendio mas lejos.
+            if (actual && Number(actual) >= hasta) return;
+            // El PX deja que la clave se limpie sola al vencer la pausa: no hay
+            // que borrarla, y una replica que arranca despues no hereda una
+            // pausa vieja.
+            await redis.set(clavePausa, String(hasta), "PX", Math.ceil(esperaMs) + 1000);
+        } catch {
+            // Redis caido: se sigue con la pausa local, que es lo que habia antes.
+        }
+    }
+
+    /** Lee la pausa que hayan publicado las otras replicas. */
+    async function leerPausaRemota() {
+        // Como maximo una lectura por segundo: con `pacingMs: 250` una consulta
+        // a Redis por llamada seria mas trafico que el que se quiere ahorrar, y
+        // un segundo de retraso en enterarse es irrelevante frente a backoffs
+        // que van de 2 a 45 segundos.
+        const ahora = ahoraMs();
+        if (ahora - ultimaLecturaRemota < PAUSA_REMOTA_REFRESCO_MS) return;
+        ultimaLecturaRemota = ahora;
+        const redis = await clienteRedis();
+        if (!redis) return;
+        try {
+            const valor = await redis.get(clavePausa);
+            if (valor) aplicarPausaRemota(Number(valor));
+        } catch {
+            // Ver `publicarPausa`.
+        }
+    }
 
     function siguiente() {
         if (activos >= cfg.maxConcurrent) return;
@@ -186,6 +293,11 @@ export function crearLimitadorGlobal(
                 ? Math.max(delServicio, cfg.minRetryAfterMs) + jitter
                 : Math.min(cfg.maxBackoffMs, minBackoff * Math.pow(cfg.factor, intento) + jitter);
             pausadoHasta = Math.max(pausadoHasta, ahoraMs() + esperaPendiente);
+            // Y se les avisa a las otras replicas, que tienen su propia cola en
+            // su propio proceso y de otro modo seguirian golpeando durante todo
+            // el backoff. No se espera el await: la pausa local ya quedo puesta
+            // en la linea de arriba y lo remoto es best-effort.
+            void publicarPausa(esperaPendiente);
         };
 
         // Telemetría: cuántas llamadas hacemos y cuántas nos frenan. El
@@ -197,6 +309,17 @@ export function crearLimitadorGlobal(
 
         while (true) {
             if (opts.signal?.aborted) throw opts.signal.reason ?? new Error("Aborted");
+            // Ver si otra replica se comio un 429 y publico una pausa.
+            //
+            // SIN `await` A PROPOSITO. Esto es coordinacion best-effort, no un
+            // paso del algoritmo: lo unico que hace es adelantar `pausadoHasta`,
+            // que `siguiente()` vuelve a mirar en cada largada. Esperar la ida y
+            // vuelta a Redis metia latencia de red en el camino critico de TODAS
+            // las llamadas --incluidas las que no estan throttleadas, que son la
+            // enorme mayoria-- para un dato que sirve igual si llega 50 ms
+            // despues. Con `void`, la pausa remota se aplica apenas responde
+            // Redis y frena la cola desde ese momento.
+            void leerPausaRemota();
             try {
                 return await new Promise<T>((resolve, reject) => {
                     const soltarTurno = (error: unknown) => {

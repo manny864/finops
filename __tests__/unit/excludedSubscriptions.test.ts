@@ -7,7 +7,7 @@ vi.mock("@/modules/storage/db", () => {
 });
 
 import pool from "@/modules/storage/db";
-import { getAllSubscriptionsForTenant } from "@/lib/azure";
+import { getAllSubscriptionsForTenant, resetSubscriptionsCache } from "@/lib/azure";
 
 const query = pool.query as unknown as ReturnType<typeof vi.fn>;
 
@@ -18,6 +18,10 @@ const credential = { getToken: async () => ({ token: "fake" }) } as any;
 
 beforeEach(() => {
     query.mockReset();
+    // El descubrimiento cachea por tenant durante 60 s. Los tres casos usan el
+    // mismo tenant con datos distintos, así que sin esto el segundo y el
+    // tercero leerían el resultado del primero.
+    resetSubscriptionsCache();
     // Descubrimiento ARM: una suscripción habilitada.
     vi.stubGlobal("fetch", vi.fn(async () => ({
         ok: true,

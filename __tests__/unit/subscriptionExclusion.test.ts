@@ -32,22 +32,49 @@ const sinComentarios = (ruta: string) =>
 describe("MEJ-25: la exclusión de suscripciones se aplica en todas las vías", () => {
     const azure = sinComentarios("src/lib/azure.ts");
 
-    /** El cuerpo de una función exportada de azure.ts, sin sus comentarios. */
+    /** El cuerpo de una función de azure.ts, sin sus comentarios. */
     function cuerpo(nombre: string): string {
-        const i = azure.indexOf(`export async function ${nombre}(`);
-        expect(i, `no encontré ${nombre} en src/lib/azure.ts`).toBeGreaterThan(-1);
-        const resto = azure.slice(i);
-        const fin = resto.indexOf("\nexport ", 1);
-        return fin === -1 ? resto : resto.slice(0, fin);
+        // Acepta `export async function`, `export function` y `async function`:
+        // `getAllSubscriptionsForTenant` se partió en un wrapper sincrónico
+        // (caché + deduplicación de llamadas en vuelo) y la implementación
+        // `fetchAllSubscriptionsForTenant`, que es donde quedó el filtrado.
+        const m = azure.match(
+            new RegExp(`^(?:export\\s+)?(?:async\\s+)?function ${nombre}\\(`, "m")
+        );
+        expect(m?.index ?? -1, `no encontré ${nombre} en src/lib/azure.ts`).toBeGreaterThan(-1);
+        const resto = azure.slice(m!.index!);
+        // Corta en la próxima declaración de nivel superior, sea exportada o no.
+        const fin = resto.slice(1).search(/\n(?:export |async function |function )/);
+        return fin === -1 ? resto : resto.slice(0, fin + 1);
     }
 
     it("las DOS funciones de descubrimiento filtran las excluidas", () => {
-        for (const fn of ["getSubscriptionsForTenant", "getAllSubscriptionsForTenant"]) {
+        for (const fn of ["getSubscriptionsForTenant", "fetchAllSubscriptionsForTenant"]) {
             expect(
                 cuerpo(fn),
                 `${fn}() no llama a getExcludedSubscriptionIds: una suscripción desvinculada seguiría apareciendo en todo lo que use esta vía`
             ).toContain("getExcludedSubscriptionIds");
         }
+    });
+
+    it("el wrapper cacheado sigue delegando en la implementación que filtra", () => {
+        // El filtrado vive en `fetchAllSubscriptionsForTenant`. Si el wrapper
+        // dejara de delegar ahí --por ejemplo resolviendo desde otra fuente--
+        // el test de arriba seguiría en verde sobre código muerto.
+        expect(
+            cuerpo("getAllSubscriptionsForTenant"),
+            "getAllSubscriptionsForTenant() tiene que delegar en fetchAllSubscriptionsForTenant"
+        ).toContain("fetchAllSubscriptionsForTenant(");
+    });
+
+    it("el caché del wrapper no guarda listados vacíos", () => {
+        // Un listado vacío suele venir de un 429 o de un fallo de autorización.
+        // Cachearlo dejaría al tenant sin suscripciones durante todo el TTL, que
+        // es indistinguible de haberlas dado todas de baja.
+        expect(
+            cuerpo("getAllSubscriptionsForTenant"),
+            "hay que comprobar que el listado no esté vacío antes de cachearlo"
+        ).toMatch(/subs\.length\s*>\s*0/);
     });
 
     it("en la que trunca por plan, la exclusión va ANTES del truncado", () => {

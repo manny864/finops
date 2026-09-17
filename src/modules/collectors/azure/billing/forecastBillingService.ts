@@ -1,6 +1,7 @@
 import { getAzureCredential, getAllSubscriptionsForTenant, getCostManagementClient } from "@/lib/azure";
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from "@/lib/azureCostColumn";
 import { is429, withRetry, mapWithConcurrency, isMgScopeKnownUnusable, markMgScopeUnusable, isStructuralScopeFailure } from "./billingHelpers";
+import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { errorMessage } from '@/lib/apiErrors';
 
 class MgScopeBypass extends Error {
@@ -9,7 +10,51 @@ class MgScopeBypass extends Error {
   }
 }
 
+/**
+ * Caché del pronóstico de Azure — el mayor emisor de 429 de toda la app.
+ *
+ * `getCostForecast` era el único consumidor pesado de Cost Management SIN
+ * caché: `/api/intelligence/forecast` lo llamaba en vivo en cada request y el
+ * whiteboard lo pedía por su cuenta, así que cada refresh del dashboard era una
+ * consulta real. Y no una barata: con scope "All" el fan-out por suscripción es
+ * incondicional (ver `MgScopeBypass` más abajo) y cada suscripción trae sus
+ * `maxRetries: 4`. Es exactamente lo que se ve en los logs de producción del
+ * 2026-09-16: `429 on forecast(sub ec03e8ce...) retrying 2/4` → `3/4`, en bucle,
+ * hasta que el techo de 25 s del whiteboard abandona la espera —pero la cuota ya
+ * se gastó y los reintentos siguen corriendo—.
+ *
+ * La clave NO lleva el locale ni nada de la request a propósito: el whiteboard y
+ * `/api/intelligence/forecast` tienen que compartir la MISMA entrada, si no
+ * cada uno paga su propia consulta por el mismo dato.
+ *
+ * TTL duro 24 h / soft 6 h: Azure recalcula el forecast una vez por día, así
+ * que revalidar más seguido gasta cuota para obtener el mismo número.
+ */
+const FORECAST_TTL_S = 24 * 60 * 60;
+const FORECAST_SOFT_TTL_S = 6 * 60 * 60;
+
 export async function getCostForecast(
+  tenantId: string,
+  subscriptionId: string,
+  metricType: "ActualCost" | "AmortizedCost" = "ActualCost"
+): Promise<Array<{ date: string; forecastCost: number }>> {
+  const cacheKey = `forecast:v1:${tenantId}:${subscriptionId}:${metricType}`;
+  return getWithStaleWhileRevalidate(
+    cacheKey,
+    () => fetchCostForecast(tenantId, subscriptionId, metricType),
+    FORECAST_TTL_S,
+    FORECAST_SOFT_TTL_S,
+    // Un array vacío es "falló o no aplica" (sin credenciales, throttleado,
+    // último día del mes), NUNCA un pronóstico legítimo de cero. Cachearlo 24 h
+    // dejaría la proyección lineal en pantalla un día entero por un 429 de un
+    // segundo. Con TTL 0 no se guarda, y `getWithStaleWhileRevalidate` conserva
+    // la entrada anterior en vez de borrarla, así que se sigue sirviendo el
+    // último pronóstico bueno mientras Azure se recupera.
+    (data) => (data.length > 0 ? FORECAST_TTL_S : 0),
+  );
+}
+
+async function fetchCostForecast(
   tenantId: string,
   subscriptionId: string,
   metricType: "ActualCost" | "AmortizedCost" = "ActualCost"

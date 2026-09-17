@@ -277,8 +277,79 @@ export async function getSubscriptionsForTenant(
 
 /**
  * Get ALL subscriptions accessible by the Service Principal, WITHOUT plan limits.
+ *
+ * DEDUPLICADO EN VUELO. En los logs de produccion del 2026-09-16 esta consulta
+ * aparece TRES veces para el mismo tenant dentro de 60 ms:
+ *
+ *   17:49:50.8166599 [azure] getAllSubscriptionsForTenant(81ebe027...)
+ *   17:49:50.8409143 [azure] getAllSubscriptionsForTenant(81ebe027...)
+ *   17:49:50.8724861 [azure] getAllSubscriptionsForTenant(81ebe027...)
+ *
+ * No es un bug de un llamador puntual: es que cada servicio de billing resuelve
+ * la lista por su cuenta al caer al fallback por suscripcion, y los prewarm los
+ * disparan juntos. Cada copia son dos round-trips a ARM (Management API) mas
+ * dos consultas a la base, para devolver los tres exactamente lo mismo.
+ *
+ * `COST_INFLIGHT` en billingHelpers ya hacia esto para los costos, pero la
+ * resolucion de suscripciones --que es el paso previo de todo fallback-- habia
+ * quedado afuera.
+ *
+ * Es coalescing puro, no un cache: la promesa se borra apenas termina, asi que
+ * la proxima llamada vuelve a consultar. No cambia en nada cada cuanto se
+ * refresca el dato, solo evita pagar N veces la MISMA consulta simultanea.
  */
-export async function getAllSubscriptionsForTenant(
+const SUBS_INFLIGHT = new Map<string, Promise<string[]>>();
+
+/**
+ * El inventario de suscripciones de un tenant cambia con muy poca frecuencia,
+ * pero un ciclo de prewarm lo pide decenas de veces seguidas: en los logs se ve
+ * la misma llamada repetida cada 1-2 s por cada familia de recursos. Esas
+ * repeticiones son secuenciales, así que la deduplicación in-flight no las
+ * atrapa; hace falta además una ventana corta de memoria.
+ */
+const SUBS_CACHE = new Map<string, { subs: string[]; expiraEn: number }>();
+const SUBS_CACHE_TTL_MS = 60_000;
+
+/**
+ * Vacía la memoria de suscripciones. La usan los tests, que ejercitan el mismo
+ * tenant con distintos datos simulados y de otro modo leerían el resultado del
+ * caso anterior. También sirve para forzar un redescubrimiento inmediato tras
+ * vincular o desvincular una suscripción, sin esperar el TTL.
+ */
+export function resetSubscriptionsCache(tenantId?: string): void {
+  if (tenantId) SUBS_CACHE.delete(tenantId);
+  else SUBS_CACHE.clear();
+}
+
+export function getAllSubscriptionsForTenant(
+  tenantId: string,
+  credential?: ClientSecretCredential
+): Promise<string[]> {
+  const cacheado = SUBS_CACHE.get(tenantId);
+  if (cacheado && Date.now() < cacheado.expiraEn) {
+    return Promise.resolve(cacheado.subs.slice());
+  }
+
+  const enVuelo = SUBS_INFLIGHT.get(tenantId);
+  if (enVuelo) return enVuelo;
+
+  const promesa = fetchAllSubscriptionsForTenant(tenantId, credential)
+    .then((subs) => {
+      // Un listado vacío suele venir de un fallo de autorización o throttling;
+      // cachearlo dejaría al tenant sin datos durante todo el TTL.
+      if (subs.length > 0) {
+        SUBS_CACHE.set(tenantId, { subs: subs.slice(), expiraEn: Date.now() + SUBS_CACHE_TTL_MS });
+      }
+      return subs;
+    })
+    .finally(() => {
+      SUBS_INFLIGHT.delete(tenantId);
+    });
+  SUBS_INFLIGHT.set(tenantId, promesa);
+  return promesa;
+}
+
+async function fetchAllSubscriptionsForTenant(
   tenantId: string,
   credential?: ClientSecretCredential
 ): Promise<string[]> {

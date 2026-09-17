@@ -6,6 +6,7 @@ import { sendLegacyWebhookAlert } from "@/lib/notifications";
 import { createNotification } from "@/lib/notify";
 import { recordCronRun } from "@/lib/cronRunTracker";
 import { getInternalBaseUrl } from "@/lib/internalBaseUrl";
+import { prewarmFetch } from "@/lib/prewarmFetch";
 
 /**
  * Evaluador de reglas `idle_resources` (AlertRules): avisa cuando el desperdicio
@@ -44,7 +45,7 @@ async function leerDesperdicio(tenantId: string, cronSecret: string): Promise<{
     recursos: number;
 } | null> {
     const url = `${getInternalBaseUrl()}/api/cleanup/zombies?tenantId=${encodeURIComponent(tenantId)}&subscriptionId=All`;
-    const res = await fetch(url, { headers: { "X-Cron-Auth": cronSecret }, cache: "no-store" });
+    const res = await prewarmFetch(url, { headers: { "X-Cron-Auth": cronSecret }, cache: "no-store" });
     if (!res.ok) throw new Error(`zombies devolvió ${res.status}`);
 
     const payload = await res.json();

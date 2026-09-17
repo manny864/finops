@@ -217,6 +217,17 @@ export function markMgScopeUnusable(tenantId: string, reason: string): void {
 /** Un 429 no es un fallo estructural: el scope puede seguir sirviendo. */
 export function isStructuralScopeFailure(err: unknown): boolean {
     if (is429(err)) return false;
+
+    // 401/403 son estructurales por definición: reintentar con los mismos
+    // credenciales da el mismo resultado. Se mira el código antes que el texto
+    // porque el mensaje de Cost Management no es estable entre APIs.
+    const e = err as { statusCode?: number; status?: number; code?: string | number };
+    const status = Number(e?.statusCode ?? e?.status ?? 0);
+    if (status === 401 || status === 403) return true;
+
+    const codigo = String(e?.code || '').toLowerCase();
+    if (codigo === 'authorizationfailed' || codigo === 'forbidden' || codigo === 'notfound') return true;
+
     const msg = String((err as { message?: string })?.message || err || '').toLowerCase();
     return (
         msg.includes('does not have any valid subscriptions') ||
@@ -224,6 +235,17 @@ export function isStructuralScopeFailure(err: unknown): boolean {
         msg.includes('notfound') ||
         msg.includes('not found') ||
         msg.includes('authorizationfailed') ||
+        // Redacción REAL de Cost Management ante falta de permisos sobre el MG:
+        // "The client does not have authorization to perform action". No lleva
+        // la palabra pegada `authorizationfailed`, así que el patrón de arriba
+        // no la veía: el scope no se marcaba nunca como inutilizable y cada
+        // consulta histórica volvía a pagar 4 reintentos contra el MG antes de
+        // caer al fallback por suscripción. Se veía en producción una vez por
+        // ciclo, indefinidamente.
+        msg.includes('does not have authorization') ||
+        msg.includes('authorization to perform action') ||
+        msg.includes('does not have permission') ||
+        msg.includes('insufficient privileges') ||
         msg.includes('returned 0 rows')
     );
 }

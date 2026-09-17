@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { getInternalBaseUrl } from "@/lib/internalBaseUrl";
+import { prewarmFetch } from "@/lib/prewarmFetch";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,7 @@ async function runPrewarmCosmosFinops(request: NextRequest) {
       const start = Date.now();
       try {
         const url = `${origin}/api/intelligence/databases/cosmos-metrics?tenantId=${encodeURIComponent(tenant.id)}&bust=1`;
-        const res = await fetch(url, { headers, cache: "no-store" });
+        const res = await prewarmFetch(url, { headers, cache: "no-store" });
         const ms = Date.now() - start;
         if (!res.ok) {
           const detail = await res.text().catch(() => "");
