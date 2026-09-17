@@ -196,6 +196,46 @@ def main():
     for role_name, role_id in built_in_roles.items():
         print(f"\n  Rol: {role_name}")
         create_role_assignment(client, scope, role_id, principal_id)
+
+    # 1b. Cost Management Reader en el MANAGEMENT GROUP raíz.
+    #
+    # No alcanza con tenerlo por suscripción. Con el scope de MG, el costo de
+    # TODAS las suscripciones se consulta en UNA llamada a Cost Management; sin
+    # él, la plataforma degrada a una consulta por suscripción y Azure devuelve
+    # 429 (Too many requests), dejando los paneles de histórico y proyección
+    # degradados o vacíos.
+    #
+    # Best-effort a propósito: falla si quien corre el script no es Owner ni
+    # User Access Administrator del MG, y eso NO debe abortar el onboarding.
+    print("\n--- Paso 1b: Cost Management Reader en el Management Group raíz (recomendado) ---")
+    mg_tenant_id = locals().get("tenant_id") or ""
+    if not mg_tenant_id:
+        # Con --principal-id no se resolvió el tenant más arriba.
+        try:
+            token_mgmt = credential.get_token("https://management.azure.com/.default")
+            sub_res = requests.get(
+                f"https://management.azure.com/subscriptions/{subscription_id}?api-version=2020-01-01",
+                headers={"Authorization": f"Bearer {token_mgmt.token}"}
+            )
+            if sub_res.status_code == 200:
+                mg_tenant_id = sub_res.json().get("tenantId", "")
+        except Exception:
+            mg_tenant_id = ""
+
+    if not mg_tenant_id:
+        print("  ⚠ No se pudo determinar el Tenant ID; se omite el paso del Management Group.")
+    else:
+        mg_scope = f"/providers/Microsoft.Management/managementGroups/{mg_tenant_id}"
+        print(f"  Scope: {mg_scope}")
+        mg_client = AuthorizationManagementClient(credential, subscription_id)
+        resultado_mg = create_role_assignment(
+            mg_client, mg_scope, BUILT_IN_ROLES_ESSENTIAL["Cost Management Reader"], principal_id
+        )
+        if resultado_mg is None:
+            print("  ⚠ Sin este rol el costo se consulta suscripción por suscripción y aparecen los 429.")
+            print("    Requiere ser Owner o User Access Administrator en el MG raíz. Pedirle a esa persona:")
+            print(f"    az role assignment create --assignee {principal_id} \\")
+            print(f"      --role 'Cost Management Reader' --scope '{mg_scope}'")
         
     # 2. Create Custom Remediation Role (Business / Enterprise only)
     custom_role_assigned = False

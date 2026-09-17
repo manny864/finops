@@ -26,6 +26,16 @@ const BUILTIN_ROLE_IDS: Record<string, string> = {
 const RESERVATIONS_READER_ROLE_ID = '582fc458-8989-419f-a480-75249bc5db7e';
 const RESERVATIONS_SCOPE = '/providers/Microsoft.Capacity';
 
+// Rol de costos a nivel MANAGEMENT GROUP raíz. No es lo mismo que tenerlo por
+// suscripción: con este scope el costo de TODAS las suscripciones sale en UNA
+// consulta a Cost Management. Sin él, la plataforma degrada a una consulta por
+// suscripción y Azure devuelve 429 (Too many requests) — es la causa raíz del
+// incidente del 2026-09-16, donde además cada ciclo reintentaba 4 veces contra
+// el MG antes de caer al fallback.
+const COST_MANAGEMENT_READER_ROLE_ID = BUILTIN_ROLE_IDS['Cost Management Reader'];
+const managementGroupScope = (tenantId: string) =>
+    `/providers/Microsoft.Management/managementGroups/${tenantId}`;
+
 type RolesByTier = {
     builtIn: string[];
     requireCustomRole: boolean;
@@ -150,6 +160,49 @@ async function checkReservationsAccess(armToken: string, spObjectId: string): Pr
     }
 }
 
+// Chequeo del scope MANAGEMENT GROUP raíz. Mismo patrón best-effort que
+// checkReservationsAccess: si no se pueden leer las asignaciones, 'UNKNOWN' en
+// vez de romper el reporte entero.
+//
+// Ojo con el 403: acá es INFORMACIÓN, no un fallo del chequeo. Si el SP no
+// puede ni leer las asignaciones del MG es porque no tiene rol ahí, que es
+// justamente lo que se está buscando. Por eso se reporta MISSING y no UNKNOWN.
+async function checkManagementGroupCostAccess(
+    armToken: string,
+    spObjectId: string,
+    tenantId: string
+): Promise<ReservationsAccess> {
+    const scope = managementGroupScope(tenantId);
+    const faltaHint = `⚠️ Falta 'Cost Management Reader' en el management group raíz (${scope}). Un Owner o User Access Administrator del MG debe asignarlo al SP, o re-ejecutar el script de onboarding con una cuenta que tenga ese permiso. Sin él, el costo se consulta suscripción por suscripción y Azure responde 429 (Too many requests): los paneles de costo histórico y proyección quedan degradados.`;
+    try {
+        const url = `https://management.azure.com${scope}/providers/Microsoft.Authorization/roleAssignments?$filter=principalId eq '${spObjectId}'&api-version=2022-04-01`;
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${armToken}` } });
+        if (res.status === 403 || res.status === 401) {
+            return { assigned: false, status: 'MISSING', hint: faltaHint };
+        }
+        if (!res.ok) {
+            return {
+                assigned: false,
+                status: 'UNKNOWN',
+                hint: `No se pudo verificar el rol de costos en el management group (HTTP ${res.status}). Requiere poder leer asignaciones en ${scope}.`,
+            };
+        }
+        const data = await res.json();
+        const assigned = (data.value || []).some(
+            (a: any) => (a.properties?.roleDefinitionId?.split('/').pop() || '').toLowerCase() === COST_MANAGEMENT_READER_ROLE_ID
+        );
+        return assigned
+            ? { assigned: true, status: 'OK', hint: `✅ 'Cost Management Reader' asignado en ${scope}. El costo de todas las suscripciones se consulta en una sola llamada.` }
+            : { assigned: false, status: 'MISSING', hint: faltaHint };
+    } catch (e) {
+        return {
+            assigned: false,
+            status: 'UNKNOWN',
+            hint: `No se pudo verificar el rol de costos en el management group: ${(errorMessage(e) || String(e)).slice(0, 160)}`,
+        };
+    }
+}
+
 // Resuelve la definición completa de un rol (nombre + acciones + notActions + tipo).
 async function resolveRoleDef(
     armToken: string,
@@ -245,6 +298,11 @@ function buildMockSpRolesReport(tenantId: string) {
                 status: 'OK',
                 hint: 'El SP puede leer las reservas del directorio.',
                 hintKey: 'reservationsOkDemo',
+            },
+            managementGroupCostAccess: {
+                status: 'OK',
+                hint: 'El SP puede consultar el costo agregado del management group raíz.',
+                hintKey: 'managementGroupCostOkDemo',
             },
         },
         subscriptions,
@@ -401,6 +459,10 @@ export async function GET(request: NextRequest) {
         // Chequeo de acceso a RESERVAS (RIs) a nivel tenant (scope aparte de las suscripciones).
         const reservationsAccess = await checkReservationsAccess(armToken, spObjectId);
 
+        // Chequeo del MANAGEMENT GROUP raíz: sin este rol el costo se consulta
+        // suscripción por suscripción y aparecen los 429.
+        const managementGroupCostAccess = await checkManagementGroupCostAccess(armToken, spObjectId, tenantId);
+
         const summary = {
             tenantId,
             tier: tier || 'Professional',
@@ -415,6 +477,7 @@ export async function GET(request: NextRequest) {
             noRolesCount: subReports.filter(r => r.status === 'NO_ROLES').length,
             errorCount: subReports.filter(r => r.status === 'ERROR').length,
             reservationsAccess,
+            managementGroupCostAccess,
         };
 
         let globalHint = '';
@@ -436,6 +499,12 @@ export async function GET(request: NextRequest) {
         // Anexar estado de acceso a reservas (RIs) al hint global.
         if (reservationsAccess.status !== 'OK') {
             globalHint = `${globalHint} ${reservationsAccess.hint}`.trim();
+        }
+
+        // Idem para el management group: es el que más impacto tiene en el
+        // rendimiento y en los 429, así que también sube al hint global.
+        if (managementGroupCostAccess.status !== 'OK') {
+            globalHint = `${globalHint} ${managementGroupCostAccess.hint}`.trim();
         }
 
         return NextResponse.json({

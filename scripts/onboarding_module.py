@@ -43,6 +43,19 @@ Write-Host "3. Asignando Roles Incorporados (Reader & Cost Management Reader)...
 New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName "Reader" -Scope "/subscriptions/$SubscriptionId"
 New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName "Cost Management Reader" -Scope "/subscriptions/$SubscriptionId"
 
+Write-Host "3b. Asignando Cost Management Reader en el MANAGEMENT GROUP raiz (recomendado)..." -ForegroundColor Cyan
+Write-Host "   Con este scope el costo de TODAS las suscripciones se consulta en UNA sola llamada." -ForegroundColor DarkGray
+Write-Host "   Sin el, la plataforma consulta suscripcion por suscripcion y Cost Management responde 429." -ForegroundColor DarkGray
+$TenantId = (Get-AzContext).Tenant.Id
+try {
+    New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName "Cost Management Reader" -Scope "/providers/Microsoft.Management/managementGroups/$TenantId" -ErrorAction Stop | Out-Null
+    Write-Host "   [OK] Asignado en el management group raiz." -ForegroundColor Green
+} catch {
+    Write-Host "   [FAIL] No se pudo asignar en el management group raiz: $($_.Exception.Message)" -ForegroundColor Yellow
+    Write-Host "   Requiere ser Owner o User Access Administrator en el MG raiz. Pedirle a esa persona que ejecute:" -ForegroundColor Yellow
+    Write-Host "   New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName 'Cost Management Reader' -Scope '/providers/Microsoft.Management/managementGroups/$TenantId'" -ForegroundColor Yellow
+}
+
 Write-Host "4. Creando Rol Personalizado de Remediación Least-Privilege..." -ForegroundColor Cyan
 $roleDef = Get-AzRoleDefinition -Name "Reader"
 $roleDef.Id = $null

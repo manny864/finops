@@ -102,7 +102,10 @@ const SCRIPT_I18N: Record<ScriptLocale, Record<string, string>> = {
         whGraphAssigned: '   -> Permisos asignados. Requiere ADMIN CONSENT desde Azure Portal > App Registrations > $AppName > API Permissions',
         whGraphNotFoundPre: '   -> No se localizaron roles de MS Graph. Asigne',
         whGraphNotFoundPost: 'manualmente.',
-        whMgmtGroup: '4. Intentando asignación a nivel MANAGEMENT GROUP raíz (opcional, mejora rendimiento)...',
+        whMgmtGroup: '4. Intentando asignación a nivel MANAGEMENT GROUP raíz (recomendado, evita throttling)...',
+        whMgmtGroupNote1: '   Con este scope, el costo de TODAS las suscripciones se consulta en UNA sola llamada.',
+        whMgmtGroupNote2: '   Sin él, la plataforma consulta suscripción por suscripción y Azure Cost Management',
+        whMgmtGroupNote3: "   responde 429 (Too many requests). Requiere ser Owner o User Access Administrator en el MG raíz.",
         whAssigningPerSub: '5. Asignando roles por SUSCRIPCIÓN (scope autoritativo)...',
         whSubscription: '   Suscripción $sub',
         whReservations: '6. Asignando lectura de RESERVAS (RIs) a nivel TENANT (Microsoft.Capacity)...',
@@ -116,6 +119,7 @@ const SCRIPT_I18N: Record<ScriptLocale, Record<string, string>> = {
         noteSecret: 'NOTA: El ClientSecret solo es visible UNA VEZ. Si lo pierde, deberá regenerarlo.',
         noteEaMca: "NOTA: Si está usando una suscripción EA/MCA, pídale al Billing Admin que asigne 'Enrollment Reader' o 'Billing Account Reader' al SP para ver datos de billing-account scope.",
         noteReservations: "NOTA: Si 'Reservations Reader' aparece como [FAIL], un Reservations Administrator debe asignarlo manualmente al SP en el scope '/providers/Microsoft.Capacity' (Portal > Reservations > Access control, o 'New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName ''Reservations Reader'' -Scope ''/providers/Microsoft.Capacity'''). Sin este rol, las reservas (RIs) Shared/Single no aparecen en el panel.",
+        noteMgmtGroup: "NOTA (IMPORTANTE para el rendimiento): si 'Cost Management Reader' aparece como [FAIL] en el scope '/providers/Microsoft.Management/managementGroups/...', un Owner o User Access Administrator del management group raiz debe asignarlo manualmente ('New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName ''Cost Management Reader'' -Scope ''/providers/Microsoft.Management/managementGroups/$TenantId'''). Sin ese rol la plataforma NO puede consultar el costo agregado y tiene que preguntar suscripcion por suscripcion: Azure responde 429 (Too many requests) y los paneles de costo historico y proyeccion quedan degradados o vacios.",
         noteAppRotation: "NOTA (rotacion de secretos, tier Business+): 'Application.ReadWrite.OwnedBy' se asigno al SP, pero ese permiso SOLO alcanza a las App Registrations de las que el SP es OWNER. Por cada app cuyo secreto quieras rotar desde la plataforma, agrega el SP como owner: Portal > Entra ID > App registrations > (la app) > Owners > Add owners > busca '$AppName'. Sin ese paso Microsoft Graph responde 403 y la rotacion no puede crear el secreto.",
     },
     en: {
@@ -153,7 +157,10 @@ const SCRIPT_I18N: Record<ScriptLocale, Record<string, string>> = {
         whGraphAssigned: '   -> Permissions assigned. Requires ADMIN CONSENT from Azure Portal > App Registrations > $AppName > API Permissions',
         whGraphNotFoundPre: '   -> MS Graph roles not found. Assign',
         whGraphNotFoundPost: 'manually.',
-        whMgmtGroup: '4. Attempting assignment at the root MANAGEMENT GROUP level (optional, improves performance)...',
+        whMgmtGroup: '4. Attempting assignment at the root MANAGEMENT GROUP level (recommended, avoids throttling)...',
+        whMgmtGroupNote1: '   With this scope, the cost of ALL subscriptions is queried in a SINGLE call.',
+        whMgmtGroupNote2: '   Without it, the platform queries subscription by subscription and Azure Cost Management',
+        whMgmtGroupNote3: "   returns 429 (Too many requests). Requires being Owner or User Access Administrator on the root MG.",
         whAssigningPerSub: '5. Assigning roles per SUBSCRIPTION (authoritative scope)...',
         whSubscription: '   Subscription $sub',
         whReservations: '6. Assigning RESERVATIONS (RIs) read access at TENANT level (Microsoft.Capacity)...',
@@ -167,6 +174,7 @@ const SCRIPT_I18N: Record<ScriptLocale, Record<string, string>> = {
         noteSecret: 'NOTE: The ClientSecret is visible ONLY ONCE. If you lose it, you must regenerate it.',
         noteEaMca: "NOTE: If you are using an EA/MCA subscription, ask the Billing Admin to assign 'Enrollment Reader' or 'Billing Account Reader' to the SP to see billing-account scope data.",
         noteReservations: "NOTE: If 'Reservations Reader' shows as [FAIL], a Reservations Administrator must assign it manually to the SP at scope '/providers/Microsoft.Capacity' (Portal > Reservations > Access control, or 'New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName ''Reservations Reader'' -Scope ''/providers/Microsoft.Capacity'''). Without this role, Shared/Single reservations (RIs) do not appear in the panel.",
+        noteMgmtGroup: "NOTE (IMPORTANT for performance): if 'Cost Management Reader' shows as [FAIL] at scope '/providers/Microsoft.Management/managementGroups/...', an Owner or User Access Administrator of the root management group must assign it manually ('New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName ''Cost Management Reader'' -Scope ''/providers/Microsoft.Management/managementGroups/$TenantId'''). Without that role the platform CANNOT query aggregated cost and must ask subscription by subscription: Azure returns 429 (Too many requests) and the historical cost and forecast panels end up degraded or empty.",
         noteAppRotation: "NOTE (secret rotation, Business+ tier): 'Application.ReadWrite.OwnedBy' was assigned to the SP, but that permission ONLY covers App Registrations the SP OWNS. For every app whose secret you want to rotate from the platform, add the SP as an owner: Portal > Entra ID > App registrations > (the app) > Owners > Add owners > search for '$AppName'. Without that step Microsoft Graph returns 403 and rotation cannot create the secret.",
     },
     'pt-BR': {
@@ -204,7 +212,10 @@ const SCRIPT_I18N: Record<ScriptLocale, Record<string, string>> = {
         whGraphAssigned: '   -> Permissões atribuídas. Requer ADMIN CONSENT no Azure Portal > App Registrations > $AppName > API Permissions',
         whGraphNotFoundPre: '   -> Papéis do MS Graph não localizados. Atribua',
         whGraphNotFoundPost: 'manualmente.',
-        whMgmtGroup: '4. Tentando atribuição no nível do MANAGEMENT GROUP raiz (opcional, melhora o desempenho)...',
+        whMgmtGroup: '4. Tentando atribuição no nível do MANAGEMENT GROUP raiz (recomendado, evita throttling)...',
+        whMgmtGroupNote1: '   Com esse escopo, o custo de TODAS as assinaturas é consultado em UMA única chamada.',
+        whMgmtGroupNote2: '   Sem ele, a plataforma consulta assinatura por assinatura e o Azure Cost Management',
+        whMgmtGroupNote3: "   responde 429 (Too many requests). Requer ser Owner ou User Access Administrator no MG raiz.",
         whAssigningPerSub: '5. Atribuindo papéis por ASSINATURA (escopo autoritativo)...',
         whSubscription: '   Assinatura $sub',
         whReservations: '6. Atribuindo leitura de RESERVAS (RIs) no nível de TENANT (Microsoft.Capacity)...',
@@ -218,6 +229,7 @@ const SCRIPT_I18N: Record<ScriptLocale, Record<string, string>> = {
         noteSecret: 'NOTA: O ClientSecret só é visível UMA VEZ. Se você o perder, deverá regenerá-lo.',
         noteEaMca: "NOTA: Se estiver usando uma assinatura EA/MCA, peça ao Billing Admin que atribua 'Enrollment Reader' ou 'Billing Account Reader' ao SP para ver dados de escopo billing-account.",
         noteReservations: "NOTA: Se 'Reservations Reader' aparecer como [FAIL], um Reservations Administrator deve atribuí-lo manualmente ao SP no escopo '/providers/Microsoft.Capacity' (Portal > Reservations > Access control, ou 'New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName ''Reservations Reader'' -Scope ''/providers/Microsoft.Capacity'''). Sem esse papel, as reservas (RIs) Shared/Single não aparecem no painel.",
+        noteMgmtGroup: "NOTA (IMPORTANTE para o desempenho): se 'Cost Management Reader' aparecer como [FAIL] no escopo '/providers/Microsoft.Management/managementGroups/...', um Owner ou User Access Administrator do management group raiz deve atribui-lo manualmente ('New-AzRoleAssignment -ObjectId $spId -RoleDefinitionName ''Cost Management Reader'' -Scope ''/providers/Microsoft.Management/managementGroups/$TenantId'''). Sem esse papel a plataforma NAO consegue consultar o custo agregado e precisa perguntar assinatura por assinatura: o Azure responde 429 (Too many requests) e os paineis de custo historico e previsao ficam degradados ou vazios.",
         noteAppRotation: "NOTA (rotacao de segredos, tier Business+): 'Application.ReadWrite.OwnedBy' foi atribuido ao SP, mas essa permissao SO alcanca as App Registrations das quais o SP e OWNER. Para cada app cujo segredo voce queira rotacionar pela plataforma, adicione o SP como owner: Portal > Entra ID > App registrations > (o app) > Owners > Add owners > busque '$AppName'. Sem esse passo o Microsoft Graph responde 403 e a rotacao nao consegue criar o segredo.",
     },
 };
@@ -521,6 +533,9 @@ if ($DirRole -and $RepRole -and $UserRole -and $OrgRole${auditLogCondition}${app
 }
 
 Write-Host "${S.whMgmtGroup}" -ForegroundColor Cyan
+Write-Host "${S.whMgmtGroupNote1}" -ForegroundColor DarkGray
+Write-Host "${S.whMgmtGroupNote2}" -ForegroundColor DarkGray
+Write-Host "${S.whMgmtGroupNote3}" -ForegroundColor DarkGray
 foreach ($r in @('Reader', 'Cost Management Reader')) {
     Try-AssignRole -ObjectId $spId -RoleName $r -Scope "/providers/Microsoft.Management/managementGroups/$TenantId"
 }
@@ -578,6 +593,10 @@ $output | ConvertTo-Json -Depth 5
 Write-Host ""
 Write-Host "${S.noteSecret}" -ForegroundColor Red
 Write-Host "${S.noteEaMca}" -ForegroundColor Yellow
-Write-Host "${S.noteReservations}" -ForegroundColor Yellow${appRotationNote}
+Write-Host "${S.noteReservations}" -ForegroundColor Yellow
+if ($script:assignmentLog | Where-Object { $_.Status -eq 'Failed' -and $_.Scope -like '*managementGroups*' }) {
+    Write-Host ""
+    Write-Host "${S.noteMgmtGroup}" -ForegroundColor Red
+}${appRotationNote}
 `;
 }
