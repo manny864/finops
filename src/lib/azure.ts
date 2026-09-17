@@ -195,9 +195,11 @@ export async function getSubscriptionsForTenant(
 ): Promise<string[]> {
   const cred = credential || (await getAzureCredential(tenantId));
   const subs = new Set<string>();
+  let armRespondio = false;
 
   try {
     const discovered = await listTenantSubscriptions(tenantId, cred);
+    armRespondio = true;
     for (const sub of discovered) {
       if (sub.subscriptionId && isSubscriptionStateEligible(sub.state)) {
         subs.add(String(sub.subscriptionId));
@@ -207,8 +209,12 @@ export async function getSubscriptionsForTenant(
     console.error(`[azure] Error fetching subscriptions for tenant ${tenantId}:`, e);
   }
 
-  for (const subId of await getStoredSubscriptionsForTenant(tenantId)) {
-    subs.add(subId);
+  // Si ARM respondió, su tenantId es la autoridad. Re-sumar snapshots acá
+  // reintroduce suscripciones de otros directorios que ARM acaba de descartar.
+  if (!armRespondio) {
+    for (const subId of await getStoredSubscriptionsForTenant(tenantId)) {
+      subs.add(subId);
+    }
   }
 
   // MEJ-25: la exclusión se aplica ACÁ TAMBIÉN, no sólo en
@@ -355,9 +361,11 @@ async function fetchAllSubscriptionsForTenant(
 ): Promise<string[]> {
   const cred = credential || (await getAzureCredential(tenantId));
   const subs = new Set<string>();
+  let armRespondio = false;
 
   try {
     const discovered = await listTenantSubscriptions(tenantId, cred);
+    armRespondio = true;
     for (const sub of discovered) {
       if (sub.subscriptionId && isSubscriptionStateEligible(sub.state)) {
         subs.add(String(sub.subscriptionId));
@@ -368,8 +376,12 @@ async function fetchAllSubscriptionsForTenant(
     console.error(`[azure] Error fetching subscriptions for tenant ${tenantId}:`, e);
   }
 
-  for (const subId of await getStoredSubscriptionsForTenant(tenantId)) {
-    subs.add(subId);
+  // Si ARM respondió, su tenantId es la autoridad. Re-sumar snapshots acá
+  // reintroduce suscripciones de otros directorios que ARM acaba de descartar.
+  if (!armRespondio) {
+    for (const subId of await getStoredSubscriptionsForTenant(tenantId)) {
+      subs.add(subId);
+    }
   }
 
   // MEJ-25: las suscripciones desvinculadas se filtran acá, el único punto por

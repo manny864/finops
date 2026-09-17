@@ -41,19 +41,20 @@ beforeEach(() => {
 describe("MEJ-25 — suscripciones desvinculadas", () => {
     it("excluye la suscripción desvinculada aunque ARM la devuelva en mayúsculas", async () => {
         const subs = await getAllSubscriptionsForTenant("tenant-1", credential);
-        expect(subs).toEqual([DB_SUB]);
+        expect(subs).toEqual([]);
     });
 
-    it("sin exclusiones devuelve todo lo descubierto", async () => {
+    it("sin exclusiones devuelve lo que ARM atribuye al tenant, no snapshots viejos", async () => {
         query.mockImplementation(async (sql: string) => {
             if (/CostSnapshots/i.test(sql)) return [[{ subscription_id: DB_SUB }]];
             return [[]];
         });
         const subs = await getAllSubscriptionsForTenant("tenant-1", credential);
-        expect(subs.sort()).toEqual([ARM_SUB, DB_SUB].sort());
+        expect(subs).toEqual([ARM_SUB]);
     });
 
-    it("si la tabla no existe todavía, no excluye nada", async () => {
+    it("si ARM no puede atribuir, no reintroduce snapshots viejos", async () => {
+        vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 500 })));
         query.mockImplementation(async (sql: string) => {
             if (/TenantExcludedSubscriptions/i.test(sql)) {
                 const err: any = new Error("Table doesn't exist");
@@ -64,6 +65,6 @@ describe("MEJ-25 — suscripciones desvinculadas", () => {
             return [[]];
         });
         const subs = await getAllSubscriptionsForTenant("tenant-1", credential);
-        expect(subs).toContain(ARM_SUB);
+        expect(subs).toEqual([]);
     });
 });
