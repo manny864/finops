@@ -78,6 +78,8 @@ jobs:
         run: |
           az containerapp revision label swap -g "$RG" -n "$APP" \
             --source testing --target produccion
+          az containerapp ingress traffic set -g "$RG" -n "$APP" \
+            --label-weight produccion=100 testing=0
 
       # Recién ahora los cron jobs pasan a la imagen nueva: hasta este punto
       # seguían corriendo la que estaba en producción, para que una revisión sin
