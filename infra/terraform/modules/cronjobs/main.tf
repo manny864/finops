@@ -212,10 +212,27 @@ locals {
             // La app YA distingue los dos casos --`recordCronRun` registra
             // `status: "warning"` cuando hay fallas parciales-- y ese matiz se
             // perdia aca, que es el unico lugar que Azure mira. Si al menos un
-            // tenant termino bien, el barrido funciono: sale 0 y el detalle
-            // queda en el log. Si no termino ninguno, es una falla de verdad.
-            var parcial = typeof status.tenantsOk === 'number' && status.tenantsOk > 0 &&
-                          typeof status.tenantsTotal === 'number' && status.tenantsOk < status.tenantsTotal;
+            // tenant/workload/endpoint termino bien, el barrido funciono: sale
+            // 0 y el detalle queda en el log. Si no termino ninguno, es una
+            // falla de verdad.
+            //
+            // Tres convenciones de nombres conviven en los distintos jobs
+            // (prewarm-dashboard: tenantsOk/tenantsTotal; prewarm-compute:
+            // workloadsSuccess/workloadsTotal; prewarm-databases y
+            // prewarm-daily: endpointsSuccess/endpointsTotal). Verificado en
+            // prod el 2026-09-17: un solo timeout de 90s en un endpoint de
+            // diagnóstico (de 25-60 por corrida) marcaba TODA la ejecución
+            // Failed en Azure porque este runner sólo miraba tenantsOk, que
+            // ni prewarm-compute ni prewarm-databases/-daily reportan. Se
+            // generaliza a las tres formas en vez de hardcodear una sola.
+            var okCount = typeof status.tenantsOk === 'number' ? status.tenantsOk
+              : typeof status.workloadsSuccess === 'number' ? status.workloadsSuccess
+              : status.endpointsSuccess;
+            var totalCount = typeof status.tenantsTotal === 'number' ? status.tenantsTotal
+              : typeof status.workloadsTotal === 'number' ? status.workloadsTotal
+              : status.endpointsTotal;
+            var parcial = typeof okCount === 'number' && okCount > 0 &&
+                          typeof totalCount === 'number' && okCount < totalCount;
             var exito = status.ok || parcial;
             console.log(JSON.stringify({
               job: process.env.CRON_JOB,
