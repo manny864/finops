@@ -3,66 +3,124 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
 
-const tf = readFileSync(join(__dirname, "..", "..", "infra/terraform/modules/cronjobs/main.tf"), "utf8");
-
 /**
- * Una falla PARCIAL de un cron no es una falla del job.
+ * El runner de los Container App Jobs vive como JS embebido en el `command` del
+ * job, dentro del modulo de terraform. No se puede importar, asi que el test
+ * EXTRAE el fragmento de decision del .tf y lo evalua: se prueba el codigo que
+ * realmente se despliega, no una copia.
  *
- * `prewarm-dashboard` terminaba con `tenantsOk: 4, tenantsTotal: 5, ok: false`
- * — cuatro de cinco tenants bien y uno mal configurado. `ok` es todo-o-nada
- * (`okCount === results.length`), así que el runner salía con 1, Azure marcaba
- * la ejecución fallida y disparaba una alerta. Cada 10 minutos: 100 de 200
- * ejecuciones en rojo.
+ * POR QUE EXISTE ESTE TEST
+ * Una falla parcial no es una falla del job: si 24 de 25 workloads se
+ * precalentaron, el barrido funciono y el que falto se calcula on-demand.
+ * Marcar la ejecucion como Failed genera una alerta por corrida y entrena a
+ * todo el mundo a ignorarlas -- y ahi se pierde la alerta legitima.
  *
- * La aplicación YA distinguía los dos casos (`recordCronRun` registra
- * `status: "warning"` ante fallas parciales); el matiz se perdía en el exit
- * code, que es lo único que Azure mira.
- *
- * El costo no era el ruido sino la señal: una alerta legítima se perdía entre
- * cien falsas.
+ * Ya se arreglo una vez (2026-09-17) y no funciono: el arreglo usaba DOS
+ * cadenas de precedencia independientes, una para el exito y otra para el
+ * total, que podian resolver en dimensiones distintas. `prewarm-compute`
+ * reporta `tenantsTotal: 5` Y `workloadsTotal: 25`, asi que comparaba 24
+ * workloads exitosos contra 5 tenants totales: `24 < 5` es falso, no detectaba
+ * la parcialidad y salia con codigo 1 igual. Medido en prod el 2026-09-18:
+ * prewarm-compute fallo 5 de 24 corridas y prewarm-databases 11 de 24.
  */
-describe("el runner de cron distingue parcial de fallido", () => {
-    /** Extrae el fragmento de decisión y lo evalúa como el runner lo evaluaría. */
-    function decidir(status: Record<string, unknown>): { exito: boolean; codigo: number } {
-        const parcial =
-            typeof status.tenantsOk === "number" && status.tenantsOk > 0 &&
-            typeof status.tenantsTotal === "number" && status.tenantsOk < (status.tenantsTotal as number);
-        const exito = Boolean(status.ok) || parcial;
-        return { exito, codigo: status.ok ? 200 : parcial ? 207 : 500 };
+const TF = join(__dirname, "..", "..", "infra/terraform/modules/cronjobs/main.tf");
+
+type Decision = { okCount: unknown; totalCount: unknown; parcial: boolean; exito: boolean };
+
+function decidir(status: Record<string, unknown>): Decision {
+    const tf = readFileSync(TF, "utf8");
+    const ini = tf.indexOf("var par = typeof status.tenantsOk");
+    const marcaFin = "var exito = status.ok || parcial;";
+    const fin = tf.indexOf(marcaFin) + marcaFin.length;
+    if (ini < 0 || fin < marcaFin.length) throw new Error("no se encontro el fragmento de decision en el .tf");
+    const snippet = tf.slice(ini, fin);
+    return new Function("status", `${snippet}; return { okCount, totalCount, parcial, exito };`)(status) as Decision;
+}
+
+/** Cuerpos REALES observados en Log Analytics el 2026-09-18. */
+const PARCIALES: Array<[string, Record<string, unknown>]> = [
+    [
+        "compute 24 de 25 workloads",
+        { ok: false, processedTenants: 5, tenantsTotal: 5, workloadsTotal: 25, workloadsSuccess: 24, workloadsFailed: 1 },
+    ],
+    [
+        "databases 58 de 60 endpoints",
+        { ok: false, processedTenants: 5, tenantsTotal: 5, endpointsTotal: 60, endpointsSuccess: 58, endpointsFailed: 2 },
+    ],
+    [
+        "databases 56 de 60 endpoints",
+        { ok: false, processedTenants: 5, tenantsTotal: 5, endpointsTotal: 60, endpointsSuccess: 56, endpointsFailed: 4 },
+    ],
+    ["dashboard 3 de 5 tenants", { ok: false, tenantsOk: 3, tenantsTotal: 5 }],
+];
+
+describe("una falla parcial no marca fallido al job", () => {
+    for (const [nombre, status] of PARCIALES) {
+        it(`${nombre}: sale con exito`, () => {
+            const d = decidir(status);
+            expect(d.parcial).toBe(true);
+            expect(d.exito).toBe(true);
+        });
     }
 
-    it("4 de 5 tenants OK sale 0, no 1", () => {
-        const r = decidir({ done: true, ok: false, tenantsTotal: 5, tenantsOk: 4, tenantsFailed: 1 });
-        expect(r.exito, "una falla parcial no puede marcar el job como fallido").toBe(true);
-        expect(r.codigo).toBe(207);
+    it("el exito y el total se leen de la MISMA dimension", () => {
+        // El bug: `prewarm-compute` trae tenantsTotal(5) y workloadsTotal(25).
+        // Si el total se resuelve por su cuenta, gana tenantsTotal y la
+        // comparacion queda sin sentido.
+        const d = decidir({
+            ok: false,
+            tenantsTotal: 5,
+            workloadsTotal: 25,
+            workloadsSuccess: 24,
+        });
+        expect(d.okCount).toBe(24);
+        expect(d.totalCount).toBe(25);
+    });
+});
+
+/**
+ * La version anterior de este test REIMPLEMENTABA la decision en TypeScript en
+ * vez de leerla del .tf. Por eso quedo en verde mientras produccion seguia
+ * marcando ejecuciones fallidas: el test probaba una copia correcta de una
+ * logica que en el archivo real estaba mal. De ahi que ahora se extraiga y
+ * evalue el fragmento, y que estos guards miren el texto del modulo.
+ */
+describe("la logica vive en el terraform, no solo en el test", () => {
+    const tf = readFileSync(TF, "utf8");
+
+    it("el par exito/total se resuelve junto", () => {
+        expect(tf).toContain("var par = typeof status.tenantsOk === 'number'");
+        expect(tf).toContain("var okCount = par[0];");
+        expect(tf).toContain("var totalCount = par[1];");
     });
 
-    it("cero tenants OK sigue siendo falla", () => {
-        // Si no terminó ninguno, el barrido no funcionó y la alerta es legítima.
-        const r = decidir({ done: true, ok: false, tenantsTotal: 5, tenantsOk: 0, tenantsFailed: 5 });
-        expect(r.exito).toBe(false);
-        expect(r.codigo).toBe(500);
+    it("no vuelven las dos cadenas independientes", () => {
+        // Es la forma exacta que fallaba: el total resolviendose por su cuenta.
+        expect(tf, "volvio la cadena independiente para el total").not.toMatch(
+            /var totalCount = typeof status\.tenantsTotal === 'number' \? status\.tenantsTotal/,
+        );
     });
 
-    it("todo OK sigue siendo 200", () => {
-        const r = decidir({ done: true, ok: true, tenantsTotal: 5, tenantsOk: 5, tenantsFailed: 0 });
-        expect(r.exito).toBe(true);
-        expect(r.codigo).toBe(200);
-    });
-
-    it("un job sin contadores de tenant no se ve afectado", () => {
-        // Los jobs que no reportan tenantsOk/tenantsTotal mantienen el
-        // comportamiento anterior: `ok` manda.
-        expect(decidir({ done: true, ok: false }).exito).toBe(false);
-        expect(decidir({ done: true, ok: true }).exito).toBe(true);
-    });
-
-    it("el terraform lleva la lógica, no sólo este test", () => {
-        expect(tf).toContain("var parcial = typeof status.tenantsOk === 'number'");
-        // `salir()` y no `process.exit()`: ver cronSalidaLimpia.test.ts — los
-        // jobs rápidos quedaban Failed habiendo terminado bien.
+    it("no vuelve el todo-o-nada en la salida", () => {
+        // `salir()` y no `process.exit()`: ver cronSalidaLimpia.test.ts -- los
+        // jobs rapidos quedaban Failed habiendo terminado bien.
         expect(tf).toMatch(/salir\(exito \? 0 : 1\)/);
-        expect(tf, "volvió el todo-o-nada").not.toMatch(/\bsalir\(status\.ok \? 0 : 1\)/);
-        expect(tf, "volvió el todo-o-nada").not.toMatch(/process\.exit\(status\.ok \? 0 : 1\)/);
+        expect(tf, "volvio el todo-o-nada").not.toMatch(/\bsalir\(status\.ok \? 0 : 1\)/);
+        expect(tf, "volvio el todo-o-nada").not.toMatch(/process\.exit\(status\.ok \? 0 : 1\)/);
+    });
+});
+
+describe("una falla real sigue alertando", () => {
+    it("cero exitos sale con codigo de error", () => {
+        // Es lo que el arreglo NO puede romper: si se silencia todo, la alerta
+        // deja de servir para lo unico que importa.
+        const d = decidir({ ok: false, tenantsTotal: 5, workloadsTotal: 25, workloadsSuccess: 0, workloadsFailed: 25 });
+        expect(d.parcial).toBe(false);
+        expect(d.exito).toBe(false);
+    });
+
+    it("una corrida entera exitosa sale bien", () => {
+        const d = decidir({ ok: true, tenantsTotal: 5, workloadsTotal: 25, workloadsSuccess: 25, workloadsFailed: 0 });
+        expect(d.exito).toBe(true);
     });
 });

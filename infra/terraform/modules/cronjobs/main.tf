@@ -225,12 +225,24 @@ locals {
             // Failed en Azure porque este runner sólo miraba tenantsOk, que
             // ni prewarm-compute ni prewarm-databases/-daily reportan. Se
             // generaliza a las tres formas en vez de hardcodear una sola.
-            var okCount = typeof status.tenantsOk === 'number' ? status.tenantsOk
-              : typeof status.workloadsSuccess === 'number' ? status.workloadsSuccess
-              : status.endpointsSuccess;
-            var totalCount = typeof status.tenantsTotal === 'number' ? status.tenantsTotal
-              : typeof status.workloadsTotal === 'number' ? status.workloadsTotal
-              : status.endpointsTotal;
+            // EL PAR SE ELIGE JUNTO, no con dos cadenas independientes.
+            //
+            // Con una cadena para el exito y otra para el total, cada una podia
+            // resolver en una DIMENSION DISTINTA. `prewarm-compute` reporta
+            // `tenantsTotal: 5` Y `workloadsTotal: 25`: el exito salia de
+            // workloads (24) y el total de tenants (5), asi que `24 < 5` daba
+            // false, `parcial` quedaba en false y el job salia con codigo 1.
+            //
+            // O sea que el arreglo del 2026-09-17 no llegaba a aplicarse justo
+            // en los dos jobs que venia a arreglar. Medido en prod el
+            // 2026-09-18: prewarm-compute fallo 5 de 24 corridas y
+            // prewarm-databases 11 de 24, SIEMPRE con exito parcial
+            // (24/25, 58/60, 59/60...) y nunca con cero exitos.
+            var par = typeof status.tenantsOk === 'number' ? [status.tenantsOk, status.tenantsTotal]
+              : typeof status.workloadsSuccess === 'number' ? [status.workloadsSuccess, status.workloadsTotal]
+              : [status.endpointsSuccess, status.endpointsTotal];
+            var okCount = par[0];
+            var totalCount = par[1];
             var parcial = typeof okCount === 'number' && okCount > 0 &&
                           typeof totalCount === 'number' && okCount < totalCount;
             var exito = status.ok || parcial;
