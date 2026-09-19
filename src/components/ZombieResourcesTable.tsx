@@ -36,7 +36,7 @@ function sugerirEtiquetas(resourceGroup?: string, resourceName?: string): Record
   const entorno = /\bprod/.test(texto) ? "prod" : /\bstg|staging/.test(texto) ? "stg" : /\bqa\b/.test(texto) ? "qa" : /\bdev/.test(texto) ? "dev" : "";
   return { ...ETIQUETAS_VACIAS, ...(entorno && "Environment" in ETIQUETAS_VACIAS ? { Environment: entorno } : {}) };
 }
-import { canDeleteResources, canRemediateTags } from "@/lib/tierLogic";
+import { canDeleteResources, canRemediateTags, getDeleteRemediationTier, getTagRemediationTier } from "@/lib/tierLogic";
 import EnterpriseDeleteDisclaimer from "@/components/EnterpriseDeleteDisclaimer";
 import { usePendingDeletionsStore } from "@/store/pendingDeletionsStore";
 import ResizableTh from "@/components/ResizableTh";
@@ -608,6 +608,12 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
   const hasLockedItems = useMemo(() => filteredData.some((item) => item.isLocked), [filteredData]);
   const canDelete = canDeleteResources(selectedTenant.tier, "zombies");
   const canTag = canRemediateTags(selectedTenant.tier);
+  // El plan que el cartel nombra sale del MISMO helper que decide la compuerta.
+  // Estaba escrito "Enterprise" a mano y las dos acciones habilitan desde
+  // Business, asi que a un cliente Business se le ofrecia comprar algo que ya
+  // tenia -- y a uno Professional se le pedia un plan de mas.
+  const tierParaBorrar = getDeleteRemediationTier("zombies");
+  const tierParaEtiquetar = getTagRemediationTier();
   const canDeleteDirect = canDelete && (userRole === "Admin" || userRole === "Owner" || systemRole === "SUPERADMIN");
   const canRequestDelete = canDelete && !canDeleteDirect;
 
@@ -881,7 +887,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                         setTagValues(ETIQUETAS_VACIAS);
                       }}
                       disabled={!canTag}
-                      title={!canTag ? t("enterpriseTooltip") : ""}
+                      title={!canTag ? t("tierRequiredTooltip", { tier: tierParaEtiquetar }) : ""}
                       className={`px-2.5 py-1 rounded-lg text-xs font-semibold shadow-xs transition-all flex items-center gap-1 ${
                         !canTag
                           ? "bg-slate-50 text-slate-400 border border-slate-200 cursor-not-allowed"
@@ -967,9 +973,9 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 ) : (
                   <span
                     className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-slate-900 text-slate-400 border border-slate-200 dark:border-slate-700"
-                    title={t("enterpriseTooltip")}
+                    title={t("tierRequiredTooltip", { tier: tierParaBorrar })}
                   >
-                    {t("enterprise")}
+                    {tierParaBorrar}
                   </span>
                 )}
                 {item.isExempted ? (
@@ -1227,7 +1233,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
                 setTagValues(ETIQUETAS_VACIAS);
               }}
               disabled={!canTag}
-              title={!canTag ? t("enterpriseTooltip") : ""}
+              title={!canTag ? t("tierRequiredTooltip", { tier: tierParaEtiquetar }) : ""}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 shadow-xs ${
                 !canTag
                   ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
@@ -1267,9 +1273,9 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
             ) : (
               <span
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-900 text-slate-400 border border-slate-200"
-                title={t("enterpriseTooltip")}
+                title={t("tierRequiredTooltip", { tier: tierParaBorrar })}
               >
-                {t("deleteRequiresEnterprise")}
+                {t("deleteRequiresTier", { tier: tierParaBorrar })}
               </span>
             )}
 

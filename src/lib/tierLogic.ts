@@ -67,8 +67,24 @@ export function getDeleteRemediationTier(domain: DeleteResourceDomain): string {
  * onboardingScriptTemplate.ts). Professional ve el score de
  * cumplimiento pero no puede disparar la remediación automática.
  */
+const TAG_REMEDIATION_TIER = 'Business';
+
 export function canRemediateTags(currentTier?: string | null): boolean {
-    return hasAccess(currentTier || '', 'Business');
+    return hasAccess(currentTier || '', TAG_REMEDIATION_TIER);
+}
+
+/**
+ * Tier mínimo para el auto-fix de etiquetas, para que la UI muestre el MISMO
+ * plan que el chequeo exige.
+ *
+ * Existe por un desfasaje real: los carteles de la tabla de zombis decían
+ * "requiere Enterprise" para dos acciones que en realidad habilitan desde
+ * Business, así que a un cliente Business se le ofrecía comprar algo que ya
+ * tenía. Con el valor hardcodeado en el texto, nada ataba la etiqueta al
+ * chequeo y podían volver a separarse.
+ */
+export function getTagRemediationTier(): string {
+    return TAG_REMEDIATION_TIER;
 }
 
 /**
