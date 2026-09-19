@@ -166,5 +166,23 @@ cron_jobs = {
 
   # Alimenta /api/status y /status. Autentica por query param, no por header.
   status-snapshot = { cron = "*/5 * * * *", timeout_seconds = 120, auth_mode = "query" }
+
+  # Persiste en MySQL los contadores de llamadas a las APIs de Azure. Redis no
+  # es un almacén: sin persistencia, con AllKeysLRU y TTL de 8 días, la
+  # telemetría se pierde en cada reinicio del cache.
+  #
+  # ESTUVO AUSENTE ENTRE EL 2026-09-16 Y EL 2026-09-19. Se creó el 09-15 desde
+  # el terraform.tfvars gitignored, pero al migrar los cron a este archivo no se
+  # copió la entrada — y como este archivo pisa `cron_jobs` ENTERO (no hace
+  # merge por clave), el apply siguiente borró el job de Azure sin que nadie lo
+  # notara. Es exactamente el modo de falla que el encabezado advierte.
+  #
+  # Minuto 13 y no 5: el 5 lo ocupa status-snapshot (*/5). No pega a Cost
+  # Management --sólo lee Redis y escribe MySQL-- así que no compite con los
+  # prewarm, pero igual se le da un minuto propio.
+  #
+  # Cada corrida vuelca 12 h hacia atrás, así que saltear una ejecución no
+  # pierde datos: la siguiente los recupera.
+  azure-api-usage-rollup = { cron = "13 * * * *" }
 }
 
