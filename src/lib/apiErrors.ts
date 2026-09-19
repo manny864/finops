@@ -107,10 +107,23 @@ export function azureErrorResponse(error: unknown, context: string): NextRespons
 
     if (code === 'AuthorizationFailed' || status === 403) {
         console.error(`[api-error] ${context}:`, error);
+        // NO es un problema de plan. El tier ya se validó antes (requireTenantTier,
+        // que responde su propio 403 con AuthError): si la request llegó hasta
+        // Azure y Azure dijo que no, lo que falta es una ACCION en el rol custom
+        // de remediación del Service Principal, y eso se arregla volviendo a
+        // correr el script de onboarding — no comprando un upgrade.
+        //
+        // Se expone la acción que Azure nombra, que es lo único accionable, pero
+        // NO el mensaje crudo: ese trae el client id y el object id del SP
+        // (disclosure de infra innecesario, mismo criterio que el resto).
+        const accion = accionDenegada(error);
         return NextResponse.json(
             {
                 error: 'MISSING_CONTRIBUTOR_ROLE',
-                details: 'La aplicación no tiene permisos de Contributor sobre este recurso en Azure.',
+                action: accion,
+                details: accion
+                    ? `El Service Principal de la aplicación no tiene la acción "${accion}" sobre este recurso. Volvé a ejecutar el script de onboarding para actualizar el rol de remediación.`
+                    : 'El Service Principal de la aplicación no tiene permiso sobre este recurso en Azure. Volvé a ejecutar el script de onboarding para actualizar el rol de remediación.',
             },
             { status: 403 }
         );
@@ -122,6 +135,20 @@ export function azureErrorResponse(error: unknown, context: string): NextRespons
     }
 
     return serverError(error, { context });
+}
+
+/**
+ * La acción RBAC que Azure dice que falta, sacada del mensaje del 403.
+ *
+ * Azure lo redacta así: `... does not have authorization to perform action
+ * 'microsoft.web/connections/delete' over scope '/subscriptions/...'`. Se saca
+ * SOLO la acción: el resto del mensaje lleva el client id y el object id del
+ * Service Principal, y el scope lleva el id de suscripción.
+ */
+export function accionDenegada(error: unknown): string | undefined {
+    const texto = `${azureErrorText(error, '')} ${errorMessage(error, '')}`;
+    const match = texto.match(/perform action '([^']+)'/i);
+    return match ? match[1] : undefined;
 }
 
 /** Texto legible de un error de Azure: `details.error.message` cuando existe. */
