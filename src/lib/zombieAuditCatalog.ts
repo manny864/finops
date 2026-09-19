@@ -90,6 +90,29 @@ export interface MappedZombieResourceItem {
     [key: string]: any;
 }
 
+/**
+ * Si un tipo de recurso es de BORRADO MANUAL, o sea que la plataforma lo
+ * muestra como hallazgo pero no lo elimina: se gestiona desde Azure.
+ *
+ * No es una limitación técnica sino de alcance del producto. Borrar estos
+ * tipos exige permisos de Contributor sobre la suscripción del cliente, que es
+ * justamente lo que el onboarding NO pide: el rol custom de remediación
+ * (`BUSINESS_CUSTOM_ACTIONS` en onboardingScriptTemplate.ts) sólo lleva las
+ * acciones de borrado de los tipos que sí soportamos.
+ *
+ * El catálogo ya trae el dato por regla; esto lo indexa por `armType` para que
+ * el servidor pueda decidir sin depender de qué pantalla hizo el pedido.
+ * Verificado: los 41 armTypes del catálogo tienen un valor consistente, o sea
+ * que no hay un tipo que sea borrable por una regla y manual por otra.
+ */
+export function esBorradoManual(armType: string | undefined | null): boolean {
+    if (!armType) return false;
+    const buscado = String(armType).toLowerCase();
+    return Object.values(UNIFIED_AUDIT_RESOURCE_CONFIG).some(
+        (config) => config.manualDelete && config.armType.toLowerCase() === buscado,
+    );
+}
+
 export function mapAuditToUnifiedZombieList(auditResults: Record<string, any[]>): MappedZombieResourceItem[] {
     const seenIds = new Set<string>();
     const result: MappedZombieResourceItem[] = [];

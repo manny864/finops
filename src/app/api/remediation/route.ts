@@ -7,6 +7,7 @@ import { redis } from "@/lib/redis";
 import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
 import { azureErrorResponse } from "@/lib/apiErrors";
+import { esBorradoManual } from "@/lib/zombieAuditCatalog";
 
 const DELETE_DOMAINS = new Set<DeleteResourceDomain>(["zombies", "networking", "ttl", "advisor"]);
 
@@ -24,6 +25,26 @@ export async function POST(request: NextRequest) {
     if (!domain || !DELETE_DOMAINS.has(domain)) {
       return NextResponse.json({ error: "Falta o es inválido el parámetro domain (zombies/networking/ttl/advisor)" }, { status: 400 });
     }
+    // Hay tipos que la plataforma DETECTA pero no elimina: se gestionan desde
+    // Azure porque borrarlos exige Contributor sobre la suscripción del cliente,
+    // que es un permiso que el onboarding deliberadamente no pide.
+    //
+    // El guard va acá y no sólo en la UI porque la UI ya lo tenía --el botón
+    // viene deshabilitado y `handleDelete` corta-- y aun así llegó un DELETE de
+    // un `microsoft.web/connections` (prod, 2026-09-15). Sin este chequeo el
+    // pedido viajaba hasta ARM y volvía un 403 de Azure: un error de permisos
+    // para algo que en realidad el producto no ofrece, que es un diagnóstico
+    // equivocado y manda a pedir permisos que no hacen falta.
+    if (esBorradoManual(resourceType)) {
+      return NextResponse.json(
+        {
+          error: "RESOURCE_TYPE_NOT_DELETABLE",
+          details: `El tipo ${resourceType} se gestiona desde Azure: la plataforma lo detecta pero no lo elimina.`,
+        },
+        { status: 400 }
+      );
+    }
+
     // Eliminar un recurso de Azure es una acción destructiva e irreversible:
     // solo Admin/Owner del tenant (mismo criterio que remediation/downgrade,
     // tags/apply y el GET de zombies/networking, que ya exige Admin/Owner
