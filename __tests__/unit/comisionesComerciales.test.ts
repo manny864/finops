@@ -28,7 +28,17 @@ const deal = (over: Record<string, unknown> = {}) => [[{
     ...over,
 }]];
 
-const conCuotasPrevias = (n: number) => [[{ n }]];
+/**
+ * Lo que devuelve el SELECT de cuotas previas.
+ *
+ * Desde la auditoría de los caminos de plata (2026-09-21) la consulta pregunta
+ * por `MAX(installment_number)` y no por `COUNT(*)` de las no canceladas: una
+ * cuota cancelada es un lugar gastado, no uno libre. Para una secuencia sin
+ * bajas los dos números coinciden, así que los casos de acá no cambian de
+ * significado — sólo la forma de la fila. El caso que los distingue (baja y
+ * realta) vive en comisionesReembolsoYRealta.test.ts.
+ */
+const conCuotasPrevias = (n: number) => [[{ ultima: n }]];
 
 beforeEach(() => queryMock.mockReset());
 

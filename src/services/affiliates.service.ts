@@ -193,13 +193,25 @@ export async function revertirComision(transactionId: string): Promise<{ reverti
     if (!transactionId) return { revertidas: 0 };
     try {
         const [res] = await pool.query<any>(
+            // SIN filtrar por beneficiary_type: `Commissions` es el libro
+            // UNIFICADO (migración 20260913-006) y un mismo cobro puede haberle
+            // devengado al afiliado Y al comercial. Mientras esto decía
+            // `beneficiary_type = 'affiliate'`, un reembolso revertía la comisión
+            // del afiliado y dejaba en pie la del comercial: la casa devolvía la
+            // plata al cliente y igual le pagaba el 20% a quien la vendió. El
+            // filtro no estaba mal cuando se escribió --sólo existían las de
+            // afiliado-- pero quedó viejo seis días después, cuando el motor del
+            // comercial empezó a escribir en la misma tabla.
+            //
+            // PAID queda afuera a propósito, igual que antes: descontar algo ya
+            // pagado es una decisión contable, no el efecto de un webhook.
             `UPDATE Commissions SET status = 'REVERSED'
-             WHERE beneficiary_type = 'affiliate' AND paddle_transaction_id = ?
+             WHERE paddle_transaction_id = ?
                AND status IN ('PENDING', 'DUE', 'APPROVED')`,
             [transactionId]
         );
         const revertidas = Number(res?.affectedRows || 0);
-        if (revertidas > 0) console.log(`[affiliates] comisión revertida por reembolso (txn ${transactionId})`);
+        if (revertidas > 0) console.log(`[comisiones] ${revertidas} comisión(es) revertida(s) por reembolso (txn ${transactionId})`);
         return { revertidas };
     } catch (e) {
         console.error(`[affiliates] no se pudo revertir la comisión de la txn ${transactionId}:`, errorMessage(e));

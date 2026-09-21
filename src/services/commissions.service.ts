@@ -142,23 +142,37 @@ export async function devengarComisionComercial(params: {
         const { deal, motivo } = await leerDeal(tenantId);
         if (!deal) return { devengada: false, motivo };
 
+        // La ÚLTIMA cuota usada, no el conteo de las vivas.
+        //
+        // Con `COUNT(*) ... AND status <> 'CANCELLED'` un tenant que se da de
+        // baja y vuelve queda trabado para siempre: el churn deja las cuotas en
+        // CANCELLED pero les conserva su `installment_number`, así que el conteo
+        // baja mientras la fila sigue ocupando su lugar en
+        // `uq_commission_installment`. Con cuotas 1-3 y la 3 cancelada, el conteo
+        // da 2, la próxima se numera 3, choca con la cancelada, el INSERT IGNORE
+        // la descarta y la función informa "ya-devengada" -- que parece la
+        // idempotencia funcionando cuando en realidad es una comisión que el
+        // comercial se ganó y nadie le acredita. Y no se destraba nunca: cada
+        // cobro siguiente repite el mismo choque.
+        //
+        // Un MAX no se confunde: una cuota cancelada o revertida es un lugar
+        // GASTADO, no uno libre. El que vuelve sigue en la 4.
         const [previas] = await pool.query<any[]>(
-            `SELECT COUNT(*) AS n FROM Commissions
-              WHERE beneficiary_type = 'sales_rep' AND tenant_id = ?
-                AND status <> 'CANCELLED'`,
+            `SELECT COALESCE(MAX(installment_number), 0) AS ultima FROM Commissions
+              WHERE beneficiary_type = 'sales_rep' AND tenant_id = ?`,
             [tenantId]
         );
-        const yaDevengadas = Number(previas?.[0]?.n || 0);
+        const ultimaCuota = Number(previas?.[0]?.ultima || 0);
 
         const total = deal.contractTerm === "annual" ? 1 : CUOTAS_MENSUALES;
-        if (yaDevengadas >= total) {
+        if (ultimaCuota >= total) {
             // Anual: el 20% es por única vez, la renovación del año que viene no
             // vuelve a pagarlo. Mensual: a las 12 cuotas está completo el 20%
             // anualizado y el mes 13 no devenga nada.
             return { devengada: false, motivo: "comision-anualizada-completa" };
         }
 
-        const cuota = yaDevengadas + 1;
+        const cuota = ultimaCuota + 1;
         const monto = calcularMonto(baseAmount, deal.pct);
         if (new Decimal(monto).lte(0)) return { devengada: false, motivo: "comision-cero" };
 
