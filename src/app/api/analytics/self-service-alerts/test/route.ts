@@ -1,10 +1,17 @@
 /**
  * POST /api/analytics/self-service-alerts/test
  * Motor de Prueba de Entrega (Test Payload Engine)
+ *
+ * RBAC: `requireTenantRole(['Admin','Owner'])`, igual que crear/editar/borrar una
+ * regla en la ruta hermana. Era `requireTenantAccess` (cualquier miembro) y eso
+ * lo convertia en la UNICA operacion mutante del modulo abierta a un Reader
+ * --mutante porque dispara un POST saliente desde nuestra infraestructura hacia
+ * una URL que manda el cliente en el body. Ver SEC-01 de
+ * docs/security/audit-2026-09-21.md.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import { testAlertRuleDelivery } from "@/services/azureSelfServiceAlerts.service";
 import { SelfServiceAlertRule } from "@/types/azureSelfServiceAlerts.types";
@@ -21,7 +28,7 @@ export async function POST(request: NextRequest) {
     const isMock = isMockTenant(tenantId);
 
     if (!isMock) {
-      await requireTenantAccess(request, tenantId);
+      await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
     }
 
     const rule: SelfServiceAlertRule = await request.json();

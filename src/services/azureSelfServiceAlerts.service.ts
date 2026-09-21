@@ -14,6 +14,7 @@ import {
   SelfServiceAlertsPayload,
   AlertTestResult,
 } from "@/types/azureSelfServiceAlerts.types";
+import { assertSafeWebhookUrl } from "@/lib/webhookSecurity";
 import { sendEmailStrict, getAlertTestEmailHtml, getNoReplyDisclaimer } from "@/lib/emailHelper";
 
 /**
@@ -398,8 +399,30 @@ export async function testAlertRuleDelivery(
   const targetUrl = rule.channelConfig.webhookUrl || rule.channelConfig.channelTarget;
 
   if (targetUrl && (targetUrl.startsWith("http://") || targetUrl.startsWith("https://"))) {
+    // SEC-01 (auditoria 2026-09-21): la URL viene en el BODY del request, no de
+    // la regla guardada, asi que es enteramente del cliente. Sin este guard el
+    // endpoint era un relay: POST arbitrario desde nuestra infraestructura a
+    // cualquier host --incluido `http://` plano, 169.254.169.254 y RFC1918-- y
+    // el status HTTP volvia al llamador, o sea un oraculo para barrer la red
+    // interna. La ruta hermana /api/admin/config/integrations/test-webhook ya
+    // lo hacia bien; esta se habia quedado atras.
+    let destino: URL;
     try {
-      const response = await fetch(targetUrl, {
+      destino = await assertSafeWebhookUrl(targetUrl);
+    } catch (urlErr: any) {
+      return {
+        success: false,
+        httpStatusCode: 400,
+        responseMessage: `Destino de webhook rechazado: ${urlErr?.message || "URL no permitida"}`,
+        messageKey: "testConnectionFailed",
+        messageParams: { error: urlErr?.message || "URL no permitida" },
+        testedAt,
+        payloadPreview,
+      };
+    }
+
+    try {
+      const response = await fetch(destino.toString(), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -407,6 +430,7 @@ export async function testAlertRuleDelivery(
         },
         body: JSON.stringify(payloadPreview),
         signal: AbortSignal.timeout(6000),
+        redirect: "error", // un 302 sacaria el POST de la allow-list
       });
 
       return {
