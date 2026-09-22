@@ -92,8 +92,8 @@ jobs:
   #
   # Cuesta ~3 min de runner duplicados por deploy. Es el precio de que la puerta
   # no tenga partes moviles.
-  pruebas:
-    name: Tests (puerta del deploy)
+  verificacion:
+    name: Typecheck + tests (puerta del deploy)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -103,6 +103,16 @@ jobs:
           cache: 'npm'
           cache-dependency-path: package-lock.json
       - run: npm ci --no-audit --no-fund --prefer-offline --loglevel=error
+      # Typecheck primero: es mas barato que la suite y si los tipos no cierran
+      # lo que digan los tests importa poco. Va en ESTE job y no en uno aparte
+      # para reusar el `npm ci`, que cuesta mas que el chequeo mismo.
+      #
+      # Igual que el de tests, no estaba cubierto en push a main: el `typecheck`
+      # de ci.yml corre solo en pull_request. Un error de compilacion si llegaba
+      # a frenarse --el build de ACR lo agarra durante el deploy-- pero recien
+      # ahi, con los ~8 min del build ya gastados; y `tsc --noEmit` ve cosas que
+      # `next build` no, porque el build solo compila lo que entra en el bundle.
+      - run: npm run typecheck -- --pretty false
       - name: Run tests
         run: npm test -- --reporter=default --reporter=json --outputFile=vitest-report.json
         env:
@@ -119,7 +129,7 @@ jobs:
           retention-days: 14
 
   deploy:
-    needs: pruebas
+    needs: verificacion
     runs-on: ubuntu-latest
     environment: prod
     steps:
