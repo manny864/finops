@@ -6481,6 +6481,8 @@
     "company": "Company name",
     "processing": "Processing...",
     "submit": "Access the Demo",
+    "verificationDownTitle": "Google's security check could not load. This usually happens with ad blockers or corporate networks, and reloading does not fix it.",
+    "verificationDownAction": "Continue to the demo without filling the form",
     "recaptchaNotice": "This site is protected by reCAPTCHA and the Google Privacy Policy and Terms of Service apply."
   },
   "ERR_COST_API_THROTTLED": "Cost API request limit exceeded. Try again later.",

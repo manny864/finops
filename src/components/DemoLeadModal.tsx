@@ -1,6 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Script from 'next/script';
 import { Loader2 } from 'lucide-react';
 
@@ -8,6 +8,21 @@ interface DemoLeadModalProps {
     onSuccess: () => void;
     /** Si se provee, muestra una X para cerrar el modal sin completar (p.ej. en la página de precios). */
     onClose?: () => void;
+    /**
+     * Salida de emergencia SÓLO para cuando reCAPTCHA no carga.
+     *
+     * En /demo este modal es un portón duro a propósito: no recibe `onClose`, así
+     * que no hay X y hay que dejar el lead para entrar. Pero si el script de
+     * Google no carga --un adblocker alcanza-- el formulario no se puede enviar
+     * NUNCA, y sin X el visitante queda encerrado en una pantalla muerta con el
+     * login inalcanzable detrás. El mensaje que veía decía "recargá la página",
+     * que con un bloqueador no arregla nada.
+     *
+     * Es un lead perdido en silencio, que es justo lo que el portón existe para
+     * evitar. Se ofrece la salida únicamente en ese caso: el portón sigue entero
+     * para todos los demás.
+     */
+    onVerificacionCaida?: () => void;
 }
 
 declare global {
@@ -16,10 +31,11 @@ declare global {
     }
 }
 
-export default function DemoLeadModal({ onSuccess, onClose }: DemoLeadModalProps) {
+export default function DemoLeadModal({ onSuccess, onClose, onVerificacionCaida }: DemoLeadModalProps) {
     const t = useTranslations("DemoLead");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [verificacionCaida, setVerificacionCaida] = useState(false);
     const [formData, setFormData] = useState({
         fullName: '',
         email: '',
@@ -27,12 +43,30 @@ export default function DemoLeadModal({ onSuccess, onClose }: DemoLeadModalProps
         companyName: ''
     });
 
+    // Sondeo y no sólo `onError` del <Script>: varios bloqueadores no fallan la
+    // request sino que devuelven un 200 vacío, así que `onError` nunca dispara y
+    // `window.grecaptcha` igual no existe. Se mira el resultado, no el evento.
+    useEffect(() => {
+        if (!onVerificacionCaida) return;
+        const t0 = Date.now();
+        const id = setInterval(() => {
+            if (window.grecaptcha) {
+                clearInterval(id);
+            } else if (Date.now() - t0 > 8000) {
+                clearInterval(id);
+                setVerificacionCaida(true);
+            }
+        }, 500);
+        return () => clearInterval(id);
+    }, [onVerificacionCaida]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setError('');
 
         if (!window.grecaptcha) {
+            setVerificacionCaida(true);
             setError(t("recaptchaError"));
             setLoading(false);
             return;
@@ -65,9 +99,10 @@ export default function DemoLeadModal({ onSuccess, onClose }: DemoLeadModalProps
 
     return (
         <>
-            <Script 
-                src="https://www.google.com/recaptcha/api.js?render=6Le3QDItAAAAAOq7sXMQyixQ7D8KVLO5jAuRH7J3" 
-                strategy="afterInteractive" 
+            <Script
+                src="https://www.google.com/recaptcha/api.js?render=6Le3QDItAAAAAOq7sXMQyixQ7D8KVLO5jAuRH7J3"
+                strategy="afterInteractive"
+                onError={() => setVerificacionCaida(true)}
             />
             <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
                 <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-300 relative">
@@ -133,11 +168,22 @@ export default function DemoLeadModal({ onSuccess, onClose }: DemoLeadModalProps
                                 />
                             </div>
 
-                            {error && (
+                            {verificacionCaida && onVerificacionCaida ? (
+                                <div className="text-sm text-amber-700 bg-amber-50 p-3 rounded-lg border border-amber-200 space-y-2">
+                                    <p>{t("verificationDownTitle")}</p>
+                                    <button
+                                        type="button"
+                                        onClick={onVerificacionCaida}
+                                        className="w-full bg-white hover:bg-amber-100 text-amber-800 font-semibold py-2 px-4 rounded-lg border border-amber-300 transition-colors"
+                                    >
+                                        {t("verificationDownAction")}
+                                    </button>
+                                </div>
+                            ) : error ? (
                                 <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg border border-red-100">
                                     {error}
                                 </div>
-                            )}
+                            ) : null}
 
                             <button 
                                 type="submit" 

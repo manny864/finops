@@ -94,7 +94,21 @@ export default function DemoPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-nav-bg to-nav-bg2 flex items-center justify-center font-sans relative overflow-hidden">
-        {mounted && showLeadModal && <DemoLeadModal onSuccess={handleLeadSuccess} />}
+        {mounted && showLeadModal && (
+          <DemoLeadModal
+            onSuccess={handleLeadSuccess}
+            // NO se pasa `onClose`: acá el portón es duro a propósito, sin X.
+            //
+            // `onVerificacionCaida` es otra cosa y sólo aparece si reCAPTCHA no
+            // carga. Deliberadamente NO escribe `hasCompletedDemoLead`: la
+            // próxima visita vuelve a pedir el lead. Es un rodeo por una falla
+            // de terceros, no un permiso para saltearse el formulario.
+            onVerificacionCaida={() => {
+              setShowLeadModal(false);
+              document.body.style.overflow = 'unset';
+            }}
+          />
+        )}
         
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-brand-deep/20 blur-[100px]"></div>

@@ -6481,6 +6481,8 @@
     "company": "Nome da empresa",
     "processing": "Processando...",
     "submit": "Acessar a Demo",
+    "verificationDownTitle": "Não foi possível carregar a verificação de segurança do Google. Costuma acontecer com bloqueadores de anúncios ou redes corporativas, e recarregar não resolve.",
+    "verificationDownAction": "Continuar para a demo sem preencher o formulário",
     "recaptchaNotice": "Este site é protegido por reCAPTCHA e aplicam-se a Política de Privacidade e os Termos de Serviço do Google."
   },
   "ERR_COST_API_THROTTLED": "Limite de solicitações da API de Custos excedido. Tente novamente mais tarde.",
