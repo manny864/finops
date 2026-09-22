@@ -86,6 +86,10 @@ export const ROUTE_TIERS: Record<string, 'Professional' | 'Business' | 'Enterpri
     // Reporting de Gobernanza absorbe el KPI que antes vivía en
     // /governance/score (fusionadas en una sola página).
     '/governance/reporting': 'Enterprise',
+    // Business igual que las API Keys publicas: sin una clave no puede existir
+    // ni una fila en esta pantalla, asi que gatearla mas abajo mostraria un
+    // vacio sin explicacion.
+    '/governance/shift-left': 'Business',
     '/governance/ha': 'Business',
     '/governance/credentials': 'Business',
     '/remediation/approvals': 'Business',

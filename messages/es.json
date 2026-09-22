@@ -12300,6 +12300,30 @@
   "Shell": {
     "cloudFinOps": "Cloud FinOps"
   },
+  "ShiftLeft": {
+    "title": "Shift-Left FinOps",
+    "help": "Cada fila es un `terraform plan` analizado desde CI antes del merge. El costo se estima con los precios de lista de Azure.",
+    "subtitle": "Impacto en el costo de Azure detectado en los Pull Requests, antes de provisionar.",
+    "kpiAnalyzed": "Planes analizados",
+    "kpiIncrease": "Aumento detectado",
+    "kpiSavings": "Ahorro detectado",
+    "kpiBlocked": "Bloqueados por umbral",
+    "loading": "Cargando estimaciones…",
+    "loadError": "No se pudo cargar el historial",
+    "emptyTitle": "Todavía no hay planes analizados",
+    "emptyHint": "Agregá la acción de GitHub a tu pipeline de infraestructura y cada Pull Request va a mostrar su impacto en el costo mensual. Necesitás una API Key con el permiso write:shift-left.",
+    "colRepo": "Repositorio",
+    "colAuthor": "Autor",
+    "colBefore": "Antes",
+    "colAfter": "Después",
+    "colDelta": "Delta mensual",
+    "colGate": "Umbral",
+    "colDate": "Fecha",
+    "gateOk": "Dentro del umbral",
+    "gateExceeded": "Umbral superado",
+    "gateNotEvaluated": "Sin umbral",
+    "unpricedWarning": "{n} recurso(s) no se pudieron tarifar: el delta es un piso, no el total."
+  },
   "Simulator": {
     "pageTitle": "Simulador de Escenarios",
     "pageSubtitle": "Modela el impacto financiero de cambios arquitectónicos antes de ejecutarlos.",

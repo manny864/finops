@@ -1,0 +1,161 @@
+name: FinOps PR Cost Estimator
+description: >-
+  Calcula el impacto en el costo mensual de Azure de un `terraform plan` y lo
+  comenta en el Pull Request. Opcionalmente falla el check si el aumento supera
+  un umbral (Budget Gate).
+author: CSCloudSolutions
+
+branding:
+  icon: dollar-sign
+  color: blue
+
+inputs:
+  api-key:
+    description: 'API Key de la plataforma FinOps con el scope `write:shift-left`. Pasala por secrets, nunca literal.'
+    required: true
+  plan-file:
+    description: 'Ruta al plan binario de terraform (la salida de `terraform plan -out=...`).'
+    required: false
+    default: tfplan.bin
+  plan-json:
+    description: 'Ruta a un plan YA convertido a JSON. Si se pasa, `plan-file` se ignora y no hace falta terraform en el runner.'
+    required: false
+    default: ''
+  api-url:
+    description: 'Base de la API. Sólo se cambia para apuntar a un entorno propio.'
+    required: false
+    default: https://finops.cscloudsolutions.com.ar
+  threshold-usd:
+    description: 'Budget Gate: si el delta mensual supera este monto en USD, el step falla. Vacío = no bloquea.'
+    required: false
+    default: ''
+  comment:
+    description: 'Comentar el resultado en el PR. Necesita `permissions: pull-requests: write`.'
+    required: false
+    default: 'true'
+
+outputs:
+  delta-usd:
+    description: 'Delta de costo mensual en USD. Negativo si el PR ahorra.'
+    value: ${{ steps.estimar.outputs.delta }}
+  projected-usd:
+    description: 'Costo mensual proyectado en USD.'
+    value: ${{ steps.estimar.outputs.projected }}
+  unpriced:
+    description: 'Cantidad de recursos que no se pudieron tarifar.'
+    value: ${{ steps.estimar.outputs.unpriced }}
+
+# Composite y no una action de JavaScript a propósito: una action JS obliga a
+# bundlear con ncc y a commitear `dist/`, que es un artefacto generado que hay
+# que acordarse de regenerar en cada cambio --y cuando alguien se olvida, la
+# action sigue corriendo el código viejo sin avisar. Acá no hay build: lo que se
+# lee es lo que corre.
+runs:
+  using: composite
+  steps:
+    - name: Convertir el plan a JSON
+      id: preparar
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ -n "${{ inputs.plan-json }}" ]; then
+          echo "archivo=${{ inputs.plan-json }}" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        if [ ! -f "${{ inputs.plan-file }}" ]; then
+          echo "::error::No existe el plan '${{ inputs.plan-file }}'. Generalo con 'terraform plan -out=${{ inputs.plan-file }}' antes de este step, o pasá plan-json."
+          exit 1
+        fi
+        terraform show -json "${{ inputs.plan-file }}" > /tmp/finops-plan.json
+        echo "archivo=/tmp/finops-plan.json" >> "$GITHUB_OUTPUT"
+
+    - name: Estimar el costo
+      id: estimar
+      shell: bash
+      env:
+        # Por env y no interpolado en el `run`: un ${{ }} con el secreto queda
+        # escrito en el script que el runner arma en disco.
+        FINOPS_API_KEY: ${{ inputs.api-key }}
+      run: |
+        set -euo pipefail
+
+        cuerpo=$(jq -n \
+          --slurpfile plan "${{ steps.preparar.outputs.archivo }}" \
+          --arg repo "${{ github.repository }}" \
+          --arg sha "${{ github.event.pull_request.head.sha || github.sha }}" \
+          --arg autor "${{ github.event.pull_request.user.login || github.actor }}" \
+          --argjson pr "${{ github.event.pull_request.number || 'null' }}" \
+          '{plan: $plan[0], repository: $repo, commit_sha: $sha, author: $autor, pr_number: $pr}')
+
+        codigo=$(printf '%s' "$cuerpo" | curl -sS -o /tmp/finops-resp.json -w '%{http_code}' \
+          -X POST "${{ inputs.api-url }}/api/v1/shift-left/estimate" \
+          -H "Authorization: Bearer $FINOPS_API_KEY" \
+          -H 'Content-Type: application/json' \
+          --data-binary @-)
+
+        if [ "$codigo" != "200" ]; then
+          echo "::error::La estimación falló (HTTP $codigo): $(jq -r '.error.message // "sin detalle"' /tmp/finops-resp.json)"
+          exit 1
+        fi
+
+        jq -r '.data | "delta=\(.delta_cost_usd)\nprojected=\(.projected_monthly_cost_usd)\ncurrent=\(.current_monthly_cost_usd)\nunpriced=\(.resources_unpriced)"' \
+          /tmp/finops-resp.json >> "$GITHUB_OUTPUT"
+
+    - name: Armar el comentario
+      id: cuerpo
+      shell: bash
+      run: |
+        set -euo pipefail
+        {
+          echo 'texto<<FINOPS_EOF'
+          jq -r '
+            .data as $d |
+            (if $d.delta_cost_usd > 0 then "🔺" elif $d.delta_cost_usd < 0 then "🟢" else "⚪" end) as $icono |
+            "## \($icono) Impacto en el costo mensual de Azure\n",
+            "| | USD/mes |",
+            "|---|---:|",
+            "| Antes | $\($d.current_monthly_cost_usd) |",
+            "| Después | $\($d.projected_monthly_cost_usd) |",
+            "| **Delta** | **$\($d.delta_cost_usd)** |",
+            "",
+            (if $d.resources_unpriced > 0 then
+              "> ⚠️ \($d.resources_unpriced) recurso(s) no se pudieron tarifar, así que el delta es un piso y no el total.\n"
+             else "" end),
+            "<details><summary>Desglose por recurso</summary>\n",
+            "| Recurso | Acción | Antes | Después |",
+            "|---|---|---:|---:|",
+            ($d.lines[] | select(.mensualAntes != 0 or .mensualDespues != 0 or .motivo != null) |
+              "| `\(.direccion)` | \(.accion) | $\(.mensualAntes) | $\(.mensualDespues)\(if .motivo then " ⚠️ \(.motivo)" else "" end) |"),
+            "\n</details>"
+          ' /tmp/finops-resp.json
+          echo FINOPS_EOF
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Comentar en el PR
+      if: ${{ inputs.comment == 'true' && github.event_name == 'pull_request' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        # --edit-last para no dejar un comentario nuevo por cada push del PR: la
+        # conversación se vuelve ilegible y el número viejo sigue ahí arriba,
+        # contradiciendo al nuevo.
+        printf '%s' "${{ steps.cuerpo.outputs.texto }}" > /tmp/finops-comentario.md
+        gh pr comment "${{ github.event.pull_request.number }}" \
+          --body-file /tmp/finops-comentario.md --edit-last --create-if-none
+
+    - name: Budget Gate
+      if: ${{ inputs.threshold-usd != '' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        delta='${{ steps.estimar.outputs.delta }}'
+        umbral='${{ inputs.threshold-usd }}'
+        # bc y no bash: los montos son decimales y (( )) los trunca a entero, o
+        # sea que un umbral de 0.50 con un delta de 0.90 pasaría.
+        if [ "$(echo "$delta > $umbral" | bc -l)" -eq 1 ]; then
+          echo "::error::Budget Gate: el PR agrega \$$delta/mes y el umbral es \$$umbral."
+          exit 1
+        fi
+        echo "Budget Gate OK: \$$delta/mes contra un umbral de \$$umbral."

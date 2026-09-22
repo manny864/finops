@@ -12300,6 +12300,30 @@
   "Shell": {
     "cloudFinOps": "Cloud FinOps"
   },
+  "ShiftLeft": {
+    "title": "Shift-Left FinOps",
+    "help": "Each row is a `terraform plan` analyzed from CI before the merge. Costs are estimated with Azure list prices.",
+    "subtitle": "Azure cost impact detected in Pull Requests, before provisioning.",
+    "kpiAnalyzed": "Plans analyzed",
+    "kpiIncrease": "Increase detected",
+    "kpiSavings": "Savings detected",
+    "kpiBlocked": "Blocked by threshold",
+    "loading": "Loading estimates…",
+    "loadError": "Could not load the history",
+    "emptyTitle": "No plans analyzed yet",
+    "emptyHint": "Add the GitHub action to your infrastructure pipeline and every Pull Request will show its monthly cost impact. You need an API Key with the write:shift-left scope.",
+    "colRepo": "Repository",
+    "colAuthor": "Author",
+    "colBefore": "Before",
+    "colAfter": "After",
+    "colDelta": "Monthly delta",
+    "colGate": "Threshold",
+    "colDate": "Date",
+    "gateOk": "Within threshold",
+    "gateExceeded": "Threshold exceeded",
+    "gateNotEvaluated": "No threshold",
+    "unpricedWarning": "{n} resource(s) could not be priced: the delta is a floor, not the total."
+  },
   "Simulator": {
     "pageTitle": "Scenario Simulator",
     "pageSubtitle": "Model the financial impact of architectural changes before executing them.",
