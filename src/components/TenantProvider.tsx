@@ -545,7 +545,14 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                       ],
                   }), { status: 200 });
               }
-              if (url.includes('/api/admin/config/users')) return new Response(JSON.stringify(getMockDataForRoute('users', mockKey)), {status: 200});
+              // /api/admin/config/users NO se intercepta, y esta linea NO existe mas:
+              // era INALCANZABLE. La guarda de arriba ("Never intercept real
+              // admin/superadmin/tenants endpoints") devuelve originalFetch para
+              // esa URL 175 lineas antes, asi que nunca se llegaba hasta aca.
+              // La demo del panel de usuarios no depende de esto: la ruta hace su
+              // propio short-circuit con isMockTenant ANTES de requireTenantAccess
+              // (users/route.ts:65 contra :87), que es el patron que permite sacar
+              // una intercepcion sin romper la demo.
               if (url.includes('/api/tags') && !url.includes('/api/tags/compliance')) return new Response(JSON.stringify(getMockDataForRoute('tags', mockKey)), {status: 200});
               if (url.includes('/api/governance/policies')) return new Response(JSON.stringify(getMockDataForRoute('governance-policies', mockKey)), {status: 200});
               if (url.includes('/api/remediation/workflow')) return new Response(JSON.stringify(getMockDataForRoute('approvals', mockKey)), {status: 200});

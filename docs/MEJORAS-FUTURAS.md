@@ -421,6 +421,39 @@ Eso vale sólo cuando ya existe un tipo de respuesta con nombre, y esa vía est�
 tipo declarado**. Para el resto hay que escribir la interfaz a mano, que son 30 fuentes de verdad nuevas
 sobre formas que ya existen — el mismo patrón de duplicación que MEJ-32 documenta como bug recurrente.
 
+### Medición del 2026-09-22 — una intercepción muerta, y cuántas pueden divergir de verdad
+
+**Se encontró una intercepción INALCANZABLE y se sacó:** `/api/admin/config/users`. La guarda de arriba
+del interceptor (`Never intercept real admin/superadmin/tenants endpoints`) devuelve `originalFetch` para
+esa URL **175 líneas antes** de la línea que intentaba mockearla. Nunca se ejecutó. La demo del panel de
+usuarios no dependía de ella: la ruta hace su propio short-circuit de `isMockTenant` antes de
+`requireTenantAccess` (`users/route.ts:65` contra `:87`). Quedan **36 intercepciones**.
+
+Una intercepción muerta no es inofensiva: miente sobre cómo funciona la demo y manda a leer el mock
+equivocado cuando una pantalla falla.
+
+`demoInterceptorRedundante.test.ts` no la veía —chequeaba que la ruta existiera y que el mock fuera
+redundante, pero no si el interceptor podía **llegar** a esa línea—. Se le agregó esa quinta regla, y se
+validó con un mutante: reponer la línea pone el test en rojo nombrando el archivo y la línea.
+
+**Cuántas pueden divergir de verdad: 4, no ~6.** Medido cruzando las 37 intercepciones contra el mock de
+su ruta:
+
+| | |
+|---|---|
+| 23 verbatim (misma clave de `getMockDataForRoute`) | no pueden divergir |
+| 10 sin mock propio en la ruta | no pueden divergir: el interceptor es la única fuente |
+| **4 con mock independiente en los dos lados** | **sí** |
+
+Las cuatro: `/api/intelligence/billing` (la ruta usa `getMockRealConsumptionOverview`),
+`/api/intelligence/anomalies` (`MOCK_CAUSES`), `/api/intelligence/ai-analytics` (`MOCK_PAYLOAD`) y
+`/api/intelligence/aks-chargeback`.
+
+**Lo que falta para cerrarlo**, y por qué no se hizo en esta pasada: comparar las formas exige importar el
+mock de cada ruta, y los tres primeros son consts **no exportadas** dentro del archivo de la ruta
+(`MOCK_CAUSES` está además adentro de una función). O sea que el test no es sólo un test: arrastra
+exportar internals de tres rutas. Es un refactor chico pero es una decisión aparte, no una limpieza.
+
 ### Parte 2 (2026-09-02): contratos tipados — y el bug que destapó
 
 `getMockDataForRoute` devolvía `any`, así que un cambio de contrato dejaba el

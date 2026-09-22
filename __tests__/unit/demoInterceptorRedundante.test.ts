@@ -47,6 +47,16 @@ const intercepciones = provider
     })
     .filter((x): x is { url: string; clave: string; nro: number } => x !== null);
 
+/**
+ * Las URLs que la guarda de arriba del interceptor ("Never intercept real
+ * admin/superadmin/tenants endpoints") devuelve al fetch original. Todo lo que
+ * matchee alguna de estas nunca llega a la cadena de intercepciones.
+ */
+const cortadasPorLaGuarda = (() => {
+    const m = provider.match(/Never intercept real admin\/superadmin\/tenants endpoints([\s\S]*?)\n\s*\}/);
+    return m ? [...m[1].matchAll(/url\.includes\('([^']+)'\)/g)].map((x) => x[1]) : [];
+})();
+
 const rutaDe = (url: string) => path.join(raiz, "src/app", url, "route.ts");
 const escapar = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -110,6 +120,23 @@ describe("interceptor de demo", () => {
             }
         });
         expect(tapadas).toEqual([]);
+    });
+
+    // El agujero que dejo pasar una intercepcion muerta durante meses: el test
+    // miraba si la ruta existia y si el mock era redundante, pero no si el
+    // interceptor podia siquiera LLEGAR a esa linea. `/api/admin/config/users`
+    // estaba cortada por la guarda 175 lineas antes y ahi quedo, aparentando ser
+    // parte de la demo. Una intercepcion inalcanzable no es inofensiva: miente
+    // sobre como funciona la demo y manda a leer el mock equivocado cuando una
+    // pantalla falla.
+    it("ninguna intercepción está tapada por la guarda de arriba", () => {
+        expect(cortadasPorLaGuarda.length).toBeGreaterThan(0);
+
+        const muertas = intercepciones
+            .filter(({ url }) => cortadasPorLaGuarda.some((g) => url.includes(g) || g.includes(url)))
+            .map(({ url, nro }) => `${url} (línea ${nro}) nunca se ejecuta: la guarda la corta antes`);
+
+        expect(muertas, `\n${muertas.join("\n")}\n`).toEqual([]);
     });
 
     it("toda intercepción apunta a una ruta que existe", () => {
