@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
-import { precioMensualDesdeUnidad } from "@/services/pricingService";
+import { precioMensualDesdeUnidad, elegirMedidor } from "@/services/pricingService";
 import { HOURS_PER_MONTH } from "@/lib/aroUtils";
 
 /**
@@ -53,5 +53,37 @@ describe("precioMensualDesdeUnidad", () => {
     it("es indiferente a mayusculas y espacios", () => {
         expect(precioMensualDesdeUnidad(19.71, "  1/MONTH ")).toBeCloseTo(19.71, 4);
         expect(precioMensualDesdeUnidad(2, "1 HOUR")).toBeCloseTo(2 * HOURS_PER_MONTH, 4);
+    });
+});
+
+describe("elegirMedidor", () => {
+    // Medido contra la Retail API el 2026-09-22: skuName eq 'P20 ZRS' en eastus.
+    const P20_ZRS = [
+        { meterName: "P20 ZRS Disk Mount", retailPrice: 3.285, unitOfMeasure: "1/Month" },
+        { meterName: "P20 ZRS Disk", retailPrice: 109.81, unitOfMeasure: "1/Month" },
+        { meterName: "P20 ZRS Disk", retailPrice: 109.83, unitOfMeasure: "1/Month" },
+    ];
+
+    it("elige el disco y no el Disk Mount, que viene primero", () => {
+        expect(elegirMedidor(P20_ZRS, "P20 ZRS").retailPrice).toBe(109.81);
+    });
+
+    it("descarta los medidores por operaciones, que no son un costo fijo", () => {
+        // skuName eq 'S10 LRS': el primero es el de operaciones, por 10K.
+        const s10 = [
+            { meterName: "S10 LRS Disk Operations", retailPrice: 0.0005, unitOfMeasure: "10K" },
+            { meterName: "S10 LRS Disk", retailPrice: 5.89, unitOfMeasure: "1/Month" },
+        ];
+        expect(elegirMedidor(s10, "S10 LRS").retailPrice).toBe(5.89);
+    });
+
+    it("cae al primero convertible cuando no hay medidor de capacidad", () => {
+        const vm = [{ meterName: "D2s v3", retailPrice: 0.096, unitOfMeasure: "1 Hour" }];
+        expect(elegirMedidor(vm, "Standard_D2s_v3").retailPrice).toBe(0.096);
+    });
+
+    it("devuelve null cuando no hay nada tarifable", () => {
+        expect(elegirMedidor([], "X")).toBeNull();
+        expect(elegirMedidor([{ meterName: "X", retailPrice: 1, unitOfMeasure: "10K" }], "X")).toBeNull();
     });
 });

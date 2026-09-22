@@ -42,6 +42,40 @@ export function precioMensualDesdeUnidad(
     return null;
 }
 
+/**
+ * De los medidores que devuelve la Retail API para un SKU, cuál es el que cobra
+ * el recurso en sí.
+ *
+ * NO alcanza con `Items[0]`, y el caso que lo demuestra está medido contra la API
+ * el 2026-09-22: `skuName eq 'P20 ZRS'` en eastus devuelve tres medidores y el
+ * PRIMERO es el equivocado.
+ *
+ *     P20 ZRS Disk Mount      3.285  1/Month   <- Items[0]
+ *     P20 ZRS Disk          109.810  1/Month   <- el disco
+ *     P20 ZRS Disk          109.830  1/Month
+ *
+ * O sea que el disco se cotizaba a 3,28 en vez de 109,81: 33 veces menos. Con
+ * `S10 LRS` es otra variante del mismo problema — el primero es
+ * "S10 LRS Disk Operations", que se cobra por 10.000 operaciones y ni siquiera
+ * es convertible a un costo mensual fijo.
+ *
+ * Y como siempre con esta API, nada falla: responde 200 con datos, sólo que no
+ * son los del recurso que se preguntó.
+ *
+ * Reglas, en orden: el medidor de capacidad se llama exactamente
+ * `"<skuName> Disk"`; si no está, el primero cuya unidad sí se pueda llevar a
+ * mensual (eso descarta los de operaciones y transferencia).
+ */
+export function elegirMedidor(items: any[], skuName: string): any | null {
+    if (!Array.isArray(items) || items.length === 0) return null;
+
+    const nombreCapacidad = `${skuName} Disk`.toLowerCase();
+    const capacidad = items.find((i) => String(i?.meterName || "").toLowerCase() === nombreCapacidad);
+    if (capacidad) return capacidad;
+
+    return items.find((i) => precioMensualDesdeUnidad(i?.retailPrice ?? 0, i?.unitOfMeasure) !== null) || null;
+}
+
 // Servicio de precios de Azure Retail API con caché en memoria
 // Fase 0 (docs/vps-infra-improvement-plan.md): tope de tamaño + eviccion
 // FIFO para no crecer sin limite en un proceso de larga duracion.
@@ -56,17 +90,29 @@ function evictPriceCacheIfFull(): void {
     }
 }
 
-export async function getMonthlyCostEstimate(serviceName: string, skuName: string, region: string): Promise<number> {
+/**
+ * `campoSku` elige por cuál de los dos campos filtrar, porque la Retail API los
+ * distingue y el correcto depende del recurso: una VM se busca por `armSkuName`
+ * (`Standard_D2s_v3`), mientras que un disco o una IP se buscan por `skuName`
+ * (`P10 LRS`, `Standard`). Buscar una VM por `skuName` no devuelve nada --y como
+ * la API contesta 200 con `Items: []`, el sintoma es un precio 0, no un error.
+ */
+export async function getMonthlyCostEstimate(
+    serviceName: string,
+    skuName: string,
+    region: string,
+    campoSku: "skuName" | "armSkuName" = "skuName"
+): Promise<number> {
     if (!skuName || !region || !serviceName) return 0;
-    
-    const cacheKey = `${serviceName}-${skuName}-${region}`.toLowerCase();
-    
+
+    const cacheKey = `${serviceName}-${campoSku}-${skuName}-${region}`.toLowerCase();
+
     if (priceCache.has(cacheKey)) {
         return priceCache.get(cacheKey)!;
     }
 
     try {
-        const filter = `serviceName eq '${serviceName}' and armRegionName eq '${region}' and skuName eq '${skuName}' and priceType eq 'Consumption'`;
+        const filter = `serviceName eq '${serviceName}' and armRegionName eq '${region}' and ${campoSku} eq '${skuName}' and priceType eq 'Consumption'`;
         const url = `https://prices.azure.com/api/retail/prices?$filter=${encodeURIComponent(filter)}`;
         
         const res = await fetch(url);
@@ -77,8 +123,8 @@ export async function getMonthlyCostEstimate(serviceName: string, skuName: strin
 
         const data = await res.json();
         if (data && data.Items && data.Items.length > 0) {
-            const item = data.Items[0];
-            const monthlyCost = precioMensualDesdeUnidad(item.retailPrice || 0, item.unitOfMeasure);
+            const item = elegirMedidor(data.Items, skuName);
+            const monthlyCost = item ? precioMensualDesdeUnidad(item.retailPrice || 0, item.unitOfMeasure) : null;
             // Unidad que pide una cantidad que no tenemos: se cachea 0 para que
             // el llamador use su propia estimacion en vez de un numero inventado.
             const valor = monthlyCost ?? 0;
