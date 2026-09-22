@@ -64,7 +64,62 @@ env:
   MIGRATE_TAG_SUFFIX: builder
 
 jobs:
+  # PUERTA DE CALIDAD (2026-09-22). Antes no habia ninguna.
+  #
+  # Este workflow dispara con `on: push` igual que ci.yml, sin `needs:` ni
+  # `workflow_run`, asi que los dos arrancaban EN PARALELO: con la suite en rojo
+  # produccion se actualizaba lo mismo y CI avisaba despues, con el codigo ya
+  # arriba. Y la ventana era comoda para no enterarse: CI tarda ~3 min y el
+  # deploy ~13.
+  #
+  # Peor de lo que parece: en push a main ci.yml corre SOLO este job. `lint`,
+  # `typecheck` y `build` estan los tres con `if: github.event_name ==
+  # 'pull_request'`. O sea que lo unico que separa un merge a main de produccion
+  # son estos tests.
+  #
+  # POR QUE SE CORRE LA SUITE ACA Y NO SE ESPERA LA DE ci.yml
+  #
+  # Un gate que consulta el resultado de otro workflow tiene que resolver el caso
+  # "la corrida todavia no existe", y ahi o se cuelga o deja pasar. Deja pasar =
+  # falla ABIERTO, que es exactamente lo que no puede hacer una puerta. Esto es
+  # determinista y falla cerrado.
+  #
+  # La otra opcion era `workflow_run`, y se descarto porque pierde el
+  # `paths-ignore` de arriba: cada push de tests dispararia un deploy completo de
+  # 9 min para producir una revision identica, que es justo lo que ese filtro
+  # arregla. Mover el deploy adentro de ci.yml obliga a reimplementar ese filtro
+  # a mano, y esa logica no conviene tenerla escrita dos veces.
+  #
+  # Cuesta ~3 min de runner duplicados por deploy. Es el precio de que la puerta
+  # no tenga partes moviles.
+  pruebas:
+    name: Tests (puerta del deploy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+      - run: npm ci --no-audit --no-fund --prefer-offline --loglevel=error
+      - name: Run tests
+        run: npm test -- --reporter=default --reporter=json --outputFile=vitest-report.json
+        env:
+          CI: true
+      # Mismo motivo que en ci.yml: sin el artefacto, un fallo intermitente se
+      # pierde con el scroll y despues no se puede saber que test fue.
+      - name: Upload test report
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-report-deploy
+          path: vitest-report.json
+          retention-days: 14
+
   deploy:
+    needs: pruebas
     runs-on: ubuntu-latest
     environment: prod
     steps:
