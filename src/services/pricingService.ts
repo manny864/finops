@@ -1,3 +1,47 @@
+import { HOURS_PER_MONTH } from "@/lib/aroUtils";
+
+/**
+ * Lleva un precio de la Retail API a USD/mes leyendo su `unitOfMeasure`.
+ *
+ * ANTES SE MULTIPLICABA POR 730 SIEMPRE, y eso estaba mal para todo lo que no
+ * se cobra por hora. Verificado contra la API el 2026-09-22: un disco
+ * administrado P10 LRS en eastus devuelve `retailPrice: 19.71` con
+ * `unitOfMeasure: "1/Month"` --ya es el precio mensual--, asi que el x730 lo
+ * convertia en **$14.388,30 por mes**. Ese numero salia en la pantalla de
+ * Zombis como "ahorro potencial" de borrar un disco que cuesta 19,71.
+ *
+ * Lo perverso del caso: el llamador tiene un fallback sano
+ * (`cost = price || diskSizeGB * 0.15`) que solo se usa cuando la API FALLA. O
+ * sea que el numero era razonable cuando no habia precio y disparatado cuando
+ * si lo habia.
+ *
+ * Devuelve null cuando la unidad necesita una cantidad que este helper no
+ * recibe (por GB, por 10.000 operaciones, por transaccion). Ahi el llamador
+ * cae a su propia estimacion, que es preferible a inventar una cifra: en un
+ * producto de costos, un ahorro inflado es peor que no dar ninguno.
+ */
+export function precioMensualDesdeUnidad(
+    retailPrice: number,
+    unitOfMeasure: string | null | undefined
+): number | null {
+    const u = (unitOfMeasure || "").trim().toLowerCase();
+    if (!u || !Number.isFinite(retailPrice)) return null;
+
+    // "1 Hour", "10 Hours"
+    const horas = u.match(/^(\d+(?:\.\d+)?)\s*hours?$/);
+    if (horas && Number(horas[1]) > 0) return (retailPrice / Number(horas[1])) * HOURS_PER_MONTH;
+
+    // "1/Month", "1 Month"
+    const meses = u.match(/^(\d+(?:\.\d+)?)\s*\/?\s*months?$/);
+    if (meses && Number(meses[1]) > 0) return retailPrice / Number(meses[1]);
+
+    // "1 Day", "30 Days"
+    const dias = u.match(/^(\d+(?:\.\d+)?)\s*days?$/);
+    if (dias && Number(dias[1]) > 0) return (retailPrice / Number(dias[1])) * (HOURS_PER_MONTH / 24);
+
+    return null;
+}
+
 // Servicio de precios de Azure Retail API con caché en memoria
 // Fase 0 (docs/vps-infra-improvement-plan.md): tope de tamaño + eviccion
 // FIFO para no crecer sin limite en un proceso de larga duracion.
@@ -33,11 +77,14 @@ export async function getMonthlyCostEstimate(serviceName: string, skuName: strin
 
         const data = await res.json();
         if (data && data.Items && data.Items.length > 0) {
-            const retailPrice = data.Items[0].retailPrice || 0;
-            const monthlyCost = retailPrice * 730;
-            priceCache.set(cacheKey, monthlyCost);
+            const item = data.Items[0];
+            const monthlyCost = precioMensualDesdeUnidad(item.retailPrice || 0, item.unitOfMeasure);
+            // Unidad que pide una cantidad que no tenemos: se cachea 0 para que
+            // el llamador use su propia estimacion en vez de un numero inventado.
+            const valor = monthlyCost ?? 0;
+            priceCache.set(cacheKey, valor);
             evictPriceCacheIfFull();
-            return monthlyCost;
+            return valor;
         }
         
         // Cachear a 0 si no se encontró resultado para no martillar la API
