@@ -49,6 +49,13 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-32](#mej-32--tres-catálogos-de-precios-duplicados-y-ya-divergidos-mej-10-reabierta) | Tres catálogos de precios duplicados y ya divergidos (MEJ-10 reabierta) | Transversal / Ahorro | Alto | Bajo | Hecha |
 | [MEJ-33](#mej-33--cerrar-el-lazo-del-desvío-dueño-estado-persistente-y-seguimiento) | Cerrar el lazo del desvío: dueño, estado persistente y seguimiento | Anomalías / Gobernanza | Alto | Medio | Hecha |
 | [MEJ-31](#mej-31--test-de-storage-history-hardcodea-meses-absolutos-contra-reloj-real) | Test de storage-history hardcodea meses absolutos contra reloj real (rompe todos los meses) | Storage Efficiency / Tests | Medio | Bajo | Hecha |
+| [MEJ-34](#mej-34--perspectives-agrupación-multidimensional-del-gasto) | Perspectives: agrupación multidimensional del gasto (N dimensiones simultáneas, reglas ordenadas, grupo Sin asignar explícito) | Asignación / Transversal | Alto | Alto | Propuesta |
+| [MEJ-35](#mej-35--suscripciones-a-reportes-cualquier-reporte-a-la-cadencia-que-elija-el-usuario) | Suscripciones a reportes: cualquier reporte, a la cadencia que elija el usuario, con link + imagen + CSV | Reportes | Alto | Medio | Propuesta |
+| [MEJ-36](#mej-36--presupuestos-rollover-y-año-fiscal-no-calendario) | Presupuestos: rollover con tope y año fiscal no calendario | Presupuestos | Medio | Bajo | Propuesta |
+| [MEJ-37](#mej-37--leaderboard-de-equipos-y-margen-bruto) | Leaderboard de equipos (ordenado por mejora, no por gasto) y split COGS/OpEx | Integración con el negocio | Medio | Bajo | Propuesta |
+| [MEJ-38](#mej-38--views-vistas-guardadas-y-con-alcance-por-equipo) | Views: vistas guardadas y alcance por equipo aplicado en el SERVIDOR, no como filtro de UI (depende de MEJ-34) | Transversal / RBAC | Alto | Medio | Propuesta |
+| [MEJ-39](#mej-39--fin-de-soporte-eoleos-de-la-plataforma-azure) | Fin de soporte (EOL/EOS) de la plataforma Azure, con el costo de lo afectado; fase 2: posición de licencias en la nube | Gobernanza / Riesgo | Alto | Medio | Propuesta |
+| [MEJ-40](#mej-40--esr-y-riesgo-de-la-cartera-de-compromisos) | ESR (Effective Savings Rate) y concentración de vencimientos de compromisos | Compromisos | Alto | Bajo | Propuesta |
 
 ---
 
@@ -2887,3 +2894,481 @@ Verificado contra la base con tres avisos (uno de difusión y dos dirigidos):
    aparece asignado a ese dueño, indicando por qué vía se resolvió.
 5. (Paso 2) Un desvío sin dueño resoluble se muestra como "Sin asignar", no como
    asignado a nadie en particular ni oculto.
+
+---
+
+> **MEJ-34 a MEJ-37 salen del análisis del white paper de VMware Tanzu CloudHealth,
+> _Cloud Financial Management_ (2022), cruzado contra lo desplegado el 2026-09-23.**
+>
+> Dos advertencias sobre la fuente, para que nadie la tome como evangelio. Es un
+> documento **de producto**, así que sus "mejores prácticas" están moldeadas por lo
+> que CloudHealth vende. Y está **muy centrado en AWS**: EC2, RIs convertibles,
+> Savings Plans y el "Convertible RI Exchanger" ocupan media sección de descuentos
+> que en un producto Azure-only no aplica. Lo que sí sirve es su esqueleto de madurez
+> en cuatro fases —visibilidad, optimización, gobernanza y automatización, integración
+> con el negocio— y unas pocas prácticas concretas.
+>
+> **El cruce dio bien en las tres primeras fases.** Amortización, presupuestos,
+> chargeback, markup, rightsizing, zombis en cinco variantes, cobertura y utilización
+> de compromisos, políticas, auto-block, anomalías por Z-Score y power schedules ya
+> están. En varios puntos la plataforma está **por encima** del paper, que es de 2022
+> y no contempla costo antes de provisionar (Shift-Left, MEJ-20), export FOCUS, API
+> pública, MCP ni los módulos de IA.
+>
+> Las cuatro entradas de abajo son lo que faltaba, y **casi todo cae en la cuarta
+> fase** —integración con el negocio—, que es justamente donde el paper pone el
+> objetivo final de la disciplina.
+
+## MEJ-34 — Perspectives: agrupación multidimensional del gasto
+
+**Módulo:** Asignación / Transversal · **Impacto:** Alto · **Esfuerzo:** Alto · **Estado:** Propuesta
+
+### Contexto
+
+Hoy un Cost Group es **el valor del tag `CostCenter`** (`src/app/api/cost-groups/route.ts:5`),
+más una heurística de patrones de nombre para agrupar los Resource Groups sin etiquetar.
+Es **una sola dimensión**.
+
+CloudHealth modela esto con *Perspectives*: **N dimensiones simultáneas** —producto,
+equipo, dueño, entorno, unidad de negocio, función, centro de costo— donde un recurso
+pertenece a **exactamente un grupo dentro de cada Perspective**, y a la vez a grupos de
+Perspectives distintas. El mismo disco puede estar en "producción" de la Perspective
+Entorno y en "ingeniería" de la Perspective Centro de Costo.
+
+**Por qué es la entrada estructural y no una más.** En el paper, todo lo demás se filtra
+por Perspective: los reportes, el alcance de las políticas, las recomendaciones de
+rightsizing y el split COGS/OpEx. Acá pasaría lo mismo — y habilita filtrar por unidad de
+negocio el cockpit de Cosmos (MEJ-18) y el mapa de egress (MEJ-19), que hoy sólo podrían
+filtrar por suscripción.
+
+Es también el prerrequisito de MEJ-37: sin poder separar COGS de OpEx no hay margen bruto.
+
+### Propuesta
+
+1. **Perspectives definidas por reglas, no por lista manual.** Cada una es un conjunto
+   ordenado de reglas que asignan un recurso a un grupo: por par tag clave/valor, por
+   patrón de nombre, por suscripción, por resource group o por tipo de recurso.
+2. **Primera regla que matchea gana**, y el orden se edita. Es lo que hace determinista
+   la pertenencia única dentro de una Perspective sin pedirle al usuario que resuelva
+   conflictos a mano.
+3. **Grupo `Sin asignar` explícito y siempre visible**, con su costo. Una Perspective que
+   cubre el 60% del gasto y no lo dice es peor que no tenerla: el reporte se lee como si
+   fuera el total. El caso de Yelp que cita el paper es exactamente ese — dos Perspectives
+   cubrían el 80% y la meta era 95%.
+4. **Selector de Perspective transversal**, como filtro en los tableros que hoy filtran
+   por suscripción.
+
+### Modelo de Implementación Detallado
+
+- **Base de Datos y Esquema:**
+  - `Perspectives` (`id`, `tenant_id`, `name`, `description`, `created_at`).
+  - `PerspectiveRules` (`id`, `perspective_id`, `group_name`, `match_type`
+    ENUM('tag','name_pattern','subscription','resource_group','resource_type'),
+    `match_key`, `match_value`, `sort_order`).
+  - **Sin tabla de asignación materializada.** La pertenencia se evalúa contra
+    `CostSnapshots` en la consulta: materializarla obliga a recalcular todo ante cada
+    cambio de regla y a resolver qué pasa con el histórico, que es una discusión que no
+    hace falta tener.
+- **Backend y APIs:**
+  - `src/services/perspectives.service.ts` con el evaluador de reglas y un `CASE WHEN`
+    generado para el `GROUP BY`. Ojo con el costo: las reglas van parametrizadas, nunca
+    interpoladas en el SQL.
+  - `GET/POST/PUT/DELETE /api/intelligence/perspectives` y
+    `GET /api/intelligence/perspectives/[id]/breakdown`.
+- **Frontend y Visualización:**
+  - `/intelligence/perspectives` para definirlas, con **vista previa del reparto antes de
+    guardar**: cuánto gasto cae en cada grupo y cuánto queda sin asignar.
+- **Caché y Cron:** `perspective:breakdown:v1:{tenantId}:{perspectiveId}:{periodo}`, TTL 6 h,
+  invalidada al editar reglas.
+
+### Archivos Involucrados (Estimados)
+
+- `migrations/YYYYMMDD-NNN-perspectives.sql`
+- `src/services/perspectives.service.ts`
+- `src/app/api/intelligence/perspectives/route.ts`
+- `src/components/dashboard/PerspectivesBoard.tsx`
+
+### Criterios de Aceptación
+
+1. Un recurso cae en **un solo grupo por Perspective**, y el que decide es la primera regla
+   que matchea según el orden.
+2. El mismo recurso puede estar en grupos de Perspectives distintas.
+3. El costo **sin asignar** se muestra siempre, con su monto y su porcentaje.
+4. La suma de los grupos más lo sin asignar **da exactamente** el total del período. Sin
+   esto la pantalla no es auditable.
+5. Cambiar el orden de las reglas cambia el reparto en la vista previa sin guardar nada.
+
+---
+
+## MEJ-35 — Suscripciones a reportes: cualquier reporte, a la cadencia que elija el usuario
+
+**Módulo:** Reportes · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Propuesta
+
+### Contexto
+
+Hoy hay dos entregas programadas y las dos son **fijas y de un solo tipo**: el export FOCUS
+diario (`cron/focus-export-daily`) y el envío del reporte ejecutivo. No hay forma de que un
+dueño de centro de costo diga "mandame el desvío de mi grupo los lunes".
+
+El paper lo trata como la mecánica que sostiene la fase de integración con el negocio:
+reportes suscribibles a la frecuencia que elija cada quien, con link, imagen y CSV de los
+datos crudos. Es lo que hace que el dato llegue al que decide **sin que tenga que entrar
+a buscarlo** — y en una herramienta de FinOps, el reporte que hay que ir a buscar no se mira.
+
+### Propuesta
+
+1. **Suscripción por reporte**: destinatarios, frecuencia (diaria, semanal con día,
+   mensual con día del mes) y alcance (suscripción, Cost Group o Perspective de MEJ-34).
+2. **El correo lleva las tres cosas**: link al reporte vivo, imagen del gráfico y CSV
+   adjunto. El CSV no es un extra — es lo que permite que finanzas lo cruce con su modelo
+   sin pedirle nada a nadie.
+3. **Un solo cron evaluador** que resuelve qué suscripciones vencen en esta corrida, en vez
+   de un cron por tipo de reporte. Hoy ya hay 26 jobs; sumar uno por reporte no escala.
+
+### Modelo de Implementación Detallado
+
+- **Base de Datos y Esquema:**
+  - `ReportSubscriptions` (`id`, `tenant_id`, `report_type`, `scope_json`, `recipients_json`,
+    `frequency` ENUM('daily','weekly','monthly'), `day_of_week`, `day_of_month`,
+    `last_sent_at`, `active`, `created_by`).
+  - `last_sent_at` es el que hace idempotente la entrega: el cron manda sólo si el período
+    que corresponde es posterior. Sin eso, dos corridas del mismo día mandan dos veces.
+- **Backend y APIs:**
+  - `GET/POST/DELETE /api/reports/subscriptions`, con `requireTenantRole(['Admin','Owner'])`
+    para crear: una suscripción manda correo a terceros y eso no es una acción de lectura.
+  - Cron `report-subscriptions` cada hora, que reusa `sendEmailStrict` y los generadores
+    que ya existen.
+- **Frontend y Visualización:** panel de suscripciones en `/reports`, con "enviar ahora"
+  para probar sin esperar a la cadencia.
+
+### Archivos Involucrados (Estimados)
+
+- `migrations/YYYYMMDD-NNN-report-subscriptions.sql`
+- `src/services/reportSubscriptions.service.ts`
+- `src/app/api/cron/report-subscriptions/route.ts`
+- `src/components/reports/ReportSubscriptionsPanel.tsx`
+
+### Criterios de Aceptación
+
+1. Una suscripción semanal se manda **una sola vez** por semana aunque el cron corra 168 veces.
+2. El correo trae link, imagen y CSV.
+3. El alcance se respeta: quien se suscribe a su Cost Group no recibe el gasto de los demás.
+4. Una suscripción de un usuario dado de baja no sigue mandando.
+
+---
+
+## MEJ-36 — Presupuestos: rollover y año fiscal no calendario
+
+**Módulo:** Presupuestos · **Impacto:** Medio · **Esfuerzo:** Bajo · **Estado:** Propuesta
+
+### Contexto
+
+**Rollover no existe en el repo** (cero coincidencias al 2026-09-23) y el año fiscal
+aparece sólo de forma incidental, no como configuración del tenant.
+
+Son dos supuestos del código que no se cumplen en muchas empresas: que el presupuesto no
+ejecutado se pierde a fin de mes, y que el año fiscal arranca en enero. Para un cliente
+cuyo ejercicio empieza en abril, **todos los acumulados anuales de la plataforma están
+corridos tres meses** — y no lo dice en ningún lado, que es lo peor de los dos.
+
+### Propuesta
+
+1. **Rollover opcional por presupuesto.** Lo no gastado en el mes se suma al siguiente,
+   con tope configurable y sin arrastrar el sobregiro: un mes en rojo no debe endeudar al
+   siguiente sin que alguien lo decida.
+2. **Mes de inicio del año fiscal por tenant**, que gobierna los acumulados anuales y los
+   cortes de los reportes.
+3. **Mostrar el presupuesto efectivo y el base por separado.** Un presupuesto de 10.000 que
+   hoy tolera 13.000 por arrastre tiene que decirlo, o el número se lee como que se gastó
+   de menos.
+
+### Modelo de Implementación Detallado
+
+- **Base de Datos y Esquema:** en `CostCenterBudgets`, `rollover_enabled` TINYINT(1),
+  `rollover_cap_usd` DECIMAL(12,4) NULL; en `Tenants`, `fiscal_year_start_month`
+  TINYINT DEFAULT 1.
+- **Backend:** el cálculo del arrastre va **en un solo helper** consumido por el panel, las
+  alertas y los reportes. Si cada consumidor lo recalcula, divergen — es el patrón que
+  MEJ-32 documenta como recurrente en este repo.
+- **Frontend:** en el panel, el remanente arrastrado como línea aparte del presupuesto base.
+
+### Criterios de Aceptación
+
+1. Con rollover apagado el comportamiento es **idéntico al de hoy**.
+2. El arrastre nunca supera el tope, y un mes sobregirado arrastra cero, no negativo.
+3. Con año fiscal en abril, el acumulado anual de mayo cuenta dos meses y no cinco.
+4. La UI distingue presupuesto base de presupuesto efectivo.
+
+---
+
+## MEJ-37 — Leaderboard de equipos y margen bruto
+
+**Módulo:** Integración con el negocio · **Impacto:** Medio · **Esfuerzo:** Bajo · **Estado:** Propuesta
+
+### Contexto
+
+Es la única sección del paper sin ninguna contraparte en el repo: cero coincidencias de
+gamificación o ranking. El documento le dedica dos casos de cliente, y el más concreto es
+el de Segment — margen bruto cayendo, descubren que el driver era el **costo por millón de
+llamadas a la API**, y con eso lo enderezan.
+
+La plataforma ya tiene `unit-economics`; lo que falta es el otro lado: **comparar equipos
+entre sí** y poder separar COGS de OpEx.
+
+### Propuesta
+
+1. **Leaderboard por grupo** —de una Perspective de MEJ-34— con gasto del período,
+   variación contra el anterior, adherencia al presupuesto y ahorro capturado.
+2. **Ordenar por mejora, no por gasto.** Un ranking por gasto absoluto premia al equipo
+   chico y castiga al que corre producción; uno por variación y por ahorro capturado premia
+   al que optimizó, que es el comportamiento que se busca.
+3. **Marcar una Perspective como COGS/OpEx** y exponer el split, que es lo que permite
+   llevar el costo de nube a un cálculo de margen bruto.
+
+### Modelo de Implementación Detallado
+
+- **Base de Datos:** ninguna tabla nueva. Sale de `CostSnapshots` más las reglas de MEJ-34
+  y `CostCenterBudgets`; sólo se agrega `cogs_classification` ENUM('COGS','OPEX','UNCLASSIFIED')
+  a nivel de grupo de Perspective.
+- **Backend:** `GET /api/intelligence/leaderboard`, tier Business.
+- **Frontend:** `/intelligence/leaderboard`, con el split COGS/OpEx como tarjeta aparte.
+
+### Fase 2 — métricas de negocio para costo por cliente
+
+Es lo que hace fuertes a CloudZero y Finout, y lo que el caso de Segment del paper de
+CloudHealth describe: ingerir una métrica del negocio —clientes activos, transacciones,
+llamadas a la API— y dividir el costo por ella. Hoy hay 0 coincidencias de costo por
+cliente o por feature en el repo.
+
+Va como fase 2 de esta entrada y no aparte porque comparte el eje: el margen bruto sale de
+cruzar costo con negocio, y sin la métrica del negocio no hay margen que calcular. Alcanza
+con un endpoint de ingesta (`POST /api/v1/business-metrics`, misma API Key pública) y una
+serie temporal por tenant; el resto es dividir.
+
+### Criterios de Aceptación
+
+1. El ranking ordena por mejora y el criterio está escrito en pantalla.
+2. Los grupos sin presupuesto aparecen igual, con la columna vacía, no excluidos.
+3. El split COGS/OpEx suma el total, con `UNCLASSIFIED` visible.
+4. **Nadie con acceso al tenant ve un ranking que no puede explicar**: cada fila lleva al
+   desglose de ese grupo. Un leaderboard sin drill-down genera discusión, no optimización.
+
+---
+
+> **MEJ-38 a MEJ-40 salen de revisar IBM Cloudability, Flexera One, ProsperOps y CAST AI
+> el 2026-09-23**, con el mismo método que MEJ-34/37: leer la fuente y cruzarla contra el
+> repo. Caveat de alcance: se leyeron **páginas de producto**, no documentación —
+> `docs.apptio.com` está bloqueado— así que la comparación es de capacidades nombradas,
+> no de profundidad.
+>
+> **El resultado más útil de la revisión es cuánto NO falta.** Cloudability tiene 22
+> features listadas y el cruce dio que ya están casi todas: Commercial Billing (donde
+> estamos por encima, con markup, MACC y facturación), Container Allocation
+> (`aks-chargeback`), Cost Sharing, Sustainability, Tagging, True Cost (amortización en 6
+> rutas), Anomaly Detection, Scorecards, Unit Economics, Rightsizing, y hasta Workload
+> Planning — que es el simulador de escenarios What-If que ya existe. Su "AI usage por
+> modelo, tipo y dirección de token" también está: `PlatformAiUsage` ya guarda
+> `input_tokens` y `output_tokens`.
+>
+> **Flexera es el único que señala territorio nuevo**, y sólo en la franja donde ya hay un
+> pie puesto con AHUB. Su producto es ITAM+FinOps unificado; la mayoría —inventario
+> on-prem, reconciliación de derechos de uso, defensa ante auditorías de fabricante— no es
+> este producto y no conviene perseguirlo.
+>
+> **ProsperOps y CAST AI quedan acotados por una decisión de producto, no por capacidad.**
+> Los dos EJECUTAN: uno compra y vende compromisos, el otro reemplaza nodos y redimensiona
+> pods. Acá el techo es el rol custom del onboarding y no se pide Contributor sobre la
+> suscripción del cliente. De ellos se toman **métricas y recomendaciones, nunca
+> ejecución** — y eso descarta de entrada una categoría entera de roadmap.
+
+## MEJ-38 — Views: vistas guardadas y con alcance por equipo
+
+**Módulo:** Transversal / RBAC · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Propuesta
+**Depende de:** MEJ-34 (sin Perspectives no hay por dónde recortar).
+
+### Contexto
+
+Cloudability llama *Views* a lo que en el repo no existe (0 coincidencias de `savedView` o
+equivalentes): que cada equipo, app o producto tenga su vista, y que **el dueño de un
+centro de costo entre y vea sólo su porción**. Hoy el RBAC es por tenant: quien entra, ve
+todo el tenant.
+
+Es lo que convierte la plataforma de "una herramienta que mira el FinOps" en "una
+herramienta que usa cada equipo" — y sin eso, las Perspectives de MEJ-34 sirven para que
+el analista filtre, no para que el dueño se haga cargo.
+
+### Propuesta
+
+1. **Vista guardada** = nombre + Perspective + grupo + rango de fechas + filtros, reusable
+   desde cualquier tablero que ya filtre por suscripción.
+2. **Vista por defecto por usuario**, para que entre directo a lo suyo.
+3. **Alcance como permiso, no como filtro** (ver abajo).
+
+### La parte que importa: filtro no es permiso
+
+Una vista que sólo recorta la UI es una comodidad. Si la API sigue devolviendo el tenant
+entero y el recorte pasa en el navegador, **cualquiera con la sesión ve el gasto de los
+demás cambiando un parámetro** — y en una plataforma que se vende por gobernanza, eso es
+peor que no tener la feature.
+
+El alcance tiene que aplicarse **del lado del servidor**: la asignación usuario → grupo de
+Perspective vive en la base, y las rutas de costo filtran por ella. `requireTenantAccess`
+sigue resolviendo la pertenencia al tenant; lo nuevo es un segundo recorte **dentro** del
+tenant.
+
+Cuidado con el efecto colateral: un usuario con alcance no puede ver los totales del
+tenant, así que **los KPIs y porcentajes tienen que recalcularse sobre su porción**, no
+mostrarse sobre el total. Un "35% del gasto" que en realidad es 35% de otra cosa es peor
+que no mostrarlo.
+
+### Modelo de Implementación Detallado
+
+- **Base de Datos y Esquema:**
+  - `SavedViews` (`id`, `tenant_id`, `user_id` NULL para compartidas, `name`,
+    `perspective_id`, `group_name`, `filters_json`, `is_default`).
+  - `UserScopes` (`tenant_id`, `user_email`, `perspective_id`, `group_name`) — la tabla que
+    convierte la vista en permiso. Sin fila, el usuario ve el tenant completo, que es el
+    comportamiento de hoy y el default seguro para no romper a nadie al desplegar.
+- **Backend y APIs:**
+  - Helper `alcanceDelUsuario(request, tenantId)` en `requestAuth.ts`, consumido por las
+    rutas de costo. **Va en el helper y no en cada ruta**: un recorte que cada ruta
+    implementa por su cuenta es un recorte que alguna ruta nueva va a olvidar.
+  - `GET/POST/DELETE /api/intelligence/views`.
+- **Frontend:** selector de vista en el shell, al lado del de suscripción.
+
+### Criterios de Aceptación
+
+1. Un usuario con alcance recibe **de la API** sólo su porción: cambiar el parámetro en el
+   navegador no le muestra más.
+2. Los KPIs se calculan sobre la porción visible, y la pantalla dice sobre qué alcance está.
+3. Un usuario sin fila en `UserScopes` ve exactamente lo que ve hoy.
+4. Una vista compartida es visible para todo el tenant; una personal, sólo para su dueño.
+
+---
+
+## MEJ-39 — Fin de soporte (EOL/EOS) de la plataforma Azure
+
+**Módulo:** Gobernanza / Riesgo · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Propuesta
+
+### Contexto
+
+Es lo único que Flexera señala y que acá no está resuelto. Hoy el ciclo de vida se calcula
+para **un solo producto**: versiones de OpenShift, en `getOpenShiftLifecycleStatus`
+(`src/lib/aroUtils.ts:14`). El patrón existe; falta el catálogo.
+
+Azure publica fechas de retiro para casi todo: versiones de AKS, de SQL Server, runtimes de
+App Service, series de VM, versiones de PostgreSQL y MySQL Flexible Server, api-versions de
+ARM.
+
+**Por qué es costo y no sólo riesgo.** Quedarse en una versión retirada tiene dos finales, y
+los dos se pagan: una migración de urgencia sin presupuestar, o Extended Security Updates,
+que en el caso de SQL Server y Windows Server tiene precio de lista. Un cliente que ve la
+fecha con seis meses de anticipación lo planifica; uno que se entera cuando le cortan el
+soporte, no.
+
+### Propuesta
+
+1. **Inventario contra fechas de retiro**, con el costo de los recursos afectados al lado:
+   "estos 14 recursos corren algo que Azure retira en menos de 90 días, y representan
+   $X/mes".
+2. **Semáforo por ventana** — retirado, <90 días, <365 días, soportado — reusando la forma
+   que ya tiene el panel de ARO.
+3. **Alerta** enganchada al motor que ya existe, no una nueva.
+
+### Modelo de Implementación Detallado
+
+- **Fuente de las fechas, a verificar antes de codear.** Hay dos caminos y conviene medir
+  cuál cubre más antes de elegir: las *health advisories* de Azure Service Health, que
+  incluyen retiros de servicio, o una tabla curada en el repo para las escaleras de versión
+  conocidas. **El contrato exacto de la API de Service Health hay que confirmarlo en
+  `learn.microsoft.com`** — es justo el tipo de cosa que devuelve vacío en vez de fallar si
+  se la pide mal.
+  - Una tabla curada tiene la ventaja de ser auditable y la desventaja de envejecer. Si se
+    elige, el archivo lleva fecha de última revisión visible en la UI: un catálogo de fechas
+    sin fecha propia es una trampa.
+- **Base de Datos:** ninguna tabla nueva si se usa catálogo en repo
+  (`src/lib/azureLifecycleCatalog.ts`, mismo patrón que `zombieAuditCatalog.ts`).
+- **Backend:** `GET /api/governance/lifecycle`, cruzando Resource Graph (versiones y SKUs,
+  que ya se leen) contra el catálogo.
+- **Frontend:** `/governance/lifecycle`.
+
+### Fase 2 — posición de licencias en la nube
+
+`hybrid-benefit` ya detecta dónde se puede aplicar AHUB. El paso siguiente, que es el
+producto **Cloud License Management** de Flexera, es saber **qué software licenciable corre**
+en las VMs —SQL Server, Windows Server— y si hay cobertura. Comparte pantalla y catálogo con
+la fase 1, por eso va acá y no como entrada aparte.
+
+### Criterios de Aceptación
+
+1. Un recurso en versión retirada aparece con su fecha y con su costo mensual.
+2. El catálogo muestra cuándo se revisó por última vez.
+3. Un tipo de recurso sin datos de ciclo de vida se marca **"sin datos"**, no "soportado".
+   Asumir soporte por ausencia de dato es exactamente el error que hay que evitar.
+
+---
+
+## MEJ-40 — ESR y riesgo de la cartera de compromisos
+
+**Módulo:** Compromisos · **Impacto:** Alto · **Esfuerzo:** Bajo · **Estado:** Propuesta
+
+### Contexto
+
+La mejor relación valor/esfuerzo de las seis herramientas revisadas, y es **presentación,
+no motor**: los datos ya están.
+
+ProsperOps construyó su producto alrededor de tres siglas, y llama a la primera "el KPI
+central de optimización tarifaria de FinOps":
+
+- **ESR** (Effective Savings Rate) — cuánto se ahorra de verdad contra pagar todo a demanda.
+- **CLR** (Commitment Lock-in Risk) — cuánto compromiso ata y por cuánto tiempo.
+- **EAR** (Effective Avoidance Rate) — el equivalente del lado de workload.
+
+En el repo, `coverage`, `utilization` y `onDemand` aparecen 33, 22 y 17 veces: **el cálculo
+está, lo que falta es consolidarlo en una tasa**. Sus testimonios hablan de "pasamos de 37%
+a 49% de ESR": un número único que el cliente sigue mes a mes. Hoy la pantalla de
+compromisos da piezas y le pide al cliente que arme el juicio.
+
+Y **no hay medida de concentración de vencimientos**: los 8 hits de `ladder` en el repo son
+escalones de DTU para rightsizing de SQL, sin relación. Que toda la cartera venza el mismo
+mes es riesgo real y hoy no se ve.
+
+### Propuesta
+
+1. **ESR como número de cabecera** de `/intelligence/commitments`.
+2. **Concentración de vencimientos**: qué porcentaje del valor comprometido vence en el
+   mismo mes y en el mismo trimestre, con el calendario al lado.
+3. **Comparación contra el mes anterior**, que es lo que convierte la métrica en seguimiento
+   en vez de en una foto.
+
+### La trampa del cálculo, que es lo que hace que sea "effective"
+
+ESR **tiene que descontar el compromiso desperdiciado**. Si se calcula sólo sobre las horas
+efectivamente cubiertas, sobre-comprometerse mejora el número: se compra de más, se usa
+poco, y la tasa sube porque el denominador no ve el desperdicio. Ese es precisamente el
+incentivo perverso que la palabra *effective* existe para cerrar.
+
+```
+ESR = (costo_a_demanda_equivalente − costo_real_pagado) / costo_a_demanda_equivalente
+```
+
+donde `costo_real_pagado` **incluye el compromiso no utilizado**. Un ESR que sube mientras
+la utilización baja es un ESR mal calculado, y conviene dejarlo fijado en un test.
+
+### Modelo de Implementación Detallado
+
+- **Base de Datos:** ninguna tabla nueva. Sale de lo que ya consulta
+  `/api/intelligence/commitments`.
+- **Backend:** `calcularESR()` y `concentracionDeVencimientos()` en el servicio de
+  compromisos, en `Decimal` como el resto de los cálculos de plata.
+- **Frontend:** dos KPIs arriba del tablero de compromisos y un calendario de vencimientos.
+
+### Criterios de Aceptación
+
+1. Con cobertura 0 el ESR es 0, y con cobertura total a precio de reserva da la tasa de
+   descuento real.
+2. **Subir el compromiso sin subir el uso BAJA el ESR.** Es el test que prueba que el
+   desperdicio entra en la cuenta.
+3. La concentración se expresa sobre el valor comprometido, no sobre la cantidad de
+   compromisos: diez reservas chicas que vencen juntas no son el mismo riesgo que una grande.
+4. Sin compromisos, la pantalla lo dice y no muestra 0% como si fuera un resultado.
