@@ -1,6 +1,6 @@
 // Route: /api/intelligence/billing
 // Purpose: Real consumption dynamic monitor with burn rate, MoM variation, anomalies and resource drill-down
-// Auth: requireTenantAccess
+// Auth: requireTenantAccess (salvo el tenant de demo, que entra sin token: ver GET)
 // Tier: Professional+
 
 import { NextRequest, NextResponse } from "next/server";
@@ -16,10 +16,21 @@ export async function GET(request: NextRequest) {
         const tenantId = searchParams.get("tenantId");
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-        await requireTenantAccess(request, tenantId);
-
         const subscriptionId = searchParams.get("subscriptionId") || "All";
         const isMock = isMockTenant(tenantId);
+
+        // El tenant de demo entra SIN token, igual que `aks-chargeback`: /demo no
+        // deja una identidad de Entra, así que autenticar primero dejaba esta
+        // ruta inalcanzable y obligaba a que `TenantProvider` interceptara el
+        // fetch con una copia del payload en `mockData.ts`. Esa copia se quedó
+        // en el contrato viejo (`data[]`) mientras la ruta pasaba al nuevo
+        // (`services`, `top5ShareOfWallet`, `byRegion`), y la pantalla de
+        // Consumo Real de la demo quedó vacía sin que nada fallara (MEJ-03).
+        // Acá no hay dato real que exponer: `getMockRealConsumptionOverview` es
+        // 100% inventado y no toca la base ni Azure.
+        if (!isMock) {
+            await requireTenantAccess(request, tenantId);
+        }
 
         // El inventario ARM + Cost Management de un tenant grande tarda más que
         // los 100s que aguanta Cloudflare: sin cache la página devolvía 524.

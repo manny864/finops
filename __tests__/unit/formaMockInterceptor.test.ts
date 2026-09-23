@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
 
 /**
@@ -21,9 +21,16 @@ import { NextRequest } from "next/server";
  * marcha, que es como lo arman tres de estas cuatro.
  */
 
+const auth = vi.hoisted(() => {
+    class AuthErrorMock extends Error {
+        status = 401;
+    }
+    return { AuthErrorMock, requireTenantAccess: vi.fn(async () => ({ email: "demo@demo" })) };
+});
+
 vi.mock("@/lib/requestAuth", () => ({
-    AuthError: class extends Error { status = 403; },
-    requireTenantAccess: async () => ({ email: "demo@demo" }),
+    AuthError: auth.AuthErrorMock,
+    requireTenantAccess: auth.requireTenantAccess,
     requireTenantTier: async () => ({ email: "demo@demo" }),
     requireTenantRole: async () => ({ email: "demo@demo" }),
     requireSuperAdmin: async () => ({ email: "demo@demo" }),
@@ -46,21 +53,14 @@ function claves(v: any, prefijo = "", nivel = 0): string[] {
 }
 
 /**
- * `billing` NO está acá y es deuda conocida, no un olvido.
- *
- * La ruta devuelve el contrato nuevo (`services`, `top5ShareOfWallet`,
- * `byRegion`, `overview`, `period`...) que leen `RealConsumptionDashboard` y
- * `BillingDashboard`; el interceptor todavía sirve el viejo (`data[]`), así que
- * en la demo esa pantalla está vacía. Arreglarlo pide una de dos decisiones, y
- * ninguna es una limpieza:
- *
- *   a. Servir el mock ANTES del auth en `/api/intelligence/billing` —como ya
- *      hace `aks-chargeback`— y sacar la intercepción. Una sola fuente, diff
- *      negativo, pero amplía lo que se responde sin token, que es justo lo que
- *      SEC-02 de la auditoría 2026-09-21 dejó anotado para no ampliar.
- *   b. Duplicar las ~400 líneas de `getMockRealConsumptionOverview` en un
- *      módulo importable desde el cliente. No amplía nada y vuelve a poner dos
- *      copias de lo mismo a divergir.
+ * `billing` no está en esta lista porque **ya no se intercepta** (MEJ-03,
+ * 2026-09-22): la ruta sirve su propio mock sin token para el tenant de demo, y
+ * el `case 'billing'` de `mockData.ts` se borró. Lo que había que evitar ahí era
+ * exactamente lo que este test mide —la copia se quedó en el contrato viejo
+ * (`data[]`) mientras la ruta pasaba a `services`/`top5ShareOfWallet`/`byRegion`,
+ * y la pantalla de Consumo Real de la demo quedó vacía sin que nada fallara—.
+ * Sin copia no hay nada que comparar; lo que queda por cuidar es el otro lado, y
+ * está en el `describe` del final.
  */
 const CASOS: { ruta: string; clave: string; url: string }[] = [
     { ruta: "ai-analytics", clave: "ai-analytics", url: "https://x/api/intelligence/ai-analytics?tenantId=demo" },
@@ -84,5 +84,54 @@ describe("forma del mock del interceptor vs la de la ruta (MEJ-03)", () => {
             faltantes,
             `el mock de '${clave}' en mockData.ts no trae estas claves que la ruta si devuelve: en la demo van a salir vacias`
         ).toEqual([]);
+    });
+});
+
+/**
+ * Sacar una intercepción mueve el riesgo, no lo elimina: ahora la demo depende
+ * de que la ruta siga siendo alcanzable SIN token y de que su payload siga
+ * trayendo lo que la pantalla lee. Si alguien vuelve a poner el
+ * `requireTenantAccess` antes del chequeo de mock, la demo pasa de datos a un
+ * 401 — y con la intercepción borrada, no hay red abajo.
+ */
+describe("billing sirve su propio mock a la demo, sin interceptor (MEJ-03)", () => {
+    // `requireTenantAccess` RECHAZA en este describe, que es lo que hace en la
+    // realidad con la demo: /demo no deja identidad de Entra. Con un mock que
+    // resuelve siempre, mover el auth delante del chequeo de mock no rompe
+    // ningun test y la regresion pasa igual --se comprobo con mutante--.
+    beforeEach(() => {
+        // mockClear y no solo mockImplementation: `toHaveBeenCalled` mira TODAS
+        // las llamadas acumuladas del mock, y las rutas de arriba ya lo llamaron.
+        // Sin limpiar, el test de "sigue necesitando token" pasa aunque la ruta
+        // no autentique a nadie --comprobado con mutante--.
+        auth.requireTenantAccess.mockClear();
+        auth.requireTenantAccess.mockImplementation(async () => {
+            throw new auth.AuthErrorMock("No autorizado.");
+        });
+    });
+    afterEach(() => {
+        auth.requireTenantAccess.mockImplementation(async () => ({ email: "demo@demo" }));
+    });
+
+    it("responde sin token y con lo que leen los dos dashboards", async () => {
+        const mod = await import("@/app/api/intelligence/billing/route");
+        const r = await mod.GET(new NextRequest(new URL("https://x/api/intelligence/billing?tenantId=demo")) as any);
+
+        expect(r.status, "la demo no manda token: si la ruta autentica antes del mock, le vacia la pantalla").toBe(200);
+
+        const cuerpo = await r.json();
+        // `services` y `top5ShareOfWallet` las lee RealConsumptionDashboard;
+        // `byRegion`, BillingDashboard. Son de las que faltaban en el mock viejo.
+        for (const clave of ["services", "top5ShareOfWallet", "byRegion", "overview", "period"]) {
+            expect(cuerpo[clave], `falta '${clave}': la pantalla de la demo lo lee`).toBeDefined();
+        }
+        expect(Array.isArray(cuerpo.services) && cuerpo.services.length > 0).toBe(true);
+    });
+
+    it("un tenant que no es de demo sigue necesitando token", async () => {
+        const mod = await import("@/app/api/intelligence/billing/route");
+        const r = await mod.GET(new NextRequest(new URL("https://x/api/intelligence/billing?tenantId=acme-real")) as any);
+        expect(auth.requireTenantAccess).toHaveBeenCalled();
+        expect(r.status).not.toBe(200);
     });
 });

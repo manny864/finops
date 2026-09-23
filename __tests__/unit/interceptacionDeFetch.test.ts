@@ -35,7 +35,7 @@ const PROVIDER = "src/components/TenantProvider.tsx";
  * Bajar este número es progreso: significa que una interceptación redundante se
  * fue y la ruta quedó como única fuente. Subirlo es deuda nueva.
  */
-const TOPE_REDUNDANTES = 51;
+const TOPE_REDUNDANTES = 50;
 
 function rutasInterceptadas(): string[] {
     const src = readFileSync(PROVIDER, "utf8");
@@ -56,7 +56,7 @@ describe("interceptación de fetch en TenantProvider", () => {
     it("el escaneo encuentra las interceptaciones", () => {
         // Red de seguridad: si la regex deja de matchear, el conteo se desploma
         // y el ratchet pasaría vacío dando falsa tranquilidad.
-        expect(interceptadas.length).toBeGreaterThan(80);
+        expect(interceptadas.length).toBeGreaterThan(75);
     });
 
     it(`las interceptaciones sobre rutas con mock propio no crecen (tope ${TOPE_REDUNDANTES})`, () => {

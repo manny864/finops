@@ -371,7 +371,13 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               }
               const tier = selectedTenant?.tier?.toLowerCase() || demoSession?.tier?.toLowerCase() || 'professional';
               const mockKey = tier;
-              if (url.includes('/api/intelligence/billing')) return new Response(JSON.stringify(getMockDataForRoute('billing', mockKey)), {status: 200});
+              // /api/intelligence/billing NO se intercepta (MEJ-03): la ruta
+              // sirve el mock sin token para el tenant de demo y devuelve el
+              // contrato vivo. El mock que habia aca se quedo en el viejo
+              // (`data[]`) mientras la ruta pasaba a `services` /
+              // `top5ShareOfWallet` / `byRegion`, y la pantalla de Consumo Real
+              // de la demo quedo vacia sin que nada fallara. No lo repongas:
+              // una copia del payload vuelve a divergir sola.
               // /api/advisor NO se intercepta: la ruta ya hace short-circuit con
               // generateMockAdvisorData para tenants mock y devuelve el shape
               // AdvisorApiResponse (pillars + scores) que consume AdvisorPanel.

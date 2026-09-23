@@ -1209,52 +1209,12 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                     }
                 ]
             };
-        case 'billing': {
-            const round2 = (x: number) => Math.round(x * 100) / 100;
-            const dailyBilledTarget = (12500 * multiplier / 30) / 0.92;
-            const now = new Date();
-            const daysElapsed = Math.max(1, now.getDate());
-            const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-            const totalCost = 372.13 * (multiplier / 10);
-            const dailyBurnRate = round2(totalCost / daysElapsed);
-            const projectedCost = round2(dailyBurnRate * daysInMonth);
-
-            const rawData = Array.from({length: 30}).map((_, i) => {
-                const services = ['Redis Cache', 'Azure Container Apps', 'Virtual Machines', 'Storage Accounts', 'Foundry Models', 'Virtual Network', 'Azure Cognitive Search', 'Container Registry'];
-                const svc = services[i % services.length];
-                const pseudoRandom = (i * 7919) % 1000 / 1000;
-                const cost = dailyBilledTarget * (0.85 + pseudoRandom * 0.3);
-                const isoDate = new Date(Date.now() - (29 - i) * 86400000).toISOString().split('T')[0];
-                return {
-                    date: isoDate,
-                    UsageDate: isoDate,
-                    cost: round2(cost),
-                    BilledCost: round2(cost),
-                    EffectiveCost: round2(cost * 0.92),
-                    service: svc,
-                    ServiceName: svc,
-                    ServiceFamily: svc,
-                    resourceGroup: ['rg-prod', 'rg-dev', 'rg-data', 'rg-net'][i % 4],
-                    ResourceGroup: ['rg-prod', 'rg-dev', 'rg-data', 'rg-net'][i % 4],
-                    ResourceId: `/subscriptions/demo/resourceGroups/rg/providers/Microsoft.Compute/${svc}/r${i}`,
-                    tags: { Environment: i % 2 ? 'prod' : 'dev', Owner: 'demo@company.com' }
-                };
-            });
-
-            return {
-                success: true,
-                mock: true,
-                totalCost: round2(totalCost),
-                projectedCost: round2(projectedCost),
-                dailyBurnRate: round2(dailyBurnRate),
-                momVariation: 11.4,
-                daysElapsed,
-                daysInMonth,
-                hasAnomalies: true,
-                anomalyCount: 1,
-                data: rawData
-            };
-        }
+        // 'billing' se BORRO (MEJ-03, 2026-09-22). `/api/intelligence/billing`
+        // sirve su propio mock sin token para el tenant de demo, asi que dejo de
+        // interceptarse. Esta copia se habia quedado en el contrato viejo
+        // (`data[]`) mientras la ruta pasaba a `services` / `top5ShareOfWallet` /
+        // `byRegion`: la pantalla de Consumo Real de la demo quedo vacia y nada
+        // fallo. No la repongas -- una copia del payload vuelve a divergir sola.
         case 'tags_compliance': {
             const mkRes = (id: string, name: string, missing: string[], type?: string, sub?: string) => ({
                 resourceId: id, id, name,
