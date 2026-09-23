@@ -9,6 +9,7 @@ import {
     IconArrowsShuffle,
     IconWorld,
     IconShieldCheck,
+    IconArrowsUpDown,
 } from "@tabler/icons-react";
 import InfoTooltip from "@/components/InfoTooltip";
 
@@ -47,6 +48,12 @@ export default async function RedesLayout({ children }: { children: ReactNode })
             label: t("tabInternetFinops"),
             icon: <IconWorld className="w-4 h-4 text-[#0054A6]" stroke={1.5} />,
             tooltip: t("tooltip_tab_internet"),
+        },
+        {
+            href: "/intelligence/redes/egress",
+            label: t("tabEgress"),
+            icon: <IconArrowsUpDown className="w-4 h-4 text-[#0054A6]" stroke={1.5} />,
+            tooltip: t("tooltip_tab_egress"),
         },
         {
             href: "/intelligence/redes/ddos-protection",

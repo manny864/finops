@@ -10068,7 +10068,9 @@
     "tooltip_tab_hybrid": "Custos e largura de banda em ExpressRoute, VPN Gateways e conectividade local.",
     "tooltip_tab_balancing": "Governança do Azure Load Balancer, Application Gateway (WAF) e Azure Front Door.",
     "tooltip_tab_internet": "Transferência de saída de dados (Egress), IPs públicos estáticos e Azure NAT Gateways.",
-    "tooltip_tab_ddos": "Planos de DDoS Protection Standard, histórico de ataques, VNets protegidas e otimização de custos."
+    "tooltip_tab_ddos": "Planos de DDoS Protection Standard, histórico de ataques, VNets protegidas e otimização de custos.",
+    "tabEgress": "Tráfego e egress",
+    "tooltip_tab_egress": "Custo de mover dados: saída para a internet, entre zonas, entre regiões e processado pelo NAT Gateway."
   },
   "NetworkPerimeter": {
     "page_title": "Rede Perimetral",
@@ -15722,5 +15724,34 @@
         "dedicatedSupport": "Suporte e Arquiteto FinOps Dedicado"
       }
     }
+  },
+  "NetworkEgress": {
+    "title": "Tráfego e egress",
+    "subtitle": "Para onde vai o dinheiro de mover dados, que não aparece no custo dos recursos de rede.",
+    "help": "Vem dos medidores de transferência que o sync diário já ingere (serviço Bandwidth e o Data Processed do NAT Gateway). O custo é o faturado pela Azure, não uma estimativa.",
+    "loading": "Carregando o tráfego…",
+    "loadError": "Não foi possível carregar o tráfego",
+    "windowLabel": "Janela",
+    "windowDays": "Últimos {n} dias",
+    "kpiOutbound": "Custo de saída",
+    "kpiTotal": "Custo total de transferência",
+    "kpiMeters": "Medidores com cobrança",
+    "emptyTitle": "Sem transferência faturada nesta janela",
+    "emptyHint": "Pode ser que não haja tráfego cobrado — a primeira faixa de saída é gratuita — ou que o sync diário ainda não tenha rodado para este tenant. Tente uma janela maior antes de dar por encerrado.",
+    "cat_internet": "Saída para a internet",
+    "cat_entre_zonas": "Entre zonas de disponibilidade",
+    "cat_nat_gateway": "Processado pelo NAT Gateway",
+    "cat_entre_regiones": "Entre regiões do continente",
+    "cat_entre_continentes": "Entre continentes",
+    "cat_entrada": "Entrada",
+    "hint_entre_zonas": "Cobrado nas duas direções. Costuma vir de réplicas ou balanceamento distribuídos entre zonas sem necessidade: verifique se a carga pode ficar em uma só.",
+    "hint_nat_gateway": "Cobrado por GB processado além de por hora. Se o destino for um serviço da Azure, um Private Endpoint ou um Service Endpoint evita o NAT por completo.",
+    "colMeter": "Medidor",
+    "colCategory": "Categoria",
+    "colRegion": "Região",
+    "colVolume": "Volume",
+    "colCost": "Custo",
+    "footnoteFreeTier": "O volume é um piso: as linhas sem cobrança — a faixa gratuita de saída — não são ingeridas, então os GB reais são maiores. O custo é o total.",
+    "footnotePartialGb": "Além disso há medidores que não são cobrados por GB, e seu volume não é somado."
   }
 }

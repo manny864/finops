@@ -1,0 +1,110 @@
+// @vitest-environment node
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+const mocks = vi.hoisted(() => ({ query: vi.fn() }));
+vi.mock("@/modules/storage/db", () => ({ default: { query: mocks.query } }));
+
+import { getMapaEgress, CLASIFICACION } from "@/services/networkEgress.service";
+
+/**
+ * Evalúa el MISMO CASE que se manda a MySQL, leyendo las reglas del string que
+ * exporta el servicio en vez de copiarlas acá. Una copia de las reglas en el
+ * test valida la copia, no el código: si alguien reordena los WHEN, el test
+ * tiene que enterarse.
+ */
+function clasificar(meterName: string): string | null {
+    const reglas = [...CLASIFICACION.matchAll(/WHEN m LIKE '([^']+)'\s+THEN '([^']+)'/g)];
+    expect(reglas.length, "no se pudieron leer las reglas del CASE").toBeGreaterThan(3);
+    const m = meterName.toLowerCase();
+    for (const [, patron, categoria] of reglas) {
+        const re = new RegExp("^" + patron.replace(/[.+?^${}()|[\]\\]/g, "\\$&").split("%").join(".*") + "$");
+        if (re.test(m)) return categoria;
+    }
+    return null;
+}
+
+describe("clasificación de medidores de transferencia", () => {
+    // Los nombres salen de la Retail Prices API real (serviceName eq
+    // 'Bandwidth', 2026-09-22), no de la memoria de nadie.
+    it.each([
+        ["Standard Data Transfer Out", "internet"],
+        ["Standard Cost Optimized Data Transfer Out", "internet"],
+        ["Standard Data Transfer Out - to China", "internet"],
+        ["Standard Inter-Availability Zone Data Transfer Out", "entre_zonas"],
+        ["Inter Continent Data Transfer Out - NAM or EU To Any", "entre_continentes"],
+        ["Intra Continent Data Transfer Out", "entre_regiones"],
+        ["Standard Data Processed", "nat_gateway"],
+        ["Standard Data Transfer In", "entrada"],
+        ["Inter Continent Data Transfer In - ASIA To Any", "entrada"],
+    ])("%s -> %s", (medidor, esperado) => {
+        expect(clasificar(medidor)).toBe(esperado);
+    });
+
+    // El que justifica el orden de los WHEN. `Standard Inter-Availability Zone
+    // Data Transfer Out` también matchea un `%data transfer out%` genérico: con
+    // los WHEN al revés, todo el inter-AZ se contaría como salida a internet y
+    // el hallazgo que esta pantalla existe para mostrar desaparecería dentro de
+    // otra categoría, sin que nada falle.
+    it("lo específico gana: el inter-AZ no cae en 'internet'", () => {
+        expect(clasificar("Standard Inter-Availability Zone Data Transfer Out")).not.toBe("internet");
+        expect(clasificar("Standard Inter-Availability Zone Data Transfer In")).not.toBe("entrada");
+    });
+
+    it("un medidor que no es de transferencia queda afuera", () => {
+        expect(clasificar("Standard Gateway")).toBeNull();
+        expect(clasificar("China Data Transfer - 1 Mbps")).toBeNull();
+    });
+});
+
+describe("getMapaEgress", () => {
+    const fila = (categoria: string, costo: number, gb: number, sinGb = 0, region = "eastus") =>
+        ({ categoria, region, medidor: "x", costo, gb, sin_gb: sinGb });
+
+    beforeEach(() => vi.clearAllMocks());
+
+    it("suma por categoría y deja la entrada fuera del costo de salida", async () => {
+        mocks.query.mockResolvedValueOnce([[
+            fila("internet", 100, 1000),
+            fila("entre_zonas", 50, 5000),
+            fila("entrada", 0, 9000),
+        ]]);
+        const r = await getMapaEgress("t1");
+        expect(r.costoTotalUsd).toBe(150);
+        expect(r.costoSalidaUsd).toBe(150);
+        expect(r.porCategoria[0]).toEqual({ categoria: "internet", costoUsd: 100, gigabytes: 1000 });
+        expect(r.gigabytesParciales).toBe(false);
+    });
+
+    it("la entrada sí se resta cuando cuesta", async () => {
+        mocks.query.mockResolvedValueOnce([[fila("internet", 100, 1000), fila("entrada", 7, 500)]]);
+        const r = await getMapaEgress("t1");
+        expect(r.costoTotalUsd).toBe(107);
+        expect(r.costoSalidaUsd).toBe(100);
+    });
+
+    // Un GB desconocido contagia a toda la categoría: sumar sólo los que se
+    // saben da un número que parece el total y no lo es, que miente hacia abajo
+    // igual que el 0 silencioso de la Retail API.
+    it("un medidor sin GB fiables deja la categoría sin total de GB", async () => {
+        mocks.query.mockResolvedValueOnce([[
+            fila("internet", 100, 1000),
+            fila("internet", 20, 0, 1),
+        ]]);
+        const r = await getMapaEgress("t1");
+        expect(r.porCategoria[0].costoUsd).toBe(120);
+        expect(r.porCategoria[0].gigabytes).toBeNull();
+        expect(r.gigabytesParciales).toBe(true);
+    });
+
+    it("sin filas no inventa nada", async () => {
+        mocks.query.mockResolvedValueOnce([[]]);
+        const r = await getMapaEgress("t1");
+        expect(r).toMatchObject({ flujos: [], porCategoria: [], costoTotalUsd: 0, costoSalidaUsd: 0, gigabytesParciales: false });
+    });
+
+    it("acota la ventana a lo pedido", async () => {
+        mocks.query.mockResolvedValueOnce([[]]);
+        await getMapaEgress("t1", 7);
+        expect(mocks.query.mock.calls[0][1]).toEqual(["t1", 7]);
+    });
+});

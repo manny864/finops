@@ -1675,7 +1675,7 @@ Azure Cosmos DB es uno de los servicios de mayor volatilidad financiera en Azure
 
 ## MEJ-19 — Mapa de Tráfico de Red, Egress y Fugas de Datos
 
-**Módulo:** Redes / Egress · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Propuesta
+**Módulo:** Redes / Egress · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Parcial (núcleo hecho 2026-09)
 
 ### Contexto
 
@@ -1713,6 +1713,61 @@ Los costos de transferencia de datos en la nube (Egress, transferencias Inter-Av
 1. El diagrama Sankey representa visualmente los flujos de datos y costos entre AZs y regiones.
 2. Detecta cargos anómalos de procesamiento de datos en NAT Gateways y Private Endpoints.
 3. Identifica circuitos ExpressRoute / VPN con utilización P95 menor al 15% para downgrade de SKU.
+
+### Lo que se implementó (2026-09-22)
+
+**Sin tabla nueva, sin colector nuevo y sin cron nuevo.** El costo de
+transferencia ya se ingiere: la query B del sync agrupa por `ServiceName` +
+`Meter` + `ResourceLocation` y escribe en `CostMeterSnapshots` con `Quantity`.
+Lo único que faltaba era clasificar esas filas. `NetworkTrafficCostFlows` no
+hizo falta.
+
+- `src/services/networkEgress.service.ts`: clasifica los medidores en salida a
+  internet, entre zonas, entre regiones, entre continentes, NAT Gateway y
+  entrada, con costo y GB por región y medidor.
+- `GET /api/intelligence/network/egress` (mock antes del auth, sin intercepción
+  en `TenantProvider` — el patrón al que llegó MEJ-03).
+- Pestaña **Tráfico y egress** en el hub de redes, con el desglose y la
+  sugerencia de arquitectura para los dos evitables.
+
+**Dos correcciones de contrato sobre la propuesta de arriba, verificadas contra
+la Retail Prices API real** (pública y sin auth), no asumidas:
+
+- El servicio es **`Bandwidth`** (familia `Networking`), **no** `'Virtual
+  Network'` como decía la propuesta. Filtrar por el nombre equivocado devuelve
+  cero filas, y cero filas se lee igual que "este cliente no transfiere nada".
+- El `Data Processed` del NAT Gateway vive en el servicio **`NAT Gateway`**, con
+  su propio medidor por GB, no bajo Bandwidth.
+
+Los `meterName` reales quedaron fijados en `networkEgress.test.ts`, que evalúa
+el mismo `CASE` que se manda a MySQL leyéndolo del código en vez de copiarlo.
+Eso cubre el orden de los `WHEN`: `Standard Inter-Availability Zone Data
+Transfer Out` también matchea un `%data transfer out%` genérico, así que con el
+orden al revés **todo el inter-AZ se contaría como salida a internet** y el
+hallazgo que justifica la pantalla desaparecería dentro de otra categoría.
+
+**Dos límites que la pantalla dice en vez de esconder:**
+
+1. **Las filas de costo 0 no se ingieren** (el sync descarta `cost === 0`), así
+   que los GB del tramo gratuito no están: el costo es exacto y el volumen es un
+   piso.
+2. **`UnitOfMeasure` llega vacío** en las filas de meter porque la query B no lo
+   pide, así que los GB sólo se suman para los medidores que la Retail API
+   confirma en `1 GB`. Los de China, que se cobran por Mbps/hora, quedan fuera
+   del total de GB aunque su costo sí se cuente.
+
+**Lo que falta, y por qué no se hizo de una:**
+
+- **El Sankey (criterio 1).** Son seis categorías, y un diagrama de flujo para
+  seis barras es una dependencia nueva para decir lo mismo. Tiene sentido cuando
+  el desglose llegue a par origen-destino, que la ingesta hoy no da: Cost
+  Management informa la región del cargo, no el destino del tráfico.
+- **Private Endpoints (parte del criterio 2).** El NAT Gateway sí está; el
+  medidor de Private Link **quedó sin verificar** — la Retail API devolvió 429
+  antes de poder confirmar su `serviceName`, y no se agrega un filtro a ojo.
+- **ExpressRoute / VPN P95 (criterio 3).** Es otra fuente: métricas de Azure
+  Monitor, no costo. No comparte nada con lo de arriba salvo la pantalla.
+- **Network Watcher Flow Logs.** Dan GB, no costo, y el costo ya lo tenemos.
 
 ---
 

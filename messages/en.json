@@ -10068,7 +10068,9 @@
     "tooltip_tab_hybrid": "Costs and bandwidth for ExpressRoute, VPN Gateways, and on-premises connectivity.",
     "tooltip_tab_balancing": "Governance of Azure Load Balancer, Application Gateway (WAF), and Azure Front Door.",
     "tooltip_tab_internet": "Outbound data transfer (Egress), static Public IPs, and Azure NAT Gateways.",
-    "tooltip_tab_ddos": "DDoS Protection Standard plans, attack history, protected VNets, and cost optimization."
+    "tooltip_tab_ddos": "DDoS Protection Standard plans, attack history, protected VNets, and cost optimization.",
+    "tabEgress": "Traffic & egress",
+    "tooltip_tab_egress": "Cost of moving data: outbound to internet, between zones, between regions and processed by NAT Gateway."
   },
   "NetworkPerimeter": {
     "page_title": "Perimeter Network",
@@ -15722,5 +15724,34 @@
         "dedicatedSupport": "Dedicated Support & FinOps Architect"
       }
     }
+  },
+  "NetworkEgress": {
+    "title": "Traffic and egress",
+    "subtitle": "Where the money for moving data goes — it does not show up in the cost of network resources.",
+    "help": "Built from the transfer meters the daily sync already ingests (the Bandwidth service and the NAT Gateway's Data Processed). The cost is what Azure billed, not an estimate.",
+    "loading": "Loading traffic…",
+    "loadError": "Could not load traffic",
+    "windowLabel": "Window",
+    "windowDays": "Last {n} days",
+    "kpiOutbound": "Outbound cost",
+    "kpiTotal": "Total transfer cost",
+    "kpiMeters": "Charged meters",
+    "emptyTitle": "No billed transfer in this window",
+    "emptyHint": "Either there is no chargeable traffic — the first outbound tier is free — or the daily sync has not run yet for this tenant. Try a longer window before calling it closed.",
+    "cat_internet": "Outbound to internet",
+    "cat_entre_zonas": "Between availability zones",
+    "cat_nat_gateway": "Processed by NAT Gateway",
+    "cat_entre_regiones": "Between regions in the continent",
+    "cat_entre_continentes": "Between continents",
+    "cat_entrada": "Inbound",
+    "hint_entre_zonas": "Charged in both directions. It usually comes from replicas or load balancing spread across zones without needing to be: check whether the workload can stay in one.",
+    "hint_nat_gateway": "Charged per GB processed on top of per hour. If the destination is an Azure service, a Private Endpoint or a Service Endpoint skips the NAT entirely.",
+    "colMeter": "Meter",
+    "colCategory": "Category",
+    "colRegion": "Region",
+    "colVolume": "Volume",
+    "colCost": "Cost",
+    "footnoteFreeTier": "Volume is a floor: rows with no charge — the free outbound tier — are not ingested, so real GB are higher. The cost is the full amount.",
+    "footnotePartialGb": "Some meters are not billed per GB, and their volume is not counted."
   }
 }
