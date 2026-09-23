@@ -197,7 +197,7 @@ export default async function StatusPage() {
           </div>
           <div className="bg-white rounded-lg shadow p-6 border-l-4 border-gray-500">
             <p className="text-gray-600 text-sm font-semibold mb-1">{t("metricVersion")}</p>
-            <p className="text-lg font-mono text-gray-900 truncate">{statusData.version}</p>
+            <p className="text-lg font-mono text-gray-900 truncate" title={statusData.version}>{statusData.version.slice(0, 7)}</p>
           </div>
         </div>
 
