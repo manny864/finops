@@ -4623,6 +4623,10 @@
     "riVsSpExplainer": "<b>Reservations</b> give the biggest savings for stable workloads on a fixed instance/region. <b>Savings Plans</b> are more flexible (any region/family) and suit changing workloads. Rightsize <b>first</b>, commit after."
   },
   "Commitments": {
+    "expiryConcentrationTitle": "Expiring together",
+    "expiryConcentrationDetail": "In {mes}, {monto}/month of commitments expire. Without a repurchase, that spend goes back to list price.",
+    "expiryWindowDetail": "Between {desde} and {hasta}, {pct}% of the portfolio is concentrated.",
+    "expiryPartialWarning": "The percentage covers only what could be valued: {sinValor} reservation(s) have no resolvable cost and {sinFecha} have no expiry date.",
     "reservasTitle": "Active Reservations",
     "reservasSubtitle": "All your reservations (RIs), straight from the Azure Reservations blade.",
     "empty": "No active reservations detected for this tenant.",

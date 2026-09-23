@@ -6,6 +6,7 @@ import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getActiveReservations, type ActiveReservationDetail } from "@/services/reservationService";
+import { concentracionDeVencimientos } from "@/services/commitmentRisk.service";
 import { recordDailySnapshotAsync } from "@/services/snapshotService";
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError } from "@/lib/azureCostColumn";
 import { errorMessage } from '@/lib/apiErrors';
@@ -357,6 +358,13 @@ export async function GET(request: NextRequest) {
                 workloadType: "general"
             });
 
+            // MEJ-40: cuánto valor de la cartera vence junto. Se calcula acá y no
+            // en el cliente porque une dos fuentes que sólo existen del lado del
+            // servidor: Microsoft.Capacity (vencimientos) y Cost Management
+            // (costo por ReservationName). Es una función pura, sin llamadas
+            // nuevas a Azure.
+            const riesgoVencimientos = concentracionDeVencimientos(reservationDetails, activeReservations);
+
             return {
                 utilization,
                 coverage,
@@ -365,7 +373,8 @@ export async function GET(request: NextRequest) {
                 reservationDetails,
                 recommendations,
                 exchangeQuota,
-                breakevenSummary
+                breakevenSummary,
+                riesgoVencimientos
             };
         }, 43200);
 

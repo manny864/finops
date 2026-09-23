@@ -192,9 +192,55 @@ export default function Commitments() {
         });
     }, [activeSimSpend, simWorkload]);
 
+    // MEJ-40: cuánto valor de la cartera vence junto. Se muestra arriba de todo
+    // porque es lo único de esta pantalla con FECHA LÍMITE: el resto describe el
+    // estado, esto avisa de un golpe que viene.
+    const riesgo = metrics.riesgoVencimientos;
+    const hayRiesgo = !!riesgo?.peorMes && riesgo.valorMensualTotal > 0;
+    // 40% en un mes es el umbral a partir del cual la recompra deja de ser un
+    // trámite y pasa a necesitar aprobación con anticipacion.
+    const riesgoAlto = hayRiesgo && (riesgo!.peorMes!.porcentaje >= 40);
+
     return (
         <div className="w-full space-y-6">
-            
+
+            {hayRiesgo && (
+                <div className={`rounded-xl border p-4 ${riesgoAlto
+                    ? 'border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30'
+                    : 'border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900'}`}>
+                    <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
+                        <div>
+                            <p className="text-xs text-gray-500 dark:text-slate-400">{t('expiryConcentrationTitle')}</p>
+                            <p className={`text-2xl font-black tabular-nums ${riesgoAlto ? 'text-amber-700 dark:text-amber-400' : 'text-gray-900 dark:text-white'}`}>
+                                {riesgo!.peorMes!.porcentaje}%
+                            </p>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-slate-300">
+                            {t('expiryConcentrationDetail', {
+                                mes: riesgo!.peorMes!.mes,
+                                monto: format(riesgo!.peorMes!.valorMensual),
+                            })}
+                        </p>
+                        {riesgo!.peorVentana3m && riesgo!.peorVentana3m.porcentaje > riesgo!.peorMes!.porcentaje && (
+                            <p className="text-sm text-gray-600 dark:text-slate-300">
+                                {t('expiryWindowDetail', {
+                                    desde: riesgo!.peorVentana3m.desde,
+                                    hasta: riesgo!.peorVentana3m.hasta,
+                                    pct: riesgo!.peorVentana3m.porcentaje,
+                                })}
+                            </p>
+                        )}
+                    </div>
+                    {/* Lo que no se pudo valorizar se dice: si no, el porcentaje
+                        se lee como si cubriera toda la cartera. */}
+                    {(riesgo!.sinValor > 0 || riesgo!.sinFecha > 0) && (
+                        <p className="text-xs text-gray-500 dark:text-slate-400 mt-2">
+                            {t('expiryPartialWarning', { sinValor: riesgo!.sinValor, sinFecha: riesgo!.sinFecha })}
+                        </p>
+                    )}
+                </div>
+            )}
+
             {/* Top Section: Charts */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 

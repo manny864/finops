@@ -4623,6 +4623,10 @@
     "riVsSpExplainer": "Las <b>Reservas</b> dan el mayor ahorro para cargas estables en una instancia/región fija. Los <b>Savings Plans</b> son más flexibles (cualquier región/familia) y convienen para cargas cambiantes. Primero <b>rightsizing</b>, después comprometer."
   },
   "Commitments": {
+    "expiryConcentrationTitle": "Vence junto",
+    "expiryConcentrationDetail": "El {mes} vencen {monto}/mes de compromisos. Sin recompra, ese gasto vuelve a precio de lista.",
+    "expiryWindowDetail": "Entre {desde} y {hasta} se concentra el {pct}% de la cartera.",
+    "expiryPartialWarning": "El porcentaje se calcula sobre lo que se pudo valorizar: quedan {sinValor} reserva(s) sin costo resoluble y {sinFecha} sin fecha de vencimiento.",
     "reservasTitle": "Reservas Activas",
     "reservasSubtitle": "Todas tus reservas (RIs), directo desde el blade de Reservations de Azure.",
     "empty": "No se detectaron reservas activas para este tenant.",

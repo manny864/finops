@@ -55,7 +55,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-37](#mej-37--leaderboard-de-equipos-y-margen-bruto) | Leaderboard de equipos (ordenado por mejora, no por gasto) y split COGS/OpEx | Integración con el negocio | Medio | Bajo | Propuesta |
 | [MEJ-38](#mej-38--views-vistas-guardadas-y-con-alcance-por-equipo) | Views: vistas guardadas y alcance por equipo aplicado en el SERVIDOR, no como filtro de UI (depende de MEJ-34) | Transversal / RBAC | Alto | Medio | Propuesta |
 | [MEJ-39](#mej-39--fin-de-soporte-eoleos-de-la-plataforma-azure) | Fin de soporte (EOL/EOS) de la plataforma Azure, con el costo de lo afectado; fase 2: posición de licencias en la nube | Gobernanza / Riesgo | Alto | Medio | Propuesta |
-| [MEJ-40](#mej-40--esr-y-riesgo-de-la-cartera-de-compromisos) | ESR (Effective Savings Rate) y concentración de vencimientos de compromisos | Compromisos | Alto | Bajo | Propuesta |
+| [MEJ-40](#mej-40--esr-y-riesgo-de-la-cartera-de-compromisos) | Concentración de vencimientos **(hecha)** + ESR, que quedó bloqueado por `ListCost` | Compromisos | Alto | Medio | Parcial |
 
 ---
 
@@ -3310,7 +3310,59 @@ la fase 1, por eso va acá y no como entrada aparte.
 
 ## MEJ-40 — ESR y riesgo de la cartera de compromisos
 
-**Módulo:** Compromisos · **Impacto:** Alto · **Esfuerzo:** Bajo · **Estado:** Propuesta
+**Módulo:** Compromisos · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Parcial
+
+> **Corrección del 2026-09-23.** Esta entrada se escribió con "Esfuerzo: Bajo" sobre la premisa
+> de que *"los datos ya están"*. **La premisa era falsa para la mitad del ESR** y se descubrió al
+> implementar. La concentración de vencimientos sí estaba y **ya está hecha**; el ESR quedó
+> bloqueado por lo que se explica más abajo.
+
+### Hecho — concentración de vencimientos
+
+Une `reservationDetails` (Microsoft.Capacity: nombre, vencimiento, estado) con
+`activeReservations` (Cost Management agrupado por `ReservationName`: costo). Función pura en
+`src/services/commitmentRisk.service.ts`, sin llamadas nuevas a Azure ni tablas nuevas, más un
+aviso arriba del tablero de compromisos.
+
+Decisiones que quedaron fijadas en `__tests__/unit/concentracionVencimientos.test.ts`:
+
+- **Ponderado por valor, no por cantidad.** Tres reservas chicas en enero contra una grande en
+  marzo: contando reservas el riesgo sería enero, contando valor es marzo con el 70%.
+- **Lo que no se pudo valorizar se informa, no se suma como cero.** Sumar 0 bajaría el porcentaje
+  y el riesgo se vería más chico de lo que es, que es el error que una pantalla de riesgo no puede
+  cometer. El aviso dice cuántas reservas quedaron sin costo y cuántas sin fecha.
+- **La ventana de 3 meses es corrida, no el trimestre de calendario.** Un acantilado entre
+  diciembre y enero sigue siendo un acantilado. Y dos meses separados por uno vacío **no** son una
+  ventana contigua, o cualquier cartera repartida parecería concentrada.
+- Las reservas ya vencidas se ignoran: el golpe ya pasó.
+
+### Bloqueado — el ESR, y por qué
+
+**No hay equivalente a demanda almacenado.** `CostSnapshots` tiene `EffectiveCost`, `BilledCost` y
+`CommitmentDiscountId`, pero **no `ListCost`**, que es el costo a precio de lista contra el que se
+mide el ahorro. Sin ese denominador, cualquier ESR que se calcule mide otra cosa.
+
+**Y hay un defecto de conformidad FOCUS detrás.** `src/lib/focus/mapper.ts:164` hace
+`rec.ListCost = billed`, donde `billed = row.BilledCost ?? row.cost_usd` — o sea que en el export
+FOCUS **`ListCost` y `BilledCost` son siempre el mismo número**. FOCUS define `ListCost` como el
+costo a precios públicos, y su razón de ser es que `ListCost − EffectiveCost` sea el ahorro. Tal
+como está, cualquier consumidor del export que calcule ahorro obtiene **cero**, tenga el cliente
+los descuentos que tenga. `CommitmentDiscountStatus` también va vacío, así que tampoco se puede
+distinguir el compromiso usado del desperdiciado.
+
+**El camino alternativo tampoco es barato.** `ActiveReservationDetail` trae `productName`, `region`
+y `quantity`, así que se podría tarifar cada reserva contra la Retail API en vivo. Pero
+`productName` es un `skuDescription` y mapearlo a `armSkuName` es **exactamente la suposición que
+falló tres veces el 2026-09-22** — unidad equivocada, medidor equivocado, campo de filtro
+equivocado, las tres devolviendo HTTP 200 con el número mal. No se construye el KPI de ahorro sobre
+un mapeo sin verificar.
+
+**Orden correcto para desbloquearlo:**
+
+1. Poblar `ListCost` de verdad en la ingesta y arreglar el mapper de FOCUS. Es un bug propio, con
+   valor independiente de este KPI.
+2. Recién entonces el ESR es una división, y la trampa que sigue documentada abajo —descontar el
+   compromiso desperdiciado— pasa a ser lo único difícil.
 
 ### Contexto
 
