@@ -189,7 +189,9 @@ export default async function StatusPage() {
           <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
             <p className="text-gray-600 text-sm font-semibold mb-1">{t("metricUptime")}</p>
             <p className="text-3xl font-bold text-gray-900">{statusData.uptime_30d_pct.toFixed(2)}%</p>
-            <p className="text-gray-500 text-xs mt-1">{t("metricDegraded", { pct: statusData.degraded_30d_pct.toFixed(2) })}</p>
+            <p className="text-gray-500 text-xs mt-1 cursor-help" title={t("metricDegradedHelp")}>
+              {t("metricDegraded", { pct: statusData.degraded_30d_pct.toFixed(2) })}
+            </p>
           </div>
           <div className="bg-white rounded-lg shadow p-6 border-l-4 border-gray-500">
             <p className="text-gray-600 text-sm font-semibold mb-1">{t("metricIncidents")}</p>

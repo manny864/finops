@@ -12411,6 +12411,7 @@
     "latencyLabel": "Latencia: {ms}ms",
     "metricUptime": "Disponibilidad (30 días)",
     "metricDegraded": "Degradada {pct}% del tiempo",
+    "metricDegradedHelp": "Al menos un componente no estuvo en su mejor estado —latencia alta o una integración sin configurar— pero la plataforma siguió respondiendo. Las caídas reales son lo que mide la disponibilidad de arriba.",
     "metricIncidents": "Incidentes (30 días)",
     "metricVersion": "Versión",
     "componentsTitle": "Componentes",

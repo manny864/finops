@@ -12411,6 +12411,7 @@
     "latencyLabel": "Latency: {ms}ms",
     "metricUptime": "Uptime (30 days)",
     "metricDegraded": "Degraded {pct}% of the time",
+    "metricDegradedHelp": "At least one component was not at its best — high latency or an unconfigured integration — but the platform kept responding. Actual outages are what the uptime above measures.",
     "metricIncidents": "Incidents (30 days)",
     "metricVersion": "Version",
     "componentsTitle": "Components",
