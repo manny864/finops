@@ -338,6 +338,39 @@ El camino seguro es de a una: comparar el shape que sirve el interceptor contra
 el que devuelve la ruta, verificar en la demo, y recién entonces quitar la
 intercepción. El listado categorizado para hacerlo está en esta auditoría.
 
+### Las 4 que podían divergir, medidas (2026-09-22)
+
+El handoff del 09-22 dejó anotadas cuatro intercepciones cuyo mock podía diferir
+de lo que sirve la ruta: `billing`, `anomalies`, `ai-analytics` y
+`aks-chargeback`. Se compararon **invocando el handler real** con el tenant demo,
+que es lo único que responde por el contrato de verdad —tres de las cuatro arman
+el payload sobre la marcha y no hay constante que mirar—. Resultado:
+
+| Ruta | Diverge | Qué pasaba |
+|---|---|---|
+| `anomalies` | No | — |
+| `aks-chargeback` | No | — |
+| `ai-analytics` | **Sí, corregida** | Faltaban `summary.totalRequests`, `avgTokensPerRequest`, `avgInputPerRequest` y `avgOutputPerRequest`: las cuatro las lee `AIAnalyticsDashboard` y en la demo salían vacías. |
+| `billing` | **Sí, abierta** | Ver abajo. |
+
+La regla quedó fijada en `__tests__/unit/formaMockInterceptor.test.ts`: toda clave
+que la ruta devuelve tiene que existir en el mock del interceptor. Se validó con
+mutante (quitar una clave del mock lo pone en rojo nombrándola).
+
+**`billing` sigue abierta y es una decisión, no una limpieza.** La ruta devuelve
+el contrato nuevo (`services`, `top5ShareOfWallet`, `byRegion`, `overview`,
+`period`…) que leen `RealConsumptionDashboard` y `BillingDashboard`; el
+interceptor todavía sirve el viejo (`data[]`), así que **en la demo esa pantalla
+está vacía**. Las dos salidas:
+
+- **(a)** Servir el mock ANTES del auth en `/api/intelligence/billing` —como ya
+  hace `aks-chargeback`— y sacar la intercepción. Una sola fuente y diff
+  negativo, pero amplía lo que se responde sin token, que es justo lo que SEC-02
+  de la auditoría 2026-09-21 dejó anotado para no ampliar.
+- **(b)** Mover `getMockRealConsumptionOverview` (~400 líneas) a un módulo
+  importable desde el cliente y usarlo en los dos lados. No amplía nada, pero es
+  un archivo nuevo y un diff grande.
+
 ### Medición (2026-09-13): "redundante" no alcanza — y no hay ninguna sacable hoy
 
 Se automatizó el criterio y **el resultado contradice la premisa de arriba**. Para poder sacar una

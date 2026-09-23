@@ -1289,7 +1289,22 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
         case 'ai-analytics':
             return {
                 success: true, mock: true,
-                summary: { totalCost: 8420.50 * multiplier, totalInputTokens: 42500000 * multiplier, totalOutputTokens: 18300000 * multiplier, costPer1kTokens: 0.139, activeModels: 4, activeApplications: 7 },
+                // Las cuatro ultimas las lee AIAnalyticsDashboard y este mock no las
+                // traia, asi que en la demo salian vacias. Se derivan de los totales
+                // en vez de inventarse sueltas: un promedio que no cierra con su
+                // total es peor que un vacio, porque parece un dato.
+                summary: {
+                    totalCost: 8420.50 * multiplier,
+                    totalInputTokens: 42500000 * multiplier,
+                    totalOutputTokens: 18300000 * multiplier,
+                    costPer1kTokens: 0.139,
+                    activeModels: 4,
+                    activeApplications: 7,
+                    totalRequests: 1680,
+                    avgTokensPerRequest: Math.round((42500000 + 18300000) * multiplier / 1680),
+                    avgInputPerRequest: Math.round(42500000 * multiplier / 1680),
+                    avgOutputPerRequest: Math.round(18300000 * multiplier / 1680),
+                },
                 byModel: [
                     { model: 'gpt-4o', cost: 5200 * multiplier, inputTokens: 25000000 * multiplier, outputTokens: 12000000 * multiplier, costPer1k: 0.140 },
                     { model: 'gpt-4-turbo', cost: 2100 * multiplier, inputTokens: 10000000 * multiplier, outputTokens: 4500000 * multiplier, costPer1k: 0.145 },
