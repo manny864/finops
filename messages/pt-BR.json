@@ -12324,7 +12324,17 @@
     "gateOk": "Dentro do limite",
     "gateExceeded": "Limite excedido",
     "gateNotEvaluated": "Sem limite",
-    "unpricedWarning": "{n} recurso(s) não puderam ser precificados: o delta é um piso, não o total."
+    "unpricedWarning": "{n} recurso(s) não puderam ser precificados: o delta é um piso, não o total.",
+    "gatesTitle": "Budget Gates",
+    "gatesHelp": "Se um Pull Request adicionar mais que o limite do repositório, a ação do GitHub reprova o check. O input `threshold-usd` do workflow, quando definido, prevalece sobre isto: um time pode ser mais rígido no seu pipeline, não mais permissivo.",
+    "gatesRepoPlaceholder": "owner/repositório",
+    "gatesThresholdPlaceholder": "USD por mês",
+    "gatesSave": "Salvar",
+    "gatesRemove": "Remover",
+    "gatesEmpty": "Nenhum repositório tem limite: as estimativas são informadas sem bloquear nada.",
+    "gatesSaved": "Limite salvo",
+    "gatesError": "Não foi possível salvar o limite",
+    "gatesReadOnly": "Somente um Admin ou Owner pode alterar os limites."
   },
   "Simulator": {
     "pageTitle": "Simulador de Cenários",

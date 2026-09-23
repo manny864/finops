@@ -12324,7 +12324,17 @@
     "gateOk": "Within threshold",
     "gateExceeded": "Threshold exceeded",
     "gateNotEvaluated": "No threshold",
-    "unpricedWarning": "{n} resource(s) could not be priced: the delta is a floor, not the total."
+    "unpricedWarning": "{n} resource(s) could not be priced: the delta is a floor, not the total.",
+    "gatesTitle": "Budget Gates",
+    "gatesHelp": "If a Pull Request adds more than the repository threshold, the GitHub action fails the check. The workflow's `threshold-usd` input, when set, wins over this: a team can be stricter in its own pipeline, not laxer.",
+    "gatesRepoPlaceholder": "owner/repository",
+    "gatesThresholdPlaceholder": "USD per month",
+    "gatesSave": "Save",
+    "gatesRemove": "Remove",
+    "gatesEmpty": "No repository has a threshold: estimates are reported without blocking anything.",
+    "gatesSaved": "Threshold saved",
+    "gatesError": "Could not save the threshold",
+    "gatesReadOnly": "Only an Admin or Owner can change thresholds."
   },
   "Simulator": {
     "pageTitle": "Scenario Simulator",

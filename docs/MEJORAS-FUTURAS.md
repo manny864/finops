@@ -35,7 +35,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-17](#mej-17--aks-finops-cockpit-costos-por-namespace-workload-y-eficiencia-de-contenedores) | AKS FinOps Cockpit (Costos por Namespace, Workload y Eficiencia de Contenedores con OpenCost/Add-on) | Cómputo / Kubernetes | Alto | Alto | Propuesta |
 | [MEJ-18](#mej-18--cosmos-db--cargas-nosql-finops-cockpit) | Cosmos DB & Cargas NoSQL FinOps Cockpit (Optimizador de RU/s, Detección de Hot Partitions y Matriz Serverless) | Bases de Datos / NoSQL | Alto | Medio | Propuesta |
 | [MEJ-19](#mej-19--mapa-de-tráfico-de-red-egress-y-fugas-de-datos) | Mapa de tráfico de red, egress y fugas de datos (Inter-AZ, Cross-Region, NAT Gateway, Private Endpoints y ExpressRoute/VPN) | Redes / Egress | Alto | Medio | Propuesta |
-| [MEJ-20](#mej-20--shift-left-finops-integración-cicd-y-gatekeeper-de-iac) | Shift-Left FinOps: Integración CI/CD y Gatekeeper de IaC (PR Cost Estimator y Budget Gates) | Shift-Left / DevOps | Alto | Medio | Propuesta |
+| [MEJ-20](#mej-20--shift-left-finops-integración-cicd-y-gatekeeper-de-iac) | Shift-Left FinOps: Integración CI/CD y Gatekeeper de IaC (PR Cost Estimator y Budget Gates) | Shift-Left / DevOps | Alto | Medio | Hecha |
 | [MEJ-21](#mej-21--orquestación-de-remediación-inteligente-conectores-itsm-y-generador-de-policy-as-code) | Orquestación de remediación con Rollback, conectores ITSM (Teams, Slack, Jira, ServiceNow) y generador de Azure Policy | Gobernanza / Automatización | Alto | Alto | Propuesta |
 | [MEJ-22](#mej-22--cambio-de-prioridad-de-tickets-por-agentes-de-soporte) | Cambio de prioridad de tickets por agentes desde la cola global y el Drawer | Soporte / Mesa de ayuda | Alto | Bajo | Hecha |
 | [MEJ-23](#mej-23--bug-horarios-programados-de-vms-no-se-reflejan-en-la-ui-tras-guardar) | Bug: Horarios programados de VMs no se reflejan en la UI tras guardar | Power Schedules | Alto | Bajo | Hecha |
@@ -1685,7 +1685,7 @@ Los costos de transferencia de datos en la nube (Egress, transferencias Inter-Av
 
 ## MEJ-20 — Shift-Left FinOps: Integración CI/CD y Gatekeeper de IaC
 
-**Módulo:** Shift-Left / DevOps · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Propuesta
+**Módulo:** Shift-Left / DevOps · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Hecha (2026-09)
 
 ### Contexto
 
@@ -1721,6 +1721,35 @@ La gran mayoría de los costos innecesarios en Azure se originan en el momento e
 1. El endpoint analiza un `terraform plan` y devuelve el delta de costo mensual exacto.
 2. Se generan comentarios automatizados en el PR con tabla Markdown detallando el antes, después y delta.
 3. Los Budget Gates bloquean el check si el incremento excede el umbral configurado por el tenant.
+
+### Lo que se implementó (2026-09)
+
+Los tres criterios, con Terraform. Migraciones `20260922-001-shift-left-estimaciones.sql`
+(historial, append-only) y `20260922-002-budget-gates.sql` (umbral por repo);
+endpoint `POST /api/v1/shift-left/estimate` con el scope nuevo `write:shift-left`;
+GitHub Action composite en `integrations/github-action`; panel
+`/governance/shift-left` (tier Business) con el historial y el editor de umbrales,
+que escribe por `PUT /api/governance/shift-left/gates` (rol Admin/Owner).
+
+**Precedencia de los umbrales:** el `threshold-usd` del workflow gana sobre el de
+la plataforma. Un equipo puede ser más estricto con su propio repo; aflojar el
+umbral que fijó la plataforma exige pasar por ella. Sin ninguno de los dos el
+gate queda en `NOT_EVALUATED`: informa y no bloquea. Si la plataforma no
+responde, tampoco bloquea — es un control de costo, y voltear el PR de un
+tercero por una caída nuestra es peor que dejar pasar uno caro.
+
+**Lo que quedó fuera de la propuesta original**, y por qué no se hizo de una:
+
+- **Umbral porcentual (+Y%).** Sobre un repo que hoy cuesta $0 —cualquier repo
+  nuevo— un porcentaje no tiene denominador y no significa nada. Con el absoluto
+  andando, agregarlo es una columna más si alguien lo pide.
+- **Aprobación explícita de un FinOps Champion.** Hoy el gate falla el check y
+  el desbloqueo es el del repo (otro commit, o un override de quien administre
+  las branch protection rules de GitHub). Un flujo de aprobación propio duplica
+  algo que GitHub ya hace mejor.
+- **Bicep.** Sólo `terraform show -json`. Bicep necesita otro parser; el motor de
+  tarificación ya está separado y se reusa.
+- **Azure DevOps extension.** Sólo GitHub Action.
 
 ---
 

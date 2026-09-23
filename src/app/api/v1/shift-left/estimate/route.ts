@@ -39,6 +39,41 @@ function error(code: string, message: string, status: number, requestId: string)
     );
 }
 
+type Gate = { status: "NOT_EVALUATED" | "OK" | "EXCEEDED"; threshold: number | null };
+
+/**
+ * Budget Gate del repo, si tiene uno configurado en la plataforma
+ * (`IacBudgetGates`). Sin fila no hay gate: se informa el costo y no se bloquea
+ * nada, que es lo que significa 'NOT_EVALUATED'.
+ *
+ * FALLA ABIERTO a propósito. Si MySQL no responde, el gate queda sin evaluar en
+ * vez de bloquear: esto corre en el CI de otra gente, y voltearle un PR por un
+ * problema de nuestra base —cuando el umbral podría no existir siquiera— es
+ * peor que dejar pasar un PR caro. Es un control de costo, no de seguridad.
+ */
+async function evaluarGate(tenantId: string, repository: string, delta: number): Promise<Gate> {
+    if (!repository) return { status: "NOT_EVALUATED", threshold: null };
+    try {
+        const [filas]: any = await pool.query(
+            `SELECT threshold_usd FROM IacBudgetGates
+              WHERE tenant_id = ? AND repository = ?
+              LIMIT 1`,
+            [tenantId, repository]
+        );
+        const crudo = filas?.[0]?.threshold_usd;
+        if (crudo === undefined || crudo === null) return { status: "NOT_EVALUATED", threshold: null };
+
+        // DECIMAL vuelve como string desde mysql2; sin Number() la comparación
+        // sería lexicográfica y "9" > "10".
+        const umbral = Number(crudo);
+        if (!Number.isFinite(umbral)) return { status: "NOT_EVALUATED", threshold: null };
+        return { status: delta > umbral ? "EXCEEDED" : "OK", threshold: umbral };
+    } catch (e) {
+        console.error("[shift-left] no se pudo leer el Budget Gate:", errorMessage(e));
+        return { status: "NOT_EVALUATED", threshold: null };
+    }
+}
+
 export async function POST(request: NextRequest) {
     const requestId = uuidv4();
     try {
@@ -93,18 +128,20 @@ export async function POST(request: NextRequest) {
 
         const estimacion = await estimarPlan(plan);
 
+        const repository = String(cuerpo?.repository || "").slice(0, 255);
+        const gate = await evaluarGate(authResult.tenantId, repository, estimacion.delta);
+
         // El registro es best-effort: la estimación ya está calculada y es lo que
         // el CI está esperando para comentar el PR. Si MySQL no está, se pierde
         // una fila de historial, no la respuesta.
-        const repository = String(cuerpo?.repository || "").slice(0, 255);
         if (repository) {
             try {
                 await pool.query(
                     `INSERT INTO IacCostEstimations
                        (tenant_id, repository, pr_number, commit_sha, author,
                         current_monthly_cost_usd, projected_monthly_cost_usd, delta_cost_usd,
-                        resources_priced, resources_unpriced, detail_json)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                        resources_priced, resources_unpriced, gate_status, detail_json)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         authResult.tenantId,
                         repository,
@@ -116,6 +153,7 @@ export async function POST(request: NextRequest) {
                         estimacion.delta,
                         estimacion.lineas.length - estimacion.sinTarifar - estimacion.sinCosto,
                         estimacion.sinTarifar,
+                        gate.status,
                         JSON.stringify(estimacion.lineas),
                     ]
                 );
@@ -133,6 +171,7 @@ export async function POST(request: NextRequest) {
                     currency: "USD",
                     resources_unpriced: estimacion.sinTarifar,
                     resources_free: estimacion.sinCosto,
+                    budget_gate: { status: gate.status, threshold_usd: gate.threshold },
                     lines: estimacion.lineas,
                 },
                 request_id: requestId,

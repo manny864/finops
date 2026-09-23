@@ -12324,7 +12324,17 @@
     "gateOk": "Dentro del umbral",
     "gateExceeded": "Umbral superado",
     "gateNotEvaluated": "Sin umbral",
-    "unpricedWarning": "{n} recurso(s) no se pudieron tarifar: el delta es un piso, no el total."
+    "unpricedWarning": "{n} recurso(s) no se pudieron tarifar: el delta es un piso, no el total.",
+    "gatesTitle": "Budget Gates",
+    "gatesHelp": "Si un Pull Request agrega más que el umbral del repositorio, la acción de GitHub falla el check. El input `threshold-usd` del workflow, si está, gana sobre esto: un equipo puede ser más estricto en su pipeline, no más laxo.",
+    "gatesRepoPlaceholder": "owner/repositorio",
+    "gatesThresholdPlaceholder": "USD por mes",
+    "gatesSave": "Guardar",
+    "gatesRemove": "Quitar",
+    "gatesEmpty": "Ningún repositorio tiene umbral: las estimaciones se informan sin bloquear nada.",
+    "gatesSaved": "Umbral guardado",
+    "gatesError": "No se pudo guardar el umbral",
+    "gatesReadOnly": "Sólo un Admin u Owner puede cambiar los umbrales."
   },
   "Simulator": {
     "pageTitle": "Simulador de Escenarios",

@@ -71,8 +71,9 @@ describe("POST /api/v1/shift-left/estimate", () => {
         const r = await POST(pedido(envuelto));
         expect(r.status).toBe(200);
         // Con repository se registra la corrida; sin el, no hay donde archivarla.
-        expect(queryMock).toHaveBeenCalledTimes(1);
-        const params = queryMock.mock.calls[0][1];
+        // Dos queries: primero el umbral del Budget Gate, despues el INSERT.
+        expect(queryMock).toHaveBeenCalledTimes(2);
+        const params = queryMock.mock.calls[1][1];
         expect(params[0]).toBe("t1");
         expect(params[1]).toBe("manny864/finops");
         expect(params[2]).toBe(42);
@@ -80,6 +81,7 @@ describe("POST /api/v1/shift-left/estimate", () => {
 
     it("no registra nada cuando no se dice de que repo viene", async () => {
         await POST(pedido(PLAN));
+        // Ni siquiera consulta el umbral: sin repo no hay gate que buscar.
         expect(queryMock).not.toHaveBeenCalled();
     });
 
@@ -107,6 +109,56 @@ describe("POST /api/v1/shift-left/estimate", () => {
         const enorme = JSON.stringify({ relleno: "x".repeat(7 * 1024 * 1024) });
         const r = await POST(pedido(enorme));
         expect(r.status).toBe(413);
+    });
+
+    describe("Budget Gate (MEJ-20)", () => {
+        // El plan del fixture da +30 de delta.
+        const conRepo = () => pedido(JSON.stringify({ plan: JSON.parse(PLAN), repository: "manny864/finops" }));
+        const conUmbral = (u: unknown) => queryMock.mockResolvedValueOnce([[{ threshold_usd: u }]]);
+
+        it("sin umbral configurado informa pero no bloquea", async () => {
+            queryMock.mockResolvedValueOnce([[]]);
+            const { data } = await (await POST(conRepo())).json();
+            expect(data.budget_gate).toEqual({ status: "NOT_EVALUATED", threshold_usd: null });
+            expect(queryMock.mock.calls[1][1][10]).toBe("NOT_EVALUATED");
+        });
+
+        it("marca EXCEEDED cuando el delta supera el umbral", async () => {
+            conUmbral("10.0000");
+            const { data } = await (await POST(conRepo())).json();
+            expect(data.budget_gate).toEqual({ status: "EXCEEDED", threshold_usd: 10 });
+            // El estado se persiste: la pantalla de gobernanza lo lee de ahi.
+            expect(queryMock.mock.calls[1][1][10]).toBe("EXCEEDED");
+        });
+
+        it("marca OK cuando no lo supera", async () => {
+            conUmbral("100.0000");
+            const { data } = await (await POST(conRepo())).json();
+            expect(data.budget_gate.status).toBe("OK");
+        });
+
+        // Sin el guard de Number.isFinite, un umbral ilegible cae en la
+        // comparacion (30 > "no-es-un-numero" es false en JS) y sale "OK", o
+        // sea "evaluado y aprobado". No es lo mismo que "no hay umbral".
+        it("un umbral ilegible queda sin evaluar, no aprobado", async () => {
+            conUmbral("no-es-un-numero");
+            const { data } = await (await POST(conRepo())).json();
+            expect(data.budget_gate.status).toBe("NOT_EVALUATED");
+        });
+
+        it("el borde exacto no bloquea: el umbral es el maximo permitido", async () => {
+            conUmbral("30.0000");
+            const { data } = await (await POST(conRepo())).json();
+            expect(data.budget_gate.status).toBe("OK");
+        });
+
+        // Falla ABIERTO. Esto corre en el CI de otra gente: si nuestra base no
+        // responde, el PR no se voltea por algo que no tiene que ver con el.
+        it("si no se puede leer el umbral, no bloquea", async () => {
+            queryMock.mockRejectedValueOnce(new Error("ECONNREFUSED"));
+            const { data } = await (await POST(conRepo())).json();
+            expect(data.budget_gate.status).toBe("NOT_EVALUATED");
+        });
     });
 
     it("siempre devuelve X-Request-Id, tambien en los errores", async () => {

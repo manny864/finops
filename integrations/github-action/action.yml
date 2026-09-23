@@ -26,7 +26,11 @@ inputs:
     required: false
     default: https://finops.cscloudsolutions.com.ar
   threshold-usd:
-    description: 'Budget Gate: si el delta mensual supera este monto en USD, el step falla. Vacío = no bloquea.'
+    description: >-
+      Budget Gate local: si el delta mensual supera este monto en USD, el step
+      falla. Vacío = manda el umbral configurado para este repo en la plataforma
+      (Gobernanza > Shift-Left); si tampoco hay, no bloquea. Lo que se ponga acá
+      GANA sobre el de la plataforma: sirve para ser más estricto, no más laxo.
     required: false
     default: ''
   comment:
@@ -44,6 +48,9 @@ outputs:
   unpriced:
     description: 'Cantidad de recursos que no se pudieron tarifar.'
     value: ${{ steps.estimar.outputs.unpriced }}
+  gate-status:
+    description: 'Budget Gate de la plataforma para este repo: OK, EXCEEDED o NOT_EVALUATED.'
+    value: ${{ steps.estimar.outputs.gate }}
 
 # Composite y no una action de JavaScript a propósito: una action JS obliga a
 # bundlear con ncc y a commitear `dist/`, que es un artefacto generado que hay
@@ -98,7 +105,7 @@ runs:
           exit 1
         fi
 
-        jq -r '.data | "delta=\(.delta_cost_usd)\nprojected=\(.projected_monthly_cost_usd)\ncurrent=\(.current_monthly_cost_usd)\nunpriced=\(.resources_unpriced)"' \
+        jq -r '.data | "delta=\(.delta_cost_usd)\nprojected=\(.projected_monthly_cost_usd)\ncurrent=\(.current_monthly_cost_usd)\nunpriced=\(.resources_unpriced)\ngate=\(.budget_gate.status // "NOT_EVALUATED")\ngate_threshold=\(.budget_gate.threshold_usd // "")"' \
           /tmp/finops-resp.json >> "$GITHUB_OUTPUT"
 
     - name: Armar el comentario
@@ -146,16 +153,38 @@ runs:
           --body-file /tmp/finops-comentario.md --edit-last --create-if-none
 
     - name: Budget Gate
-      if: ${{ inputs.threshold-usd != '' }}
       shell: bash
       run: |
         set -euo pipefail
         delta='${{ steps.estimar.outputs.delta }}'
         umbral='${{ inputs.threshold-usd }}'
-        # bc y no bash: los montos son decimales y (( )) los trunca a entero, o
-        # sea que un umbral de 0.50 con un delta de 0.90 pasaría.
-        if [ "$(echo "$delta > $umbral" | bc -l)" -eq 1 ]; then
-          echo "::error::Budget Gate: el PR agrega \$$delta/mes y el umbral es \$$umbral."
-          exit 1
+
+        # El umbral del workflow GANA sobre el de la plataforma. Es deliberado:
+        # un equipo puede querer ser mas estricto con su propio repo, y no
+        # tendria como si el de la plataforma pisara al local.
+        if [ -n "$umbral" ]; then
+          # bc y no bash: los montos son decimales y (( )) los trunca a entero, o
+          # sea que un umbral de 0.50 con un delta de 0.90 pasaria.
+          if [ "$(echo "$delta > $umbral" | bc -l)" -eq 1 ]; then
+            echo "::error::Budget Gate: el PR agrega \$$delta/mes y el umbral del workflow es \$$umbral."
+            exit 1
+          fi
+          echo "Budget Gate OK: \$$delta/mes contra un umbral de \$$umbral (definido en el workflow)."
+          exit 0
         fi
-        echo "Budget Gate OK: \$$delta/mes contra un umbral de \$$umbral."
+
+        # Sin umbral local manda el de la plataforma, que ya lo evaluo y lo
+        # devolvio junto con la estimacion. NOT_EVALUATED significa que este repo
+        # no tiene umbral configurado: se informa el costo y no se bloquea nada.
+        case '${{ steps.estimar.outputs.gate }}' in
+          EXCEEDED)
+            echo "::error::Budget Gate: el PR agrega \$$delta/mes y el umbral configurado para este repositorio es \$${{ steps.estimar.outputs.gate_threshold }}."
+            exit 1
+            ;;
+          OK)
+            echo "Budget Gate OK: \$$delta/mes contra un umbral de \$${{ steps.estimar.outputs.gate_threshold }} (configurado en la plataforma)."
+            ;;
+          *)
+            echo "Este repositorio no tiene Budget Gate configurado: se informa el costo y no se bloquea."
+            ;;
+        esac

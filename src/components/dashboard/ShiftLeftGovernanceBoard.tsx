@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations, useLocale } from "next-intl";
-import React from "react";
+import React, { useState } from "react";
 import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
@@ -17,6 +17,11 @@ import InfoTooltip from "@/components/InfoTooltip";
  * ANTES de provisionarlo. Ese es el argumento de Shift-Left; el resto es detalle.
  */
 
+interface Gate {
+    repository: string;
+    threshold_usd: string | number;
+}
+
 interface Estimacion {
     id: number;
     repository: string;
@@ -31,13 +36,15 @@ interface Estimacion {
     created_at: string;
 }
 
+async function authHeaders(instance: any, accounts: any[], isMock: boolean) {
+    if (isMock) return {} as Record<string, string>;
+    const token = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
+    return { Authorization: `Bearer ${token}` };
+}
+
 function buildFetcher(instance: any, accounts: any[], isMock: boolean) {
     return async (url: string) => {
-        const headers: Record<string, string> = {};
-        if (!isMock) {
-            const token = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
-            headers.Authorization = `Bearer ${token}`;
-        }
+        const headers = await authHeaders(instance, accounts, isMock);
         const res = await fetch(url, { headers });
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
@@ -60,7 +67,7 @@ export default function ShiftLeftGovernanceBoard() {
     const tenantId = selectedTenant?.id || "";
     const esMock = isMockTenant(tenantId);
 
-    const { data, error, isLoading } = useSWR(
+    const { data, error, isLoading, mutate } = useSWR(
         tenantId ? `/api/governance/shift-left?tenantId=${encodeURIComponent(tenantId)}${esMock ? "&mock=true" : ""}` : null,
         buildFetcher(instance, accounts, esMock),
         { revalidateOnFocus: false }
@@ -68,6 +75,7 @@ export default function ShiftLeftGovernanceBoard() {
 
     const items: Estimacion[] = data?.items || [];
     const kpis = data?.kpis;
+    const gates: Gate[] = data?.gates || [];
 
     if (error) {
         return (
@@ -93,6 +101,16 @@ export default function ShiftLeftGovernanceBoard() {
                 <Kpi etiqueta={t("kpiSavings")} valor={kpis ? usd(kpis.ahorroDetectado, locale) : "—"} tono="baja" />
                 <Kpi etiqueta={t("kpiBlocked")} valor={kpis ? String(kpis.bloqueados) : "—"} />
             </div>
+
+            <GatesEditor
+                gates={gates}
+                tenantId={tenantId}
+                esMock={esMock}
+                locale={locale}
+                t={t}
+                onChange={() => mutate()}
+                headers={() => authHeaders(instance, accounts, esMock)}
+            />
 
             {isLoading ? (
                 <p className="text-sm text-slate-500 py-8 text-center">{t("loading")}</p>
@@ -170,4 +188,131 @@ function Gate({ estado, t }: { estado: Estimacion["gate_status"]; t: (k: string)
         return <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">{t("gateOk")}</span>;
     }
     return <span className="text-xs text-slate-400">{t("gateNotEvaluated")}</span>;
+}
+
+/**
+ * Budget Gates: el umbral por repositorio (MEJ-20).
+ *
+ * Un solo formulario para alta y edición. Tocar una fila la carga acá arriba y
+ * guardar la pisa (el endpoint es un upsert), así que no hay un modo "editar"
+ * que mantener aparte.
+ */
+function GatesEditor({
+    gates, tenantId, esMock, locale, t, onChange, headers,
+}: {
+    gates: Gate[];
+    tenantId: string;
+    esMock: boolean;
+    locale: string;
+    t: (k: string) => string;
+    onChange: () => void;
+    headers: () => Promise<Record<string, string>>;
+}) {
+    const [repo, setRepo] = useState("");
+    const [umbral, setUmbral] = useState("");
+    const [guardando, setGuardando] = useState(false);
+    const [aviso, setAviso] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
+
+    async function guardar(repository: string, threshold_usd: number | null) {
+        if (!repository.trim() || !tenantId) return;
+        setGuardando(true);
+        setAviso(null);
+        try {
+            const res = await fetch(`/api/governance/shift-left/gates${esMock ? "?mock=true" : ""}`, {
+                method: "PUT",
+                headers: { ...(await headers()), "Content-Type": "application/json" },
+                body: JSON.stringify({ tenantId, repository: repository.trim(), threshold_usd }),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error || `HTTP ${res.status}`);
+            }
+            setRepo("");
+            setUmbral("");
+            setAviso({ tipo: "ok", texto: t("gatesSaved") });
+            onChange();
+        } catch (e) {
+            setAviso({ tipo: "error", texto: `${t("gatesError")}: ${errorMessage(e)}` });
+        } finally {
+            setGuardando(false);
+        }
+    }
+
+    return (
+        <section className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 space-y-3">
+            <h2 className="text-sm font-semibold flex items-center gap-2">
+                {t("gatesTitle")}
+                <InfoTooltip content={t("gatesHelp")} />
+            </h2>
+
+            <form
+                className="flex flex-wrap gap-2"
+                onSubmit={(e) => {
+                    e.preventDefault();
+                    guardar(repo, umbral === "" ? null : Number(umbral));
+                }}
+            >
+                <input
+                    value={repo}
+                    onChange={(e) => setRepo(e.target.value)}
+                    placeholder={t("gatesRepoPlaceholder")}
+                    className="flex-1 min-w-[16rem] rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-1.5 text-sm font-mono"
+                />
+                <input
+                    value={umbral}
+                    onChange={(e) => setUmbral(e.target.value)}
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder={t("gatesThresholdPlaceholder")}
+                    className="w-40 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-1.5 text-sm tabular-nums"
+                />
+                <button
+                    type="submit"
+                    disabled={guardando || !repo.trim()}
+                    className="rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 px-4 py-1.5 text-sm font-medium disabled:opacity-40"
+                >
+                    {t("gatesSave")}
+                </button>
+            </form>
+
+            {aviso ? (
+                <p className={`text-xs ${aviso.tipo === "ok" ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                    {aviso.texto}
+                </p>
+            ) : null}
+
+            {gates.length === 0 ? (
+                <p className="text-xs text-slate-500">{t("gatesEmpty")}</p>
+            ) : (
+                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {gates.map((g) => (
+                        <li key={g.repository} className="flex items-center justify-between gap-3 py-1.5">
+                            <button
+                                type="button"
+                                className="font-mono text-xs truncate hover:underline text-left"
+                                onClick={() => {
+                                    setRepo(g.repository);
+                                    setUmbral(String(Number(g.threshold_usd)));
+                                }}
+                            >
+                                {g.repository}
+                            </button>
+                            <span className="flex items-center gap-3 shrink-0">
+                                <span className="text-xs tabular-nums">{usd(g.threshold_usd, locale)}</span>
+                                <button
+                                    type="button"
+                                    disabled={guardando}
+                                    onClick={() => guardar(g.repository, null)}
+                                    className="text-xs text-red-600 dark:text-red-400 hover:underline disabled:opacity-40"
+                                >
+                                    {t("gatesRemove")}
+                                </button>
+                            </span>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </section>
+    );
 }

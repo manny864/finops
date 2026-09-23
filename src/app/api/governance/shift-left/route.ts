@@ -26,7 +26,8 @@ function datosDemo() {
         { id: 2, repository: "acme/infra-azure", pr_number: 409, author: "martin", delta_cost_usd: 1240.0, current_monthly_cost_usd: 612.5, projected_monthly_cost_usd: 1852.5, resources_priced: 4, resources_unpriced: 1, gate_status: "EXCEEDED", created_at: new Date(ahora - 26 * 3600e3).toISOString() },
         { id: 1, repository: "acme/plataforma", pr_number: 77, author: "sofia", delta_cost_usd: 19.71, current_monthly_cost_usd: 0, projected_monthly_cost_usd: 19.71, resources_priced: 1, resources_unpriced: 0, gate_status: "NOT_EVALUATED", created_at: new Date(ahora - 5 * 24 * 3600e3).toISOString() },
     ];
-    return NextResponse.json({ items, kpis: kpisDe(items), mock: true });
+    const gates = [{ repository: "acme/infra-azure", threshold_usd: 500 }];
+    return NextResponse.json({ items, kpis: kpisDe(items), gates, mock: true });
 }
 
 function kpisDe(items: any[]) {
@@ -62,8 +63,18 @@ export async function GET(request: NextRequest) {
             [tenantId, MAX_FILAS]
         );
 
+        // Los umbrales viajan con el historial y no en un fetch aparte: la
+        // pantalla pinta las dos cosas juntas y son dos SELECT chicos.
+        const [gates] = await pool.query<any[]>(
+            `SELECT repository, threshold_usd
+               FROM IacBudgetGates
+              WHERE tenant_id = ?
+              ORDER BY repository`,
+            [tenantId]
+        );
+
         const items = Array.isArray(filas) ? filas : [];
-        return NextResponse.json({ items, kpis: kpisDe(items) });
+        return NextResponse.json({ items, kpis: kpisDe(items), gates: Array.isArray(gates) ? gates : [] });
     } catch (e) {
         if (e instanceof AuthError) {
             return NextResponse.json({ error: errorMessage(e) }, { status: errorStatus(e) });

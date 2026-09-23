@@ -32,7 +32,7 @@ jobs:
         with:
           api-key: ${{ secrets.FINOPS_API_KEY }}
           plan-file: tfplan.bin
-          threshold-usd: '200'   # opcional: bloquea si el PR agrega más de $200/mes
+          threshold-usd: '200'   # opcional: ver "Budget Gates" más abajo
 ```
 
 ## Entradas
@@ -43,12 +43,30 @@ jobs:
 | `plan-file` | no | `tfplan.bin` | Plan binario de `terraform plan -out=...`. |
 | `plan-json` | no | — | Plan ya convertido a JSON. Si se pasa, no hace falta terraform en el runner. |
 | `api-url` | no | `https://finops.cscloudsolutions.com.ar` | Sólo para apuntar a otro entorno. |
-| `threshold-usd` | no | — | Budget Gate. Vacío = informa pero no bloquea. |
+| `threshold-usd` | no | — | Budget Gate local. Vacío = usa el configurado en la plataforma para este repo. |
 | `comment` | no | `true` | Comentar en el PR. |
 
 ## Salidas
 
-`delta-usd`, `projected-usd` y `unpriced`, para encadenar con otros steps.
+`delta-usd`, `projected-usd`, `unpriced` y `gate-status` (`OK`, `EXCEEDED` o
+`NOT_EVALUATED`), para encadenar con otros steps.
+
+## Budget Gates
+
+Si el PR agrega más que el umbral, el step falla y el check queda en rojo. El
+umbral puede venir de dos lados:
+
+1. **`threshold-usd` en el workflow.** Vive en el repo que se está gobernando.
+2. **La plataforma**, en *Gobernanza → Shift-Left*, por repositorio. No hace
+   falta tocar el workflow para cambiarlo ni para ver qué umbral tiene cada uno.
+
+**El del workflow gana.** Un equipo puede ser más estricto con su propio repo;
+lo que no puede es aflojar el umbral que fijó la plataforma sin pasar por ella.
+
+Sin ninguno de los dos, `gate-status` queda en `NOT_EVALUATED`: se comenta el
+costo y no se bloquea nada. Y si la plataforma no responde el gate tampoco
+bloquea — es un control de costo, y voltear un PR por una caída nuestra sería
+peor que dejar pasar uno caro.
 
 ## Lo que conviene saber antes de confiar en el número
 
