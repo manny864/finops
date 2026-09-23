@@ -15752,6 +15752,9 @@
     "colVolume": "Volume",
     "colCost": "Cost",
     "footnoteFreeTier": "Volume is a floor: rows with no charge — the free outbound tier — are not ingested, so real GB are higher. The cost is the full amount.",
-    "footnotePartialGb": "Some meters are not billed per GB, and their volume is not counted."
+    "footnotePartialGb": "Some meters are not billed per GB, and their volume is not counted.",
+    "cat_procesamiento": "Processed by appliances",
+    "colService": "Service",
+    "hint_procesamiento": "Firewall, Load Balancer, Application Gateway, DDoS, Virtual WAN and Private Link charge per GB processed. An oversized appliance, or traffic that did not need to go through it, shows up here."
   }
 }

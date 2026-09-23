@@ -39,6 +39,7 @@ export type CategoriaEgress =
     | "entre_regiones"
     | "entre_zonas"
     | "nat_gateway"
+    | "procesamiento"
     | "entrada";
 
 export interface FlujoEgress {
@@ -49,6 +50,8 @@ export interface FlujoEgress {
     /** GB, sólo cuando el medidor se cobra por GB. `null` cuando no se puede afirmar. */
     gigabytes: number | null;
     medidor: string;
+    /** El servicio de Azure que emite el cargo. `Standard Data Processed` lo usan siete. */
+    servicio: string;
 }
 
 export interface MapaEgress {
@@ -63,21 +66,35 @@ export interface MapaEgress {
 }
 
 /**
- * Clasificación por `meterName`, en SQL y no en JS, para no traerse miles de
- * filas y agruparlas acá.
+ * Clasificación en SQL y no en JS, para no traerse miles de filas y agruparlas
+ * acá. `m` es el nombre del medidor en minúscula; `s`, el del servicio.
  *
- * El orden de los WHEN importa: `Standard Inter-Availability Zone Data Transfer
- * Out` también matchea un `LIKE '%Data Transfer Out%'` genérico, así que lo
- * específico va primero. Con el orden al revés, todo el inter-AZ —que es
- * justamente el hallazgo que justifica la pantalla— se contaría como salida a
- * internet y nadie vería el problema.
+ * EL ORDEN DE LOS WHEN ES LA LÓGICA, no un detalle de estilo. Dos trampas, las
+ * dos verificadas contra la Retail Prices API y las dos silenciosas:
+ *
+ *   1. `Standard Inter-Availability Zone Data Transfer Out` también matchea un
+ *      `%data transfer out%` genérico. Con el orden al revés, todo el inter-AZ
+ *      —el hallazgo que justifica la pantalla— se contaría como salida a
+ *      internet y nadie vería el problema.
+ *
+ *   2. **`Data Processed` no es del NAT Gateway.** Lo usan SIETE servicios, y
+ *      `Azure Firewall` tiene un medidor con el nombre EXACTAMENTE igual,
+ *      `Standard Data Processed`. También `Load Balancer` (`Standard`,
+ *      `Gateway`, `Global`), `Application Gateway` (`Small`/`Medium`/`Large`),
+ *      `Azure DDOS Protection`, `Virtual WAN` y `Virtual Network` (que es donde
+ *      vive el procesamiento de Private Link, como `Standard Data Processed -
+ *      Egress` / `- Ingress`). Por eso el NAT se reconoce por SERVICIO y el
+ *      resto cae en `procesamiento`: filtrar sólo por el nombre del medidor le
+ *      atribuía al NAT el costo de un firewall, que es plata real cargada al
+ *      lugar equivocado.
  */
 export const CLASIFICACION = `
     CASE
         WHEN m LIKE '%inter-availability zone%'  THEN 'entre_zonas'
         WHEN m LIKE '%inter continent%out%'      THEN 'entre_continentes'
         WHEN m LIKE '%intra continent%out%'      THEN 'entre_regiones'
-        WHEN m LIKE '%data processed%'           THEN 'nat_gateway'
+        WHEN s LIKE '%nat gateway%' AND m LIKE '%data processed%' THEN 'nat_gateway'
+        WHEN m LIKE '%data processed%'           THEN 'procesamiento'
         WHEN m LIKE '%data transfer in%'         THEN 'entrada'
         WHEN m LIKE '%data transfer out%'        THEN 'internet'
         ELSE NULL
@@ -96,18 +113,20 @@ export async function getMapaEgress(tenantId: string, dias = 30): Promise<MapaEg
             ${CLASIFICACION} AS categoria,
             COALESCE(resource_location, '') AS region,
             MeterName AS medidor,
+            service_name AS servicio,
             SUM(cost_usd) AS costo,
             SUM(CASE WHEN ${SE_COBRA_POR_GB} THEN COALESCE(Quantity, 0) ELSE 0 END) AS gb,
             SUM(CASE WHEN ${SE_COBRA_POR_GB} THEN 0 ELSE 1 END) AS sin_gb
            FROM (
-                SELECT resource_location, MeterName, cost_usd, Quantity,
-                       LOWER(COALESCE(NULLIF(MeterName, ''), MeterSubCategory, '')) AS m
+                SELECT resource_location, MeterName, service_name, cost_usd, Quantity,
+                       LOWER(COALESCE(NULLIF(MeterName, ''), MeterSubCategory, '')) AS m,
+                       LOWER(COALESCE(service_name, '')) AS s
                   FROM CostMeterSnapshots
                  WHERE tenant_id = ?
                    AND date > DATE_SUB(CURDATE(), INTERVAL ? DAY)
            ) t
           WHERE ${CLASIFICACION} IS NOT NULL
-          GROUP BY categoria, region, medidor
+          GROUP BY categoria, region, medidor, servicio
           ORDER BY costo DESC`,
         [tenantId, dias]
     );
@@ -116,6 +135,7 @@ export async function getMapaEgress(tenantId: string, dias = 30): Promise<MapaEg
         categoria: String(f.categoria) as CategoriaEgress,
         region: String(f.region || ""),
         medidor: String(f.medidor || ""),
+        servicio: String(f.servicio || ""),
         costoUsd: redondear(Number(f.costo) || 0),
         gigabytes: Number(f.sin_gb) > 0 ? null : redondear(Number(f.gb) || 0),
     }));

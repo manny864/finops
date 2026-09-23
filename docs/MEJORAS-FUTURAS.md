@@ -1762,9 +1762,23 @@ hallazgo que justifica la pantalla desaparecería dentro de otra categoría.
   seis barras es una dependencia nueva para decir lo mismo. Tiene sentido cuando
   el desglose llegue a par origen-destino, que la ingesta hoy no da: Cost
   Management informa la región del cargo, no el destino del tráfico.
-- **Private Endpoints (parte del criterio 2).** El NAT Gateway sí está; el
-  medidor de Private Link **quedó sin verificar** — la Retail API devolvió 429
-  antes de poder confirmar su `serviceName`, y no se agrega un filtro a ojo.
+- ~~**Private Endpoints (parte del criterio 2).**~~ Verificado en el reintento:
+  el procesamiento de Private Link vive en el servicio **`Virtual Network`**,
+  como `Standard Data Processed - Egress` / `- Ingress`. Queda cubierto por la
+  categoría *procesamiento*.
+
+**Y ese reintento destapó un bug propio que estuvo unas horas en producción.**
+`Data Processed` **no es del NAT Gateway**: lo usan siete servicios de la
+familia `Networking`, y **`Azure Firewall` tiene un medidor con el nombre
+exactamente igual**, `Standard Data Processed`. También `Load Balancer`
+(`Standard`, `Gateway`, `Global`), `Application Gateway`
+(`Small`/`Medium`/`Large`), `Azure DDOS Protection`, `Virtual WAN` y `Virtual
+Network`. La primera versión filtraba sólo por el nombre del medidor, así que le
+cargaba al NAT el costo de un firewall o un balanceador: plata real atribuida al
+lugar equivocado, sin una sola excepción. Ahora el NAT se reconoce por
+**servicio**, el resto cae en la categoría *procesamiento*, y la tabla muestra
+el servicio junto al medidor para que dos `Standard Data Processed` no sean la
+misma fila. Los siete casos están fijados en el test.
 - **ExpressRoute / VPN P95 (criterio 3).** Es otra fuente: métricas de Azure
   Monitor, no costo. No comparte nada con lo de arriba salvo la pantalla.
 - **Network Watcher Flow Logs.** Dan GB, no costo, y el costo ya lo tenemos.

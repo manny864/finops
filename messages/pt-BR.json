@@ -15752,6 +15752,9 @@
     "colVolume": "Volume",
     "colCost": "Custo",
     "footnoteFreeTier": "O volume é um piso: as linhas sem cobrança — a faixa gratuita de saída — não são ingeridas, então os GB reais são maiores. O custo é o total.",
-    "footnotePartialGb": "Além disso há medidores que não são cobrados por GB, e seu volume não é somado."
+    "footnotePartialGb": "Além disso há medidores que não são cobrados por GB, e seu volume não é somado.",
+    "cat_procesamiento": "Processado por appliances",
+    "colService": "Serviço",
+    "hint_procesamiento": "Firewall, Load Balancer, Application Gateway, DDoS, Virtual WAN e Private Link cobram por GB processado. Um appliance superdimensionado, ou tráfego que não precisava passar por ele, aparece aqui."
   }
 }

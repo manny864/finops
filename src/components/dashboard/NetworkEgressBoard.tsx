@@ -29,16 +29,25 @@ const ORDEN_VISUAL: CategoriaEgress[] = [
     "internet",
     "entre_zonas",
     "nat_gateway",
+    "procesamiento",
     "entre_regiones",
     "entre_continentes",
     "entrada",
 ];
 
-/** Los dos evitables por arquitectura llevan color de alerta; el resto, neutro. */
+/**
+ * Las tres categorías que se arreglan cambiando arquitectura y no SKU. Son las
+ * que llevan una sugerencia debajo: informar un número sin el siguiente paso
+ * deja al usuario igual que antes.
+ */
+const ACCIONABLES: CategoriaEgress[] = ["entre_zonas", "nat_gateway", "procesamiento"];
+
+/** Los evitables por arquitectura llevan color de alerta; el resto, neutro. */
 const COLOR: Record<CategoriaEgress, string> = {
     internet: "bg-blue-500",
     entre_zonas: "bg-amber-500",
     nat_gateway: "bg-amber-500",
+    procesamiento: "bg-violet-500",
     entre_regiones: "bg-sky-500",
     entre_continentes: "bg-indigo-500",
     entrada: "bg-slate-400",
@@ -152,7 +161,7 @@ export default function NetworkEgressBoard() {
                                         style={{ width: `${Math.max(2, (c.costoUsd / maxCosto) * 100)}%` }}
                                     />
                                 </div>
-                                {(c.categoria === "entre_zonas" || c.categoria === "nat_gateway") && c.costoUsd > 0 ? (
+                                {ACCIONABLES.includes(c.categoria) && c.costoUsd > 0 ? (
                                     <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">{t(`hint_${c.categoria}`)}</p>
                                 ) : null}
                             </div>
@@ -164,6 +173,7 @@ export default function NetworkEgressBoard() {
                             <thead className="bg-slate-50 dark:bg-slate-900/60 text-left">
                                 <tr>
                                     <th className="px-3 py-2 font-medium">{t("colMeter")}</th>
+                                    <th className="px-3 py-2 font-medium">{t("colService")}</th>
                                     <th className="px-3 py-2 font-medium">{t("colCategory")}</th>
                                     <th className="px-3 py-2 font-medium">{t("colRegion")}</th>
                                     <th className="px-3 py-2 font-medium text-right">{t("colVolume")}</th>
@@ -174,6 +184,9 @@ export default function NetworkEgressBoard() {
                                 {(data?.flujos || []).map((f, i) => (
                                     <tr key={`${f.medidor}-${f.region}-${i}`} className="border-t border-slate-100 dark:border-slate-800">
                                         <td className="px-3 py-2 font-mono text-xs">{f.medidor}</td>
+                                        {/* Sin el servicio, dos `Standard Data Processed`
+                                            de NAT Gateway y de Firewall son la misma fila. */}
+                                        <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{f.servicio || "—"}</td>
                                         <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{t(`cat_${f.categoria}`)}</td>
                                         <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{f.region || "—"}</td>
                                         <td className="px-3 py-2 text-right tabular-nums">{gb(f.gigabytes, locale)}</td>

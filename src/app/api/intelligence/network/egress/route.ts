@@ -29,19 +29,22 @@ const MAX_DIAS = 365;
  */
 function datosDemo(dias: number): MapaEgress {
     const flujos = [
-        { categoria: "internet" as const, region: "eastus", medidor: "Standard Data Transfer Out", costoUsd: 412.8, gigabytes: 4703.0 },
-        { categoria: "entre_zonas" as const, region: "eastus", medidor: "Standard Inter-Availability Zone Data Transfer Out", costoUsd: 268.4, gigabytes: 26840.0 },
-        { categoria: "nat_gateway" as const, region: "eastus", medidor: "Standard Data Processed", costoUsd: 121.5, gigabytes: 2700.0 },
-        { categoria: "entre_regiones" as const, region: "westus2", medidor: "Intra Continent Data Transfer Out", costoUsd: 74.2, gigabytes: 3710.0 },
-        { categoria: "entre_continentes" as const, region: "westeurope", medidor: "Inter Continent Data Transfer Out - NAM or EU To Any", costoUsd: 38.9, gigabytes: 778.0 },
-        { categoria: "entrada" as const, region: "eastus", medidor: "Standard Data Transfer In", costoUsd: 0.0, gigabytes: 9120.0 },
+        { categoria: "internet" as const, region: "eastus", servicio: "Bandwidth", medidor: "Standard Data Transfer Out", costoUsd: 412.8, gigabytes: 4703.0 },
+        { categoria: "entre_zonas" as const, region: "eastus", servicio: "Bandwidth", medidor: "Standard Inter-Availability Zone Data Transfer Out", costoUsd: 268.4, gigabytes: 26840.0 },
+        // Dos medidores que se llaman IGUAL y son de servicios distintos: es la
+        // razón por la que la clasificación mira el servicio y no sólo el nombre.
+        { categoria: "nat_gateway" as const, region: "eastus", servicio: "NAT Gateway", medidor: "Standard Data Processed", costoUsd: 121.5, gigabytes: 2700.0 },
+        { categoria: "procesamiento" as const, region: "eastus", servicio: "Azure Firewall", medidor: "Standard Data Processed", costoUsd: 96.3, gigabytes: 2140.0 },
+        { categoria: "entre_regiones" as const, region: "westus2", servicio: "Bandwidth", medidor: "Intra Continent Data Transfer Out", costoUsd: 74.2, gigabytes: 3710.0 },
+        { categoria: "entre_continentes" as const, region: "westeurope", servicio: "Bandwidth", medidor: "Inter Continent Data Transfer Out - NAM or EU To Any", costoUsd: 38.9, gigabytes: 778.0 },
+        { categoria: "entrada" as const, region: "eastus", servicio: "Bandwidth", medidor: "Standard Data Transfer In", costoUsd: 0.0, gigabytes: 9120.0 },
     ];
     const porCategoria = flujos.map((f) => ({ categoria: f.categoria, costoUsd: f.costoUsd, gigabytes: f.gigabytes }));
     return {
         flujos,
         porCategoria,
-        costoTotalUsd: 915.8,
-        costoSalidaUsd: 915.8,
+        costoTotalUsd: 1012.1,
+        costoSalidaUsd: 1012.1,
         dias,
         gigabytesParciales: false,
     };

@@ -27,15 +27,19 @@ import NetworkEgressBoard from "@/components/dashboard/NetworkEgressBoard";
 
 const mapa = (over: any = {}) => ({
     flujos: [
-        { categoria: "internet", region: "eastus", medidor: "Standard Data Transfer Out", costoUsd: 412.8, gigabytes: 4703 },
-        { categoria: "entre_zonas", region: "eastus", medidor: "Standard Inter-Availability Zone Data Transfer Out", costoUsd: 268.4, gigabytes: 26840 },
+        { categoria: "internet", region: "eastus", servicio: "Bandwidth", medidor: "Standard Data Transfer Out", costoUsd: 412.8, gigabytes: 4703 },
+        { categoria: "entre_zonas", region: "eastus", servicio: "Bandwidth", medidor: "Standard Inter-Availability Zone Data Transfer Out", costoUsd: 268.4, gigabytes: 26840 },
+        { categoria: "nat_gateway", region: "eastus", servicio: "NAT Gateway", medidor: "Standard Data Processed", costoUsd: 121.5, gigabytes: 2700 },
+        { categoria: "procesamiento", region: "eastus", servicio: "Azure Firewall", medidor: "Standard Data Processed", costoUsd: 96.3, gigabytes: 2140 },
     ],
     porCategoria: [
         { categoria: "internet", costoUsd: 412.8, gigabytes: 4703 },
         { categoria: "entre_zonas", costoUsd: 268.4, gigabytes: 26840 },
+        { categoria: "nat_gateway", costoUsd: 121.5, gigabytes: 2700 },
+        { categoria: "procesamiento", costoUsd: 96.3, gigabytes: 2140 },
     ],
-    costoTotalUsd: 681.2,
-    costoSalidaUsd: 681.2,
+    costoTotalUsd: 899,
+    costoSalidaUsd: 899,
     dias: 30,
     gigabytesParciales: false,
     ...over,
@@ -50,7 +54,7 @@ describe("NetworkEgressBoard (MEJ-19)", () => {
         expect(screen.getAllByText("Salida a internet").length).toBe(2);
         expect(screen.getAllByText("Entre zonas de disponibilidad").length).toBe(2);
         expect(screen.getByText("Standard Inter-Availability Zone Data Transfer Out")).toBeTruthy();
-        expect(screen.getAllByText(/681/).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/899/).length).toBeGreaterThan(0);
     });
 
     // El inter-AZ y el NAT son los dos evitables cambiando arquitectura: sin la
@@ -75,6 +79,18 @@ describe("NetworkEgressBoard (MEJ-19)", () => {
         datos.respuesta = mapa({ gigabytesParciales: true });
         render(<NetworkEgressBoard />);
         expect(screen.getByText(/no se cobran por GB/)).toBeTruthy();
+    });
+
+    // El bug que estuvo en produccion: `Standard Data Processed` lo usan siete
+    // servicios y el de Azure Firewall se llama igual que el del NAT Gateway.
+    // En la tabla tienen que poder distinguirse.
+    it("distingue dos medidores que se llaman igual por su servicio", () => {
+        datos.respuesta = mapa();
+        render(<NetworkEgressBoard />);
+        expect(screen.getAllByText("Standard Data Processed").length).toBe(2);
+        expect(screen.getByText("NAT Gateway")).toBeTruthy();
+        expect(screen.getByText("Azure Firewall")).toBeTruthy();
+        expect(screen.getAllByText("Procesado por appliances").length).toBe(2);
     });
 
     it("un vacio explica por que puede estar vacio", () => {
