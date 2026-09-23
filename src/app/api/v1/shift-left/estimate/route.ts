@@ -15,6 +15,7 @@
  * una clave de lectura de costos no debería poder escribir filas de estimación.
  */
 import { NextRequest, NextResponse } from "next/server";
+import type { RowDataPacket } from "mysql2";
 import { v4 as uuidv4 } from "uuid";
 import { verifyApiKey, requireScope } from "@/lib/publicApiAuth";
 import rateLimiter from "@/lib/rateLimiter";
@@ -54,7 +55,7 @@ type Gate = { status: "NOT_EVALUATED" | "OK" | "EXCEEDED"; threshold: number | n
 async function evaluarGate(tenantId: string, repository: string, delta: number): Promise<Gate> {
     if (!repository) return { status: "NOT_EVALUATED", threshold: null };
     try {
-        const [filas]: any = await pool.query(
+        const [filas] = await pool.query<RowDataPacket[]>(
             `SELECT threshold_usd FROM IacBudgetGates
               WHERE tenant_id = ? AND repository = ?
               LIMIT 1`,

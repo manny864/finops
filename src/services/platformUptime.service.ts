@@ -15,6 +15,7 @@
  * `superAdminOperations.service`; vive acá para que no vuelvan a divergir.
  */
 
+import type { RowDataPacket } from "mysql2";
 import pool from "@/modules/storage/db";
 
 export interface Uptime30d {
@@ -29,7 +30,7 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 export async function getUptime30d(): Promise<Uptime30d> {
   try {
-    const [rows]: any = await pool.query(
+    const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT
         COUNT(*) as total_count,
         COUNT(CASE WHEN overall_status='down' THEN 1 END) as down_count,
