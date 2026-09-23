@@ -12398,6 +12398,7 @@
     "badgeDown": "🔴 Down",
     "latencyLabel": "Latency: {ms}ms",
     "metricUptime": "Uptime (30 days)",
+    "metricDegraded": "Degraded {pct}% of the time",
     "metricIncidents": "Incidents (30 days)",
     "metricVersion": "Version",
     "componentsTitle": "Components",

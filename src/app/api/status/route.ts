@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
+import { getUptime30d } from "@/services/platformUptime.service";
 
 type ComponentStatus = "operational" | "degraded" | "down";
 type OverallStatus = "operational" | "degraded" | "down";
@@ -15,6 +16,8 @@ interface StatusResponse {
   timestamp: string;
   components: Component[];
   uptime_30d_pct: number;
+  /** % de snapshots `degraded` en la misma ventana. No se descuenta del uptime. */
+  degraded_30d_pct: number;
   incidents_last_30d: number;
   version: string;
 }
@@ -81,29 +84,6 @@ async function checkPaddleBillingHealth(): Promise<ComponentStatus> {
   return "operational";
 }
 
-async function calculateUptime30d(): Promise<number> {
-  try {
-    // Count operational snapshots in the last 30 days
-    const [rows]: any = await pool.query(
-      `SELECT 
-        COUNT(CASE WHEN overall_status='operational' THEN 1 END) as operational_count,
-        COUNT(*) as total_count
-       FROM PlatformStatusSnapshots
-       WHERE captured_at > DATE_SUB(NOW(), INTERVAL 30 DAY)`
-    );
-
-    if (!rows || rows.length === 0 || rows[0].total_count === 0) {
-      return 100.0; // No data yet, assume operational
-    }
-
-    const uptime = (rows[0].operational_count / rows[0].total_count) * 100;
-    return Math.round(uptime * 100) / 100; // Round to 2 decimals
-  } catch (e) {
-    console.error("Uptime calculation failed:", e);
-    return 100.0;
-  }
-}
-
 async function getIncidentsCount30d(): Promise<number> {
   try {
     const [rows]: any = await pool.query(
@@ -144,16 +124,21 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       overallStatus = "degraded";
     }
 
-    const uptime = await calculateUptime30d();
+    const uptime = await getUptime30d();
     const incidents = await getIncidentsCount30d();
 
     const response: StatusResponse = {
       status: overallStatus,
       timestamp: new Date().toISOString(),
       components,
-      uptime_30d_pct: uptime,
+      uptime_30d_pct: uptime.uptimePct,
+      degraded_30d_pct: uptime.degradedPct,
       incidents_last_30d: incidents,
-      version: process.env.NEXT_PUBLIC_APP_VERSION || process.env.npm_package_version || "b4debae",
+      // APP_VERSION la setea el deploy con el SHA (`--set-env-vars`). No lleva
+      // prefijo NEXT_PUBLIC_ a propósito: Next inlinea esas en build y una env
+      // var de runtime nunca llegaría a pisarla. El fallback anterior era el
+      // commit `b4debae` hardcodeado, de la época del deploy por SSH al VPS.
+      version: process.env.APP_VERSION || process.env.npm_package_version || "unknown",
     };
 
     return NextResponse.json(response, {

@@ -12398,6 +12398,7 @@
     "badgeDown": "🔴 Caído",
     "latencyLabel": "Latencia: {ms}ms",
     "metricUptime": "Disponibilidad (30 días)",
+    "metricDegraded": "Degradada {pct}% del tiempo",
     "metricIncidents": "Incidentes (30 días)",
     "metricVersion": "Versión",
     "componentsTitle": "Componentes",

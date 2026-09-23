@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
+import { getUptime30d } from "@/services/platformUptime.service";
 import { recordCronRun } from "@/lib/cronRunTracker";
 
 type ComponentStatus = "operational" | "degraded" | "down";
@@ -101,22 +102,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       [overallStatus, dbCheck.latency_ms, azureCheck.ratio, JSON.stringify(components)]
     );
 
-    // Calculate uptime
-    const [rows]: any = await pool.query(
-      `SELECT 
-        COUNT(CASE WHEN overall_status='operational' THEN 1 END) as operational_count,
-        COUNT(*) as total_count
-       FROM PlatformStatusSnapshots
-       WHERE captured_at > DATE_SUB(NOW(), INTERVAL 30 DAY)`
-    );
-
-    const uptime =
-      rows && rows.length > 0 && rows[0].total_count > 0 ? (rows[0].operational_count / rows[0].total_count) * 100 : 100.0;
+    const uptime = await getUptime30d();
 
     const response = {
       success: true,
       overall_status: overallStatus,
-      uptime_30d_pct: Math.round(uptime * 100) / 100,
+      uptime_30d_pct: uptime.uptimePct,
+      degraded_30d_pct: uptime.degradedPct,
     };
     await recordCronRun({
       cronName: "status-snapshot",

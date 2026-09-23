@@ -48,7 +48,7 @@ describe("superAdminOperations.service", () => {
         mocks.mockPoolQuery
             .mockResolvedValueOnce([[{ ping: 1 }]]) // ping
             .mockResolvedValueOnce([[{ overall_status: "operational", db_latency_ms: 12, azure_sync_ratio: 1.0, captured_at: "2026-08-23T00:00:00Z" }]]) // snapshot
-            .mockResolvedValueOnce([[{ operational_count: 30, total_count: 30 }]]) // uptime
+            .mockResolvedValueOnce([[{ total_count: 30, down_count: 0, degraded_count: 0 }]]) // uptime
             .mockResolvedValueOnce([[{ unacknowledged: 0 }]]) // alerts
             .mockResolvedValueOnce([[{ total_tenants: 4, tenants_sync_ok: 3 }]]) // tenant sync
             .mockResolvedValueOnce([[{ enabled_channels: 2 }]]) // channels

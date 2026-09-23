@@ -50,8 +50,9 @@ describe("Status API", () => {
       mocks.mockPoolQuery.mockResolvedValueOnce([
         [
           {
-            operational_count: 1000,
             total_count: 1000,
+            down_count: 0,
+            degraded_count: 0,
           },
         ],
       ]);
@@ -74,7 +75,7 @@ describe("Status API", () => {
 
     it("should have CORS headers", async () => {
       mocks.mockPoolQuery.mockResolvedValueOnce([[{ total: 0 }]]);
-      mocks.mockPoolQuery.mockResolvedValueOnce([[{ operational_count: 0, total_count: 0 }]]);
+      mocks.mockPoolQuery.mockResolvedValueOnce([[{ total_count: 0, down_count: 0, degraded_count: 0 }]]);
       mocks.mockPoolQuery.mockResolvedValueOnce([[{ incident_count: 0 }]]);
 
       const req = makeReq("http://localhost:3000/api/status");
@@ -87,7 +88,7 @@ describe("Status API", () => {
     it("should mark database as down on query error", async () => {
       mocks.mockPoolQuery.mockRejectedValueOnce(new Error("DB error"));
       mocks.mockPoolQuery.mockResolvedValueOnce([[{ total: 0 }]]);
-      mocks.mockPoolQuery.mockResolvedValueOnce([[{ operational_count: 0, total_count: 0 }]]);
+      mocks.mockPoolQuery.mockResolvedValueOnce([[{ total_count: 0, down_count: 0, degraded_count: 0 }]]);
       mocks.mockPoolQuery.mockResolvedValueOnce([[{ incident_count: 0 }]]);
 
       const req = makeReq("http://localhost:3000/api/status");
@@ -99,7 +100,7 @@ describe("Status API", () => {
 
     it("should mark Azure sync as degraded when ratio < 0.5", async () => {
       mocks.mockPoolQuery.mockResolvedValueOnce([[{ total: 10, ok_count: 3 }]]);
-      mocks.mockPoolQuery.mockResolvedValueOnce([[{ operational_count: 0, total_count: 0 }]]);
+      mocks.mockPoolQuery.mockResolvedValueOnce([[{ total_count: 0, down_count: 0, degraded_count: 0 }]]);
       mocks.mockPoolQuery.mockResolvedValueOnce([[{ incident_count: 0 }]]);
 
       const req = makeReq("http://localhost:3000/api/status");
@@ -112,7 +113,7 @@ describe("Status API", () => {
     it("should mark AI provider as degraded when GEMINI_API_KEY is empty", async () => {
       process.env.GEMINI_API_KEY = "";
       mocks.mockPoolQuery.mockResolvedValueOnce([[{ total: 0 }]]);
-      mocks.mockPoolQuery.mockResolvedValueOnce([[{ operational_count: 0, total_count: 0 }]]);
+      mocks.mockPoolQuery.mockResolvedValueOnce([[{ total_count: 0, down_count: 0, degraded_count: 0 }]]);
       mocks.mockPoolQuery.mockResolvedValueOnce([[{ incident_count: 0 }]]);
 
       const req = makeReq("http://localhost:3000/api/status");
@@ -122,25 +123,45 @@ describe("Status API", () => {
       expect(json.components.find((c: any) => c.name === "AI Provider").status).toBe("degraded");
     });
 
-    it("should calculate uptime from snapshots", async () => {
+    // Los números son los 7 días reales medidos el 2026-09-22: 2.017 snapshots,
+    // 1.932 operational, 82 degraded, 3 down. Con el criterio viejo
+    // (operational/total) esto daba 95,79%; lo que estuvo caído es 0,15%.
+    it("should count only `down` as downtime, and report `degraded` apart", async () => {
       mocks.mockPoolQuery
         .mockResolvedValueOnce([[]]) // checkDatabaseHealth - SELECT 1
         .mockResolvedValueOnce([[{ total: 0 }]]) // checkAzureSyncHealth
         .mockResolvedValueOnce([
           [
             {
-              operational_count: 95,
-              total_count: 100,
+              total_count: 2017,
+              down_count: 3,
+              degraded_count: 82,
             },
           ],
-        ]) // calculateUptime30d
+        ]) // getUptime30d
         .mockResolvedValueOnce([[{ incident_count: 2 }]]); // getIncidentsCount30d
 
       const req = makeReq("http://localhost:3000/api/status");
       const res = await statusGET(req);
       const json = await res.json();
 
-      expect(json.uptime_30d_pct).toBe(95.0);
+      expect(json.uptime_30d_pct).toBe(99.85);
+      expect(json.degraded_30d_pct).toBe(4.07);
+    });
+
+    it("should report the deployed commit, not a hardcoded fallback", async () => {
+      process.env.APP_VERSION = "7525575";
+      mocks.mockPoolQuery
+        .mockResolvedValueOnce([[]])
+        .mockResolvedValueOnce([[{ total: 0 }]])
+        .mockResolvedValueOnce([[{ total_count: 0, down_count: 0, degraded_count: 0 }]])
+        .mockResolvedValueOnce([[{ incident_count: 0 }]]);
+
+      const req = makeReq("http://localhost:3000/api/status");
+      const json = await (await statusGET(req)).json();
+
+      expect(json.version).toBe("7525575");
+      delete process.env.APP_VERSION;
     });
   });
 
@@ -245,7 +266,7 @@ describe("Status API", () => {
       mocks.mockPoolQuery.mockResolvedValueOnce([[{ total: 5, ok_count: 5 }]]);
       mocks.mockPoolQuery.mockResolvedValueOnce([[]]);
       mocks.mockPoolQuery.mockResolvedValueOnce([[]]);
-      mocks.mockPoolQuery.mockResolvedValueOnce([[{ operational_count: 100, total_count: 100 }]]);
+      mocks.mockPoolQuery.mockResolvedValueOnce([[{ total_count: 100, down_count: 0, degraded_count: 0 }]]);
 
       const req = makeReq("http://localhost:3000/api/cron/status-snapshot?secret=test-secret-123");
       const res = await snapshotGET(req);
@@ -268,7 +289,7 @@ describe("Status API", () => {
       mocks.mockPoolQuery.mockResolvedValueOnce([[{ total: 0 }]]);
       mocks.mockPoolQuery.mockResolvedValueOnce([[]]);
       mocks.mockPoolQuery.mockResolvedValueOnce([[]]);
-      mocks.mockPoolQuery.mockResolvedValueOnce([[{ operational_count: 50, total_count: 100 }]]);
+      mocks.mockPoolQuery.mockResolvedValueOnce([[{ total_count: 100, down_count: 0, degraded_count: 50 }]]);
 
       const req = makeReq("http://localhost:3000/api/cron/status-snapshot?secret=test-secret-123");
       const res = await snapshotGET(req);

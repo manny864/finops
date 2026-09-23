@@ -12398,6 +12398,7 @@
     "badgeDown": "🔴 Fora do ar",
     "latencyLabel": "Latência: {ms}ms",
     "metricUptime": "Disponibilidade (30 dias)",
+    "metricDegraded": "Degradada {pct}% do tempo",
     "metricIncidents": "Incidentes (30 dias)",
     "metricVersion": "Versão",
     "componentsTitle": "Componentes",

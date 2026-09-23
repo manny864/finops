@@ -3,6 +3,7 @@
  */
 
 import pool, { initializeDatabase } from "@/modules/storage/db";
+import { getUptime30d } from "@/services/platformUptime.service";
 import { notifyTenant } from "@/lib/notifications";
 import {
     SaaSOperationsSummary,
@@ -167,17 +168,7 @@ export async function getSaaSOperationsHealth(isMock = false): Promise<SaaSOpera
         );
 
         // Uptime 30 días
-        const [uptimeRows]: any = await pool.query(
-            `SELECT 
-               COUNT(CASE WHEN overall_status='operational' THEN 1 END) as operational_count,
-               COUNT(*) as total_count
-             FROM PlatformStatusSnapshots
-             WHERE captured_at > DATE_SUB(NOW(), INTERVAL 30 DAY)`
-        );
-        const uptime30d =
-            uptimeRows?.[0]?.total_count > 0
-                ? Number(((uptimeRows[0].operational_count / uptimeRows[0].total_count) * 100).toFixed(2))
-                : 100;
+        const uptime30d = (await getUptime30d()).uptimePct;
 
         // Alertas sin reconocer
         const [[alertsRow]]: any = await pool.query(

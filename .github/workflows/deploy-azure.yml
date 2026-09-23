@@ -249,9 +249,14 @@ jobs:
 
       - name: Deploy de la app
         run: |
+          # APP_VERSION va por --set-env-vars y NO por --build-arg: un build-arg
+          # que cambia en cada commit invalida el cache de la etapa `builder`
+          # justo antes de `npm run build`, que es lo que hacía los deploys de
+          # 20-60 min. Como env var de runtime el cache no se entera.
           az containerapp update -g "$RG" -n "$APP" \
             --image "$ACR.azurecr.io/$IMAGE:${{ github.sha }}" \
-            --set-env-vars AZURE_SENDER_EMAIL_ALERTS="${{ vars.AZURE_SENDER_EMAIL_ALERTS || 'alerts@cscloudsolutions.com.ar' }}"
+            --set-env-vars AZURE_SENDER_EMAIL_ALERTS="${{ vars.AZURE_SENDER_EMAIL_ALERTS || 'alerts@cscloudsolutions.com.ar' }}" \
+                           APP_VERSION="${{ github.sha }}"
 
       - name: Deploy de los cron jobs
         run: |
