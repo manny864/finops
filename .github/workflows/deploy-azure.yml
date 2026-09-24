@@ -93,7 +93,7 @@ jobs:
   # Cuesta ~3 min de runner duplicados por deploy. Es el precio de que la puerta
   # no tenga partes moviles.
   verificacion:
-    name: Typecheck + tests (puerta del deploy)
+    name: Lint + typecheck + tests (puerta del deploy)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -113,6 +113,16 @@ jobs:
       # ahi, con los ~8 min del build ya gastados; y `tsc --noEmit` ve cosas que
       # `next build` no, porque el build solo compila lo que entra en el bundle.
       - run: npm run typecheck -- --pretty false
+      # El lint SI hace falta aca, aunque `ci.yml` ya lo corra: alli esta
+      # condicionado a `pull_request`, y en este repo se pushea directo a main.
+      # Por ese camino no lo corria NADIE, asi que
+      # `react-hooks/rules-of-hooks` --que se subio a error el 2026-09-23 porque
+      # un hook despues de un corte temprano tira la pantalla entera-- frenaba
+      # un PR y no frenaba un push. Es el camino que se usa.
+      #
+      # `--quiet` porque los ~3.400 warnings de deuda no son gate (ver MEJ-09 y
+      # docs/lint-debt.md); lo que corta son los errores.
+      - run: npm run lint -- --quiet
       - name: Run tests
         run: npm test -- --reporter=default --reporter=json --outputFile=vitest-report.json
         env:
