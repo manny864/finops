@@ -11,6 +11,7 @@ import { ingestCostExportsForTenant } from "@/services/costExportIngestionServic
 import * as azureBlob from "@/lib/azureBlobStorage";
 import pool from "@/modules/storage/db";
 import { allocationKey, hashAllocationKey } from "@/lib/allocationTags";
+import { gzipSync } from "zlib";
 
 /** Orden del INSERT: ..., cost_usd, BilledCost, EffectiveCost, ListCost, ContractedCost, Tags, ResourceId, allocation_tag_hash */
 const FECHA = 2, RG = 3, SERVICIO = 4, COSTO = 5, FACTURADO = 6, EFECTIVO = 7;
@@ -286,5 +287,84 @@ describe("ingesta del export: el costo se SUMA, no se pisa", () => {
         const filas = (await ingestCostExportsForTenant("t1"), inserts());
         expect(filas[0][COSTO]).toBe(30);
         expect(filas[0][TAGS]).toBeNull();
+    });
+    it("lee un export comprimido con Gzip", async () => {
+        // Gzip es una de las dos compresiones que el export ofrece para CSV, y
+        // el filtro de blobs ya aceptaba .csv.gz — pero el contenido se leía
+        // como UTF-8 plano. El resultado era binario, no matcheaba ninguna
+        // columna de costo y el blob se descartaba sin error: un tenant con el
+        // export comprimido veía cero gasto.
+        const csv =
+            `ChargePeriodStart,SubscriptionId,ResourceGroup,ServiceName,BilledCost\n` +
+            `2026-09-01,sub-1,rg-a,Virtual Machines,10\n` +
+            `2026-09-01,sub-1,rg-a,Virtual Machines,20\n`;
+        vi.mocked(azureBlob.listBlobs).mockResolvedValue([`${RUN_A}/part0.csv.gz`]);
+        vi.mocked(azureBlob.downloadBlob).mockResolvedValue(gzipSync(Buffer.from(csv)));
+
+        const res = await ingestCostExportsForTenant("t1");
+        const filas = inserts();
+
+        expect(res.rowsIngested).toBe(1);
+        expect(filas).toHaveLength(1);
+        expect(filas[0][COSTO]).toBe(30);
+    });
+
+    it("mezcla particiones comprimidas y sin comprimir en la misma corrida", async () => {
+        const csv = (costo: string) =>
+            `ChargePeriodStart,SubscriptionId,ResourceGroup,ServiceName,BilledCost\n` +
+            `2026-09-01,sub-1,rg-a,Virtual Machines,${costo}\n`;
+        vi.mocked(azureBlob.listBlobs).mockResolvedValue([
+            `${RUN_A}/part0.csv.gz`, `${RUN_A}/part1.csv`,
+        ]);
+        vi.mocked(azureBlob.downloadBlob)
+            .mockResolvedValueOnce(gzipSync(Buffer.from(csv("10"))))
+            .mockResolvedValueOnce(Buffer.from(csv("20")));
+
+        const filas = (await ingestCostExportsForTenant("t1"), inserts());
+        expect(filas).toHaveLength(1);
+        expect(filas[0][COSTO]).toBe(30);
+    });
+
+    it("un .gz corrupto se omite pero no tumba el resto de la corrida", async () => {
+        // Antes el blob ilegible se descartaba en silencio. Ahora se avisa —
+        // pero sigue sin poder cancelar la ingesta de las demás particiones,
+        // que son perfectamente válidas.
+        const csv =
+            `ChargePeriodStart,SubscriptionId,ResourceGroup,ServiceName,BilledCost\n` +
+            `2026-09-01,sub-1,rg-a,Virtual Machines,20\n`;
+        vi.mocked(azureBlob.listBlobs).mockResolvedValue([
+            `${RUN_A}/part0.csv.gz`, `${RUN_A}/part1.csv`,
+        ]);
+        vi.mocked(azureBlob.downloadBlob)
+            .mockResolvedValueOnce(Buffer.from("esto no es un gzip"))
+            .mockResolvedValueOnce(Buffer.from(csv));
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+        const res = await ingestCostExportsForTenant("t1");
+        const filas = inserts();
+
+        expect(res.success).toBe(true);
+        expect(filas).toHaveLength(1);
+        expect(filas[0][COSTO]).toBe(20);
+        expect(warn).toHaveBeenCalledWith(
+            expect.stringContaining("No se pudo descomprimir"),
+            expect.anything(),
+        );
+        warn.mockRestore();
+    });
+
+    it("avisa cuando no reconoce ninguna columna de costo, en vez de callarse", async () => {
+        // El silencio de este camino es lo que escondió el bug del .gz: el blob
+        // se descartaba sin dejar rastro y parecía un tenant sin gasto.
+        vi.mocked(azureBlob.listBlobs).mockResolvedValue([`${RUN_A}/part0.csv`]);
+        vi.mocked(azureBlob.downloadBlob).mockResolvedValue(
+            Buffer.from("columna_a,columna_b\nvalor,otro\n"));
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+        const res = await ingestCostExportsForTenant("t1");
+
+        expect(res.rowsIngested).toBe(0);
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining("ninguna columna de costo"));
+        warn.mockRestore();
     });
 });

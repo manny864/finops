@@ -4,6 +4,7 @@ import Decimal from "decimal.js";
 import { toMoneyNumber } from "@/lib/moneyDecimal";
 import { errorMessage } from '@/lib/apiErrors';
 import { allocationKey, hashAllocationKey } from "@/lib/allocationTags";
+import { gunzipSync } from "zlib";
 
 export interface IngestionResult {
     success: boolean;
@@ -203,7 +204,22 @@ export async function ingestCostExportsForTenant(tenantId: string): Promise<Inge
                 const buffer = await downloadBlob(CONTAINER_NAME, blobName);
                 if (!buffer) continue;
 
-                const text = buffer.toString("utf-8");
+                // Un export CSV puede venir comprimido con Gzip —es una de las
+                // dos compresiones que ofrece el export para CSV; Snappy es sólo
+                // para Parquet (learn.microsoft.com, "Create and manage exports"
+                // → tabla de formatos y compresión). Leer el .gz como UTF-8 daba
+                // binario: ninguna columna de costo matcheaba, el blob se
+                // descartaba y el tenant quedaba en cero sin un solo error.
+                let text: string;
+                try {
+                    text = (blobName.endsWith(".gz") ? gunzipSync(buffer) : buffer).toString("utf-8");
+                } catch (e) {
+                    // Un .gz ilegible no puede tumbar la ingesta del tenant
+                    // entero: el resto de las particiones de la corrida sigue
+                    // siendo válido. Se omite ésta, pero se dice cuál.
+                    console.warn(`[CostExportIngestion] No se pudo descomprimir ${blobName}, se omite:`, errorMessage(e) || String(e));
+                    continue;
+                }
                 const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
                 if (lines.length <= 1) continue;
 
@@ -246,7 +262,14 @@ export async function ingestCostExportsForTenant(tenantId: string): Promise<Inge
                 // (FOCUS), InstanceId o InstanceName (legacy de Azure).
                 const resourceIdIdx = header.findIndex(h => h === "resourceid" || h === "instanceid" || h === "instancename");
 
-                if (costIdx === -1) continue;
+                if (costIdx === -1) {
+                    // Este `continue` era mudo, y ese silencio es justamente lo
+                    // que escondió el bug del .gz durante todo este tiempo: un
+                    // blob ilegible se descartaba sin dejar rastro y la pantalla
+                    // mostraba un tenant sin gasto en vez de un error.
+                    console.warn(`[CostExportIngestion] ${blobName}: no se reconoció ninguna columna de costo en el encabezado, se omite`);
+                    continue;
+                }
                 processedCount++;
 
                 for (let i = 1; i < lines.length; i++) {
