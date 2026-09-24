@@ -847,26 +847,28 @@ export function getMockCategoryOverview(tenantId: string): CategoryOverview {
     const dailyBurnRate = Number((total / daysElapsed).toFixed(2));
     const projectedTotal = Number((dailyBurnRate * daysInMonth).toFixed(2));
 
-    const optimizationOpportunities: CategoryOptimizationOpportunity[] = [
-        {
-            category: "Databases",
-            actionKey: "db_reservations_and_scale",
-            potentialSavings: 65.0,
-            impactLevel: "high",
-        },
-        {
-            category: "Compute",
-            actionKey: "compute_rightsizing_scale_zero",
-            potentialSavings: 45.0,
-            impactLevel: "high",
-        },
-        {
-            category: "Networking",
-            actionKey: "networking_egress_and_nat_audit",
-            potentialSavings: 30.0,
-            impactLevel: "medium",
-        },
-    ];
+    // Las oportunidades salen de `getCategoryRemediationRule`, la MISMA funcion
+    // que usa el camino real, y no de objetos escritos a mano. Escritos a mano
+    // les faltaba `params`, y la clave `cc_rec_db_reservations_and_scale` pide
+    // `{topService}`: next-intl tiraba FORMATTING_ERROR y la recomendacion de
+    // Databases no se leia. Un mock que pasa por el mismo helper no puede
+    // olvidarse de un parametro que el helper si pone.
+    const optimizationOpportunities: CategoryOptimizationOpportunity[] = (
+        [
+            ["Databases", 184.51, "Redis Cache", "high"],
+            ["Compute", 104.24, "Azure Container Apps", "high"],
+            ["Networking", 70.59, undefined, "medium"],
+        ] as Array<[string, number, string | undefined, "high" | "medium" | "low"]>
+    ).map(([category, costMtd, topService, impactLevel]) => {
+        const rule = getCategoryRemediationRule(category, costMtd, topService);
+        return {
+            category,
+            actionKey: rule.remediationActionKey,
+            potentialSavings: rule.potentialSavings,
+            ...("params" in rule ? { params: rule.params } : {}),
+            impactLevel,
+        };
+    });
 
     return {
         success: true,

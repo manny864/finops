@@ -563,7 +563,13 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   return new Response(JSON.stringify({ success: true, mock: true, appliedSavings: 380.5 * m, actionsCount: 6 }), { status: 200 });
               }
               if (url.includes('/api/intelligence/allocation-rules')) return new Response(JSON.stringify(getMockDataForRoute('allocation-rules', mockKey)), {status: 200});
-              if (url.includes('/api/intelligence/cost-by-category')) return new Response(JSON.stringify(getMockDataForRoute('cost-by-category', mockKey)), {status: 200});
+              // /api/intelligence/cost-by-category NO se intercepta (MEJ-03): la
+              // ruta sirve su propio mock sin token para el tenant de demo. La
+              // copia que habia aca traia `historical6Months` y
+              // `optimizationOpportunities` VACIOS mientras el generador de la
+              // ruta los trae completos, asi que en la demo el grafico de seis
+              // meses y la lista de oportunidades salian en blanco. No la
+              // repongas: una copia del payload vuelve a divergir sola.
               if (url.includes('/api/intelligence/cost-projection')) return new Response(JSON.stringify(getMockDataForRoute('cost-projection', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/commitment-simulator')) return new Response(JSON.stringify(getMockDataForRoute('commitment-simulator', mockKey)), {status: 200});
               // Simulador What-If: reproduce la misma matemática pura de

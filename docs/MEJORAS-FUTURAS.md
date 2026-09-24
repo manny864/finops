@@ -19,7 +19,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 |---|---|---|---|---|---|
 | [MEJ-01](#mej-01--atribución-de-ahorros-hechos-en-azure-vía-activity-log) | Atribuir a un autor los ahorros hechos fuera de la plataforma | Ahorro Capturado | Alto | Medio | Hecha |
 | [MEJ-02](#mej-02--animaciones-de-recharts-que-dependen-de-requestanimationframe) | Centralizar el apagado de animaciones de Recharts | Transversal (gráficas) | Medio | Bajo | Parcial |
-| [MEJ-03](#mej-03--auditar-las-intercepciones-demo-restantes-de-tenantprovider) | Auditar las intercepciones demo restantes | Demo / mocks | Alto | Medio | Parcial |
+| [MEJ-03](#mej-03--auditar-las-intercepciones-demo-restantes-de-tenantprovider) | Auditar las intercepciones demo restantes (36 barridas, 24 con guard automático; quedan 12 que el arnés no alcanza) | Demo / mocks | Alto | Medio | Parcial |
 | [MEJ-04](#mej-04--persistir-el-desperdicio-detectado-como-métrica-propia) | Persistir el desperdicio detectado como métrica propia | Ahorro Capturado | Medio | Bajo | Hecha |
 | [MEJ-05](#mej-05--atribuir-el-costo-de-recursos-hijos-a-su-recurso-padre) | Atribuir costo de recursos hijos al padre | Recursos | Medio | Medio | Hecha |
 | [MEJ-06](#mej-06--prosa-generada-por-ia-sobre-el-motor-determinista-de-remediación) | Prosa de IA sobre el motor determinista de remediación | Azure Advisor | Bajo | Bajo | Hecha |
@@ -278,6 +278,40 @@ Encontradas y corregidas seis, todas con el mismo patrón:
 La séptima se corrigió con el mismo patrón: el interceptor pasó a devolver
 `getMockDataForRoute('commitments', ...)` y las 14 recomendaciones escaladas por tier, que vivían
 sueltas en `TenantProvider`, se mudaron a `mockData.ts`. Una sola fuente.
+
+### Barrido completo de las 36 intercepciones (2026-09-24)
+
+Se dejó de buscar de a una. Se extrajeron del código las **36 intercepciones que sirven
+`getMockDataForRoute`** y se invocó el handler real de cada una con el tenant demo. **23 responden
+200 bajo el arnés y se comparan**; 12 no lo alcanzan (400/401/403/500 por parámetros o mocks que
+el arnés no arma) y quedan **listadas por nombre y motivo**, no olvidadas.
+
+Aparecieron tres divergencias más — la octava, novena y décima:
+
+| Ruta | Qué mostraba la demo | Causa |
+|---|---|---|
+| `/api/intelligence/cost-by-category` | gráfico de 6 meses y oportunidades **en blanco** | la copia traía los dos arrays vacíos; el generador de la ruta los trae completos |
+| `/api/intelligence/chargeback` | total en **NaN** y etiquetas vacías | el mock servía `{department, cost}` y la página lee `.name` / `.value` |
+| `/api/admin/billing-markup` | nada visible | faltaba `cspDetected`, que la ruta agrega encima del mock |
+
+`cost-by-category` se resolvió como los siete anteriores: la ruta sirve su propio mock antes del
+auth y la intercepción se borró junto con su `case` huérfano (79 líneas menos). Al hacerlo se vio
+un cuarto defecto que la copia tapaba: las oportunidades del generador estaban escritas a mano y
+**sin `params`**, y la clave `cc_rec_db_reservations_and_scale` pide `{topService}` — next-intl
+tiraba `FORMATTING_ERROR` y esa recomendación no se leía. Ahora se construyen con
+`getCategoryRemediationRule`, el mismo helper del camino real.
+
+**Lo que impide la recaída**, que era la parte 2 de esta mejora: `formaMockInterceptor.test.ts` ya
+no compara contra una lista escrita a mano. Lee `TenantProvider.tsx` y exige que **toda**
+intercepción que sirva `getMockDataForRoute` esté verificada o listada con su motivo. Agregar una
+nueva sin mirarla —que es exactamente como nacieron las diez divergencias— rompe el test.
+Comprobado con dos mutantes: una intercepción nueva sin listar, y quitarle `detailed` al mock de
+chargeback.
+
+**Límite conocido del barrido:** compara claves, así que un array vacío en la respuesta de la ruta
+no aporta las claves de sus elementos. Por eso `chargeback` apareció como "le falta `detailed`"
+cuando además tenía mal `data[].name`/`data[].value`: con el arnés sin datos, `data` volvía vacío.
+Las 12 sin cobertura son el otro límite.
 
 ### Propuesta
 

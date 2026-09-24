@@ -54,7 +54,15 @@ describe("categoryConsumptionService", () => {
         // Verify optimization opportunities
         expect(overview.optimizationOpportunities.length).toBeGreaterThanOrEqual(3);
         const dbOpp = overview.optimizationOpportunities.find((o) => o.category === "Databases");
-        expect(dbOpp?.potentialSavings).toBe(65.0);
+        // 64.58 y no 65.0: las oportunidades del mock pasan por
+        // `getCategoryRemediationRule`, la misma funcion que el camino real, y
+        // la regla de Databases es 35% del MTD con tope 65 -> 184.51 * 0.35 =
+        // 64.58. El 65.0 de antes era el tope, escrito a mano en un objeto que
+        // ademas se olvidaba de `params.topService` y hacia que next-intl tirara
+        // FORMATTING_ERROR en la recomendacion (MEJ-03).
+        expect(dbOpp?.potentialSavings).toBe(64.58);
+        // El parametro que faltaba: sin el, la descripcion no se puede formatear.
+        expect(dbOpp?.params?.topService).toBe("Redis Cache");
     });
 
     it("correctly maps Azure services and resource types to FinOps FOCUS categories", () => {
