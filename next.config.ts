@@ -37,6 +37,11 @@ const nextConfig: NextConfig = {
   // Redirect legacy network slugs to canonical Spanish routes
   async redirects() {
     return [
+      // `/intelligence/commitments` servía el mismo <Commitments /> que la
+      // pestaña del hub, pero nunca estuvo en el sidebar: se llegaba sólo por
+      // marcador o por un pin viejo del dashboard. Se borró la página y queda
+      // el redirect para no romper ni una cosa ni la otra.
+      { source: '/:locale/intelligence/commitments', destination: '/:locale/intelligence/optimizacion-y-ahorro/reservas-de-instancias-ris', permanent: true },
       { source: '/:locale/intelligence/redes/network', destination: '/:locale/intelligence/redes/analisis-de-red', permanent: true },
       { source: '/:locale/intelligence/redes/netwokbasic', destination: '/:locale/intelligence/redes/redes-basicas', permanent: true },
       { source: '/:locale/intelligence/redes/hibridcon', destination: '/:locale/intelligence/redes/conectividad-hibrida', permanent: true },

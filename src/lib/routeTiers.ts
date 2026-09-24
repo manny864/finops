@@ -37,7 +37,6 @@ export const ROUTE_TIERS: Record<string, 'Professional' | 'Business' | 'Enterpri
     '/intelligence/rates': 'Enterprise',
     '/intelligence/licenses': 'Enterprise',
     '/intelligence/hybrid-benefit': 'Enterprise',
-    '/intelligence/commitments': 'Enterprise',
     '/intelligence/aks-chargeback': 'Enterprise',
     '/intelligence/aks': 'Enterprise',
     '/intelligence/computo/kubernetes': 'Enterprise',

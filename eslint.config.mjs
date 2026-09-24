@@ -24,6 +24,11 @@ const eslintConfig = defineConfig([
     ".tmp/**",
     // Vendored Claude Code skill assets (gsap.min.js et al). Not app source.
     ".agents/**",
+    // Worktrees que crea Claude Code para tareas en paralelo: son un checkout
+    // anidado del mismo repo, así que eslint los recorría y reportaba errores
+    // que en CI no existen (ahí no hay worktrees). Lint local rojo con CI verde
+    // es peor que no lintear.
+    ".claude/**",
     "scripts/**",
     ".next-*/**",
     "*.js",

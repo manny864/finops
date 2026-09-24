@@ -68,7 +68,11 @@ export const PAGE_ROLE_TAGS: Record<string, RoleTag[]> = {
     "/intelligence/rates": ["FinOps"],
     "/intelligence/licenses": ["FinOps", "Security"],
     "/intelligence/hybrid-benefit": ["FinOps"],
-    "/intelligence/commitments": ["FinOps"],
+    // El hub entero, que no estaba etiquetado y por eso caía al ["Platform"]
+    // del fallback: un usuario con permiso FinOps a secas no lo veía en el
+    // sidebar. Hereda la etiqueta que tenía la página suelta de compromisos
+    // y suma CloudAdmin por la pestaña de rightsizing.
+    "/intelligence/optimizacion-y-ahorro": ["FinOps", "CloudAdmin"],
     "/intelligence/zero-cost": ["FinOps"],
     "/intelligence/aks": ["CloudAdmin"],
     "/intelligence/aks-chargeback": ["FinOps"],

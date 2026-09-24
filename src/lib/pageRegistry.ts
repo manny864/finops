@@ -32,7 +32,12 @@ export interface PageEntry {
 export const PAGES: PageEntry[] = [
     // Intelligence
     { id: "int-rates", path: "/intelligence/rates", icon: "Percent", category: "intelligence" },
-    { id: "int-commitments", path: "/intelligence/commitments", icon: "ShieldCheck", category: "intelligence" },
+    // La `id` NO cambia a propósito: los pins guardados en UserDashboardPins
+    // son `page:int-commitments` y se resuelven por id, no por path. Mover el
+    // path los redirige solos. De paso, la pestaña del hub deja de caer en
+    // `buildFallbackEntry`, que la rotulaba con el slug crudo
+    // ("optimizacion y ahorro/reservas de instancias ris").
+    { id: "int-commitments", path: "/intelligence/optimizacion-y-ahorro/reservas-de-instancias-ris", icon: "ShieldCheck", category: "intelligence" },
     { id: "int-licenses", path: "/intelligence/licenses", icon: "BadgeCheck", category: "intelligence" },
     { id: "int-ai-analytics", path: "/intelligence/ai-analytics", icon: "BrainCircuit", category: "intelligence" },
     { id: "int-chargeback", path: "/intelligence/chargeback", icon: "Receipt", category: "intelligence" },
