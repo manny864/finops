@@ -124,6 +124,23 @@ export default function Commitments() {
         return data.data;
     }, [data]);
 
+    // Este useMemo tiene que estar ARRIBA de los cortes tempranos que vienen
+    // abajo (`if (isLoading)`, `if (error)`, `if (!metrics)`). Estaba después, y
+    // eso rompía la pantalla entera con "Rendered more hooks than during the
+    // previous render": mientras cargaba se ejecutaban 34 hooks y al llegar los
+    // datos 35, que es exactamente lo que React prohíbe. El bug no se veía
+    // porque hace falta que el componente pase por el estado de carga y DESPUÉS
+    // renderice con datos —cambiar de tenant, por ejemplo—; con la respuesta ya
+    // cacheada el primer render es el completo y no pasa nada.
+    // Por eso `metrics?`: acá todavía puede ser null.
+    const activeSimSpend = simSpend || metrics?.breakevenSummary?.paygMonthly || 3500;
+    const simResult = useMemo(() => {
+        return calculateBreakeven({
+            paygMonthly: activeSimSpend,
+            workloadType: simWorkload
+        });
+    }, [activeSimSpend, simWorkload]);
+
     if (!selectedTenant || selectedTenant.id === 'default') {
         return null;
     }
@@ -184,14 +201,6 @@ export default function Commitments() {
         isCritical: false
     };
 
-    const activeSimSpend = simSpend || metrics.breakevenSummary?.paygMonthly || 3500;
-    const simResult = useMemo(() => {
-        return calculateBreakeven({
-            paygMonthly: activeSimSpend,
-            workloadType: simWorkload
-        });
-    }, [activeSimSpend, simWorkload]);
-
     // MEJ-40: cuánto valor de la cartera vence junto. Se muestra arriba de todo
     // porque es lo único de esta pantalla con FECHA LÍMITE: el resto describe el
     // estado, esto avisa de un golpe que viene.
@@ -201,8 +210,39 @@ export default function Commitments() {
     // trámite y pasa a necesitar aprobación con anticipacion.
     const riesgoAlto = hayRiesgo && (riesgo!.peorMes!.porcentaje >= 40);
 
+    // MEJ-40: ESR. Cobertura y utilización, cada una por su lado, se pueden
+    // mejorar en contra del bolsillo —una comprando de más, la otra comprando
+    // de menos—. Esto mide plata contra plata y no se puede maquillar así.
+    const tasa = metrics.tasaAhorro;
+    const hayTasa = !!tasa && typeof tasa.esr === 'number';
+
     return (
         <div className="w-full space-y-6">
+
+            {hayTasa && (
+                <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                    <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
+                        <div>
+                            <p className="text-xs text-gray-500 dark:text-slate-400">{t('esrTitle')}</p>
+                            <p className={`text-2xl font-black tabular-nums ${tasa.esr >= 0
+                                ? 'text-emerald-600 dark:text-emerald-400'
+                                : 'text-red-600 dark:text-red-400'}`}>
+                                {tasa.esr}%
+                            </p>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-slate-300">
+                            {t('esrDetail', { ahorro: format(tasa.ahorro), lista: format(tasa.listCost) })}
+                        </p>
+                    </div>
+                    {/* Sobre qué parte del gasto se calculó. Sin esto, un ESR
+                        sacado del 3% de la factura se lee como si fuera de toda. */}
+                    {tasa.cobertura < 100 && (
+                        <p className="text-xs text-gray-500 dark:text-slate-400 mt-2">
+                            {t('esrCoverageWarning', { pct: tasa.cobertura })}
+                        </p>
+                    )}
+                </div>
+            )}
 
             {hayRiesgo && (
                 <div className={`rounded-xl border p-4 ${riesgoAlto

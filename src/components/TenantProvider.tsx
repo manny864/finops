@@ -490,31 +490,12 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               // legacy history/current/changePct SIN auditLog, por lo que en demo el
               // "Historial de acciones de remediacion" salia vacio y el ahorro
               // realizado se calculaba como totalWasted * 0.6 en el fallback.
-              if (url.includes('/api/intelligence/commitments')) {
-                  const m = (selectedTenant?.tier?.toLowerCase()==='enterprise')?50:(selectedTenant?.tier?.toLowerCase()==='business')?10:(selectedTenant?.tier?.toLowerCase()==='pro')?3:1;
-                  return new Response(JSON.stringify({ success: true, mock: true, data: {
-                      hasReservations: true,
-                      utilization: 87.4,
-                      coverage: 64.2,
-                      totalMonthlySavings: 4820 * m,
-                      recommendations: [
-                          { type: 'VirtualMachines', sku: 'Standard_D8s_v3', term: '1 Year', recommendedQuantity: 4 * m, monthlySavings: 448 * m },
-                          { type: 'VirtualMachines', sku: 'Standard_D8s_v3', term: '3 Year', recommendedQuantity: 4 * m, monthlySavings: 650 * m },
-                          { type: 'VirtualMachines', sku: 'Standard_E8s_v4', term: '1 Year', recommendedQuantity: 2 * m, monthlySavings: 336 * m },
-                          { type: 'VirtualMachines', sku: 'Standard_E16s_v5', term: '3 Year', recommendedQuantity: 1 * m, monthlySavings: 534 * m },
-                          { type: 'VirtualMachines', sku: 'Standard_F4s_v2', term: '1 Year', recommendedQuantity: 3 * m, monthlySavings: 234 * m },
-                          { type: 'VirtualMachines', sku: 'Standard_D4s_v5', term: '3 Year', recommendedQuantity: 6 * m, monthlySavings: 609 * m },
-                          { type: 'SQLDatabase', sku: 'vCore_Gen5_8', term: '1 Year', recommendedQuantity: 2 * m, monthlySavings: 680 * m },
-                          { type: 'SQLDatabase', sku: 'vCore_Gen5_4', term: '3 Year', recommendedQuantity: 3 * m, monthlySavings: 739 * m },
-                          { type: 'CosmosDB', sku: 'RU_10000', term: '1 Year', recommendedQuantity: 1 * m, monthlySavings: 234 * m },
-                          { type: 'RedisCache', sku: 'Premium_P2', term: '3 Year', recommendedQuantity: 2 * m, monthlySavings: 476 * m },
-                          { type: 'SynapseAnalytics', sku: 'DW500c', term: '3 Year', recommendedQuantity: 1 * m, monthlySavings: 3341 * m },
-                          { type: 'AppService', sku: 'P1v3', term: '1 Year', recommendedQuantity: 4 * m, monthlySavings: 312 * m },
-                          { type: 'SavingsPlan', sku: 'Compute (1Y)', term: '1 Year', recommendedQuantity: 1, monthlySavings: 1240 * m },
-                          { type: 'SavingsPlan', sku: 'Compute (3Y)', term: '3 Year', recommendedQuantity: 1, monthlySavings: 2890 * m }
-                      ]
-                  }}), {status: 200});
-              }
+              // Una sola fuente para la demo de compromisos: el objeto a mano
+              // que vivía acá no tenía reservas, cupo de devolución, breakeven
+              // ni los avisos de MEJ-40, así que la pantalla de reservas de la
+              // demo decía "no se detectaron reservas activas" mientras la ruta
+              // real las devolvía. Es uno de los mocks divergentes de MEJ-03.
+              if (url.includes('/api/intelligence/commitments')) return new Response(JSON.stringify(getMockDataForRoute('commitments', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/hybrid-benefit')) {
                   const m = (Number((selectedTenant?.tier?.toLowerCase()==='enterprise')?50:(selectedTenant?.tier?.toLowerCase()==='business')?10:(selectedTenant?.tier?.toLowerCase()==='pro')?3:1));
                   const eligibleResources = [

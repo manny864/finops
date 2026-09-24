@@ -7,6 +7,7 @@ import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getActiveReservations, type ActiveReservationDetail } from "@/services/reservationService";
 import { concentracionDeVencimientos } from "@/services/commitmentRisk.service";
+import { tasaDeAhorroDelTenant } from "@/services/savingsRate.service";
 import { recordDailySnapshotAsync } from "@/services/snapshotService";
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError } from "@/lib/azureCostColumn";
 import { errorMessage } from '@/lib/apiErrors';
@@ -24,8 +25,14 @@ export async function GET(request: NextRequest) {
         }
 
         // v4: cálculo de utilización desde Microsoft.Capacity aggregates + sub-scoped recommendations y Advisor
-        const cacheKey = `commitments:v4:${tenantId}`;
+        // v5: suma tasaAhorro (ESR) al payload — v4 cacheado no la trae.
+        const cacheKey = `commitments:v5:${tenantId}`;
         const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
+            // MEJ-40: el ESR sale de CostSnapshots, no de Azure, así que se
+            // calcula antes de pedir credenciales. Un tenant que perdió el
+            // acceso sigue viendo la tasa de ahorro del último mes ingerido.
+            const tasaAhorro = await tasaDeAhorroDelTenant(tenantId);
+
             let credential;
             let costClient: CostManagementClient;
             try {
@@ -33,7 +40,7 @@ export async function GET(request: NextRequest) {
                 costClient = new CostManagementClient(credential);
             } catch (e) {
                 console.warn(`[Commitments] Sin credenciales para ${tenantId}:`, errorMessage(e));
-                return { utilization: null, coverage: 0, hasReservations: false, activeReservations: [], reservationDetails: [], recommendations: [] };
+                return { utilization: null, coverage: 0, hasReservations: false, activeReservations: [], reservationDetails: [], recommendations: [], tasaAhorro };
             }
 
             const mgScope = `/providers/Microsoft.Management/managementGroups/${tenantId}`;
@@ -374,7 +381,8 @@ export async function GET(request: NextRequest) {
                 recommendations,
                 exchangeQuota,
                 breakevenSummary,
-                riesgoVencimientos
+                riesgoVencimientos,
+                tasaAhorro
             };
         }, 43200);
 

@@ -4623,6 +4623,9 @@
     "riVsSpExplainer": "<b>Reservations</b> give the biggest savings for stable workloads on a fixed instance/region. <b>Savings Plans</b> are more flexible (any region/family) and suit changing workloads. Rightsize <b>first</b>, commit after."
   },
   "Commitments": {
+    "esrTitle": "Effective savings rate",
+    "esrDetail": "{ahorro} saved on {lista} of list-price spend over the last 30 days.",
+    "esrCoverageWarning": "Computed over {pct}% of the period's spend: the rest are rows with no list price, left out rather than counted as zero discount.",
     "expiryConcentrationTitle": "Expiring together",
     "expiryConcentrationDetail": "In {mes}, {monto}/month of commitments expire. Without a repurchase, that spend goes back to list price.",
     "expiryWindowDetail": "Between {desde} and {hasta}, {pct}% of the portfolio is concentrated.",

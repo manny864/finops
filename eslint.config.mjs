@@ -40,6 +40,16 @@ const eslintConfig = defineConfig([
     },
   },
   {
+    // `rules-of-hooks` NO es deuda cosmética como el resto de este archivo: un
+    // hook después de un corte temprano hace que React tire "Rendered more
+    // hooks than during the previous render" y la pantalla entera deja de
+    // renderizar. Estaba en "warn", y como CI corre eslint con --quiet las
+    // advertencias no son gate, así que el linter lo detectó y nadie se enteró:
+    // el tablero de Compromisos se caía al cambiar de tenant (2026-09-23).
+    // Se sube a error con 0 violaciones en el repo, así que no rompe nada hoy.
+    rules: { "react-hooks/rules-of-hooks": "error" },
+  },
+  {
     // Pre-existing tech debt (1000+ instances). Downgraded to warnings so CI
     // doesn't block; can be fixed incrementally.
     plugins: combinedPlugins,
@@ -58,7 +68,6 @@ const eslintConfig = defineConfig([
       "react/no-unescaped-entities": "warn",
       "@next/next/no-html-link-for-pages": "warn",
       "@next/next/no-img-element": "warn",
-      "react-hooks/rules-of-hooks": "warn",
       "@typescript-eslint/ban-ts-comment": "warn",
       "@typescript-eslint/no-require-imports": "warn",
       "prefer-const": "warn",

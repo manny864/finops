@@ -4623,6 +4623,9 @@
     "riVsSpExplainer": "As <b>Reservas</b> dão a maior economia para cargas estáveis em uma instância/região fixa. Os <b>Savings Plans</b> são mais flexíveis (qualquer região/família) e convêm para cargas variáveis. Primeiro <b>rightsizing</b>, depois comprometer."
   },
   "Commitments": {
+    "esrTitle": "Taxa efetiva de economia",
+    "esrDetail": "Economia de {ahorro} sobre {lista} a preço de tabela nos últimos 30 dias.",
+    "esrCoverageWarning": "Calculada sobre {pct}% do gasto do período: o restante são linhas sem preço de tabela, deixadas de fora em vez de contadas como zero de desconto.",
     "expiryConcentrationTitle": "Vencem juntos",
     "expiryConcentrationDetail": "Em {mes} vencem {monto}/mês de compromissos. Sem recompra, esse gasto volta ao preço de tabela.",
     "expiryWindowDetail": "Entre {desde} e {hasta} concentra-se {pct}% da carteira.",

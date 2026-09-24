@@ -2,6 +2,11 @@ import { buildDailyHistogram } from './costProjection';
 import type { CategoryOverview } from './categoryConsumptionTypes';
 import { CATEGORY_COLOR_MAP } from './categoryConsumptionTypes';
 import type { ComputeEfficiencySummary, RateOptimizationAction } from './computeEfficiencyTypes';
+// MEJ-40: la demo calcula la concentración con la MISMA función que producción
+// —es pura y no toca la base— en vez de con un objeto a mano. Un mock escrito
+// aparte se vuelve mentira en cuanto cambia el cálculo, y esta pantalla es la
+// que ve el que todavía no es cliente.
+import { concentracionDeVencimientos } from '@/services/commitmentRisk.service';
 
 /**
  * Tenant "cliente" que se precarga en el generador de script de
@@ -2138,10 +2143,41 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                     hasReservations: reservationDetails.length > 0,
                     activeReservations,
                     reservationDetails,
+                    riesgoVencimientos: concentracionDeVencimientos(reservationDetails as any, activeReservations),
+                    // Cifras de demo, coherentes entre sí: 48.200 a precio de
+                    // lista contra 36.150 reales = 25% de ESR, medido sobre el
+                    // 88% del gasto. La cobertura parcial es a propósito: es el
+                    // caso normal y la pantalla tiene que saber mostrarlo.
+                    tasaAhorro: {
+                        esr: 25,
+                        listCost: 48200,
+                        effectiveCost: 36150,
+                        ahorro: 12050,
+                        cobertura: 88.17,
+                        gastoEvaluado: 36150,
+                        gastoTotal: 41000,
+                    },
+                    // Las 14 recomendaciones escaladas por tier vivían dentro
+                    // del interceptor de TenantProvider, con su propio objeto a
+                    // mano. Se mudaron acá para que haya UNA sola fuente: aquel
+                    // objeto no tenía reservas, cupo de devolución, breakeven ni
+                    // los dos avisos de MEJ-40, así que la demo mostraba "no se
+                    // detectaron reservas activas" en la pantalla de reservas.
                     recommendations: [
-                        { type: 'VirtualMachines', sku: 'Standard_D4s_v3', recommendedQuantity: 12, monthlySavings: 1240.50, term: 'P3Y' },
-                        { type: 'VirtualMachines', sku: 'Standard_E8s_v4', recommendedQuantity: 4, monthlySavings: 890.00, term: 'P1Y' },
-                        { type: 'AppService', sku: 'PremiumV3', recommendedQuantity: 2, monthlySavings: 310.25, term: 'P3Y' }
+                        { type: 'VirtualMachines', sku: 'Standard_D8s_v3', term: '1 Year', recommendedQuantity: 4 * multiplier, monthlySavings: 448 * multiplier },
+                        { type: 'VirtualMachines', sku: 'Standard_D8s_v3', term: '3 Year', recommendedQuantity: 4 * multiplier, monthlySavings: 650 * multiplier },
+                        { type: 'VirtualMachines', sku: 'Standard_E8s_v4', term: '1 Year', recommendedQuantity: 2 * multiplier, monthlySavings: 336 * multiplier },
+                        { type: 'VirtualMachines', sku: 'Standard_E16s_v5', term: '3 Year', recommendedQuantity: 1 * multiplier, monthlySavings: 534 * multiplier },
+                        { type: 'VirtualMachines', sku: 'Standard_F4s_v2', term: '1 Year', recommendedQuantity: 3 * multiplier, monthlySavings: 234 * multiplier },
+                        { type: 'VirtualMachines', sku: 'Standard_D4s_v5', term: '3 Year', recommendedQuantity: 6 * multiplier, monthlySavings: 609 * multiplier },
+                        { type: 'SQLDatabase', sku: 'vCore_Gen5_8', term: '1 Year', recommendedQuantity: 2 * multiplier, monthlySavings: 680 * multiplier },
+                        { type: 'SQLDatabase', sku: 'vCore_Gen5_4', term: '3 Year', recommendedQuantity: 3 * multiplier, monthlySavings: 739 * multiplier },
+                        { type: 'CosmosDB', sku: 'RU_10000', term: '1 Year', recommendedQuantity: 1 * multiplier, monthlySavings: 234 * multiplier },
+                        { type: 'RedisCache', sku: 'Premium_P2', term: '3 Year', recommendedQuantity: 2 * multiplier, monthlySavings: 476 * multiplier },
+                        { type: 'SynapseAnalytics', sku: 'DW500c', term: '3 Year', recommendedQuantity: 1 * multiplier, monthlySavings: 3341 * multiplier },
+                        { type: 'AppService', sku: 'P1v3', term: '1 Year', recommendedQuantity: 4 * multiplier, monthlySavings: 312 * multiplier },
+                        { type: 'SavingsPlan', sku: 'Compute (1Y)', term: '1 Year', recommendedQuantity: 1, monthlySavings: 1240 * multiplier },
+                        { type: 'SavingsPlan', sku: 'Compute (3Y)', term: '3 Year', recommendedQuantity: 1, monthlySavings: 2890 * multiplier }
                     ],
                     exchangeQuota: {
                         totalLimitUSD: 50000,
