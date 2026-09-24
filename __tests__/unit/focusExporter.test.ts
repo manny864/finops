@@ -183,3 +183,41 @@ describe("FOCUS 1.1 — CSV serialisation", () => {
         for (const l of lines) JSON.parse(l); // each must parse standalone
     });
 });
+
+describe("FOCUS — ListCost y ContractedCost (MEJ-40)", () => {
+    it("usa el precio de lista real en vez de copiar el facturado", () => {
+        // El defecto: el mapper hacía `rec.ListCost = billed`, con lo cual
+        // ListCost y BilledCost salían siempre iguales. La especificación define
+        // ListCost para que `ListCost - EffectiveCost` sea el ahorro, así que
+        // cualquier consumidor del export que lo calculara obtenía cero, tuviera
+        // el cliente los descuentos que tuviera.
+        const rec = mapCostSnapshotToFocus({
+            cost_usd: 100,
+            BilledCost: 100,
+            EffectiveCost: 70,
+            ListCost: 120,
+            ContractedCost: 110,
+            Quantity: 10,
+        });
+
+        expect(rec.ListCost).toBe(120);
+        expect(rec.ContractedCost).toBe(110);
+        expect(rec.ListCost).not.toBe(rec.BilledCost);
+        // El ahorro deja de dar cero.
+        expect(Number(rec.ListCost) - Number(rec.EffectiveCost)).toBe(50);
+        expect(rec.ListUnitPrice).toBe(12);
+        expect(rec.ContractedUnitPrice).toBe(11);
+    });
+
+    it("sin precio de lista cae al facturado y nunca sale vacío", () => {
+        // FOCUS 1.1, columns/listcost.md: "The ListCost column MUST be present
+        // in a FOCUS dataset and MUST NOT be null". Un vacío sería tan no
+        // conforme como el cero de antes. Las filas que entran por la Query API
+        // de Cost Management no tienen precio público, y ésas son las que caen
+        // acá; el ESR las excluye leyendo la columna de la base, que sí es null.
+        const rec = mapCostSnapshotToFocus({ cost_usd: 42.5, EffectiveCost: 42.5 });
+
+        expect(rec.ListCost).toBe(42.5);
+        expect(rec.ListCost).not.toBe("");
+    });
+});

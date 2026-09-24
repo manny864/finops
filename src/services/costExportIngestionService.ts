@@ -79,6 +79,23 @@ export function parseExportTags(raw: string | undefined): string | null {
 }
 
 /**
+ * Importe de una columna opcional del export.
+ *
+ * Devuelve null —y no 0— cuando la columna no vino o no es numérica. La
+ * diferencia importa: 0 en `ListCost` significaría "precio de lista cero", que
+ * al calcular la tasa de ahorro se lee como 100% de descuento. null significa
+ * "no lo sabemos", y esa fila queda fuera del cálculo y se reporta aparte.
+ */
+export function importeDeColumna(cols: string[], idx: number): number | null {
+    if (idx < 0 || idx >= cols.length) return null;
+    const raw = (cols[idx] || "").trim();
+    if (!raw) return null;
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return null;
+    return toMoneyNumber(new Decimal(n));
+}
+
+/**
  * Ingiere archivos exportados de Azure Cost Management (FOCUS / CSV)
  * desde el Storage Account configurado en Terraform y los vuelca
  * a la tabla MySQL CostSnapshots.
@@ -131,7 +148,28 @@ export async function ingestCostExportsForTenant(tenantId: string): Promise<Inge
             const subIdx = header.findIndex(h => h.includes("subscriptionid") || h.includes("subscription_guid"));
             const rgIdx = header.findIndex(h => h.includes("resourcegroup") || h.includes("resourcegroupname"));
             const srvIdx = header.findIndex(h => h.includes("servicename") || h.includes("consumedservice") || h.includes("service"));
-            const costIdx = header.findIndex(h => h.includes("effectivecost") || h.includes("billedcost") || h.includes("costinbillingcurrency") || h.includes("costusd") || h.includes("cost"));
+
+            // Las columnas de costo se buscan por nombre EXACTO. La búsqueda
+            // laxa de antes (`includes("cost")`) devolvía la PRIMERA columna que
+            // contuviera la palabra: en un export FOCUS eso es siempre
+            // BilledCost, y ese mismo número se escribía además en
+            // `EffectiveCost`. Las dos columnas quedaban idénticas y el
+            // descuento por compromiso —lo único que separa una de otra—
+            // desaparecía de la base. Nombres verificados contra la referencia
+            // del dataset FOCUS de Azure (learn.microsoft.com, "FOCUS cost and
+            // usage details file schema", versiones 1.0 y 1.2-preview).
+            const billedIdx = header.indexOf("billedcost");
+            const effectiveIdx = header.indexOf("effectivecost");
+            const listIdx = header.indexOf("listcost");
+            const contractedIdx = header.indexOf("contractedcost");
+
+            // `cost_usd` es el costo que suma el resto del producto. Toma el
+            // mismo valor que ya venía tomando (BilledCost en un export FOCUS)
+            // para que este cambio no mueva ningún tablero; la búsqueda laxa
+            // queda sólo como último recurso para exports legacy.
+            const costIdx = billedIdx >= 0
+                ? billedIdx
+                : header.findIndex(h => h.includes("effectivecost") || h.includes("billedcost") || h.includes("costinbillingcurrency") || h.includes("costusd") || h.includes("cost"));
             // MEJ-30: estas dos columnas se descartaban, y son las que faltaban
             // para que un Cost Group por etiqueta diera el costo exacto de los
             // recursos etiquetados en vez de aproximarlo por Resource Group.
@@ -163,20 +201,34 @@ export async function ingestCostExportsForTenant(tenantId: string): Promise<Inge
 
                 const exactCost = toMoneyNumber(costDecimal);
 
+                // Precio de lista y precio contratado: los dos escalones que
+                // faltaban para que `ListCost - EffectiveCost` sea el ahorro
+                // real. Si el export no los trae (los legacy no los tienen) van
+                // null, no 0.
+                const listCost = importeDeColumna(cols, listIdx);
+                const contractedCost = importeDeColumna(cols, contractedIdx);
+                const effectiveCost = importeDeColumna(cols, effectiveIdx) ?? exactCost;
+                const billedCost = importeDeColumna(cols, billedIdx) ?? exactCost;
+
                 const tagsJson = tagsIdx >= 0 ? parseExportTags(cols[tagsIdx]) : null;
                 const resourceId = resourceIdIdx >= 0 ? (cols[resourceIdIdx] || null) : null;
 
                 // COALESCE en el UPDATE: si una re-ingesta trae la fila sin tags
                 // (export legacy sin esa columna), no borra los que ya estaban.
                 await pool.query(
-                    `INSERT INTO CostSnapshots (tenant_id, subscription_id, date, resource_group, service_name, cost_usd, EffectiveCost, currency, Tags, ResourceId)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, 'USD', ?, ?)
+                    `INSERT INTO CostSnapshots (tenant_id, subscription_id, date, resource_group, service_name,
+                                                cost_usd, BilledCost, EffectiveCost, ListCost, ContractedCost,
+                                                currency, Tags, ResourceId)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'USD', ?, ?)
                      ON DUPLICATE KEY UPDATE
                         cost_usd = VALUES(cost_usd),
+                        BilledCost = VALUES(BilledCost),
                         EffectiveCost = VALUES(EffectiveCost),
+                        ListCost = COALESCE(VALUES(ListCost), ListCost),
+                        ContractedCost = COALESCE(VALUES(ContractedCost), ContractedCost),
                         Tags = COALESCE(VALUES(Tags), Tags),
                         ResourceId = COALESCE(VALUES(ResourceId), ResourceId)`,
-                    [tenantId, subId, isoDate, rg, srv, exactCost, exactCost, tagsJson, resourceId]
+                    [tenantId, subId, isoDate, rg, srv, exactCost, billedCost, effectiveCost, listCost, contractedCost, tagsJson, resourceId]
                 );
                 totalRows++;
             }

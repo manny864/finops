@@ -25,6 +25,8 @@ export interface CostSnapshotRow {
     SubAccountId?: string | null;
     BilledCost?: string | number | null;
     EffectiveCost?: string | number | null;
+    ListCost?: string | number | null;
+    ContractedCost?: string | number | null;
     CommitmentDiscountId?: string | null;
     MeterId?: string | null;
     MeterName?: string | null;
@@ -132,6 +134,29 @@ export function mapCostSnapshotToFocus(
     const effective = numeric(row.EffectiveCost ?? row.cost_usd ?? row.BilledCost);
     const quantity = numeric(row.Quantity, 0);
 
+    // ListCost / ContractedCost salen de la columna propia cuando la ingesta la
+    // pudo llenar desde el export FOCUS de Azure. Antes no existían esas
+    // columnas y acá se ponía `ListCost = billed`, con lo cual las dos salían
+    // con el mismo número y `ListCost - EffectiveCost` daba cero para todo el
+    // mundo: cualquier consumidor que calculara ahorro sobre este export leía
+    // "sin ahorro", tuviera el cliente los descuentos que tuviera.
+    //
+    // El fallback se mantiene —no se emite vacío— porque la especificación es
+    // explícita: "The ListCost column MUST be present in a FOCUS dataset and
+    // MUST NOT be null" (FOCUS 1.1, columns/listcost.md). Un NULL sería tan no
+    // conforme como el cero de antes. Lo que cambia es que ahora el fallback es
+    // la excepción y no la regla.
+    //
+    // La tasa de ahorro NO se calcula sobre esta salida sino sobre la columna
+    // de la base, que sí distingue null: así una fila sin precio de lista queda
+    // fuera del promedio en vez de entrar como 0% de descuento.
+    const list = row.ListCost !== null && row.ListCost !== undefined && row.ListCost !== ""
+        ? numeric(row.ListCost)
+        : billed;
+    const contracted = row.ContractedCost !== null && row.ContractedCost !== undefined && row.ContractedCost !== ""
+        ? numeric(row.ContractedCost)
+        : effective;
+
     const serviceName = nonEmpty(row.service_name, "Unallocated");
     const serviceCategory = inferServiceCategory(row.ServiceFamily, serviceName);
 
@@ -157,12 +182,12 @@ export function mapCostSnapshotToFocus(
     rec.CommitmentDiscountUnit = "";
     rec.ConsumedQuantity = quantity;
     rec.ConsumedUnit = nonEmpty(row.UnitOfMeasure);
-    rec.ContractedCost = effective;
-    rec.ContractedUnitPrice = quantity > 0 ? Math.round((effective / quantity) * 1e6) / 1e6 : 0;
+    rec.ContractedCost = contracted;
+    rec.ContractedUnitPrice = quantity > 0 ? Math.round((contracted / quantity) * 1e6) / 1e6 : 0;
     rec.EffectiveCost = effective;
     rec.InvoiceIssuerName = opts.invoiceIssuerName || publisher;
-    rec.ListCost = billed;
-    rec.ListUnitPrice = quantity > 0 ? Math.round((billed / quantity) * 1e6) / 1e6 : 0;
+    rec.ListCost = list;
+    rec.ListUnitPrice = quantity > 0 ? Math.round((list / quantity) * 1e6) / 1e6 : 0;
     rec.PricingCategory = "Standard";
     rec.PricingQuantity = quantity;
     rec.PricingUnit = nonEmpty(row.UnitOfMeasure);

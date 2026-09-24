@@ -131,7 +131,8 @@ async function* streamFocusRows(params: ExportParams): AsyncGenerator<CostSnapsh
             `SELECT tenant_id, subscription_id, date, resource_group, service_name,
                     cost_usd, currency,
                     ChargePeriodStart, ChargePeriodEnd, ProviderName, PublisherName,
-                    SubAccountId, BilledCost, EffectiveCost, CommitmentDiscountId,
+                    SubAccountId, BilledCost, EffectiveCost, ListCost, ContractedCost,
+                    CommitmentDiscountId,
                     MeterId, MeterName, MeterCategory, MeterSubCategory, Quantity,
                     UnitOfMeasure, ResourceId, ServiceFamily, Tags
                FROM CostSnapshots
