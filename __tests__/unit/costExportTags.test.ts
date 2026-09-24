@@ -87,9 +87,14 @@ describe("ingestCostExportsForTenant — persiste Tags y ResourceId (MEJ-30)", (
 
         expect(res.rowsIngested).toBe(1);
         const [, params] = vi.mocked(pool.query).mock.calls[0] as any;
+        // Orden del INSERT: ..., Tags, ResourceId, allocation_tag_hash.
+        const [TAGS, RESOURCE_ID, HASH] = [10, 11, 12];
         // Tags y ResourceId van null: el COALESCE del UPDATE evita que una
         // re-ingesta sin tags borre los que ya estaban guardados.
-        expect(params[params.length - 2]).toBeNull();
-        expect(params[params.length - 1]).toBeNull();
+        expect(params[TAGS]).toBeNull();
+        expect(params[RESOURCE_ID]).toBeNull();
+        // Sin etiquetas de asignación, la fila va al cubo sin asignar ('') y no
+        // al hash del vacío: así comparte clave con todo lo ya persistido.
+        expect(params[HASH]).toBe("");
     });
 });
