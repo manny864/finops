@@ -19,7 +19,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 |---|---|---|---|---|---|
 | [MEJ-01](#mej-01--atribución-de-ahorros-hechos-en-azure-vía-activity-log) | Atribuir a un autor los ahorros hechos fuera de la plataforma | Ahorro Capturado | Alto | Medio | Hecha |
 | [MEJ-02](#mej-02--animaciones-de-recharts-que-dependen-de-requestanimationframe) | Centralizar el apagado de animaciones de Recharts | Transversal (gráficas) | Medio | Bajo | Parcial |
-| [MEJ-03](#mej-03--auditar-las-intercepciones-demo-restantes-de-tenantprovider) | Auditar las intercepciones demo restantes (36 barridas, 24 con guard automático; quedan 12 que el arnés no alcanza) | Demo / mocks | Alto | Medio | Parcial |
+| [MEJ-03](#mej-03--auditar-las-intercepciones-demo-restantes-de-tenantprovider) | Auditar las intercepciones demo restantes (35 barridas: 27 con guard automático, 8 sin rama mock en la ruta) | Demo / mocks | Alto | Medio | Parcial |
 | [MEJ-04](#mej-04--persistir-el-desperdicio-detectado-como-métrica-propia) | Persistir el desperdicio detectado como métrica propia | Ahorro Capturado | Medio | Bajo | Hecha |
 | [MEJ-05](#mej-05--atribuir-el-costo-de-recursos-hijos-a-su-recurso-padre) | Atribuir costo de recursos hijos al padre | Recursos | Medio | Medio | Hecha |
 | [MEJ-06](#mej-06--prosa-generada-por-ia-sobre-el-motor-determinista-de-remediación) | Prosa de IA sobre el motor determinista de remediación | Azure Advisor | Bajo | Bajo | Hecha |
@@ -311,7 +311,35 @@ chargeback.
 **Límite conocido del barrido:** compara claves, así que un array vacío en la respuesta de la ruta
 no aporta las claves de sus elementos. Por eso `chargeback` apareció como "le falta `detailed`"
 cuando además tenía mal `data[].name`/`data[].value`: con el arnés sin datos, `data` volvía vacío.
-Las 12 sin cobertura son el otro límite.
+
+### Las 12 sin cobertura, una por una (2026-09-24)
+
+Se diagnosticaron invocando cada handler y leyendo el cuerpo de la respuesta. **Cuatro eran del
+arnés y se cerraron**; las otras ocho no lo son.
+
+Lo que le faltaba al arnés, y ahora tiene: `initializeDatabase` en el mock de `db` (cinco rutas
+morían ahí), `requireRequestIdentity` en el de `requestAuth`, un mock de `@/lib/cache` —sin él se
+intentaba abrir Redis de verdad y varias rutas caían a su rama degradada—, la cabecera
+`Authorization` y `x-tenant-id`, y sobre todo **el id real del tenant de demo Enterprise en vez del
+literal `"demo"`**: varias rutas resuelven el tier buscando ese id, y con `"demo"` caían a
+Professional y cortaban con 403 antes de llegar a su rama mock. Con eso entraron
+`governance-policies`, `allocation-rules`, `network` y `tenant-health`. **Cobertura: 27 de 35.**
+
+**Las ocho que quedan comparten una causa, y es del producto:** la ruta **no tiene rama
+`isMockTenant`**, así que con un tenant de demo nunca produce un payload propio. En la demo el mock
+del interceptor es la única fuente y **no hay contra qué compararlo**. Tres piden credenciales de
+Azure antes de cualquier rama de demo (`budgets/burn` —que sí importa `isMockTenant`, pero recién
+en la línea 94 y sólo para decidir si persiste—, `rates`, `rightsizing`); cuatro responden 200 con
+el payload vacío de una base sin filas (`audit/full`, `audit/ttl`, `remediation/workflow`,
+`billing/portal`). Cerrarlas de verdad es darle a cada ruta su rama mock y borrar la intercepción
+—lo que se hizo con `billing`, `aks-chargeback` y `cost-by-category`—: es trabajo por ruta, no un
+arreglo del test. La octava, `dashboard/summary`, sí es límite del arnés: agrega varias
+sub-llamadas y bajo el arnés alguna falla siempre, así que responde degradada.
+
+**Un chequeo nuevo que hacía falta:** un 200 degradado engaña igual que un 500. `{error}` o
+`{degraded:true}` traen pocas claves, la comparación pasa sola y la ruta queda contada como
+verificada sin haber devuelto su contrato. Ahora el test rechaza esos cuerpos — y lo primero que
+hizo fue sacar a `dashboard/summary` de la lista de cubiertas, donde yo la había puesto.
 
 ### Propuesta
 

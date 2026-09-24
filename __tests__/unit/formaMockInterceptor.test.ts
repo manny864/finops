@@ -22,6 +22,14 @@ import { readFileSync } from "node:fs";
  * marcha, que es como lo arman tres de estas cuatro.
  */
 
+/**
+ * El tenant de demo Enterprise, el mismo que reconoce `isMockTenant`. Va
+ * `vi.hoisted` porque las factories de `vi.mock` lo usan y se evalúan antes.
+ * No alcanza con el literal "demo": varias rutas resuelven el tier buscando el
+ * id en la lista de tenants mock, y con "demo" caen a Professional.
+ */
+const TENANT = vi.hoisted(() => "33333333-4444-5555-6666-777777777777");
+
 const auth = vi.hoisted(() => {
     class AuthErrorMock extends Error {
         status = 401;
@@ -35,11 +43,31 @@ vi.mock("@/lib/requestAuth", () => ({
     requireTenantTier: async () => ({ email: "demo@demo" }),
     requireTenantRole: async () => ({ email: "demo@demo" }),
     requireSuperAdmin: async () => ({ email: "demo@demo" }),
+    // `network` saca el tenant de la identidad, no del query param.
+    requireRequestIdentity: async () => ({ email: "demo@demo", oid: "demo-oid", tenantId: TENANT }),
+}));
+// Sin esto el arnes intenta abrir Redis de verdad (ECONNREFUSED 6379) y varias
+// rutas caen a su rama degradada en vez de devolver su payload.
+vi.mock("@/lib/cache", () => ({
+    getWithCache: async (_k: string, f: () => any) => f(),
+    getWithStaleWhileRevalidate: async (_k: string, f: () => any) => f(),
+    invalidateCache: async () => {},
+    invalidateCachePattern: async () => {},
+    costGroupsCacheKeys: () => [],
 }));
 vi.mock("@/modules/storage/db", () => ({
-    default: { query: async () => [[]] },
+    // La consulta de tier se responde con Enterprise porque ASI ES en la base:
+    // los cuatro tenants de demo estan sembrados. Sin eso, rutas como
+    // `governance-policies` resuelven 'Professional' y cortan con 403 antes de
+    // llegar a su rama mock, y el test mediría el 403 y no el contrato.
+    default: {
+        query: async (sql: unknown) =>
+            /SELECT\s+[^;]*\btier\b[^;]*FROM\s+Tenants/i.test(String(sql)) ? [[{ tier: "Enterprise" }]] : [[]],
+    },
+    initializeDatabase: async () => {},
     insertAICostSnapshotRow: async () => {},
 }));
+
 
 import { getMockDataForRoute } from "@/lib/mockData";
 
@@ -71,6 +99,10 @@ function claves(v: any, prefijo = "", nivel = 0): string[] {
  */
 const CASOS: Array<[string, string, () => Promise<any>]> = [
     ["/api/admin/billing-markup", "billing-markup", () => import("@/app/api/admin/billing-markup/route")],
+    ["/api/admin/governance-policies", "governance-policies", () => import("@/app/api/admin/governance-policies/route")],
+    ["/api/intelligence/allocation-rules", "allocation-rules", () => import("@/app/api/intelligence/allocation-rules/route")],
+    ["/api/intelligence/network", "network", () => import("@/app/api/intelligence/network/route")],
+    ["/api/intelligence/tenant-health", "tenant_health", () => import("@/app/api/intelligence/tenant-health/route")],
     ["/api/budgets/alerts", "alerts", () => import("@/app/api/budgets/alerts/route")],
     ["/api/cleanup/ttl/history", "ttl_history", () => import("@/app/api/cleanup/ttl/history/route")],
     ["/api/cleanup/ttl/unlabeled", "ttl_unlabeled", () => import("@/app/api/cleanup/ttl/unlabeled/route")],
@@ -101,19 +133,37 @@ const CASOS: Array<[string, string, () => Promise<any>]> = [
  * para que quien agregue los mocks que les faltan sepa cuáles son.
  */
 const SIN_COBERTURA: Array<[string, string]> = [
-    ["/api/admin/governance-policies", "governance-policies"], // HTTP_403: exige un rol que el arnes no simula
-    ["/api/audit/full", "audit_full"], // HTTP_500: necesita mas mocks que `db` para llegar a su payload
-    ["/api/audit/ttl", "ttl"], // HTTP_500: necesita mas mocks que `db` para llegar a su payload
-    ["/api/billing/portal", "payments"], // HTTP_404: no responde GET con estos parametros
-    ["/api/budgets/burn", "budgets_burn"], // HTTP_500: necesita mas mocks que `db` para llegar a su payload
-    ["/api/dashboard/summary", "dashboard_summary"], // HTTP_401: autentica por un camino que el mock de requestAuth no cubre
-    ["/api/intelligence/allocation-rules", "allocation-rules"], // HTTP_403: exige un rol que el arnes no simula
-    ["/api/intelligence/network", "network"], // HTTP_500: necesita mas mocks que `db` para llegar a su payload
-    ["/api/intelligence/rates", "rates"], // HTTP_500: necesita mas mocks que `db` para llegar a su payload
-    ["/api/intelligence/rightsizing", "rightsizing"], // HTTP_400: pide parametros que este arnes no sabe armar
-    ["/api/intelligence/tenant-health", "tenant_health"], // HTTP_500: necesita mas mocks que `db` para llegar a su payload
-    ["/api/remediation/workflow", "approvals"], // HTTP_500: necesita mas mocks que `db` para llegar a su payload
+    // Las siete que quedan comparten causa, y la causa es del PRODUCTO, no del
+    // arnes: la ruta NO tiene rama `isMockTenant`, asi que con un tenant de demo
+    // nunca produce un payload propio. En la demo el mock del interceptor es la
+    // UNICA fuente y no hay contra que compararlo. Verificado una por una el
+    // 2026-09-24 invocando cada handler.
+    //
+    // Cerrarlas de verdad es darle a cada ruta su rama mock y borrar la
+    // intercepcion, que es lo que se hizo con billing, aks-chargeback y
+    // cost-by-category. Es trabajo por ruta, no un arreglo del test.
+
+    // Piden credenciales de Azure antes de cualquier rama de demo.
+    ["/api/budgets/burn", "budgets_burn"],              // getAzureCredential en la linea 24; isMockTenant recien en la 94, solo para decidir si persiste
+    ["/api/intelligence/rates", "rates"],               // sin isMockTenant: exige Service Principal del tenant
+    ["/api/intelligence/rightsizing", "rightsizing"],   // sin isMockTenant: corta con "Faltan credenciales del entorno"
+
+    // Responden 200 pero con el payload vacio de una base sin filas, que es
+    // justo lo que el chequeo de "degradada" rechaza: compararlo no prueba nada.
+    ["/api/audit/full", "audit_full"],                  // sin isMockTenant: "Tenant sin onboarding tecnico completo"
+    ["/api/audit/ttl", "ttl"],                          // sin isMockTenant: responde degraded:true
+    ["/api/remediation/workflow", "approvals"],         // sin isMockTenant: data:[] de una tabla vacia
+    ["/api/billing/portal", "payments"],                // sin isMockTenant: 404 "Tenant no encontrado" sin fila en Tenants
+
+    // Esta es distinta: el limite es del ARNES, no de la ruta. `summary` agrega
+    // varias sub-llamadas (auditoria, forecast, huella de carbono) y marca
+    // `degraded: auditFailed || forecastFailed`. Bajo el arnes alguna falla
+    // siempre, asi que responde 200 degradado y el chequeo de mas abajo lo
+    // rechaza -- con razon: un payload degradado tiene menos claves y la
+    // comparacion pasaria sola.
+    ["/api/dashboard/summary", "dashboard_summary"],
 ];
+
 
 /**
  * El chequeo que impide la recaída, que es la mitad de MEJ-03 que faltaba.
@@ -142,15 +192,29 @@ describe("ninguna intercepcion queda sin mirar (MEJ-03)", () => {
 describe("forma del mock del interceptor vs la de la ruta (MEJ-03)", () => {
     it.each(CASOS)("%s: el interceptor trae todo lo que la ruta devuelve", async (url, clave, cargar) => {
         const mod = await cargar();
-        const pedido = `https://x${url}?tenantId=demo&subscriptionId=All&days=30&period=30d&from=2026-08-01&to=2026-09-24&scope=All&months=6&limit=50&groupId=1&resourceGroup=rg-a&serviceName=Storage`;
-        const respuesta = await mod.GET(new NextRequest(new URL(pedido)) as any);
+        const pedido = `https://x${url}?tenantId=${TENANT}&subscriptionId=All&days=30&period=30d&from=2026-08-01&to=2026-09-24&scope=All&months=6&limit=50&groupId=1&resourceGroup=rg-a&serviceName=Storage`;
+        // `Authorization` porque `dashboard/summary` corta con 401 antes de
+        // cualquier guard si no viene; `x-tenant-id` porque `network` saca el
+        // tenant de ahi y no del query param. Las dos las manda el navegador.
+        const respuesta = await mod.GET(new NextRequest(new URL(pedido), {
+            headers: { authorization: "Bearer demo", "x-tenant-id": TENANT },
+        }) as any);
 
         // Un 500 aca deja el test en verde comparando `{error}` contra el mock y
         // no prueba nada: el caso util es la ruta respondiendo su payload.
         expect(respuesta.status, `la ruta ${url} no respondio 200 con el tenant demo`).toBe(200);
 
-        const delInterceptor = new Set(claves(getMockDataForRoute(clave as any, "demo")));
-        const faltantes = claves(await respuesta.json()).filter((k) => !delInterceptor.has(k));
+        const cuerpo = await respuesta.json();
+        // Un 200 degradado enga\u00f1a igual que un 500: `{error}` o `{degraded:true}`
+        // tienen pocas claves, la comparacion pasa sola y la ruta queda contada
+        // como verificada sin haber devuelto su contrato.
+        expect(
+            { error: cuerpo?.error, degraded: cuerpo?.degraded },
+            `la ruta ${url} respondio 200 pero degradada: comparar contra eso no prueba nada`
+        ).toEqual({ error: undefined, degraded: undefined });
+
+        const delInterceptor = new Set(claves(getMockDataForRoute(clave as any, "enterprise")));
+        const faltantes = claves(cuerpo).filter((k) => !delInterceptor.has(k));
 
         expect(
             faltantes,
