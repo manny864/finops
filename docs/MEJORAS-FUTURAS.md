@@ -19,7 +19,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 |---|---|---|---|---|---|
 | [MEJ-01](#mej-01--atribución-de-ahorros-hechos-en-azure-vía-activity-log) | Atribuir a un autor los ahorros hechos fuera de la plataforma | Ahorro Capturado | Alto | Medio | Hecha |
 | [MEJ-02](#mej-02--animaciones-de-recharts-que-dependen-de-requestanimationframe) | Centralizar el apagado de animaciones de Recharts | Transversal (gráficas) | Medio | Bajo | Parcial |
-| [MEJ-03](#mej-03--auditar-las-intercepciones-demo-restantes-de-tenantprovider) | Auditar las intercepciones demo restantes (33 vivas: 27 con guard en runtime, 5 atadas por typecheck, 2 muertas borradas; queda `dashboard/summary`) | Demo / mocks | Alto | Medio | Parcial |
+| [MEJ-03](#mej-03--auditar-las-intercepciones-demo-restantes-de-tenantprovider) | Auditar las intercepciones demo restantes — **las 33 vivas cubiertas**: 27 por comparación en runtime, 6 por typecheck, 2 muertas borradas | Demo / mocks | Alto | Medio | Hecha |
 | [MEJ-04](#mej-04--persistir-el-desperdicio-detectado-como-métrica-propia) | Persistir el desperdicio detectado como métrica propia | Ahorro Capturado | Medio | Bajo | Hecha |
 | [MEJ-05](#mej-05--atribuir-el-costo-de-recursos-hijos-a-su-recurso-padre) | Atribuir costo de recursos hijos al padre | Recursos | Medio | Medio | Hecha |
 | [MEJ-06](#mej-06--prosa-generada-por-ia-sobre-el-motor-determinista-de-remediación) | Prosa de IA sobre el motor determinista de remediación | Azure Advisor | Bajo | Bajo | Hecha |
@@ -370,7 +370,7 @@ rechazó, porque la ruta elige cinco de sus siete campos y usa `budget`/`actual`
 | `remediation/workflow` | al mock le faltaba **`tenant_id`**; la ruta hace `SELECT *`, así que el contrato es la tabla |
 | `intelligence/rightsizing` | al mock le faltaban los **cuatro campos de exención** que la ruta agrega a TODAS las filas, y `/intelligence/rightsizing` **filtra por `isExempted`**: en la demo el filtro "eximidas" no devolvía nunca nada. También tenía una clave `subscriptions` que la ruta no manda y nadie lee |
 | `audit/full` | nada de contrato (ya tenía `AuditPayload`) |
-| `dashboard/summary` | **pendiente** |
+| `dashboard/summary` | al mock le faltaban **ocho** campos; ninguno lo lee hoy ningún consumidor, y tenía un `complianceScore` que **la ruta no devuelve** |
 
 De `remediation/workflow` salió además un arreglo de UI: `requested_at` es `timestamp NULL` en la
 base y la página móvil de aprobaciones lo tipaba como `string`, así que un valor vacío habría dado
@@ -382,10 +382,22 @@ también los tendría vacíos— pero al prospecto le muestra 8 tipos de desperd
 producto detecta 63. Es una decisión de contenido de la demo, no un bug, y queda anotada acá para
 que se tome a propósito.
 
-**`dashboard/summary` queda pendiente a propósito.** Son 706 líneas de ruta y 241 de mock, y su
-respuesta es `{success, ...data, fromCache}` con `data` armado en varias etapas. Escribir ese tipo
-apurado es peor que no escribirlo: ya pasó hoy con `subBudgets`, donde el tipo que puse de más lo
-rechazó el compilador. Necesita su propia pasada.
+**`dashboard/summary`, la última, cerrada leyendo campo por campo** el objeto que arma la factory
+del caché — 706 líneas de ruta, 241 de mock, `{success, ...data, fromCache}` con `data` construido
+en varias etapas. Al mock le faltaban ocho campos: `costSource`, `detectedWasteUSD`,
+`zombieMonthlyWasteUSD`, `environmentalImpactSource`, `degraded`, `degradedReason`,
+`auditNoPermissions` y `azureNoAccess`. **Ninguno lo lee hoy ningún consumidor de esa ruta** —se
+verificó uno por uno sobre los cuatro—, así que no había nada roto; lo que había era el riesgo de
+que el día que la UI lea alguno, la demo lo muestre vacío sin que nada falle.
+
+Y al revés: el mock traía un `complianceScore` que **la ruta viva no devuelve**, con un comentario
+que decía "el frontend lo prefiere cuando viene presente (ver page.tsx)". El comentario quedó viejo:
+el único que lee un `complianceScore` es `TagManager`, y lo saca de `/api/tags/compliance`, que es
+otra ruta. Se borró.
+
+**Con esto MEJ-03 queda cerrada**: las 33 intercepciones vivas están cubiertas —27 por la
+comparación en runtime contra el handler real, 6 por typecheck— y `SIN_COBERTURA` quedó vacía. Se
+deja la lista igual, para la próxima que el arnés no alcance y tampoco se pueda atar.
 
 **Y una corrección al análisis anterior:** dar a estas rutas una rama `isMockTenant` y borrar la
 intercepción, que es lo que hizo falta en las diez primeras, **acá no arreglaría nada**. En esas

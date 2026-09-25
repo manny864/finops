@@ -5,6 +5,7 @@ import type { RatesResponse } from '@/app/api/intelligence/rates/route';
 import type { RemediationWorkflowResponse } from '@/app/api/remediation/workflow/route';
 import type { RightsizingResponse } from '@/app/api/intelligence/rightsizing/route';
 import type { AuditFullResponse } from '@/app/api/audit/full/route';
+import type { DashboardSummaryResponse } from '@/app/api/dashboard/summary/route';
 // MEJ-40: la demo calcula la concentración con la MISMA función que producción
 // —es pura y no toca la base— en vez de con un objeto a mano. Un mock escrito
 // aparte se vuelve mentira en cuanto cambia el cálculo, y esta pantalla es la
@@ -343,6 +344,7 @@ export interface MockContracts {
     // `/intelligence/rightsizing` filtra por ellos.
     'rightsizing': ConMarcaMock<RightsizingResponse>;
     'audit_full': ConMarcaMock<AuditFullResponse>;
+    'dashboard_summary': ConMarcaMock<DashboardSummaryResponse>;
     'compute-efficiency': ComputeEfficiencySummary;
     // Las siguientes NO se ataron todavía: atarlas exige verificar primero QUÉ
     // ruta sirve la clave y QUÉ tipo consume su panel. Al intentarlo se
@@ -2339,9 +2341,25 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                 // el cálculo por-recurso cuando viene presente (ver page.tsx). Sin
                 // esto, el cálculo sobre los recursos zombie —que legítimamente no
                 // tienen tags— arrojaba ~0%, dando la impresión de "sin datos".
-                complianceScore: tier === 'enterprise' ? 86
-                    : tier === 'business' ? 78
-                    : tier.startsWith('pro') ? 71 : 64,
+                // Los ocho de abajo los devuelve la ruta y el mock no los traia.
+                // Hoy no los lee ningun consumidor de /api/dashboard/summary
+                // --se verifico uno por uno-- asi que no habia nada roto; lo que
+                // habia era el riesgo de que el dia que la UI lea alguno, la
+                // demo lo muestre vacio sin que nada falle. Valores coherentes
+                // con el resto de la demo: un tenant sano y con datos frescos.
+                costSource: 'azure' as const,
+                detectedWasteUSD: Math.round(sav),
+                zombieMonthlyWasteUSD: Math.round(sav * 0.82),
+                environmentalImpactSource: 'avoided' as const,
+                degraded: false,
+                degradedReason: null,
+                auditNoPermissions: false,
+                azureNoAccess: false,
+                // Se fue `complianceScore`: la ruta NO lo devuelve y ninguno de
+                // los cuatro consumidores de esta ruta lo lee. El comentario que
+                // decia "el frontend lo prefiere ... (ver page.tsx)" quedo viejo:
+                // el unico que lee un complianceScore es TagManager, y lo saca de
+                // /api/tags/compliance, que es otra ruta.
                 histogram,
                 dashboardData: [
                     { type: 'Disk', name: 'orphan-disk-01', issueType: 'cost', potentialSavings: 78.85, savingsSource: 'type_baseline', sizeGB: 512 },
@@ -2351,7 +2369,7 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                     { type: 'NIC', name: 'nic-zombie-04', issueType: 'governance', potentialSavings: 0, savingsSource: 'none' }
                 ],
                 auditResults: getMockDataForRoute('audit_full', arg2)?.auditResults || {}
-            };
+            } satisfies MockContracts['dashboard_summary'];
         }
         case 'approvals':
             return {

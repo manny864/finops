@@ -150,36 +150,17 @@ const ATADAS_POR_TIPO: string[] = [
     "/api/intelligence/rightsizing",
     "/api/remediation/workflow",
     "/api/audit/full",
+    "/api/dashboard/summary",
 ];
 
-const SIN_COBERTURA: Array<[string, string]> = [
-    // Las siete que quedan comparten causa, y la causa es del PRODUCTO, no del
-    // arnes: la ruta NO tiene rama `isMockTenant`, asi que con un tenant de demo
-    // nunca produce un payload propio. En la demo el mock del interceptor es la
-    // UNICA fuente y no hay contra que compararlo. Verificado una por una el
-    // 2026-09-24 invocando cada handler.
-    //
-    // Cerrarlas de verdad es darle a cada ruta su rama mock y borrar la
-    // intercepcion, que es lo que se hizo con billing, aks-chargeback y
-    // cost-by-category. Es trabajo por ruta, no un arreglo del test.
+/**
+ * Vacia desde el 2026-09-25: las 33 intercepciones vivas estan cubiertas, 27 por
+ * la comparacion de arriba y 5 por typecheck. Se deja la lista --y no se borra--
+ * porque el chequeo de "ninguna intercepcion queda sin mirar" la necesita para
+ * el caso en que aparezca una que el arnes no alcance y tampoco se pueda atar.
+ */
+const SIN_COBERTURA: Array<[string, string]> = [];
 
-
-    // Responden 200 pero con el payload vacio de una base sin filas, que es
-    // justo lo que el chequeo de "degradada" rechaza: compararlo no prueba nada.
-    //
-    // `audit/ttl` y `billing/portal` ya no estan: sus intercepciones se borraron
-    // el 2026-09-25 porque NINGUN componente llama a esas rutas. La de ttl ademas
-    // servia una forma distinta de la que devuelve la ruta, divergencia que nadie
-    // vio nunca porque no habia a quien mostrarsela.
-
-    // Esta es distinta: el limite es del ARNES, no de la ruta. `summary` agrega
-    // varias sub-llamadas (auditoria, forecast, huella de carbono) y marca
-    // `degraded: auditFailed || forecastFailed`. Bajo el arnes alguna falla
-    // siempre, asi que responde 200 degradado y el chequeo de mas abajo lo
-    // rechaza -- con razon: un payload degradado tiene menos claves y la
-    // comparacion pasaria sola.
-    ["/api/dashboard/summary", "dashboard_summary"],
-];
 
 
 /**

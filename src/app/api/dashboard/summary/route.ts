@@ -12,7 +12,46 @@ import { getCachedCarbonFootprint } from "@/lib/carbonFootprint";
 import { errorMessage } from '@/lib/apiErrors';
 import { baselineForResourceType, BaselineSource } from "@/lib/realizedSavings";
 
-type AuditResults = Record<string, unknown[]>;
+export type AuditResults = Record<string, unknown[]>;
+
+/**
+ * Lo que devuelve `GET /api/dashboard/summary`: `{success, ...data, fromCache}`.
+ *
+ * Escrito leyendo el objeto que arma la factory del cache, campo por campo. El
+ * mock de la demo se ata a este tipo en `MockContracts` (MEJ-03): la ruta agrega
+ * varias sub-llamadas y bajo el arnes de tests siempre responde degradada, asi
+ * que la comparacion en runtime no sirve y el typecheck es la unica red.
+ *
+ * Al escribirlo aparecio que OCHO de estos campos no estaban en el mock
+ * -- costSource, detectedWasteUSD, zombieMonthlyWasteUSD,
+ * environmentalImpactSource, degraded, degradedReason, auditNoPermissions,
+ * azureNoAccess -- y que ninguno lo lee hoy ningun consumidor de esta ruta. No
+ * habia defecto visible; el riesgo era que el dia que la UI empiece a leer uno,
+ * la demo lo muestre vacio sin que nada falle.
+ */
+export interface DashboardSummaryResponse {
+    success: boolean;
+    fromCache?: boolean;
+    actualCost: number;
+    costSource: "azure" | "snapshot" | "none";
+    usageCost: number;
+    purchaseCost: number;
+    projectedCost: number;
+    zombieCount: number;
+    totalSavings: number;
+    /** `null` = no se pudo medir, que no es lo mismo que cero (MEJ-04). */
+    detectedWasteUSD: number | null;
+    zombieMonthlyWasteUSD: number | null;
+    environmentalImpact: number;
+    environmentalImpactSource: "avoided" | "footprint" | "none";
+    histogram: { date: string; cost: number }[];
+    dashboardData: MappedSummaryAuditItem[];
+    auditResults: AuditResults;
+    degraded: boolean;
+    degradedReason: "audit+forecast" | "audit" | "forecast" | null;
+    auditNoPermissions: boolean;
+    azureNoAccess: boolean;
+}
 
 export interface MappedSummaryAuditItem {
   id?: string;
@@ -694,7 +733,8 @@ export async function GET(request: NextRequest) {
       }, subscriptionId);
     }
 
-    return NextResponse.json({ success: true, ...data, fromCache: true });
+    const respuesta: DashboardSummaryResponse = { success: true, ...(data as Omit<DashboardSummaryResponse, "success" | "fromCache">), fromCache: true };
+    return NextResponse.json(respuesta);
   } catch (error: unknown) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
