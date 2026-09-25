@@ -7441,7 +7441,9 @@
     "bulkApplySuccess": "{count} recursos marcados com sucesso",
     "bulkApplyPartial": "{succeeded} com sucesso, {failed} com falha",
     "networkError": "Erro de rede: {error}",
-    "max100": "Máx. 100"
+    "max100": "Máx. 100",
+    "scopeNotApplied": "Não foi possível restringir por Perspective: este período não tem o detalhe por recurso de que o alcance precisa, então o rateio é aproximado por grupo de recursos e uma aproximação não pode ser recortada linha a linha. Os números abaixo são os do painel completo.",
+    "scopeHidesBudget": "Restrito por Perspective: o orçamento não é exibido porque está definido para o centro de custo inteiro. Compará-lo com uma porção indicaria uma folga que não existe."
   },
   "IntelligenceHybridBenefit": {
     "title": "Scanner do Azure Hybrid Benefit",

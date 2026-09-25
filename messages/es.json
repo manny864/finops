@@ -7441,7 +7441,9 @@
     "bulkApplySuccess": "{count} recursos etiquetados correctamente",
     "bulkApplyPartial": "{succeeded} exitosos, {failed} fallidos",
     "networkError": "Error de red: {error}",
-    "max100": "Máx. 100"
+    "max100": "Máx. 100",
+    "scopeNotApplied": "No se pudo acotar por Perspective: este período no tiene el detalle por recurso que el alcance necesita, así que el reparto se resuelve aproximando por grupo de recursos y una aproximación no se puede recortar fila por fila. Los números de abajo son los del tablero completo.",
+    "scopeHidesBudget": "Acotado por Perspective: el presupuesto no se muestra porque está definido para el centro de costo entero. Compararlo contra una porción diría que hay margen donde no lo hay."
   },
   "IntelligenceHybridBenefit": {
     "title": "Escáner de Azure Hybrid Benefit",

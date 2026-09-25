@@ -7441,7 +7441,9 @@
     "bulkApplySuccess": "{count} resources tagged successfully",
     "bulkApplyPartial": "{succeeded} succeeded, {failed} failed",
     "networkError": "Network error: {error}",
-    "max100": "Max. 100"
+    "max100": "Max. 100",
+    "scopeNotApplied": "The Perspective scope could not be applied: this period has no per-resource detail for the scope to work with, so the allocation is approximated by resource group — and an approximation cannot be narrowed row by row. The figures below are for the whole board.",
+    "scopeHidesBudget": "Narrowed by Perspective: budgets are hidden because they are set for the whole cost center. Comparing one against a slice would show headroom that isn't there."
   },
   "IntelligenceHybridBenefit": {
     "title": "Azure Hybrid Benefit Scanner",

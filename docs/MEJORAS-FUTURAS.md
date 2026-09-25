@@ -49,7 +49,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-32](#mej-32--tres-catálogos-de-precios-duplicados-y-ya-divergidos-mej-10-reabierta) | Tres catálogos de precios duplicados y ya divergidos (MEJ-10 reabierta) | Transversal / Ahorro | Alto | Bajo | Hecha |
 | [MEJ-33](#mej-33--cerrar-el-lazo-del-desvío-dueño-estado-persistente-y-seguimiento) | Cerrar el lazo del desvío: dueño, estado persistente y seguimiento | Anomalías / Gobernanza | Alto | Medio | Hecha |
 | [MEJ-31](#mej-31--test-de-storage-history-hardcodea-meses-absolutos-contra-reloj-real) | Test de storage-history hardcodea meses absolutos contra reloj real (rompe todos los meses) | Storage Efficiency / Tests | Medio | Bajo | Hecha |
-| [MEJ-34](#mej-34--perspectives-agrupación-multidimensional-del-gasto) | Perspectives: agrupación multidimensional del gasto — cinco criterios + selector transversal; lo adoptan el export FOCUS y el tablero de Cost Groups, el resto de los que agregan en SQL van uno por uno | Asignación / Transversal | Alto | Alto | Parcial |
+| [MEJ-34](#mej-34--perspectives-agrupación-multidimensional-del-gasto) | Perspectives: agrupación multidimensional del gasto — cinco criterios + selector transversal; lo adoptan el export FOCUS, Cost Groups y Centros de Costo; el resto de los que agregan en SQL van uno por uno | Asignación / Transversal | Alto | Alto | Parcial |
 | [MEJ-35](#mej-35--suscripciones-a-reportes-cualquier-reporte-a-la-cadencia-que-elija-el-usuario) | Suscripciones a reportes: cualquier reporte, a la cadencia que elija el usuario, con link + imagen + CSV | Reportes | Alto | Medio | Propuesta |
 | [MEJ-36](#mej-36--presupuestos-rollover-y-año-fiscal-no-calendario) | Presupuestos: rollover con tope y año fiscal no calendario | Presupuestos | Medio | Bajo | Propuesta |
 | [MEJ-37](#mej-37--leaderboard-de-equipos-y-margen-bruto) | Leaderboard de equipos (ordenado por mejora, no por gasto) y split COGS/OpEx | Integración con el negocio | Medio | Bajo | Propuesta |
@@ -3231,6 +3231,30 @@ un costo acotado no se puede leer— y **el caché**, porque su clave sería una
 editado dejaría vistas acotadas viejas para siempre.
 
 Tests: `__tests__/unit/costGroupsAlcancePerspectiva.test.ts`.
+
+### Hecho (2026-09-25): `cost-centers`, y lo que el segundo tablero enseñó
+
+Mismo patrón, ya barato de repetir: las tres piezas comunes —las cinco dimensiones que las reglas
+miran, la traducción de una fila cruda a `FilaDeCosto`, y el parseo de la columna `Tags`— viven en
+`perspectivesData.service.ts` (`DIMENSIONES_DE_ALCANCE`, `comoFilaDeCosto`, `etiquetasDeColumna`) y
+las consumen el export FOCUS y los dos tableros. Lo que queda por tablero es el plegado, que es
+propio de cada uno.
+
+**El hallazgo: el presupuesto no se acota.** Un presupuesto está definido para el centro de costo
+ENTERO. Compararlo contra una porción diría "gastaste 150 de 10.000" cuando los 10.000 cubren todo el
+centro: un margen que no existe, y un `totalBudget` que no cuadra con el `totalSpend` acotado que
+tiene al lado. Bajo alcance los presupuestos vienen en `null` y la pantalla dice por qué, en vez de
+dejar las celdas vacías para que se lean como "sin presupuesto".
+
+Es la forma general del problema: **una medida definida sobre el todo no se recorta junto con el
+gasto.** Cualquier tablero que adopte el alcance tiene que revisar sus medidas una por una y decidir
+cuáles sobreviven al recorte, cuáles se recalculan y cuáles se ocultan. Las que se ocultan hay que
+decirlas.
+
+Medido contra la base local: 73 filas de detalle contra 1 del agregado, mismos importes y mismos
+conteos de Resource Group.
+
+Tests: `__tests__/unit/costCentersAlcancePerspectiva.test.ts`.
 
 ### Contexto
 

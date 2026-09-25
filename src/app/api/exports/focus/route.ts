@@ -32,8 +32,7 @@ import {
     buildFocusCsvRow,
 } from "@/lib/focus/csv";
 import { FOCUS_VERSION } from "@/lib/focus/columns";
-import { filtroDeAlcance, etiquetasDeColumna } from "@/services/perspectivesData.service";
-import type { FilaDeCosto } from "@/services/perspectives.service";
+import { filtroDeAlcance, comoFilaDeCosto } from "@/services/perspectivesData.service";
 
 const HARD_CAP = 500_000;
 const DEFAULT_LIMIT = 100_000;
@@ -123,18 +122,6 @@ async function authorise(request: NextRequest, tenantId: string): Promise<void> 
     await requireTenantTier(request, tenantId, "Enterprise");
 }
 
-/** Traduce una fila del export a lo que el evaluador de Perspectives mira. */
-function comoFilaDeCosto(row: CostSnapshotRow): FilaDeCosto {
-    return {
-        subscriptionId: row.subscription_id ?? null,
-        resourceGroup: row.resource_group ?? null,
-        serviceName: row.service_name ?? null,
-        resourceId: row.ResourceId ?? null,
-        tags: etiquetasDeColumna(row.Tags),
-        costo: Number(row.cost_usd) || 0,
-    };
-}
-
 async function* streamFocusRows(params: ExportParams): AsyncGenerator<CostSnapshotRow[]> {
     // MEJ-34: el alcance de Perspective se resuelve UNA vez, no por fila.
     const filtro = await filtroDeAlcance(params.tenantId, params.perspectiveId, params.perspectiveGroup);
@@ -169,7 +156,7 @@ async function* streamFocusRows(params: ExportParams): AsyncGenerator<CostSnapsh
         const batch = rows as CostSnapshotRow[];
         if (batch.length === 0) break;
 
-        let salida = filtro ? batch.filter((r) => filtro(comoFilaDeCosto(r))) : batch;
+        let salida = filtro ? batch.filter((r) => filtro(comoFilaDeCosto(r, Number(r.cost_usd) || 0))) : batch;
         if (total + salida.length > params.limit) salida = salida.slice(0, params.limit - total);
         if (salida.length > 0) yield salida;
 

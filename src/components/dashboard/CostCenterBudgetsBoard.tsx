@@ -15,6 +15,7 @@ import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import BulkTagModal from "@/components/BulkTagModal";
 import { errorMessage } from '@/lib/apiErrors';
 import { CENTINELA_SIN_ASIGNAR, useNombreDeBucket } from '@/lib/bucketSinAsignar';
+import { usePerspectiveScope } from "@/components/PerspectiveScopeSelector";
 
 // El centinela y su traduccion viven en @/lib/bucketSinAsignar: cinco
 // componentes de cuatro namespaces muestran el mismo valor.
@@ -499,9 +500,13 @@ export default function CostCenterBudgetsBoard() {
         return res.json();
     };
 
+    // MEJ-34: el alcance transversal entra en la clave de SWR, así cambiar de
+    // grupo revalida en vez de servir el tablero del grupo anterior.
+    const { perspectiveId, queryString: alcanceQs } = usePerspectiveScope();
+
     const { data, error, isLoading, mutate } = useSWR(
         selectedTenant && selectedTenant.id !== "default" && (accounts.length > 0 || isMockTenant(selectedTenant.id))
-            ? `/api/intelligence/cost-centers?tenantId=${selectedTenant.id}`
+            ? `/api/intelligence/cost-centers?tenantId=${selectedTenant.id}${alcanceQs}`
             : null,
         fetcher,
         { revalidateOnFocus: false }
@@ -656,6 +661,23 @@ export default function CostCenterBudgetsBoard() {
 
     return (
         <div className="w-full space-y-6">
+            {/* MEJ-34: se pidió acotar por Perspective y no se pudo. Callarlo
+                dejaría que el total del tenant se lea como el del grupo. */}
+            {perspectiveId !== null && data?.scopeApplied === false && (
+                <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs font-semibold text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200">
+                    <AlertTriangle className="mt-px w-4 h-4 shrink-0" />
+                    <span>{t("scopeNotApplied")}</span>
+                </div>
+            )}
+            {/* El presupuesto está definido para el centro de costo entero, así
+                que bajo alcance no se muestra en vez de compararse contra una
+                porción. Decirlo evita leer las celdas vacías como "sin presupuesto". */}
+            {data?.scopeApplied === true && (
+                <div className="flex items-start gap-2 rounded-xl border border-sky-300 bg-sky-50 p-3 text-xs font-semibold text-sky-900 dark:border-sky-700/60 dark:bg-sky-950/40 dark:text-sky-200">
+                    <AlertCircle className="mt-px w-4 h-4 shrink-0" />
+                    <span>{t("scopeHidesBudget")}</span>
+                </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                 <Kpi
                     label={t("kpiSpend")}

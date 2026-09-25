@@ -2158,6 +2158,11 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                 overBudgetCount: costCenters.filter(c => c.overBudget).length,
                 unassignedSpend: round2(unassignedSpend),
                 allocationRate: totalSpend > 0 ? round2(((totalSpend - unassignedSpend) / totalSpend) * 100) : 0,
+                // MEJ-34: mismo caso que 'cost_groups'. Es un agregado sin
+                // detalle por recurso, y el alcance se evalúa por fila: no se
+                // puede aplicar, y la pantalla lo dice en vez de ignorar el
+                // selector en silencio.
+                scopeApplied: false,
             };
         }
         case 'scorecard':

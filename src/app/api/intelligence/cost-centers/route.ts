@@ -6,6 +6,10 @@ import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { redis } from "@/lib/redis";
 import { fetchResourceCountsByRg } from "@/lib/azureResourceCounts";
 import { getTagCoverage } from "@/lib/costTagCoverage";
+import {
+    filtroDeAlcance, comoFilaDeCosto, DIMENSIONES_DE_ALCANCE, type FilaConDimensiones,
+} from "@/services/perspectivesData.service";
+import type { FilaDeCosto } from "@/services/perspectives.service";
 
 const UNASSIGNED_NAME = "Sin asignar";
 
@@ -35,14 +39,68 @@ const cacheKey = (tenantId: string) => `cost-centers:v2:${tenantId}`;
 // compara contra un presupuesto mensual opcional guardado en
 // CostCenterBudgets — tabla que ya existía en el schema (usada solo por el
 // teardown de tenants) pero nunca tuvo una API que la alimentara.
-async function getCostCenterSpend(tenantId: string) {
+type Alcance = (fila: FilaDeCosto) => boolean;
+
+/** El balde por tag CostCenter y las dos medidas, iguales en las dos formas de la consulta. */
+const BALDE_CC = `COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')), 'null'), '${UNASSIGNED_NAME}')`;
+const MES_ACTUAL = `SUM(CASE WHEN DATE(COALESCE(ChargePeriodStart, date)) >= DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN COALESCE(EffectiveCost, cost_usd, 0) ELSE 0 END) AS currentMonthCost`;
+const MES_ANTERIOR = `SUM(CASE WHEN DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH) AND DATE(COALESCE(ChargePeriodStart, date)) < DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN COALESCE(EffectiveCost, cost_usd, 0) ELSE 0 END) AS previousMonthCost`;
+const VENTANA = `tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL 2 MONTH)`;
+
+interface GastoPorCentro {
+    name: string;
+    currentMonthCost: number;
+    previousMonthCost: number;
+    rgNames: string[];
+    /** Recursos distintos EN ALCANCE. Sólo se llena en el camino acotado. */
+    resourcesEnAlcance: number;
+}
+
+/**
+ * MEJ-34 — con alcance activo la agregación pasa de SQL a acá.
+ *
+ * El predicado de una Perspective se evalúa POR FILA y no se traduce a un
+ * `WHERE`, así que la consulta trae el detalle por las cinco dimensiones que
+ * las reglas miran y el plegado rehace lo que hacía el `GROUP BY`. Sin alcance
+ * la consulta de siempre no se toca: es el camino caliente.
+ */
+async function getCostCenterSpend(tenantId: string, alcance?: Alcance): Promise<GastoPorCentro[]> {
+    if (alcance) {
+        const [detalle]: any = await pool.query(
+            `SELECT ${BALDE_CC} AS name, ${DIMENSIONES_DE_ALCANCE}, ${MES_ACTUAL}, ${MES_ANTERIOR}
+             FROM CostSnapshots
+             WHERE ${VENTANA}
+             GROUP BY name, ${DIMENSIONES_DE_ALCANCE}`,
+            [tenantId]
+        );
+        const acc = new Map<string, { actual: number; previo: number; rgs: Set<string>; res: Set<string> }>();
+        for (const f of (detalle as Array<FilaConDimensiones & { name: string; currentMonthCost: unknown; previousMonthCost: unknown }>)) {
+            const actual = Number(f.currentMonthCost) || 0;
+            const previo = Number(f.previousMonthCost) || 0;
+            if (!alcance(comoFilaDeCosto(f, actual + previo))) continue;
+            const e = acc.get(f.name) || { actual: 0, previo: 0, rgs: new Set<string>(), res: new Set<string>() };
+            e.actual += actual;
+            e.previo += previo;
+            if (f.resource_group) e.rgs.add(f.resource_group);
+            if (f.ResourceId) e.res.add(f.ResourceId);
+            acc.set(f.name, e);
+        }
+        return [...acc.entries()]
+            .map(([name, e]) => ({
+                name,
+                currentMonthCost: e.actual,
+                previousMonthCost: e.previo,
+                rgNames: [...e.rgs],
+                resourcesEnAlcance: e.res.size,
+            }))
+            .sort((a, b) => b.currentMonthCost - a.currentMonthCost);
+    }
+
     const [rows]: any = await pool.query(
-        `SELECT COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')), 'null'), 'Sin asignar') AS name,
-                SUM(CASE WHEN DATE(COALESCE(ChargePeriodStart, date)) >= DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN COALESCE(EffectiveCost, cost_usd, 0) ELSE 0 END) AS currentMonthCost,
-                SUM(CASE WHEN DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH) AND DATE(COALESCE(ChargePeriodStart, date)) < DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN COALESCE(EffectiveCost, cost_usd, 0) ELSE 0 END) AS previousMonthCost,
+        `SELECT ${BALDE_CC} AS name, ${MES_ACTUAL}, ${MES_ANTERIOR},
                 GROUP_CONCAT(DISTINCT resource_group) AS rgNames
          FROM CostSnapshots
-         WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL 2 MONTH)
+         WHERE ${VENTANA}
          GROUP BY name
          ORDER BY currentMonthCost DESC`,
         [tenantId]
@@ -52,6 +110,7 @@ async function getCostCenterSpend(tenantId: string) {
         currentMonthCost: Number(r.currentMonthCost) || 0,
         previousMonthCost: Number(r.previousMonthCost) || 0,
         rgNames: String(r.rgNames || "").split(",").map((s: string) => s.trim()).filter(Boolean),
+        resourcesEnAlcance: 0,
     }));
 }
 
@@ -77,7 +136,15 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute("cost_centers", tenantId));
         }
 
-        const payload = await getWithStaleWhileRevalidate(cacheKey(tenantId), async () => {
+        // MEJ-34: alcance transversal de Perspective, resuelto UNA vez.
+        const pid = Number(request.nextUrl.searchParams.get("perspective"));
+        const alcance = await filtroDeAlcance(
+            tenantId,
+            Number.isInteger(pid) && pid > 0 ? pid : null,
+            request.nextUrl.searchParams.get("pgroup"),
+        );
+
+        const calcular = async () => {
             // MEJ-30 paso 3: el reparto por centro de costo sale del tag
             // `CostCenter` de `CostSnapshots.Tags`. Si el período llegó por el
             // sync vía Cost Management, esa columna viene vacía y TODO cae en
@@ -85,10 +152,21 @@ export async function GET(request: NextRequest) {
             // el cliente no etiquete, sino que el dato no llegó. Se informa
             // para que la UI no presente ese 0% como un hallazgo.
             const coverageWindow = { start: monthsAgoIso(2), end: todayIso() };
-            const [spend, budgets, tagCoverage] = await Promise.all([
-                getCostCenterSpend(tenantId),
-                getBudgets(tenantId),
-                getTagCoverage(tenantId, coverageWindow.start, coverageWindow.end),
+            const tagCoverage = await getTagCoverage(tenantId, coverageWindow.start, coverageWindow.end);
+
+            // UN ALCANCE SOLO SE APLICA SI SE PUEDE MEDIR. Sin procedencia en el
+            // costo del período, el reparto se resuelve aproximando por Resource
+            // Group y una aproximación no se recorta fila por fila: se devuelve
+            // el tablero entero con `scopeApplied: false` y la pantalla lo dice.
+            const recorte = alcance && tagCoverage.isExact ? alcance : null;
+
+            const [spend, budgets] = await Promise.all([
+                getCostCenterSpend(tenantId, recorte || undefined),
+                // EL PRESUPUESTO NO SE ACOTA, así que bajo alcance no se muestra.
+                // Está definido para el centro de costo ENTERO: compararlo contra
+                // el gasto de una porción diría "gastaste 150 de 10.000" cuando
+                // los 10.000 cubren todo el centro. Un desvío que no es tal.
+                recorte ? new Map<string, number>() : getBudgets(tenantId),
             ]);
 
             // Proyección de cierre de mes: run-rate simple (gasto MTD / días
@@ -99,8 +177,11 @@ export async function GET(request: NextRequest) {
             const daysInMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
             const runRateFactor = daysInMonth / Math.max(1, daysElapsed);
 
-            const allRgNames = Array.from(new Set(spend.flatMap(s => s.rgNames.map(rg => rg.toLowerCase()))));
-            const realResourceCounts = await fetchResourceCountsByRg(tenantId, allRgNames);
+            // Con alcance no se enriquece: Resource Graph cuenta todos los
+            // recursos del RG, incluidos los que el alcance dejó afuera. El
+            // conteo acotado sale del detalle.
+            const allRgNames = recorte ? [] : Array.from(new Set(spend.flatMap(s => s.rgNames.map(rg => rg.toLowerCase()))));
+            const realResourceCounts = recorte ? new Map<string, number>() : await fetchResourceCountsByRg(tenantId, allRgNames);
 
             const costCenters = spend.map(s => {
                 const budget = budgets.has(s.name) ? budgets.get(s.name)! : null;
@@ -110,7 +191,9 @@ export async function GET(request: NextRequest) {
                     : 0;
                 const projectedMonthEndSpend = Number((s.currentMonthCost * runRateFactor).toFixed(2));
                 const projectedPctUsed = budget && budget > 0 ? Number(((projectedMonthEndSpend / budget) * 100).toFixed(1)) : null;
-                const resourceCount = s.rgNames.reduce((sum, rg) => sum + (realResourceCounts.get(rg.toLowerCase()) || 0), 0);
+                const resourceCount = recorte
+                    ? s.resourcesEnAlcance
+                    : s.rgNames.reduce((sum, rg) => sum + (realResourceCounts.get(rg.toLowerCase()) || 0), 0);
                 return {
                     name: s.name,
                     currentMonthCost: Number(s.currentMonthCost.toFixed(2)),
@@ -151,8 +234,18 @@ export async function GET(request: NextRequest) {
                 // false = "Sin asignar" incluye costo que nunca trajo etiquetas,
                 // no sólo recursos realmente sin etiquetar.
                 tagDataIsExact: tagCoverage.isExact,
+                // MEJ-34: con un alcance pedido y esto en false, los números son
+                // los del tablero SIN acotar. En true, los presupuestos vienen
+                // en null a propósito (ver arriba).
+                scopeApplied: recorte !== null,
             };
-        }, 900, 300);
+        };
+
+        // El recorte no se cachea: su clave sería una por (perspective, grupo) y
+        // el PUT/DELETE de presupuesto sólo invalida la del tablero sin acotar.
+        const payload = alcance
+            ? await calcular()
+            : await getWithStaleWhileRevalidate(cacheKey(tenantId), calcular, 900, 300);
 
         return NextResponse.json(payload);
     } catch (err: unknown) {

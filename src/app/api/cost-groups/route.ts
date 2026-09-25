@@ -17,7 +17,9 @@ import pool from "@/modules/storage/db";
 import { getWithStaleWhileRevalidate, invalidateCache, costGroupsCacheKeys } from "@/lib/cache";
 import { fetchResourceCountsByRg, fetchResourceGroupsByTag } from "@/lib/azureResourceCounts";
 import { getTagCoverage } from "@/lib/costTagCoverage";
-import { filtroDeAlcance, etiquetasDeColumna } from "@/services/perspectivesData.service";
+import {
+    filtroDeAlcance, comoFilaDeCosto, DIMENSIONES_DE_ALCANCE, type FilaConDimensiones,
+} from "@/services/perspectivesData.service";
 import type { FilaDeCosto } from "@/services/perspectives.service";
 
 /** El balde por tag CostCenter. Constante para que las dos formas de la consulta no se desincronicen. */
@@ -28,13 +30,8 @@ const COSTO = `COALESCE(EffectiveCost, BilledCost, cost_usd, 0)`;
 type Alcance = (fila: FilaDeCosto) => boolean;
 
 /** Una fila al grano que el predicado de una Perspective necesita mirar. */
-interface FilaDetalle {
+interface FilaDetalle extends FilaConDimensiones {
     ccName: string;
-    subscription_id: string | null;
-    resource_group: string | null;
-    service_name: string | null;
-    ResourceId: string | null;
-    Tags: unknown;
     periodCost: number | string | null;
     lastUpdated: Date | string | null;
 }
@@ -73,15 +70,7 @@ function plegarDetalle(filas: FilaDetalle[], alcance: Alcance, nombreFijo?: stri
 
     for (const f of filas || []) {
         const costo = Number(f.periodCost) || 0;
-        const dentro = alcance({
-            subscriptionId: f.subscription_id ?? null,
-            resourceGroup: f.resource_group ?? null,
-            serviceName: f.service_name ?? null,
-            resourceId: f.ResourceId ?? null,
-            tags: etiquetasDeColumna(f.Tags),
-            costo,
-        });
-        if (!dentro) continue;
+        if (!alcance(comoFilaDeCosto(f, costo))) continue;
 
         const name = nombreFijo ?? f.ccName;
         const e = acc.get(name) || {
@@ -117,9 +106,9 @@ function plegarDetalle(filas: FilaDetalle[], alcance: Alcance, nombreFijo?: stri
 }
 
 /** Las columnas del detalle, idénticas en la consulta principal y en la de cada grupo custom. */
-const SELECT_DETALLE = `${BALDE_CC} AS ccName, subscription_id, resource_group, service_name, ResourceId, Tags,
+const SELECT_DETALLE = `${BALDE_CC} AS ccName, ${DIMENSIONES_DE_ALCANCE},
                     SUM(${COSTO}) AS periodCost, MAX(COALESCE(ChargePeriodStart, date)) AS lastUpdated`;
-const GROUP_BY_DETALLE = `GROUP BY ccName, subscription_id, resource_group, service_name, ResourceId, Tags`;
+const GROUP_BY_DETALLE = `GROUP BY ccName, ${DIMENSIONES_DE_ALCANCE}`;
 
 /**
  * Heurística simple de clustering: agrupa los Resource Groups de 'Untagged'

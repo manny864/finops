@@ -36,15 +36,41 @@ export function etiquetasDeColumna(valor: unknown): Record<string, string> | nul
     }
 }
 
-function normalizarFilas(rows: any[]): FilaDeCosto[] {
-    return (rows || []).map((r) => ({
+/**
+ * Las dimensiones que una regla de Perspective puede mirar, listas para pegar
+ * en un `SELECT` y en su `GROUP BY`.
+ *
+ * Van juntas y con nombre porque un tablero que agregue en TypeScript tiene que
+ * traer EXACTAMENTE estas cinco: si le falta una, las reglas de ese tipo dejan
+ * de poder evaluarse y las filas se van a `sin-datos` **sin que nada falle** —
+ * el tablero mostraría un recorte más chico del que corresponde y nadie se
+ * enteraría.
+ */
+export const DIMENSIONES_DE_ALCANCE = "subscription_id, resource_group, service_name, ResourceId, Tags";
+
+/** Una fila cruda de `CostSnapshots` con esas dimensiones. */
+export interface FilaConDimensiones {
+    subscription_id?: string | null;
+    resource_group?: string | null;
+    service_name?: string | null;
+    ResourceId?: string | null;
+    Tags?: unknown;
+}
+
+/** Traduce una fila de `CostSnapshots` a lo que el evaluador de Perspectives mira. */
+export function comoFilaDeCosto(r: FilaConDimensiones, costo: number): FilaDeCosto {
+    return {
         subscriptionId: r.subscription_id ?? null,
         resourceGroup: r.resource_group ?? null,
         serviceName: r.service_name ?? null,
         resourceId: r.ResourceId ?? null,
         tags: etiquetasDeColumna(r.Tags),
-        costo: Number(r.costo) || 0,
-    }));
+        costo,
+    };
+}
+
+function normalizarFilas(rows: any[]): FilaDeCosto[] {
+    return (rows || []).map((r) => comoFilaDeCosto(r, Number(r.costo) || 0));
 }
 
 /**
