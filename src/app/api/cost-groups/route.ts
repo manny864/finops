@@ -17,6 +17,109 @@ import pool from "@/modules/storage/db";
 import { getWithStaleWhileRevalidate, invalidateCache, costGroupsCacheKeys } from "@/lib/cache";
 import { fetchResourceCountsByRg, fetchResourceGroupsByTag } from "@/lib/azureResourceCounts";
 import { getTagCoverage } from "@/lib/costTagCoverage";
+import { filtroDeAlcance, etiquetasDeColumna } from "@/services/perspectivesData.service";
+import type { FilaDeCosto } from "@/services/perspectives.service";
+
+/** El balde por tag CostCenter. Constante para que las dos formas de la consulta no se desincronicen. */
+const BALDE_CC = `COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')), 'null'), 'Untagged')`;
+/** El costo del período: el amortizado primero, igual que en el resto del producto. */
+const COSTO = `COALESCE(EffectiveCost, BilledCost, cost_usd, 0)`;
+
+type Alcance = (fila: FilaDeCosto) => boolean;
+
+/** Una fila al grano que el predicado de una Perspective necesita mirar. */
+interface FilaDetalle {
+    ccName: string;
+    subscription_id: string | null;
+    resource_group: string | null;
+    service_name: string | null;
+    ResourceId: string | null;
+    Tags: unknown;
+    periodCost: number | string | null;
+    lastUpdated: Date | string | null;
+}
+
+/** Lo que devuelve la consulta agregada, para que el plegado en TS lo imite exacto. */
+interface FilaAgregada {
+    name: string;
+    periodCost: number;
+    untaggedPortion: number;
+    subscriptions: number;
+    resourceGroups: number;
+    resources: number;
+    rgNames: string;
+    lastUpdated: Date | string | null;
+}
+
+/**
+ * MEJ-34 — pliega filas de detalle a la misma forma que devuelve la consulta
+ * agregada, quedándose sólo con las que el alcance de Perspective admite.
+ *
+ * Existe porque el predicado de una Perspective se evalúa POR FILA y no se
+ * traduce a un `WHERE`. Con un alcance activo la agregación tiene que pasar de
+ * SQL a acá o los `COUNT(DISTINCT ...)` seguirían contando recursos que el
+ * alcance dejó afuera: los totales dejarían de cuadrar, que es peor que no
+ * tener el filtro.
+ *
+ * `nombreFijo` manda todas las filas a un solo grupo (el caso de un Cost Group
+ * con regla propia); sin él se pliega por el balde de tag CostCenter.
+ */
+function plegarDetalle(filas: FilaDetalle[], alcance: Alcance, nombreFijo?: string): FilaAgregada[] {
+    const acc = new Map<string, {
+        periodCost: number; untaggedPortion: number;
+        subs: Set<string>; rgs: Set<string>; res: Set<string>;
+        lastUpdated: Date | string | null;
+    }>();
+
+    for (const f of filas || []) {
+        const costo = Number(f.periodCost) || 0;
+        const dentro = alcance({
+            subscriptionId: f.subscription_id ?? null,
+            resourceGroup: f.resource_group ?? null,
+            serviceName: f.service_name ?? null,
+            resourceId: f.ResourceId ?? null,
+            tags: etiquetasDeColumna(f.Tags),
+            costo,
+        });
+        if (!dentro) continue;
+
+        const name = nombreFijo ?? f.ccName;
+        const e = acc.get(name) || {
+            periodCost: 0, untaggedPortion: 0,
+            subs: new Set<string>(), rgs: new Set<string>(), res: new Set<string>(),
+            lastUpdated: null as Date | string | null,
+        };
+        e.periodCost += costo;
+        if (f.ccName === RESERVED_NAME) e.untaggedPortion += costo;
+        // Mismos descartes que los COUNT(DISTINCT ...) de la consulta agregada:
+        // el NULL no cuenta, y el placeholder de suscripción tampoco.
+        if (f.subscription_id && f.subscription_id !== "mg-aggregated" && f.subscription_id !== "default") {
+            e.subs.add(f.subscription_id);
+        }
+        if (f.resource_group) e.rgs.add(f.resource_group);
+        if (f.ResourceId) e.res.add(f.ResourceId);
+        if (f.lastUpdated && (!e.lastUpdated || new Date(f.lastUpdated) > new Date(e.lastUpdated))) {
+            e.lastUpdated = f.lastUpdated;
+        }
+        acc.set(name, e);
+    }
+
+    return [...acc.entries()].map(([name, e]) => ({
+        name,
+        periodCost: e.periodCost,
+        untaggedPortion: e.untaggedPortion,
+        subscriptions: e.subs.size,
+        resourceGroups: e.rgs.size,
+        resources: e.res.size,
+        rgNames: [...e.rgs].join(","),
+        lastUpdated: e.lastUpdated,
+    }));
+}
+
+/** Las columnas del detalle, idénticas en la consulta principal y en la de cada grupo custom. */
+const SELECT_DETALLE = `${BALDE_CC} AS ccName, subscription_id, resource_group, service_name, ResourceId, Tags,
+                    SUM(${COSTO}) AS periodCost, MAX(COALESCE(ChargePeriodStart, date)) AS lastUpdated`;
+const GROUP_BY_DETALLE = `GROUP BY ccName, subscription_id, resource_group, service_name, ResourceId, Tags`;
 
 /**
  * Heurística simple de clustering: agrupa los Resource Groups de 'Untagged'
@@ -75,12 +178,26 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute("cost_groups", tenantId));
         }
 
-        const result = await getWithStaleWhileRevalidate(
-            `cost-groups:v2:${tenantId}:${period}`,
-            () => fetchCostGroups(tenantId, period),
-            1800,
-            600
+        // MEJ-34: alcance transversal de Perspective. Se resuelve UNA vez, no
+        // por fila ni por grupo.
+        const pid = Number(url.searchParams.get("perspective"));
+        const alcance = await filtroDeAlcance(
+            tenantId,
+            Number.isInteger(pid) && pid > 0 ? pid : null,
+            url.searchParams.get("pgroup"),
         );
+
+        // El recorte NO se cachea: la clave sería una por (perspective, grupo,
+        // período) y `costGroupsCacheKeys` sólo invalida las tres sin recorte,
+        // así que un grupo editado dejaría vistas acotadas viejas para siempre.
+        const result = alcance
+            ? await fetchCostGroups(tenantId, period, alcance)
+            : await getWithStaleWhileRevalidate(
+                `cost-groups:v2:${tenantId}:${period}`,
+                () => fetchCostGroups(tenantId, period),
+                1800,
+                600
+            );
 
         return NextResponse.json({ success: true, mock: false, groups: result.groups, summary: result.summary, suggestions: result.suggestions });
     } catch (e: unknown) {
@@ -90,28 +207,53 @@ export async function GET(request: NextRequest) {
     }
 }
 
-async function fetchCostGroups(tenantId: string, period: string) {
+async function fetchCostGroups(tenantId: string, period: string, alcance?: Alcance) {
         const { start, end } = periodRange(period);
         const days = Math.max(1, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86400000) || 30);
+
+        // MEJ-30 paso 3: si el período ya tiene etiquetas reales (ingesta por
+        // export), el predicado exacto alcanza y la aproximación por Resource
+        // Group sobra. Se resuelve UNA vez por request, no por grupo.
+        const tagCoverage = await getTagCoverage(tenantId, start, end);
+
+        // UN ALCANCE SÓLO SE APLICA SI SE PUEDE MEDIR. Cuando el costo del
+        // período llega sin procedencia (sync por Cost Management: sin `Tags` ni
+        // `ResourceId`), el reparto se resuelve aproximando por Resource Group —
+        // y una aproximación por RG no se puede recortar fila por fila. Filtrar
+        // igual daría un tablero que suma menos que la factura sin decir por
+        // qué, así que se devuelve el tablero entero con `scopeApplied: false`
+        // y que la pantalla lo diga.
+        const recorte = alcance && tagCoverage.isExact ? alcance : null;
 
         // COUNT(DISTINCT subscription_id) excluye 'mg-aggregated'/'default': el
         // sync diario a veces graba un placeholder ahí en vez del GUID real
         // (ver azureSubscriptionNames.ts) — contarlo inflaría "suscripciones"
         // con una que no existe.
-        const [rows]: any = await pool.query(
-            `SELECT
-                COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')), 'null'), 'Untagged') AS name,
-                SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS periodCost,
-                COUNT(DISTINCT CASE WHEN subscription_id NOT IN ('mg-aggregated', 'default') THEN subscription_id END) AS subscriptions,
-                COUNT(DISTINCT resource_group) AS resourceGroups,
-                COUNT(DISTINCT ResourceId) AS resources,
-                GROUP_CONCAT(DISTINCT resource_group) AS rgNames,
-                MAX(COALESCE(ChargePeriodStart, date)) AS lastUpdated
-             FROM CostSnapshots
-             WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) BETWEEN ? AND ?
-             GROUP BY name`,
-            [tenantId, start, end]
-        );
+        const [rows]: any = recorte
+            ? [plegarDetalle(
+                (await pool.query(
+                    `SELECT ${SELECT_DETALLE}
+                     FROM CostSnapshots
+                     WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) BETWEEN ? AND ?
+                     ${GROUP_BY_DETALLE}`,
+                    [tenantId, start, end]
+                ))[0] as FilaDetalle[],
+                recorte,
+            )]
+            : await pool.query(
+                `SELECT
+                    ${BALDE_CC} AS name,
+                    SUM(${COSTO}) AS periodCost,
+                    COUNT(DISTINCT CASE WHEN subscription_id NOT IN ('mg-aggregated', 'default') THEN subscription_id END) AS subscriptions,
+                    COUNT(DISTINCT resource_group) AS resourceGroups,
+                    COUNT(DISTINCT ResourceId) AS resources,
+                    GROUP_CONCAT(DISTINCT resource_group) AS rgNames,
+                    MAX(COALESCE(ChargePeriodStart, date)) AS lastUpdated
+                 FROM CostSnapshots
+                 WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) BETWEEN ? AND ?
+                 GROUP BY name`,
+                [tenantId, start, end]
+            );
 
         const [budgetRows]: any = await pool.query(
             `SELECT cost_center_tag_value AS name, monthly_limit_usd AS budget FROM Budgets WHERE tenant_id = ?`,
@@ -134,11 +276,6 @@ async function fetchCostGroups(tenantId: string, period: string) {
         // cualquier grupo auto-descubierto que casualmente comparta nombre
         // con el valor de un tag CostCenter — la definición explícita gana.
         const tagBasedRows = (rows as any[]).filter(r => !customNames.has(r.name));
-
-        // MEJ-30 paso 3: si el período ya tiene etiquetas reales (ingesta por
-        // export), el predicado exacto alcanza y la aproximación por Resource
-        // Group sobra. Se resuelve UNA vez por request, no por grupo.
-        const tagCoverage = await getTagCoverage(tenantId, start, end);
 
         const customRowsResults = await Promise.all(customGroupMetas.map(async (m) => {
             // Un grupo por ETIQUETA daba siempre $0.00: el predicado comparaba
@@ -205,29 +342,46 @@ async function fetchCostGroups(tenantId: string, period: string) {
                 ? [m.match_rg_pattern]
                 : [m.match_tag_key, m.match_tag_value, ...tagResolvedRgs];
 
-            const [customRows]: any = await pool.query(
-                `SELECT
-                    SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS periodCost,
-                    -- Cuánto del costo de este grupo viene de filas que la
-                    -- agrupación por tag manda al balde 'Untagged'. Misma
-                    -- expresión que la consulta principal, para que los dos
-                    -- baldes se definan igual. Se descuenta de Untagged y así
-                    -- el mismo gasto no se cuenta dos veces.
-                    SUM(CASE WHEN COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')), 'null'), 'Untagged') = 'Untagged'
-                             THEN COALESCE(EffectiveCost, BilledCost, cost_usd, 0) ELSE 0 END) AS untaggedPortion,
-                    COUNT(DISTINCT CASE WHEN subscription_id NOT IN ('mg-aggregated', 'default') THEN subscription_id END) AS subscriptions,
-                    COUNT(DISTINCT resource_group) AS resourceGroups,
-                    COUNT(DISTINCT ResourceId) AS resources,
-                    GROUP_CONCAT(DISTINCT resource_group) AS rgNames,
-                    MAX(COALESCE(ChargePeriodStart, date)) AS lastUpdated
-                 FROM CostSnapshots
-                 WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) BETWEEN ? AND ?
-                   AND (
+            const pertenencia = `AND (
                      resource_group IN (SELECT resource_group FROM CostGroupResourceGroups WHERE tenant_id = ? AND group_name = ?)
                      OR ${patternPredicate}
-                   )`,
-                [tenantId, start, end, tenantId, m.name, ...patternParams]
-            );
+                   )`;
+            const paramsPertenencia = [tenantId, start, end, tenantId, m.name, ...patternParams];
+
+            // Con alcance activo la agregación se hace en TS sobre el detalle,
+            // por el mismo motivo que la consulta principal.
+            const [customRows]: any = recorte
+                ? [plegarDetalle(
+                    (await pool.query(
+                        `SELECT ${SELECT_DETALLE}
+                         FROM CostSnapshots
+                         WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) BETWEEN ? AND ?
+                           ${pertenencia}
+                         ${GROUP_BY_DETALLE}`,
+                        paramsPertenencia
+                    ))[0] as FilaDetalle[],
+                    recorte,
+                    m.name,
+                )]
+                : await pool.query(
+                    `SELECT
+                        SUM(${COSTO}) AS periodCost,
+                        -- Cuánto del costo de este grupo viene de filas que la
+                        -- agrupación por tag manda al balde 'Untagged'. Misma
+                        -- expresión que la consulta principal, para que los dos
+                        -- baldes se definan igual. Se descuenta de Untagged y así
+                        -- el mismo gasto no se cuenta dos veces.
+                        SUM(CASE WHEN ${BALDE_CC} = '${RESERVED_NAME}' THEN ${COSTO} ELSE 0 END) AS untaggedPortion,
+                        COUNT(DISTINCT CASE WHEN subscription_id NOT IN ('mg-aggregated', 'default') THEN subscription_id END) AS subscriptions,
+                        COUNT(DISTINCT resource_group) AS resourceGroups,
+                        COUNT(DISTINCT ResourceId) AS resources,
+                        GROUP_CONCAT(DISTINCT resource_group) AS rgNames,
+                        MAX(COALESCE(ChargePeriodStart, date)) AS lastUpdated
+                     FROM CostSnapshots
+                     WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) BETWEEN ? AND ?
+                       ${pertenencia}`,
+                    paramsPertenencia
+                );
             return {
                 name: m.name,
                 ...(customRows?.[0] || {}),
@@ -295,8 +449,13 @@ async function fetchCostGroups(tenantId: string, period: string) {
         // Conteo real de recursos vía Resource Graph (CostSnapshots.ResourceId
         // suele venir vacío). Best-effort: si falla, se conserva el conteo
         // aproximado de CostSnapshots calculado arriba.
-        const allRgNames = Array.from(new Set(groups.flatMap(g => g.rgNames.map(rg => rg.toLowerCase()))));
-        const realResourceCounts = await fetchResourceCountsByRg(tenantId, allRgNames);
+        //
+        // Con alcance activo NO se enriquece: Resource Graph cuenta todos los
+        // recursos del RG, incluidos los que el alcance dejó afuera. El
+        // `COUNT(DISTINCT ResourceId)` del detalle ya es el conteo acotado, y un
+        // conteo de más al lado de un costo acotado no se puede leer.
+        const allRgNames = recorte ? [] : Array.from(new Set(groups.flatMap(g => g.rgNames.map(rg => rg.toLowerCase()))));
+        const realResourceCounts = recorte ? new Map<string, number>() : await fetchResourceCountsByRg(tenantId, allRgNames);
         const enrichedGroups = groups.map(({ rgNames, ...g }) => {
             if (realResourceCounts.size === 0) return g;
             const realCount = rgNames.reduce((sum, rg) => sum + (realResourceCounts.get(rg.toLowerCase()) || 0), 0);
@@ -324,6 +483,11 @@ async function fetchCostGroups(tenantId: string, period: string) {
                 // llega sin etiquetas (sync vía Cost Management) y el reparto
                 // por etiqueta se resolvió aproximando por Resource Group.
                 tagDataIsExact: tagCoverage.isExact,
+                // MEJ-34: si se pidió un alcance de Perspective y esto es
+                // false, los números son los del tablero SIN acotar. La
+                // pantalla tiene que decirlo o el usuario lee el total del
+                // tenant creyendo que es el de su grupo.
+                scopeApplied: recorte !== null,
             },
             suggestions,
         };

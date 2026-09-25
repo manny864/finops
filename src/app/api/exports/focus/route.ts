@@ -32,7 +32,7 @@ import {
     buildFocusCsvRow,
 } from "@/lib/focus/csv";
 import { FOCUS_VERSION } from "@/lib/focus/columns";
-import { filtroDeAlcance } from "@/services/perspectivesData.service";
+import { filtroDeAlcance, etiquetasDeColumna } from "@/services/perspectivesData.service";
 import type { FilaDeCosto } from "@/services/perspectives.service";
 
 const HARD_CAP = 500_000;
@@ -125,20 +125,12 @@ async function authorise(request: NextRequest, tenantId: string): Promise<void> 
 
 /** Traduce una fila del export a lo que el evaluador de Perspectives mira. */
 function comoFilaDeCosto(row: CostSnapshotRow): FilaDeCosto {
-    let tags: Record<string, string> | null = null;
-    if (row.Tags !== null && row.Tags !== undefined) {
-        try {
-            tags = typeof row.Tags === "string" ? JSON.parse(row.Tags) : (row.Tags as Record<string, string>);
-        } catch {
-            tags = null;
-        }
-    }
     return {
         subscriptionId: row.subscription_id ?? null,
         resourceGroup: row.resource_group ?? null,
         serviceName: row.service_name ?? null,
         resourceId: row.ResourceId ?? null,
-        tags,
+        tags: etiquetasDeColumna(row.Tags),
         costo: Number(row.cost_usd) || 0,
     };
 }

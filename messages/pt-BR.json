@@ -5759,7 +5759,8 @@
     "perDay": "/ dia",
     "activeCount": "Ativo(s)",
     "detailFeatureName": "Detalhe do Grupo de Custos",
-    "normalizedBurnRate": "Ritmo de gasto normalizado"
+    "normalizedBurnRate": "Ritmo de gasto normalizado",
+    "scopeNotApplied": "Não foi possível restringir por Perspective: este período não tem o detalhe por recurso de que o alcance precisa, então o rateio é aproximado por grupo de recursos e uma aproximação não pode ser recortada linha a linha. Os números abaixo são os do painel completo."
   },
   "CostPieChart": {
     "empty": "Ainda não há dados de custo para o gráfico.",

@@ -49,7 +49,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-32](#mej-32--tres-catálogos-de-precios-duplicados-y-ya-divergidos-mej-10-reabierta) | Tres catálogos de precios duplicados y ya divergidos (MEJ-10 reabierta) | Transversal / Ahorro | Alto | Bajo | Hecha |
 | [MEJ-33](#mej-33--cerrar-el-lazo-del-desvío-dueño-estado-persistente-y-seguimiento) | Cerrar el lazo del desvío: dueño, estado persistente y seguimiento | Anomalías / Gobernanza | Alto | Medio | Hecha |
 | [MEJ-31](#mej-31--test-de-storage-history-hardcodea-meses-absolutos-contra-reloj-real) | Test de storage-history hardcodea meses absolutos contra reloj real (rompe todos los meses) | Storage Efficiency / Tests | Medio | Bajo | Hecha |
-| [MEJ-34](#mej-34--perspectives-agrupación-multidimensional-del-gasto) | Perspectives: agrupación multidimensional del gasto — cinco criterios + selector transversal; lo adopta el export FOCUS, los tableros que agregan en SQL van uno por uno | Asignación / Transversal | Alto | Alto | Parcial |
+| [MEJ-34](#mej-34--perspectives-agrupación-multidimensional-del-gasto) | Perspectives: agrupación multidimensional del gasto — cinco criterios + selector transversal; lo adoptan el export FOCUS y el tablero de Cost Groups, el resto de los que agregan en SQL van uno por uno | Asignación / Transversal | Alto | Alto | Parcial |
 | [MEJ-35](#mej-35--suscripciones-a-reportes-cualquier-reporte-a-la-cadencia-que-elija-el-usuario) | Suscripciones a reportes: cualquier reporte, a la cadencia que elija el usuario, con link + imagen + CSV | Reportes | Alto | Medio | Propuesta |
 | [MEJ-36](#mej-36--presupuestos-rollover-y-año-fiscal-no-calendario) | Presupuestos: rollover con tope y año fiscal no calendario | Presupuestos | Medio | Bajo | Propuesta |
 | [MEJ-37](#mej-37--leaderboard-de-equipos-y-margen-bruto) | Leaderboard de equipos (ordenado por mejora, no por gasto) y split COGS/OpEx | Integración con el negocio | Medio | Bajo | Propuesta |
@@ -3202,6 +3202,35 @@ por lo leído y el total por lo emitido.
 tenant, o borrado— **no filtra nada** en vez de devolver vacío. Un export vacío se leería como "ese
 grupo no tiene gasto", que es una afirmación falsa sobre la factura del cliente. Hay un test que lo
 fija.
+
+### Hecho (2026-09-25): `cost-groups`, el primer tablero que agrega en SQL
+
+Es el caso difícil que el párrafo de arriba anticipaba, y se resolvió **moviendo la agregación de
+SQL a TypeScript sólo cuando hay alcance activo**: la consulta pasa a traer el detalle
+—`(balde CostCenter, suscripción, grupo de recursos, servicio, recurso, etiquetas)`— y el plegado
+reproduce en memoria lo que hacía el `GROUP BY`, incluidos los descartes de `COUNT(DISTINCT ...)`
+(el `NULL` no cuenta, el placeholder `mg-aggregated` tampoco). Sin alcance **la consulta de siempre
+no se toca**: es el camino caliente y no debía pagar nada.
+
+Medido contra la base local: 16.822 filas de `CostSnapshots` colapsan a 152 de detalle, y los dos
+caminos dan el mismo costo y los mismos conteos. Ese cruce es la guarda contra la deriva entre las
+dos formas de la consulta, y por eso las expresiones del balde y del costo son constantes
+compartidas en vez de estar escritas dos veces.
+
+**Un alcance sólo se aplica si se puede medir.** Cuando el costo del período llega sin procedencia
+—sync por Cost Management, sin `Tags` ni `ResourceId`— el reparto se resuelve **aproximando por
+Resource Group**, y una aproximación por RG no se puede recortar fila por fila. Filtrar igual daría
+un tablero que suma menos que la factura sin decir por qué, así que se devuelve el tablero entero
+con `summary.scopeApplied: false` y la pantalla lo dice. El tenant de demo cae en ese caso a
+propósito: sus grupos son un agregado a mano, sin detalle por recurso.
+
+Dos cosas más que el alcance apaga, y el motivo: **el enriquecimiento por Resource Graph** —cuenta
+todos los recursos del RG, incluidos los que el alcance dejó afuera, y un conteo de más al lado de
+un costo acotado no se puede leer— y **el caché**, porque su clave sería una por
+(perspective, grupo, período) y `costGroupsCacheKeys` sólo invalida las tres sin alcance: un grupo
+editado dejaría vistas acotadas viejas para siempre.
+
+Tests: `__tests__/unit/costGroupsAlcancePerspectiva.test.ts`.
 
 ### Contexto
 

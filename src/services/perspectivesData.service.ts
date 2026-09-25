@@ -18,28 +18,33 @@ export interface Perspectiva {
     reglas: ReglaPerspectiva[];
 }
 
+/**
+ * Parsea la columna JSON `Tags`: mysql2 la devuelve ya parseada o como texto
+ * segun la version del driver.
+ *
+ * NULL se conserva NULL -- que es distinto de `{}` -- porque es la señal de
+ * "sin etiquetas ingeridas", y de eso depende que `evaluarFila` sepa separar
+ * `sin-datos` de `sin-regla`. Vive acá y no en cada llamador porque ese matiz
+ * se pierde en la tercera copia.
+ */
+export function etiquetasDeColumna(valor: unknown): Record<string, string> | null {
+    if (valor === null || valor === undefined) return null;
+    try {
+        return typeof valor === "string" ? JSON.parse(valor) : (valor as Record<string, string>);
+    } catch {
+        return null;
+    }
+}
+
 function normalizarFilas(rows: any[]): FilaDeCosto[] {
-    return (rows || []).map((r) => {
-        let tags: Record<string, string> | null = null;
-        // `Tags` es una columna JSON: mysql2 la devuelve ya parseada o como
-        // texto segun la version del driver. NULL se conserva NULL -- que es
-        // distinto de `{}` -- porque es la señal de "sin etiquetas ingeridas".
-        if (r.Tags !== null && r.Tags !== undefined) {
-            try {
-                tags = typeof r.Tags === "string" ? JSON.parse(r.Tags) : (r.Tags as Record<string, string>);
-            } catch {
-                tags = null;
-            }
-        }
-        return {
-            subscriptionId: r.subscription_id ?? null,
-            resourceGroup: r.resource_group ?? null,
-            serviceName: r.service_name ?? null,
-            resourceId: r.ResourceId ?? null,
-            tags,
-            costo: Number(r.costo) || 0,
-        };
-    });
+    return (rows || []).map((r) => ({
+        subscriptionId: r.subscription_id ?? null,
+        resourceGroup: r.resource_group ?? null,
+        serviceName: r.service_name ?? null,
+        resourceId: r.ResourceId ?? null,
+        tags: etiquetasDeColumna(r.Tags),
+        costo: Number(r.costo) || 0,
+    }));
 }
 
 /**

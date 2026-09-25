@@ -5759,7 +5759,8 @@
     "perDay": "/ day",
     "activeCount": "Active",
     "detailFeatureName": "Cost Group Detail",
-    "normalizedBurnRate": "Normalized burn rate"
+    "normalizedBurnRate": "Normalized burn rate",
+    "scopeNotApplied": "The Perspective scope could not be applied: this period has no per-resource detail for the scope to work with, so the allocation is approximated by resource group — and an approximation cannot be narrowed row by row. The figures below are for the whole board."
   },
   "CostPieChart": {
     "empty": "No cost data to chart yet.",

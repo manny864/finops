@@ -3251,7 +3251,17 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                 success: true,
                 mock: true,
                 groups,
-                summary: { totalCostUsd, allocatedCostUsd, unallocatedCostUsd: Math.round(unallocatedCostUsd * 100) / 100, allocatedPercent },
+                summary: {
+                    totalCostUsd, allocatedCostUsd,
+                    unallocatedCostUsd: Math.round(unallocatedCostUsd * 100) / 100,
+                    allocatedPercent,
+                    // MEJ-34: estos grupos son un agregado sin detalle por
+                    // recurso, la misma situación de un tenant que sincroniza
+                    // por Cost Management. El alcance de Perspective se evalúa
+                    // por fila, así que acá NO se puede aplicar — y la pantalla
+                    // lo dice en vez de ignorar el selector en silencio.
+                    scopeApplied: false,
+                },
                 suggestions,
             };
         }

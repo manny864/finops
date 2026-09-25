@@ -29,6 +29,7 @@ import { isMockTenant } from "@/lib/mockData";
 import CostGroupDetailModal from "@/components/dashboard/CostGroupDetailModal";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import InfoTooltip from "@/components/InfoTooltip";
+import { usePerspectiveScope } from "@/components/PerspectiveScopeSelector";
 
 type MatchType = "tag" | "name_pattern";
 
@@ -61,6 +62,8 @@ export interface CostGroupSummaryKPIs {
     allocatedCostUsd: number;
     unallocatedCostUsd: number;
     allocatedPercent: number;
+    /** MEJ-34: false con un alcance pedido = estos números son los del tablero SIN acotar. */
+    scopeApplied?: boolean;
 }
 
 export interface CostGroupLivePreview {
@@ -410,6 +413,9 @@ export default function CostGroupsBoard() {
     const [creating, setCreating] = useState(false);
     const [budgetModalGroup, setBudgetModalGroup] = useState<{ name: string; budget: number } | null>(null);
     const [activeActionMenu, setActiveActionMenu] = useState<string | null>(null);
+    // MEJ-34: el alcance transversal viaja en la URL y entra en la clave de SWR,
+    // así cambiar de grupo revalida en vez de servir el tablero del grupo anterior.
+    const { perspectiveId, queryString: alcanceQs } = usePerspectiveScope();
 
     const fetcher = async (url: string) => {
         const idToken = await getFreshIdToken(instance, accounts[0], ["User.Read"]);
@@ -420,7 +426,7 @@ export default function CostGroupsBoard() {
 
     const { data, error, isLoading, mutate } = useSWR(
         selectedTenant && selectedTenant.id !== "default" && (accounts.length > 0 || isMockTenant(selectedTenant.id))
-            ? `/api/cost-groups?tenantId=${selectedTenant.id}&period=${period}`
+            ? `/api/cost-groups?tenantId=${selectedTenant.id}&period=${period}${alcanceQs}`
             : null,
         fetcher,
         { revalidateOnFocus: false }
@@ -513,6 +519,15 @@ export default function CostGroupsBoard() {
 
     return (
         <div className="space-y-6">
+            {/* MEJ-34: se pidió acotar por Perspective y no se pudo. Callarlo sería
+                dejar que el total del tenant se lea como el total del grupo. */}
+            {perspectiveId !== null && summary && summary.scopeApplied === false && (
+                <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs font-semibold text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200">
+                    <IconAlertCircle className="mt-px w-4 h-4 shrink-0" />
+                    <span>{t("scopeNotApplied")}</span>
+                </div>
+            )}
+
             {/* Header y Filtros */}
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div>
