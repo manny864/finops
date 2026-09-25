@@ -85,6 +85,19 @@ const ALIASES: Record<string, AllocationTagKey> = {
 };
 
 /**
+ * Nombre canónico de una clave de etiqueta, o `null` si no es de asignación.
+ *
+ * Es la misma resolución que usa `pickAllocationTags` por dentro, expuesta para
+ * que las reglas de Perspectives (MEJ-34) hagan el match de claves con EL MISMO
+ * criterio: si `cost-center` y `CostCenter` caen en el mismo cubo de asignación,
+ * tienen que caer en el mismo grupo de una Perspective.
+ */
+export function resolveAllocationTagKey(key: string): AllocationTagKey | null {
+    const normalized = normalizeKey(String(key || ''));
+    return CANONICAL_BY_NORMALIZED.get(normalized) || ALIASES[normalized] || null;
+}
+
+/**
  * Quédate sólo con las etiquetas de asignación, con su nombre canónico.
  *
  * Ante dos variantes de la misma etiqueta en un mismo recurso (`CostCenter` y
