@@ -49,7 +49,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-32](#mej-32--tres-catálogos-de-precios-duplicados-y-ya-divergidos-mej-10-reabierta) | Tres catálogos de precios duplicados y ya divergidos (MEJ-10 reabierta) | Transversal / Ahorro | Alto | Bajo | Hecha |
 | [MEJ-33](#mej-33--cerrar-el-lazo-del-desvío-dueño-estado-persistente-y-seguimiento) | Cerrar el lazo del desvío: dueño, estado persistente y seguimiento | Anomalías / Gobernanza | Alto | Medio | Hecha |
 | [MEJ-31](#mej-31--test-de-storage-history-hardcodea-meses-absolutos-contra-reloj-real) | Test de storage-history hardcodea meses absolutos contra reloj real (rompe todos los meses) | Storage Efficiency / Tests | Medio | Bajo | Hecha |
-| [MEJ-34](#mej-34--perspectives-agrupación-multidimensional-del-gasto) | Perspectives: agrupación multidimensional del gasto — los cinco criterios cumplidos; falta el selector transversal en los demás tableros | Asignación / Transversal | Alto | Alto | Parcial |
+| [MEJ-34](#mej-34--perspectives-agrupación-multidimensional-del-gasto) | Perspectives: agrupación multidimensional del gasto — cinco criterios + selector transversal; lo adopta el export FOCUS, los tableros que agregan en SQL van uno por uno | Asignación / Transversal | Alto | Alto | Parcial |
 | [MEJ-35](#mej-35--suscripciones-a-reportes-cualquier-reporte-a-la-cadencia-que-elija-el-usuario) | Suscripciones a reportes: cualquier reporte, a la cadencia que elija el usuario, con link + imagen + CSV | Reportes | Alto | Medio | Propuesta |
 | [MEJ-36](#mej-36--presupuestos-rollover-y-año-fiscal-no-calendario) | Presupuestos: rollover con tope y año fiscal no calendario | Presupuestos | Medio | Bajo | Propuesta |
 | [MEJ-37](#mej-37--leaderboard-de-equipos-y-margen-bruto) | Leaderboard de equipos (ordenado por mejora, no por gasto) y split COGS/OpEx | Integración con el negocio | Medio | Bajo | Propuesta |
@@ -3172,6 +3172,36 @@ Verificado en el navegador con las dos Perspectives de demo sobre el mismo gasto
 en Producción/Preproducción/Desarrollo con 86,14% de cobertura y **Centro de Costo** en
 Ingeniería/Datos con 72,48%, y en las dos la suma de grupos más lo sin asignar da exactamente el
 total.
+
+### El selector transversal (2026-09-25)
+
+Vive en la barra de alcance, al lado del de suscripción, y el alcance viaja en la URL
+(`?perspective=<id>&pgroup=<grupo>`) con el mismo criterio que `?sub=`: se comparte por link y
+sobrevive al refresh. Se dibuja sólo si el tenant tiene Perspectives, y no consulta nada para los
+tenants que no son Enterprise —sin ese corte, cada carga de página terminaba en un 403—.
+
+El grupo `Sin asignar` es seleccionable como cualquier otro: es donde mira quien está tratando de
+subir la cobertura.
+
+**Qué significa que una pantalla lo "honre", y por qué no lo honran todas todavía.** No alcanza con
+leer el parámetro: la pantalla tiene que filtrar sus filas **y que sus totales sigan cuadrando**. En
+un tablero que agrega en SQL —`cost-groups` hace `GROUP BY` con `COUNT(DISTINCT ...)`— eso es
+trabajo propio y no una línea, porque el predicado de una Perspective se evalúa por fila y no se
+traduce a un `WHERE` sin volver a la generación de SQL que se descartó a propósito. Un filtro que
+dejara los totales descuadrados sería peor que no tenerlo: rompería el criterio 4, que es lo que
+hace auditable a esta mejora.
+
+**Lo adopta hoy el export FOCUS** (`/api/exports/focus?perspective=&pgroup=`), y se eligió justamente
+porque filtra **fila por fila**: no hay agregación que pueda quedar descuadrada, y "entregale a
+finanzas sólo la porción de Ingeniería" es un pedido real. Ahí apareció un detalle que no es obvio:
+con filtro, el `limit` cuenta las filas que **salen** y no las que se leen — si contara las leídas,
+pedir 100.000 filas de un grupo devolvería muchas menos sin decir por qué—, así que el offset avanza
+por lo leído y el total por lo emitido.
+
+**Decisión de diseño que conviene no repetir mal:** un `perspective=` que no resuelve —id de otro
+tenant, o borrado— **no filtra nada** en vez de devolver vacío. Un export vacío se leería como "ese
+grupo no tiene gasto", que es una afirmación falsa sobre la factura del cliente. Hay un test que lo
+fija.
 
 ### Contexto
 

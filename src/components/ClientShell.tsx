@@ -5,6 +5,7 @@ import AuthProvider, { AuthButton, useAuthLoading } from "./AuthProvider";
 import { TenantProvider, useTenant } from './TenantProvider';
 import { SubscriptionProvider } from './SubscriptionProvider';
 import ScopeSelector from './ScopeSelector';
+import PerspectiveScopeSelector from './PerspectiveScopeSelector';
 import { ViewModeProvider, useViewMode } from '../context/ViewModeContext';
 import { ProviderProvider } from '../context/ProviderContext';
 import { Bell, HelpCircle } from 'lucide-react';
@@ -402,6 +403,9 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
           <div className="flex items-center space-x-2 sm:space-x-6 min-w-0">
             <div className="hidden sm:flex items-center space-x-4 min-w-0">
                 <ScopeSelector />
+                {/* MEJ-34: al lado del de suscripcion porque hace lo mismo, acotar. Se
+                    dibuja solo si el tenant tiene Perspectives. */}
+                <PerspectiveScopeSelector />
             </div>
 
             {/* En móvil el idioma vive en el Perfil y Soporte tiene su pestaña

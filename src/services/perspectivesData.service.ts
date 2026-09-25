@@ -8,6 +8,7 @@
  */
 
 import pool from "@/modules/storage/db";
+import { evaluarFila } from "./perspectives.service";
 import type { FilaDeCosto, ReglaPerspectiva, TipoRegla } from "./perspectives.service";
 
 export interface Perspectiva {
@@ -132,4 +133,36 @@ export async function guardarReglas(perspectiveId: number, reglas: ReglaPerspect
     } finally {
         conn.release();
     }
+}
+
+/** Valor reservado del selector para acotar al costo sin asignar. */
+export const GRUPO_SIN_ASIGNAR = "__unassigned__";
+
+/**
+ * Predicado de alcance para el selector transversal de Perspective.
+ *
+ * Devuelve `null` cuando no hay alcance que aplicar —sin `perspectiveId`, o si
+ * la Perspective no es de este tenant—, y el llamador entonces no filtra nada.
+ * Es deliberado: ante un id que no resuelve, una pantalla que devolviera VACÍO
+ * se leería como "este grupo no tiene gasto", que es una afirmación falsa.
+ *
+ * `grupo` nulo significa "cualquier grupo de esta Perspective", que no es lo
+ * mismo que no filtrar: deja afuera lo que ninguna regla asigna.
+ */
+export async function filtroDeAlcance(
+    tenantId: string,
+    perspectiveId: number | null,
+    grupo: string | null,
+): Promise<((fila: FilaDeCosto) => boolean) | null> {
+    if (!perspectiveId) return null;
+    const perspectiva = (await listarPerspectivas(tenantId)).find((p) => p.id === perspectiveId);
+    if (!perspectiva) return null;
+
+    const reglas = perspectiva.reglas;
+    return (fila: FilaDeCosto) => {
+        const r = evaluarFila(fila, reglas);
+        if (grupo === GRUPO_SIN_ASIGNAR) return r.grupo === null;
+        if (!grupo) return r.grupo !== null;
+        return r.grupo === grupo;
+    };
 }

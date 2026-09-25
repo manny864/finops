@@ -15805,6 +15805,10 @@
     "type_name_pattern": "Patrón de nombre",
     "type_subscription": "Suscripción",
     "type_resource_group": "Grupo de recursos",
-    "type_resource_type": "Tipo de recurso"
+    "type_resource_type": "Tipo de recurso",
+    "scopePerspective": "Perspective",
+    "scopeGroup": "Grupo",
+    "scopeAll": "Todo el gasto",
+    "scopeEveryGroup": "Todos los grupos"
   }
 }

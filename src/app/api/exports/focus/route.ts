@@ -32,6 +32,8 @@ import {
     buildFocusCsvRow,
 } from "@/lib/focus/csv";
 import { FOCUS_VERSION } from "@/lib/focus/columns";
+import { filtroDeAlcance } from "@/services/perspectivesData.service";
+import type { FilaDeCosto } from "@/services/perspectives.service";
 
 const HARD_CAP = 500_000;
 const DEFAULT_LIMIT = 100_000;
@@ -44,6 +46,9 @@ interface ExportParams {
     format: "csv" | "json" | "ndjson";
     subscriptionId?: string;
     limit: number;
+    /** MEJ-34: alcance de Perspective, del selector transversal. */
+    perspectiveId: number | null;
+    perspectiveGroup: string | null;
 }
 
 function isoDateOrNull(s: string | null): string | null {
@@ -79,6 +84,8 @@ function parseParams(request: NextRequest): ExportParams {
         format: fmt as ExportParams["format"],
         subscriptionId: sp.get("subscriptionId") || undefined,
         limit,
+        perspectiveId: Number(sp.get("perspective")) > 0 ? Number(sp.get("perspective")) : null,
+        perspectiveGroup: sp.get("pgroup") || null,
     };
 }
 
@@ -116,11 +123,37 @@ async function authorise(request: NextRequest, tenantId: string): Promise<void> 
     await requireTenantTier(request, tenantId, "Enterprise");
 }
 
+/** Traduce una fila del export a lo que el evaluador de Perspectives mira. */
+function comoFilaDeCosto(row: CostSnapshotRow): FilaDeCosto {
+    let tags: Record<string, string> | null = null;
+    if (row.Tags !== null && row.Tags !== undefined) {
+        try {
+            tags = typeof row.Tags === "string" ? JSON.parse(row.Tags) : (row.Tags as Record<string, string>);
+        } catch {
+            tags = null;
+        }
+    }
+    return {
+        subscriptionId: row.subscription_id ?? null,
+        resourceGroup: row.resource_group ?? null,
+        serviceName: row.service_name ?? null,
+        resourceId: row.ResourceId ?? null,
+        tags,
+        costo: Number(row.cost_usd) || 0,
+    };
+}
+
 async function* streamFocusRows(params: ExportParams): AsyncGenerator<CostSnapshotRow[]> {
+    // MEJ-34: el alcance de Perspective se resuelve UNA vez, no por fila.
+    const filtro = await filtroDeAlcance(params.tenantId, params.perspectiveId, params.perspectiveGroup);
+
     let offset = 0;
     let total = 0;
     while (total < params.limit) {
-        const limit = Math.min(BATCH_SIZE, params.limit - total);
+        // Con filtro se leen paginas enteras y el `limit` cuenta las filas que
+        // SALEN, no las que se leen: si contara las leidas, pedir 100.000 filas
+        // de un grupo devolveria muchas menos sin decir por que.
+        const limit = filtro ? BATCH_SIZE : Math.min(BATCH_SIZE, params.limit - total);
         const where: string[] = ["tenant_id = ?", "date >= ?", "date <= ?"];
         const values: unknown[] = [params.tenantId, params.from, params.to];
         if (params.subscriptionId) {
@@ -143,9 +176,15 @@ async function* streamFocusRows(params: ExportParams): AsyncGenerator<CostSnapsh
         );
         const batch = rows as CostSnapshotRow[];
         if (batch.length === 0) break;
-        yield batch;
+
+        let salida = filtro ? batch.filter((r) => filtro(comoFilaDeCosto(r))) : batch;
+        if (total + salida.length > params.limit) salida = salida.slice(0, params.limit - total);
+        if (salida.length > 0) yield salida;
+
+        // El offset avanza por lo LEIDO y el total por lo emitido: mezclarlos
+        // saltearia filas o repetiria paginas.
         offset += batch.length;
-        total += batch.length;
+        total += salida.length;
         if (batch.length < limit) break;
     }
 }

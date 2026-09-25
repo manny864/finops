@@ -15805,6 +15805,10 @@
     "type_name_pattern": "Name pattern",
     "type_subscription": "Subscription",
     "type_resource_group": "Resource group",
-    "type_resource_type": "Resource type"
+    "type_resource_type": "Resource type",
+    "scopePerspective": "Perspective",
+    "scopeGroup": "Group",
+    "scopeAll": "All spend",
+    "scopeEveryGroup": "All groups"
   }
 }
