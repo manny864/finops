@@ -20,25 +20,23 @@ import {
   CosmosThroughputMode,
 } from "@/types/cosmosDb";
 import { extractResourceCreatedAt, forecastMonthEnd, forecastRange, prorateMonthlyRateToMtd } from "@/lib/costAccrual";
+import {
+  getCosmosAccountMetrics,
+  getCosmosPartitionSkew,
+  detectarParticionCaliente,
+  metricasVacias,
+} from "@/services/cosmosMetrics.service";
 
 const COSMOS_TYPES = [
   "microsoft.documentdb/databaseaccounts",
   "microsoft.documentdb/mongoclusters",
 ];
 
-const COSMOS_METRICS = [
-  "TotalRequestUnits",
-  "ProvisionedThroughput",
-  "NormalizedRUConsumption",
-  "TotalRequests",
-  "ThrottledRequests",
-  "ServerSideLatency",
-  "DataUsage",
-  "IndexUsage",
-  "CpuPercent",
-  "MemoryPercent",
-  "DiskPercent",
-];
+// La lista de metricas vive en `cosmosMetrics.service.ts`, que es quien las
+// pide. La que habia aca era codigo muerto -- nadie la leia -- y ademas incluia
+// cuatro nombres que NO existen para Microsoft.DocumentDB/databaseAccounts
+// (`ThrottledRequests`, `CpuPercent`, `MemoryPercent`, `DiskPercent`), que es
+// justo el error que en Azure devuelve vacio en vez de fallar.
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
@@ -113,6 +111,9 @@ function deriveCosmosRecommendations(instance: CosmosDbAccountDetail, anyAccount
   if (
     instance.architecture === "ru-based" &&
     instance.throughputProfile.mode === "manual" &&
+    // Sin medicion no se recomienda nada: una recomendacion de ahorro sobre un
+    // dato que no existe es peor que no dar ninguna.
+    instance.metrics.avgNormalizedRuPct !== null &&
     instance.metrics.avgNormalizedRuPct < 30
   ) {
     const savings = round2(Math.max(15, cost * 0.65));
@@ -202,16 +203,17 @@ az reservations reservation-order calculate \\
   }
 
   // Regla 5: Index Storage Overhead & Optimización de Políticas de Indexación
-  if (instance.architecture === "ru-based") {
-    const isHeavyIndex = instance.storage.indexRatio > 0.4 || instance.storage.indexUsageGb > 10;
-    const savings = round2(Math.max(12, instance.storage.indexUsageGb * 0.25));
+  if (instance.architecture === "ru-based" && instance.storage.indexUsageGb !== null) {
+    const indexGb = instance.storage.indexUsageGb;
+    const isHeavyIndex = (instance.storage.indexRatio ?? 0) > 0.4 || indexGb > 10;
+    const savings = round2(Math.max(12, indexGb * 0.25));
     actions.push({
       id: `${instance.id}-index-overhead`,
       // El discriminador ahora es explicito: dos diagnosticos distintos, no dos
       // redacciones del mismo. El servidor ya sabia cual era.
       ruleKey: isHeavyIndex ? "index_overhead_heavy" : "index_overhead_default",
       params: isHeavyIndex
-        ? { indexGb: instance.storage.indexUsageGb, dataGb: instance.storage.dataUsageGb }
+        ? { indexGb, dataGb: instance.storage.dataUsageGb ?? 0 }
         : {},
       savingsMonthlyUsd: savings,
       risk: "low",
@@ -310,7 +312,7 @@ function buildMockCosmosAccounts(tenantId: string): CosmosDbAccountDetail[] {
       metrics: {
         avgNormalizedRuPct: 48.5,
         p95NormalizedRuPct: 76.2,
-        throttling429Rate: 0.04,
+        throttling429Rate: 4.0,
         totalRequests: 2450000 * mult,
         throttledRequests: 980,
         serverLatencyMs: 6.2,
@@ -361,7 +363,7 @@ function buildMockCosmosAccounts(tenantId: string): CosmosDbAccountDetail[] {
       metrics: {
         avgNormalizedRuPct: 6.4,
         p95NormalizedRuPct: 14.2,
-        throttling429Rate: 0.0,
+        throttling429Rate: 0,
         totalRequests: 85000 * mult,
         throttledRequests: 0,
         serverLatencyMs: 4.1,
@@ -415,7 +417,7 @@ function buildMockCosmosAccounts(tenantId: string): CosmosDbAccountDetail[] {
       metrics: {
         avgNormalizedRuPct: 11.2,
         p95NormalizedRuPct: 22.0,
-        throttling429Rate: 0.0,
+        throttling429Rate: 0,
         totalRequests: 42000 * mult,
         throttledRequests: 0,
         serverLatencyMs: 5.0,
@@ -469,7 +471,7 @@ function buildMockCosmosAccounts(tenantId: string): CosmosDbAccountDetail[] {
       metrics: {
         avgNormalizedRuPct: 0,
         p95NormalizedRuPct: 0,
-        throttling429Rate: 0.0,
+        throttling429Rate: 0,
         totalRequests: 890000 * mult,
         throttledRequests: 0,
         serverLatencyMs: 3.2,
@@ -522,7 +524,7 @@ function buildMockCosmosAccounts(tenantId: string): CosmosDbAccountDetail[] {
       metrics: {
         avgNormalizedRuPct: 100,
         p95NormalizedRuPct: 100,
-        throttling429Rate: 0.0,
+        throttling429Rate: 0,
         totalRequests: 120000 * mult,
         throttledRequests: 0,
         serverLatencyMs: 5.5,
@@ -594,17 +596,21 @@ export async function GET(request: NextRequest) {
       const allRecs = mockInstances.flatMap((i) => i.recommendations);
       const potentialSavings = allRecs.reduce((acc, r) => acc + r.savingsMonthlyUsd, 0);
 
-      const totalUsedGb = mockInstances.reduce((acc, i) => acc + i.storage.dataUsageGb + i.storage.indexUsageGb, 0);
-      const totalRequests = mockInstances.reduce((acc, i) => acc + i.metrics.totalRequests, 0);
+      const totalUsedGb = mockInstances.reduce((acc, i) => acc + (i.storage.dataUsageGb ?? 0) + (i.storage.indexUsageGb ?? 0), 0);
+      const totalRequests = mockInstances.reduce((acc, i) => acc + (i.metrics.totalRequests ?? 0), 0);
       const underutilized = mockInstances.filter(
-        (i) => i.architecture === "ru-based" && i.throughputProfile.mode === "manual" && i.metrics.avgNormalizedRuPct < 20
+        (i) =>
+          i.architecture === "ru-based" &&
+          i.throughputProfile.mode === "manual" &&
+          i.metrics.avgNormalizedRuPct !== null &&
+          i.metrics.avgNormalizedRuPct < 20
       ).length;
 
       const healthAvg = mockInstances.reduce((acc, i) => {
         let h = 100;
-        if (i.metrics.throttling429Rate > 0.02) h -= 25;
-        if (i.metrics.avgNormalizedRuPct < 15 && i.throughputProfile.mode === "manual") h -= 20;
-        if (i.storage.indexRatio > 0.6) h -= 15;
+        if ((i.metrics.throttling429Rate ?? 0) > 2) h -= 25;
+        if (i.metrics.avgNormalizedRuPct !== null && i.metrics.avgNormalizedRuPct < 15 && i.throughputProfile.mode === "manual") h -= 20;
+        if ((i.storage.indexRatio ?? 0) > 0.6) h -= 15;
         return acc + Math.max(20, h);
       }, 0) / mockInstances.length;
 
@@ -625,7 +631,7 @@ export async function GET(request: NextRequest) {
         risk: {
           healthScore: round2(healthAvg),
           criticalAlerts: mockInstances.filter((i) => i.state === "critical").length,
-          throttledInstancesCount: mockInstances.filter((i) => i.metrics.throttling429Rate > 0.01).length,
+          throttledInstancesCount: mockInstances.filter((i) => (i.metrics.throttling429Rate ?? 0) > 1).length,
         },
         recommendations: allRecs,
       };
@@ -723,16 +729,40 @@ export async function GET(request: NextRequest) {
       }));
 
       const architecture: CosmosArchitectureType = isMongoCluster ? "vcore-based" : "ru-based";
+
+      // Telemetria REAL. Antes de esto el bloque `metrics` de mas abajo eran
+      // constantes: 35% de RU normalizada y 0% de throttling para toda cuenta de
+      // todo cliente, sin una sola llamada a Azure Monitor. Las cuentas vCore
+      // (MongoDB cluster) no exponen estas metricas, asi que ni se piden.
+      const esRu = !isMongoCluster && !isServerless;
+      const metricasReales = isMongoCluster
+        ? metricasVacias()
+        : await getCosmosAccountMetrics(credential, subId, raw.id).catch(() => metricasVacias());
+      const particiones = esRu
+        ? await getCosmosPartitionSkew(credential, subId, raw.id).catch(() => [])
+        : [];
+      const caliente = detectarParticionCaliente(particiones);
+
+      // El modo sale de la METRICA, no de una suposicion: Azure sólo emite
+      // `AutoscaleMaxThroughput` para contenedores en autoscale. Antes todo lo
+      // que no fuera serverless se marcaba "autoscale", con lo cual la regla de
+      // "manual sobredimensionado" no se disparaba nunca con datos reales.
+      // Sin metrica no se adivina: queda "unknown".
       const mode: CosmosThroughputMode = isMongoCluster
         ? "vcore"
         : isServerless
         ? "serverless"
-        : "autoscale";
+        : metricasReales.autoscaleMaxRu !== null
+        ? "autoscale"
+        : metricasReales.provisionedRu !== null
+        ? "manual"
+        : "unknown";
 
       const throughputProfile = {
         mode,
-        totalProvisionedRu: isServerless ? undefined : 4000,
-        maxAutoscaleRu: mode === "autoscale" ? 4000 : undefined,
+        // Medidas, no 4000 fijo como antes.
+        totalProvisionedRu: isServerless ? undefined : (metricasReales.provisionedRu ?? undefined),
+        maxAutoscaleRu: metricasReales.autoscaleMaxRu ?? undefined,
         vCores: isMongoCluster ? Number(rawProps.nodeCount || 4) : undefined,
         ramGb: isMongoCluster ? 16 : undefined,
         storageSizeGb: isMongoCluster ? Number(rawProps.dataDiskSizeGB || 128) : undefined,
@@ -766,22 +796,28 @@ export async function GET(request: NextRequest) {
           );
 
       const metrics = {
-        avgNormalizedRuPct: isServerless ? 100 : 35.0,
-        p95NormalizedRuPct: isServerless ? 100 : 58.0,
-        throttling429Rate: 0.0,
-        totalRequests: 100000,
-        throttledRequests: 0,
-        serverLatencyMs: 5.0,
-        cpuPercent: isMongoCluster ? 12.0 : undefined,
-        memoryPercent: isMongoCluster ? 40.0 : undefined,
-        diskPercent: isMongoCluster ? 30.0 : undefined,
+        avgNormalizedRuPct: metricasReales.avgNormalizedRuPct,
+        p95NormalizedRuPct: metricasReales.p95NormalizedRuPct,
+        maxNormalizedRuPct: metricasReales.maxNormalizedRuPct,
+        throttling429Rate: metricasReales.throttling429Rate,
+        totalRequests: metricasReales.totalRequests,
+        throttledRequests: metricasReales.throttledRequests,
+        serverLatencyMs: metricasReales.serverLatencyMs,
+        // Las tres de vCore no existen para databaseAccounts y para
+        // mongoclusters hay que pedirlas aparte: hasta entonces van undefined en
+        // vez de 12/40/30, que es lo que decian antes.
+        cpuPercent: undefined,
+        memoryPercent: undefined,
+        diskPercent: undefined,
       };
 
+      const datos = metricasReales.dataUsageGb;
+      const indice = metricasReales.indexUsageGb;
       const storage = {
-        dataUsageGb: 50,
-        indexUsageGb: 12,
+        dataUsageGb: datos,
+        indexUsageGb: indice,
         analyticalStorageGb: throughputProfile.analyticalStoreEnabled ? 20 : 0,
-        indexRatio: 12 / 50,
+        indexRatio: datos !== null && indice !== null && datos > 0 ? Math.round((indice / datos) * 100) / 100 : null,
       };
 
       const cost = {
@@ -818,6 +854,18 @@ export async function GET(request: NextRequest) {
         architecture,
         throughputProfile,
         metrics,
+        // Sin desglose por particion no se adjunta nada: [] significaria
+        // "balanceada", y lo cierto es que no se pudo mirar.
+        ...(particiones.length > 0
+          ? {
+              partitionSkew: {
+                particiones,
+                esCaliente: caliente.esCaliente,
+                partitionIdCaliente: caliente.partitionId,
+                concentracionPct: caliente.concentracionPct,
+              },
+            }
+          : {}),
         storage,
         cost,
         recommendations: [],
@@ -834,21 +882,31 @@ export async function GET(request: NextRequest) {
     const totalCost = instances.reduce((acc, i) => acc + i.cost.totalMonthlyCostUsd, 0);
     const allRecs = instances.flatMap((i) => i.recommendations);
     const potentialSavings = allRecs.reduce((acc, r) => acc + r.savingsMonthlyUsd, 0);
-    const totalUsedGb = instances.reduce((acc, i) => acc + i.storage.dataUsageGb + i.storage.indexUsageGb, 0);
-    const totalRequests = instances.reduce((acc, i) => acc + i.metrics.totalRequests, 0);
+    // Lo no medido no entra a los agregados. Sumar null como 0 haria que una
+    // cuenta sin telemetria baje el promedio o infle un total, que es la misma
+    // trampa que las constantes que habia antes, sólo que mas dificil de ver.
+    const totalUsedGb = instances.reduce((acc, i) => acc + (i.storage.dataUsageGb ?? 0) + (i.storage.indexUsageGb ?? 0), 0);
+    const totalRequests = instances.reduce((acc, i) => acc + (i.metrics.totalRequests ?? 0), 0);
 
     const underutilized = instances.filter(
-      (i) => i.architecture === "ru-based" && i.throughputProfile.mode === "manual" && i.metrics.avgNormalizedRuPct < 20
+      (i) =>
+        i.architecture === "ru-based" &&
+        i.throughputProfile.mode === "manual" &&
+        i.metrics.avgNormalizedRuPct !== null &&
+        i.metrics.avgNormalizedRuPct < 20
     ).length;
 
-    const healthAvg = instances.length > 0
-      ? instances.reduce((acc, i) => {
+    // Sólo puntuan las cuentas con telemetria: una sin medir no es "sana",
+    // simplemente no se sabe, y meterla con 100 subiria el score del tenant.
+    const medidas = instances.filter((i) => i.metrics.avgNormalizedRuPct !== null || i.metrics.throttling429Rate !== null);
+    const healthAvg = medidas.length > 0
+      ? medidas.reduce((acc, i) => {
           let h = 100;
-          if (i.metrics.throttling429Rate > 0.02) h -= 25;
-          if (i.metrics.avgNormalizedRuPct < 15 && i.throughputProfile.mode === "manual") h -= 20;
-          if (i.storage.indexRatio > 0.6) h -= 15;
+          if ((i.metrics.throttling429Rate ?? 0) > 2) h -= 25;
+          if (i.metrics.avgNormalizedRuPct !== null && i.metrics.avgNormalizedRuPct < 15 && i.throughputProfile.mode === "manual") h -= 20;
+          if ((i.storage.indexRatio ?? 0) > 0.6) h -= 15;
           return acc + Math.max(20, h);
-        }, 0) / instances.length
+        }, 0) / medidas.length
       : 100;
 
     const response: CosmosFinopsSummaryResponse = {
@@ -871,7 +929,7 @@ export async function GET(request: NextRequest) {
       risk: {
         healthScore: round2(healthAvg),
         criticalAlerts: instances.filter((i) => i.state === "critical").length,
-        throttledInstancesCount: instances.filter((i) => i.metrics.throttling429Rate > 0.01).length,
+        throttledInstancesCount: instances.filter((i) => (i.metrics.throttling429Rate ?? 0) > 1).length,
       },
       recommendations: allRecs,
     };

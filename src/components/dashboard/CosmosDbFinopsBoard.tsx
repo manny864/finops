@@ -70,6 +70,21 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+/**
+ * MEJ-18: `null` = Azure Monitor no devolvio la serie, y eso NO es cero. Antes
+ * estos numeros venian de constantes en la ruta y siempre habia algo que
+ * pintar; ahora puede no haberlo, y la pantalla tiene que decirlo en vez de
+ * mostrar un 0,0% que se lee como "medido y esta perfecto".
+ */
+const SIN_DATO = "—";
+function pct(v: number | null | undefined, dec = 1): string {
+    return typeof v === "number" ? `${v.toFixed(dec)}%` : SIN_DATO;
+}
+/** El 429 llega como porcentaje 0-100 desde el servicio. */
+function pctThrottling(v: number | null | undefined): string {
+    return typeof v === "number" ? `${v.toFixed(2)}%` : SIN_DATO;
+}
+
 export default function CosmosDbFinopsBoard() {
   const t = useTranslations("CosmosDb");
   const tScript = useTranslations("ScriptComments");
@@ -631,13 +646,19 @@ export default function CosmosDbFinopsBoard() {
                     <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                       <span className="text-slate-500">{t("labelNormalizedRu")}:</span>
                       <span className="font-semibold text-slate-800 dark:text-slate-200">
-                        {selectedAccount.metrics.avgNormalizedRuPct.toFixed(1)}% / {selectedAccount.metrics.p95NormalizedRuPct.toFixed(1)}%
+                        {pct(selectedAccount.metrics.avgNormalizedRuPct)} / {pct(selectedAccount.metrics.p95NormalizedRuPct)}
                       </span>
                     </div>
                     <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                       <span className="text-slate-500">{t("labelThrottlingRate")}:</span>
-                      <span className={`font-semibold ${selectedAccount.metrics.throttling429Rate > 0.05 ? "text-rose-600 font-bold" : "text-emerald-600"}`}>
-                        {(selectedAccount.metrics.throttling429Rate * 100).toFixed(2)}%
+                      <span className={`font-semibold ${
+                        selectedAccount.metrics.throttling429Rate === null
+                          ? "text-slate-400"
+                          : selectedAccount.metrics.throttling429Rate > 5
+                          ? "text-rose-600 font-bold"
+                          : "text-emerald-600"
+                      }`}>
+                        {pctThrottling(selectedAccount.metrics.throttling429Rate)}
                       </span>
                     </div>
                   </>
@@ -819,12 +840,14 @@ export default function CosmosDbFinopsBoard() {
                         {acc.architecture === "ru-based" ? (
                           <span
                             className={
-                              acc.metrics.avgNormalizedRuPct < 20 && acc.throughputProfile.mode === "manual"
+                              acc.metrics.avgNormalizedRuPct !== null &&
+                              acc.metrics.avgNormalizedRuPct < 20 &&
+                              acc.throughputProfile.mode === "manual"
                                 ? "font-bold text-amber-600"
                                 : "text-slate-700 dark:text-slate-300"
                             }
                           >
-                            {acc.metrics.avgNormalizedRuPct.toFixed(1)}% / {acc.metrics.p95NormalizedRuPct.toFixed(1)}%
+                            {pct(acc.metrics.avgNormalizedRuPct)} / {pct(acc.metrics.p95NormalizedRuPct)}
                           </span>
                         ) : (
                           <span className="text-slate-600 dark:text-slate-400">
@@ -835,12 +858,14 @@ export default function CosmosDbFinopsBoard() {
                       <td className="py-3 px-3 text-right">
                         <span
                           className={
-                            acc.metrics.throttling429Rate > 0.01
+                            acc.metrics.throttling429Rate === null
+                              ? "text-slate-400"
+                              : acc.metrics.throttling429Rate > 1
                               ? "font-bold text-rose-600"
                               : "text-emerald-600"
                           }
                         >
-                          {(acc.metrics.throttling429Rate * 100).toFixed(2)}%
+                          {pctThrottling(acc.metrics.throttling429Rate)}
                         </span>
                       </td>
                       <td className="py-3 px-3 text-right font-bold text-[#1B2A41] dark:text-white">

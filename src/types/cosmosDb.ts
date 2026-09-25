@@ -8,26 +8,50 @@ export type CosmosApiKind =
   | "Table"
   | "MongoCluster"; // MongoDB vCore
 
-export type CosmosThroughputMode = "manual" | "autoscale" | "serverless" | "vcore";
+/**
+ * "unknown" existe porque el modo se deduce de las metricas —Azure sólo emite
+ * `AutoscaleMaxThroughput` para contenedores en autoscale— y si Azure no
+ * devuelve ninguna serie no hay con que decidir. Antes se asumia "autoscale"
+ * para todo lo que no fuera serverless, que es una afirmacion sin respaldo.
+ */
+export type CosmosThroughputMode = "manual" | "autoscale" | "serverless" | "vcore" | "unknown";
 
 export interface CosmosStorageBreakdown {
-  dataUsageGb: number;
-  indexUsageGb: number;
+  dataUsageGb: number | null;
+  indexUsageGb: number | null;
   analyticalStorageGb: number;
-  indexRatio: number; // index / data
+  indexRatio: number | null; // index / data
 }
 
+/**
+ * `null` = no se pudo medir, y NO es lo mismo que cero (MEJ-18). Antes estos
+ * campos eran `number` y el camino real los llenaba con constantes escritas en
+ * el codigo -35% de RU, 0% de throttling, 100.000 requests- para cualquier
+ * cuenta de cualquier cliente. Con el tipo anulable, una serie que Azure no
+ * devuelve llega como null hasta la pantalla y la pantalla lo dice.
+ */
 export interface CosmosPerformanceMetrics {
-  avgNormalizedRuPct: number;
-  p95NormalizedRuPct: number;
-  throttling429Rate: number; // Percentage of 429 requests
-  totalRequests: number;
-  throttledRequests: number;
-  serverLatencyMs: number;
+  avgNormalizedRuPct: number | null;
+  p95NormalizedRuPct: number | null;
+  /** Pico absoluto del periodo. 100 sostenido implica throttling. */
+  maxNormalizedRuPct?: number | null;
+  /** PORCENTAJE 0-100, no fraccion. El mock servia 0.04 para decir 4%. */
+  throttling429Rate: number | null;
+  totalRequests: number | null;
+  throttledRequests: number | null;
+  serverLatencyMs: number | null;
   // vCore metrics
   cpuPercent?: number;
   memoryPercent?: number;
   diskPercent?: number;
+}
+
+/** Reparto del consumo por particion fisica, para el diagnostico de hot partition. */
+export interface CosmosPartitionSkew {
+  particiones: Array<{ partitionId: string; avgNormalizedRuPct: number; maxNormalizedRuPct: number }>;
+  esCaliente: boolean;
+  partitionIdCaliente: string | null;
+  concentracionPct: number | null;
 }
 
 export interface CosmosThroughputProfile {
@@ -121,6 +145,8 @@ export interface CosmosDbAccountDetail {
   architecture: CosmosArchitectureType;
   throughputProfile: CosmosThroughputProfile;
   metrics: CosmosPerformanceMetrics;
+  /** Sólo para cuentas RU. Ausente si no se pudo desglosar por partición. */
+  partitionSkew?: CosmosPartitionSkew;
   storage: CosmosStorageBreakdown;
   cost: CosmosCostBreakdown;
   recommendations: CosmosRemediationAction[];
