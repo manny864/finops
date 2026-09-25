@@ -20,7 +20,12 @@ interface RemediationRequest {
     estimated_savings: number;
     status: "Pending" | "Approved" | "Rejected";
     requested_by: string;
-    requested_at: string;
+    /**
+     * La columna es `timestamp NULL` en la base, asi que puede venir vacia.
+     * Con `string` a secas, `new Date(null)` da 1970 y la tarjeta mostraba una
+     * fecha falsa en vez de admitir que no la tiene.
+     */
+    requested_at: string | null;
 }
 
 const fmt = (n: number) =>
@@ -123,7 +128,7 @@ export default function MobileApprovalsPage() {
                                         {req.action_type} · <b className="text-emerald-600">{fmt(Number(req.estimated_savings || 0))}/mes</b>
                                     </div>
                                     <div className="text-xs text-ink-soft dark:text-gray-500 mt-1">
-                                        {t("requestedBy", { user: req.requested_by })} · {new Date(req.requested_at).toLocaleDateString()}
+                                        {t("requestedBy", { user: req.requested_by })} · {req.requested_at ? new Date(req.requested_at).toLocaleDateString() : "—"}
                                     </div>
                                 </div>
                             </div>

@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential } from "@/lib/azure";
 import { calculateReservationSavings } from "@/services/rateService";
-import { getReservationRecommendations } from "@/services/reservationService";
+import { getReservationRecommendations, type ReservationOpportunity } from "@/services/reservationService";
+import type { RateRecommendation } from "@/services/rateService";
+/**
+ * Lo que devuelve esta ruta. El mock de la demo se ata a este tipo en
+ * `MockContracts`: si la forma cambia y nadie lo toca, rompe el typecheck en
+ * vez de vaciar la pantalla en silencio (MEJ-03).
+ */
+export interface RatesResponse {
+    recommendations: RateRecommendation[];
+    reservations: ReservationOpportunity[];
+}
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
@@ -32,7 +42,7 @@ export async function GET(request: NextRequest) {
                 );
             }
 
-            let recommendations: any[] = [];
+            let recommendations: RateRecommendation[] = [];
             try {
                 recommendations = await calculateReservationSavings(credential, subscriptionId);
             } catch (err) {
@@ -46,14 +56,15 @@ export async function GET(request: NextRequest) {
                 throw new Error(`Resource Graph falló: ${msg}`);
             }
 
-            let reservations: any[] = [];
+            let reservations: ReservationOpportunity[] = [];
             try {
                 reservations = await getReservationRecommendations(credential, subscriptionId, tenantId);
             } catch (error) {
                 console.error("[Rates API] Error en recomendador de reservas (atrapado de forma segura):", error);
             }
 
-            return { recommendations, reservations };
+            const payload: RatesResponse = { recommendations, reservations };
+            return payload;
         }, 3600);
 
         return NextResponse.json(data);

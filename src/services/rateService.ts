@@ -33,7 +33,27 @@ import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { getRetailPricing } from "./pricingService";
 import { errorMessage } from '@/lib/apiErrors';
 
-export async function calculateReservationSavings(credential: TokenCredential, subscriptionId: string) {
+/**
+ * Una fila del comparador de tarifas. Declarada para poder ATAR el mock de la
+ * demo al contrato: `intelligence/rates` no se puede invocar con un tenant de
+ * demo --pide Service Principal antes de cualquier rama-- asi que la
+ * comparacion en runtime no llega y el typecheck es la unica red. (MEJ-03)
+ */
+export interface RateRecommendation {
+    resourceName: string;
+    resourceType: string;
+    sku: string;
+    region: string;
+    monthlyCost: number;
+    monthlyCostLicenseIncluded: number;
+    annualCost: number;
+    annualCost1Y: number;
+    annualCost3Y: number;
+    savings1Y: number;
+    savings3Y: number;
+}
+
+export async function calculateReservationSavings(credential: TokenCredential, subscriptionId: string): Promise<RateRecommendation[]> {
     try {
         const client = new ResourceGraphClient(credential);
         // Expand the query to include other reservation-capable resources

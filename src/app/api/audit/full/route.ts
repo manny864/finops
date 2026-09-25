@@ -11,6 +11,24 @@ import { errorMessage } from '@/lib/apiErrors';
 
 type AuditPayload = { mode: string; auditResults: Record<string, unknown[]> };
 
+/**
+ * Lo que devuelve la ruta. El mock de la demo se ata a este tipo en
+ * `MockContracts`: la ruta no se puede invocar con un tenant de demo, asi que
+ * el typecheck es la unica red (MEJ-03).
+ *
+ * `auditResults` es un mapa dinamico con una clave por chequeo del catalogo KQL
+ * -- hoy 63 --, asi que el tipo no puede afirmar cuales vienen. El mock trae 8;
+ * no es una divergencia de contrato sino de RIQUEZA de la demo, anotada en
+ * docs/MEJORAS-FUTURAS.md para que se decida a proposito y no por olvido.
+ */
+export interface AuditFullResponse {
+    success: boolean;
+    tenantId: string | null;
+    mode: string;
+    auditResults: Record<string, unknown[]>;
+    message?: string;
+}
+
 async function computeAuditPayload(tenantId: string, subscriptionId: string | null): Promise<AuditPayload> {
     // 2. Obtener Cliente Autenticado
     const credential = await getAzureCredential(tenantId);
@@ -261,12 +279,13 @@ export async function GET(request: NextRequest) {
     });
 
     // 5. Retornar Estructura Unificada
-    return NextResponse.json({
+    const respuesta: AuditFullResponse = {
         success: true,
         tenantId,
         mode: payload.mode,
-        auditResults: auditResultsCopy
-    });
+        auditResults: auditResultsCopy,
+    };
+    return NextResponse.json(respuesta);
 
   } catch (error: unknown) {
     if (error instanceof AuthError) {

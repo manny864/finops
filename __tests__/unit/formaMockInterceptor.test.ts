@@ -132,6 +132,26 @@ const CASOS: Array<[string, string, () => Promise<any>]> = [
  * listan para que el chequeo de abajo no las dé por cubiertas en silencio y
  * para que quien agregue los mocks que les faltan sepa cuáles son.
  */
+/**
+ * Cubiertas por TYPECHECK y no por este test.
+ *
+ * Su handler no se puede invocar con un tenant de demo —piden credenciales de
+ * Azure o base antes de cualquier rama mock—, asi que la comparacion en runtime
+ * no llega. En su lugar, el mock se ata al contrato con `MockContracts` +
+ * `satisfies` en mockData.ts: si la ruta cambia de forma y nadie toca el mock,
+ * rompe la compilacion. Comprobado con mutante sobre `budgets_burn`.
+ *
+ * Estan listadas para que el chequeo de abajo no las reporte como nuevas, y
+ * para que se vea que NO estan sin mirar.
+ */
+const ATADAS_POR_TIPO: string[] = [
+    "/api/budgets/burn",
+    "/api/intelligence/rates",
+    "/api/intelligence/rightsizing",
+    "/api/remediation/workflow",
+    "/api/audit/full",
+];
+
 const SIN_COBERTURA: Array<[string, string]> = [
     // Las siete que quedan comparten causa, y la causa es del PRODUCTO, no del
     // arnes: la ruta NO tiene rama `isMockTenant`, asi que con un tenant de demo
@@ -143,10 +163,6 @@ const SIN_COBERTURA: Array<[string, string]> = [
     // intercepcion, que es lo que se hizo con billing, aks-chargeback y
     // cost-by-category. Es trabajo por ruta, no un arreglo del test.
 
-    // Piden credenciales de Azure antes de cualquier rama de demo.
-    ["/api/budgets/burn", "budgets_burn"],              // getAzureCredential en la linea 24; isMockTenant recien en la 94, solo para decidir si persiste
-    ["/api/intelligence/rates", "rates"],               // sin isMockTenant: exige Service Principal del tenant
-    ["/api/intelligence/rightsizing", "rightsizing"],   // sin isMockTenant: corta con "Faltan credenciales del entorno"
 
     // Responden 200 pero con el payload vacio de una base sin filas, que es
     // justo lo que el chequeo de "degradada" rechaza: compararlo no prueba nada.
@@ -155,8 +171,6 @@ const SIN_COBERTURA: Array<[string, string]> = [
     // el 2026-09-25 porque NINGUN componente llama a esas rutas. La de ttl ademas
     // servia una forma distinta de la que devuelve la ruta, divergencia que nadie
     // vio nunca porque no habia a quien mostrarsela.
-    ["/api/audit/full", "audit_full"],                  // sin isMockTenant: "Tenant sin onboarding tecnico completo"
-    ["/api/remediation/workflow", "approvals"],         // sin isMockTenant: data:[] de una tabla vacia
 
     // Esta es distinta: el limite es del ARNES, no de la ruta. `summary` agrega
     // varias sub-llamadas (auditoria, forecast, huella de carbono) y marca
@@ -182,7 +196,7 @@ describe("ninguna intercepcion queda sin mirar (MEJ-03)", () => {
         const fuente = readFileSync("src/components/TenantProvider.tsx", "utf-8");
         const enElCodigo = [...fuente.matchAll(/url\.includes\('([^']+)'\)[^\n]*?getMockDataForRoute\('([^']+)'/g)]
             .map((m) => m[1]);
-        const conocidas = new Set([...CASOS.map((c) => c[0]), ...SIN_COBERTURA.map((c) => c[0])]);
+        const conocidas = new Set([...CASOS.map((c) => c[0]), ...ATADAS_POR_TIPO, ...SIN_COBERTURA.map((c) => c[0])]);
         const nuevas = [...new Set(enElCodigo)].filter((u) => !conocidas.has(u));
 
         expect(

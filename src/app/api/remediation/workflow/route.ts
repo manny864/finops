@@ -4,6 +4,31 @@ import { AuthError, requireRequestIdentity, requireTenantAccess } from "@/lib/re
 import { notifyTenant } from "@/lib/notifications";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
+/**
+ * `SELECT * FROM RemediationRequests`, asi que el contrato es la tabla: columnas
+ * de `migrations/20260728-003`. Declarado para atar el mock de la demo por
+ * typecheck -- la ruta exige identidad y base, no se puede invocar con un tenant
+ * de demo (MEJ-03).
+ */
+export interface RemediationRequestRow {
+    id: number;
+    tenant_id: string;
+    resource_id: string;
+    resource_name: string;
+    action_type: string;
+    estimated_savings: number;
+    status: "Pending" | "Approved" | "Rejected";
+    requested_by: string;
+    requested_at: string | null;
+    resolved_at: string | null;
+    resolved_by: string | null;
+}
+
+export interface RemediationWorkflowResponse {
+    success: boolean;
+    data: RemediationRequestRow[];
+}
+
 export async function GET(request: NextRequest) {
     try {
         await initializeDatabase();
@@ -19,7 +44,8 @@ export async function GET(request: NextRequest) {
             [queriedTenantId]
         );
 
-        return NextResponse.json({ success: true, data: rows });
+        const respuesta: RemediationWorkflowResponse = { success: true, data: rows as RemediationRequestRow[] };
+        return NextResponse.json(respuesta);
     } catch (error) {
         if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         console.error("GET RemediationRequests Error:", error);

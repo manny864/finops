@@ -19,7 +19,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 |---|---|---|---|---|---|
 | [MEJ-01](#mej-01--atribución-de-ahorros-hechos-en-azure-vía-activity-log) | Atribuir a un autor los ahorros hechos fuera de la plataforma | Ahorro Capturado | Alto | Medio | Hecha |
 | [MEJ-02](#mej-02--animaciones-de-recharts-que-dependen-de-requestanimationframe) | Centralizar el apagado de animaciones de Recharts | Transversal (gráficas) | Medio | Bajo | Parcial |
-| [MEJ-03](#mej-03--auditar-las-intercepciones-demo-restantes-de-tenantprovider) | Auditar las intercepciones demo restantes (33 vivas: 27 con guard automático, 2 muertas borradas, 1 atada por typecheck, 5 pendientes) | Demo / mocks | Alto | Medio | Parcial |
+| [MEJ-03](#mej-03--auditar-las-intercepciones-demo-restantes-de-tenantprovider) | Auditar las intercepciones demo restantes (33 vivas: 27 con guard en runtime, 5 atadas por typecheck, 2 muertas borradas; queda `dashboard/summary`) | Demo / mocks | Alto | Medio | Parcial |
 | [MEJ-04](#mej-04--persistir-el-desperdicio-detectado-como-métrica-propia) | Persistir el desperdicio detectado como métrica propia | Ahorro Capturado | Medio | Bajo | Hecha |
 | [MEJ-05](#mej-05--atribuir-el-costo-de-recursos-hijos-a-su-recurso-padre) | Atribuir costo de recursos hijos al padre | Recursos | Medio | Medio | Hecha |
 | [MEJ-06](#mej-06--prosa-generada-por-ia-sobre-el-motor-determinista-de-remediación) | Prosa de IA sobre el motor determinista de remediación | Azure Advisor | Bajo | Bajo | Hecha |
@@ -361,10 +361,31 @@ error mío**: escribí el tipo de `subBudgets` con el `BudgetProjection` complet
 rechazó, porque la ruta elige cinco de sus siete campos y usa `budget`/`actual` en lugar de
 `assignedAmount`/`currentSpend`. El tipo describe lo que la ruta devuelve, no lo que uno supondría.
 
-**Quedan cinco** con consumidor real y sin rama mock: `audit/full`, `intelligence/rates`,
-`intelligence/rightsizing`, `remediation/workflow` y `dashboard/summary`. Para todas el camino es el
-mismo que el de `budgets/burn` —declarar el tipo de respuesta y atar el mock— porque ninguna se
-puede invocar con un tenant de demo. Es trabajo por ruta.
+**Las cinco restantes, atadas por typecheck (2026-09-25)**, con el mismo método que
+`budgets/burn`. Cuatro cerradas y una abierta:
+
+| Ruta | Qué destapó el typecheck |
+|---|---|
+| `intelligence/rates` | nada: `recommendations` y `reservations` ya coincidían |
+| `remediation/workflow` | al mock le faltaba **`tenant_id`**; la ruta hace `SELECT *`, así que el contrato es la tabla |
+| `intelligence/rightsizing` | al mock le faltaban los **cuatro campos de exención** que la ruta agrega a TODAS las filas, y `/intelligence/rightsizing` **filtra por `isExempted`**: en la demo el filtro "eximidas" no devolvía nunca nada. También tenía una clave `subscriptions` que la ruta no manda y nadie lee |
+| `audit/full` | nada de contrato (ya tenía `AuditPayload`) |
+| `dashboard/summary` | **pendiente** |
+
+De `remediation/workflow` salió además un arreglo de UI: `requested_at` es `timestamp NULL` en la
+base y la página móvil de aprobaciones lo tipaba como `string`, así que un valor vacío habría dado
+`new Date(null)` → 1970, una fecha falsa en vez de admitir que no la tiene.
+
+**Un hallazgo que NO es divergencia de contrato:** `audit/full` corre **63 chequeos** del catálogo
+KQL y el mock de la demo trae **8**. Los 55 restantes salen vacíos. No está "roto" —un tenant sano
+también los tendría vacíos— pero al prospecto le muestra 8 tipos de desperdicio detectados cuando el
+producto detecta 63. Es una decisión de contenido de la demo, no un bug, y queda anotada acá para
+que se tome a propósito.
+
+**`dashboard/summary` queda pendiente a propósito.** Son 706 líneas de ruta y 241 de mock, y su
+respuesta es `{success, ...data, fromCache}` con `data` armado en varias etapas. Escribir ese tipo
+apurado es peor que no escribirlo: ya pasó hoy con `subBudgets`, donde el tipo que puse de más lo
+rechazó el compilador. Necesita su propia pasada.
 
 **Y una corrección al análisis anterior:** dar a estas rutas una rama `isMockTenant` y borrar la
 intercepción, que es lo que hizo falta en las diez primeras, **acá no arreglaría nada**. En esas

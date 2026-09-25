@@ -27,6 +27,37 @@ async function queryResourceGraphWithRetry(client: any, query: string, subscript
     }
 }
 
+/**
+ * Una fila del blade de rightsizing: lo que trae Resource Graph mas los cuatro
+ * campos de exencion que agrega esta ruta. Declarada para atar el mock de la
+ * demo por typecheck; la ruta no se puede invocar con un tenant de demo (MEJ-03).
+ *
+ * Los campos de exencion NO son opcionales: la ruta se los pone a TODAS las
+ * filas, y `/intelligence/rightsizing` filtra por `isExempted`. El mock no los
+ * traia, asi que en la demo el filtro "eximidas" no devolvia nunca nada.
+ */
+export interface RightsizingRow {
+    id: string;
+    name: string;
+    subscriptionId: string;
+    currentSku: string;
+    recommendedSku: string;
+    savings: number;
+    maxCpu: number;
+    hiddenCost: number;
+    action: string;
+    reason: string;
+    isExempted: boolean;
+    exemptionReason: string | null;
+    exemptionComment: string | null;
+    exemptionDate: string | null;
+}
+
+export interface RightsizingResponse {
+    success: boolean;
+    data: RightsizingRow[];
+}
+
 export async function GET(request: NextRequest) {
     try {
         const tenantId = request.headers.get('x-tenant-id');
@@ -219,7 +250,8 @@ export async function GET(request: NextRequest) {
             };
         });
 
-        return NextResponse.json({ success: true, data: enrichedVms });
+        const respuesta: RightsizingResponse = { success: true, data: enrichedVms as RightsizingRow[] };
+        return NextResponse.json(respuesta);
     } catch (error) {
         if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         console.error('Rightsizing API Error:', error);

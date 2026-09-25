@@ -1,6 +1,10 @@
 import { buildDailyHistogram } from './costProjection';
 import type { ComputeEfficiencySummary, RateOptimizationAction } from './computeEfficiencyTypes';
 import type { BudgetBurnResponse } from './budgetTypes';
+import type { RatesResponse } from '@/app/api/intelligence/rates/route';
+import type { RemediationWorkflowResponse } from '@/app/api/remediation/workflow/route';
+import type { RightsizingResponse } from '@/app/api/intelligence/rightsizing/route';
+import type { AuditFullResponse } from '@/app/api/audit/full/route';
 // MEJ-40: la demo calcula la concentración con la MISMA función que producción
 // —es pura y no toca la base— en vez de con un objeto a mano. Un mock escrito
 // aparte se vuelve mentira en cuanto cambia el cálculo, y esta pantalla es la
@@ -317,12 +321,28 @@ export const getMockNetworkServiceCostV2 = (arg2: string, family: NetworkFamily)
  * y se comporta como antes. Agregar una es una línea más el `satisfies` en su
  * case — ése es el trabajo pendiente que deja MEJ-03.
  */
+/**
+ * El interceptor agrega dos marcadores que la ruta viva no devuelve: `mock` y a
+ * veces `success`. No son parte del contrato y tampoco hay que borrarlos --los
+ * payloads de la demo los vienen trayendo--, asi que el tipo los admite de
+ * forma explicita en vez de aflojar el resto.
+ */
+type ConMarcaMock<T> = T & { mock?: boolean; success?: boolean };
+
 export interface MockContracts {
     // Atada por typecheck y no por el test de runtime: `budgets/burn` pide
     // credenciales de Azure antes de cualquier rama mock, asi que el handler no
     // se puede invocar con un tenant de demo y la comparacion de formas no
     // llega. Es la unica red posible para esta ruta. (MEJ-03)
-    'budgets_burn': BudgetBurnResponse;
+    'budgets_burn': ConMarcaMock<BudgetBurnResponse>;
+    // Misma razon: `rates` pide Service Principal antes de cualquier rama mock.
+    'rates': ConMarcaMock<RatesResponse>;
+    // `SELECT *`: el contrato es la tabla RemediationRequests.
+    'approvals': ConMarcaMock<RemediationWorkflowResponse>;
+    // Los cuatro campos de exencion los pone la ruta a TODAS las filas y
+    // `/intelligence/rightsizing` filtra por ellos.
+    'rightsizing': ConMarcaMock<RightsizingResponse>;
+    'audit_full': ConMarcaMock<AuditFullResponse>;
     'compute-efficiency': ComputeEfficiencySummary;
     // Las siguientes NO se ataron todavía: atarlas exige verificar primero QUÉ
     // ruta sirve la clave y QUÉ tipo consume su panel. Al intentarlo se
@@ -687,20 +707,22 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                 success: true,
                 mock: true,
                 data: [
-                    { id: "/subscriptions/mock-sub/resourceGroups/prod-rg/providers/Microsoft.Compute/virtualMachines/app-prod-vm-01", name: "app-prod-vm-01", subscriptionId: "mock-sub", currentSku: "Standard_D8s_v3", recommendedSku: "Standard_D4s_v3", savings: 215.50, maxCpu: 8.2, hiddenCost: 0, action: "DOWNGRADE", reason: "Oversized" },
+                    { id: "/subscriptions/mock-sub/resourceGroups/prod-rg/providers/Microsoft.Compute/virtualMachines/app-prod-vm-01", name: "app-prod-vm-01", subscriptionId: "mock-sub", currentSku: "Standard_D8s_v3", recommendedSku: "Standard_D4s_v3", savings: 215.50, maxCpu: 8.2, hiddenCost: 0, action: "DOWNGRADE", reason: "Oversized", isExempted: true, exemptionReason: "VM requerida para backups periodicos de MySQL", exemptionComment: null, exemptionDate: "2026-09-01T00:00:00Z" },
                     // Las dos de abajo son los casos de SUBIDA: una saturada de
                     // forma sostenida (p95 alto) y otra que pega contra el techo
                     // con un piso ya alto. Sin ellas la demo solo mostraba bajadas.
-                    { id: "/subscriptions/mock-sub/resourceGroups/prod-rg/providers/Microsoft.Compute/virtualMachines/api-gateway-vm-01", name: "api-gateway-vm-01", subscriptionId: "mock-sub", currentSku: "Standard_D4s_v5", recommendedSku: "Standard_D8s_v5", savings: 0, maxCpu: 99.4, hiddenCost: 0, action: "UPGRADE", reason: "Saturated" },
-                    { id: "/subscriptions/mock-sub/resourceGroups/data-rg/providers/Microsoft.Compute/virtualMachines/etl-spark-node-03", name: "etl-spark-node-03", subscriptionId: "mock-sub", currentSku: "Standard_E8s_v5", recommendedSku: "Standard_E16s_v5", savings: 0, maxCpu: 97.1, hiddenCost: 0, action: "UPGRADE", reason: "Peaking" },
-                    { id: "/subscriptions/mock-sub/resourceGroups/stage-rg/providers/Microsoft.Compute/virtualMachines/db-stage-vm-02", name: "db-stage-vm-02", subscriptionId: "mock-sub", action: "DOWNGRADE", currentSku: "Standard_E8s_v4", recommendedSku: "Standard_E2s_v4", savings: 380.00, maxCpu: 4.1, hiddenCost: 0, reason: "Low CPU utilization" },
-                    { id: "/subscriptions/mock-sub/resourceGroups/batch-rg/providers/Microsoft.Compute/virtualMachines/worker-batch-10", name: "worker-batch-10", subscriptionId: "mock-sub", action: "DOWNGRADE", currentSku: "Standard_F16s_v2", recommendedSku: "Standard_F8s_v2", savings: 412.20, maxCpu: 18.5, hiddenCost: 0, reason: "Low CPU utilization" },
-                    { id: "/subscriptions/mock-sub/resourceGroups/core-rg/providers/Microsoft.Compute/virtualMachines/cache-node-01", name: "cache-node-01", subscriptionId: "mock-sub", action: "DOWNGRADE", currentSku: "Standard_D4ds_v5", recommendedSku: "Standard_D2ds_v5", savings: 105.80, maxCpu: 12.0, hiddenCost: 0, reason: "Low CPU utilization" },
-                    { id: "/subscriptions/mock-sub/resourceGroups/cscs-finops-prod-westus2-backup-rg/providers/Microsoft.Compute/virtualMachines/vm-mysql-worker", name: "vm-mysql-worker", subscriptionId: "mock-sub", action: "DELETE", currentSku: "Standard_D2s_v5", recommendedSku: "Snapshot & Delete VM", savings: 0, maxCpu: 0, hiddenCost: 38.50, reason: "Deallocated VM with attached Storage", isExempted: true, exemptionReason: "VM requerida para backups periódicos de MySQL", exemptionComment: "Máquina virtual encendida por ventanas cortas según scheduler para respaldar bases de datos en Storage Account. Mantener aunque figure apagada." },
-                    { id: "/subscriptions/mock-sub/resourceGroups/legacy-rg/providers/Microsoft.Compute/virtualMachines/old-deallocated-vm", name: "old-deallocated-vm", subscriptionId: "mock-sub", action: "DELETE", currentSku: "Standard_D2s_v3", recommendedSku: "DELETE", savings: 0, maxCpu: 0, hiddenCost: 38.50, reason: "Deallocated VM with attached Storage", isExempted: false }
+                    { id: "/subscriptions/mock-sub/resourceGroups/prod-rg/providers/Microsoft.Compute/virtualMachines/api-gateway-vm-01", name: "api-gateway-vm-01", subscriptionId: "mock-sub", currentSku: "Standard_D4s_v5", recommendedSku: "Standard_D8s_v5", savings: 0, maxCpu: 99.4, hiddenCost: 0, action: "UPGRADE", reason: "Saturated", isExempted: false, exemptionReason: null, exemptionComment: null, exemptionDate: null },
+                    { id: "/subscriptions/mock-sub/resourceGroups/data-rg/providers/Microsoft.Compute/virtualMachines/etl-spark-node-03", name: "etl-spark-node-03", subscriptionId: "mock-sub", currentSku: "Standard_E8s_v5", recommendedSku: "Standard_E16s_v5", savings: 0, maxCpu: 97.1, hiddenCost: 0, action: "UPGRADE", reason: "Peaking", isExempted: false, exemptionReason: null, exemptionComment: null, exemptionDate: null },
+                    { id: "/subscriptions/mock-sub/resourceGroups/stage-rg/providers/Microsoft.Compute/virtualMachines/db-stage-vm-02", name: "db-stage-vm-02", subscriptionId: "mock-sub", action: "DOWNGRADE", currentSku: "Standard_E8s_v4", recommendedSku: "Standard_E2s_v4", savings: 380.00, maxCpu: 4.1, hiddenCost: 0, reason: "Low CPU utilization", isExempted: false, exemptionReason: null, exemptionComment: null, exemptionDate: null },
+                    { id: "/subscriptions/mock-sub/resourceGroups/batch-rg/providers/Microsoft.Compute/virtualMachines/worker-batch-10", name: "worker-batch-10", subscriptionId: "mock-sub", action: "DOWNGRADE", currentSku: "Standard_F16s_v2", recommendedSku: "Standard_F8s_v2", savings: 412.20, maxCpu: 18.5, hiddenCost: 0, reason: "Low CPU utilization", isExempted: false, exemptionReason: null, exemptionComment: null, exemptionDate: null },
+                    { id: "/subscriptions/mock-sub/resourceGroups/core-rg/providers/Microsoft.Compute/virtualMachines/cache-node-01", name: "cache-node-01", subscriptionId: "mock-sub", action: "DOWNGRADE", currentSku: "Standard_D4ds_v5", recommendedSku: "Standard_D2ds_v5", savings: 105.80, maxCpu: 12.0, hiddenCost: 0, reason: "Low CPU utilization", isExempted: false, exemptionReason: null, exemptionComment: null, exemptionDate: null },
+                    { id: "/subscriptions/mock-sub/resourceGroups/cscs-finops-prod-westus2-backup-rg/providers/Microsoft.Compute/virtualMachines/vm-mysql-worker", name: "vm-mysql-worker", subscriptionId: "mock-sub", action: "DELETE", currentSku: "Standard_D2s_v5", recommendedSku: "Snapshot & Delete VM", savings: 0, maxCpu: 0, hiddenCost: 38.50, reason: "Deallocated VM with attached Storage", isExempted: true, exemptionReason: "VM requerida para backups periódicos de MySQL", exemptionComment: "Máquina virtual encendida por ventanas cortas según scheduler para respaldar bases de datos en Storage Account. Mantener aunque figure apagada.", exemptionDate: null },
+                    { id: "/subscriptions/mock-sub/resourceGroups/legacy-rg/providers/Microsoft.Compute/virtualMachines/old-deallocated-vm", name: "old-deallocated-vm", subscriptionId: "mock-sub", action: "DELETE", currentSku: "Standard_D2s_v3", recommendedSku: "DELETE", savings: 0, maxCpu: 0, hiddenCost: 38.50, reason: "Deallocated VM with attached Storage", isExempted: false, exemptionReason: null, exemptionComment: null, exemptionDate: null }
                 ],
-                subscriptions: [{ id: "mock-sub", name: "Demo Subscription" }]
-            };
+                // Se va `subscriptions`: la ruta no lo devuelve y ningun
+                // consumidor lo lee. Era dato muerto que hacia parecer que el
+                // contrato tenia una clave mas.
+            } satisfies MockContracts['rightsizing'];
         case 'rates':
             return {
                 mock: true,
@@ -730,7 +752,7 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                     { skuName: 'DW500c', resourceType: 'SynapseAnalytics', recommendedQuantity: 1 * multiplier, totalMonthlyPAYGCost: 5760 * multiplier, costWith1YReservation: 3456 * multiplier, netSavings1Y: 2304 * multiplier, costWith3YReservation: 2419 * multiplier, netSavings3Y: 3341 * multiplier },
                     { skuName: 'Standard_D4s_v5', resourceType: 'VirtualMachines', recommendedQuantity: 6 * multiplier, totalMonthlyPAYGCost: 1050 * multiplier, costWith1YReservation: 630 * multiplier, netSavings1Y: 420 * multiplier, costWith3YReservation: 441 * multiplier, netSavings3Y: 609 * multiplier }
                 ]
-            };
+            } satisfies MockContracts['rates'];
         case 'invoicing_report': {
             const round2 = (x: number) => Math.round(x * 100) / 100;
             const markupPercent = 15;
@@ -850,7 +872,7 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                         { id: "mock-empty-rg", name: "test-deployment-rg", resourceGroup: "test-deployment-rg", isHygiene: true }
                     ]
                 }
-            };
+            } satisfies MockContracts['audit_full'];
         case 'networking_zombies': {
             const scale = Math.min(3, Math.max(1, Math.round(multiplier / 5))); // 1x (Professional/Pro) .. 3x (Enterprise)
             const base: Array<{ resourceName: string; resourceType: string; resourceGroup: string; monthlyCost: number; reason: string; daysIdle: number }> = [
@@ -1710,6 +1732,7 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
             const totalBudget = 30000 * multiplier;
             const totalActual = 27500 * multiplier;
             return {
+                success: true,
                 burnData: rawMock,
                 subBudgets: {
                     'mock-sub': {
@@ -2335,13 +2358,13 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                 success: true,
                 mock: true,
                 data: [
-                    { id: 1, resource_id: '/subscriptions/demo/resourceGroups/rg-prod/providers/Microsoft.Compute/disks/orphan-disk-01', resource_name: 'orphan-disk-01 (Premium SSD 512GB)', action_type: 'DELETE_RESOURCE', estimated_savings: 78.40, status: 'Pending', requested_by: 'advisor-bot@demo.local', requested_at: new Date(Date.now() - 1000*60*60*3).toISOString(), resolved_at: null, resolved_by: null },
-                    { id: 2, resource_id: '/subscriptions/demo/resourceGroups/rg-dev/providers/Microsoft.Compute/virtualMachines/vm-dev-04', resource_name: 'vm-dev-04 (Standard_D8s_v5 → D4s_v5)', action_type: 'RIGHTSIZE_VM', estimated_savings: 142.10, status: 'Pending', requested_by: 'rightsizing-engine@demo.local', requested_at: new Date(Date.now() - 1000*60*60*9).toISOString(), resolved_at: null, resolved_by: null },
-                    { id: 3, resource_id: '/subscriptions/demo/resourceGroups/rg-net/providers/Microsoft.Network/publicIPAddresses/pip-legacy', resource_name: 'pip-legacy (Public IP huérfana)', action_type: 'DELETE_RESOURCE', estimated_savings: 4.20, status: 'Approved', requested_by: 'zombie-scanner@demo.local', requested_at: new Date(Date.now() - 1000*60*60*48).toISOString(), resolved_at: new Date(Date.now() - 1000*60*60*47).toISOString(), resolved_by: 'admin@demo.local' },
-                    { id: 4, resource_id: '/subscriptions/demo/resourceGroups/rg-data/providers/Microsoft.Storage/storageAccounts/saoldlogs', resource_name: 'saoldlogs (Hot → Cool tier)', action_type: 'CHANGE_TIER', estimated_savings: 65.00, status: 'Approved', requested_by: 'storage-efficiency@demo.local', requested_at: new Date(Date.now() - 1000*60*60*72).toISOString(), resolved_at: new Date(Date.now() - 1000*60*60*70).toISOString(), resolved_by: 'admin@demo.local' },
-                    { id: 5, resource_id: '/subscriptions/demo/resourceGroups/rg-test/providers/Microsoft.Compute/virtualMachines/vm-stress-test', resource_name: 'vm-stress-test (Power Off por inactividad)', action_type: 'POWER_OFF', estimated_savings: 28.60, status: 'Rejected', requested_by: 'smart-shutdown@demo.local', requested_at: new Date(Date.now() - 1000*60*60*96).toISOString(), resolved_at: new Date(Date.now() - 1000*60*60*95).toISOString(), resolved_by: 'admin@demo.local' }
+                    { id: 1, tenant_id: arg2, resource_id: '/subscriptions/demo/resourceGroups/rg-prod/providers/Microsoft.Compute/disks/orphan-disk-01', resource_name: 'orphan-disk-01 (Premium SSD 512GB)', action_type: 'DELETE_RESOURCE', estimated_savings: 78.40, status: 'Pending', requested_by: 'advisor-bot@demo.local', requested_at: new Date(Date.now() - 1000*60*60*3).toISOString(), resolved_at: null, resolved_by: null },
+                    { id: 2, tenant_id: arg2, resource_id: '/subscriptions/demo/resourceGroups/rg-dev/providers/Microsoft.Compute/virtualMachines/vm-dev-04', resource_name: 'vm-dev-04 (Standard_D8s_v5 → D4s_v5)', action_type: 'RIGHTSIZE_VM', estimated_savings: 142.10, status: 'Pending', requested_by: 'rightsizing-engine@demo.local', requested_at: new Date(Date.now() - 1000*60*60*9).toISOString(), resolved_at: null, resolved_by: null },
+                    { id: 3, tenant_id: arg2, resource_id: '/subscriptions/demo/resourceGroups/rg-net/providers/Microsoft.Network/publicIPAddresses/pip-legacy', resource_name: 'pip-legacy (Public IP huérfana)', action_type: 'DELETE_RESOURCE', estimated_savings: 4.20, status: 'Approved', requested_by: 'zombie-scanner@demo.local', requested_at: new Date(Date.now() - 1000*60*60*48).toISOString(), resolved_at: new Date(Date.now() - 1000*60*60*47).toISOString(), resolved_by: 'admin@demo.local' },
+                    { id: 4, tenant_id: arg2, resource_id: '/subscriptions/demo/resourceGroups/rg-data/providers/Microsoft.Storage/storageAccounts/saoldlogs', resource_name: 'saoldlogs (Hot → Cool tier)', action_type: 'CHANGE_TIER', estimated_savings: 65.00, status: 'Approved', requested_by: 'storage-efficiency@demo.local', requested_at: new Date(Date.now() - 1000*60*60*72).toISOString(), resolved_at: new Date(Date.now() - 1000*60*60*70).toISOString(), resolved_by: 'admin@demo.local' },
+                    { id: 5, tenant_id: arg2, resource_id: '/subscriptions/demo/resourceGroups/rg-test/providers/Microsoft.Compute/virtualMachines/vm-stress-test', resource_name: 'vm-stress-test (Power Off por inactividad)', action_type: 'POWER_OFF', estimated_savings: 28.60, status: 'Rejected', requested_by: 'smart-shutdown@demo.local', requested_at: new Date(Date.now() - 1000*60*60*96).toISOString(), resolved_at: new Date(Date.now() - 1000*60*60*95).toISOString(), resolved_by: 'admin@demo.local' }
                 ]
-            };
+            } satisfies MockContracts['approvals'];
         case 'macc': {
             // MACC scales by tier: Enterprise = large multi-commitment, Business = mid, Professional = small atRisk
             const today = new Date();
