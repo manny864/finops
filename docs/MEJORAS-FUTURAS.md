@@ -49,7 +49,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-32](#mej-32--tres-catálogos-de-precios-duplicados-y-ya-divergidos-mej-10-reabierta) | Tres catálogos de precios duplicados y ya divergidos (MEJ-10 reabierta) | Transversal / Ahorro | Alto | Bajo | Hecha |
 | [MEJ-33](#mej-33--cerrar-el-lazo-del-desvío-dueño-estado-persistente-y-seguimiento) | Cerrar el lazo del desvío: dueño, estado persistente y seguimiento | Anomalías / Gobernanza | Alto | Medio | Hecha |
 | [MEJ-31](#mej-31--test-de-storage-history-hardcodea-meses-absolutos-contra-reloj-real) | Test de storage-history hardcodea meses absolutos contra reloj real (rompe todos los meses) | Storage Efficiency / Tests | Medio | Bajo | Hecha |
-| [MEJ-34](#mej-34--perspectives-agrupación-multidimensional-del-gasto) | Perspectives: agrupación multidimensional del gasto — cinco criterios + selector transversal; lo adoptan el export FOCUS, Cost Groups y Centros de Costo; el resto de los que agregan en SQL van uno por uno | Asignación / Transversal | Alto | Alto | Parcial |
+| [MEJ-34](#mej-34--perspectives-agrupación-multidimensional-del-gasto) | Perspectives: agrupación multidimensional del gasto — cinco criterios + selector transversal; lo adoptan el export FOCUS, Cost Groups, Centros de Costo y Gastos y Proyección; el resto de los que agregan en SQL van uno por uno | Asignación / Transversal | Alto | Alto | Parcial |
 | [MEJ-35](#mej-35--suscripciones-a-reportes-cualquier-reporte-a-la-cadencia-que-elija-el-usuario) | Suscripciones a reportes: cualquier reporte, a la cadencia que elija el usuario, con link + imagen + CSV | Reportes | Alto | Medio | Propuesta |
 | [MEJ-36](#mej-36--presupuestos-rollover-y-año-fiscal-no-calendario) | Presupuestos: rollover con tope y año fiscal no calendario | Presupuestos | Medio | Bajo | Propuesta |
 | [MEJ-37](#mej-37--leaderboard-de-equipos-y-margen-bruto) | Leaderboard de equipos (ordenado por mejora, no por gasto) y split COGS/OpEx | Integración con el negocio | Medio | Bajo | Propuesta |
@@ -3255,6 +3255,34 @@ Medido contra la base local: 73 filas de detalle contra 1 del agregado, mismos i
 conteos de Resource Group.
 
 Tests: `__tests__/unit/costCentersAlcancePerspectiva.test.ts`.
+
+### Hecho (2026-09-25): `cost-projection`, el primero que no es un balde
+
+Serie temporal en vez de agrupación por centro de costo, y el cambio de forma trajo dos trampas que
+los dos anteriores no tenían:
+
+- **El backfill de Azure no se puede acotar, y encima GANA.** Cuando `CostSnapshots` no cubre los 13
+  meses, la ruta rellena con `getHistoricalDailyCosts`, que devuelve totales diarios **sin dimensión
+  de recurso** y pisa a la base en las fechas que se superponen. Bajo alcance eso daría una serie
+  mitad recortada y mitad no, sin que nada lo indique. Con alcance el relleno no corre: una serie más
+  corta y correcta es mejor que una larga y mezclada.
+- **El servicio causante de un pico** sale del mismo universo que la serie. Si no, el tooltip nombra
+  un servicio que en ese alcance no gastó nada — hay un test con un pico donde sin acotar domina SQL
+  y acotado a Producción el causante es otro.
+
+Es la ventana más ancha de las tres (13 meses): medido contra la base local, 13.940 filas de detalle
+contra 358 del agregado diario, con los mismos importes día por día. Sigue acotado por el mismo
+argumento de siempre —la cardinalidad es la de las combinaciones distintas de dimensiones, no la del
+detalle por día— pero es el número a mirar si algún tablero futuro tiene una ventana mayor.
+
+Lo consumen las dos tarjetas de Gastos y Proyección. **`BudgetCard` no lleva el alcance a propósito**:
+compara la proyección contra un presupuesto, y un presupuesto no se acota — es la misma lección que
+dejó `cost-centers`.
+
+El aviso de "se pidió acotar y no se pudo" pasó a ser un componente, `AlcanceNoAplicado`, con una
+sola clave de i18n en el namespace `Perspectives`. La cuarta copia del mismo párrafo era la señal.
+
+Tests: `__tests__/unit/costProjectionAlcancePerspectiva.test.ts`.
 
 ### Contexto
 

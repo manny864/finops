@@ -5759,8 +5759,7 @@
     "perDay": "/ day",
     "activeCount": "Active",
     "detailFeatureName": "Cost Group Detail",
-    "normalizedBurnRate": "Normalized burn rate",
-    "scopeNotApplied": "The Perspective scope could not be applied: this period has no per-resource detail for the scope to work with, so the allocation is approximated by resource group — and an approximation cannot be narrowed row by row. The figures below are for the whole board."
+    "normalizedBurnRate": "Normalized burn rate"
   },
   "CostPieChart": {
     "empty": "No cost data to chart yet.",
@@ -7442,7 +7441,6 @@
     "bulkApplyPartial": "{succeeded} succeeded, {failed} failed",
     "networkError": "Network error: {error}",
     "max100": "Max. 100",
-    "scopeNotApplied": "The Perspective scope could not be applied: this period has no per-resource detail for the scope to work with, so the allocation is approximated by resource group — and an approximation cannot be narrowed row by row. The figures below are for the whole board.",
     "scopeHidesBudget": "Narrowed by Perspective: budgets are hidden because they are set for the whole cost center. Comparing one against a slice would show headroom that isn't there."
   },
   "IntelligenceHybridBenefit": {
@@ -15812,6 +15810,7 @@
     "scopePerspective": "Perspective",
     "scopeGroup": "Group",
     "scopeAll": "All spend",
-    "scopeEveryGroup": "All groups"
+    "scopeEveryGroup": "All groups",
+    "scopeNotApplied": "The Perspective scope could not be applied: this period has no per-resource detail for the scope to work with, so the allocation is approximated by resource group — and an approximation cannot be narrowed row by row. The figures below are for the whole board."
   }
 }

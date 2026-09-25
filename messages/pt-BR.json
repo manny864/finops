@@ -5759,8 +5759,7 @@
     "perDay": "/ dia",
     "activeCount": "Ativo(s)",
     "detailFeatureName": "Detalhe do Grupo de Custos",
-    "normalizedBurnRate": "Ritmo de gasto normalizado",
-    "scopeNotApplied": "Não foi possível restringir por Perspective: este período não tem o detalhe por recurso de que o alcance precisa, então o rateio é aproximado por grupo de recursos e uma aproximação não pode ser recortada linha a linha. Os números abaixo são os do painel completo."
+    "normalizedBurnRate": "Ritmo de gasto normalizado"
   },
   "CostPieChart": {
     "empty": "Ainda não há dados de custo para o gráfico.",
@@ -7442,7 +7441,6 @@
     "bulkApplyPartial": "{succeeded} com sucesso, {failed} com falha",
     "networkError": "Erro de rede: {error}",
     "max100": "Máx. 100",
-    "scopeNotApplied": "Não foi possível restringir por Perspective: este período não tem o detalhe por recurso de que o alcance precisa, então o rateio é aproximado por grupo de recursos e uma aproximação não pode ser recortada linha a linha. Os números abaixo são os do painel completo.",
     "scopeHidesBudget": "Restrito por Perspective: o orçamento não é exibido porque está definido para o centro de custo inteiro. Compará-lo com uma porção indicaria uma folga que não existe."
   },
   "IntelligenceHybridBenefit": {
@@ -15812,6 +15810,7 @@
     "scopePerspective": "Perspective",
     "scopeGroup": "Grupo",
     "scopeAll": "Todo o gasto",
-    "scopeEveryGroup": "Todos os grupos"
+    "scopeEveryGroup": "Todos os grupos",
+    "scopeNotApplied": "Não foi possível restringir por Perspective: este período não tem o detalhe por recurso de que o alcance precisa, então o rateio é aproximado por grupo de recursos e uma aproximação não pode ser recortada linha a linha. Os números abaixo são os do painel completo."
   }
 }

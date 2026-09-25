@@ -68,6 +68,30 @@ export function usePerspectiveScope() {
     return { perspectiveId, group, setScope, queryString };
 }
 
+/**
+ * El aviso de "se pidió acotar por Perspective y no se pudo".
+ *
+ * Vive acá y no en cada tablero porque en todos es el mismo problema: el
+ * alcance se evalúa POR FILA, y una pantalla cuyo costo llega sin procedencia
+ * —sin etiquetas ni identificador de recurso— resuelve su reparto aproximando
+ * por Resource Group, que no se recorta fila por fila. Cuatro copias del mismo
+ * párrafo terminan divergiendo.
+ *
+ * No dibuja nada si no se pidió alcance, o si sí se aplicó: `aplicado` es el
+ * `scopeApplied` que devuelve la ruta.
+ */
+export function AlcanceNoAplicado({ aplicado }: { aplicado?: boolean }) {
+    const t = useTranslations("Perspectives");
+    const { perspectiveId } = usePerspectiveScope();
+    if (perspectiveId === null || aplicado !== false) return null;
+    return (
+        <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs font-semibold text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200">
+            <span aria-hidden className="mt-px shrink-0">⚠</span>
+            <span>{t("scopeNotApplied")}</span>
+        </div>
+    );
+}
+
 export default function PerspectiveScopeSelector() {
     const t = useTranslations("Perspectives");
     const { selectedTenant } = useTenant();

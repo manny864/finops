@@ -19,6 +19,7 @@ import { useSubscription } from "@/components/SubscriptionProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
+import { AlcanceNoAplicado, usePerspectiveScope } from "@/components/PerspectiveScopeSelector";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { aggregateHistogramByGranularity, type DailySpendHistogramPoint, type HistogramGranularity } from "@/lib/costProjection";
 import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
@@ -54,9 +55,12 @@ export default function CostHistogramCard() {
         ? `&subscriptionId=${encodeURIComponent(selectedSubscription)}`
         : '';
 
+    // MEJ-34: el alcance transversal entra en la clave de SWR.
+    const { queryString: alcanceQs } = usePerspectiveScope();
+
     const { data, error, isLoading } = useSWR(
         selectedTenant && selectedTenant.id !== "default" && (accounts.length > 0 || isMockTenant(selectedTenant.id))
-            ? `/api/intelligence/cost-projection?tenantId=${selectedTenant.id}${subParam}`
+            ? `/api/intelligence/cost-projection?tenantId=${selectedTenant.id}${subParam}${alcanceQs}`
             : null,
         fetcher,
         { revalidateOnFocus: false }
@@ -121,6 +125,7 @@ export default function CostHistogramCard() {
 
     return (
         <div className="card mb-4">
+            <AlcanceNoAplicado aplicado={data?.scopeApplied} />
             <div className="card-h flex items-center justify-between gap-3 flex-wrap">
                 <div>
                     <h3 className="m-0 text-[var(--brand-deep)] flex items-center gap-2">

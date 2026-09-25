@@ -29,23 +29,62 @@ import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getHistoricalDailyCosts, AZURE_COST_HISTORY_MAX_MONTHS } from "@/modules/collectors/azure/billingService";
 import { buildDailyHistogram, type DailySpendHistogramPoint } from "@/lib/costProjection";
 import { errorMessage } from '@/lib/apiErrors';
+import { getTagCoverage } from "@/lib/costTagCoverage";
+import {
+    filtroDeAlcance, comoFilaDeCosto, DIMENSIONES_DE_ALCANCE, type FilaConDimensiones,
+} from "@/services/perspectivesData.service";
+import type { FilaDeCosto } from "@/services/perspectives.service";
 
 type DailyPoint = { date: string; cost: number };
 type MonthlyPoint = { month: string; cost: number };
 
-async function queryDailyFromDb(tenantId: string, subscriptionId: string): Promise<DailyPoint[]> {
+type Alcance = (fila: FilaDeCosto) => boolean;
+
+/** El filtro por suscripción, igual en las dos formas de cada consulta. */
+function ventana(tenantId: string, subscriptionId: string) {
     const params: any[] = [tenantId];
     let where = "WHERE tenant_id = ?";
     if (subscriptionId && subscriptionId.toLowerCase() !== "all") {
         where += " AND subscription_id = ?";
         params.push(subscriptionId);
     }
+    where += ` AND date >= DATE_SUB(CURDATE(), INTERVAL ${AZURE_COST_HISTORY_MAX_MONTHS} MONTH)`;
+    return { where, params };
+}
+
+/**
+ * MEJ-34 — con alcance activo la agregación pasa de SQL a acá: la consulta trae
+ * el detalle por las cinco dimensiones que las reglas miran y el plegado rehace
+ * la suma por día. Sin alcance la consulta de siempre no se toca.
+ */
+async function queryDailyFromDb(tenantId: string, subscriptionId: string, alcance?: Alcance): Promise<DailyPoint[]> {
+    const { where, params } = ventana(tenantId, subscriptionId);
+
+    if (alcance) {
+        const [detalle]: any = await pool.query(
+            `SELECT DATE_FORMAT(date, '%Y-%m-%d') AS d, ${DIMENSIONES_DE_ALCANCE},
+                    SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS cost
+             FROM CostSnapshots
+             ${where}
+             GROUP BY d, ${DIMENSIONES_DE_ALCANCE}`,
+            params
+        );
+        const porDia = new Map<string, number>();
+        for (const f of (detalle as Array<FilaConDimensiones & { d: string; cost: unknown }>)) {
+            const costo = Number(f.cost) || 0;
+            if (!alcance(comoFilaDeCosto(f, costo))) continue;
+            porDia.set(f.d, (porDia.get(f.d) || 0) + costo);
+        }
+        return [...porDia.entries()]
+            .map(([date, cost]) => ({ date, cost: Number(cost.toFixed(2)) }))
+            .sort((a, b) => a.date.localeCompare(b.date));
+    }
+
     const [rows]: any = await pool.query(
         `SELECT DATE_FORMAT(date, '%Y-%m-%d') AS d,
                 ROUND(SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)), 2) AS cost
          FROM CostSnapshots
          ${where}
-           AND date >= DATE_SUB(CURDATE(), INTERVAL ${AZURE_COST_HISTORY_MAX_MONTHS} MONTH)
          GROUP BY d
          ORDER BY d ASC`,
         params
@@ -59,29 +98,44 @@ async function queryDailyFromDb(tenantId: string, subscriptionId: string): Promi
  * esta misma request, ver getHistoricalDailyCosts). Usado para el tooltip
  * de picos/anomalías del histograma ("Servicio causante: X").
  */
-async function queryDailyTopServiceFromDb(tenantId: string, subscriptionId: string): Promise<Map<string, string>> {
-    const params: any[] = [tenantId];
-    let where = "WHERE tenant_id = ?";
-    if (subscriptionId && subscriptionId.toLowerCase() !== "all") {
-        where += " AND subscription_id = ?";
-        params.push(subscriptionId);
+async function queryDailyTopServiceFromDb(tenantId: string, subscriptionId: string, alcance?: Alcance): Promise<Map<string, string>> {
+    const { where, params } = ventana(tenantId, subscriptionId);
+    const servicio = `COALESCE(NULLIF(service_name, ''), 'Unknown')`;
+
+    // El servicio causante tiene que salir del MISMO universo que la serie: si
+    // la serie está acotada y este desglose no, el tooltip de un pico nombraría
+    // un servicio que en ese alcance no gastó nada.
+    const [rows]: any = alcance
+        ? await pool.query(
+            `SELECT DATE_FORMAT(date, '%Y-%m-%d') AS d, ${servicio} AS service, ${DIMENSIONES_DE_ALCANCE},
+                    SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS total
+             FROM CostSnapshots
+             ${where}
+             GROUP BY d, service, ${DIMENSIONES_DE_ALCANCE}`,
+            params
+        )
+        : await pool.query(
+            `SELECT DATE_FORMAT(date, '%Y-%m-%d') AS d, ${servicio} AS service,
+                    SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS total
+             FROM CostSnapshots
+             ${where}
+             GROUP BY d, service`,
+            params
+        );
+
+    const porDiaYServicio = new Map<string, number>();
+    for (const f of (rows || []) as Array<FilaConDimensiones & { d: string; service: string; total: unknown }>) {
+        const total = Number(f.total) || 0;
+        if (alcance && !alcance(comoFilaDeCosto(f, total))) continue;
+        const clave = `${f.d}\u0001${f.service}`;
+        porDiaYServicio.set(clave, (porDiaYServicio.get(clave) || 0) + total);
     }
-    const [rows]: any = await pool.query(
-        `SELECT DATE_FORMAT(date, '%Y-%m-%d') AS d,
-                COALESCE(NULLIF(service_name, ''), 'Unknown') AS service,
-                SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS total
-         FROM CostSnapshots
-         ${where}
-           AND date >= DATE_SUB(CURDATE(), INTERVAL ${AZURE_COST_HISTORY_MAX_MONTHS} MONTH)
-         GROUP BY d, service`,
-        params
-    );
+
     const topByDate = new Map<string, { service: string; total: number }>();
-    for (const r of (rows || []) as Array<{ d: string; service: string; total: number }>) {
-        const current = topByDate.get(r.d);
-        if (!current || Number(r.total) > current.total) {
-            topByDate.set(r.d, { service: r.service, total: Number(r.total) });
-        }
+    for (const [clave, total] of porDiaYServicio) {
+        const [d, service] = clave.split("\u0001");
+        const current = topByDate.get(d);
+        if (!current || total > current.total) topByDate.set(d, { service, total });
     }
     return new Map(Array.from(topByDate.entries()).map(([date, v]) => [date, v.service]));
 }
@@ -118,6 +172,24 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute("cost-projection", tenantId));
         }
 
+        // MEJ-34: alcance transversal de Perspective, resuelto UNA vez.
+        const pid = Number(searchParams.get("perspective"));
+        const alcance = await filtroDeAlcance(
+            tenantId,
+            Number.isInteger(pid) && pid > 0 ? pid : null,
+            searchParams.get("pgroup"),
+        );
+
+        // UN ALCANCE SOLO SE APLICA SI SE PUEDE MEDIR, con el mismo criterio que
+        // los otros tableros: sin procedencia en el costo de la ventana, el
+        // reparto se aproxima por Resource Group y una aproximación no se
+        // recorta fila por fila.
+        const desde = new Date();
+        desde.setMonth(desde.getMonth() - AZURE_COST_HISTORY_MAX_MONTHS);
+        const recorte = alcance && (await getTagCoverage(
+            tenantId, desde.toISOString().slice(0, 10), new Date().toISOString().slice(0, 10),
+        )).isExact ? alcance : null;
+
         // v5: dailyHistory ahora incluye continuidad (huecos rellenados con
         // $0), media móvil de 7d, flags de fin de semana/pico y servicio
         // dominante del día (ver buildDailyHistogram) — bump para invalidar
@@ -126,19 +198,23 @@ export async function GET(request: NextRequest) {
 
         type Payload = { dailyHistory: DailySpendHistogramPoint[]; monthlyHistory: MonthlyPoint[]; backfillOk: boolean };
         let payload: Payload | null = null;
-        try {
-            const cached = await redis.get(cacheKey);
-            if (cached) payload = JSON.parse(cached) as Payload;
-        } catch (e) {
-            console.warn("[cost-projection] Redis read failed:", errorMessage(e));
+        // El recorte no se cachea: la clave sería una por (perspective, grupo) y
+        // el backfill invalida sólo la de la serie sin acotar.
+        if (!recorte) {
+            try {
+                const cached = await redis.get(cacheKey);
+                if (cached) payload = JSON.parse(cached) as Payload;
+            } catch (e) {
+                console.warn("[cost-projection] Redis read failed:", errorMessage(e));
+            }
         }
 
         if (!payload) {
-            let daily = await queryDailyFromDb(tenantId, subscriptionId);
+            let daily = await queryDailyFromDb(tenantId, subscriptionId, recorte || undefined);
             let backfillOk = true;
             // Best-effort: si falla no corta la respuesta, solo se pierde el
             // dato de "servicio causante" en los picos detectados.
-            const serviceTopByDate = await queryDailyTopServiceFromDb(tenantId, subscriptionId).catch((e) => {
+            const serviceTopByDate = await queryDailyTopServiceFromDb(tenantId, subscriptionId, recorte || undefined).catch((e) => {
                 console.warn("[cost-projection] top service por día falló:", e?.message);
                 return new Map<string, string>();
             });
@@ -166,7 +242,15 @@ export async function GET(request: NextRequest) {
             const requiredFrom = new Date();
             requiredFrom.setMonth(requiredFrom.getMonth() - AZURE_COST_HISTORY_MAX_MONTHS);
             const earliestInDb = daily[0]?.date;
-            const needsBackfill = daily.length === 0 || (earliestInDb && new Date(earliestInDb) > requiredFrom);
+            // EL BACKFILL NO SE PUEDE ACOTAR y además GANA en las fechas que se
+            // superponen: `getHistoricalDailyCosts` devuelve totales diarios sin
+            // dimensión de recurso, así que bajo alcance pisaría los días
+            // acotados con el total del tenant y la serie quedaría mitad
+            // recortada y mitad no, sin que nada lo indique. Con alcance se
+            // devuelve sólo lo que `CostSnapshots` tiene: una serie más corta y
+            // correcta es mejor que una larga y mezclada.
+            const needsBackfill = !recorte
+                && (daily.length === 0 || (earliestInDb && new Date(earliestInDb) > requiredFrom));
             if (needsBackfill) {
                 let mayQueryAzure = true;
                 try {
@@ -216,11 +300,20 @@ export async function GET(request: NextRequest) {
             // backfill de Azure falló, para reintentar pronto en vez de dejar 6h
             // un histograma incompleto cacheado.
             const ttl = backfillOk ? 6 * 3600 : 600;
-            redis.set(cacheKey, JSON.stringify(payload), "EX", ttl)
-                .catch((e: any) => console.warn("[cost-projection] Redis write failed:", e?.message));
+            if (!recorte) {
+                redis.set(cacheKey, JSON.stringify(payload), "EX", ttl)
+                    .catch((e: any) => console.warn("[cost-projection] Redis write failed:", e?.message));
+            }
         }
 
-        return NextResponse.json({ success: true, mock: false, dailyHistory: payload.dailyHistory, monthlyHistory: payload.monthlyHistory });
+        return NextResponse.json({
+            success: true, mock: false,
+            dailyHistory: payload.dailyHistory, monthlyHistory: payload.monthlyHistory,
+            // MEJ-34: con un alcance pedido y esto en false, la serie es la del
+            // tenant entero. En true, la serie llega sólo hasta donde
+            // `CostSnapshots` tiene datos (ver el backfill más arriba).
+            scopeApplied: recorte !== null,
+        });
     } catch (error) {
         console.error("API GET /intelligence/cost-projection error:", error);
         return NextResponse.json({ error: "Fallo al calcular gastos y proyección" }, { status: 500 });

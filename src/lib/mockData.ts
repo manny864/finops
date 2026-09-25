@@ -2821,7 +2821,9 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
             const monthlyHistory = Array.from(byMonth.entries())
                 .map(([month, cost]) => ({ month, cost: Number(cost.toFixed(2)) }))
                 .sort((a, b) => a.month.localeCompare(b.month));
-            return { success: true, mock: true, dailyHistory, monthlyHistory };
+            // MEJ-34: la serie de la demo es sintética y no tiene detalle por
+            // recurso, así que el alcance no se puede evaluar sobre ella.
+            return { success: true, mock: true, dailyHistory, monthlyHistory, scopeApplied: false };
         }
         case 'compute-efficiency': {
             const baseCores       = 40 * multiplier;
