@@ -5412,7 +5412,13 @@
     "updatedAt": "Última sincronización",
     "viewScript": "Ver Script ✨",
     "cpuMemoryLabel": "CPU / Memoria %:",
-    "queryFailed": "Error al consultar Cosmos DB"
+    "queryFailed": "Error al consultar Cosmos DB",
+    "rec_autoscale_title": "Migrar a Autoscale",
+    "rec_autoscale_desc": "El uso medio es {pct}% del throughput aprovisionado. Autoscale con techo de {ru} RU/s cuesta 1,5x por RU pero factura lo consumido cada hora, con un piso del 10% del techo: por debajo de ~66% de uso medio sale más barato.",
+    "rec_serverless_title": "Evaluar Serverless",
+    "rec_serverless_desc": "Las {ruMes}M RU/mes medidas cuestan menos a tarifa serverless que el throughput aprovisionado actual. El pico medido ({pico} RU/s) entra en el techo de 5.000 RU/s que exige serverless.",
+    "rec_hot_partition_title": "Partición caliente",
+    "rec_hot_partition_desc": "La partición {particion} concentra el {pct}% del consumo de RU. El throughput se reparte en partes iguales entre particiones físicas, así que esa tira 429 mientras a las demás les sobra: subir RU/s no lo arregla, hay que revisar la clave de partición."
   },
   "CostAllocation": {
     "loadError": "Error al cargar el prorrateo",

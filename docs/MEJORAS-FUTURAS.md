@@ -33,7 +33,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-15](#mej-15--expansión-multi-tenant-por-contrato-y-adición-de-tenants-con-capacidad-heredada-por-tier) | Expansión multi-tenant por contrato y adición de tenants con capacidad heredada por tier | Facturación / Multi-Tenant | Alto | Medio | Hecha |
 | [MEJ-16](#mej-16--gestión-avanzada-de-compromisos-reservas-y-savings-plans) | Gestión avanzada de compromisos (Reservas y Savings Plans) con simulador de Breakeven, Mix Óptimo, límite de devolución $50k USD y alertas de expiración | Compromisos / FinOps | Alto | Medio | Hecha |
 | [MEJ-17](#mej-17--aks-finops-cockpit-costos-por-namespace-workload-y-eficiencia-de-contenedores) | AKS FinOps Cockpit (Costos por Namespace, Workload y Eficiencia de Contenedores con OpenCost/Add-on) | Cómputo / Kubernetes | Alto | Alto | Propuesta |
-| [MEJ-18](#mej-18--cosmos-db--cargas-nosql-finops-cockpit) | Cosmos DB & Cargas NoSQL FinOps Cockpit (Optimizador de RU/s, Detección de Hot Partitions y Matriz Serverless) | Bases de Datos / NoSQL | Alto | Medio | Propuesta |
+| [MEJ-18](#mej-18--cosmos-db--cargas-nosql-finops-cockpit) | Cosmos DB & Cargas NoSQL FinOps Cockpit — los tres criterios de aceptación cumplidos; sin verificar contra una cuenta real porque no hay ninguna | Bases de Datos / NoSQL | Alto | Medio | Hecha |
 | [MEJ-19](#mej-19--mapa-de-tráfico-de-red-egress-y-fugas-de-datos) | Mapa de tráfico de red, egress y fugas de datos — núcleo hecho; faltan Sankey, P95 de ExpressRoute y el medidor de Private Link | Redes / Egress | Alto | Medio | Parcial |
 | [MEJ-20](#mej-20--shift-left-finops-integración-cicd-y-gatekeeper-de-iac) | Shift-Left FinOps: Integración CI/CD y Gatekeeper de IaC (PR Cost Estimator y Budget Gates) | Shift-Left / DevOps | Alto | Medio | Hecha |
 | [MEJ-21](#mej-21--orquestación-de-remediación-inteligente-conectores-itsm-y-generador-de-policy-as-code) | Orquestación de remediación con Rollback, conectores ITSM (Teams, Slack, Jira, ServiceNow) y generador de Azure Policy | Gobernanza / Automatización | Alto | Alto | Propuesta |
@@ -1706,7 +1706,71 @@ Además, la gran mayoría de los clusters presentan un sobredimensionamiento mas
 
 ## MEJ-18 — Cosmos DB & Cargas NoSQL FinOps Cockpit
 
-**Módulo:** Bases de Datos / NoSQL · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Propuesta
+**Módulo:** Bases de Datos / NoSQL · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Hecha (2026-09-25)
+
+> **Lo primero que apareció al abrirla no era una falta, era un defecto.** El tablero de Cosmos ya
+> existía (1.097 líneas) y su bloque `metrics` se armaba con **constantes escritas en el código**
+> —35% de RU normalizada, 0% de throttling, 100.000 requests, 4.000 RU/s, 50 GB— para cualquier
+> cuenta de cualquier cliente, sin una sola llamada a Azure Monitor. La lista `COSMOS_METRICS` de la
+> ruta era código muerto. El costo sí era real, así que la pantalla mezclaba un número verdadero con
+> seis inventados. Y el modo se asumía `autoscale` para todo lo que no fuera serverless, con lo cual
+> la regla de "manual sobredimensionado" **no podía dispararse nunca** con datos reales.
+>
+> Por eso el orden fue: primero medir de verdad (`cosmosMetrics.service.ts`), después decidir
+> (`cosmosOptimizer.service.ts`). No se puede construir un optimizador de RU/s sobre RU inventadas.
+
+### Hecho
+
+**Telemetría real.** `NormalizedRUConsumption`, `ProvisionedThroughput`, `AutoscaleMaxThroughput`,
+`TotalRequestUnits`, `TotalRequests` (y su filtrado por `StatusCode eq '429'`), `DataUsage`,
+`IndexUsage` y `ServerSideLatency`, con los nombres verificados contra la referencia del tipo de
+recurso. Cuatro de los once de la constante muerta **no existen** para
+`Microsoft.DocumentDB/databaseAccounts`. Las llamadas van agrupadas por agregación porque Azure
+rechaza el lote entero con 400 si una métrica no soporta la que se pide.
+
+**`null`, no cero.** Los campos pasaron a `number | null` y el typecheck marcó los 21 lugares que
+asumían número. Los agregados excluyen lo no medido y las recomendaciones no se emiten sin dato.
+
+**Las tres decisiones**, todas con el número derivado de lo medido y de tarifas publicadas:
+
+1. **Bajar RU/s manual** — dimensiona por el **p95 con 25% de margen**, no por el promedio:
+   dimensionar por el promedio deja la base corta en cada pico. Nunca por debajo del mínimo de 400.
+2. **Migrar a Autoscale** — el umbral de ~66% de uso medio **no es una constante elegida**: es el
+   cociente entre las dos tarifas publicadas (0,012 / 0,008 = 1,5x). Se respeta el piso de
+   facturación del 10% del techo.
+3. **Serverless** — se decide con las RU realmente consumidas extrapoladas al mes, y el techo de
+   5.000 RU/s se mide contra el **pico real** (aprovisionado × consumo máximo), no contra lo
+   aprovisionado: una cuenta con 10.000 RU/s que nunca pasa de 2.000 entra de sobra.
+
+**Particiones calientes** vía `NormalizedRUConsumption` dividida por `PhysicalPartitionId`. La
+propuesta pedía `PartitionKeyStatistics`, que **no es una métrica** sino una categoría de log de
+diagnóstico y exigiría que el cliente tenga el diagnostic setting configurado. Una sola partición
+nunca se marca caliente —el 100% está ahí por definición— y "alto pero parejo" tampoco: eso es una
+colección al límite de su throughput, que repartir la clave no arregla. Esta recomendación va con
+ahorro **0 USD** a propósito: repartir la clave evita el 429, no baja la factura por sí solo, y
+poner un número ahí sería volver al problema que este ciclo vino a corregir.
+
+### Las tarifas, y el medidor que volvió a morder
+
+Verificadas contra la Retail Prices API: `100 RU/s` a 0,008/hora, `AP1 100 RUs` (autoscale) a
+0,012/hora, `1M RUs` (serverless) a 0,25. El almacenamiento estuvo a punto de salir en **cero**: el
+medidor `Data Stored` del producto `Azure Cosmos DB` cotiza 0,00 —es la fila del tramo gratuito— y
+el transaccional real es `General Purpose Storage Data Stored`, del producto `Azure DocumentDB`, a
+0,115/GB-mes. Los medidores se eligen por el par (meterName, productName), nunca por el nombre solo.
+
+### Lo que NO se hizo, y por qué
+
+- **`CosmosDbFinopsAnalysis`**, la tabla que pedía la propuesta: los tres criterios de aceptación se
+  cumplen sin persistir nada. La tabla serviría para historial, que nadie pidió todavía.
+- **Endpoint `cosmos-optimizer` aparte**: la ruta `cosmos-metrics` ya devuelve las recomendaciones
+  en el mismo payload que consume el board. Un endpoint nuevo sería una segunda fuente para el
+  mismo dato.
+- **Verificación contra datos reales**: `az cosmosdb list` no devuelve **ninguna** cuenta en las
+  suscripciones accesibles. El camino vivo no se pudo ejercer. Lo que sí está cubierto es el punto
+  donde un error sería invisible —si el parseo de la respuesta de Azure Monitor estuviera mal, todo
+  saldría `null` y se leería como "este cliente no tiene datos"—: `leerSeries` se prueba contra una
+  respuesta con la forma que documenta Azure, incluidos los intervalos sin dato, que Azure omite en
+  vez de mandar en 0.
 
 ### Contexto
 

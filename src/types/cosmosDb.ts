@@ -38,6 +38,10 @@ export interface CosmosPerformanceMetrics {
   /** PORCENTAJE 0-100, no fraccion. El mock servia 0.04 para decir 4%. */
   throttling429Rate: number | null;
   totalRequests: number | null;
+  /** RU consumidas en la ventana medida. Es la base de la matriz serverless. */
+  totalRequestUnits?: number | null;
+  /** Días de la ventana con la que se midió todo lo de arriba. */
+  diasMedidos?: number;
   throttledRequests: number | null;
   serverLatencyMs: number | null;
   // vCore metrics
@@ -98,7 +102,10 @@ export type CosmosRemediationRuleKey =
   | "reserved_capacity"
   | "index_overhead_heavy"
   | "index_overhead_default"
-  | "vcore_rightsizing";
+  | "vcore_rightsizing"
+  | "autoscale_migration"
+  | "serverless_migration"
+  | "hot_partition";
 
 /**
  * Claves i18n del titulo y la descripcion de cada recomendacion.
@@ -116,6 +123,9 @@ export const COSMOS_RULE_I18N: Record<CosmosRemediationRuleKey, { title: string;
   index_overhead_heavy: { title: "rec_index_overhead_title", desc: "rec_index_overhead_heavy_desc" },
   index_overhead_default: { title: "rec_index_overhead_title", desc: "rec_index_overhead_default_desc" },
   vcore_rightsizing: { title: "rec_vcore_rightsizing_title", desc: "rec_vcore_rightsizing_desc" },
+  autoscale_migration: { title: "rec_autoscale_title", desc: "rec_autoscale_desc" },
+  serverless_migration: { title: "rec_serverless_title", desc: "rec_serverless_desc" },
+  hot_partition: { title: "rec_hot_partition_title", desc: "rec_hot_partition_desc" },
 };
 
 export interface CosmosRemediationAction {

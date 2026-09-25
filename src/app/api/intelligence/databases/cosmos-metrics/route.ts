@@ -20,8 +20,10 @@ import {
   CosmosThroughputMode,
 } from "@/types/cosmosDb";
 import { extractResourceCreatedAt, forecastMonthEnd, forecastRange, prorateMonthlyRateToMtd } from "@/lib/costAccrual";
+import { optimizarCosmos, getTarifasCosmos, TARIFAS_LISTA, type TarifasCosmos } from "@/services/cosmosOptimizer.service";
 import {
   getCosmosAccountMetrics,
+  VENTANA_DIAS,
   getCosmosPartitionSkew,
   detectarParticionCaliente,
   metricasVacias,
@@ -98,7 +100,11 @@ export function estimateCosmosMonthlyCost(
   return round2(monthlyRuCompute + storageCost + gwCost + analCost);
 }
 
-function deriveCosmosRecommendations(instance: CosmosDbAccountDetail, anyAccountHasFreeTier: boolean): CosmosRemediationAction[] {
+function deriveCosmosRecommendations(
+  instance: CosmosDbAccountDetail,
+  anyAccountHasFreeTier: boolean,
+  tarifas: TarifasCosmos = TARIFAS_LISTA,
+): CosmosRemediationAction[] {
   const actions: CosmosRemediationAction[] = [];
   const cost = instance.cost.totalMonthlyCostUsd;
   const isDev = instance.resourceGroup.toLowerCase().includes("dev") ||
@@ -108,15 +114,30 @@ function deriveCosmosRecommendations(instance: CosmosDbAccountDetail, anyAccount
     instance.name.toLowerCase().includes("test");
 
   // Regla 1: Manual Throughput con baja utilización (<30%) o candidato a Autoscale
+  // MEJ-18: las tres decisiones de RU/s salen de `optimizarCosmos`, que las
+  // calcula con lo MEDIDO y las tarifas publicadas. Antes el ahorro de esta
+  // regla era `cost * 0.65`, con el 0,65 escrito a mano.
+  const optimizacion = optimizarCosmos({
+    mode: instance.throughputProfile.mode,
+    provisionedRu: instance.throughputProfile.totalProvisionedRu ?? null,
+    avgNormalizedRuPct: instance.metrics.avgNormalizedRuPct,
+    p95NormalizedRuPct: instance.metrics.p95NormalizedRuPct,
+    maxNormalizedRuPct: instance.metrics.maxNormalizedRuPct ?? null,
+    totalRequestUnits: instance.metrics.totalRequestUnits ?? null,
+    diasMedidos: instance.metrics.diasMedidos ?? 7,
+    dataUsageGb: instance.storage.dataUsageGb,
+    tarifas,
+  });
+  const decision = (clave: string) => optimizacion.decisiones.find((d) => d.clave === clave);
+
+  const bajarRu = decision("reducir_ru_manual");
   if (
     instance.architecture === "ru-based" &&
     instance.throughputProfile.mode === "manual" &&
-    // Sin medicion no se recomienda nada: una recomendacion de ahorro sobre un
-    // dato que no existe es peor que no dar ninguna.
     instance.metrics.avgNormalizedRuPct !== null &&
-    instance.metrics.avgNormalizedRuPct < 30
+    bajarRu
   ) {
-    const savings = round2(Math.max(15, cost * 0.65));
+    const savings = bajarRu.ahorroMensualUsd;
     actions.push({
       id: `${instance.id}-overprovisioned-manual`,
       ruleKey: "manual_overprovisioned",
@@ -199,6 +220,73 @@ az cosmosdb create \\
 az reservations reservation-order calculate \\
   --sku-name "Cosmos_DB_Reservation" \\
   --billing-scope "/subscriptions/${instance.subscriptionId}"`,
+    });
+  }
+
+  // MEJ-18, regla nueva: migrar a Autoscale.
+  const aAutoscale = decision("migrar_a_autoscale");
+  if (aAutoscale) {
+    actions.push({
+      id: `${instance.id}-autoscale`,
+      ruleKey: "autoscale_migration",
+      params: {
+        ru: (aAutoscale.ruRecomendado ?? 0).toLocaleString(),
+        pct: (instance.metrics.avgNormalizedRuPct ?? 0).toFixed(1),
+      },
+      savingsMonthlyUsd: aAutoscale.ahorroMensualUsd,
+      risk: "low",
+      confidence: "high",
+      actionType: "guided",
+      cliCommand: `az cosmosdb sql container throughput migrate \\
+  --account-name ${instance.name} \\
+  --resource-group ${instance.resourceGroup} \\
+  --database-name <db> --name <contenedor> \\
+  --throughput-type autoscale`,
+    });
+  }
+
+  // MEJ-18, regla nueva: matriz Serverless vs Provisioned.
+  const aServerless = decision("migrar_a_serverless");
+  if (aServerless) {
+    const ruMes = ((instance.metrics.totalRequestUnits ?? 0) / (instance.metrics.diasMedidos ?? 7)) * 30;
+    const pico = Math.round(((instance.throughputProfile.totalProvisionedRu ?? 0) * (instance.metrics.maxNormalizedRuPct ?? 0)) / 100);
+    actions.push({
+      id: `${instance.id}-serverless`,
+      ruleKey: "serverless_migration",
+      params: { ruMes: Math.round(ruMes / 1_000_000), pico: pico.toLocaleString() },
+      savingsMonthlyUsd: aServerless.ahorroMensualUsd,
+      // Riesgo medio y accion manual a proposito: serverless NO se cambia en
+      // caliente, hay que crear una cuenta nueva y migrar los datos.
+      risk: "medium",
+      confidence: "medium",
+      actionType: "manual",
+      cliCommand: `# Serverless se define al CREAR la cuenta; no hay migracion en caliente.\n` +
+        `az cosmosdb create --name <cuenta-nueva> \\
+  --resource-group ${instance.resourceGroup} \\
+  --capabilities EnableServerless`,
+    });
+  }
+
+  // MEJ-18, regla nueva: particion caliente. No lleva ahorro en dolares porque
+  // repartir la clave no baja la factura por si solo -- evita el 429 y el
+  // sobredimensionado que se compra para taparlo. Poner un numero inventado ahi
+  // seria volver al problema que este ciclo vino a corregir.
+  const skew = instance.partitionSkew;
+  if (skew?.esCaliente && skew.concentracionPct !== null) {
+    actions.push({
+      id: `${instance.id}-hot-partition`,
+      ruleKey: "hot_partition",
+      params: { pct: skew.concentracionPct.toFixed(1), particion: skew.partitionIdCaliente ?? "?" },
+      savingsMonthlyUsd: 0,
+      risk: "high",
+      confidence: "high",
+      actionType: "manual",
+      cliCommand: `# Revisar la clave de particion del contenedor afectado.\n` +
+        `az cosmosdb sql container show \\
+  --account-name ${instance.name} \\
+  --resource-group ${instance.resourceGroup} \\
+  --database-name <db> --name <contenedor> \\
+  --query "resource.partitionKey"`,
     });
   }
 
@@ -363,10 +451,28 @@ function buildMockCosmosAccounts(tenantId: string): CosmosDbAccountDetail[] {
       metrics: {
         avgNormalizedRuPct: 6.4,
         p95NormalizedRuPct: 14.2,
+        maxNormalizedRuPct: 31.0,
         throttling429Rate: 0,
         totalRequests: 85000 * mult,
+        // 8.000 RU/s al 6,4% durante 7 dias ~= 310M RU. Coherente con el
+        // avgNormalizedRuPct de arriba y no un numero suelto.
+        totalRequestUnits: 310_000_000,
+        diasMedidos: 7,
         throttledRequests: 0,
         serverLatencyMs: 4.1,
+      },
+      // Una de las cuatro particiones se lleva casi todo: es el caso que la
+      // deteccion de MEJ-18 tiene que encontrar.
+      partitionSkew: {
+        particiones: [
+          { partitionId: "0", avgNormalizedRuPct: 22.5, maxNormalizedRuPct: 98.0 },
+          { partitionId: "1", avgNormalizedRuPct: 2.1, maxNormalizedRuPct: 9.4 },
+          { partitionId: "2", avgNormalizedRuPct: 1.4, maxNormalizedRuPct: 7.1 },
+          { partitionId: "3", avgNormalizedRuPct: 1.2, maxNormalizedRuPct: 6.0 },
+        ],
+        esCaliente: true,
+        partitionIdCaliente: "0",
+        concentracionPct: 82.72,
       },
       storage: {
         dataUsageGb: 45 * mult,
@@ -416,6 +522,9 @@ function buildMockCosmosAccounts(tenantId: string): CosmosDbAccountDetail[] {
       },
       metrics: {
         avgNormalizedRuPct: 11.2,
+        maxNormalizedRuPct: 28.0,
+        totalRequestUnits: 27_000_000,
+        diasMedidos: 7,
         p95NormalizedRuPct: 22.0,
         throttling429Rate: 0,
         totalRequests: 42000 * mult,
@@ -695,6 +804,13 @@ export async function GET(request: NextRequest) {
     const instances: CosmosDbAccountDetail[] = [];
     const anyAccountHasFreeTier = uniqueRawResources.some((r) => (r.properties as any)?.enableFreeTier === true);
 
+    // Una consulta de tarifas por REGION, no por cuenta: diez cuentas en eastus
+    // son diez veces el mismo precio, y la Retail API ya nos tiro 429 antes.
+    const tarifasPorRegion = new Map<string, TarifasCosmos>();
+    for (const region of new Set(uniqueRawResources.map((r) => String(r.location || "eastus")))) {
+      tarifasPorRegion.set(region, await getTarifasCosmos(region));
+    }
+
     for (const raw of uniqueRawResources) {
       const rid = String(raw.id || "").toLowerCase();
       const name = String(raw.name || "cosmos-account");
@@ -801,6 +917,8 @@ export async function GET(request: NextRequest) {
         maxNormalizedRuPct: metricasReales.maxNormalizedRuPct,
         throttling429Rate: metricasReales.throttling429Rate,
         totalRequests: metricasReales.totalRequests,
+        totalRequestUnits: metricasReales.totalRequestUnits,
+        diasMedidos: VENTANA_DIAS,
         throttledRequests: metricasReales.throttledRequests,
         serverLatencyMs: metricasReales.serverLatencyMs,
         // Las tres de vCore no existen para databaseAccounts y para
@@ -875,7 +993,7 @@ export async function GET(request: NextRequest) {
         tags: {},
       };
 
-      detail.recommendations = deriveCosmosRecommendations(detail, anyAccountHasFreeTier);
+      detail.recommendations = deriveCosmosRecommendations(detail, anyAccountHasFreeTier, tarifasPorRegion.get(region) || TARIFAS_LISTA);
       instances.push(detail);
     }
 

@@ -5412,7 +5412,13 @@
     "updatedAt": "Last synchronized",
     "viewScript": "View Script ✨",
     "cpuMemoryLabel": "CPU / Memory %:",
-    "queryFailed": "Could not query Cosmos DB"
+    "queryFailed": "Could not query Cosmos DB",
+    "rec_autoscale_title": "Move to Autoscale",
+    "rec_autoscale_desc": "Average usage is {pct}% of provisioned throughput. Autoscale with a {ru} RU/s ceiling costs 1.5x per RU but bills what you consume each hour, with a floor of 10% of the ceiling: below ~66% average usage it comes out cheaper.",
+    "rec_serverless_title": "Consider Serverless",
+    "rec_serverless_desc": "The {ruMes}M RU/month measured cost less at serverless rates than the current provisioned throughput. The measured peak ({pico} RU/s) fits under the 5,000 RU/s ceiling serverless requires.",
+    "rec_hot_partition_title": "Hot partition",
+    "rec_hot_partition_desc": "Partition {particion} concentrates {pct}% of RU consumption. Throughput is split evenly across physical partitions, so that one throttles with 429s while the others sit idle: raising RU/s will not fix it, the partition key needs review."
   },
   "CostAllocation": {
     "loadError": "Failed to load the allocation",
