@@ -17,6 +17,8 @@ export const ROUTE_TIERS: Record<string, 'Professional' | 'Business' | 'Enterpri
     // es decorativo — se entra por la ruta vieja. Por eso están todas acá en
     // Enterprise, aunque no aparezcan en el Sidebar.
     '/intelligence/optimizacion-y-ahorro': 'Enterprise',
+    // MEJ-34: la API tambien lo exige; los dos tienen que decir lo mismo.
+    '/intelligence/perspectives': 'Enterprise',
     '/intelligence/azure-ai': 'Enterprise',
     // Página consolidada vieja de Azure IA (las mismas pestañas: Search,
     // Document Intelligence, Speech, Vision, Content Safety, AML).

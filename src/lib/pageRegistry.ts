@@ -32,6 +32,7 @@ export interface PageEntry {
 export const PAGES: PageEntry[] = [
     // Intelligence
     { id: "int-rates", path: "/intelligence/rates", icon: "Percent", category: "intelligence" },
+    { id: "int-perspectives", path: "/intelligence/perspectives", icon: "Layers", category: "intelligence" },
     // La `id` NO cambia a propósito: los pins guardados en UserDashboardPins
     // son `page:int-commitments` y se resuelven por id, no por path. Mover el
     // path los redirige solos. De paso, la pestaña del hub deja de caer en

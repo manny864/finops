@@ -11,6 +11,10 @@ import type { DashboardSummaryResponse } from '@/app/api/dashboard/summary/route
 // aparte se vuelve mentira en cuanto cambia el cálculo, y esta pantalla es la
 // que ve el que todavía no es cliente.
 import { concentracionDeVencimientos } from '@/services/commitmentRisk.service';
+// MEJ-34: la demo reparte con la MISMA funcion que produccion. Es pura y no
+// toca la base; un mock que copiara el resultado se volveria mentira en cuanto
+// cambie el evaluador.
+import { repartir, type ReglaPerspectiva, type FilaDeCosto } from '@/services/perspectives.service';
 
 /**
  * Tenant "cliente" que se precarga en el generador de script de
@@ -356,6 +360,73 @@ export interface MockContracts {
 
 // Sobrecarga: las claves con contrato declarado devuelven su tipo vivo; el
 // resto sigue en `any` hasta que se les escriba el contrato.
+/**
+ * Perspectives de demostración. Las reglas son las MISMAS estructuras que la
+ * ruta persiste, y el reparto se calcula con `repartir()`, la función de
+ * producción: la demo no puede mostrar un número que el motor real no daría.
+ */
+const PERSPECTIVAS_DEMO: Array<{ id: number; name: string; description: string | null; reglas: ReglaPerspectiva[] }> = [
+    {
+        id: 1,
+        name: 'Entorno',
+        description: 'Producción, preproducción y el resto.',
+        reglas: [
+            { id: 11, grupo: 'Producción', tipo: 'tag', clave: 'Environment', valor: 'prod*', orden: 0 },
+            { id: 12, grupo: 'Preproducción', tipo: 'resource_group', valor: 'rg-stg*', orden: 1 },
+            { id: 13, grupo: 'Desarrollo', tipo: 'resource_group', valor: 'rg-dev*', orden: 2 },
+        ],
+    },
+    {
+        id: 2,
+        name: 'Centro de Costo',
+        description: 'Quién paga cada recurso.',
+        reglas: [
+            { id: 21, grupo: 'Ingeniería', tipo: 'tag', clave: 'CostCenter', valor: 'IT*', orden: 0 },
+            { id: 22, grupo: 'Datos', tipo: 'resource_type', valor: 'microsoft.documentdb/*', orden: 1 },
+        ],
+    },
+];
+
+/** Filas de costo de la demo, con un caso de cada situación que la pantalla tiene que saber mostrar. */
+function filasDemo(mult: number): FilaDeCosto[] {
+    const base = (costo: number) => costo * mult;
+    return [
+        { subscriptionId: 'mock-sub', resourceGroup: 'rg-prod-apps', serviceName: 'Virtual Machines', resourceId: '/subscriptions/mock-sub/resourceGroups/rg-prod-apps/providers/Microsoft.Compute/virtualMachines/vm-api-01', tags: { Environment: 'prod', CostCenter: 'IT-Core' }, costo: base(4200.5) },
+        { subscriptionId: 'mock-sub', resourceGroup: 'rg-prod-data', serviceName: 'Azure Cosmos DB', resourceId: '/subscriptions/mock-sub/resourceGroups/rg-prod-data/providers/Microsoft.DocumentDB/databaseAccounts/cosmos-orders', tags: { Environment: 'production', CostCenter: 'Data' }, costo: base(2650.25) },
+        { subscriptionId: 'mock-sub', resourceGroup: 'rg-stg-apps', serviceName: 'App Service', resourceId: '/subscriptions/mock-sub/resourceGroups/rg-stg-apps/providers/Microsoft.Web/serverfarms/asp-stg', tags: { Environment: 'staging' }, costo: base(880) },
+        { subscriptionId: 'mock-sub', resourceGroup: 'rg-dev-sandbox', serviceName: 'Virtual Machines', resourceId: '/subscriptions/mock-sub/resourceGroups/rg-dev-sandbox/providers/Microsoft.Compute/virtualMachines/vm-lab', tags: null, costo: base(410.75) },
+        // Sin etiquetas y en un grupo de recursos que ninguna regla nombra: es
+        // el "Sin asignar" legítimo, el que se arregla etiquetando.
+        { subscriptionId: 'mock-sub', resourceGroup: 'rg-legacy', serviceName: 'Storage', resourceId: '/subscriptions/mock-sub/resourceGroups/rg-legacy/providers/Microsoft.Storage/storageAccounts/stlegacy', tags: {}, costo: base(1310.4) },
+    ];
+}
+
+/**
+ * Reparto de la demo para las reglas que el usuario TIENE EN PANTALLA, no para
+ * las guardadas.
+ *
+ * Existe porque la vista previa es el criterio de aceptación 5: reordenar o
+ * editar reglas y ver el reparto cambiar sin guardar nada. Un mock que
+ * devolviera siempre el mismo reparto haría que en la demo el botón no hiciera
+ * nada visible al cambiar de Perspective — se probó, y pasaba exactamente eso.
+ *
+ * Reparte con `repartir()`, la función de producción, así que la demo no puede
+ * mostrar un número que el motor real no daría.
+ */
+export function getMockPerspectivesBreakdown(arg2: string, reglas: ReglaPerspectiva[]) {
+    const tier = (arg2 || '').toLowerCase();
+    const mult = tier === 'enterprise' ? 50 : tier === 'business' ? 10 : tier.startsWith('pro') ? 3 : 1;
+    return {
+        success: true,
+        mock: true,
+        periodo: {
+            desde: new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10),
+            hasta: new Date().toISOString().slice(0, 10),
+        },
+        reparto: repartir(filasDemo(mult), reglas),
+    };
+}
+
 export function getMockDataForRoute<K extends keyof MockContracts>(route: K, arg2: string, locale?: string): MockContracts[K];
 export function getMockDataForRoute(route: string, arg2: string, locale?: string): any;
 export function getMockDataForRoute(route: string, arg2: string, locale?: string): any {
@@ -1381,6 +1452,17 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                     needsConsent: false,
                 }
             };
+        case 'perspectives': {
+            // Dos Perspectives sobre el mismo gasto, que es justamente lo que
+            // distingue a esta pantalla de un Cost Group: el mismo recurso cae
+            // en un grupo de cada una.
+            return { success: true, mock: true, perspectives: PERSPECTIVAS_DEMO };
+        }
+        case 'perspectives_breakdown':
+            // Sin reglas explicitas cae a las de la primera Perspective. El
+            // camino util es `getMockPerspectivesBreakdown`, que recibe las que
+            // el usuario esta editando -- ver ahi por que importa.
+            return getMockPerspectivesBreakdown(arg2, PERSPECTIVAS_DEMO[0].reglas);
         case 'chargeback': {
             // La ruta devuelve `{ data: [{name, value}], detailed: [...] }` y este
             // mock servia `{department, cost, percentage}`. La pagina hace

@@ -9815,7 +9815,9 @@
     "pinPageLabel": "Fixar \"{page}\" no dashboard",
     "noAuthAccount": "Nenhuma conta autenticada",
     "pinToDashboard": "Fixar no dashboard",
-    "unpinFromDashboard": "Remover do dashboard"
+    "unpinFromDashboard": "Remover do dashboard",
+    "page_int-perspectives_title": "Perspectives",
+    "page_int-perspectives_desc": "Repartição do gasto por dimensões próprias, com o que fica sem atribuição à vista."
   },
   "Navigation": {
     "superadminOnly": "Você precisa de permissões de SuperAdmin para ver esta página.",
@@ -9921,7 +9923,8 @@
     "ia_config_global": "IA — Configuração Global",
     "intelligence": "Inteligência",
     "overview": "Visão Geral",
-    "remediation": "Remediação"
+    "remediation": "Remediação",
+    "perspectives": "Perspectives"
   },
   "Network": {
     "title": "Análise de Rede e Egress",
@@ -15770,5 +15773,38 @@
     "cat_procesamiento": "Processado por appliances",
     "colService": "Serviço",
     "hint_procesamiento": "Firewall, Load Balancer, Application Gateway, DDoS, Virtual WAN e Private Link cobram por GB processado. Um appliance superdimensionado, ou tráfego que não precisava passar por ele, aparece aqui."
+  },
+  "Perspectives": {
+    "title": "Perspectives",
+    "subtitle": "Agrupe o gasto por várias dimensões ao mesmo tempo. Dentro de cada Perspective um recurso cai em um único grupo: decide a primeira regra que corresponde.",
+    "tooltipTitle": "Um recurso pertence a exatamente um grupo dentro de cada Perspective e, ao mesmo tempo, a grupos de Perspectives diferentes. O mesmo disco pode estar em «produção» do Ambiente e em «engenharia» do Centro de Custo.",
+    "loading": "Carregando…",
+    "loadError": "Não foi possível carregar",
+    "empty": "Ainda não há Perspectives. Crie a primeira para repartir o gasto pelas suas próprias dimensões.",
+    "perspectiveLabel": "Perspective",
+    "rulesTitle": "Regras",
+    "firstMatchWins": "Vence a primeira que corresponde; a ordem importa.",
+    "groupPlaceholder": "Grupo",
+    "tagKeyPlaceholder": "Chave da etiqueta",
+    "valuePlaceholder": "Valor (aceita *)",
+    "addRule": "Adicionar regra",
+    "removeRule": "Remover regra",
+    "moveUp": "Subir",
+    "moveDown": "Descer",
+    "preview": "Ver repartição",
+    "calculating": "Calculando…",
+    "save": "Salvar",
+    "saving": "Salvando…",
+    "saved": "Regras salvas.",
+    "breakdownTitle": "Repartição do período",
+    "coverageOf": "do total de {total} ficou dentro de um grupo",
+    "unassigned": "Sem atribuição",
+    "noData": "Sem dados para avaliar",
+    "noDataHelp": "Esse gasto não está sem atribuição: as regras precisam de um dado que ainda não ingerimos para essas linhas. Configurar o export FOCUS do Azure preenche as etiquetas no nível do recurso.",
+    "type_tag": "Etiqueta",
+    "type_name_pattern": "Padrão de nome",
+    "type_subscription": "Assinatura",
+    "type_resource_group": "Grupo de recursos",
+    "type_resource_type": "Tipo de recurso"
   }
 }

@@ -102,6 +102,7 @@ const CASOS: Array<[string, string, () => Promise<any>]> = [
     ["/api/admin/governance-policies", "governance-policies", () => import("@/app/api/admin/governance-policies/route")],
     ["/api/intelligence/allocation-rules", "allocation-rules", () => import("@/app/api/intelligence/allocation-rules/route")],
     ["/api/intelligence/network", "network", () => import("@/app/api/intelligence/network/route")],
+    ["/api/intelligence/perspectives", "perspectives", () => import("@/app/api/intelligence/perspectives/route")],
     ["/api/intelligence/tenant-health", "tenant_health", () => import("@/app/api/intelligence/tenant-health/route")],
     ["/api/budgets/alerts", "alerts", () => import("@/app/api/budgets/alerts/route")],
     ["/api/cleanup/ttl/history", "ttl_history", () => import("@/app/api/cleanup/ttl/history/route")],
@@ -159,7 +160,13 @@ const ATADAS_POR_TIPO: string[] = [
  * porque el chequeo de "ninguna intercepcion queda sin mirar" la necesita para
  * el caso en que aparezca una que el arnes no alcance y tampoco se pueda atar.
  */
-const SIN_COBERTURA: Array<[string, string]> = [];
+const SIN_COBERTURA: Array<[string, string]> = [
+    // El handler responde 400 sin `id`, y el arnes no sabe cual inventar. La
+    // divergencia igual no puede darse: el mock lo calcula con `repartir()`, la
+    // MISMA funcion que usa la ruta, asi que no hay una segunda copia de la
+    // logica que se pueda atrasar.
+    ["/api/intelligence/perspectives/breakdown", "perspectives_breakdown"],
+];
 
 
 

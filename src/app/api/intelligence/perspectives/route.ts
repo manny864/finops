@@ -5,7 +5,8 @@ import { hasAccess } from "@/lib/tierLogic";
 import { tenants as mockTenants } from "@/lib/tenants";
 import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { errorMessage, errorStatus } from "@/lib/apiErrors";
-import { listarPerspectivas, guardarReglas, type ReglaPerspectiva, type TipoRegla } from "@/services/perspectives.service";
+import { listarPerspectivas, guardarReglas } from "@/services/perspectivesData.service";
+import type { ReglaPerspectiva, TipoRegla } from "@/services/perspectives.service";
 
 /**
  * MEJ-34 — CRUD de Perspectives.

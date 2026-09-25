@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { errorMessage, errorStatus } from "@/lib/apiErrors";
-import {
-    filasDeCosto, listarPerspectivas, repartir,
-    type ReglaPerspectiva, type TipoRegla,
-} from "@/services/perspectives.service";
+import { filasDeCosto, listarPerspectivas } from "@/services/perspectivesData.service";
+import { repartir, type ReglaPerspectiva, type TipoRegla } from "@/services/perspectives.service";
 
 /**
  * MEJ-34 — el reparto del gasto de una Perspective.

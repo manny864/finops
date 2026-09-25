@@ -49,7 +49,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-32](#mej-32--tres-catálogos-de-precios-duplicados-y-ya-divergidos-mej-10-reabierta) | Tres catálogos de precios duplicados y ya divergidos (MEJ-10 reabierta) | Transversal / Ahorro | Alto | Bajo | Hecha |
 | [MEJ-33](#mej-33--cerrar-el-lazo-del-desvío-dueño-estado-persistente-y-seguimiento) | Cerrar el lazo del desvío: dueño, estado persistente y seguimiento | Anomalías / Gobernanza | Alto | Medio | Hecha |
 | [MEJ-31](#mej-31--test-de-storage-history-hardcodea-meses-absolutos-contra-reloj-real) | Test de storage-history hardcodea meses absolutos contra reloj real (rompe todos los meses) | Storage Efficiency / Tests | Medio | Bajo | Hecha |
-| [MEJ-34](#mej-34--perspectives-agrupación-multidimensional-del-gasto) | Perspectives: agrupación multidimensional del gasto (N dimensiones simultáneas, reglas ordenadas, grupo Sin asignar explícito) | Asignación / Transversal | Alto | Alto | Propuesta |
+| [MEJ-34](#mej-34--perspectives-agrupación-multidimensional-del-gasto) | Perspectives: agrupación multidimensional del gasto — los cinco criterios cumplidos; falta el selector transversal en los demás tableros | Asignación / Transversal | Alto | Alto | Parcial |
 | [MEJ-35](#mej-35--suscripciones-a-reportes-cualquier-reporte-a-la-cadencia-que-elija-el-usuario) | Suscripciones a reportes: cualquier reporte, a la cadencia que elija el usuario, con link + imagen + CSV | Reportes | Alto | Medio | Propuesta |
 | [MEJ-36](#mej-36--presupuestos-rollover-y-año-fiscal-no-calendario) | Presupuestos: rollover con tope y año fiscal no calendario | Presupuestos | Medio | Bajo | Propuesta |
 | [MEJ-37](#mej-37--leaderboard-de-equipos-y-margen-bruto) | Leaderboard de equipos (ordenado por mejora, no por gasto) y split COGS/OpEx | Integración con el negocio | Medio | Bajo | Propuesta |
@@ -3123,7 +3123,55 @@ Verificado contra la base con tres avisos (uno de difusión y dos dirigidos):
 
 ## MEJ-34 — Perspectives: agrupación multidimensional del gasto
 
-**Módulo:** Asignación / Transversal · **Impacto:** Alto · **Esfuerzo:** Alto · **Estado:** Propuesta
+**Módulo:** Asignación / Transversal · **Impacto:** Alto · **Esfuerzo:** Alto · **Estado:** Parcial (2026-09-25)
+
+### Hecho
+
+Migración, evaluador, API y tablero con vista previa. **Los cinco criterios de aceptación se
+cumplen** y están fijados en 17 tests. Queda pendiente el punto 4 de la propuesta —el selector de
+Perspective como filtro transversal en los demás tableros—, que es lo que convierte a MEJ-34 en la
+entrada estructural de MEJ-35, MEJ-37 y MEJ-38.
+
+**Se evalúa en TypeScript, no en SQL.** La propuesta pedía generar un `CASE WHEN` para el `GROUP BY`
+avisando de parametrizar para no abrir una inyección. Se evalúa sobre el agregado que
+`CostSnapshots` ya devuelve: la cardinalidad está acotada, no hay SQL armado con valores que escribe
+el usuario, y la vista previa del criterio 5 sale gratis porque es volver a evaluar en memoria.
+
+### La restricción de datos que definió el diseño
+
+Verificando **antes** de escribir apareció lo que importaba: `CostSnapshots.Tags` **sólo se llena
+para los tenants con export FOCUS configurado**. Los que sincronizan por la Query API de Cost
+Management lo tienen en NULL —lo dice el propio comentario de `allocationTags`: *"Azure no llena
+etiquetas en el agregado"*— y su desglose por etiqueta vive en `CostTagSnapshots`, que es **el mismo
+dinero visto por otra dimensión** y no se puede unir sin contar doble.
+
+Para esos tenants una Perspective por etiqueta mandaría **todo** a "Sin asignar". Y eso no es un
+problema de etiquetado del cliente sino un hueco nuestro. Por eso el reparto distingue **dos
+motivos** y la pantalla los muestra separados:
+
+- **`sin-regla`** — se evaluaron todas las reglas y ninguna coincidió. El "Sin asignar" legítimo.
+- **`sin-datos`** — todas las reglas pedían un dato que la fila no tiene **ingerido**, con el nombre
+  del dato que faltó y una línea que explica que configurar el export FOCUS lo completa.
+
+Basta **una** regla evaluable para que la fila cuente como `sin-regla`: tuvo una oportunidad real.
+
+### Tres cosas que sólo se vieron corriendo
+
+1. **El typecheck no ve un bundle roto.** Se puso el acceso a datos en el mismo módulo que el
+   evaluador, y como `mockData.ts` importa el evaluador —para que la demo reparta con la función de
+   producción— el navegador arrastró `storage/db` → `migrations` → `fs` y **la aplicación entera
+   dejó de compilar**. El acceso a datos vive ahora en `perspectivesData.service.ts`.
+2. **El MySQL real rechazó la FK**: `Tenants.tenant_id` es `utf8mb4_unicode_ci` y una base creada
+   desde cero con MySQL 8 usa `utf8mb4_0900_ai_ci`. Misma trampa que obligó a la migración
+   `20260909-002` a modificar una decena de tablas; va `COLLATE` explícito.
+3. **La vista previa de la demo no reaccionaba**: el mock devolvía siempre el reparto de la primera
+   Perspective en vez de evaluar las reglas del cuerpo, así que cambiar de Perspective no cambiaba
+   nada en pantalla. Es justo el criterio 5, y sólo se vio haciendo clic.
+
+Verificado en el navegador con las dos Perspectives de demo sobre el mismo gasto: **Entorno** reparte
+en Producción/Preproducción/Desarrollo con 86,14% de cobertura y **Centro de Costo** en
+Ingeniería/Datos con 72,48%, y en las dos la suma de grupos más lo sin asignar da exactamente el
+total.
 
 ### Contexto
 

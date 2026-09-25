@@ -8,6 +8,7 @@ import { addonUnlocksPath } from '@/lib/addonCatalog';
 import { getTagsForRoute, hasAnyTag } from '@/lib/pageRoleTags';
 import {
     LayoutDashboard,
+    Layers,
     Target,
     TrendingDown, 
     Lightbulb, 
@@ -117,6 +118,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             title: t('inteligencia'),
             items: [
                 { href: '/intelligence/consumo-y-presupuesto', label: t('consumo_presupuesto'), icon: IconCoins as any, requiredTier: 'Professional' },
+                { href: '/intelligence/perspectives', label: t('perspectives'), icon: Layers, requiredTier: 'Enterprise' },
                 { href: '/intelligence/optimizacion-y-ahorro', label: t('optimizacion_ahorro'), icon: Target, requiredTier: 'Enterprise' },
                 { href: '/intelligence/bases-de-datos', label: t('bases_de_datos'), icon: Database, requiredTier: 'Business' },
                 { href: '/intelligence/computo', label: t('computo'), icon: Cpu, requiredTier: 'Business' },

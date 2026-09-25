@@ -34,8 +34,20 @@ const PROVIDER = "src/components/TenantProvider.tsx";
  *
  * Bajar este número es progreso: significa que una interceptación redundante se
  * fue y la ruta quedó como única fuente. Subirlo es deuda nueva.
+ *
+ * 2026-09-25, 50 -> 51 por `/api/intelligence/perspectives` (MEJ-34), y la
+ * justificación es que NO es deuda: esa ruta no tiene rama mock. Menciona
+ * `isMockTenant` sólo para resolver el tier del tenant de demo, y
+ * `tieneRamaMockPropia` busca la mención, no el uso.
+ *
+ * Se evaluó afinar la heurística a "además devuelve un `getMock*`" —bajaría de
+ * 51 a 30— y se DESCARTÓ: clasificaría mal a las rutas que arman el mock en
+ * línea dentro del `if`, como `/api/intelligence/anomalies`, que sí tiene rama
+ * propia y quedaría fuera del conteo. Un ratchet que deja de contar deuda real
+ * es peor que uno que cuenta de más: el de más obliga a escribir esta nota, el
+ * de menos no avisa nada.
  */
-const TOPE_REDUNDANTES = 50;
+const TOPE_REDUNDANTES = 51;
 
 function rutasInterceptadas(): string[] {
     const src = readFileSync(PROVIDER, "utf8");

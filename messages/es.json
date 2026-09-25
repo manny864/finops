@@ -9815,7 +9815,9 @@
     "pinPageLabel": "Pinear \"{page}\" al dashboard",
     "noAuthAccount": "No hay cuenta autenticada",
     "pinToDashboard": "Pinear al dashboard",
-    "unpinFromDashboard": "Quitar del dashboard"
+    "unpinFromDashboard": "Quitar del dashboard",
+    "page_int-perspectives_title": "Perspectives",
+    "page_int-perspectives_desc": "Reparto del gasto por dimensiones propias, con lo que queda sin asignar a la vista."
   },
   "Navigation": {
     "superadminOnly": "Necesitás permisos de SuperAdmin para ver esta página.",
@@ -9921,7 +9923,8 @@
     "ia_config_global": "IA — Configuración Global",
     "intelligence": "Inteligencia",
     "overview": "Resumen",
-    "remediation": "Remediación"
+    "remediation": "Remediación",
+    "perspectives": "Perspectives"
   },
   "Network": {
     "title": "Análisis de Red y Egress",
@@ -15770,5 +15773,38 @@
     "cat_procesamiento": "Procesado por appliances",
     "colService": "Servicio",
     "hint_procesamiento": "Firewall, Load Balancer, Application Gateway, DDoS, Virtual WAN y Private Link cobran por GB procesado. Un appliance sobredimensionado o tráfico que no necesitaba pasar por él se ve acá."
+  },
+  "Perspectives": {
+    "title": "Perspectives",
+    "subtitle": "Agrupá el gasto por varias dimensiones a la vez. Dentro de cada Perspective un recurso cae en un solo grupo: decide la primera regla que coincide.",
+    "tooltipTitle": "Un recurso pertenece a exactamente un grupo dentro de cada Perspective, y a la vez a grupos de Perspectives distintas. El mismo disco puede estar en «producción» del Entorno y en «ingeniería» del Centro de Costo.",
+    "loading": "Cargando…",
+    "loadError": "No se pudo cargar",
+    "empty": "Todavía no hay Perspectives. Creá la primera para repartir el gasto por tus propias dimensiones.",
+    "perspectiveLabel": "Perspective",
+    "rulesTitle": "Reglas",
+    "firstMatchWins": "Gana la primera que coincide; el orden importa.",
+    "groupPlaceholder": "Grupo",
+    "tagKeyPlaceholder": "Clave de etiqueta",
+    "valuePlaceholder": "Valor (admite *)",
+    "addRule": "Agregar regla",
+    "removeRule": "Quitar regla",
+    "moveUp": "Subir",
+    "moveDown": "Bajar",
+    "preview": "Ver reparto",
+    "calculating": "Calculando…",
+    "save": "Guardar",
+    "saving": "Guardando…",
+    "saved": "Reglas guardadas.",
+    "breakdownTitle": "Reparto del período",
+    "coverageOf": "del total de {total} quedó dentro de un grupo",
+    "unassigned": "Sin asignar",
+    "noData": "Sin datos para evaluar",
+    "noDataHelp": "Ese gasto no está sin asignar: las reglas necesitan un dato que todavía no ingerimos para esas filas. Configurar el export FOCUS de Azure completa las etiquetas a nivel de recurso.",
+    "type_tag": "Etiqueta",
+    "type_name_pattern": "Patrón de nombre",
+    "type_subscription": "Suscripción",
+    "type_resource_group": "Grupo de recursos",
+    "type_resource_type": "Tipo de recurso"
   }
 }

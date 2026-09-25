@@ -66,6 +66,7 @@ export const PAGE_ROLE_TAGS: Record<string, RoleTag[]> = {
     "/intelligence/network": ["CloudAdmin"],
     "/intelligence/redes": ["CloudAdmin"],
     "/intelligence/rates": ["FinOps"],
+    "/intelligence/perspectives": ["FinOps"],
     "/intelligence/licenses": ["FinOps", "Security"],
     "/intelligence/hybrid-benefit": ["FinOps"],
     // El hub entero, que no estaba etiquetado y por eso caía al ["Platform"]

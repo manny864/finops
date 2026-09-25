@@ -9815,7 +9815,9 @@
     "pinPageLabel": "Pin \"{page}\" to the dashboard",
     "noAuthAccount": "No authenticated account",
     "pinToDashboard": "Pin to the dashboard",
-    "unpinFromDashboard": "Remove from the dashboard"
+    "unpinFromDashboard": "Remove from the dashboard",
+    "page_int-perspectives_title": "Perspectives",
+    "page_int-perspectives_desc": "Spend split by your own dimensions, with what stays unassigned in plain sight."
   },
   "Navigation": {
     "superadminOnly": "You need SuperAdmin permissions to view this page.",
@@ -9921,7 +9923,8 @@
     "ia_config_global": "AI — Global Configuration",
     "intelligence": "Intelligence",
     "overview": "Overview",
-    "remediation": "Remediation"
+    "remediation": "Remediation",
+    "perspectives": "Perspectives"
   },
   "Network": {
     "title": "Network & Egress Analysis",
@@ -15770,5 +15773,38 @@
     "cat_procesamiento": "Processed by appliances",
     "colService": "Service",
     "hint_procesamiento": "Firewall, Load Balancer, Application Gateway, DDoS, Virtual WAN and Private Link charge per GB processed. An oversized appliance, or traffic that did not need to go through it, shows up here."
+  },
+  "Perspectives": {
+    "title": "Perspectives",
+    "subtitle": "Group spend by several dimensions at once. Within each Perspective a resource lands in exactly one group: the first matching rule decides.",
+    "tooltipTitle": "A resource belongs to exactly one group within each Perspective, and at the same time to groups of different Perspectives. The same disk can be in «production» of Environment and in «engineering» of Cost Center.",
+    "loading": "Loading…",
+    "loadError": "Could not load",
+    "empty": "No Perspectives yet. Create the first one to split spend by your own dimensions.",
+    "perspectiveLabel": "Perspective",
+    "rulesTitle": "Rules",
+    "firstMatchWins": "First match wins; order matters.",
+    "groupPlaceholder": "Group",
+    "tagKeyPlaceholder": "Tag key",
+    "valuePlaceholder": "Value (supports *)",
+    "addRule": "Add rule",
+    "removeRule": "Remove rule",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "preview": "Show split",
+    "calculating": "Calculating…",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Rules saved.",
+    "breakdownTitle": "Split for the period",
+    "coverageOf": "of the {total} total landed in a group",
+    "unassigned": "Unassigned",
+    "noData": "No data to evaluate",
+    "noDataHelp": "That spend is not unassigned: the rules need data we have not ingested for those rows yet. Configuring the Azure FOCUS export fills in resource-level tags.",
+    "type_tag": "Tag",
+    "type_name_pattern": "Name pattern",
+    "type_subscription": "Subscription",
+    "type_resource_group": "Resource group",
+    "type_resource_type": "Resource type"
   }
 }

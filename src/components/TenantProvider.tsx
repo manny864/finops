@@ -1,7 +1,7 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
-import { getMockDataForRoute, getMockCostGroupDetail, getMockCostCenterResources, isMockTenant, MOCK_CONTAINER_DOMAIN } from '@/lib/mockData';
+import { getMockDataForRoute, getMockPerspectivesBreakdown, getMockCostGroupDetail, getMockCostCenterResources, isMockTenant, MOCK_CONTAINER_DOMAIN } from '@/lib/mockData';
 import { getMockExecutiveReportById, getMockExecutiveReportHistory } from '@/lib/executiveReportMock';
 import { usePathname, useRouter } from 'next/navigation';
 import { getFreshIdToken } from '@/lib/msalToken';
@@ -396,6 +396,19 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/tags/compliance')) return new Response(JSON.stringify(getMockDataForRoute('tags_compliance', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/network')) return new Response(JSON.stringify(getMockDataForRoute('network', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/rates')) return new Response(JSON.stringify(getMockDataForRoute('rates', mockKey)), {status: 200});
+              // MEJ-34. El orden importa: `/breakdown` va PRIMERO porque
+              // `includes('/api/intelligence/perspectives')` tambien matchea la
+              // URL de la vista previa y se la comeria.
+              if (url.includes('/api/intelligence/perspectives/breakdown')) {
+                  // Se leen las reglas DEL CUERPO, igual que hace la ruta real:
+                  // la vista previa tiene que reaccionar a lo que el usuario
+                  // esta editando. Devolver siempre el mismo reparto hacia que
+                  // el boton no hiciera nada visible al cambiar de Perspective.
+                  let reglas: any[] = [];
+                  try { reglas = JSON.parse(String(init?.body || '{}'))?.reglas || []; } catch { reglas = []; }
+                  return new Response(JSON.stringify(getMockPerspectivesBreakdown(mockKey, reglas)), {status: 200});
+              }
+              if (url.includes('/api/intelligence/perspectives')) return new Response(JSON.stringify(getMockDataForRoute('perspectives', mockKey)), {status: 200});
               if (url.includes('/api/subscriptions')) return new Response(JSON.stringify({ subscriptions: [{id: 'mock-sub', name: 'Demo Subscription'}]}), {status: 200});
               if (url.includes('/api/budgets/burn')) return new Response(JSON.stringify(getMockDataForRoute('budgets_burn', mockKey)), {status: 200});
               if (url.includes('/api/budgets/alerts')) return new Response(JSON.stringify(getMockDataForRoute('alerts', mockKey)), {status: 200});
