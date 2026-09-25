@@ -150,10 +150,13 @@ const SIN_COBERTURA: Array<[string, string]> = [
 
     // Responden 200 pero con el payload vacio de una base sin filas, que es
     // justo lo que el chequeo de "degradada" rechaza: compararlo no prueba nada.
+    //
+    // `audit/ttl` y `billing/portal` ya no estan: sus intercepciones se borraron
+    // el 2026-09-25 porque NINGUN componente llama a esas rutas. La de ttl ademas
+    // servia una forma distinta de la que devuelve la ruta, divergencia que nadie
+    // vio nunca porque no habia a quien mostrarsela.
     ["/api/audit/full", "audit_full"],                  // sin isMockTenant: "Tenant sin onboarding tecnico completo"
-    ["/api/audit/ttl", "ttl"],                          // sin isMockTenant: responde degraded:true
     ["/api/remediation/workflow", "approvals"],         // sin isMockTenant: data:[] de una tabla vacia
-    ["/api/billing/portal", "payments"],                // sin isMockTenant: 404 "Tenant no encontrado" sin fila en Tenants
 
     // Esta es distinta: el limite es del ARNES, no de la ruta. `summary` agrega
     // varias sub-llamadas (auditoria, forecast, huella de carbono) y marca

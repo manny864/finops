@@ -19,7 +19,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 |---|---|---|---|---|---|
 | [MEJ-01](#mej-01--atribución-de-ahorros-hechos-en-azure-vía-activity-log) | Atribuir a un autor los ahorros hechos fuera de la plataforma | Ahorro Capturado | Alto | Medio | Hecha |
 | [MEJ-02](#mej-02--animaciones-de-recharts-que-dependen-de-requestanimationframe) | Centralizar el apagado de animaciones de Recharts | Transversal (gráficas) | Medio | Bajo | Parcial |
-| [MEJ-03](#mej-03--auditar-las-intercepciones-demo-restantes-de-tenantprovider) | Auditar las intercepciones demo restantes (35 barridas: 27 con guard automático, 8 sin rama mock en la ruta) | Demo / mocks | Alto | Medio | Parcial |
+| [MEJ-03](#mej-03--auditar-las-intercepciones-demo-restantes-de-tenantprovider) | Auditar las intercepciones demo restantes (33 vivas: 27 con guard automático, 2 muertas borradas, 1 atada por typecheck, 5 pendientes) | Demo / mocks | Alto | Medio | Parcial |
 | [MEJ-04](#mej-04--persistir-el-desperdicio-detectado-como-métrica-propia) | Persistir el desperdicio detectado como métrica propia | Ahorro Capturado | Medio | Bajo | Hecha |
 | [MEJ-05](#mej-05--atribuir-el-costo-de-recursos-hijos-a-su-recurso-padre) | Atribuir costo de recursos hijos al padre | Recursos | Medio | Medio | Hecha |
 | [MEJ-06](#mej-06--prosa-generada-por-ia-sobre-el-motor-determinista-de-remediación) | Prosa de IA sobre el motor determinista de remediación | Azure Advisor | Bajo | Bajo | Hecha |
@@ -335,6 +335,44 @@ el payload vacío de una base sin filas (`audit/full`, `audit/ttl`, `remediation
 —lo que se hizo con `billing`, `aks-chargeback` y `cost-by-category`—: es trabajo por ruta, no un
 arreglo del test. La octava, `dashboard/summary`, sí es límite del arnés: agrega varias
 sub-llamadas y bajo el arnés alguna falla siempre, así que responde degradada.
+
+### Las 8 sin cobertura, revisadas a mano (2026-09-25)
+
+El barrido automático no las alcanza, así que se compararon **leyendo la ruta contra el mock**, una
+por una. La conclusión más útil es que **no todas eran el mismo problema**, y dos ni siquiera eran
+un problema:
+
+**Dos intercepciones estaban MUERTAS y se borraron.** `/api/audit/ttl` no la llama nadie —el panel
+de TTL pega a `/api/cleanup/ttl`, que es otra ruta— y `/api/billing/portal` tampoco tiene ningún
+componente que la invoque. La de `ttl` además servía un mock con forma
+`auditResults.{expiringSoon,expired,missingTags}` mientras la ruta devuelve `{expiredResources}`:
+una divergencia total que **nadie vio nunca porque no había a quién mostrársela**. Se fueron las dos
+intercepciones y sus dos `case` huérfanos de `mockData.ts` (27 líneas).
+
+**`budgets/burn` se ató por typecheck**, que es la única red posible cuando el handler no se puede
+invocar. Se declaró `BudgetBurnResponse` en `budgetTypes.ts`, se anotó la ruta con él y el mock
+lleva `satisfies MockContracts['budgets_burn']`. Comprobado con un mutante: agregar un campo al
+contrato rompe el mock en compilación.
+
+Eso destapó dos cosas. Una, que **el mock no traía las cinco proyecciones** que la ruta agrega a
+cada fila de `burnData` —hoy no se nota porque el gráfico sólo lee `costCenter`/`budget`/`actual`,
+pero la rama de respaldo de `BudgetCard` lee `item.forecastedBreachDate` de ahí—. La otra, **un
+error mío**: escribí el tipo de `subBudgets` con el `BudgetProjection` completo y el typecheck lo
+rechazó, porque la ruta elige cinco de sus siete campos y usa `budget`/`actual` en lugar de
+`assignedAmount`/`currentSpend`. El tipo describe lo que la ruta devuelve, no lo que uno supondría.
+
+**Quedan cinco** con consumidor real y sin rama mock: `audit/full`, `intelligence/rates`,
+`intelligence/rightsizing`, `remediation/workflow` y `dashboard/summary`. Para todas el camino es el
+mismo que el de `budgets/burn` —declarar el tipo de respuesta y atar el mock— porque ninguna se
+puede invocar con un tenant de demo. Es trabajo por ruta.
+
+**Y una corrección al análisis anterior:** dar a estas rutas una rama `isMockTenant` y borrar la
+intercepción, que es lo que hizo falta en las diez primeras, **acá no arreglaría nada**. En esas
+diez había DOS copias del mock —la del generador de la ruta y la del interceptor— y el arreglo
+colapsaba las dos en una. En estas cinco hay **una sola copia**, así que no hay divergencia entre
+copias que eliminar; lo único que se lograría es ampliar la superficie que responde sin token, justo
+lo que SEC-02 pidió no ampliar. El riesgo acá es otro: que la copia única se atrase respecto del
+contrato vivo, y eso lo ataja el typecheck, no una rama nueva.
 
 **Un chequeo nuevo que hacía falta:** un 200 degradado engaña igual que un 500. `{error}` o
 `{degraded:true}` traen pocas claves, la comparación pasa sola y la ruta queda contada como

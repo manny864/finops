@@ -1,5 +1,6 @@
 import { buildDailyHistogram } from './costProjection';
 import type { ComputeEfficiencySummary, RateOptimizationAction } from './computeEfficiencyTypes';
+import type { BudgetBurnResponse } from './budgetTypes';
 // MEJ-40: la demo calcula la concentración con la MISMA función que producción
 // —es pura y no toca la base— en vez de con un objeto a mano. Un mock escrito
 // aparte se vuelve mentira en cuanto cambia el cálculo, y esta pantalla es la
@@ -317,6 +318,11 @@ export const getMockNetworkServiceCostV2 = (arg2: string, family: NetworkFamily)
  * case — ése es el trabajo pendiente que deja MEJ-03.
  */
 export interface MockContracts {
+    // Atada por typecheck y no por el test de runtime: `budgets/burn` pide
+    // credenciales de Azure antes de cualquier rama mock, asi que el handler no
+    // se puede invocar con un tenant de demo y la comparacion de formas no
+    // llega. Es la unica red posible para esta ruta. (MEJ-03)
+    'budgets_burn': BudgetBurnResponse;
     'compute-efficiency': ComputeEfficiencySummary;
     // Las siguientes NO se ataron todavía: atarlas exige verificar primero QUÉ
     // ruta sirve la clave y QUÉ tipo consume su panel. Al intentarlo se
@@ -724,17 +730,6 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                     { skuName: 'DW500c', resourceType: 'SynapseAnalytics', recommendedQuantity: 1 * multiplier, totalMonthlyPAYGCost: 5760 * multiplier, costWith1YReservation: 3456 * multiplier, netSavings1Y: 2304 * multiplier, costWith3YReservation: 2419 * multiplier, netSavings3Y: 3341 * multiplier },
                     { skuName: 'Standard_D4s_v5', resourceType: 'VirtualMachines', recommendedQuantity: 6 * multiplier, totalMonthlyPAYGCost: 1050 * multiplier, costWith1YReservation: 630 * multiplier, netSavings1Y: 420 * multiplier, costWith3YReservation: 441 * multiplier, netSavings3Y: 609 * multiplier }
                 ]
-            };
-        case 'ttl':
-            return {
-                success: true,
-                auditResults: {
-                    expiringSoon: [],
-                    expired: [
-                        { id: "/subscriptions/mock-sub/resourceGroups/demo-rg", name: "demo-rg", type: "Resource Group", daysOverdue: 12 }
-                    ],
-                    missingTags: []
-                }
             };
         case 'invoicing_report': {
             const round2 = (x: number) => Math.round(x * 100) / 100;
@@ -1678,16 +1673,43 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
         // existe, así que nunca se sirvió. Para dar demo a Presupuestos hay que
         // escribir el payload con la forma nueva, no reactivar éste.
         case 'budgets_burn': {
+            // La ruta agrega a CADA fila las cinco proyecciones
+            // (`dailyBurnRate`, `forecastedMonthEndSpend`, `forecastedBreachDate`,
+            // `budgetStatus`, `percentageUsed`) y el mock no las traia. Hoy no se
+            // nota porque el grafico sólo lee costCenter/budget/actual y
+            // `BudgetCard` usa `subBudgets`, que si estaba completo; pero la rama
+            // de respaldo de `BudgetCard` lee `item.forecastedBreachDate` de
+            // estas filas. Se calculan igual que en la ruta: dia 24 de un mes de
+            // 30, coherente con el resto de la demo.
+            const proyectar = (budget: number, actual: number) => {
+                const dailyBurnRate = Number((actual / 24).toFixed(2));
+                const forecastedMonthEndSpend = Number((dailyBurnRate * 30).toFixed(2));
+                const percentageUsed = budget > 0 ? Number(((actual / budget) * 100).toFixed(2)) : 0;
+                const budgetStatus: 'OK' | 'WARNING' | 'CRITICAL' =
+                    actual >= budget || forecastedMonthEndSpend > budget
+                        ? 'CRITICAL'
+                        : forecastedMonthEndSpend >= budget * 0.9 || percentageUsed >= 90
+                        ? 'WARNING'
+                        : 'OK';
+                return {
+                    assignedAmount: budget,
+                    currentSpend: actual,
+                    dailyBurnRate,
+                    forecastedMonthEndSpend,
+                    forecastedBreachDate: actual >= budget ? 'Excedido' : null,
+                    budgetStatus,
+                    percentageUsed,
+                };
+            };
             const rawMock = [
                 { costCenter: 'IT & Ops', subscriptionId: 'mock-sub', budget: 15000 * multiplier, actual: 12000 * multiplier },
                 { costCenter: 'Marketing', subscriptionId: 'mock-sub', budget: 5000 * multiplier, actual: 4800 * multiplier },
                 { costCenter: 'R&D', subscriptionId: 'mock-sub', budget: 8000 * multiplier, actual: 9500 * multiplier },
                 { costCenter: 'HR', subscriptionId: 'mock-sub', budget: 2000 * multiplier, actual: 1200 * multiplier }
-            ];
+            ].map((f) => ({ ...f, ...proyectar(f.budget, f.actual) }));
             const totalBudget = 30000 * multiplier;
             const totalActual = 27500 * multiplier;
             return {
-                success: true,
                 burnData: rawMock,
                 subBudgets: {
                     'mock-sub': {
@@ -1710,7 +1732,7 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                     forecastedBreachDate: null,
                     budgetStatus: 'OK',
                 }
-            };
+            } satisfies MockContracts['budgets_burn'];
         }
         case 'tags':
             return {
@@ -2318,22 +2340,6 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                     { id: 3, resource_id: '/subscriptions/demo/resourceGroups/rg-net/providers/Microsoft.Network/publicIPAddresses/pip-legacy', resource_name: 'pip-legacy (Public IP huérfana)', action_type: 'DELETE_RESOURCE', estimated_savings: 4.20, status: 'Approved', requested_by: 'zombie-scanner@demo.local', requested_at: new Date(Date.now() - 1000*60*60*48).toISOString(), resolved_at: new Date(Date.now() - 1000*60*60*47).toISOString(), resolved_by: 'admin@demo.local' },
                     { id: 4, resource_id: '/subscriptions/demo/resourceGroups/rg-data/providers/Microsoft.Storage/storageAccounts/saoldlogs', resource_name: 'saoldlogs (Hot → Cool tier)', action_type: 'CHANGE_TIER', estimated_savings: 65.00, status: 'Approved', requested_by: 'storage-efficiency@demo.local', requested_at: new Date(Date.now() - 1000*60*60*72).toISOString(), resolved_at: new Date(Date.now() - 1000*60*60*70).toISOString(), resolved_by: 'admin@demo.local' },
                     { id: 5, resource_id: '/subscriptions/demo/resourceGroups/rg-test/providers/Microsoft.Compute/virtualMachines/vm-stress-test', resource_name: 'vm-stress-test (Power Off por inactividad)', action_type: 'POWER_OFF', estimated_savings: 28.60, status: 'Rejected', requested_by: 'smart-shutdown@demo.local', requested_at: new Date(Date.now() - 1000*60*60*96).toISOString(), resolved_at: new Date(Date.now() - 1000*60*60*95).toISOString(), resolved_by: 'admin@demo.local' }
-                ]
-            };
-        case 'payments':
-            return {
-                mock: true,
-                tier: 'Enterprise',
-                status: 'active',
-                renewsAt: new Date(Date.now() + 1000*60*60*24*22).toISOString(),
-                monthlyAmount: 1499.00,
-                currency: 'USD',
-                paymentMethod: { brand: 'Visa', last4: '4242', exp: '12/28' },
-                portalUrl: 'https://billing.paddle.com/customer-portal/test_demo',
-                invoices: [
-                    { id: 'INV-2026-05', date: '2026-05-01', amount: 1499.00, status: 'paid', pdfUrl: '#' },
-                    { id: 'INV-2026-04', date: '2026-04-01', amount: 1499.00, status: 'paid', pdfUrl: '#' },
-                    { id: 'INV-2026-03', date: '2026-03-01', amount: 1499.00, status: 'paid', pdfUrl: '#' }
                 ]
             };
         case 'macc': {

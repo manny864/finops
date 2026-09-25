@@ -20,6 +20,42 @@ export interface BudgetProjection {
     budgetStatus: BudgetStatus;
 }
 
+/**
+ * Lo que devuelve `GET /api/budgets/burn`.
+ *
+ * Existe para que el mock del interceptor de la demo quede ATADO al contrato
+ * (ver `MockContracts` en mockData.ts): la ruta no puede alcanzarse con un
+ * tenant de demo —pide credenciales de Azure antes de cualquier rama mock—, así
+ * que la comparación en runtime que hace `formaMockInterceptor` no llega. El
+ * typecheck sí. (MEJ-03)
+ */
+export interface BudgetBurnRow extends BudgetProjection {
+    /** Nombre del centro de costo cuando el presupuesto es por etiqueta. */
+    costCenter?: string;
+    subscriptionId?: string;
+    budget: number;
+    actual: number;
+}
+
+/**
+ * Ojo: la ruta NO expande `BudgetProjection` entero acá. Elige cinco de sus
+ * siete campos y usa `budget`/`actual` en lugar de
+ * `assignedAmount`/`currentSpend`. El tipo describe lo que la ruta devuelve, no
+ * lo que uno supondría: al escribirlo con el spread completo, el typecheck
+ * marcó la diferencia de inmediato.
+ */
+export type BudgetBurnSubBudget = Omit<BudgetProjection, "assignedAmount" | "currentSpend"> & {
+    subscriptionId: string;
+    budget: number;
+    actual: number;
+};
+
+export interface BudgetBurnResponse {
+    burnData: BudgetBurnRow[];
+    subBudgets: Record<string, BudgetBurnSubBudget>;
+    consolidated: BudgetProjection;
+}
+
 export interface TenantBudgetOverview extends BudgetProjection {
     tenantId: string;
     month: number;

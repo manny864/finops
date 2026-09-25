@@ -5,6 +5,7 @@ import { isMockTenant } from "@/lib/mockData";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getAzureCredential, getAllSubscriptionsForTenant } from "@/lib/azure";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
+import type { BudgetBurnResponse, BudgetBurnSubBudget } from "@/lib/budgetTypes";
 // RBAC: lectura de burn de presupuestos requiere pertenencia al tenant (JWT validado).
 
 export async function GET(request: NextRequest) {
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
             };
         });
 
-        const subBudgets: Record<string, any> = {};
+        const subBudgets: Record<string, BudgetBurnSubBudget> = {};
         let totalBudget = 0;
         let totalActual = 0;
 
@@ -99,7 +100,11 @@ export async function GET(request: NextRequest) {
             }, subIds.join(","));
         }
 
-        return NextResponse.json({ burnData, subBudgets, consolidated });
+        // Anotado con el MISMO tipo que ata al mock de la demo: si esta forma
+        // cambia y nadie toca el mock, rompe el typecheck en vez de vaciar la
+        // pantalla en silencio (MEJ-03).
+        const respuesta: BudgetBurnResponse = { burnData, subBudgets, consolidated };
+        return NextResponse.json(respuesta);
 
     } catch (e) {
         if (e instanceof AuthError) return NextResponse.json({ error: errorMessage(e) }, { status: errorStatus(e) });

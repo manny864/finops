@@ -388,7 +388,11 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   return new Response(JSON.stringify(getMockDataForRoute('academy', mockKey)), {status: 200});
               }
               if (url.includes('/api/audit/full')) return new Response(JSON.stringify(getMockDataForRoute('audit_full', mockKey)), {status: 200});
-              if (url.includes('/api/audit/ttl')) return new Response(JSON.stringify(getMockDataForRoute('ttl', mockKey)), {status: 200});
+              // /api/audit/ttl NO se intercepta: NADIE la llama. El panel de TTL
+              // pega a /api/cleanup/ttl, que es otra ruta. Esta intercepcion
+              // servia un mock con forma `auditResults.{expiringSoon,expired,
+              // missingTags}` mientras la ruta devuelve `{expiredResources}` --
+              // divergencia que nadie vio nunca porque no hay a quien mostrarsela.
               if (url.includes('/api/tags/compliance')) return new Response(JSON.stringify(getMockDataForRoute('tags_compliance', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/network')) return new Response(JSON.stringify(getMockDataForRoute('network', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/rates')) return new Response(JSON.stringify(getMockDataForRoute('rates', mockKey)), {status: 200});
@@ -543,7 +547,10 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               if (url.includes('/api/tags') && !url.includes('/api/tags/compliance')) return new Response(JSON.stringify(getMockDataForRoute('tags', mockKey)), {status: 200});
               if (url.includes('/api/governance/policies')) return new Response(JSON.stringify(getMockDataForRoute('governance-policies', mockKey)), {status: 200});
               if (url.includes('/api/remediation/workflow')) return new Response(JSON.stringify(getMockDataForRoute('approvals', mockKey)), {status: 200});
-              if (url.includes('/api/billing/portal')) return new Response(JSON.stringify(getMockDataForRoute('payments', mockKey)), {status: 200});
+              // /api/billing/portal NO se intercepta: ningun componente la llama.
+              // Esta documentada en docs/paddle-billing.md como endpoint, y la ruta
+              // sigue existiendo; lo que se borra es la copia del payload para una
+              // demo que nunca la pide.
               if (url.includes('/api/billing/plan')) {
                   const tierCap = tier.charAt(0).toUpperCase() + tier.slice(1);
                   return new Response(JSON.stringify({
