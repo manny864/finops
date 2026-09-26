@@ -46,9 +46,11 @@ describe("el whiteboard no espera a Azure más de lo que el proxy tolera", () =>
     // responde al instante y refresca en background.
     it("el respaldo en caché dura mucho más que la ventana de refresco", () => {
         // La política pasó de un ternario en una línea a un bloque cuando se
-        // agregó el caso "degradado en cero no pisa al bueno" (2026-09-15), así
-        // que se verifican los números y no la forma de escribirlos.
-        const m = sinComentarios.match(/\}, (\d+), (\d+), \(result\) =>/);
+        // agregó el caso "degradado en cero no pisa al bueno" (2026-09-15), y el
+        // ensamblado pasó a ser una función con nombre cuando el alcance de
+        // Perspective tuvo que poder saltear el caché (MEJ-34, 2026-09-25). Se
+        // verifican los números y no la forma de escribirlos.
+        const m = sinComentarios.match(/, (\d+), (\d+), \(result\) =>/);
         expect(m, "no encontré la política de caché").not.toBeNull();
         const [, duro, soft] = m!.map(Number);
         expect(duro).toBeGreaterThanOrEqual(12 * 3600);

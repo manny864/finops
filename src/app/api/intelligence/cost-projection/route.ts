@@ -31,7 +31,8 @@ import { buildDailyHistogram, type DailySpendHistogramPoint } from "@/lib/costPr
 import { errorMessage } from '@/lib/apiErrors';
 import { getTagCoverage } from "@/lib/costTagCoverage";
 import {
-    filtroDeAlcance, comoFilaDeCosto, DIMENSIONES_DE_ALCANCE, type FilaConDimensiones,
+    filtroDeAlcance, comoFilaDeCosto, recorteDeAlcance, DIMENSIONES_DE_ALCANCE,
+    type FilaConDimensiones, type RecorteDeAlcance,
 } from "@/services/perspectivesData.service";
 import type { FilaDeCosto } from "@/services/perspectives.service";
 
@@ -39,6 +40,25 @@ type DailyPoint = { date: string; cost: number };
 type MonthlyPoint = { month: string; cost: number };
 
 type Alcance = (fila: FilaDeCosto) => boolean;
+
+/**
+ * Cómo se acota esta serie. Son dos mecanismos y el orden importa:
+ *
+ *   - `recorte`: el alcance traducido a un predicado SQL. Es el camino bueno —
+ *     la agregación se queda en la base—, pero se niega cuando una terna cae de
+ *     los dos lados (el mismo recurso con dos juegos de etiquetas en la
+ *     ventana), y con 13 meses eso es más probable que en los otros tableros.
+ *   - `plegado`: evaluar fila por fila en TypeScript. Siempre exacto, pero se
+ *     trae el detalle: medido contra la base local, 13.940 filas, porque el
+ *     grano de esta serie incluye la fecha y no colapsa.
+ *
+ * Con los dos, la serie se acota siempre y sólo paga el detalle cuando el
+ * predicado no alcanza.
+ */
+interface ModoDeAlcance {
+    recorte: RecorteDeAlcance | null;
+    plegado: Alcance | null;
+}
 
 /** El filtro por suscripción, igual en las dos formas de cada consulta. */
 function ventana(tenantId: string, subscriptionId: string) {
@@ -57,9 +77,23 @@ function ventana(tenantId: string, subscriptionId: string) {
  * el detalle por las cinco dimensiones que las reglas miran y el plegado rehace
  * la suma por día. Sin alcance la consulta de siempre no se toca.
  */
-async function queryDailyFromDb(tenantId: string, subscriptionId: string, alcance?: Alcance): Promise<DailyPoint[]> {
+async function queryDailyFromDb(tenantId: string, subscriptionId: string, modo?: ModoDeAlcance): Promise<DailyPoint[]> {
     const { where, params } = ventana(tenantId, subscriptionId);
 
+    if (modo?.recorte) {
+        const [rows]: any = await pool.query(
+            `SELECT DATE_FORMAT(date, '%Y-%m-%d') AS d,
+                    ROUND(SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)), 2) AS cost
+             FROM CostSnapshots
+             ${where} AND ${modo.recorte.sql}
+             GROUP BY d
+             ORDER BY d ASC`,
+            [...params, ...modo.recorte.params]
+        );
+        return (rows || []).map((r: any) => ({ date: String(r.d), cost: Number(r.cost) || 0 }));
+    }
+
+    const alcance = modo?.plegado;
     if (alcance) {
         const [detalle]: any = await pool.query(
             `SELECT DATE_FORMAT(date, '%Y-%m-%d') AS d, ${DIMENSIONES_DE_ALCANCE},
@@ -98,9 +132,10 @@ async function queryDailyFromDb(tenantId: string, subscriptionId: string, alcanc
  * esta misma request, ver getHistoricalDailyCosts). Usado para el tooltip
  * de picos/anomalías del histograma ("Servicio causante: X").
  */
-async function queryDailyTopServiceFromDb(tenantId: string, subscriptionId: string, alcance?: Alcance): Promise<Map<string, string>> {
+async function queryDailyTopServiceFromDb(tenantId: string, subscriptionId: string, modo?: ModoDeAlcance): Promise<Map<string, string>> {
     const { where, params } = ventana(tenantId, subscriptionId);
     const servicio = `COALESCE(NULLIF(service_name, ''), 'Unknown')`;
+    const alcance = modo?.plegado;
 
     // El servicio causante tiene que salir del MISMO universo que la serie: si
     // la serie está acotada y este desglose no, el tooltip de un pico nombraría
@@ -118,9 +153,9 @@ async function queryDailyTopServiceFromDb(tenantId: string, subscriptionId: stri
             `SELECT DATE_FORMAT(date, '%Y-%m-%d') AS d, ${servicio} AS service,
                     SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS total
              FROM CostSnapshots
-             ${where}
+             ${where}${modo?.recorte ? ` AND ${modo.recorte.sql}` : ""}
              GROUP BY d, service`,
-            params
+            [...params, ...(modo?.recorte?.params || [])]
         );
 
     const porDiaYServicio = new Map<string, number>();
@@ -186,9 +221,23 @@ export async function GET(request: NextRequest) {
         // recorta fila por fila.
         const desde = new Date();
         desde.setMonth(desde.getMonth() - AZURE_COST_HISTORY_MAX_MONTHS);
-        const recorte = alcance && (await getTagCoverage(
+        const medible = !!alcance && (await getTagCoverage(
             tenantId, desde.toISOString().slice(0, 10), new Date().toISOString().slice(0, 10),
-        )).isExact ? alcance : null;
+        )).isExact;
+
+        // Predicado primero, plegado de respaldo. Ver `ModoDeAlcance`.
+        let modo: ModoDeAlcance | null = null;
+        if (medible && alcance) {
+            const v = ventana(tenantId, subscriptionId);
+            const [dims]: any = await pool.query(
+                `SELECT DISTINCT ${DIMENSIONES_DE_ALCANCE} FROM CostSnapshots ${v.where}`, v.params,
+            );
+            modo = { recorte: recorteDeAlcance(dims as FilaConDimensiones[], alcance), plegado: alcance };
+            // Con predicado no hace falta el plegado, y es lo que evita traerse
+            // el detalle de 13 meses a memoria.
+            if (modo.recorte) modo.plegado = null;
+        }
+        const recorte = modo;
 
         // v5: dailyHistory ahora incluye continuidad (huecos rellenados con
         // $0), media móvil de 7d, flags de fin de semana/pico y servicio
@@ -210,11 +259,11 @@ export async function GET(request: NextRequest) {
         }
 
         if (!payload) {
-            let daily = await queryDailyFromDb(tenantId, subscriptionId, recorte || undefined);
+            let daily = await queryDailyFromDb(tenantId, subscriptionId, modo || undefined);
             let backfillOk = true;
             // Best-effort: si falla no corta la respuesta, solo se pierde el
             // dato de "servicio causante" en los picos detectados.
-            const serviceTopByDate = await queryDailyTopServiceFromDb(tenantId, subscriptionId, recorte || undefined).catch((e) => {
+            const serviceTopByDate = await queryDailyTopServiceFromDb(tenantId, subscriptionId, modo || undefined).catch((e) => {
                 console.warn("[cost-projection] top service por día falló:", e?.message);
                 return new Map<string, string>();
             });

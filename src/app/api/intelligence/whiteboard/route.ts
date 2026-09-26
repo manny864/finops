@@ -11,6 +11,7 @@ import { getCurrentMonthAmortizedCosts } from "@/modules/collectors/azure/billin
 import { redis } from "@/lib/redis";
 import pool from "@/modules/storage/db";
 import { getInternalBaseUrl } from "@/lib/internalBaseUrl";
+import { alcanceDeLaRuta } from "@/services/perspectivesData.service";
 import type {
     WhiteboardBudgetEntry,
     WhiteboardQuickWin,
@@ -39,6 +40,15 @@ import type {
 
 // FY = año calendario actual (no existe concepto de fiscal year custom en
 // este repo). Se documenta acá porque es una decisión de producto, no un dato.
+/**
+ * MEJ-34 — el recorte de alcance que heredan las siete consultas de costo de
+ * esta pizarra. Se resuelve UNA vez en el GET, con la ventana más ancha que
+ * alguna de ellas consume (el año fiscal anterior), y cada una lo pega al final
+ * de su WHERE: ahí van sus placeholders, así que sus parámetros van al final.
+ */
+type Recorte = { and: string; params: unknown[] };
+const SIN_RECORTE: Recorte = { and: "", params: [] };
+
 function fiscalYearRange(year: number): { start: string; end: string } {
     return { start: `${year}-01-01`, end: `${year}-12-31` };
 }
@@ -77,6 +87,7 @@ function readCostCenter(tags: unknown): string {
 async function getCurrentMonthCostAggregation(
     tenantId: string,
     alDegradar?: () => void,
+    alcance: Recorte = SIN_RECORTE,
 ): Promise<CurrentMonthCostAggregation> {
     // ESTA LLAMADA TAMBIEN LLEVA TECHO. Es la unica fuente de costo que no
     // pasaba por `fuente()`, porque se resuelve ANTES del `Promise.all` --su
@@ -132,8 +143,9 @@ async function getCurrentMonthCostAggregation(
                     COALESCE(EffectiveCost, BilledCost, cost_usd, 0) AS effectiveCost
                  FROM CostSnapshots
                  WHERE tenant_id = ?
-                   AND DATE(COALESCE(date, ChargePeriodStart)) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')`,
-                [tenantId]
+                   AND DATE(COALESCE(date, ChargePeriodStart)) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+                   ${alcance.and}`,
+                [tenantId, ...alcance.params]
             );
             entries = (rows as Array<Record<string, unknown>>) || [];
             origen = entries.length > 0 ? "snapshot" : "vacio";
@@ -181,7 +193,7 @@ function proyeccionLineal(costMtdUSD: number): number {
     return Number(((costMtdUSD / diasTranscurridos) * diasDelMes).toFixed(2));
 }
 
-async function getCostFigures(tenantId: string, currentMonth: CurrentMonthCostAggregation) {
+async function getCostFigures(tenantId: string, currentMonth: CurrentMonthCostAggregation, alcance: Recorte = SIN_RECORTE) {
     const now = new Date();
     const currentYear = now.getUTCFullYear();
     const currentFY = fiscalYearRange(currentYear);
@@ -192,8 +204,8 @@ async function getCostFigures(tenantId: string, currentMonth: CurrentMonthCostAg
             SUM(CASE WHEN DATE(COALESCE(ChargePeriodStart, date)) BETWEEN ? AND ? THEN COALESCE(EffectiveCost, cost_usd, 0) ELSE 0 END) AS currentFY,
             SUM(CASE WHEN DATE(COALESCE(ChargePeriodStart, date)) BETWEEN ? AND ? THEN COALESCE(EffectiveCost, cost_usd, 0) ELSE 0 END) AS previousFY
          FROM CostSnapshots
-         WHERE tenant_id = ?`,
-        [currentFY.start, currentFY.end, previousFY.start, previousFY.end, tenantId]
+         WHERE tenant_id = ?${alcance.and}`,
+        [currentFY.start, currentFY.end, previousFY.start, previousFY.end, tenantId, ...alcance.params]
     );
     let currentFYCost = Number(rows?.[0]?.currentFY || 0);
     const previousFYCost = Number(rows?.[0]?.previousFY || 0);
@@ -244,8 +256,8 @@ async function getCostFigures(tenantId: string, currentMonth: CurrentMonthCostAg
     for (const m of months) {
         const [r]: any = await pool.query(
             `SELECT SUM(COALESCE(EffectiveCost, cost_usd, 0)) AS total
-             FROM CostSnapshots WHERE tenant_id = ? AND COALESCE(ChargePeriodStart, date) BETWEEN ? AND ?`,
-            [tenantId, m.start, m.end]
+             FROM CostSnapshots WHERE tenant_id = ? AND COALESCE(ChargePeriodStart, date) BETWEEN ? AND ?${alcance.and}`,
+            [tenantId, m.start, m.end, ...alcance.params]
         );
         const mTotal = Number(r?.[0]?.total || 0);
         last3MonthsTrend.push({
@@ -336,20 +348,21 @@ async function getExecutiveSummaryMetrics(
     }
 }
 
-async function getTop5CostGroups(tenantId: string) {
+async function getTop5CostGroups(tenantId: string, alcance: Recorte = SIN_RECORTE) {
     const [rows]: any = await pool.query(
         `SELECT COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')), 'null'), 'Untagged') AS name,
                 SUM(COALESCE(EffectiveCost, cost_usd, 0)) AS total
          FROM CostSnapshots
          WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+               ${alcance.and}
          GROUP BY name ORDER BY total DESC LIMIT 5`,
-        [tenantId]
+        [tenantId, ...alcance.params]
     );
     const groups = (rows as any[]).map(r => ({ name: r.name, cost: Number(r.total) || 0 }));
     return { totalCost: Number(groups.reduce((s, g) => s + g.cost, 0).toFixed(2)), groups };
 }
 
-async function getUntaggedResources(tenantId: string, argClient: ResourceGraphClient | null) {
+async function getUntaggedResources(tenantId: string, argClient: ResourceGraphClient | null, alcance: Recorte = SIN_RECORTE) {
     if (!argClient) {
         return { count: 0, total: 0, countPct: 0, cost: 0, costPct: 0, trend: [] };
     }
@@ -370,8 +383,9 @@ async function getUntaggedResources(tenantId: string, argClient: ResourceGraphCl
             SUM(CASE WHEN JSON_EXTRACT(Tags, '$.CostCenter') IS NULL THEN COALESCE(EffectiveCost, cost_usd, 0) ELSE 0 END) AS untaggedCost,
             SUM(COALESCE(EffectiveCost, cost_usd, 0)) AS totalCost
          FROM CostSnapshots
-         WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
-        [tenantId]
+         WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+               ${alcance.and}`,
+        [tenantId, ...alcance.params]
     );
     const untaggedCost = Number(costRows?.[0]?.untaggedCost || 0);
     const totalCost = Number(costRows?.[0]?.totalCost || 0);
@@ -386,8 +400,8 @@ async function getUntaggedResources(tenantId: string, argClient: ResourceGraphCl
     for (const m of months) {
         const [r]: any = await pool.query(
             `SELECT SUM(CASE WHEN JSON_EXTRACT(Tags, '$.CostCenter') IS NULL THEN COALESCE(EffectiveCost, cost_usd, 0) ELSE 0 END) AS untaggedCost
-             FROM CostSnapshots WHERE tenant_id = ? AND COALESCE(ChargePeriodStart, date) BETWEEN ? AND ?`,
-            [tenantId, m.start, m.end]
+             FROM CostSnapshots WHERE tenant_id = ? AND COALESCE(ChargePeriodStart, date) BETWEEN ? AND ?${alcance.and}`,
+            [tenantId, m.start, m.end, ...alcance.params]
         );
         trend.push({ month: m.label, cost: Number(r?.[0]?.untaggedCost || 0) });
     }
@@ -452,15 +466,15 @@ async function getRecommendationTrend(tenantId: string) {
 // Anomalías por z-score sobre el costo diario ya sincronizado (mismo umbral
 // que /api/intelligence/anomalies), agregado a conteo mensual para el gráfico
 // de tendencia — evita pegarle de nuevo a la API de Azure Cost Management.
-async function getCostAnomalyTrend(tenantId: string) {
+async function getCostAnomalyTrend(tenantId: string, alcance: Recorte = SIN_RECORTE) {
     const months = lastNMonths(3);
     const trend = [];
     for (const m of months) {
         const [rows]: any = await pool.query(
             `SELECT DATE(COALESCE(ChargePeriodStart, date)) AS d, SUM(COALESCE(EffectiveCost, cost_usd, 0)) AS total
-             FROM CostSnapshots WHERE tenant_id = ? AND COALESCE(ChargePeriodStart, date) BETWEEN ? AND ?
+             FROM CostSnapshots WHERE tenant_id = ? AND COALESCE(ChargePeriodStart, date) BETWEEN ? AND ?${alcance.and}
              GROUP BY d`,
-            [tenantId, m.start, m.end]
+            [tenantId, m.start, m.end, ...alcance.params]
         );
         const values = (rows as any[]).map(r => Number(r.total) || 0);
         const mean = values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
@@ -533,12 +547,22 @@ export async function GET(request: NextRequest) {
 
         await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
 
+        // MEJ-34: el alcance transversal, resuelto UNA vez con la ventana más
+        // ancha que alguna de las siete consultas consume — el año fiscal
+        // anterior, de `getCostFigures`. Con una ventana más corta, una fila
+        // vieja quedaría sin clasificar y su terna se perdería del `IN`.
+        const alcanceRuta = await alcanceDeLaRuta(tenantId, request.nextUrl.searchParams, {
+            where: "tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) >= ?",
+            params: [tenantId, `${new Date().getUTCFullYear() - 1}-01-01`],
+        });
+        const alcance: Recorte = { and: alcanceRuta.and, params: alcanceRuta.params };
+
         const cacheKey = `whiteboard:v5:azure:${tenantId}:${locale}`;
         const bust = request.nextUrl.searchParams.get("bust") === "1";
         if (bust) {
             try { await redis.del(cacheKey); } catch {}
         }
-        const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
+        const ensamblar = async () => {
             let argClient: ResourceGraphClient | null = null;
             try {
                 argClient = new ResourceGraphClient(await getAzureCredential(tenantId));
@@ -555,7 +579,7 @@ export async function GET(request: NextRequest) {
 
             const currentMonth = await getCurrentMonthCostAggregation(tenantId, () => {
                 costDegraded = true;
-            });
+            }, alcance);
 
             const [
                 costFigures,
@@ -592,17 +616,17 @@ export async function GET(request: NextRequest) {
                         .slice(0, 4),
                     topServices: [] as any[],
                     last3MonthsTrend: [] as any[],
-                }, () => getCostFigures(tenantId, currentMonth), () => { costDegraded = true; }),
-                fuente("costGroups", { totalCost: 0, groups: [] as any[] }, () => getTop5CostGroups(tenantId), () => { costDegraded = true; }),
+                }, () => getCostFigures(tenantId, currentMonth, alcance), () => { costDegraded = true; }),
+                fuente("costGroups", { totalCost: 0, groups: [] as any[] }, () => getTop5CostGroups(tenantId, alcance), () => { costDegraded = true; }),
                 fuente("budgets", [] as any[], () => getWhiteboardBudgets(tenantId, currentMonth)),
-                fuente("untagged", { count: 0, total: 0, countPct: 0, cost: 0, costPct: 0, trend: [] as any[] }, () => getUntaggedResources(tenantId, argClient)),
+                fuente("untagged", { count: 0, total: 0, countPct: 0, cost: 0, costPct: 0, trend: [] as any[] }, () => getUntaggedResources(tenantId, argClient, alcance)),
                 fuente("complianceWins", [] as any[], () => getComplianceWins(tenantId, argClient)),
                 fuente("locations", [] as any[], () => getTop5(argClient, tenantId, "location")),
                 fuente("inventory", [] as any[], () => getTop5(argClient, tenantId, "type")),
                 fuente("security", { pct: 0, withMfa: 0, total: 0 }, () => getSecurityScore(tenantId)),
                 fuente("advisor", null as any, () => getAdvisorExecutiveData(tenantId, locale)),
                 fuente("recTrend", [] as any[], () => getRecommendationTrend(tenantId)),
-                fuente("anomalyTrend", [] as any[], () => getCostAnomalyTrend(tenantId)),
+                fuente("anomalyTrend", [] as any[], () => getCostAnomalyTrend(tenantId, alcance)),
                 // Techo de 25 s: el pronóstico de Azure tarda cuando Cost
                 // Management throttlea, y es el número que el cliente compara
                 // contra el portal. Vale esperarlo -- degradarlo sólo cuesta
@@ -848,12 +872,18 @@ export async function GET(request: NextRequest) {
         //
         // Se distingue el cero SIN degradación --un tenant que de verdad no
         // gastó-- que sí se cachea, corto, porque es un dato y no una falla.
-        }, 43200, 900, (result) => {
-            const mtd = Number(result?.summary?.costMtdUSD || 0);
-            if (mtd === 0 && result?._costDegraded) return 0;
-            if (mtd === 0 || result?._costDegraded) return 3600;
-            return 43200;
-        });
+        };
+
+        // El recorte no se cachea: `cacheKey` no lo incluye y el TTL llega a 12 h,
+        // así que una vista acotada serviría la pizarra de otro grupo medio día.
+        const data = alcanceRuta.aplicado
+            ? await ensamblar()
+            : await getWithStaleWhileRevalidate(cacheKey, ensamblar, 43200, 900, (result) => {
+                const mtd = Number(result?.summary?.costMtdUSD || 0);
+                if (mtd === 0 && result?._costDegraded) return 0;
+                if (mtd === 0 || result?._costDegraded) return 3600;
+                return 43200;
+            });
 
         // Traducción post-cache defensiva para cubrir texto que no quedó
         // localizado por Azure en tiempo de recolección.
@@ -868,7 +898,8 @@ export async function GET(request: NextRequest) {
             })),
         };
 
-        return NextResponse.json(localizedData);
+        // MEJ-34: false con un alcance pedido = la pizarra es la del tenant entero.
+        return NextResponse.json({ ...localizedData, scopeApplied: alcanceRuta.aplicado });
     } catch (err: unknown) {
         if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status });
         console.error("[whiteboard] error:", err instanceof Error ? err.message : err);

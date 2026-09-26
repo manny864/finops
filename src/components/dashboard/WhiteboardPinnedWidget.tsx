@@ -18,6 +18,7 @@ import { useCurrency } from "@/components/CurrencyProvider";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import type { WhiteboardExecutivePayload } from "@/types/whiteboard.types";
+import { usePerspectiveScope } from "@/components/PerspectiveScopeSelector";
 
 export type WhiteboardWidgetKind =
   | "budgets"
@@ -43,10 +44,13 @@ export default function WhiteboardPinnedWidget({ kind }: { kind: WhiteboardWidge
   const locale = useLocale();
   const t = useTranslations("WhiteBoard");
   const nombreBucket = useNombreDeBucket();
+  // MEJ-34: el widget hereda el alcance, o mostraría el número del tenant al
+  // lado de un tablero acotado.
+  const { queryString: alcanceQs } = usePerspectiveScope();
   const tenantId = selectedTenant?.id;
   const isDemo = Boolean(tenantId && isMockTenant(tenantId));
   const apiUrl = tenantId && tenantId !== "default" && (isDemo || accounts[0])
-    ? `/api/overview/whiteboard?tenantId=${encodeURIComponent(tenantId)}&locale=${locale}${isDemo ? "&mock=true" : ""}`
+    ? `/api/overview/whiteboard?tenantId=${encodeURIComponent(tenantId)}&locale=${locale}${isDemo ? "&mock=true" : ""}${alcanceQs}`
     : null;
   const { data, isLoading } = useSWR<WhiteboardExecutivePayload>(apiUrl, async (url: string) => {
     const headers: Record<string, string> = {};

@@ -49,7 +49,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-32](#mej-32--tres-catálogos-de-precios-duplicados-y-ya-divergidos-mej-10-reabierta) | Tres catálogos de precios duplicados y ya divergidos (MEJ-10 reabierta) | Transversal / Ahorro | Alto | Bajo | Hecha |
 | [MEJ-33](#mej-33--cerrar-el-lazo-del-desvío-dueño-estado-persistente-y-seguimiento) | Cerrar el lazo del desvío: dueño, estado persistente y seguimiento | Anomalías / Gobernanza | Alto | Medio | Hecha |
 | [MEJ-31](#mej-31--test-de-storage-history-hardcodea-meses-absolutos-contra-reloj-real) | Test de storage-history hardcodea meses absolutos contra reloj real (rompe todos los meses) | Storage Efficiency / Tests | Medio | Bajo | Hecha |
-| [MEJ-34](#mej-34--perspectives-agrupación-multidimensional-del-gasto) | Perspectives: agrupación multidimensional del gasto — cinco criterios + selector transversal; lo adoptan el export FOCUS, Cost Groups (con su detalle), Centros de Costo (con sus recursos) y Gastos y Proyección; el resto de los que agregan en SQL van uno por uno | Asignación / Transversal | Alto | Alto | Parcial |
+| [MEJ-34](#mej-34--perspectives-agrupación-multidimensional-del-gasto) | Perspectives: agrupación multidimensional del gasto — cinco criterios + selector transversal; lo adoptan el export FOCUS, Cost Groups (con su detalle), Centros de Costo (con sus recursos), Gastos y Proyección y la pizarra ejecutiva; el resto van uno por uno | Asignación / Transversal | Alto | Alto | Parcial |
 | [MEJ-35](#mej-35--suscripciones-a-reportes-cualquier-reporte-a-la-cadencia-que-elija-el-usuario) | Suscripciones a reportes: cualquier reporte, a la cadencia que elija el usuario, con link + imagen + CSV | Reportes | Alto | Medio | Propuesta |
 | [MEJ-36](#mej-36--presupuestos-rollover-y-año-fiscal-no-calendario) | Presupuestos: rollover con tope y año fiscal no calendario | Presupuestos | Medio | Bajo | Propuesta |
 | [MEJ-37](#mej-37--leaderboard-de-equipos-y-margen-bruto) | Leaderboard de equipos (ordenado por mejora, no por gasto) y split COGS/OpEx | Integración con el negocio | Medio | Bajo | Propuesta |
@@ -3350,6 +3350,38 @@ a 7.956, y las dos formas de consulta más riesgosas —la de `CASE WHEN` con pl
 `WHERE`, y la de `GROUP BY` con la fecha al final— se ejecutan sin error.
 
 Tests: `__tests__/unit/recorteDeAlcance.test.ts`, `__tests__/unit/costGroupDetalleAlcance.test.ts`.
+
+### Hecho (2026-09-25): el lote, y el error que se repitió tres veces
+
+Con el predicado, adoptar un tablero pasó a ser una consulta de dimensiones y un fragmento pegado al
+WHERE. Se empaquetó en `alcanceDeLaRuta(tenantId, searchParams, ventana)`, que devuelve el ` AND ...`
+y sus parámetros: **la pizarra ejecutiva, el scorecard y el forecast por servicio** lo adoptaron así,
+y `cost-projection` pasó del plegado al predicado.
+
+**`cost-projection` se queda con los dos mecanismos, y a propósito.** El predicado es el camino bueno
+—la agregación no sale de la base— pero se niega ante una terna ambigua, y con 13 meses de ventana un
+recurso que cambió de etiqueta es más probable que en los otros tableros. El plegado, que ya estaba
+escrito, queda de respaldo: la serie se acota siempre y sólo paga el detalle —13.940 filas medidas
+contra la base local— cuando el predicado no alcanza.
+
+**EL ERROR QUE SE REPITIÓ TRES VECES, Y QUE CONVIENE NO REPETIR UNA CUARTA.** Elegí las rutas de la
+lista de "las que leen `CostSnapshots`" sin comprobar cuáles llama la UI. Resultado:
+
+- **`/api/intelligence/forecast`**: el GET, que es el que la UI usa, lee Azure en vivo y no
+  `CostSnapshots`. Lo que se acotó es el POST, que `docs/forecasting.md` documenta como API pero
+  ninguna pantalla llama. Correcto, pero no mueve la aguja.
+- **`/api/intelligence/scorecard`**: es la ruta legacy. La UI usa `/api/analytics/scorecard`, que sale
+  de Cost Management y Resource Graph.
+- **`/api/intelligence/whiteboard`**: es sólo el ensamblado. La UI llama a `/api/overview/whiteboard`,
+  un proxy que reenviaba `tenantId`, `locale`, `mock` y `bust` — **y nada más**. El recorte quedaba
+  escrito y sin forma de llegar. Ahí sí se arregló: el proxy reenvía los dos parámetros y saltea su
+  propio caché, que es un segundo caché con su propia clave sin alcance.
+
+La lección para el resto: **la lista de rutas que leen `CostSnapshots` no es la lista de tableros.**
+Antes de tocar una, verificar quién la llama desde `src/components`, y si hay un proxy en el medio,
+que reenvíe.
+
+Tests: `__tests__/unit/forecastYScorecardAlcance.test.ts`, `__tests__/unit/whiteboardAlcance.test.ts`.
 
 ### Contexto
 

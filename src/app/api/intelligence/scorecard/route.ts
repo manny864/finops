@@ -6,6 +6,7 @@ import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import pool from "@/modules/storage/db";
 import { errorMessage } from '@/lib/apiErrors';
+import { alcanceDeLaRuta } from "@/services/perspectivesData.service";
 
 export async function GET(request: NextRequest) {
     try {
@@ -18,8 +19,15 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute('scorecard', tenantId));
         }
 
+        // MEJ-34: el alcance transversal, sobre la misma ventana de 30 días que
+        // usa el cruce de costo por CostCenter de más abajo.
+        const alcance = await alcanceDeLaRuta(tenantId, request.nextUrl.searchParams, {
+            where: "tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)",
+            params: [tenantId],
+        });
+
         const cacheKey = `scorecard:${tenantId}`;
-        const data = await getWithStaleWhileRevalidate(cacheKey, async () => {
+        const calcular = async () => {
             let credential;
             let argClient;
             try {
@@ -64,8 +72,9 @@ export async function GET(request: NextRequest) {
                          FROM CostSnapshots
                          WHERE tenant_id = ?
                            AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                           ${alcance.and}
                          GROUP BY costCenter`,
-                        [tenantId]
+                        [tenantId, ...alcance.params]
                     );
                     for (const r of (costRows as any[])) {
                         costByTeam.set(r.costCenter, Number(r.total) || 0);
@@ -109,9 +118,16 @@ export async function GET(request: NextRequest) {
             // Ordenar por score descendente
             return teamsScorecard.sort((a, b) => b.score - a.score);
 
-        }, 43200); // 12 hours TTL
+        };
 
-        return NextResponse.json({ success: true, data });
+        // El recorte no se cachea: `cacheKey` no lo incluye, y con 12 h de TTL
+        // una vista acotada serviría el tablero de otro grupo el resto del día.
+        const data = alcance.aplicado
+            ? await calcular()
+            : await getWithStaleWhileRevalidate(cacheKey, calcular, 43200); // 12 hours TTL
+
+        // MEJ-34: false con un alcance pedido = el costo por equipo es el del tenant entero.
+        return NextResponse.json({ success: true, data, scopeApplied: alcance.aplicado });
 
     } catch (error: unknown) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });

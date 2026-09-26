@@ -1991,6 +1991,10 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                 return d.toISOString().slice(0, 7);
             };
             return {
+                // MEJ-34: payload armado a mano, sin filas con las que decidir
+                // qué entra en el alcance.
+                scopeApplied: false,
+
                 success: true,
                 mock: true,
                 summary: {
@@ -2168,6 +2172,7 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
         case 'scorecard':
             return {
                 success: true,
+                scopeApplied: false,
                 data: [
                     {
                         team: "Data Engineering",

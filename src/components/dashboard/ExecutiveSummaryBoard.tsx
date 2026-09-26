@@ -36,6 +36,7 @@ import { Responsive, WidthProvider } from "react-grid-layout/legacy";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { getCookie, setCookie } from "@/lib/clientCookie";
+import { AlcanceNoAplicado, usePerspectiveScope } from "@/components/PerspectiveScopeSelector";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -251,9 +252,13 @@ export default function ExecutiveSummaryBoard() {
     selectedTenant.id !== "default" &&
     (accounts.length > 0 || isDemo);
 
+  // MEJ-34: el alcance transversal entra en la clave de SWR y viaja hasta el
+  // ensamblado, que vive detrás de /api/intelligence/whiteboard.
+  const { queryString: alcanceQs } = usePerspectiveScope();
+
   const { data, error, isLoading, mutate } = useSWR(
     canFetch
-      ? `/api/overview/whiteboard?tenantId=${selectedTenant.id}&locale=${locale}${isDemo ? "&mock=true" : ""}`
+      ? `/api/overview/whiteboard?tenantId=${selectedTenant.id}&locale=${locale}${isDemo ? "&mock=true" : ""}${alcanceQs}`
       : null,
     fetcher,
     { revalidateOnFocus: false }
@@ -277,7 +282,7 @@ export default function ExecutiveSummaryBoard() {
     if (!canFetch || !selectedTenant) return;
     const url =
       `/api/overview/whiteboard?tenantId=${selectedTenant.id}&locale=${locale}` +
-      `${isDemo ? "&mock=true" : ""}&bust=1`;
+      `${isDemo ? "&mock=true" : ""}&bust=1${alcanceQs}`;
     try {
       await fetcher(url);
     } catch {
@@ -529,6 +534,7 @@ export default function ExecutiveSummaryBoard() {
 
   return (
     <div className="w-full space-y-5 relative">
+      <AlcanceNoAplicado aplicado={data?.scopeApplied} />
       {/* 1. Header Minimalista y Barra de Estado Única */}
       <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs text-xs flex-wrap">
         <div className="flex items-center gap-3 flex-wrap">

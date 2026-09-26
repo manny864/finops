@@ -18,6 +18,7 @@ import {
 } from "@/lib/forecasting";
 import { tenantUsesAzure } from "@/lib/tenantProviderContext";
 import { errorMessage } from '@/lib/apiErrors';
+import { alcanceDeLaRuta } from "@/services/perspectivesData.service";
 
 export async function GET(request: NextRequest) {
     try {
@@ -232,13 +233,18 @@ export async function POST(request: NextRequest) {
         const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
         const monthStartStr = monthStart.toISOString().split('T')[0];
 
+        // MEJ-34: el alcance transversal, resuelto sobre la MISMA ventana que la
+        // consulta que acota.
+        const ventana = { where: "tenant_id = ? AND ChargePeriodStart >= ?", params: [tenantId, monthStartStr] };
+        const alcance = await alcanceDeLaRuta(tenantId, request.nextUrl.searchParams, ventana);
+
         const [costRows] = await pool.query(
             `SELECT DATE(ChargePeriodStart) AS day_date, SUM(EffectiveCost) AS daily
              FROM CostSnapshots
-             WHERE tenant_id = ? AND ChargePeriodStart >= ?
+             WHERE ${ventana.where}${alcance.and}
              GROUP BY DATE(ChargePeriodStart)
              ORDER BY day_date ASC`,
-            [tenantId, monthStartStr]
+            [...ventana.params, ...alcance.params]
         );
 
         const dailyByDay = new Map<number, number>();
@@ -260,6 +266,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({
                 success: true,
                 empty: true,
+                scopeApplied: alcance.aplicado,
                 message: "Sin datos históricos del mes actual para proyectar. Ejecute el sync de costos.",
                 chartData: [],
                 projectedEndOfMonthCost: 0,
@@ -286,6 +293,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({
                 success: true,
                 empty: true,
+                scopeApplied: alcance.aplicado,
                 message: "Se requieren al menos 2 días con costo para proyectar.",
                 chartData: [],
                 projectedEndOfMonthCost: accumulated,
@@ -350,6 +358,8 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
+            // MEJ-34: false con un alcance pedido = los números son los del tablero sin acotar.
+            scopeApplied: alcance.aplicado,
             method_used: methodToUse,
             projectedEndOfMonthCost,
             isBreachPredicted: !!breachDate,

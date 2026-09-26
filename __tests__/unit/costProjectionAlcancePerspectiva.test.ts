@@ -62,7 +62,15 @@ const AGREGADO = [
     { d: PICO, cost: 500 },
 ];
 
-function stubDb({ exacto }: { exacto: boolean }) {
+/** Lo que la base devuelve cuando el predicado ya recortó: sólo producción. */
+const ACOTADO_DIARIO = [...DIAS.map((d) => ({ d, cost: 10 })), { d: PICO, cost: 100 }];
+const ACOTADO_SERVICIO = [...DIAS.map((d) => ({ d, service: "VM", total: 10 })), { d: PICO, service: "VM", total: 100 }];
+
+/**
+ * `ambiguo` fuerza el caso en que el predicado no se puede traducir —la misma
+ * terna con dos juegos de etiquetas— y la ruta tiene que caer al plegado.
+ */
+function stubDb({ exacto, ambiguo = false }: { exacto: boolean; ambiguo?: boolean }) {
     queryMock.mockImplementation(async (sql: string) => {
         const s = String(sql);
         if (s.includes("costWithProvenance")) {
@@ -72,19 +80,33 @@ function stubDb({ exacto }: { exacto: boolean }) {
         if (s.includes("FROM PerspectiveRules")) {
             return [[{ id: 1, perspective_id: 7, group_name: "Producción", match_type: "tag", match_key: "Environment", match_value: "prod", sort_order: 0 }]];
         }
-        // Las dos formas de cada consulta se distinguen por el detalle.
-        if (s.includes("AS service") && s.includes("subscription_id")) {
+        // La resolución del alcance: las dimensiones distintas de la ventana.
+        if (s.includes("SELECT DISTINCT subscription_id")) {
+            return [ambiguo
+                // MISMA terna (suscripción, grupo, recurso) con dos entornos:
+                // irreconciliable en SQL, que es lo que dispara el respaldo.
+                ? [
+                    { subscription_id: "s1", resource_group: "rg-x", service_name: "VM", ResourceId: "/r/x", Tags: { Environment: "prod" } },
+                    { subscription_id: "s1", resource_group: "rg-x", service_name: "VM", ResourceId: "/r/x", Tags: { Environment: "dev" } },
+                ]
+                : DETALLE];
+        }
+        // Con predicado, la consulta es la de siempre más el `IN` de ternas —y
+        // ese `IN` también nombra `subscription_id`, así que se mira primero o
+        // se confunde con la consulta de detalle del plegado.
+        const conPredicado = s.includes("COALESCE(ResourceId,'')");
+        if (!conPredicado && s.includes("AS service") && s.includes("subscription_id")) {
             return [DETALLE.map((f) => ({ ...f, service: f.service_name, total: f.cost }))];
         }
         if (s.includes("AS service")) {
-            return [[
+            return [conPredicado ? ACOTADO_SERVICIO : [
                 ...DIAS.map((d) => ({ d, service: "VM", total: 10 })),
                 { d: PICO, service: "SQL", total: 400 },
                 { d: PICO, service: "VM", total: 100 },
             ]];
         }
-        if (s.includes("GROUP BY d, subscription_id")) return [DETALLE];
-        if (s.includes("GROUP BY d")) return [AGREGADO];
+        if (!conPredicado && s.includes("GROUP BY d, subscription_id")) return [DETALLE];
+        if (s.includes("GROUP BY d")) return [conPredicado ? ACOTADO_DIARIO : AGREGADO];
         return [[]];
     });
 }
@@ -139,6 +161,19 @@ describe("GET /api/intelligence/cost-projection con alcance de Perspective", () 
 
         expect(j.scopeApplied).toBe(false);
         expect(serie(j)).toEqual({ "2026-09-01": 10, "2026-09-02": 10, "2026-09-03": 10, "2026-09-04": 10, "2026-09-05": 10, "2026-09-06": 10, "2026-09-07": 10, "2026-09-08": 500 });
+    });
+
+    it("si el predicado no se puede traducir, cae al plegado en vez de rendirse", async () => {
+        // Con 13 meses de ventana, que un recurso haya cambiado de etiqueta es
+        // más probable que en los otros tableros. Sin respaldo, esos tenants
+        // perderían el recorte entero en esta pantalla.
+        stubDb({ exacto: true, ambiguo: true });
+        const j = await (await GET(req("&perspective=7&pgroup=Producci%C3%B3n"))).json();
+
+        expect(j.scopeApplied).toBe(true);
+        expect(serie(j)).toEqual({ ...Object.fromEntries(DIAS.map((d) => [d, 10])), [PICO]: 100 });
+        // Y no usó el predicado: las consultas salieron sin el `IN` de ternas.
+        expect(queryMock.mock.calls.some(([s]) => String(s).includes("COALESCE(ResourceId,'')"))).toBe(false);
     });
 
     it("sin alcance la serie no cambia: sigue agregando en SQL", async () => {

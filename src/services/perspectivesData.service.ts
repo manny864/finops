@@ -169,6 +169,54 @@ export async function guardarReglas(perspectiveId: number, reglas: ReglaPerspect
 /** Valor reservado del selector para acotar al costo sin asignar. */
 export const GRUPO_SIN_ASIGNAR = "__unassigned__";
 
+/** Lo que una ruta necesita para acotarse: un `AND` y sus parámetros. */
+export interface AlcanceDeLaRuta {
+    /** ` AND (...)` listo para concatenar al WHERE, o cadena vacía si no hay recorte. */
+    and: string;
+    /** Los parámetros del fragmento, en su orden. Van donde van sus placeholders. */
+    params: unknown[];
+    /** Lo que la ruta devuelve como `scopeApplied`. */
+    aplicado: boolean;
+    /** El recorte completo, para quien además tenga que acotar Resource Graph. */
+    recorte: RecorteDeAlcance | null;
+}
+
+const SIN_RECORTE: AlcanceDeLaRuta = { and: "", params: [], aplicado: false, recorte: null };
+
+/**
+ * MEJ-34 — el alcance de una request, resuelto a un fragmento que se pega al
+ * WHERE de la ruta.
+ *
+ * `ventana` es el WHERE que la ruta ya usa —tenant, rango de fechas, y su
+ * filtro propio si lo tiene—: la resolución mira EXACTAMENTE las mismas filas
+ * que la consulta que va a acotar. Con una ventana más corta, una fila fuera de
+ * rango quedaría sin clasificar, su terna no entraría al `IN` y el recorte
+ * sacaría de más sin decirlo.
+ *
+ * Devuelve `aplicado: false` —y un `and` vacío, o sea la consulta de siempre—
+ * cuando no se pidió alcance y también cuando se pidió pero no se puede
+ * traducir sin mentir. Las dos cosas se ven igual desde la ruta; la pantalla
+ * distingue mirando si la URL trae `?perspective=`.
+ */
+export async function alcanceDeLaRuta(
+    tenantId: string,
+    sp: URLSearchParams,
+    ventana: { where: string; params: unknown[] },
+): Promise<AlcanceDeLaRuta> {
+    const pid = Number(sp.get("perspective"));
+    const alcance = await filtroDeAlcance(tenantId, Number.isInteger(pid) && pid > 0 ? pid : null, sp.get("pgroup"));
+    if (!alcance) return SIN_RECORTE;
+
+    const [filas] = await pool.query<any[]>(
+        `SELECT DISTINCT ${DIMENSIONES_DE_ALCANCE} FROM CostSnapshots WHERE ${ventana.where}`,
+        ventana.params,
+    );
+    const recorte = recorteDeAlcance(filas as FilaConDimensiones[], alcance);
+    if (!recorte) return SIN_RECORTE;
+
+    return { and: ` AND ${recorte.sql}`, params: recorte.params, aplicado: true, recorte };
+}
+
 /** El recorte de un alcance, listo para pegar en SQL y en KQL. */
 export interface RecorteDeAlcance {
     /** Fragmento para pegar con AND, y sus parámetros en ese orden. */

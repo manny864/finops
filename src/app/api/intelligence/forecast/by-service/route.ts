@@ -28,6 +28,7 @@ import {
 } from "@/lib/forecasting";
 import Decimal from "decimal.js";
 import { toMoneyDto } from "@/lib/moneyDecimal";
+import { alcanceDeLaRuta } from "@/services/perspectivesData.service";
 
 type Method = "linear" | "ema" | "holt_winters" | "damped_holt" | "ensemble" | "auto";
 
@@ -66,17 +67,23 @@ export async function GET(request: NextRequest) {
         }
         const topN = Math.min(Math.max(Number(sp.get("topN") || 10), 1), 50);
 
+        // MEJ-34: el alcance transversal, sobre la misma ventana de 60 días.
+        const ventana = {
+            where: "tenant_id = ? AND ChargePeriodStart >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)",
+            params: [tenantId] as unknown[],
+        };
+        const alcance = await alcanceDeLaRuta(tenantId, sp, ventana);
+
         // Pull last 60 days of daily costs per service for this tenant.
         const [rows] = await pool.query(
             `SELECT service_name,
                     DATE(ChargePeriodStart) AS day_date,
                     SUM(EffectiveCost) AS daily
                FROM CostSnapshots
-              WHERE tenant_id = ?
-                AND ChargePeriodStart >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)
+              WHERE ${ventana.where}${alcance.and}
               GROUP BY service_name, DATE(ChargePeriodStart)
               ORDER BY service_name ASC, day_date ASC`,
-            [tenantId]
+            [...ventana.params, ...alcance.params]
         );
 
         const raw = (rows as DailyServiceRow[]) || [];
@@ -84,6 +91,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({
                 success: true,
                 empty: true,
+                scopeApplied: alcance.aplicado,
                 message: "Sin datos históricos. Ejecutá el sync de costos.",
                 services: [],
             });
@@ -164,6 +172,8 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
+            // MEJ-34: false con un alcance pedido = los números son los del tablero sin acotar.
+            scopeApplied: alcance.aplicado,
             tenantId,
             days,
             method: requestedMethod,

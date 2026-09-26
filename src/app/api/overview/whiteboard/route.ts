@@ -35,6 +35,13 @@ async function fetchWhiteboardFromIntelligence(
     url.searchParams.set('locale', locale);
     if (forceMock) url.searchParams.set('mock', 'true');
     if (bust) url.searchParams.set('bust', '1');
+    // MEJ-34: el alcance transversal se reenvía. Esta ruta es la que la UI
+    // llama; el ensamblado vive del otro lado, así que sin esto el recorte
+    // queda escrito y sin forma de llegar.
+    for (const p of ['perspective', 'pgroup']) {
+        const v = request.nextUrl.searchParams.get(p);
+        if (v) url.searchParams.set(p, v);
+    }
 
     const forwardHeaders = new Headers();
     forwardHeaders.set('x-forwarded-request', 'true');
@@ -81,6 +88,9 @@ export async function GET(request: NextRequest) {
     }
 
     const cacheKey = `whiteboard:v4:${tenantId}:${locale}:${forceMock ? 'mock' : 'live'}`;
+    // MEJ-34: con alcance no se lee ni se escribe el caché — su clave no lo
+    // incluye, así que una pizarra acotada serviría la de otro grupo.
+    const acotado = !!request.nextUrl.searchParams.get('perspective');
     const bust = searchParams.get('bust') === '1';
     if (bust) {
         try {
@@ -98,6 +108,7 @@ export async function GET(request: NextRequest) {
 
     /** Lo cacheado, si lo hay. Se lee incluso con `bust`, como respaldo. */
     const leerCache = async (): Promise<{ cached_at: string; payload: any } | null> => {
+        if (acotado) return null;
         try {
             const crudo = await redis.get(cacheKey);
             return crudo ? JSON.parse(crudo) : null;
@@ -158,7 +169,7 @@ export async function GET(request: NextRequest) {
         // Se guarda con el TTL normal, o el corto si el payload vino degradado.
         try {
             const ttl = payload?._costDegraded ? DEGRADED_CACHE_TTL_SECONDS : CACHE_TTL_SECONDS;
-            await redis.setex(cacheKey, ttl, JSON.stringify(cacheData));
+            if (!acotado) await redis.setex(cacheKey, ttl, JSON.stringify(cacheData));
         } catch (err) {
             console.error('Redis cache write error:', err);
             // Continue even if cache write fails
