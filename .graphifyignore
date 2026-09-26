@@ -1,0 +1,26 @@
+# Archivos que el extractor de graphify no puede procesar.
+#
+# formaMockInterceptor.test.ts cuelga la extracción AST de forma indefinida
+# (medido: >2 h sin terminar, un worker al 98% de CPU y los otros diez
+# esperándolo). NO es un cuelgue ni un problema de tamaño —el archivo tiene
+# 278 líneas— sino backtracking catastrófico de una regex de graphify 0.9.52:
+#
+#   graphify/extract.py:1295
+#   _TS_IMPORT_TYPE_CALL_RE = rb"<((?:[^;{}]*?\bimport\s*\([^()]+\)[^;{}]*?)+)>(?=\s*\()"
+#
+# Los dos `[^;{}]*?` dentro de un grupo con `+` pueden repartirse el mismo
+# texto de formas exponenciales. El archivo tiene 28 `() => import("...")`
+# consecutivos —una tabla ruta → import dinámico, patrón normal— y ninguno
+# lleva `;{}` en el medio, así que el motor explora 2^28 particiones antes de
+# rendirse.
+#
+# Se excluye el archivo en vez de deformar el código: la tabla está bien
+# escrita y el que tiene el defecto es el extractor. Cuesta un archivo de test
+# de 2.387 en el grafo.
+#
+# SÍNTOMA SI VUELVE A PASAR: `graphify update .` se clava en un porcentaje alto
+# de "AST extraction" con un solo worker al 100%. El culpable se encuentra con
+# faulthandler sobre `_extract_single_file`, archivo por archivo.
+#
+# Se borra esta línea cuando graphify arregle la regex.
+__tests__/unit/formaMockInterceptor.test.ts
