@@ -11,7 +11,8 @@ import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAu
 import { isMockTenant, getMockCostCenterResources } from "@/lib/mockData";
 import { fetchResourcesInResourceGroups } from "@/lib/azureResourceCounts";
 import {
-    filtroDeAlcance, comoFilaDeCosto, DIMENSIONES_DE_ALCANCE, type FilaConDimensiones,
+    filtroDeLaRequest, exigirRecorte, comoFilaDeCosto, DIMENSIONES_DE_ALCANCE,
+    type FilaConDimensiones, type Permiso,
 } from "@/services/perspectivesData.service";
 import type { FilaDeCosto } from "@/services/perspectives.service";
 
@@ -82,20 +83,19 @@ export async function GET(request: NextRequest) {
         const costCenterName = request.nextUrl.searchParams.get("costCenterName");
         if (!tenantId || !costCenterName) return NextResponse.json({ error: "Faltan parámetros" }, { status: 400 });
 
-        await requireTenantRole(request, tenantId, ["Admin", "Owner", "Reader", "Colaborador"]);
+        const identidad = await requireTenantRole(request, tenantId, ["Admin", "Owner", "Reader", "Colaborador"]);
         await requireTenantTier(request, tenantId, "Business");
 
         if (isMockTenant(tenantId)) {
             return NextResponse.json(getMockCostCenterResources(costCenterName, "enterprise"));
         }
 
-        const pid = Number(request.nextUrl.searchParams.get("perspective"));
-        const alcance = await filtroDeAlcance(
-            tenantId,
-            Number.isInteger(pid) && pid > 0 ? pid : null,
-            request.nextUrl.searchParams.get("pgroup"),
-        );
+        const permiso: Permiso | null = identidad.alcance ?? null;
+        const alcance = await filtroDeLaRequest(tenantId, request.nextUrl.searchParams, permiso);
         const recorte = alcance ? await recursosEnAlcance(tenantId, costCenterName, alcance) : null;
+        // MEJ-38: acá el recorte es lo que evita entregar recursos de fuera del
+        // alcance a `BulkTagModal`. Sin poder recortar, no se entrega nada.
+        exigirRecorte(permiso, recorte?.medible === true);
 
         if (recorte?.medible) {
             // Resource Graph devuelve TODO lo que vive en esos grupos de

@@ -32,7 +32,7 @@ import {
     buildFocusCsvRow,
 } from "@/lib/focus/csv";
 import { FOCUS_VERSION } from "@/lib/focus/columns";
-import { filtroDeAlcance, comoFilaDeCosto } from "@/services/perspectivesData.service";
+import { filtroDeLaRequest, comoFilaDeCosto, type Permiso } from "@/services/perspectivesData.service";
 
 const HARD_CAP = 500_000;
 const DEFAULT_LIMIT = 100_000;
@@ -48,6 +48,8 @@ interface ExportParams {
     /** MEJ-34: alcance de Perspective, del selector transversal. */
     perspectiveId: number | null;
     perspectiveGroup: string | null;
+    /** MEJ-38: el alcance asignado, que gana sobre los dos de arriba. */
+    permiso?: Permiso | null;
 }
 
 function isoDateOrNull(s: string | null): string | null {
@@ -109,22 +111,37 @@ async function mcpKeyTenantId(request: NextRequest): Promise<string | null> {
     }
 }
 
-async function authorise(request: NextRequest, tenantId: string): Promise<void> {
+/**
+ * Devuelve el alcance ASIGNADO al usuario, o `null`.
+ *
+ * Por la clave MCP no viene ninguno y es correcto: emitirla exige ADMIN/OWNER, y
+ * un usuario con alcance no puede tener esos roles (MEJ-38). Si esa regla
+ * cambiara, esta ruta pasa a ser la puerta lateral.
+ */
+async function authorise(request: NextRequest, tenantId: string): Promise<Permiso | null> {
     const mcpTid = await mcpKeyTenantId(request);
-    if (mcpTid && mcpTid === tenantId) return;
+    if (mcpTid && mcpTid === tenantId) return null;
     if (mcpTid && mcpTid !== tenantId) {
         throw new AuthError("MCP key no autorizada para este tenant.", 403);
     }
     // Rol: siempre exigido, en los dos caminos.
-    await requireTenantRole(request, tenantId, ["ADMIN", "OWNER"]);
+    const identidad = await requireTenantRole(request, tenantId, ["ADMIN", "OWNER"]);
 
     // FOCUS 1.1 Export es feature Enterprise (ver Sidebar).
     await requireTenantTier(request, tenantId, "Enterprise");
+    return identidad.alcance ?? null;
 }
 
 async function* streamFocusRows(params: ExportParams): AsyncGenerator<CostSnapshotRow[]> {
     // MEJ-34: el alcance de Perspective se resuelve UNA vez, no por fila.
-    const filtro = await filtroDeAlcance(params.tenantId, params.perspectiveId, params.perspectiveGroup);
+    const filtro = await filtroDeLaRequest(
+        params.tenantId,
+        new URLSearchParams({
+            ...(params.perspectiveId ? { perspective: String(params.perspectiveId) } : {}),
+            ...(params.perspectiveGroup ? { pgroup: params.perspectiveGroup } : {}),
+        }),
+        params.permiso,
+    );
 
     let offset = 0;
     let total = 0;
@@ -244,7 +261,7 @@ async function jsonResponse(params: ExportParams): Promise<NextResponse> {
 export async function GET(request: NextRequest) {
     try {
         const params = parseParams(request);
-        await authorise(request, params.tenantId);
+        params.permiso = await authorise(request, params.tenantId);
 
         const filenameBase = `focus-${params.tenantId}-${params.from}-${params.to}`;
 

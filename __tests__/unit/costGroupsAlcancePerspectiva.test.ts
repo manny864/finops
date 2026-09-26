@@ -19,7 +19,7 @@ const { queryMock, tagRgMock, countsMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/requestAuth", () => ({
-    requireTenantTier: vi.fn(async () => {}),
+    requireTenantTier: vi.fn(async () => ({ email: "u@u", tenantId: "t1", claims: { tid: "t1" }, isCorporateDomain: false })),
     requireTenantRole: vi.fn(async () => ({ tenantId: "t1" })),
     AuthError: class AuthError extends Error { status = 403; },
 }));

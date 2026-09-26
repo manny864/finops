@@ -15811,6 +15811,7 @@
     "scopeGroup": "Group",
     "scopeAll": "All spend",
     "scopeEveryGroup": "All groups",
-    "scopeNotApplied": "The Perspective scope could not be applied: this period's cost cannot be split row by row between what falls inside the scope and what does not. The figures below are for the whole board."
+    "scopeNotApplied": "The Perspective scope could not be applied: this period's cost cannot be split row by row between what falls inside the scope and what does not. The figures below are for the whole board.",
+    "scopeAssigned": "Your access is limited to this group. You cannot change it."
   }
 }

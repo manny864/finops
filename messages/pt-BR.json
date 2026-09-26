@@ -15811,6 +15811,7 @@
     "scopeGroup": "Grupo",
     "scopeAll": "Todo o gasto",
     "scopeEveryGroup": "Todos os grupos",
-    "scopeNotApplied": "Não foi possível restringir por Perspective: o custo deste período não pode ser separado linha a linha entre o que entra no alcance e o que não entra. Os números abaixo são os do painel completo."
+    "scopeNotApplied": "Não foi possível restringir por Perspective: o custo deste período não pode ser separado linha a linha entre o que entra no alcance e o que não entra. Os números abaixo são os do painel completo.",
+    "scopeAssigned": "Seu acesso está limitado a este grupo. Você não pode alterá-lo."
   }
 }

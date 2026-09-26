@@ -31,8 +31,8 @@ import { buildDailyHistogram, type DailySpendHistogramPoint } from "@/lib/costPr
 import { errorMessage } from '@/lib/apiErrors';
 import { getTagCoverage } from "@/lib/costTagCoverage";
 import {
-    filtroDeAlcance, comoFilaDeCosto, recorteDeAlcance, DIMENSIONES_DE_ALCANCE,
-    type FilaConDimensiones, type RecorteDeAlcance,
+    filtroDeLaRequest, exigirRecorte, comoFilaDeCosto, recorteDeAlcance, DIMENSIONES_DE_ALCANCE,
+    type FilaConDimensiones, type RecorteDeAlcance, type Permiso,
 } from "@/services/perspectivesData.service";
 import type { FilaDeCosto } from "@/services/perspectives.service";
 
@@ -196,8 +196,9 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Falta parámetro requerido: tenantId" }, { status: 400 });
         }
 
+        let identidad;
         try {
-            await requireTenantAccess(request, tenantId);
+            identidad = await requireTenantAccess(request, tenantId);
         } catch (e) {
             if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
             throw e;
@@ -208,12 +209,8 @@ export async function GET(request: NextRequest) {
         }
 
         // MEJ-34: alcance transversal de Perspective, resuelto UNA vez.
-        const pid = Number(searchParams.get("perspective"));
-        const alcance = await filtroDeAlcance(
-            tenantId,
-            Number.isInteger(pid) && pid > 0 ? pid : null,
-            searchParams.get("pgroup"),
-        );
+        const permiso: Permiso | null = identidad.alcance ?? null;
+        const alcance = await filtroDeLaRequest(tenantId, searchParams, permiso);
 
         // UN ALCANCE SOLO SE APLICA SI SE PUEDE MEDIR, con el mismo criterio que
         // los otros tableros: sin procedencia en el costo de la ventana, el
@@ -238,6 +235,9 @@ export async function GET(request: NextRequest) {
             if (modo.recorte) modo.plegado = null;
         }
         const recorte = modo;
+        // MEJ-38: `modo` no nulo significa que la serie se acota de alguna de las
+        // dos formas --predicado o plegado--. Si no, con permiso se corta.
+        exigirRecorte(permiso, modo !== null);
 
         // v5: dailyHistory ahora incluye continuidad (huecos rellenados con
         // $0), media móvil de 7d, flags de fin de semana/pico y servicio

@@ -8,6 +8,7 @@
  */
 
 import pool from "@/modules/storage/db";
+import { AuthError } from "@/lib/requestAuth";
 import { evaluarFila } from "./perspectives.service";
 import type { FilaDeCosto, ReglaPerspectiva, TipoRegla } from "./perspectives.service";
 
@@ -169,6 +170,49 @@ export async function guardarReglas(perspectiveId: number, reglas: ReglaPerspect
 /** Valor reservado del selector para acotar al costo sin asignar. */
 export const GRUPO_SIN_ASIGNAR = "__unassigned__";
 
+/** El alcance asignado a un usuario, tal como lo trae `identity.alcance`. */
+export interface Permiso { perspectiveId: number; grupo: string | null }
+
+/**
+ * MEJ-38 — el predicado de alcance de una request. **El permiso gana sobre la
+ * URL**: si al usuario le asignaron un grupo, el `?perspective=` que escriba en
+ * la barra de direcciones no lo saca de ahí.
+ *
+ * Para las rutas que resuelven el predicado a mano en vez de usar
+ * `alcanceDeLaRuta` (las que después pliegan, o las que arman su propia
+ * ventana).
+ */
+export async function filtroDeLaRequest(
+    tenantId: string,
+    sp: URLSearchParams,
+    permiso?: Permiso | null,
+): Promise<((fila: FilaDeCosto) => boolean) | null> {
+    if (permiso) {
+        const f = await filtroDeAlcance(tenantId, permiso.perspectiveId, permiso.grupo);
+        if (!f) throw new AuthError("Tu alcance asignado no se pudo resolver.", 403, "SCOPE_UNRESOLVED");
+        return f;
+    }
+    const pid = Number(sp.get("perspective"));
+    return filtroDeAlcance(tenantId, Number.isInteger(pid) && pid > 0 ? pid : null, sp.get("pgroup"));
+}
+
+/**
+ * MEJ-38 — corta cuando el usuario tenía un alcance ASIGNADO y la pantalla no
+ * lo pudo aplicar.
+ *
+ * Sin permiso esto no hace nada y la pantalla muestra el tablero entero con su
+ * aviso, que es el comportamiento de MEJ-34. Con permiso, ese mismo aviso sería
+ * la fuga: el usuario vería el gasto del tenant completo.
+ */
+export function exigirRecorte(permiso: Permiso | null | undefined, aplicado: boolean): void {
+    if (permiso && !aplicado) {
+        throw new AuthError(
+            "El costo de este período no se puede separar entre lo que entra en tu alcance y lo que no.",
+            403, "SCOPE_NOT_APPLICABLE",
+        );
+    }
+}
+
 /** Lo que una ruta necesita para acotarse: un `AND` y sus parámetros. */
 export interface AlcanceDeLaRuta {
     /** ` AND (...)` listo para concatenar al WHERE, o cadena vacía si no hay recorte. */
@@ -202,17 +246,40 @@ export async function alcanceDeLaRuta(
     tenantId: string,
     sp: URLSearchParams,
     ventana: { where: string; params: unknown[] },
+    /**
+     * MEJ-38 — el alcance ASIGNADO al usuario, de `identity.alcance`. Cuando
+     * viene, gana sobre el `?perspective=` de la URL —que es una preferencia y
+     * esto es un permiso— y un recorte que no se puede aplicar deja de ser un
+     * aviso para pasar a ser un 403: servir el tenant entero es justamente la
+     * fuga que hay que evitar.
+     */
+    permiso?: { perspectiveId: number; grupo: string | null } | null,
 ): Promise<AlcanceDeLaRuta> {
-    const pid = Number(sp.get("perspective"));
-    const alcance = await filtroDeAlcance(tenantId, Number.isInteger(pid) && pid > 0 ? pid : null, sp.get("pgroup"));
-    if (!alcance) return SIN_RECORTE;
+    const pid = permiso ? permiso.perspectiveId : Number(sp.get("perspective"));
+    const grupo = permiso ? permiso.grupo : sp.get("pgroup");
+    const alcance = await filtroDeAlcance(tenantId, Number.isInteger(pid) && pid > 0 ? pid : null, grupo);
+    if (!alcance) {
+        // Con permiso, que la Perspective no resuelva no puede degradar a "sin
+        // recorte". No debería pasar --borrarla cascadea la fila de UserScopes--
+        // pero si pasa, negar es la única respuesta que no filtra.
+        if (permiso) throw new AuthError("Tu alcance asignado no se pudo resolver.", 403, "SCOPE_UNRESOLVED");
+        return SIN_RECORTE;
+    }
 
     const [filas] = await pool.query<any[]>(
         `SELECT DISTINCT ${DIMENSIONES_DE_ALCANCE} FROM CostSnapshots WHERE ${ventana.where}`,
         ventana.params,
     );
     const recorte = recorteDeAlcance(filas as FilaConDimensiones[], alcance);
-    if (!recorte) return SIN_RECORTE;
+    if (!recorte) {
+        if (permiso) {
+            throw new AuthError(
+                "El costo de este período no se puede separar entre lo que entra en tu alcance y lo que no.",
+                403, "SCOPE_NOT_APPLICABLE",
+            );
+        }
+        return SIN_RECORTE;
+    }
 
     return { and: ` AND ${recorte.sql}`, params: recorte.params, aplicado: true, recorte };
 }

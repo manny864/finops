@@ -212,7 +212,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Faltan parámetros requeridos: tenantId" }, { status: 400 });
         }
 
-        await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+        const identidad = await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
 
         // Validate Tier
         const [tenants] = await pool.query('SELECT tier FROM Tenants WHERE tenant_id = ?', [tenantId]);
@@ -236,7 +236,7 @@ export async function POST(request: NextRequest) {
         // MEJ-34: el alcance transversal, resuelto sobre la MISMA ventana que la
         // consulta que acota.
         const ventana = { where: "tenant_id = ? AND ChargePeriodStart >= ?", params: [tenantId, monthStartStr] };
-        const alcance = await alcanceDeLaRuta(tenantId, request.nextUrl.searchParams, ventana);
+        const alcance = await alcanceDeLaRuta(tenantId, request.nextUrl.searchParams, ventana, identidad.alcance ?? null);
 
         const [costRows] = await pool.query(
             `SELECT DATE(ChargePeriodStart) AS day_date, SUM(EffectiveCost) AS daily

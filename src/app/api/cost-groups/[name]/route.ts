@@ -28,7 +28,8 @@ import {
 import { errorMessage } from '@/lib/apiErrors';
 import { escapeKql } from "@/lib/kql";
 import {
-    filtroDeAlcance, recorteDeAlcance, DIMENSIONES_DE_ALCANCE, type FilaConDimensiones,
+    filtroDeLaRequest, exigirRecorte, recorteDeAlcance, DIMENSIONES_DE_ALCANCE,
+    type FilaConDimensiones, type Permiso,
 } from "@/services/perspectivesData.service";
 
 
@@ -260,13 +261,10 @@ function kqlDelRecorte(r: NonNullable<Awaited<ReturnType<typeof resolverRecorte>
  * más corta, una fila vieja quedaría sin clasificar y su terna se perdería del
  * `IN`, recortando de más sin decirlo.
  */
-async function resolverRecorte(request: NextRequest, tenantId: string, tagFilter: string, tagParams: any[]) {
-    const pid = Number(request.nextUrl.searchParams.get("perspective"));
-    const alcance = await filtroDeAlcance(
-        tenantId,
-        Number.isInteger(pid) && pid > 0 ? pid : null,
-        request.nextUrl.searchParams.get("pgroup"),
-    );
+async function resolverRecorte(
+    request: NextRequest, tenantId: string, tagFilter: string, tagParams: any[], permiso: Permiso | null,
+) {
+    const alcance = await filtroDeLaRequest(tenantId, request.nextUrl.searchParams, permiso);
     if (!alcance) return null;
 
     const desde = `${new Date().getUTCFullYear() - 1}-01-01`;
@@ -277,9 +275,10 @@ async function resolverRecorte(request: NextRequest, tenantId: string, tagFilter
         [...tagParams, desde]
     );
     const r = recorteDeAlcance(filas as FilaConDimensiones[], alcance);
-    if (!r) return null;
-    if (!r.porGrupoAlcanza && r.resourceIds.size > TOPE_IDS_KQL) return null;
-    return r;
+    const util = r !== null && (r.porGrupoAlcanza || r.resourceIds.size <= TOPE_IDS_KQL);
+    // MEJ-38: con alcance ASIGNADO no hay "mostrar el grupo entero".
+    exigirRecorte(permiso, util);
+    return util ? r : null;
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ name: string }> }) {
@@ -292,7 +291,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
         // Cost Groups es exclusivo de los planes Business y Enterprise.
-        await requireTenantTier(request, tenantId, "Business");
+        const identidad = await requireTenantTier(request, tenantId, "Business");
 
         if (isMockTenant(tenantId)) {
             return NextResponse.json(getMockCostGroupDetail(name, "enterprise"));
@@ -324,7 +323,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         // modal sin tocar ninguna: cada una arma sus parámetros como
         // `[tenantId, ...tagParams, <sus fechas>]`, y los del recorte entran al
         // final de `tagParams`, que es donde van sus placeholders.
-        const recorte = await resolverRecorte(request, tenantId, tagFilterBase, tagParamsBase);
+        const recorte = await resolverRecorte(request, tenantId, tagFilterBase, tagParamsBase, identidad.alcance ?? null);
         const tagFilter = recorte ? `${tagFilterBase} AND ${recorte.sql}` : tagFilterBase;
         const tagParams = recorte ? [...tagParamsBase, ...recorte.params] : tagParamsBase;
         const kqlTagFilter = recorte ? `(${kqlBase}) and ${kqlDelRecorte(recorte)}` : kqlBase;

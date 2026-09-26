@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
         const tenantId = request.nextUrl.searchParams.get('tenantId');
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-        await requireTenantAccess(request, tenantId);
+        const identidad = await requireTenantAccess(request, tenantId);
 
         if (isMockTenant(tenantId)) {
             return NextResponse.json(getMockDataForRoute('scorecard', tenantId));
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
         const alcance = await alcanceDeLaRuta(tenantId, request.nextUrl.searchParams, {
             where: "tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)",
             params: [tenantId],
-        });
+        }, identidad.alcance ?? null);
 
         const cacheKey = `scorecard:${tenantId}`;
         const calcular = async () => {

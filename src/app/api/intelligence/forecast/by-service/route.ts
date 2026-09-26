@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
         const tenantId = sp.get("tenantId");
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-        await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+        const identidad = await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
 
         const days = Math.min(Math.max(Number(sp.get("days") || 30), 1), 90);
         const requestedMethod = (sp.get("method") || "auto") as Method;
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
             where: "tenant_id = ? AND ChargePeriodStart >= DATE_SUB(CURDATE(), INTERVAL 60 DAY)",
             params: [tenantId] as unknown[],
         };
-        const alcance = await alcanceDeLaRuta(tenantId, sp, ventana);
+        const alcance = await alcanceDeLaRuta(tenantId, sp, ventana, identidad.alcance ?? null);
 
         // Pull last 60 days of daily costs per service for this tenant.
         const [rows] = await pool.query(

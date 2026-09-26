@@ -545,7 +545,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(getMockDataForRoute("white_board", tenantId));
         }
 
-        await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+        const identidad = await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
 
         // MEJ-34: el alcance transversal, resuelto UNA vez con la ventana más
         // ancha que alguna de las siete consultas consume — el año fiscal
@@ -554,7 +554,7 @@ export async function GET(request: NextRequest) {
         const alcanceRuta = await alcanceDeLaRuta(tenantId, request.nextUrl.searchParams, {
             where: "tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) >= ?",
             params: [tenantId, `${new Date().getUTCFullYear() - 1}-01-01`],
-        });
+        }, identidad.alcance ?? null);
         const alcance: Recorte = { and: alcanceRuta.and, params: alcanceRuta.params };
 
         const cacheKey = `whiteboard:v5:azure:${tenantId}:${locale}`;

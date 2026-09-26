@@ -7,7 +7,8 @@ import { redis } from "@/lib/redis";
 import { fetchResourceCountsByRg } from "@/lib/azureResourceCounts";
 import { getTagCoverage } from "@/lib/costTagCoverage";
 import {
-    filtroDeAlcance, comoFilaDeCosto, DIMENSIONES_DE_ALCANCE, type FilaConDimensiones,
+    filtroDeLaRequest, exigirRecorte, comoFilaDeCosto, DIMENSIONES_DE_ALCANCE,
+    type FilaConDimensiones, type Permiso,
 } from "@/services/perspectivesData.service";
 import type { FilaDeCosto } from "@/services/perspectives.service";
 
@@ -129,20 +130,16 @@ export async function GET(request: NextRequest) {
         const tenantId = request.nextUrl.searchParams.get("tenantId");
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-        await requireTenantRole(request, tenantId, ["Admin", "Owner", "Reader", "Colaborador"]);
+        const identidad = await requireTenantRole(request, tenantId, ["Admin", "Owner", "Reader", "Colaborador"]);
         await requireTenantTier(request, tenantId, "Business");
 
         if (isMockTenant(tenantId)) {
             return NextResponse.json(getMockDataForRoute("cost_centers", tenantId));
         }
 
-        // MEJ-34: alcance transversal de Perspective, resuelto UNA vez.
-        const pid = Number(request.nextUrl.searchParams.get("perspective"));
-        const alcance = await filtroDeAlcance(
-            tenantId,
-            Number.isInteger(pid) && pid > 0 ? pid : null,
-            request.nextUrl.searchParams.get("pgroup"),
-        );
+        // MEJ-34/38: alcance transversal, resuelto UNA vez. El asignado gana.
+        const permiso: Permiso | null = identidad.alcance ?? null;
+        const alcance = await filtroDeLaRequest(tenantId, request.nextUrl.searchParams, permiso);
 
         const calcular = async () => {
             // MEJ-30 paso 3: el reparto por centro de costo sale del tag
@@ -159,6 +156,7 @@ export async function GET(request: NextRequest) {
             // Group y una aproximación no se recorta fila por fila: se devuelve
             // el tablero entero con `scopeApplied: false` y la pantalla lo dice.
             const recorte = alcance && tagCoverage.isExact ? alcance : null;
+            exigirRecorte(permiso, recorte !== null);
 
             const [spend, budgets] = await Promise.all([
                 getCostCenterSpend(tenantId, recorte || undefined),

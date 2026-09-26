@@ -67,7 +67,7 @@ describe('API: /intelligence/forecast', () => {
     });
 
     it('should return forecast with linear method', async () => {
-      vi.mocked(requireTenantAccess).mockResolvedValueOnce(undefined);
+      vi.mocked(requireTenantAccess).mockResolvedValueOnce({ email: "u@u", tenantId: "tenant1", claims: { tid: "tenant1" }, isCorporateDomain: false } as any);
       vi.mocked(getCurrentMonthAmortizedCosts).mockResolvedValueOnce([
         { UsageDate: '20240101', EffectiveCost: 100 },
         { UsageDate: '20240102', EffectiveCost: 150 },
@@ -88,7 +88,7 @@ describe('API: /intelligence/forecast', () => {
     });
 
     it('should return forecast with confidence intervals', async () => {
-      vi.mocked(requireTenantAccess).mockResolvedValueOnce(undefined);
+      vi.mocked(requireTenantAccess).mockResolvedValueOnce({ email: "u@u", tenantId: "tenant1", claims: { tid: "tenant1" }, isCorporateDomain: false } as any);
       vi.mocked(getCurrentMonthAmortizedCosts).mockResolvedValueOnce([
         { UsageDate: '20240101', EffectiveCost: 1000 },
         { UsageDate: '20240102', EffectiveCost: 1100 },
@@ -120,7 +120,7 @@ describe('API: /intelligence/forecast', () => {
     });
 
     it('should auto-select best method', async () => {
-      vi.mocked(requireTenantAccess).mockResolvedValueOnce(undefined);
+      vi.mocked(requireTenantAccess).mockResolvedValueOnce({ email: "u@u", tenantId: "tenant1", claims: { tid: "tenant1" }, isCorporateDomain: false } as any);
       const historicalData = Array.from({ length: 20 }, (_, i) => ({
         UsageDate: String(20240101 + i),
         EffectiveCost: 1000 + i * 50 + Math.random() * 100,
@@ -139,7 +139,7 @@ describe('API: /intelligence/forecast', () => {
     });
 
     it('should include backtest metrics when requested', async () => {
-      vi.mocked(requireTenantAccess).mockResolvedValueOnce(undefined);
+      vi.mocked(requireTenantAccess).mockResolvedValueOnce({ email: "u@u", tenantId: "tenant1", claims: { tid: "tenant1" }, isCorporateDomain: false } as any);
       const historicalData = Array.from({ length: 15 }, (_, i) => ({
         UsageDate: String(20240101 + i),
         EffectiveCost: 1000 + i * 50,
@@ -162,7 +162,7 @@ describe('API: /intelligence/forecast', () => {
     });
 
     it('should handle fallback to EMA when HW insufficient history', async () => {
-      vi.mocked(requireTenantAccess).mockResolvedValueOnce(undefined);
+      vi.mocked(requireTenantAccess).mockResolvedValueOnce({ email: "u@u", tenantId: "tenant1", claims: { tid: "tenant1" }, isCorporateDomain: false } as any);
       // Only 10 days of history (< 2*season=14)
       const historicalData = Array.from({ length: 10 }, (_, i) => ({
         UsageDate: String(20240101 + i),
@@ -183,7 +183,7 @@ describe('API: /intelligence/forecast', () => {
     });
 
     it('should cap days at 90', async () => {
-      vi.mocked(requireTenantAccess).mockResolvedValueOnce(undefined);
+      vi.mocked(requireTenantAccess).mockResolvedValueOnce({ email: "u@u", tenantId: "tenant1", claims: { tid: "tenant1" }, isCorporateDomain: false } as any);
       vi.mocked(getCurrentMonthAmortizedCosts).mockResolvedValueOnce([
         { UsageDate: '20240101', EffectiveCost: 1000 },
         { UsageDate: '20240102', EffectiveCost: 1100 },
@@ -247,7 +247,7 @@ describe('API: /intelligence/forecast', () => {
     });
 
     it('should return 404 for missing tenant', async () => {
-      vi.mocked(requireTenantAccess).mockResolvedValueOnce(undefined);
+      vi.mocked(requireTenantAccess).mockResolvedValueOnce({ email: "u@u", tenantId: "tenant1", claims: { tid: "tenant1" }, isCorporateDomain: false } as any);
       vi.mocked(pool.query).mockResolvedValueOnce([[]]);
 
       const request = new NextRequest('http://localhost/api/intelligence/forecast', {
@@ -260,7 +260,7 @@ describe('API: /intelligence/forecast', () => {
     });
 
     it('should project month-end cost with linear method', async () => {
-      vi.mocked(requireTenantAccess).mockResolvedValueOnce(undefined);
+      vi.mocked(requireTenantAccess).mockResolvedValueOnce({ email: "u@u", tenantId: "tenant1", claims: { tid: "tenant1" }, isCorporateDomain: false } as any);
       vi.mocked(pool.query).mockResolvedValueOnce([[{ tier: 'Pro' }]]);
 
       // Mock database query for current month costs
@@ -292,7 +292,7 @@ describe('API: /intelligence/forecast', () => {
     });
 
     it('should detect budget breach', async () => {
-      vi.mocked(requireTenantAccess).mockResolvedValueOnce(undefined);
+      vi.mocked(requireTenantAccess).mockResolvedValueOnce({ email: "u@u", tenantId: "tenant1", claims: { tid: "tenant1" }, isCorporateDomain: false } as any);
       vi.mocked(pool.query).mockResolvedValueOnce([[{ tier: 'Pro' }]]);
 
       // Create a cost trajectory that exceeds budget
@@ -324,7 +324,7 @@ describe('API: /intelligence/forecast', () => {
     });
 
     it('should use auto method selection', async () => {
-      vi.mocked(requireTenantAccess).mockResolvedValueOnce(undefined);
+      vi.mocked(requireTenantAccess).mockResolvedValueOnce({ email: "u@u", tenantId: "tenant1", claims: { tid: "tenant1" }, isCorporateDomain: false } as any);
       vi.mocked(pool.query).mockResolvedValueOnce([[{ tier: 'Pro' }]]);
 
       const today = new Date();
@@ -352,7 +352,7 @@ describe('API: /intelligence/forecast', () => {
     });
 
     it('should handle empty history gracefully', async () => {
-      vi.mocked(requireTenantAccess).mockResolvedValueOnce(undefined);
+      vi.mocked(requireTenantAccess).mockResolvedValueOnce({ email: "u@u", tenantId: "tenant1", claims: { tid: "tenant1" }, isCorporateDomain: false } as any);
       vi.mocked(pool.query).mockResolvedValueOnce([[{ tier: 'Pro' }]]);
       vi.mocked(pool.query).mockResolvedValueOnce([[]]); // No cost data
 
@@ -372,7 +372,7 @@ describe('API: /intelligence/forecast', () => {
     });
 
     it('should return correct chart data structure', async () => {
-      vi.mocked(requireTenantAccess).mockResolvedValueOnce(undefined);
+      vi.mocked(requireTenantAccess).mockResolvedValueOnce({ email: "u@u", tenantId: "tenant1", claims: { tid: "tenant1" }, isCorporateDomain: false } as any);
       vi.mocked(pool.query).mockResolvedValueOnce([[{ tier: 'Pro' }]]);
 
       const today = new Date();

@@ -15811,6 +15811,7 @@
     "scopeGroup": "Grupo",
     "scopeAll": "Todo el gasto",
     "scopeEveryGroup": "Todos los grupos",
-    "scopeNotApplied": "No se pudo acotar por Perspective: el costo de este período no se puede separar fila por fila entre lo que entra en el alcance y lo que no. Los números de abajo son los del tablero completo."
+    "scopeNotApplied": "No se pudo acotar por Perspective: el costo de este período no se puede separar fila por fila entre lo que entra en el alcance y lo que no. Los números de abajo son los del tablero completo.",
+    "scopeAssigned": "Tu acceso está acotado a este grupo. No lo podés cambiar."
   }
 }

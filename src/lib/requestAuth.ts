@@ -4,6 +4,8 @@ import pool from "@/modules/storage/db";
 import { hasAccess } from "@/lib/tierLogic";
 import { isCorporateEmail } from "@/lib/authGuard";
 import { marcarComoFondo } from "@/lib/prioridadDeLlamada";
+import { rutaAdmiteAlcance } from "@/lib/scopeAwareRoutes";
+import { alcanceDelUsuario, type AlcanceAsignado } from "@/services/userScope.service";
 
 /**
  * Tenant well-known de Microsoft para CUENTAS PERSONALES (MSA / "consumers"):
@@ -283,6 +285,17 @@ export type RequestIdentity = {
   tenantId: string;
   email: string;
   isCorporateDomain: boolean;
+  /**
+   * MEJ-38 — el alcance de Perspective ASIGNADO a este usuario, si tiene.
+   *
+   * No es lo mismo que el `?perspective=` de la URL: aquél lo elige el usuario
+   * y esto se lo asignaron. Cuando viene, la ruta no puede servir el tenant
+   * entero — y si no sabe recortar, no llegó hasta acá (ver el corte de
+   * `requireTenantAccess`).
+   */
+  alcance?: AlcanceAsignado | null;
+  /** Identidad sintética de un cron autenticado, no una persona. */
+  esCron?: boolean;
 };
 
 // La lista vive en authGuard.ts (fuente única, sin deps de server) para que
@@ -370,6 +383,10 @@ function tryCronAuth(request: NextRequest, tenantId: string): RequestIdentity | 
     tenantId,
     email: "cron@system",
     isCorporateDomain: true,
+    // MEJ-38: marcado explícito en vez de reconocerlo por el email. Un cron no
+    // es una persona y no tiene alcance; que además nadie pueda crear un
+    // usuario con ese email y heredar el bypass.
+    esCron: true,
   };
 }
 
@@ -396,7 +413,57 @@ export async function requireSuperAdmin(request: NextRequest): Promise<RequestId
   return identity;
 }
 
+/**
+ * MEJ-38 — el corte por alcance, aplicado UNA vez sobre todos los caminos por
+ * los que se puede conceder acceso a un tenant.
+ *
+ * Va acá envolviendo y no adentro porque `resolverAccesoAlTenant` tiene seis
+ * `return identity` distintos —membresía, superadmin, auto-bootstrap…— y
+ * agregar el chequeo a cada uno es la forma de olvidarse de uno.
+ *
+ * EL DEFAULT ES NEGAR: si el usuario tiene alcance asignado y la ruta no está
+ * declarada en `scopeAwareRoutes.ts`, se corta. Una ruta nueva que exponga
+ * gasto falla cerrada hasta que alguien la declare, que es lo contrario de
+ * filtrar de menos sin que nadie se entere.
+ */
 export async function requireTenantAccess(
+  request: NextRequest,
+  tenantId: string,
+  options?: { allowSuperAdmin?: boolean }
+): Promise<RequestIdentity> {
+  const identity = await resolverAccesoAlTenant(request, tenantId, options);
+  return aplicarAlcance(identity, tenantId, request.nextUrl.pathname, request.method);
+}
+
+/**
+ * MEJ-38 — el corte en sí, separado para poder probarlo sin fabricar un token.
+ *
+ * Devuelve la identidad con su alcance colgado, o lanza si la ruta no sabe
+ * acotarse. Es el único punto donde se decide, y por eso no tiene ramas de más.
+ */
+export async function aplicarAlcance(
+  identity: RequestIdentity,
+  tenantId: string,
+  pathname: string,
+  metodo: string,
+): Promise<RequestIdentity> {
+  // El cron no es una persona y no tiene alcance que aplicar.
+  if (identity.esCron) return identity;
+
+  const alcance = await alcanceDelUsuario(tenantId, identity.email);
+  if (!alcance) return identity;
+
+  if (!rutaAdmiteAlcance(pathname, metodo)) {
+    throw new AuthError(
+      "Tu acceso está acotado a un grupo y esta pantalla todavía no sabe acotarse.",
+      403,
+      "SCOPE_ROUTE_NOT_AWARE",
+    );
+  }
+  return { ...identity, alcance };
+}
+
+async function resolverAccesoAlTenant(
   request: NextRequest,
   tenantId: string,
   options?: { allowSuperAdmin?: boolean }

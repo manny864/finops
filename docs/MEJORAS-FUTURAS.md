@@ -53,7 +53,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-35](#mej-35--suscripciones-a-reportes-cualquier-reporte-a-la-cadencia-que-elija-el-usuario) | Suscripciones a reportes: cualquier reporte, a la cadencia que elija el usuario, con link + imagen + CSV | Reportes | Alto | Medio | Propuesta |
 | [MEJ-36](#mej-36--presupuestos-rollover-y-año-fiscal-no-calendario) | Presupuestos: rollover con tope y año fiscal no calendario | Presupuestos | Medio | Bajo | Propuesta |
 | [MEJ-37](#mej-37--leaderboard-de-equipos-y-margen-bruto) | Leaderboard de equipos (ordenado por mejora, no por gasto) y split COGS/OpEx | Integración con el negocio | Medio | Bajo | Propuesta |
-| [MEJ-38](#mej-38--views-vistas-guardadas-y-con-alcance-por-equipo) | Views: vistas guardadas y alcance por equipo aplicado en el SERVIDOR, no como filtro de UI — **diseño cerrado 2026-09-25**: default-deny en `requireTenantAccess`, mapa por (ruta, método), y un usuario con alcance no puede ser Admin/Owner | Transversal / RBAC | Alto | Medio | Aceptada |
+| [MEJ-38](#mej-38--views-vistas-guardadas-y-con-alcance-por-equipo) | Views: el alcance por equipo aplicado en el SERVIDOR — **el permiso está hecho** (default-deny en `requireTenantAccess`, mapa por (ruta, método), un usuario con alcance no puede ser Admin/Owner); falta `SavedViews`, que es comodidad y no permiso | Transversal / RBAC | Alto | Medio | Parcial |
 | [MEJ-39](#mej-39--fin-de-soporte-eoleos-de-la-plataforma-azure) | Fin de soporte (EOL/EOS) de la plataforma Azure, con el costo de lo afectado; fase 2: posición de licencias en la nube | Gobernanza / Riesgo | Alto | Medio | Propuesta |
 | [MEJ-40](#mej-40--esr-y-riesgo-de-la-cartera-de-compromisos) | Concentración de vencimientos + ESR; se desbloqueó poblando `ListCost` de verdad | Compromisos | Alto | Medio | Hecha |
 
@@ -3774,16 +3774,51 @@ Un usuario acotado que encuentra 403 en media plataforma está peor que sin la f
 oculta por tier con `ROUTE_TIERS`; tiene que ocultar por alcance con el mismo mapa. Es la mitad de
 UX del default-deny y no es opcional.
 
-#### 7. Lo que NO decido solo
+#### 7. Las tres decisiones, resueltas (2026-09-26)
 
-- **El día uno, un usuario acotado ve seis pantallas.** Las demás le dan 403 hasta que las adopten.
-  ¿Se lanza así —honesto pero pobre— o se espera a cubrir un mínimo? Es una decisión de producto.
-- **Qué rol tiene un usuario acotado.** Hoy conviven `Admin`, `Owner`, `Reader`, `Colaborador`,
-  `FinOpsManager`, `Operator`, `Contributor` y `FinOps`, con mayúsculas inconsistentes. Antes de
-  colgar un permiso de esa lista conviene saber cuáles se usan de verdad.
-- **Un usuario, ¿un alcance o varios?** La tabla propuesta admite varias filas. Con varias, "su
-  porción" es la unión, y el `IN` de ternas crece; con una sola, el modelo es más simple y más
-  restrictivo.
+**a) No hay día uno. La feature se despliega apagada.** `UserScopes` vacía significa que nadie
+cambia —el criterio 3— así que no hay que elegir entre "lanzar pobre" y "esperar". Lo que era una
+decisión de release pasa a ser una decisión por usuario, y el Admin la toma informado: el endpoint
+que asigna devuelve `screensWhenScoped`, o sea cuántas pantallas le quedan a esa persona. Asignar a
+ciegas sería asignar sin saber qué se está quitando.
+
+**b) Reader y Colaborador. Los otros cuatro roles no existen.** Medido contra la base: las únicas
+filas de `Users.role` son `Admin` (3), `Owner` (2), `Reader` (2) y `Colaborador` (2).
+`FinOpsManager`, `Operator`, `Contributor`, `FinOps` y `Viewer` aparecen sólo en listas de guardas y
+**nunca se asignaron a nadie**. Así que la regla es corta: no pueden tener alcance `Admin` ni
+`Owner`, y quedan Reader y Colaborador, que son los dos roles no privilegiados que existen de
+verdad. La comparación va en minúsculas porque las guardas mezclan `Admin` y `ADMIN`.
+
+**c) Un alcance por usuario**, con `UNIQUE (tenant_id, user_email)`. Una Perspective ya asigna cada
+recurso a exactamente un grupo, así que Perspective + grupo es la unidad natural; con varias filas
+"su porción" pasaría a ser una unión y habría que decidir sobre qué base se calculan los
+porcentajes. **Levantar el UNIQUE más adelante es una migración y un `OR` en el predicado; bajarlo
+después de haber permitido varias, no.** Verificado contra el MySQL local: el segundo `INSERT` del
+mismo usuario actualiza en vez de duplicar, y borrar la Perspective se lleva el alcance por cascada
+—sin eso el usuario quedaría con un alcance colgado que no resuelve y le niega todo—.
+
+#### 8. Lo construido
+
+- `migrations/20260926-001-user-scopes.sql`.
+- `src/services/userScope.service.ts` — lectura y escritura. `alcanceDelUsuario` **falla abierto** a
+  propósito: si la tabla no existe todavía, lo que se pierde es el recorte y no el control de
+  acceso, y fallar cerrado dejaría a todos sin plataforma por una migración pendiente.
+- `src/lib/scopeAwareRoutes.ts` — las dos listas y el matcher por (ruta, método).
+- `requestAuth.aplicarAlcance()` — el corte, envolviendo los seis `return identity` que tenía
+  `requireTenantAccess`. Está separado en su propia función exportada para poder probarlo sin
+  fabricar un JWT.
+- `perspectivesData.filtroDeLaRequest()` y `exigirRecorte()` — el permiso gana sobre la URL, y un
+  recorte que no se puede aplicar corta.
+- `GET/POST/DELETE /api/admin/user-scopes` y `GET /api/me/scope`.
+- El Sidebar oculta lo que no está declarado; el selector de Perspective queda fijo y con candado.
+
+Tests: `__tests__/unit/alcanceComoPermiso.test.ts`.
+
+#### 9. Lo que queda
+
+`SavedViews` —la mitad de "vistas guardadas" de esta mejora— sigue sin hacerse, y es correcto que
+vaya última: es comodidad, no permiso. Y la lista de rutas que saben acotar tiene diez entradas de
+las 304 posibles: crece con MEJ-34, no con esto.
 
 #### 8. Orden de implementación
 

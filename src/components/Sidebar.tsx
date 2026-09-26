@@ -4,6 +4,8 @@ import { Link, usePathname } from '@/i18n/routing';
 import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { hasAccess } from '@/lib/tierLogic';
+import { paginaAdmiteAlcance } from '@/lib/scopeAwareRoutes';
+import { useAlcanceAsignado } from '@/components/PerspectiveScopeSelector';
 import { addonUnlocksPath } from '@/lib/addonCatalog';
 import { getTagsForRoute, hasAnyTag } from '@/lib/pageRoleTags';
 import {
@@ -276,6 +278,8 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
     // usuario no tiene ninguno asignado, no se aplica ningún recorte adicional
     // por dominio (compatibilidad con tenants que todavía no los asignaron).
     const restrictByPermissions = userPermissions.length > 0 && userRole !== 'Admin' && userRole !== 'Owner';
+    const { scope: alcanceAsignado } = useAlcanceAsignado();
+
     const roleCategories = categories.map(cat => {
         let items = cat.items;
         if (systemRole === 'SUPERADMIN') {
@@ -299,22 +303,32 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
         return { ...cat, items }; // Admin sees what the tier allows
     }).filter(Boolean) as typeof categories;
 
+    // MEJ-38: un usuario con alcance ASIGNADO sólo puede abrir las pantallas que
+    // saben acotarse; el resto le devuelve 403. Ofrecérselas igual sería mandarlo
+    // a chocarse contra la puerta. Es el mismo criterio que el recorte por tier,
+    // y el mapa se mantiene a mano por el mismo motivo.
+    const categoriasVisibles = alcanceAsignado
+        ? roleCategories
+            .map(cat => ({ ...cat, items: cat.items.filter(i => paginaAdmiteAlcance(i.href)) }))
+            .filter(cat => cat.items.length > 0)
+        : roleCategories;
+
     // Buscador de páginas: filtra por label (normalizado, sin acentos) sobre
     // los items ya resueltos por rol/tier (roleCategories) — nunca expone una
     // página que el usuario no vería igual navegando por las categorías.
     const normalize = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
     const searchResults = searchQuery.trim()
-        ? roleCategories.flatMap(cat => cat.items
+        ? categoriasVisibles.flatMap(cat => cat.items
             .filter(i => normalize(i.label).includes(normalize(searchQuery.trim())))
             .map(i => ({ ...i, categoryTitle: cat.title })))
         : [];
     const activeHref = React.useMemo(() => {
-        const matches = roleCategories
+        const matches = categoriasVisibles
             .flatMap(cat => cat.items.map(i => i.href))
             .filter((href) => href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`))
             .sort((a, b) => b.length - a.length);
         return matches[0] || null;
-    }, [pathname, roleCategories]);
+    }, [pathname, categoriasVisibles]);
     const isRouteActive = (href: string) => href === activeHref;
 
     return (
@@ -397,7 +411,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                             );
                         })}
                     </div>
-                ) : roleCategories.map(category => (
+                ) : categoriasVisibles.map(category => (
                     <div key={category.id} className="flex flex-col">
                         {sidebarOpen ? (
                             <button 

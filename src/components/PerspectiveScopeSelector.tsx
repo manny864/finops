@@ -69,6 +69,38 @@ export function usePerspectiveScope() {
 }
 
 /**
+ * MEJ-38 — el alcance ASIGNADO a este usuario, si tiene.
+ *
+ * Distinto del de la URL: éste no se elige. Lo usan el selector, para quedar
+ * fijo, y el Sidebar, para no ofrecer pantallas que la API va a negar.
+ */
+export function useAlcanceAsignado(): { scope: { perspectiveId: number; grupo: string | null } | null; pages: string[] | null } {
+    const { selectedTenant } = useTenant();
+    const { instance, accounts } = useMsal();
+    const tenantId = selectedTenant?.id || "";
+    const esMock = isMockTenant(tenantId);
+
+    const fetcher = useCallback(
+        async (url: string) => {
+            const headers: Record<string, string> = esMock
+                ? {}
+                : { Authorization: `Bearer ${await getFreshIdToken(instance, accounts[0], ["User.Read"])}` };
+            const res = await fetch(url, { headers });
+            if (!res.ok) throw new Error(String(res.status));
+            return res.json();
+        },
+        [instance, accounts, esMock],
+    );
+
+    const { data } = useSWR(
+        tenantId && tenantId !== "default" ? `/api/me/scope?tenantId=${encodeURIComponent(tenantId)}` : null,
+        fetcher,
+        { revalidateOnFocus: false, shouldRetryOnError: false },
+    );
+    return { scope: data?.scope ?? null, pages: data?.pages ?? null };
+}
+
+/**
  * El aviso de "se pidió acotar por Perspective y no se pudo".
  *
  * Vive acá y no en cada tablero porque en todos es el mismo problema: el
@@ -123,7 +155,12 @@ export default function PerspectiveScopeSelector() {
     );
 
     const perspectivas: Perspectiva[] = data?.perspectives || [];
-    const actual = perspectivas.find((p) => p.id === perspectiveId) || null;
+    // MEJ-38: con alcance ASIGNADO el selector no es un selector. Se muestra
+    // fijo: dejarlo elegir otro grupo sólo produce 403, porque el permiso gana
+    // sobre la URL del lado del servidor.
+    const { scope: asignado } = useAlcanceAsignado();
+    const fijo = asignado ? perspectivas.find((p) => p.id === asignado.perspectiveId) || null : null;
+    const actual = fijo || perspectivas.find((p) => p.id === perspectiveId) || null;
 
     // Los grupos salen de las reglas y no de un breakdown: alcanza para poblar el
     // selector y evita una segunda consulta de costo en cada carga de página.
@@ -133,6 +170,18 @@ export default function PerspectiveScopeSelector() {
     }, [actual]);
 
     if (perspectivas.length === 0) return null;
+
+    if (asignado && fijo) {
+        return (
+            <div
+                className="flex items-center gap-1.5 rounded-lg border border-line bg-surface-2 px-2 py-1.5 text-[12px] font-bold text-ink"
+                title={t("scopeAssigned")}
+            >
+                <span aria-hidden>🔒</span>
+                <span>{fijo.name}{asignado.grupo ? ` · ${asignado.grupo}` : ""}</span>
+            </div>
+        );
+    }
 
     return (
         <div className="flex items-center gap-1.5">

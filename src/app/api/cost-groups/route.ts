@@ -18,9 +18,10 @@ import { getWithStaleWhileRevalidate, invalidateCache, costGroupsCacheKeys } fro
 import { fetchResourceCountsByRg, fetchResourceGroupsByTag } from "@/lib/azureResourceCounts";
 import { getTagCoverage } from "@/lib/costTagCoverage";
 import {
-    filtroDeAlcance, comoFilaDeCosto, DIMENSIONES_DE_ALCANCE, type FilaConDimensiones,
+    filtroDeLaRequest, exigirRecorte, comoFilaDeCosto, DIMENSIONES_DE_ALCANCE, type FilaConDimensiones,
 } from "@/services/perspectivesData.service";
 import type { FilaDeCosto } from "@/services/perspectives.service";
+import type { Permiso } from "@/services/perspectivesData.service";
 
 /** El balde por tag CostCenter. Constante para que las dos formas de la consulta no se desincronicen. */
 const BALDE_CC = `COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')), 'null'), 'Untagged')`;
@@ -161,26 +162,22 @@ export async function GET(request: NextRequest) {
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
         // Cost Groups es exclusivo de los planes Business y Enterprise.
-        await requireTenantTier(request, tenantId, "Business");
+        const identidad = await requireTenantTier(request, tenantId, "Business");
 
         if (isMockTenant(tenantId)) {
             return NextResponse.json(getMockDataForRoute("cost_groups", tenantId));
         }
 
-        // MEJ-34: alcance transversal de Perspective. Se resuelve UNA vez, no
-        // por fila ni por grupo.
-        const pid = Number(url.searchParams.get("perspective"));
-        const alcance = await filtroDeAlcance(
-            tenantId,
-            Number.isInteger(pid) && pid > 0 ? pid : null,
-            url.searchParams.get("pgroup"),
-        );
+        // MEJ-34/38: alcance transversal. Se resuelve UNA vez, no por fila ni
+        // por grupo, y el asignado gana sobre el de la URL.
+        const permiso = identidad.alcance ?? null;
+        const alcance = await filtroDeLaRequest(tenantId, url.searchParams, permiso);
 
         // El recorte NO se cachea: la clave sería una por (perspective, grupo,
         // período) y `costGroupsCacheKeys` sólo invalida las tres sin recorte,
         // así que un grupo editado dejaría vistas acotadas viejas para siempre.
         const result = alcance
-            ? await fetchCostGroups(tenantId, period, alcance)
+            ? await fetchCostGroups(tenantId, period, alcance, permiso)
             : await getWithStaleWhileRevalidate(
                 `cost-groups:v2:${tenantId}:${period}`,
                 () => fetchCostGroups(tenantId, period),
@@ -196,7 +193,7 @@ export async function GET(request: NextRequest) {
     }
 }
 
-async function fetchCostGroups(tenantId: string, period: string, alcance?: Alcance) {
+async function fetchCostGroups(tenantId: string, period: string, alcance?: Alcance, permiso?: Permiso | null) {
         const { start, end } = periodRange(period);
         const days = Math.max(1, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86400000) || 30);
 
@@ -213,6 +210,8 @@ async function fetchCostGroups(tenantId: string, period: string, alcance?: Alcan
         // qué, así que se devuelve el tablero entero con `scopeApplied: false`
         // y que la pantalla lo diga.
         const recorte = alcance && tagCoverage.isExact ? alcance : null;
+        // MEJ-38: con alcance ASIGNADO, no acotar sería servirle el tenant entero.
+        exigirRecorte(permiso, recorte !== null);
 
         // COUNT(DISTINCT subscription_id) excluye 'mg-aggregated'/'default': el
         // sync diario a veces graba un placeholder ahí en vez del GUID real
