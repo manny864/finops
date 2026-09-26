@@ -15811,7 +15811,6 @@
     "scopeGroup": "Grupo",
     "scopeAll": "Todo el gasto",
     "scopeEveryGroup": "Todos los grupos",
-    "scopeNotApplied": "No se pudo acotar por Perspective: este período no tiene el detalle por recurso que el alcance necesita, así que el reparto se resuelve aproximando por grupo de recursos y una aproximación no se puede recortar fila por fila. Los números de abajo son los del tablero completo.",
-    "scopeNotHereYet": "Esta pantalla muestra el Cost Group completo, sin acotar por Perspective: parte de su contenido sale de Resource Graph, donde el alcance no tiene filas que evaluar. Los importes pueden no coincidir con los del tablero acotado."
+    "scopeNotApplied": "No se pudo acotar por Perspective: el costo de este período no se puede separar fila por fila entre lo que entra en el alcance y lo que no. Los números de abajo son los del tablero completo."
   }
 }

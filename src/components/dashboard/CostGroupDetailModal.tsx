@@ -19,7 +19,7 @@ import {
 import { isMockTenant } from "@/lib/mockData";
 import { getRegionCoords } from "@/lib/azureRegionCoords";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
-import { AlcanceNoRecortaAqui } from "@/components/PerspectiveScopeSelector";
+import { AlcanceNoAplicado, usePerspectiveScope } from "@/components/PerspectiveScopeSelector";
 import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 const PIE_COLORS = ["#0054A6", "#F2A900", "#10B981", "#EF4444", "#8B5CF6", "#F43F5E", "#0EA5E9"];
@@ -385,9 +385,13 @@ export default function CostGroupDetailModal({ name, tenantId, onClose, onUpdate
         }
     };
 
+    // MEJ-34: el modal hereda el alcance del tablero del que se abrió, o sus
+    // importes no coincidirían con la fila en la que el usuario hizo clic.
+    const { queryString: alcanceQs } = usePerspectiveScope();
+
     const { data, error, isLoading, mutate } = useSWR(
         tenantId && tenantId !== "default" && (accounts.length > 0 || isMockTenant(tenantId))
-            ? `/api/cost-groups/${encodeURIComponent(name)}?tenantId=${tenantId}&locale=${encodeURIComponent(locale)}`
+            ? `/api/cost-groups/${encodeURIComponent(name)}?tenantId=${tenantId}&locale=${encodeURIComponent(locale)}${alcanceQs}`
             : null,
         fetcher,
         { revalidateOnFocus: false }
@@ -460,13 +464,10 @@ export default function CostGroupDetailModal({ name, tenantId, onClose, onUpdate
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-6">
-                    {/* MEJ-34: el detalle NO se acota. Son ~10 agregaciones de
-                        CostSnapshots más tres consultas a Resource Graph, y el
-                        predicado de una Perspective no se puede evaluar sobre
-                        esas últimas sin reescribir el evaluador en KQL. Acotar
-                        la mitad dejaría pestañas recortadas al lado de pestañas
-                        que no lo están, sin que se note cuál es cuál. */}
-                    <div className="mb-4"><AlcanceNoRecortaAqui /></div>
+                    {/* MEJ-34: las diez agregaciones y las tres consultas a
+                        Resource Graph heredan el mismo recorte, así que o se
+                        acotan todas o ninguna. Este aviso es el "ninguna". */}
+                    <div className="mb-4"><AlcanceNoAplicado aplicado={data?.scopeApplied} /></div>
                     {isLoading && (
                         <div className="flex flex-col items-center justify-center py-20">
                             <Loader2 className="w-8 h-8 animate-spin text-brand-deep mb-4" />

@@ -27,6 +27,9 @@ import {
 } from "@/services/costGroupDetailMetricsService";
 import { errorMessage } from '@/lib/apiErrors';
 import { escapeKql } from "@/lib/kql";
+import {
+    filtroDeAlcance, recorteDeAlcance, DIMENSIONES_DE_ALCANCE, type FilaConDimensiones,
+} from "@/services/perspectivesData.service";
 
 
 
@@ -231,6 +234,54 @@ async function resolveGroupFilters(tenantId: string, name: string, meta: any) {
     return { tagFilter, tagParams: [tenantId, ...resourceGroups], kqlTagFilter, isCustom: true, matchType: meta.match_type as string, resourceGroups };
 }
 
+/**
+ * Un `IN` de identificadores en KQL crece rápido: por encima de esto el recorte
+ * se descarta en vez de mandar una consulta de cientos de kilobytes a Azure.
+ * Sólo aplica cuando algún grupo de recursos está partido entre dentro y fuera
+ * del alcance; con los grupos enteros alcanza con nombrarlos.
+ */
+const TOPE_IDS_KQL = 500;
+
+/** El recorte en KQL: por grupo de recursos cuando alcanza, por identificador cuando no. */
+function kqlDelRecorte(r: NonNullable<Awaited<ReturnType<typeof resolverRecorte>>>): string {
+    if (r.porGrupoAlcanza) {
+        return r.resourceGroups.length > 0
+            ? `resourceGroup in~ (${r.resourceGroups.map(rg => `'${escapeKql(rg)}'`).join(",")})`
+            : "false";
+    }
+    return `id in~ (${[...r.resourceIds].map(id => `'${escapeKql(id)}'`).join(",")})`;
+}
+
+/**
+ * Resuelve el alcance de Perspective a un recorte SQL para ESTE Cost Group.
+ *
+ * La ventana de la consulta es la más ancha que consume el modal —
+ * `getPeriodComparison` llega hasta el 1 de enero del año anterior—: si fuera
+ * más corta, una fila vieja quedaría sin clasificar y su terna se perdería del
+ * `IN`, recortando de más sin decirlo.
+ */
+async function resolverRecorte(request: NextRequest, tenantId: string, tagFilter: string, tagParams: any[]) {
+    const pid = Number(request.nextUrl.searchParams.get("perspective"));
+    const alcance = await filtroDeAlcance(
+        tenantId,
+        Number.isInteger(pid) && pid > 0 ? pid : null,
+        request.nextUrl.searchParams.get("pgroup"),
+    );
+    if (!alcance) return null;
+
+    const desde = `${new Date().getUTCFullYear() - 1}-01-01`;
+    const [filas]: any = await pool.query(
+        `SELECT DISTINCT ${DIMENSIONES_DE_ALCANCE}
+         FROM CostSnapshots
+         WHERE tenant_id = ? AND ${tagFilter} AND DATE(COALESCE(ChargePeriodStart, date)) >= ?`,
+        [...tagParams, desde]
+    );
+    const r = recorteDeAlcance(filas as FilaConDimensiones[], alcance);
+    if (!r) return null;
+    if (!r.porGrupoAlcanza && r.resourceIds.size > TOPE_IDS_KQL) return null;
+    return r;
+}
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ name: string }> }) {
     try {
         const { name: rawName } = await params;
@@ -262,11 +313,21 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         );
         const meta = metaRows?.[0] || {};
 
-        const { tagFilter, tagParams, kqlTagFilter, isCustom, matchType, resourceGroups: matchedResourceGroups } =
+        const { tagFilter: tagFilterBase, tagParams: tagParamsBase, kqlTagFilter: kqlBase, isCustom, matchType, resourceGroups: matchedResourceGroups } =
             await resolveGroupFilters(tenantId, name, meta).catch(e => {
                 console.warn("[cost-groups/detail] resolveGroupFilters:", e.message);
                 return { tagFilter: "1=0", tagParams: [] as any[], kqlTagFilter: "false", isCustom: false, matchType: null as string | null, resourceGroups: [] as string[] };
             });
+
+        // MEJ-34 — el alcance transversal, traducido UNA vez a un predicado que
+        // se pega a `tagFilter`. Así lo heredan las diez agregaciones de este
+        // modal sin tocar ninguna: cada una arma sus parámetros como
+        // `[tenantId, ...tagParams, <sus fechas>]`, y los del recorte entran al
+        // final de `tagParams`, que es donde van sus placeholders.
+        const recorte = await resolverRecorte(request, tenantId, tagFilterBase, tagParamsBase);
+        const tagFilter = recorte ? `${tagFilterBase} AND ${recorte.sql}` : tagFilterBase;
+        const tagParams = recorte ? [...tagParamsBase, ...recorte.params] : tagParamsBase;
+        const kqlTagFilter = recorte ? `(${kqlBase}) and ${kqlDelRecorte(recorte)}` : kqlBase;
 
         const currentFY = await getCurrentFY(tenantId, budget, tagFilter, tagParams).catch(e => {
             console.warn("[cost-groups/detail] currentFY:", e.message);
@@ -382,6 +443,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         return NextResponse.json({
             success: true,
             mock: false,
+            // MEJ-34: con un alcance pedido y esto en false, el modal muestra el
+            // Cost Group entero -- o el costo del período no se puede separar
+            // fila por fila, o hay más ternas de las que un `IN` admite.
+            scopeApplied: recorte !== null,
             name,
             description: meta.description || null,
             owner: meta.ownerName || meta.ownerEmail || null,

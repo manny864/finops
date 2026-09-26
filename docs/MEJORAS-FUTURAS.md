@@ -49,7 +49,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-32](#mej-32--tres-catálogos-de-precios-duplicados-y-ya-divergidos-mej-10-reabierta) | Tres catálogos de precios duplicados y ya divergidos (MEJ-10 reabierta) | Transversal / Ahorro | Alto | Bajo | Hecha |
 | [MEJ-33](#mej-33--cerrar-el-lazo-del-desvío-dueño-estado-persistente-y-seguimiento) | Cerrar el lazo del desvío: dueño, estado persistente y seguimiento | Anomalías / Gobernanza | Alto | Medio | Hecha |
 | [MEJ-31](#mej-31--test-de-storage-history-hardcodea-meses-absolutos-contra-reloj-real) | Test de storage-history hardcodea meses absolutos contra reloj real (rompe todos los meses) | Storage Efficiency / Tests | Medio | Bajo | Hecha |
-| [MEJ-34](#mej-34--perspectives-agrupación-multidimensional-del-gasto) | Perspectives: agrupación multidimensional del gasto — cinco criterios + selector transversal; lo adoptan el export FOCUS, Cost Groups, Centros de Costo y Gastos y Proyección; el resto de los que agregan en SQL van uno por uno | Asignación / Transversal | Alto | Alto | Parcial |
+| [MEJ-34](#mej-34--perspectives-agrupación-multidimensional-del-gasto) | Perspectives: agrupación multidimensional del gasto — cinco criterios + selector transversal; lo adoptan el export FOCUS, Cost Groups (con su detalle), Centros de Costo (con sus recursos) y Gastos y Proyección; el resto de los que agregan en SQL van uno por uno | Asignación / Transversal | Alto | Alto | Parcial |
 | [MEJ-35](#mej-35--suscripciones-a-reportes-cualquier-reporte-a-la-cadencia-que-elija-el-usuario) | Suscripciones a reportes: cualquier reporte, a la cadencia que elija el usuario, con link + imagen + CSV | Reportes | Alto | Medio | Propuesta |
 | [MEJ-36](#mej-36--presupuestos-rollover-y-año-fiscal-no-calendario) | Presupuestos: rollover con tope y año fiscal no calendario | Presupuestos | Medio | Bajo | Propuesta |
 | [MEJ-37](#mej-37--leaderboard-de-equipos-y-margen-bruto) | Leaderboard de equipos (ordenado por mejora, no por gasto) y split COGS/OpEx | Integración con el negocio | Medio | Bajo | Propuesta |
@@ -3303,27 +3303,53 @@ de costo queda afuera: no hay con qué probar que está en el grupo, y para etiq
 corto. Si hay filas en alcance pero ninguna trae `ResourceId` no hay con qué intersectar, y entonces
 no se recorta — la lista vacía se leería como "este grupo no tiene recursos".
 
-**`/api/cost-groups/[name]` — NO acotado, y etiquetado como tal.** Al abrirlo resultó no ser un
-drill-through sino un tablero completo: **~10 agregaciones de `CostSnapshots` más tres consultas KQL
-a Resource Graph** (lista de recursos, mapa de regiones, cobertura de etiquetas). Las tres últimas no
-se pueden acotar sin reescribir el evaluador de Perspectives en KQL — la misma duplicación en dos
-lenguajes que se descartó a propósito para SQL, y que además derivaría con el tiempo.
-
-Acotar sólo las diez de SQL dejaría pestañas recortadas al lado de pestañas que no lo están, sin que
-se note cuál es cuál: exactamente el descuadre que esta mejora viene evitando. Así que el modal dice
-que muestra el Cost Group completo y que sus importes pueden no coincidir con el tablero acotado.
-
-**Lo que costaría hacerlo bien**, si alguna vez vale la pena: proyectar `id` en la consulta KQL de
-recursos, reemplazar las dos consultas `summarize` por una por recurso, agregar en TypeScript e
-intersectar por identificador como en `resources`. El riesgo a mirar es el `limit 200` de esa
-consulta, que hoy trunca sin decirlo y con recorte cambiaría de significado.
-
-Hay dos avisos distintos a propósito, `AlcanceNoAplicado` y `AlcanceNoRecortaAqui`: "se podría pero
-los datos de este período no dan" y "esta pantalla todavía no lo adopta" no son lo mismo, porque lo
-que el usuario puede hacer al respecto no es lo mismo — el primero se arregla configurando el export
-FOCUS, el segundo no se arregla.
+**`/api/cost-groups/[name]` — resuelto aparte**, en la sección siguiente: al abrirlo resultó no ser
+un drill-through sino un tablero completo, con **~10 agregaciones de `CostSnapshots` más tres
+consultas KQL a Resource Graph**.
 
 Tests: `__tests__/unit/costCentersRecursosAlcance.test.ts`.
+
+### Hecho (2026-09-25): el detalle de un Cost Group, y el alcance como predicado
+
+Es el caso que rompe el patrón de los tres tableros anteriores, y por un motivo medible: **su grano
+no colapsa**. Plegar en TypeScript funciona porque el grano del alcance —(suscripción, grupo de
+recursos, servicio, recurso, etiquetas)— agrupa mucho: contra la base local, 16.822 filas son 152
+combinaciones. Pero el grano que este modal necesita incluye la FECHA, más medidor y familia de
+servicio, y ahí 16.822 filas siguen siendo 16.822. Traerlas para plegar diez veces no escala.
+
+**La salida fue invertir el planteo: en vez de llevar las filas al evaluador, llevar el resultado del
+evaluador a SQL.** Las mismas 16.822 filas dan sólo **51 ternas** de (suscripción, grupo de recursos,
+recurso) — `service_name` no entra porque ninguna regla lo mira, `matchea()` sólo lee etiquetas,
+recurso, suscripción y grupo—. Se corre `evaluarFila` sobre ellas una vez y el resultado viaja como
+un `IN` de ternas que se pega a `tagFilter`. Las diez agregaciones lo heredan **sin que ninguna se
+toque**, y las tres consultas KQL se acotan con el mismo conjunto.
+
+No es una segunda implementación del evaluador —lo que va a SQL es el resultado, no las reglas—, que
+era la objeción que descartó generar `CASE WHEN` en primer lugar.
+
+**Dos detalles que sólo aparecen midiendo.** El `COALESCE` en las tres columnas no es defensivo:
+`NULL` nunca es igual a `NULL`, y como todo lo que ingesta el sync tiene `ResourceId` en NULL, sin él
+el predicado no matchearía nada y el modal saldría vacío en vez de acotado. Y el riesgo real no era
+el recorte sino **el orden de los parámetros**: las diez consultas los arman distinto —unas ponen
+fechas antes del `WHERE`, otras después— y un `?` de más es un error de producción que el typecheck
+no ve; hay un test que cuenta placeholders contra parámetros en todas.
+
+**Cuándo se niega, que es lo que lo hace honesto.** Si una terna cae de los dos lados del alcance —el
+mismo recurso con dos juegos de etiquetas en la ventana, porque cambió de entorno— SQL no puede
+separar esas filas y recortar igual atribuiría el gasto de enero al grupo de junio. Igual si hay más
+ternas que el tope (2.000, o 500 cuando hace falta el `IN` de identificadores en KQL). En los dos
+casos se devuelve el tablero entero y se dice, como en el resto de MEJ-34.
+
+Sobre las consultas KQL: acotarlas por `resourceGroup` es **exacto** cuando ningún grupo de recursos
+está partido entre dentro y fuera —y eso lo garantiza la misma verificación de ambigüedad—. Cuando sí
+lo está, se acota por `id`. El `limit 200` de la lista de recursos no cambió de significado porque
+las dos consultas `summarize` siguen siendo consultas aparte, acotadas por el mismo predicado.
+
+Verificado contra la base local: el predicado corre en 20 ms sobre 51 ternas, recorta de 16.822 filas
+a 7.956, y las dos formas de consulta más riesgosas —la de `CASE WHEN` con placeholders antes del
+`WHERE`, y la de `GROUP BY` con la fecha al final— se ejecutan sin error.
+
+Tests: `__tests__/unit/recorteDeAlcance.test.ts`, `__tests__/unit/costGroupDetalleAlcance.test.ts`.
 
 ### Contexto
 

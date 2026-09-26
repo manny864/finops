@@ -92,26 +92,6 @@ export function AlcanceNoAplicado({ aplicado }: { aplicado?: boolean }) {
     );
 }
 
-/**
- * El aviso de "esta pantalla muestra el grupo entero, no tu recorte".
- *
- * Distinto de `AlcanceNoAplicado`: aquél es "se podría pero los datos de este
- * período no dan"; éste es "esta pantalla todavía no lo adopta". Se separan
- * porque lo que el usuario puede hacer al respecto no es lo mismo — el primero
- * se arregla configurando el export FOCUS, el segundo no se arregla.
- */
-export function AlcanceNoRecortaAqui() {
-    const t = useTranslations("Perspectives");
-    const { perspectiveId } = usePerspectiveScope();
-    if (perspectiveId === null) return null;
-    return (
-        <div className="flex items-start gap-2 rounded-xl border border-slate-300 bg-slate-50 p-3 text-xs font-semibold text-slate-700 dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-300">
-            <span aria-hidden className="mt-px shrink-0">ℹ</span>
-            <span>{t("scopeNotHereYet")}</span>
-        </div>
-    );
-}
-
 export default function PerspectiveScopeSelector() {
     const t = useTranslations("Perspectives");
     const { selectedTenant } = useTenant();

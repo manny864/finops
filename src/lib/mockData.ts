@@ -3669,6 +3669,9 @@ export const getMockCostGroupDetail = (name: string, tier: string): any => {
     return {
         success: true,
         mock: true,
+        // MEJ-34: mismo caso que el listado -- agregado a mano, sin filas con
+        // las que decidir qué entra en el alcance.
+        scopeApplied: false,
         name: group.name,
         description: group.description,
         owner: group.owner,

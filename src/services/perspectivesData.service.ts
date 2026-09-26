@@ -169,6 +169,104 @@ export async function guardarReglas(perspectiveId: number, reglas: ReglaPerspect
 /** Valor reservado del selector para acotar al costo sin asignar. */
 export const GRUPO_SIN_ASIGNAR = "__unassigned__";
 
+/** El recorte de un alcance, listo para pegar en SQL y en KQL. */
+export interface RecorteDeAlcance {
+    /** Fragmento para pegar con AND, y sus parámetros en ese orden. */
+    sql: string;
+    params: unknown[];
+    /** Grupos de recursos en alcance, para acotar Resource Graph. */
+    resourceGroups: string[];
+    /** Identificadores en alcance, en minúsculas. Vacío cuando el costo no los trae. */
+    resourceIds: Set<string>;
+    /** true = acotar por grupo de recursos ya es exacto; false = hay que intersectar por identificador. */
+    porGrupoAlcanza: boolean;
+}
+
+const vacio = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+
+/**
+ * MEJ-34 — traduce un alcance a UN predicado SQL exacto, o devuelve `null` si no
+ * se puede traducir sin mentir.
+ *
+ * POR QUÉ ESTO Y NO PLEGAR EN TYPESCRIPT. Plegar sirve cuando un tablero tiene
+ * una o dos agregaciones. El detalle de un Cost Group tiene diez, cada una con
+ * su ventana y su agrupación, y su grano —que incluye la fecha— NO colapsa: son
+ * las filas crudas. Medido contra la base local, 16.822 filas siguen siendo
+ * 16.822 al agrupar por (fecha, suscripción, grupo, servicio, medidor, familia,
+ * recurso, etiquetas). Traerlas todas para plegar diez veces no escala.
+ *
+ * El grano del ALCANCE, en cambio, sí colapsa: las mismas 16.822 filas son 152
+ * combinaciones, y sólo 51 ternas (suscripción, grupo de recursos, recurso).
+ * `service_name` no entra porque ninguna regla lo mira —`matchea()` sólo lee
+ * etiquetas, recurso, suscripción y grupo—. Con eso el alcance se expresa como
+ * un `IN` de ternas que se pega a las diez consultas sin tocar ninguna.
+ *
+ * NO ES UNA SEGUNDA IMPLEMENTACIÓN DEL EVALUADOR. Las ternas salen de correr
+ * `evaluarFila` de verdad sobre las filas; lo que viaja a SQL es el RESULTADO,
+ * no las reglas. Por eso no puede derivar del evaluador real: es el evaluador
+ * real.
+ *
+ * CUÁNDO DEVUELVE NULL, que es lo que lo hace honesto:
+ *
+ *   - Una terna aparece a los dos lados del alcance (la misma suscripción,
+ *     grupo y recurso con dos juegos de etiquetas distintos, típicamente porque
+ *     el recurso cambió de etiqueta en la ventana). SQL no puede separarlas, y
+ *     recortar igual atribuiría mal.
+ *   - Hay más ternas que el tope: un `IN` de decenas de miles deja de ser una
+ *     consulta razonable.
+ *
+ * En los dos casos el llamador devuelve el tablero entero y lo dice, que es la
+ * misma regla que el resto de MEJ-34.
+ */
+export function recorteDeAlcance(
+    filas: FilaConDimensiones[],
+    alcance: (fila: FilaDeCosto) => boolean,
+    tope = 2000,
+): RecorteDeAlcance | null {
+    const estado = new Map<string, { t: [string, string, string]; dentro: boolean; fuera: boolean }>();
+    const porRg = new Map<string, { dentro: boolean; fuera: boolean }>();
+
+    for (const f of filas || []) {
+        const t: [string, string, string] = [vacio(f.subscription_id), vacio(f.resource_group), vacio(f.ResourceId)];
+        const clave = t.join("\u0001");
+        const dentro = alcance(comoFilaDeCosto(f, 0));
+
+        const e = estado.get(clave) || { t, dentro: false, fuera: false };
+        if (dentro) e.dentro = true; else e.fuera = true;
+        estado.set(clave, e);
+
+        const claveRg = `${t[0]}\u0001${t[1]}`;
+        const r = porRg.get(claveRg) || { dentro: false, fuera: false };
+        if (dentro) r.dentro = true; else r.fuera = true;
+        porRg.set(claveRg, r);
+    }
+
+    if ([...estado.values()].some((e) => e.dentro && e.fuera)) return null;
+
+    const dentro = [...estado.values()].filter((e) => e.dentro);
+    if (dentro.length > tope) return null;
+
+    // Si ningún grupo de recursos está partido, acotar Resource Graph por grupo
+    // ya es exacto. Si alguno lo está, hace falta el identificador de cada
+    // recurso; sin él no hay forma de separarlos y se devuelve null.
+    const porGrupoAlcanza = ![...porRg.values()].some((r) => r.dentro && r.fuera);
+    const resourceIds = new Set(dentro.map((e) => e.t[2]).filter(Boolean).map((s) => s.toLowerCase()));
+    if (!porGrupoAlcanza && resourceIds.size !== dentro.length) return null;
+
+    return {
+        // NULL nunca es igual a NULL, así que sin el COALESCE una fila sin
+        // `ResourceId` --que es el caso de todo lo que ingesta el sync-- no
+        // matchearía nunca y el tablero saldría vacío.
+        sql: dentro.length === 0
+            ? "1=0"
+            : `(COALESCE(subscription_id,''), COALESCE(resource_group,''), COALESCE(ResourceId,'')) IN (${dentro.map(() => "(?,?,?)").join(",")})`,
+        params: dentro.flatMap((e) => e.t),
+        resourceGroups: [...new Set(dentro.map((e) => e.t[1]).filter(Boolean))],
+        resourceIds,
+        porGrupoAlcanza,
+    };
+}
+
 /**
  * Predicado de alcance para el selector transversal de Perspective.
  *
