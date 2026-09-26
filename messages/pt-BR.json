@@ -15811,6 +15811,7 @@
     "scopeGroup": "Grupo",
     "scopeAll": "Todo o gasto",
     "scopeEveryGroup": "Todos os grupos",
-    "scopeNotApplied": "Não foi possível restringir por Perspective: este período não tem o detalhe por recurso de que o alcance precisa, então o rateio é aproximado por grupo de recursos e uma aproximação não pode ser recortada linha a linha. Os números abaixo são os do painel completo."
+    "scopeNotApplied": "Não foi possível restringir por Perspective: este período não tem o detalhe por recurso de que o alcance precisa, então o rateio é aproximado por grupo de recursos e uma aproximação não pode ser recortada linha a linha. Os números abaixo são os do painel completo.",
+    "scopeNotHereYet": "Esta tela mostra o Cost Group inteiro, sem restringir por Perspective: parte do conteúdo vem do Resource Graph, onde o alcance não tem linhas para avaliar. Os valores podem não bater com os do painel restrito."
   }
 }

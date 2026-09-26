@@ -15811,6 +15811,7 @@
     "scopeGroup": "Group",
     "scopeAll": "All spend",
     "scopeEveryGroup": "All groups",
-    "scopeNotApplied": "The Perspective scope could not be applied: this period has no per-resource detail for the scope to work with, so the allocation is approximated by resource group — and an approximation cannot be narrowed row by row. The figures below are for the whole board."
+    "scopeNotApplied": "The Perspective scope could not be applied: this period has no per-resource detail for the scope to work with, so the allocation is approximated by resource group — and an approximation cannot be narrowed row by row. The figures below are for the whole board.",
+    "scopeNotHereYet": "This view shows the whole Cost Group, not narrowed by Perspective: part of its content comes from Resource Graph, where the scope has no rows to evaluate. The figures may not match the narrowed board."
   }
 }

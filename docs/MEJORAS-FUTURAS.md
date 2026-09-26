@@ -3284,6 +3284,47 @@ sola clave de i18n en el namespace `Perspectives`. La cuarta copia del mismo pá
 
 Tests: `__tests__/unit/costProjectionAlcancePerspectiva.test.ts`.
 
+### Hecho (2026-09-25): los drill-through, y por qué uno sí y el otro no
+
+Un tablero que filtra con un modal que no es peor que ninguno de los dos, así que los dos
+drill-through de lo anterior se revisaron juntos. Terminaron en respuestas distintas, y el motivo es
+lo que importa.
+
+**`/api/intelligence/cost-centers/resources` — acotado, y era el urgente.** No por cosmética: esa
+lista alimenta `BulkTagModal`. Con el tablero acotado a un grupo, devolver los recursos del centro
+entero dejaba al usuario **etiquetando en masa recursos de fuera de su alcance** — no es mostrar de
+más, es actuar de más.
+
+El recorte va por **identificador de recurso**, no por grupo de recursos: un grupo puede tener
+recursos dentro y fuera del alcance a la vez, y recortar por grupo los mandaría a todos a etiquetar.
+Se intersecta lo que devuelve Resource Graph contra los `ResourceId` con costo en alcance, sin
+distinguir mayúsculas (Azure los devuelve en un caso y `CostSnapshots` en otro). Un recurso sin fila
+de costo queda afuera: no hay con qué probar que está en el grupo, y para etiquetar conviene quedarse
+corto. Si hay filas en alcance pero ninguna trae `ResourceId` no hay con qué intersectar, y entonces
+no se recorta — la lista vacía se leería como "este grupo no tiene recursos".
+
+**`/api/cost-groups/[name]` — NO acotado, y etiquetado como tal.** Al abrirlo resultó no ser un
+drill-through sino un tablero completo: **~10 agregaciones de `CostSnapshots` más tres consultas KQL
+a Resource Graph** (lista de recursos, mapa de regiones, cobertura de etiquetas). Las tres últimas no
+se pueden acotar sin reescribir el evaluador de Perspectives en KQL — la misma duplicación en dos
+lenguajes que se descartó a propósito para SQL, y que además derivaría con el tiempo.
+
+Acotar sólo las diez de SQL dejaría pestañas recortadas al lado de pestañas que no lo están, sin que
+se note cuál es cuál: exactamente el descuadre que esta mejora viene evitando. Así que el modal dice
+que muestra el Cost Group completo y que sus importes pueden no coincidir con el tablero acotado.
+
+**Lo que costaría hacerlo bien**, si alguna vez vale la pena: proyectar `id` en la consulta KQL de
+recursos, reemplazar las dos consultas `summarize` por una por recurso, agregar en TypeScript e
+intersectar por identificador como en `resources`. El riesgo a mirar es el `limit 200` de esa
+consulta, que hoy trunca sin decirlo y con recorte cambiaría de significado.
+
+Hay dos avisos distintos a propósito, `AlcanceNoAplicado` y `AlcanceNoRecortaAqui`: "se podría pero
+los datos de este período no dan" y "esta pantalla todavía no lo adopta" no son lo mismo, porque lo
+que el usuario puede hacer al respecto no es lo mismo — el primero se arregla configurando el export
+FOCUS, el segundo no se arregla.
+
+Tests: `__tests__/unit/costCentersRecursosAlcance.test.ts`.
+
 ### Contexto
 
 Hoy un Cost Group es **el valor del tag `CostCenter`** (`src/app/api/cost-groups/route.ts:5`),

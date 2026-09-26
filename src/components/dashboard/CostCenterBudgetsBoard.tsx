@@ -149,6 +149,9 @@ function ResourceDrawer({
     t: ReturnType<typeof useTranslations>;
 }) {
     const { instance, accounts } = useMsal();
+    // MEJ-34: el drawer hereda el alcance del tablero. Sin esto, acotar a un
+    // grupo y abrir el detalle listaba los recursos del centro entero.
+    const { queryString: alcanceQs } = usePerspectiveScope();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [resources, setResources] = useState<Array<{ id: string; name: string; type: string; resourceGroup: string }>>([]);
@@ -164,7 +167,7 @@ function ResourceDrawer({
             setError(null);
             try {
                 const idToken = await getFreshIdToken(instance, accounts[0]);
-                const res = await fetch(`/api/intelligence/cost-centers/resources?tenantId=${tenantId}&costCenterName=${encodeURIComponent(costCenterName)}`, {
+                const res = await fetch(`/api/intelligence/cost-centers/resources?tenantId=${tenantId}&costCenterName=${encodeURIComponent(costCenterName)}${alcanceQs}`, {
                     headers: { Authorization: `Bearer ${idToken}` },
                 });
                 const json = await res.json();
@@ -185,7 +188,7 @@ function ResourceDrawer({
             }
         })();
         return () => { cancelled = true; };
-    }, [tenantId, costCenterName, excludedIds, instance, accounts, t]);
+    }, [tenantId, costCenterName, excludedIds, instance, accounts, t, alcanceQs]);
 
     // Filtrado en tiempo real
     const filteredResources = useMemo(() => {
@@ -553,7 +556,7 @@ export default function CostCenterBudgetsBoard() {
         setBulkTagLoading(true);
         try {
             const idToken = await getFreshIdToken(instance, accounts[0]);
-            const res = await fetch(`/api/intelligence/cost-centers/resources?tenantId=${selectedTenant.id}&costCenterName=${encodeURIComponent(costCenterName)}`, {
+            const res = await fetch(`/api/intelligence/cost-centers/resources?tenantId=${selectedTenant.id}&costCenterName=${encodeURIComponent(costCenterName)}${alcanceQs}`, {
                 headers: { Authorization: `Bearer ${idToken}` },
             });
             const json = await res.json();

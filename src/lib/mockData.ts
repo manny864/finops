@@ -3547,7 +3547,9 @@ export const getMockCostCenterResources = (costCenterName: string, tier: string)
         resources = resources.filter((r) => !mockTaggedResourcesStore.has(r.id));
     }
 
-    return { success: true, mock: true, costCenterName, resourceGroups: rgNames, resources };
+    // MEJ-34: lista estática, sin filas de costo con las que intersectar. El
+    // aviso del tablero cubre el drawer, que vive en la misma pantalla.
+    return { success: true, mock: true, costCenterName, resourceGroups: rgNames, resources, scopeApplied: false };
 };
 
 /**
