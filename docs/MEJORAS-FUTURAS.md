@@ -53,7 +53,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-35](#mej-35--suscripciones-a-reportes-cualquier-reporte-a-la-cadencia-que-elija-el-usuario) | Suscripciones a reportes: cualquier reporte, a la cadencia que elija el usuario, con link + imagen + CSV | Reportes | Alto | Medio | Propuesta |
 | [MEJ-36](#mej-36--presupuestos-rollover-y-año-fiscal-no-calendario) | Presupuestos: rollover con tope y año fiscal no calendario | Presupuestos | Medio | Bajo | Propuesta |
 | [MEJ-37](#mej-37--leaderboard-de-equipos-y-margen-bruto) | Leaderboard de equipos (ordenado por mejora, no por gasto) y split COGS/OpEx | Integración con el negocio | Medio | Bajo | Propuesta |
-| [MEJ-38](#mej-38--views-vistas-guardadas-y-con-alcance-por-equipo) | Views: vistas guardadas y alcance por equipo aplicado en el SERVIDOR, no como filtro de UI (depende de MEJ-34) | Transversal / RBAC | Alto | Medio | Propuesta |
+| [MEJ-38](#mej-38--views-vistas-guardadas-y-con-alcance-por-equipo) | Views: vistas guardadas y alcance por equipo aplicado en el SERVIDOR, no como filtro de UI — **diseño cerrado 2026-09-25**: default-deny en `requireTenantAccess`, mapa por (ruta, método), y un usuario con alcance no puede ser Admin/Owner | Transversal / RBAC | Alto | Medio | Aceptada |
 | [MEJ-39](#mej-39--fin-de-soporte-eoleos-de-la-plataforma-azure) | Fin de soporte (EOL/EOS) de la plataforma Azure, con el costo de lo afectado; fase 2: posición de licencias en la nube | Gobernanza / Riesgo | Alto | Medio | Propuesta |
 | [MEJ-40](#mej-40--esr-y-riesgo-de-la-cartera-de-compromisos) | Concentración de vencimientos + ESR; se desbloqueó poblando `ListCost` de verdad | Compromisos | Alto | Medio | Hecha |
 
@@ -3703,6 +3703,97 @@ que no mostrarlo.
 2. Los KPIs se calculan sobre la porción visible, y la pantalla dice sobre qué alcance está.
 3. Un usuario sin fila en `UserScopes` ve exactamente lo que ve hoy.
 4. Una vista compartida es visible para todo el tenant; una personal, sólo para su dueño.
+
+### Diseño cerrado (2026-09-25)
+
+Con seis superficies de MEJ-34 ya acotadas, se cerró el contrato antes de seguir sumando tableros.
+Las decisiones de abajo son lo que faltaba para que "filtro" pueda volverse "permiso".
+
+#### 1. Son DOS alcances, no uno, y no pueden compartir significado
+
+| | alcance como **preferencia** | alcance como **permiso** |
+|---|---|---|
+| de dónde sale | `?perspective=` en la URL | fila en `UserScopes` |
+| quién lo elige | el usuario, cuando quiere | nadie: se lo asignaron |
+| pantalla que no puede acotar | muestra todo y lo dice | **niega** |
+
+Es lo que existe hoy contra lo que MEJ-38 necesita, y el mismo parámetro no puede significar las dos
+cosas. **El permiso gana**: con una fila en `UserScopes`, el selector deja de ser libre y queda fijo
+en el grupo asignado. Y el aviso de "no se pudo acotar" —hoy informativo— pasa a ser un 403 para ese
+usuario, porque mostrar el tablero entero es exactamente la fuga que la mejora viene a evitar.
+
+#### 2. Default-deny. No se audita ruta por ruta
+
+**304 de las 467 rutas** llevan auth de tenant. Auditarlas una por una para agregarles el recorte es
+garantía estadística de olvidar alguna, y el repo ya tiene el precedente escrito: `routeTiers.ts`
+documenta cómo un bloqueo por tier se volvía **decorativo** porque varias pantallas son alias que
+sirven el mismo componente desde otra URL, y se entraba por la vieja.
+
+Así que se invierte la carga: **una ruta que no declaró saber acotar no le responde a un usuario con
+alcance.** Lo que se mantiene a mano es la lista de las que SÍ saben —hoy seis— y crece cuando un
+tablero lo adopta. Olvidarse de una ruta nueva falla cerrado, no abierto.
+
+#### 3. Dónde vive el corte
+
+**No hay `middleware.ts` en este proyecto** (verificado), así que el corte va en `requireTenantAccess`,
+que ya lo llaman las 304 y ya recibe el `request` —o sea el `pathname`—:
+
+1. `requireTenantAccess` busca la fila de `UserScopes` y la cuelga de la identidad que devuelve.
+2. Si hay alcance y `request.nextUrl.pathname` no está en `SCOPE_AWARE_ROUTES`, lanza `AuthError(403)`.
+3. Una ruta entra a ese mapa cuando llama a `alcanceDeLaRuta` y puede acotar. Si obtiene
+   `aplicado: false` teniendo un alcance de PERMISO, lanza — no muestra el tablero entero.
+
+Cero código por ruta y nada que recordar: el default es negar. El mapa vive al lado de `ROUTE_TIERS`
+y con la misma disciplina, porque es el mismo problema.
+
+#### 4. Las escrituras son un capítulo aparte
+
+**136 de las 304 tienen POST/PATCH/PUT/DELETE.** El default-deny de lectura no las cubre: una ruta
+puede estar en el mapa porque su GET sabe acotar y tener un POST que no. Por eso **el mapa es por
+(ruta, método)**, y toda ruta de escritura que reciba identificadores de recurso tiene que validarlos
+contra el alcance antes de actuar.
+
+No es teórico: ya pasó. El etiquetado en masa de Centros de Costo entregaba recursos de fuera del
+alcance para etiquetar, y se arregló el 2026-09-25 intersectando por identificador de recurso.
+
+#### 5. Las claves de API: resuelto por construcción
+
+Era el agujero que parecía peor —las claves son **por tenant, no por usuario**, así que una clave
+saltearía el recorte entero por `/api/mcp`, `/api/v1/*` y el feed de Power BI—. Verificado: los dos
+endpoints que las emiten exigen `requireTenantRole(['Admin','Owner'])`
+(`/api/admin/mcp-keys` y `/api/admin/public-api-keys`).
+
+Entonces la regla que lo cierra es una sola: **un usuario con alcance no puede ser `Admin` ni
+`Owner`**, y el endpoint que asigna alcance lo rechaza. Que un Admin emita una clave y se la pase a
+alguien acotado es un problema fuera de banda —equivale a prestarle su contraseña—, no un agujero del
+sistema.
+
+#### 6. La navegación tiene que acompañar, o la feature es hostil
+
+Un usuario acotado que encuentra 403 en media plataforma está peor que sin la feature. El Sidebar ya
+oculta por tier con `ROUTE_TIERS`; tiene que ocultar por alcance con el mismo mapa. Es la mitad de
+UX del default-deny y no es opcional.
+
+#### 7. Lo que NO decido solo
+
+- **El día uno, un usuario acotado ve seis pantallas.** Las demás le dan 403 hasta que las adopten.
+  ¿Se lanza así —honesto pero pobre— o se espera a cubrir un mínimo? Es una decisión de producto.
+- **Qué rol tiene un usuario acotado.** Hoy conviven `Admin`, `Owner`, `Reader`, `Colaborador`,
+  `FinOpsManager`, `Operator`, `Contributor` y `FinOps`, con mayúsculas inconsistentes. Antes de
+  colgar un permiso de esa lista conviene saber cuáles se usan de verdad.
+- **Un usuario, ¿un alcance o varios?** La tabla propuesta admite varias filas. Con varias, "su
+  porción" es la unión, y el `IN` de ternas crece; con una sola, el modelo es más simple y más
+  restrictivo.
+
+#### 8. Orden de implementación
+
+1. `UserScopes` + el endpoint que asigna alcance (rechazando `Admin`/`Owner`).
+2. `requireTenantAccess` devuelve el alcance; `SCOPE_AWARE_ROUTES` con las seis de hoy; 403 por
+   defecto. **Un usuario sin fila no cambia en nada** — ése es el criterio 3 y es lo que hace que el
+   despliegue sea seguro.
+3. El Sidebar oculta lo que no está en el mapa.
+4. Las escrituras de las seis, validando identificadores.
+5. Recién entonces, `SavedViews` — que es comodidad y no permiso, y por eso va última.
 
 ---
 
