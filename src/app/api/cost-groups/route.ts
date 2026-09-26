@@ -17,6 +17,7 @@ import pool from "@/modules/storage/db";
 import { getWithStaleWhileRevalidate, invalidateCache, costGroupsCacheKeys } from "@/lib/cache";
 import { fetchResourceCountsByRg, fetchResourceGroupsByTag } from "@/lib/azureResourceCounts";
 import { getTagCoverage } from "@/lib/costTagCoverage";
+import { rangoDelAnioFiscal, mesFiscalDelTenant } from "@/lib/fiscalYear";
 import {
     filtroDeLaRequest, exigirRecorte, comoFilaDeCosto, DIMENSIONES_DE_ALCANCE, type FilaConDimensiones,
 } from "@/services/perspectivesData.service";
@@ -142,11 +143,13 @@ function buildUntaggedSuggestions(untaggedRgNames: string[], untaggedPeriodCost:
         .slice(0, 5);
 }
 
-function periodRange(period: string): { start: string; end: string } {
+function periodRange(period: string, mesFiscal = 1): { start: string; end: string } {
     const now = new Date();
     const end = now.toISOString().slice(0, 10);
     if (period === "fy") {
-        return { start: `${now.getUTCFullYear()}-01-01`, end };
+        // MEJ-36: "Año Fiscal" pasa a significar el del tenant. Con el default
+        // de enero es exactamente el rango de antes.
+        return { start: rangoDelAnioFiscal(mesFiscal, now).start, end };
     }
     const days = period === "90d" ? 90 : 30;
     const start = new Date(now);
@@ -194,7 +197,7 @@ export async function GET(request: NextRequest) {
 }
 
 async function fetchCostGroups(tenantId: string, period: string, alcance?: Alcance, permiso?: Permiso | null) {
-        const { start, end } = periodRange(period);
+        const { start, end } = periodRange(period, await mesFiscalDelTenant(tenantId));
         const days = Math.max(1, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86400000) || 30);
 
         // MEJ-30 paso 3: si el período ya tiene etiquetas reales (ingesta por

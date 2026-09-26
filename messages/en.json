@@ -7441,7 +7441,8 @@
     "bulkApplyPartial": "{succeeded} succeeded, {failed} failed",
     "networkError": "Network error: {error}",
     "max100": "Max. 100",
-    "scopeHidesBudget": "Narrowed by Perspective: budgets are hidden because they are set for the whole cost center. Comparing one against a slice would show headroom that isn't there."
+    "scopeHidesBudget": "Narrowed by Perspective: budgets are hidden because they are set for the whole cost center. Comparing one against a slice would show headroom that isn't there.",
+    "rolloverBreakdown": "Base budget {base} plus {carry} carried over from earlier months of the fiscal year. The month is measured against the total."
   },
   "IntelligenceHybridBenefit": {
     "title": "Azure Hybrid Benefit Scanner",

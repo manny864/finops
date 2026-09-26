@@ -11,6 +11,7 @@ import {
     type FilaConDimensiones, type Permiso,
 } from "@/services/perspectivesData.service";
 import type { FilaDeCosto } from "@/services/perspectives.service";
+import { rangoDelAnioFiscal, mesFiscalDelTenant, arrastreDelMes } from "@/lib/fiscalYear";
 
 const UNASSIGNED_NAME = "Sin asignar";
 
@@ -115,14 +116,55 @@ async function getCostCenterSpend(tenantId: string, alcance?: Alcance): Promise<
     }));
 }
 
+/** MEJ-36: el presupuesto de un centro, con su configuración de arrastre. */
+interface ConfigPresupuesto {
+    base: number;
+    rollover: boolean;
+    tope: number | null;
+}
+
 async function getBudgets(tenantId: string) {
     const [rows]: any = await pool.query(
-        `SELECT cost_center_name, monthly_budget_usd FROM CostCenterBudgets WHERE tenant_id = ?`,
+        `SELECT cost_center_name, monthly_budget_usd, rollover_enabled, rollover_cap_usd
+           FROM CostCenterBudgets WHERE tenant_id = ?`,
         [tenantId]
     );
-    const map = new Map<string, number>();
-    (rows as any[]).forEach(r => map.set(r.cost_center_name, Number(r.monthly_budget_usd) || 0));
+    const map = new Map<string, ConfigPresupuesto>();
+    (rows as any[]).forEach(r => map.set(r.cost_center_name, {
+        base: Number(r.monthly_budget_usd) || 0,
+        rollover: Number(r.rollover_enabled) === 1,
+        tope: r.rollover_cap_usd == null ? null : Number(r.rollover_cap_usd),
+    }));
     return map;
+}
+
+/**
+ * MEJ-36 — gasto por centro de costo y por mes, desde que arrancó el ejercicio
+ * hasta el mes pasado.
+ *
+ * Es lo que el arrastre necesita: cuánto quedó sin ejecutar en cada mes previo.
+ * Se pide una sola vez para todos los centros, y sólo cuando algún presupuesto
+ * tiene el arrastre encendido — con todos apagados esta consulta no corre y el
+ * tablero cuesta lo mismo que antes.
+ */
+async function gastoMensualDelEjercicio(tenantId: string, desde: string, hasta: string) {
+    const [rows]: any = await pool.query(
+        `SELECT ${BALDE_CC} AS name,
+                DATE_FORMAT(COALESCE(ChargePeriodStart, date), '%Y-%m') AS mes,
+                SUM(COALESCE(EffectiveCost, cost_usd, 0)) AS total
+           FROM CostSnapshots
+          WHERE tenant_id = ? AND DATE(COALESCE(ChargePeriodStart, date)) BETWEEN ? AND ?
+          GROUP BY name, mes
+          ORDER BY mes ASC`,
+        [tenantId, desde, hasta]
+    );
+    const porCentro = new Map<string, number[]>();
+    for (const r of rows as any[]) {
+        const lista = porCentro.get(r.name) || [];
+        lista.push(Number(r.total) || 0);
+        porCentro.set(r.name, lista);
+    }
+    return porCentro;
 }
 
 export async function GET(request: NextRequest) {
@@ -164,8 +206,18 @@ export async function GET(request: NextRequest) {
                 // Está definido para el centro de costo ENTERO: compararlo contra
                 // el gasto de una porción diría "gastaste 150 de 10.000" cuando
                 // los 10.000 cubren todo el centro. Un desvío que no es tal.
-                recorte ? new Map<string, number>() : getBudgets(tenantId),
+                recorte ? new Map<string, ConfigPresupuesto>() : getBudgets(tenantId),
             ]);
+
+            // MEJ-36: el arrastre sólo cuesta una consulta cuando alguien lo
+            // encendió. Con todos apagados el tablero vale lo mismo que antes.
+            const hayArrastre = [...budgets.values()].some(b => b.rollover);
+            const fy = rangoDelAnioFiscal(await mesFiscalDelTenant(tenantId));
+            const finDelMesPasado = new Date();
+            finDelMesPasado.setUTCDate(0);
+            const gastoPrevio = hayArrastre && finDelMesPasado.toISOString().slice(0, 10) >= fy.start
+                ? await gastoMensualDelEjercicio(tenantId, fy.start, finDelMesPasado.toISOString().slice(0, 10))
+                : new Map<string, number[]>();
 
             // Proyección de cierre de mes: run-rate simple (gasto MTD / días
             // transcurridos * días del mes), mismo enfoque sin ML usado en el
@@ -182,7 +234,16 @@ export async function GET(request: NextRequest) {
             const realResourceCounts = recorte ? new Map<string, number>() : await fetchResourceCountsByRg(tenantId, allRgNames);
 
             const costCenters = spend.map(s => {
-                const budget = budgets.has(s.name) ? budgets.get(s.name)! : null;
+                const cfg = budgets.get(s.name) ?? null;
+                // MEJ-36: `budget` pasa a ser el EFECTIVO --base más arrastre--
+                // porque es contra lo que el mes se mide; `budgetBase` viaja
+                // aparte para que la pantalla pueda decir de dónde sale. Con el
+                // arrastre apagado los dos son el mismo número, que es el
+                // comportamiento de siempre.
+                const arr = cfg
+                    ? arrastreDelMes(cfg.base, gastoPrevio.get(s.name) || [], { habilitado: cfg.rollover, tope: cfg.tope })
+                    : null;
+                const budget = arr ? arr.efectivo : null;
                 const pctUsed = budget && budget > 0 ? Number(((s.currentMonthCost / budget) * 100).toFixed(1)) : null;
                 const changePct = s.previousMonthCost > 0
                     ? Number((((s.currentMonthCost - s.previousMonthCost) / s.previousMonthCost) * 100).toFixed(1))
@@ -198,6 +259,8 @@ export async function GET(request: NextRequest) {
                     previousMonthCost: Number(s.previousMonthCost.toFixed(2)),
                     changePct,
                     budget,
+                    budgetBase: arr ? arr.base : null,
+                    budgetRollover: arr ? arr.arrastre : 0,
                     pctUsed,
                     overBudget: budget !== null && s.currentMonthCost > budget,
                     projectedMonthEndSpend,
@@ -207,10 +270,15 @@ export async function GET(request: NextRequest) {
                 };
             });
             // Centros con presupuesto asignado pero sin gasto este mes (ej. recién creado) también deben verse.
-            budgets.forEach((budget, name) => {
+            budgets.forEach((cfg, name) => {
                 if (!costCenters.some(c => c.name === name)) {
+                    // Sin gasto este mes, pero puede venir arrastrando de los
+                    // anteriores del ejercicio.
+                    const arr = arrastreDelMes(cfg.base, gastoPrevio.get(name) || [], { habilitado: cfg.rollover, tope: cfg.tope });
                     costCenters.push({
-                        name, currentMonthCost: 0, previousMonthCost: 0, changePct: 0, budget, pctUsed: 0, overBudget: false,
+                        name, currentMonthCost: 0, previousMonthCost: 0, changePct: 0,
+                        budget: arr.efectivo, budgetBase: arr.base, budgetRollover: arr.arrastre,
+                        pctUsed: 0, overBudget: false,
                         projectedMonthEndSpend: 0, projectedPctUsed: 0, isProjectedOverBudget: false, resourceCount: 0,
                     });
                 }
@@ -256,22 +324,31 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
     try {
         const body = await request.json();
-        const { tenantId, costCenterName, monthlyBudgetUsd } = body;
+        const { tenantId, costCenterName, monthlyBudgetUsd, rolloverEnabled, rolloverCapUsd } = body;
         if (!tenantId || !costCenterName || monthlyBudgetUsd === undefined) {
             return NextResponse.json({ error: "Faltan parámetros" }, { status: 400 });
         }
         if (Number(monthlyBudgetUsd) < 0) {
             return NextResponse.json({ error: "El presupuesto no puede ser negativo" }, { status: 400 });
         }
+        // MEJ-36: un tope negativo no es "sin tope", es un error de quien llama.
+        // Sin tope se manda `null`, que es el default de la columna.
+        if (rolloverCapUsd != null && (Number.isNaN(Number(rolloverCapUsd)) || Number(rolloverCapUsd) < 0)) {
+            return NextResponse.json({ error: "El tope de arrastre debe ser un número >= 0, o null para no tener tope" }, { status: 400 });
+        }
 
         await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
         await requireTenantTier(request, tenantId, "Business");
 
         await pool.query(
-            `INSERT INTO CostCenterBudgets (tenant_id, cost_center_name, monthly_budget_usd)
-             VALUES (?, ?, ?)
-             ON DUPLICATE KEY UPDATE monthly_budget_usd = VALUES(monthly_budget_usd)`,
-            [tenantId, costCenterName, Number(monthlyBudgetUsd)]
+            `INSERT INTO CostCenterBudgets (tenant_id, cost_center_name, monthly_budget_usd, rollover_enabled, rollover_cap_usd)
+             VALUES (?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE monthly_budget_usd = VALUES(monthly_budget_usd),
+                                     rollover_enabled = VALUES(rollover_enabled),
+                                     rollover_cap_usd = VALUES(rollover_cap_usd)`,
+            [tenantId, costCenterName, Number(monthlyBudgetUsd),
+             rolloverEnabled === true ? 1 : 0,
+             rolloverCapUsd == null ? null : Number(rolloverCapUsd)]
         );
         await redis.del(cacheKey(tenantId)).catch(() => {});
 

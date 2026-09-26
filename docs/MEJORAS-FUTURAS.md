@@ -51,7 +51,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-31](#mej-31--test-de-storage-history-hardcodea-meses-absolutos-contra-reloj-real) | Test de storage-history hardcodea meses absolutos contra reloj real (rompe todos los meses) | Storage Efficiency / Tests | Medio | Bajo | Hecha |
 | [MEJ-34](#mej-34--perspectives-agrupación-multidimensional-del-gasto) | Perspectives: agrupación multidimensional del gasto — cinco criterios + selector transversal; lo adoptan el export FOCUS, Cost Groups (con su detalle), Centros de Costo (con sus recursos), Gastos y Proyección y la pizarra ejecutiva; el resto van uno por uno | Asignación / Transversal | Alto | Alto | Parcial |
 | [MEJ-35](#mej-35--suscripciones-a-reportes-cualquier-reporte-a-la-cadencia-que-elija-el-usuario) | Suscripciones a reportes: cualquier reporte, a la cadencia que elija el usuario, con link + imagen + CSV | Reportes | Alto | Medio | Propuesta |
-| [MEJ-36](#mej-36--presupuestos-rollover-y-año-fiscal-no-calendario) | Presupuestos: rollover con tope y año fiscal no calendario | Presupuestos | Medio | Bajo | Propuesta |
+| [MEJ-36](#mej-36--presupuestos-rollover-y-año-fiscal-no-calendario) | Presupuestos: rollover con tope y año fiscal no calendario — el ejercicio estaba cableado a enero en cuatro lugares y corría todos los acumulados anuales sin decirlo | Presupuestos | Medio | Bajo | Hecha |
 | [MEJ-37](#mej-37--leaderboard-de-equipos-y-margen-bruto) | Leaderboard de equipos (ordenado por mejora, no por gasto) y split COGS/OpEx | Integración con el negocio | Medio | Bajo | Propuesta |
 | [MEJ-38](#mej-38--views-vistas-guardadas-y-con-alcance-por-equipo) | Views: el alcance por equipo aplicado en el SERVIDOR — **el permiso está hecho** (default-deny en `requireTenantAccess`, mapa por (ruta, método), un usuario con alcance no puede ser Admin/Owner); falta `SavedViews`, que es comodidad y no permiso | Transversal / RBAC | Alto | Medio | Parcial |
 | [MEJ-39](#mej-39--fin-de-soporte-eoleos-de-la-plataforma-azure) | Fin de soporte (EOL/EOS) de la plataforma Azure, con el costo de lo afectado; fase 2: posición de licencias en la nube | Gobernanza / Riesgo | Alto | Medio | Propuesta |
@@ -3558,6 +3558,52 @@ corridos tres meses** — y no lo dice en ningún lado, que es lo peor de los do
 2. El arrastre nunca supera el tope, y un mes sobregirado arrastra cero, no negativo.
 3. Con año fiscal en abril, el acumulado anual de mayo cuenta dos meses y no cinco.
 4. La UI distingue presupuesto base de presupuesto efectivo.
+
+### Hecho (2026-09-26)
+
+**El defecto medido antes de tocar nada.** El año fiscal estaba cableado a enero en **cuatro**
+lugares: el `fiscalYearRange` del whiteboard —que alimenta el acumulado anual, su comparación contra
+el año anterior y la proyección—, el período `fy` de `cost-groups`, y `getCurrentFY` y
+`getPeriodComparison` del detalle. Para un cliente con ejercicio en abril, los cuatro estaban
+corridos tres meses y ninguno lo decía.
+
+**No todo "desde el 1 de enero" es un año fiscal**, y esa distinción decidió el alcance. El `ytd` del
+Invoicing Report significa literalmente "año en curso desde el 1 de enero": es una opción con ese
+nombre que el usuario elige, y hacerla seguir al ejercicio del cliente sería redefinir en silencio lo
+que pidió. Queda como está.
+
+**La proyección era el error silencioso de segundo orden.** No alcanzaba con mover el inicio del
+rango: `costProjected` dividía el acumulado por los días **desde enero** y multiplicaba por 365. Con
+ejercicio en abril eso infla el divisor y la proyección sale baja — un número tranquilizador y falso.
+Ahora divide por los días del ejercicio y multiplica por su duración, que en un ejercicio que cruza
+un febrero bisiesto son 366.
+
+**Dos reglas del arrastre que no son obvias**, las dos con test:
+
+- Un mes en rojo arrastra **cero, no negativo**. Endeudar al mes siguiente con el sobregiro del
+  anterior es una decisión financiera que nadie tomó, y convierte un desvío puntual en una cadena de
+  meses en rojo que no se puede leer.
+- El tope se aplica **en cada paso** y no al final, que es lo que el panel muestra mes a mes.
+
+El arrastre cuesta una consulta extra **sólo si alguien lo encendió**: con todos los presupuestos
+apagados —el default— el tablero vale exactamente lo mismo que antes.
+
+En la respuesta del tablero, `budget` pasa a ser el **efectivo** porque es contra lo que el mes se
+mide, y `budgetBase`/`budgetRollover` viajan aparte. La pantalla muestra el arrastre como un badge
+con su desglose: un presupuesto de 10.000 que este mes tolera 13.000 tiene que decirlo, o el mes se
+lee como que se gastó de menos.
+
+El mes de inicio vive en `/api/admin/tenant-settings` y no en una ruta propia — es otra preferencia
+que gobierna dónde se corta un período, igual que la zona horaria. Ahí **se rechaza** un mes fuera de
+rango en vez de caer a enero: el helper cae a enero porque lee de la base y prefiere el
+comportamiento de siempre a un rango inventado, pero cuando hay alguien eligiendo, elegir mal tiene
+que doler.
+
+Verificado contra el MySQL local: la migración aplica, y los dos defaults dejan a los 3 tenants en
+enero y a los 2 presupuestos sin arrastre — o sea que desplegarlo no mueve un solo número.
+
+Tests: `__tests__/unit/anioFiscalYArrastre.test.ts` (el helper),
+`__tests__/unit/anioFiscalEnLasRutas.test.ts` (el cableado, que era lo que estaba roto).
 
 ---
 

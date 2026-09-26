@@ -7441,7 +7441,8 @@
     "bulkApplyPartial": "{succeeded} com sucesso, {failed} com falha",
     "networkError": "Erro de rede: {error}",
     "max100": "Máx. 100",
-    "scopeHidesBudget": "Restrito por Perspective: o orçamento não é exibido porque está definido para o centro de custo inteiro. Compará-lo com uma porção indicaria uma folga que não existe."
+    "scopeHidesBudget": "Restrito por Perspective: o orçamento não é exibido porque está definido para o centro de custo inteiro. Compará-lo com uma porção indicaria uma folga que não existe.",
+    "rolloverBreakdown": "Orçamento base {base} mais {carry} transferidos de meses anteriores do exercício. O mês é medido contra a soma."
   },
   "IntelligenceHybridBenefit": {
     "title": "Scanner do Azure Hybrid Benefit",

@@ -7441,7 +7441,8 @@
     "bulkApplyPartial": "{succeeded} exitosos, {failed} fallidos",
     "networkError": "Error de red: {error}",
     "max100": "Máx. 100",
-    "scopeHidesBudget": "Acotado por Perspective: el presupuesto no se muestra porque está definido para el centro de costo entero. Compararlo contra una porción diría que hay margen donde no lo hay."
+    "scopeHidesBudget": "Acotado por Perspective: el presupuesto no se muestra porque está definido para el centro de costo entero. Compararlo contra una porción diría que hay margen donde no lo hay.",
+    "rolloverBreakdown": "Presupuesto base {base} más {carry} arrastrados de meses anteriores del ejercicio. El mes se mide contra la suma."
   },
   "IntelligenceHybridBenefit": {
     "title": "Escáner de Azure Hybrid Benefit",

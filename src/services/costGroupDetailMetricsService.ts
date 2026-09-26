@@ -2,6 +2,7 @@ import Decimal from "decimal.js";
 import pool from "@/modules/storage/db";
 import { isUnattributedSubscriptionId } from "@/lib/azureSubscriptionNames";
 import { toMoneyNumber } from "@/lib/moneyDecimal";
+import { rangoDelAnioFiscal, rangoDelAnioFiscalAnterior, mesFiscalDelTenant } from "@/lib/fiscalYear";
 
 function lastNMonths(n: number): Array<{ start: Date; end: Date; label: string }> {
   const out: Array<{ start: Date; end: Date; label: string }> = [];
@@ -16,7 +17,9 @@ function lastNMonths(n: number): Array<{ start: Date; end: Date; label: string }
 
 export async function getCurrentFY(tenantId: string, budget: number, tagFilter: string, params: any[]) {
   const now = new Date();
-  const fyStart = `${now.getUTCFullYear()}-01-01`;
+  // MEJ-36: el ejercicio del tenant, no enero. Para un cliente con ejercicio en
+  // abril esto estaba corrido tres meses y el número se presentaba como bueno.
+  const fyStart = rangoDelAnioFiscal(await mesFiscalDelTenant(tenantId), now).start;
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().slice(0, 10);
 
   const [rows]: any = await pool.query(
@@ -99,7 +102,10 @@ export async function getAnomalyCount(tenantId: string, tagFilter: string, param
 
 export async function getPeriodComparison(tenantId: string, tagFilter: string, params: any[], budget: number) {
   const now = new Date();
-  const currentYear = now.getUTCFullYear();
+  // MEJ-36: los dos ejercicios salen del mes de inicio del tenant.
+  const mesFiscal = await mesFiscalDelTenant(tenantId);
+  const fyActual = rangoDelAnioFiscal(mesFiscal, now);
+  const fyPrevio = rangoDelAnioFiscalAnterior(mesFiscal, now);
   const periodEnd = now.toISOString().slice(0, 10);
   const periodStart = new Date(now);
   periodStart.setUTCDate(periodStart.getUTCDate() - 30);
@@ -118,8 +124,8 @@ export async function getPeriodComparison(tenantId: string, tagFilter: string, p
     [
       periodStart.toISOString().slice(0, 10), periodEnd,
       prevPeriodStart.toISOString().slice(0, 10), prevPeriodEnd.toISOString().slice(0, 10),
-      `${currentYear}-01-01`, periodEnd,
-      `${currentYear - 1}-01-01`, `${currentYear - 1}-12-31`,
+      fyActual.start, periodEnd,
+      fyPrevio.start, fyPrevio.end,
       ...params,
     ]
   );
@@ -129,9 +135,10 @@ export async function getPeriodComparison(tenantId: string, tagFilter: string, p
   const currentFYCost = new Decimal(r.currentFYCost || 0);
   const previousFYCost = new Decimal(r.previousFYCost || 0);
 
-  const startOfYear = new Date(Date.UTC(currentYear, 0, 1));
-  const daysElapsed = Math.max(1, Math.ceil((now.getTime() - startOfYear.getTime()) / 86400000));
-  const projectedFYCost = currentFYCost.dividedBy(daysElapsed).times(365);
+  // MEJ-36: se proyecta sobre el ejercicio y no sobre el año calendario. Con
+  // ejercicio en abril, dividir por los días desde enero inflaba el divisor y
+  // la proyección salía baja.
+  const projectedFYCost = currentFYCost.dividedBy(fyActual.diasTranscurridos).times(fyActual.diasTotales);
   const hundred = new Decimal(100);
 
   return {

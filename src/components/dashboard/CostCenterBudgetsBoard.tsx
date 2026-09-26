@@ -101,6 +101,20 @@ function BudgetCell({ costCenter, isAdmin, onSaved, onDeleted, t }: { costCenter
                 <span className={costCenter.budget === null ? "text-gray-400 italic" : "text-gray-700 dark:text-gray-300"}>
                     {costCenter.budget === null ? t("budgetNotSet") : fmtUsd(costCenter.budget)}
                 </span>
+                {/* MEJ-36: un presupuesto de 10.000 que este mes tolera 13.000
+                    por arrastre TIENE que decirlo. Mostrar sólo el efectivo hace
+                    que el mes se lea como que se gastó de menos. */}
+                {costCenter.budgetRollover > 0 && (
+                    <span
+                        className="rounded-md bg-sky-50 px-1.5 py-0.5 text-[10px] font-bold text-sky-700 dark:bg-sky-950/50 dark:text-sky-300"
+                        title={t("rolloverBreakdown", {
+                            base: fmtUsd(costCenter.budgetBase),
+                            carry: fmtUsd(costCenter.budgetRollover),
+                        })}
+                    >
+                        +{fmtUsd(costCenter.budgetRollover)}
+                    </span>
+                )}
                 {isAdmin && (
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => setEditing(true)} className="p-1 rounded text-gray-400 hover:text-brand-deep hover:bg-gray-100 dark:hover:bg-slate-800" title={t("editBudgetTooltip")}>

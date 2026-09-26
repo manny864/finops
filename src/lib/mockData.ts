@@ -2131,6 +2131,7 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
             ];
             const runRateFactor = 30 / new Date().getUTCDate();
             const costCenters = centers.map((c, i) => {
+                const arrastre = c.name === 'Data' && c.budget ? round2(c.budget * 0.18) : 0;
                 const currentMonthCost = round2((c.budget || 2000 * multiplier) * (0.6 + i * 0.15));
                 const previousMonthCost = round2(currentMonthCost * 0.92);
                 const changePct = round2(((currentMonthCost - previousMonthCost) / previousMonthCost) * 100);
@@ -2142,7 +2143,14 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                     currentMonthCost,
                     previousMonthCost,
                     changePct,
-                    budget: c.budget,
+                    // MEJ-36: 'Data' arrastra en la demo y el resto no. Sin un
+                    // caso con arrastre la feature no se ve en ningún lado --el
+                    // badge sólo aparece con arrastre > 0-- y una demo que no
+                    // muestra lo que se vende no sirve. Son datos sintéticos,
+                    // no una afirmación sobre la factura de nadie.
+                    budget: arrastre > 0 && c.budget ? round2(c.budget + arrastre) : c.budget,
+                    budgetBase: c.budget,
+                    budgetRollover: arrastre,
                     pctUsed,
                     overBudget: c.budget !== null && currentMonthCost > c.budget,
                     projectedMonthEndSpend,

@@ -12,6 +12,7 @@ import { redis } from "@/lib/redis";
 import pool from "@/modules/storage/db";
 import { getInternalBaseUrl } from "@/lib/internalBaseUrl";
 import { alcanceDeLaRuta } from "@/services/perspectivesData.service";
+import { rangoDelAnioFiscal, rangoDelAnioFiscalAnterior, mesFiscalDelTenant } from "@/lib/fiscalYear";
 import type {
     WhiteboardBudgetEntry,
     WhiteboardQuickWin,
@@ -49,9 +50,7 @@ import type {
 type Recorte = { and: string; params: unknown[] };
 const SIN_RECORTE: Recorte = { and: "", params: [] };
 
-function fiscalYearRange(year: number): { start: string; end: string } {
-    return { start: `${year}-01-01`, end: `${year}-12-31` };
-}
+
 
 function lastNMonths(n: number): Array<{ start: Date; end: Date; label: string }> {
     const out: Array<{ start: Date; end: Date; label: string }> = [];
@@ -195,9 +194,12 @@ function proyeccionLineal(costMtdUSD: number): number {
 
 async function getCostFigures(tenantId: string, currentMonth: CurrentMonthCostAggregation, alcance: Recorte = SIN_RECORTE) {
     const now = new Date();
-    const currentYear = now.getUTCFullYear();
-    const currentFY = fiscalYearRange(currentYear);
-    const previousFY = fiscalYearRange(currentYear - 1);
+    // MEJ-36: el ejercicio del tenant y no el año calendario. Estaba cableado a
+    // enero, así que para un cliente con ejercicio en abril el acumulado anual
+    // y su comparación contra el año anterior estaban corridos tres meses.
+    const mesFiscal = await mesFiscalDelTenant(tenantId);
+    const currentFY = rangoDelAnioFiscal(mesFiscal, now);
+    const previousFY = rangoDelAnioFiscalAnterior(mesFiscal, now);
 
     const [rows]: any = await pool.query(
         `SELECT
@@ -247,9 +249,10 @@ async function getCostFigures(tenantId: string, currentMonth: CurrentMonthCostAg
     const forecastSource: "azure" | "lineal" = "lineal";
 
     // Proyección FY heredada para compatibilidad con widgets anteriores.
-    const startOfYear = new Date(Date.UTC(currentYear, 0, 1));
-    const daysElapsed = Math.max(1, Math.ceil((now.getTime() - startOfYear.getTime()) / 86400000));
-    const costProjected = Number(((currentFYCost / daysElapsed) * 365).toFixed(2));
+    // MEJ-36: se proyecta sobre el ejercicio del tenant. Dividir por los días
+    // desde enero, con el ejercicio arrancando en abril, inflaba el divisor y
+    // la proyección salía baja sin que nada lo indicara.
+    const costProjected = Number(((currentFYCost / currentFY.diasTranscurridos) * currentFY.diasTotales).toFixed(2));
 
     const months = lastNMonths(3);
     const last3MonthsTrend = [];
