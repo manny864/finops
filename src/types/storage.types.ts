@@ -115,6 +115,15 @@ export interface StorageComposition {
 }
 
 export interface StorageEfficiencyResponse {
+    /**
+     * MEJ-34 — si el recorte de Perspective pudo aplicarse.
+     *
+     * `false` con un alcance pedido significa que la pantalla muestra el
+     * tenant entero: la fuente de esos números es `CostMeterSnapshots`, que no
+     * tiene `resource_group` ni `ResourceId` ni `Tags`, así que no hay sobre
+     * qué evaluar las reglas. El tablero lo dice en vez de callarlo.
+     */
+    alcanceAplicado?: boolean;
     success: boolean;
     mock?: boolean;
     empty?: boolean;

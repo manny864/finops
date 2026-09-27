@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useMemo } from "react";
+import { AlcanceNoAplicado, usePerspectiveScope } from "@/components/PerspectiveScopeSelector";
 import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
@@ -125,9 +126,13 @@ export default function StorageEfficiencyDashboard() {
         return res.json();
     };
 
+    // MEJ-34: el alcance viaja en la clave de SWR, no sólo en la URL — si no,
+    // cambiar de Perspective serviría la respuesta cacheada de la anterior.
+    const { queryString: alcanceQs } = usePerspectiveScope();
+
     const { data, error, isLoading, mutate } = useSWR<StorageEfficiencyResponse>(
         selectedTenant && selectedTenant.id !== "default"
-            ? `/api/intelligence/storage-efficiency?tenantId=${selectedTenant.id}&startDate=${currentMonthRange.startDate}&endDate=${currentMonthRange.endDate}`
+            ? `/api/intelligence/storage-efficiency?tenantId=${selectedTenant.id}&startDate=${currentMonthRange.startDate}&endDate=${currentMonthRange.endDate}${alcanceQs}`
             : null,
         fetcher,
         { revalidateOnFocus: false }
@@ -248,6 +253,10 @@ export default function StorageEfficiencyDashboard() {
 
     return (
         <div className="w-full space-y-6">
+            {/* MEJ-34: el costo de storage puede venir de `CostMeterSnapshots`,
+                que no tiene con qué evaluar las reglas. Cuando pasa, se dice. */}
+            <AlcanceNoAplicado aplicado={data.alcanceAplicado} />
+
             {/* Mock banner */}
             {data.mock && (
                 <div className="bg-amber-50/80 dark:bg-amber-900/20 p-3.5 flex gap-3 rounded-xl border border-amber-200 dark:border-amber-800/50 text-amber-900 dark:text-amber-200">

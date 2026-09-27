@@ -49,7 +49,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-32](#mej-32--tres-catálogos-de-precios-duplicados-y-ya-divergidos-mej-10-reabierta) | Tres catálogos de precios duplicados y ya divergidos (MEJ-10 reabierta) | Transversal / Ahorro | Alto | Bajo | Hecha |
 | [MEJ-33](#mej-33--cerrar-el-lazo-del-desvío-dueño-estado-persistente-y-seguimiento) | Cerrar el lazo del desvío: dueño, estado persistente y seguimiento | Anomalías / Gobernanza | Alto | Medio | Hecha |
 | [MEJ-31](#mej-31--test-de-storage-history-hardcodea-meses-absolutos-contra-reloj-real) | Test de storage-history hardcodea meses absolutos contra reloj real (rompe todos los meses) | Storage Efficiency / Tests | Medio | Bajo | Hecha |
-| [MEJ-34](#mej-34--perspectives-agrupación-multidimensional-del-gasto) | Perspectives: agrupación multidimensional del gasto — cinco criterios + selector transversal; lo adoptan el export FOCUS, Cost Groups (con su detalle), Centros de Costo (con sus recursos), Gastos y Proyección y la pizarra ejecutiva; el resto van uno por uno | Asignación / Transversal | Alto | Alto | Parcial |
+| [MEJ-34](#mej-34--perspectives-agrupación-multidimensional-del-gasto) | Perspectives: agrupación multidimensional del gasto — cinco criterios + selector transversal; lo adoptan el export FOCUS, Cost Groups (con su detalle), Centros de Costo (con sus recursos), Gastos y Proyección, la pizarra ejecutiva y **Almacenamiento**; quedan 3 candidatos medidos | Asignación / Transversal | Alto | Alto | Parcial |
 | [MEJ-35](#mej-35--suscripciones-a-reportes-cualquier-reporte-a-la-cadencia-que-elija-el-usuario) | Suscripciones a reportes: cualquier reporte, a la cadencia que elija el usuario, con link + imagen + CSV | Reportes | Alto | Medio | Propuesta |
 | [MEJ-36](#mej-36--presupuestos-rollover-y-año-fiscal-no-calendario) | Presupuestos: rollover con tope y año fiscal no calendario — el ejercicio estaba cableado a enero en cuatro lugares y corría todos los acumulados anuales sin decirlo | Presupuestos | Medio | Bajo | Hecha |
 | [MEJ-37](#mej-37--leaderboard-de-equipos-y-margen-bruto) | Leaderboard de equipos (ordenado por mejora, no por gasto) y split COGS/OpEx | Integración con el negocio | Medio | Bajo | Propuesta |
@@ -3402,6 +3402,59 @@ negocio el cockpit de Cosmos (MEJ-18) y el mapa de egress (MEJ-19), que hoy sól
 filtrar por suscripción.
 
 Es también el prerrequisito de MEJ-37: sin poder separar COGS de OpEx no hay margen bruto.
+
+### Adoptado — el tablero de Almacenamiento (2026-09-27)
+
+Séptima superficie. Lo que tiene de distinto, y por qué costó más que las anteriores: **el costo
+de storage no sale de una tabla, sale de tres**, y sólo una tiene con qué evaluar una Perspective.
+
+| Tabla | Dimensiones | ¿Se puede recortar? |
+|---|---|---|
+| `CostSnapshots` | `subscription_id`, `resource_group`, `ResourceId`, `Tags` | **sí** |
+| `CostMeterSnapshots` | `tenant_id`, `subscription_id` | no |
+| `CostCategorySnapshots` | `tenant_id`, `subscription_id` | no |
+
+Verificado contra `information_schema`, no supuesto. Las dos rutas —`storage-efficiency` y
+`storage/service-cost`— **prefieren** las tablas sin dimensiones porque tienen mejor grano, y caen
+a `CostSnapshots` como respaldo. Con un alcance activo eso se invierte: se va directo al respaldo.
+Se pierde grano de medidor y se gana un número que es de quien dice ser. Servir el total de
+medidores bajo alcance mostraría el gasto de todo el tenant; mezclar una mitad recortada con otra
+que no lo está daría un número que no es de nadie.
+
+**El caso que no se podía dejar pasar en silencio.** Si hay datos de storage pero **sólo** en la
+tabla que no se puede recortar, la pantalla vacía diría "tu grupo no tiene storage" — falso. Por
+eso `runQuery` devuelve `source: 'no-acotable'` y el tablero informa `alcanceAplicado: false`, que
+es el mismo aviso que ya usan los otros. Como permiso, `exigirRecorte` corta con 403.
+
+**Y la clave de caché.** Era `storage-service-cost:v3:{tenant}:{family}`, sin el alcance. Con el
+recorte fuera de la clave, la porción del primero que entrara se le habría servido a todo el
+tenant durante las 6 h del TTL. No es rendimiento: es la fuga, escrita en Redis. Ahora la clave
+lleva Perspective y grupo.
+
+Las dos rutas entran juntas al mapa de MEJ-38 a propósito: con una sola, la pantalla mostraría un
+total acotado y un desglose por familia hablando de otro universo.
+
+**De paso se arregló el test que cuidaba la consistencia página ↔ API.** Comparaba el último
+segmento de la URL contra el nombre de la ruta, y pasaba de casualidad porque las cinco pantallas
+anteriores se llamaban igual de los dos lados. La primera cuyo nombre no coincide con el de su API
+lo rompió sin que hubiera nada mal. Ahora `PAGINAS_CON_ALCANCE_Y_SUS_RUTAS` declara qué rutas
+necesita cada página y el invariante se comprueba de verdad.
+
+**Cómo se eligió este tablero, que es el método que faltaba.** Cruzando las 245 páginas reales
+contra las 41 rutas que agregan `CostSnapshots`: quedan **9 candidatos**, no 41. La diferencia es
+la lección ya anotada acá —*la lista de rutas que leen `CostSnapshots` NO es la lista de
+tableros*—, ahora aplicada con un script en vez de a ojo.
+
+Quedan como candidatos medidos: `analytics/simulator`, `intelligence/ai-analytics`, y
+`dashboard/summary`. Este último es **el más caro y no el más barato**, aunque parezca lo
+contrario: su `actualCost` primario no sale de `CostSnapshots` sino de un auto-fetch al forecast
+(Azure en vivo), y el ahorro y los zombies de otro a `audit/full`. Acotarlo exige acotar esos dos
+antes. `analytics/macc` se descarta: un compromiso contractual es del tenant entero, y recortarlo
+mentiría igual que recortar un presupuesto.
+
+Tests: `__tests__/unit/almacenamientoAlcance.test.ts` (9).
+
+---
 
 ### Propuesta
 

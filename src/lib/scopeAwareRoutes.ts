@@ -49,6 +49,11 @@ export const RUTAS_CON_ALCANCE: Record<string, Metodos> = {
     "/api/intelligence/forecast": ["POST"],
     "/api/intelligence/forecast/by-service": ["GET"],
     "/api/intelligence/scorecard": ["GET"],
+    // MEJ-34 — el tablero de almacenamiento, sus dos mitades. Van juntas: con
+    // una sola, la pantalla mostraría un total acotado y un desglose por
+    // familia que habla de otro universo.
+    "/api/intelligence/storage-efficiency": ["GET"],
+    "/api/intelligence/storage/service-cost": ["GET"],
 };
 
 /**
@@ -89,14 +94,32 @@ export const RUTAS_DE_SHELL: Record<string, Metodos> = {
  * Si una entra acá sin que su API sepa acotar, el usuario encuentra un 403; si
  * una API sabe acotar y su página no está acá, el usuario no llega a usarla. El
  * segundo error es el barato.
+ *
+ * CADA PÁGINA DECLARA LAS RUTAS QUE NECESITA. Antes era una lista suelta y el
+ * test que cuidaba la consistencia comparaba el último segmento de la URL
+ * contra el nombre de la ruta: funcionaba de casualidad, porque las cinco
+ * primeras se llamaban igual de los dos lados. Una pantalla cuyo nombre no
+ * coincide con el de su API —hay varias— lo rompía sin que hubiera nada mal.
+ * Declarado, el invariante se puede comprobar de verdad.
  */
-export const PAGINAS_CON_ALCANCE: readonly string[] = [
-    "/overview/whiteboard",
-    "/intelligence/cost-groups",
-    "/intelligence/cost-centers",
-    "/intelligence/cost-projection",
-    "/intelligence/scorecard",
-];
+export const PAGINAS_CON_ALCANCE_Y_SUS_RUTAS: Record<string, readonly string[]> = {
+    "/overview/whiteboard": ["/api/overview/whiteboard"],
+    "/intelligence/cost-groups": ["/api/cost-groups"],
+    "/intelligence/cost-centers": ["/api/intelligence/cost-centers"],
+    "/intelligence/cost-projection": ["/api/intelligence/cost-projection"],
+    "/intelligence/scorecard": ["/api/intelligence/scorecard"],
+    // MEJ-34. Auditada con el cruce página → rutas antes de habilitarla: sus 12
+    // llamadas caen todas en el mapa, así que no hay un 403 esperándola. Son
+    // DOS rutas: con una sola, la pantalla mostraría un total acotado y un
+    // desglose por familia que habla de otro universo.
+    "/intelligence/almacenamiento/storage-accounts-finops-cmp": [
+        "/api/intelligence/storage-efficiency",
+        "/api/intelligence/storage/service-cost",
+    ],
+};
+
+/** Las páginas, para el Sidebar y para `/api/me/scope`. */
+export const PAGINAS_CON_ALCANCE: readonly string[] = Object.keys(PAGINAS_CON_ALCANCE_Y_SUS_RUTAS);
 
 /** ¿Esta página se le puede ofrecer a un usuario con alcance asignado? */
 export function paginaAdmiteAlcance(href: string): boolean {

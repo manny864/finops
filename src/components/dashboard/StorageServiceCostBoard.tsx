@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { usePerspectiveScope } from "@/components/PerspectiveScopeSelector";
 import MockBanner from "@/components/MockBanner";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
@@ -29,6 +30,8 @@ export default function StorageServiceCostBoard({
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState<any>(null);
 
+    const { perspectiveId, group } = usePerspectiveScope();
+
     useEffect(() => {
         if (selectedTenant.id === "default" || (accounts.length === 0 && !isMockTenant(selectedTenant.id))) {
             setLoading(false);
@@ -42,6 +45,13 @@ export default function StorageServiceCostBoard({
                 const url = new URL("/api/intelligence/storage/service-cost", window.location.origin);
                 url.searchParams.set("tenantId", selectedTenant.id);
                 url.searchParams.set("family", family);
+                // MEJ-34: el mismo alcance que el resto de la pantalla, o el
+                // desglose por familia hablaría de un universo distinto que el
+                // total que tiene arriba.
+                if (perspectiveId !== null) {
+                    url.searchParams.set("perspective", String(perspectiveId));
+                    if (group) url.searchParams.set("pgroup", group);
+                }
                 const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${idToken}` } });
                 const json = await res.json();
                 if (cancelled) return;

@@ -8,6 +8,11 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import {
+    filtroDeLaRequest, exigirRecorte, comoFilaDeCosto, DIMENSIONES_DE_ALCANCE,
+    type FilaConDimensiones, type Permiso,
+} from "@/services/perspectivesData.service";
+import type { FilaDeCosto } from "@/services/perspectives.service";
 import pool from "@/modules/storage/db";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getResourceGraphClient, getAzureCredential, listTenantSubscriptions } from "@/lib/azure";
@@ -465,13 +470,11 @@ async function queryLegacyRows(tenantId: string, days: number, startDate?: strin
 
     const [rows]: any = await pool.query(
         `SELECT
-            subscription_id,
-            resource_group,
+            ${DIMENSIONES_DE_ALCANCE},
             MeterName,
             MeterSubCategory,
             MeterCategory,
             ServiceFamily,
-            service_name,
             COALESCE(Quantity, 0) AS quantity,
             UnitOfMeasure,
             COALESCE(BilledCost, cost_usd, 0) AS billedCost
@@ -504,13 +507,13 @@ async function queryStorageAccountAttributionRows(
     try {
         const [rows]: any = await pool.query(
             `SELECT
+                ${DIMENSIONES_DE_ALCANCE},
                 LOWER(COALESCE(ResourceId, '')) AS resourceId,
                 LOWER(COALESCE(resource_group, '')) AS resourceGroup,
                 MeterName,
                 MeterSubCategory,
                 UnitOfMeasure,
                 COALESCE(Quantity, 0) AS quantity,
-                service_name,
                 COALESCE(BilledCost, cost_usd, 0) AS billedCost
              FROM CostSnapshots
              WHERE tenant_id = ?
@@ -528,15 +531,49 @@ async function queryStorageAccountAttributionRows(
     }
 }
 
-async function runQuery(tenantId: string, days: number, startDate?: string | null, endDate?: string | null): Promise<{ rows: any[]; source: 'meters' | 'legacy' }> {
-    try {
-        const meterRows = await queryMeterRows(tenantId, days, startDate, endDate);
-        if (meterRows.length > 0) return { rows: meterRows, source: 'meters' };
-    } catch (e) {
-        console.error(`[storage-efficiency] Error queryMeterRows para ${tenantId}:`, e);
+/**
+ * MEJ-34 — `acotado` fuerza el camino que SE PUEDE recortar.
+ *
+ * `CostMeterSnapshots` es la fuente preferida porque tiene grano de medidor,
+ * pero sus únicas columnas de dimensión son `tenant_id` y `subscription_id`:
+ * no hay `resource_group`, ni `ResourceId`, ni `Tags` — verificado contra el
+ * esquema, no supuesto. Una Perspective se evalúa sobre esas cuatro, así que
+ * sobre la tabla de medidores el recorte simplemente no se puede expresar.
+ *
+ * Con un alcance activo se va directo a `CostSnapshots`, que sí las tiene. Se
+ * pierde grano de medidor y se gana un número que es de quien dice ser.
+ *
+ * `'no-acotable'` es el caso que no se puede dejar pasar en silencio: hay datos
+ * de storage, pero sólo en la tabla que no se puede recortar. Devolver la
+ * pantalla vacía diría "tu grupo no tiene storage", que es una afirmación
+ * falsa; devolver los medidores sin recortar le mostraría el gasto de todos.
+ */
+async function runQuery(
+    tenantId: string,
+    days: number,
+    startDate?: string | null,
+    endDate?: string | null,
+    acotado = false,
+): Promise<{ rows: any[]; source: 'meters' | 'legacy' | 'no-acotable' }> {
+    if (!acotado) {
+        try {
+            const meterRows = await queryMeterRows(tenantId, days, startDate, endDate);
+            if (meterRows.length > 0) return { rows: meterRows, source: 'meters' };
+        } catch (e) {
+            console.error(`[storage-efficiency] Error queryMeterRows para ${tenantId}:`, e);
+        }
     }
     const legacyRows = await queryLegacyRows(tenantId, days, startDate, endDate);
     if (legacyRows.length > 0) return { rows: legacyRows, source: 'legacy' };
+
+    if (acotado) {
+        try {
+            const hayMedidores = await queryMeterRows(tenantId, days, startDate, endDate);
+            if (hayMedidores.length > 0) return { rows: [], source: 'no-acotable' };
+        } catch {
+            /* si ni siquiera se puede mirar, se cae al vacío de siempre */
+        }
+    }
     return { rows: [], source: 'legacy' };
 }
 
@@ -602,12 +639,17 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(mockData || getMockStoragePayload());
         }
 
+        let identidad;
         try {
-            await requireTenantAccess(request, tenantId);
+            identidad = await requireTenantAccess(request, tenantId);
         } catch (e) {
             if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
             throw e;
         }
+
+        // MEJ-34: el alcance transversal, resuelto UNA vez.
+        const permiso: Permiso | null = identidad?.alcance ?? null;
+        const alcance = await filtroDeLaRequest(tenantId, searchParams, permiso);
 
         const explicitStartDate = searchParams.get("startDate");
         const explicitEndDate = searchParams.get("endDate");
@@ -622,19 +664,37 @@ export async function GET(request: NextRequest) {
         const endDate = hasExplicitRange ? explicitEndDate : (useRollingDays ? null : monthEnd);
 
         try {
-            let { rows, source } = await runQuery(tenantId, days, startDate, endDate);
+            const acotado = !!alcance;
+            let { rows, source } = await runQuery(tenantId, days, startDate, endDate, acotado);
             let effectiveDays = useRollingDays ? days : now.getDate();
             let widened = false;
-            if (rows.length === 0 && useRollingDays && days < 90 && !startDate) {
-                ({ rows, source } = await runQuery(tenantId, 90));
+            // El ensanchado no se intenta cuando la fuente no es recortable: el
+            // problema no es la ventana, es la tabla.
+            if (rows.length === 0 && source !== 'no-acotable' && useRollingDays && days < 90 && !startDate) {
+                ({ rows, source } = await runQuery(tenantId, 90, null, null, acotado));
                 effectiveDays = 90;
                 widened = rows.length > 0;
             }
-            if (rows.length === 0 && useRollingDays && !startDate) {
-                ({ rows, source } = await runQuery(tenantId, 365));
+            if (rows.length === 0 && source !== 'no-acotable' && useRollingDays && !startDate) {
+                ({ rows, source } = await runQuery(tenantId, 365, null, null, acotado));
                 effectiveDays = 365;
                 widened = rows.length > 0;
             }
+
+            /**
+             * El plegado, fila por fila. Es exacto porque estas consultas
+             * devuelven DETALLE y no un agregado: no hay ninguna suma previa
+             * que pueda quedar partida al medio.
+             */
+            const alcanceAplicado = acotado && source !== 'no-acotable';
+            if (alcance && alcanceAplicado) {
+                rows = rows.filter((r: any) =>
+                    alcance(comoFilaDeCosto(r as FilaConDimensiones, Number(r.billedCost) || 0) as FilaDeCosto)
+                );
+            }
+            // Como PERMISO, un alcance que no se pudo aplicar corta. Como
+            // preferencia, el tablero se dibuja entero y lo dice.
+            exigirRecorte(permiso, alcanceAplicado || !permiso);
 
             const tierMap: Record<string, { gb: number; cost: number }> = {
                 hot: { gb: 0, cost: 0 },
@@ -884,6 +944,7 @@ export async function GET(request: NextRequest) {
                     costPerGb: 0,
                     storageComposition,
                     accounts,
+                    alcanceAplicado,
                     diagnostics: { rowsFound: 0, requestedDays: days, effectiveDays: 365, widened: false, source }
                 });
             }
@@ -891,6 +952,7 @@ export async function GET(request: NextRequest) {
             const payload: StorageEfficiencyResponse = {
                 success: true,
                 mock: false,
+                alcanceAplicado,
                 tiers: tiersWithPercent,
                 totalGb: parseFloat(totalGb.toFixed(4)),
                 totalCost: parseFloat(totalCost.toFixed(4)),

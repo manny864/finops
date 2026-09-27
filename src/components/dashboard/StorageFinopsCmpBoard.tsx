@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { usePerspectiveScope } from "@/components/PerspectiveScopeSelector";
 import {
   AlertTriangle,
   ArrowDownRight,
@@ -187,6 +188,7 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
   const { instance, accounts } = useMsal();
   const config = FAMILY_CONFIG[family];
 
+  const { perspectiveId, group } = usePerspectiveScope();
   const [items, setItems] = useState<ResourceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -276,6 +278,11 @@ export default function StorageFinopsCmpBoard({ family }: { family: StorageFinop
         });
       } else {
         const params = new URLSearchParams({ tenantId, family });
+        // MEJ-34: mismo alcance que el tablero que lo contiene.
+        if (perspectiveId !== null) {
+            params.set("perspective", String(perspectiveId));
+            if (group) params.set("pgroup", group);
+        }
         const response = await fetch(`/api/intelligence/storage/service-cost?${params.toString()}`, {
           cache: "no-store",
           headers,

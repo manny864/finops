@@ -32,7 +32,7 @@ vi.mock("@/lib/azureResourceCounts", () => ({
     fetchResourceGroupsByTag: vi.fn(async () => []),
 }));
 
-import { rutaAdmiteAlcance, RUTAS_CON_ALCANCE, PAGINAS_CON_ALCANCE, paginaAdmiteAlcance } from "@/lib/scopeAwareRoutes";
+import { rutaAdmiteAlcance, RUTAS_CON_ALCANCE, PAGINAS_CON_ALCANCE_Y_SUS_RUTAS, paginaAdmiteAlcance } from "@/lib/scopeAwareRoutes";
 import { exigirRecorte, filtroDeLaRequest } from "@/services/perspectivesData.service";
 import { ROLES_SIN_ALCANCE } from "@/services/userScope.service";
 import { aplicarAlcance, type RequestIdentity } from "@/lib/requestAuth";
@@ -94,10 +94,19 @@ describe("el mapa de rutas: el default es negar", () => {
     it("cada página ofrecida tiene su API declarada", () => {
         // Si el menú ofrece una pantalla cuya API niega, el usuario encuentra un
         // 403 en vez de no encontrar la entrada.
-        const apis = Object.keys(RUTAS_CON_ALCANCE);
-        for (const pagina of PAGINAS_CON_ALCANCE) {
-            const tieneApi = apis.some((a) => a.includes(pagina.split("/").pop()!));
-            expect(tieneApi, `${pagina} no tiene API con alcance`).toBe(true);
+        //
+        // Antes esto comparaba el ÚLTIMO SEGMENTO de la URL contra el nombre de
+        // la ruta. Pasaba de casualidad: las cinco primeras pantallas se
+        // llamaban igual de los dos lados. La primera cuyo nombre no coincidía
+        // con el de su API lo rompió sin que hubiera nada mal. Ahora cada
+        // página declara las rutas que necesita y se comprueba el invariante de
+        // verdad: que TODAS respondan y sepan recortar.
+        for (const [pagina, rutas] of Object.entries(PAGINAS_CON_ALCANCE_Y_SUS_RUTAS)) {
+            expect(rutas.length, `${pagina} no declara ninguna ruta`).toBeGreaterThan(0);
+            for (const ruta of rutas) {
+                expect(RUTAS_CON_ALCANCE[ruta], `${pagina} necesita ${ruta}, que no está declarada`).toBeDefined();
+                expect(rutaAdmiteAlcance(ruta, "GET"), `${ruta} no le responde a un acotado`).toBe(true);
+            }
         }
     });
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { alcanceDeLaRuta, exigirRecorte, type Permiso } from "@/services/perspectivesData.service";
 import { getResourceGraphClient } from "@/lib/azure";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import pool from "@/modules/storage/db";
@@ -25,19 +26,32 @@ async function queryCostMeterSum(tenantId: string, whereClause: string): Promise
     return Number(rows?.[0]?.total || 0);
 }
 
-async function queryCostSnapshotsSum(tenantId: string, whereClause: string): Promise<number> {
+async function queryCostSnapshotsSum(
+    tenantId: string,
+    whereClause: string,
+    recorte: { and: string; params: unknown[] } = { and: "", params: [] },
+): Promise<number> {
     const [rows]: any = await pool.query(
         `SELECT COALESCE(SUM(COALESCE(BilledCost, cost_usd, 0)), 0) AS total
          FROM CostSnapshots
          WHERE tenant_id = ?
            AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-           AND (${whereClause})`,
-        [tenantId]
+           AND (${whereClause})
+           ${recorte.and}`,
+        [tenantId, ...recorte.params]
     );
     return Number(rows?.[0]?.total || 0);
 }
 
-async function queryCostCategorySum(tenantId: string, resourceTypes: string[]): Promise<number> {
+async function queryCostCategorySum(
+    tenantId: string,
+    resourceTypes: string[],
+    recorte: { aplicado: boolean } | null = null,
+): Promise<number> {
+    // `CostCategorySnapshots` sólo tiene tenant y suscripción: no hay sobre qué
+    // evaluar las reglas. Devolver 0 hace que el llamador caiga al camino que
+    // SÍ se puede recortar, que es su propio fallback.
+    if (recorte?.aplicado) return 0;
     if (!resourceTypes.length) return 0;
     const placeholders = resourceTypes.map(() => "?").join(",");
     const [rows]: any = await pool.query(
@@ -51,10 +65,29 @@ async function queryCostCategorySum(tenantId: string, resourceTypes: string[]): 
     return Number(rows?.[0]?.total || 0);
 }
 
-async function queryHybridCost(tenantId: string, meterWhere: string, snapshotWhere: string): Promise<number> {
-    const meterCost = await queryCostMeterSum(tenantId, meterWhere);
-    if (meterCost > 0) return meterCost;
-    return queryCostSnapshotsSum(tenantId, snapshotWhere);
+/**
+ * MEJ-34 — con un recorte activo, `CostMeterSnapshots` queda fuera de juego.
+ *
+ * Sus únicas columnas de dimensión son `tenant_id` y `subscription_id`
+ * —verificado contra el esquema—, y una Perspective se evalúa sobre resource
+ * group, ResourceId y Tags además de la suscripción. Devolver el total de
+ * medidores bajo alcance mostraría el gasto de todo el tenant; mezclarlo con
+ * una parte recortada daría un número que no es de nadie.
+ *
+ * `CostCategorySnapshots` está en la misma situación y por eso el llamador la
+ * saltea también cuando hay recorte.
+ */
+async function queryHybridCost(
+    tenantId: string,
+    meterWhere: string,
+    snapshotWhere: string,
+    recorte: { and: string; params: unknown[]; aplicado: boolean } | null = null,
+): Promise<number> {
+    if (!recorte?.aplicado) {
+        const meterCost = await queryCostMeterSum(tenantId, meterWhere);
+        if (meterCost > 0) return meterCost;
+    }
+    return queryCostSnapshotsSum(tenantId, snapshotWhere, recorte ?? { and: "", params: [] });
 }
 
 async function queryArgCount(tenantId: string, query: string): Promise<number> {
@@ -113,15 +146,36 @@ export async function GET(request: NextRequest) {
             });
         }
 
+        let identidad;
         try {
-            await requireTenantAccess(request, tenantId);
+            identidad = await requireTenantAccess(request, tenantId);
         } catch (e) {
             if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
             throw e;
         }
 
+        /**
+         * MEJ-34 — el recorte, y por qué entra en la CLAVE DE CACHÉ.
+         *
+         * La clave era `tenant:family`. Con el recorte fuera de la clave, la
+         * porción del primero que entre se le serviría a todo el tenant —o al
+         * revés, el total del tenant a alguien acotado—. No es un detalle de
+         * rendimiento: es la fuga, escrita en Redis y con 6 h de vida.
+         */
+        const permiso: Permiso | null = identidad?.alcance ?? null;
+        const recorte = await alcanceDeLaRuta(
+            tenantId,
+            searchParams,
+            { where: "AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')", params: [] },
+            permiso,
+        );
+        exigirRecorte(permiso, recorte.aplicado);
+        const claveAlcance = recorte.aplicado
+            ? `:p${permiso?.perspectiveId ?? searchParams.get("perspective")}:${permiso?.grupo ?? searchParams.get("pgroup") ?? "*"}`
+            : "";
+
         const data = await getWithStaleWhileRevalidate(
-            `storage-service-cost:v3:${tenantId}:${family}`,
+            `storage-service-cost:v4:${tenantId}:${family}${claveAlcance}`,
             async () => {
                 if (isMockTenant(tenantId)) {
                     const mockMap: Record<Family, ServiceItem[]> = {
@@ -151,13 +205,14 @@ export async function GET(request: NextRequest) {
                         tenantId,
                         "Resources | where type =~ 'microsoft.compute/disks' | summarize resourceCount = count()"
                     );
-                    const categoryCost = await queryCostCategorySum(tenantId, ["microsoft.compute/disks"]);
+                    const categoryCost = await queryCostCategorySum(tenantId, ["microsoft.compute/disks"], recorte);
                     const monthlyCost = categoryCost > 0
                         ? categoryCost
                         : await queryHybridCost(
                             tenantId,
                             "(LOWER(COALESCE(MeterCategory,'')) IN ('disks','disk storage') OR LOWER(COALESCE(service_name,'')) LIKE '%disk%')",
-                            "(LOWER(COALESCE(MeterCategory,'')) IN ('disks','disk storage') OR LOWER(COALESCE(service_name,'')) LIKE '%disk%')"
+                            "(LOWER(COALESCE(MeterCategory,'')) IN ('disks','disk storage') OR LOWER(COALESCE(service_name,'')) LIKE '%disk%')",
+                            recorte,
                         );
                     items = [{ serviceLabel: "Managed Disk", monthlyCost: Number(monthlyCost.toFixed(2)), resourceCount }];
                 }
@@ -180,30 +235,33 @@ export async function GET(request: NextRequest) {
                     const backupVaultCount = Number(countsByType.get("microsoft.dataprotection/backupvaults") || 0);
                     const siteRecoveryCount = Number(countsByType.get("microsoft.recoveryservices/vaults/replicationfabrics") || 0);
 
-                    const recoveryVaultCategoryCost = await queryCostCategorySum(tenantId, ["microsoft.recoveryservices/vaults"]);
-                    const backupVaultCategoryCost = await queryCostCategorySum(tenantId, ["microsoft.dataprotection/backupvaults"]);
-                    const siteRecoveryCategoryCost = await queryCostCategorySum(tenantId, ["microsoft.recoveryservices/vaults/replicationfabrics"]);
+                    const recoveryVaultCategoryCost = await queryCostCategorySum(tenantId, ["microsoft.recoveryservices/vaults"], recorte);
+                    const backupVaultCategoryCost = await queryCostCategorySum(tenantId, ["microsoft.dataprotection/backupvaults"], recorte);
+                    const siteRecoveryCategoryCost = await queryCostCategorySum(tenantId, ["microsoft.recoveryservices/vaults/replicationfabrics"], recorte);
 
                     const recoveryVaultCost = recoveryVaultCategoryCost > 0
                         ? recoveryVaultCategoryCost
                         : await queryHybridCost(
                             tenantId,
                             "LOWER(COALESCE(service_name,'')) LIKE '%recovery services%'",
-                            "LOWER(COALESCE(service_name,'')) LIKE '%recovery services%'"
+                            "LOWER(COALESCE(service_name,'')) LIKE '%recovery services%'",
+                            recorte,
                         );
                     const backupCost = backupVaultCategoryCost > 0
                         ? backupVaultCategoryCost
                         : await queryHybridCost(
                             tenantId,
                             "LOWER(COALESCE(service_name,'')) LIKE '%backup%'",
-                            "LOWER(COALESCE(service_name,'')) LIKE '%backup%'"
+                            "LOWER(COALESCE(service_name,'')) LIKE '%backup%'",
+                            recorte,
                         );
                     const siteRecoveryCost = siteRecoveryCategoryCost > 0
                         ? siteRecoveryCategoryCost
                         : await queryHybridCost(
                             tenantId,
                             "LOWER(COALESCE(service_name,'')) LIKE '%site recovery%'",
-                            "LOWER(COALESCE(service_name,'')) LIKE '%site recovery%'"
+                            "LOWER(COALESCE(service_name,'')) LIKE '%site recovery%'",
+                            recorte,
                         );
 
                     items = [
@@ -238,8 +296,9 @@ export async function GET(request: NextRequest) {
                     const monthlyCost = await queryHybridCost(
                         tenantId,
                         "(LOWER(COALESCE(MeterName,'')) LIKE '%data lake%' OR LOWER(COALESCE(MeterSubCategory,'')) LIKE '%data lake%' OR LOWER(COALESCE(service_name,'')) LIKE '%data lake%')",
-                        "(LOWER(COALESCE(MeterName,'')) LIKE '%data lake%' OR LOWER(COALESCE(MeterSubCategory,'')) LIKE '%data lake%' OR LOWER(COALESCE(service_name,'')) LIKE '%data lake%')"
-                    );
+                        "(LOWER(COALESCE(MeterName,'')) LIKE '%data lake%' OR LOWER(COALESCE(MeterSubCategory,'')) LIKE '%data lake%' OR LOWER(COALESCE(service_name,'')) LIKE '%data lake%')",
+                            recorte,
+                        );
                     items = [{
                         serviceLabel: "Azure Data Lake Storage Gen2",
                         monthlyCost: Number(monthlyCost.toFixed(2)),
@@ -253,7 +312,8 @@ export async function GET(request: NextRequest) {
                     family,
                     items,
                     totalMonthlyCost: Number(items.reduce((sum, i) => sum + i.monthlyCost, 0).toFixed(2)),
-                    dataAvailable: true,
+dataAvailable: true,
+                    alcanceAplicado: recorte.aplicado,
                 };
             },
             1800,
