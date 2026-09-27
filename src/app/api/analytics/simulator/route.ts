@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { alcanceDeLaRuta, exigirRecorte, type Permiso } from "@/services/perspectivesData.service";
 import { isMockTenant } from "@/lib/mockData";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { errorMessage } from "@/lib/apiErrors";
@@ -34,14 +35,33 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(getMockWhatIfPayload(tenantId));
     }
 
-    await requireTenantAccess(request, tenantId);
+    const identidad = await requireTenantAccess(request, tenantId);
+
+    /**
+     * MEJ-34 — el alcance transversal sobre el gasto BASE.
+     *
+     * Es lo único que se recorta acá, y alcanza: todo el simulador es
+     * proyectar porcentajes sobre ese número. Con el alcance puesto, "¿qué pasa
+     * si mi equipo crece 20%?" se responde sobre el gasto de su equipo en vez
+     * de sobre el del tenant, que es la pregunta que alguien con un equipo a
+     * cargo realmente se hace.
+     */
+    const permiso: Permiso | null = identidad?.alcance ?? null;
+    const recorte = await alcanceDeLaRuta(
+      tenantId,
+      request.nextUrl.searchParams,
+      { where: "AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)", params: [] },
+      permiso
+    );
+    exigirRecorte(permiso, recorte.aplicado);
 
     // Consultar gasto base real del tenant (últimos 30 días)
     const [spendRows]: any = await pool.query(
       `SELECT SUM(COALESCE(EffectiveCost, cost_usd, 0)) AS spend
        FROM CostSnapshots
-       WHERE tenant_id=? AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)`,
-      [tenantId]
+       WHERE tenant_id=? AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)
+         ${recorte.and}`,
+      [tenantId, ...recorte.params]
     );
     const realBaseCostUSD = Number(spendRows[0]?.spend || 0);
 
@@ -98,7 +118,10 @@ export async function GET(request: NextRequest) {
       savedScenarios,
     });
 
-    return NextResponse.json(payload);
+    // MEJ-34: el tablero dice sobre qué alcance está parado. Si el recorte no
+    // se pudo aplicar, el gasto base es el del tenant entero y proyectar sobre
+    // él contestaría otra pregunta.
+    return NextResponse.json({ ...payload, alcanceAplicado: recorte.aplicado });
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });

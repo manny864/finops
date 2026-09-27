@@ -1,5 +1,6 @@
 "use client";
 import { useLocale, useTranslations } from "next-intl";
+import { AlcanceNoAplicado, usePerspectiveScope } from "@/components/PerspectiveScopeSelector";
 
 import React, { useState, useMemo, useEffect } from "react";
 import useSWR from "swr";
@@ -322,7 +323,10 @@ export default function WhatIfScenarioSimulator() {
   );
 
   const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock, t), [instance, accounts, isMock, t]);
-  const apiUrl = `/api/analytics/simulator?tenantId=${encodeURIComponent(tenantId)}`;
+  // MEJ-34: el alcance viaja en la URL y por lo tanto en la clave de SWR — si
+  // no, cambiar de Perspective serviría la proyección de la anterior.
+  const { queryString: alcanceQs } = usePerspectiveScope();
+  const apiUrl = `/api/analytics/simulator?tenantId=${encodeURIComponent(tenantId)}${alcanceQs}`;
   const { data, error, isValidating, mutate } = useSWR<WhatIfPayload>(apiUrl, fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 30000,
@@ -506,6 +510,10 @@ export default function WhatIfScenarioSimulator() {
 
   return (
     <div className="w-full max-w-full px-4 sm:px-6 lg:px-8 space-y-6">
+      {/* MEJ-34: si el recorte no se pudo aplicar, el gasto base es el del
+          tenant entero y proyectar sobre él contesta otra pregunta. Se dice. */}
+      <AlcanceNoAplicado aplicado={(data as { alcanceAplicado?: boolean } | undefined)?.alcanceAplicado} />
+
       {/* ─── Encabezado ─── */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 pt-2">
         <div>

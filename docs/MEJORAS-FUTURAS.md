@@ -49,7 +49,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-32](#mej-32--tres-catálogos-de-precios-duplicados-y-ya-divergidos-mej-10-reabierta) | Tres catálogos de precios duplicados y ya divergidos (MEJ-10 reabierta) | Transversal / Ahorro | Alto | Bajo | Hecha |
 | [MEJ-33](#mej-33--cerrar-el-lazo-del-desvío-dueño-estado-persistente-y-seguimiento) | Cerrar el lazo del desvío: dueño, estado persistente y seguimiento | Anomalías / Gobernanza | Alto | Medio | Hecha |
 | [MEJ-31](#mej-31--test-de-storage-history-hardcodea-meses-absolutos-contra-reloj-real) | Test de storage-history hardcodea meses absolutos contra reloj real (rompe todos los meses) | Storage Efficiency / Tests | Medio | Bajo | Hecha |
-| [MEJ-34](#mej-34--perspectives-agrupación-multidimensional-del-gasto) | Perspectives: agrupación multidimensional del gasto — cinco criterios + selector transversal; lo adoptan el export FOCUS, Cost Groups (con su detalle), Centros de Costo (con sus recursos), Gastos y Proyección, la pizarra ejecutiva y **Almacenamiento**; quedan 3 candidatos medidos | Asignación / Transversal | Alto | Alto | Parcial |
+| [MEJ-34](#mej-34--perspectives-agrupación-multidimensional-del-gasto) | Perspectives: agrupación multidimensional del gasto — cinco criterios + selector transversal; ocho superficies adoptadas (FOCUS, Cost Groups y su detalle, Centros de Costo y sus recursos, Gastos y Proyección, pizarra ejecutiva, Almacenamiento y el simulador What-If); `ai-analytics` bloqueado por la ingesta | Asignación / Transversal | Alto | Alto | Parcial |
 | [MEJ-35](#mej-35--suscripciones-a-reportes-cualquier-reporte-a-la-cadencia-que-elija-el-usuario) | Suscripciones a reportes, a la cadencia que elija el usuario, con link + gráfico + CSV — un solo cron evaluador; el gráfico va en HTML y no como imagen, con motivo | Reportes | Alto | Medio | Hecha |
 | [MEJ-36](#mej-36--presupuestos-rollover-y-año-fiscal-no-calendario) | Presupuestos: rollover con tope y año fiscal no calendario — el ejercicio estaba cableado a enero en cuatro lugares y corría todos los acumulados anuales sin decirlo | Presupuestos | Medio | Bajo | Hecha |
 | [MEJ-37](#mej-37--leaderboard-de-equipos-y-margen-bruto) | Leaderboard de equipos (ordenado por mejora, no por gasto), split COGS/OpEx **y margen bruto** — la fase 2 resultó estar casi entera: la ingesta por API Key ya existía y sólo faltaba el tipo REVENUE | Integración con el negocio | Medio | Bajo | Hecha |
@@ -3500,8 +3500,42 @@ contra las 41 rutas que agregan `CostSnapshots`: quedan **9 candidatos**, no 41.
 la lección ya anotada acá —*la lista de rutas que leen `CostSnapshots` NO es la lista de
 tableros*—, ahora aplicada con un script en vez de a ojo.
 
-Quedan como candidatos medidos: `analytics/simulator`, `intelligence/ai-analytics`, y
-`dashboard/summary`. Este último es **el más caro y no el más barato**, aunque parezca lo
+### Adoptado — el simulador What-If (2026-09-27)
+
+Octava superficie, y la más barata de todas: **todo el simulador proyecta porcentajes sobre UN
+número**, el gasto base de los últimos 30 días. Recortar ese número alcanza. Con el alcance puesto,
+"¿qué pasa si mi equipo crece 20%?" se responde sobre el gasto de su equipo y no sobre el del
+tenant — que es la pregunta que alguien con un equipo a cargo realmente se hace, y la que la
+pantalla venía contestando mal sin avisar.
+
+No entra en el mapa de MEJ-38 a propósito: la pantalla también lista los **escenarios guardados**
+del tenant, que no se recortan. Un usuario acotado vería los de los demás.
+
+Tests: `__tests__/unit/simuladorAlcance.test.ts` (5).
+
+### Medido y BLOQUEADO — `intelligence/ai-analytics`
+
+Se abrió y no se puede acotar todavía, por un motivo que no está en la pantalla sino en la ingesta.
+
+Su fuente primaria es `AICostSnapshots`, que tiene `subscription_id`, `resource_group` y `tags`
+—tres de las cuatro dimensiones— pero **no tiene `ResourceId`**: guarda `resource_name`, que no es
+el id ARM contra el que matchean las reglas. Y el predicado de alcance se arma sobre la terna
+`(subscription_id, resource_group, ResourceId)`, así que sobre esa tabla no compila.
+
+Se descartó filtrar sólo por resource group: sería **más inclusivo que el alcance**, mostrando
+recursos de IA que caen en un RG en alcance aunque la regla sea por etiqueta. Un recorte que muestra
+de más no es un recorte.
+
+**Para desbloquearlo hay que sumarle `ResourceId` a la ingesta de `AICostSnapshots`**, no tocar la
+pantalla. Anotado acá para que el próximo no vuelva a medirlo.
+
+Detalle que vale la pena: esa ruta ya agrupa por un `team` sacado a mano de `Tags.$.Team`. Es
+exactamente lo que Perspectives generaliza, así que cuando se desbloquee, el agrupador hecho a mano
+se puede retirar.
+
+Quedan como candidatos medidos: `dashboard/summary` y `analytics/macc`.
+
+Sobre los dos que quedan: `dashboard/summary` es **el más caro y no el más barato**, aunque parezca lo
 contrario: su `actualCost` primario no sale de `CostSnapshots` sino de un auto-fetch al forecast
 (Azure en vivo), y el ahorro y los zombies de otro a `audit/full`. Acotarlo exige acotar esos dos
 antes. `analytics/macc` se descarta: un compromiso contractual es del tenant entero, y recortarlo
