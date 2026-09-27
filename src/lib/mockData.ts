@@ -3479,6 +3479,43 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
             const tickets = multiplier >= 3 ? [...extraTickets, ...baseTickets] : baseTickets;
             return { success: true, tickets, quota };
         }
+        case 'network_capacity': {
+            // MEJ-19 criterio 3. La demo muestra los CUATRO estados, sobre todo
+            // los dos que no se pueden medir: sin ellos no se vería que la
+            // pantalla distingue "ocioso" de "no sabemos", que es su regla
+            // principal — recomendar achicar un enlace no medido corta
+            // producción.
+            const enlaces = [
+                { id: "/subs/d/rg-net/providers/Microsoft.Network/expressRouteCircuits/er-principal",
+                  name: "er-principal", tipo: "ExpressRoute", sku: "Premium", resourceGroup: "rg-net", location: "eastus",
+                  capacidadMbps: 1000, p95Mbps: 84.2, utilizacionPct: 8.42, veredicto: "subutilizado", motivo: null,
+                  fuente: "https://learn.microsoft.com/azure/expressroute/expressroute-about-virtual-network-gateways" },
+                { id: "/subs/d/rg-net/providers/Microsoft.Network/virtualNetworkGateways/vpn-sucursales",
+                  name: "vpn-sucursales", tipo: "VPN Gateway", sku: "VpnGw2", resourceGroup: "rg-net", location: "eastus",
+                  capacidadMbps: 1250, p95Mbps: 612.5, utilizacionPct: 49, veredicto: "ajustado", motivo: null,
+                  fuente: "https://learn.microsoft.com/azure/vpn-gateway/vpn-gateway-about-vpngateways" },
+                { id: "/subs/d/rg-net/providers/Microsoft.Network/expressRouteCircuits/er-dr",
+                  name: "er-dr", tipo: "ExpressRoute", sku: "Standard", resourceGroup: "rg-net", location: "westus2",
+                  capacidadMbps: 500, p95Mbps: null, utilizacionPct: null, veredicto: "sin-datos",
+                  motivo: "Azure Monitor no devolvió muestras para este enlace.",
+                  fuente: "https://learn.microsoft.com/azure/expressroute/expressroute-about-virtual-network-gateways" },
+                { id: "/subs/d/rg-net/providers/Microsoft.Network/virtualNetworkGateways/vpn-legacy",
+                  name: "vpn-legacy", tipo: "VPN Gateway", sku: "VpnGw9", resourceGroup: "rg-net", location: "westus2",
+                  capacidadMbps: null, p95Mbps: 12.3, utilizacionPct: null, veredicto: "sin-capacidad",
+                  motivo: "No se pudo leer la capacidad contratada.",
+                  fuente: "https://learn.microsoft.com/azure/vpn-gateway/vpn-gateway-about-vpngateways" },
+            ];
+            const cuenta = (v: string) => enlaces.filter((e) => e.veredicto === v).length;
+            return {
+                success: true, mock: true, revisadoEl: "2026-09-27", ventanaDias: 30, umbralPct: 15,
+                enlaces,
+                resumen: {
+                    subutilizado: cuenta("subutilizado"), ajustado: cuenta("ajustado"),
+                    "sin-datos": cuenta("sin-datos"), "sin-capacidad": cuenta("sin-capacidad"),
+                    sinMedir: cuenta("sin-datos") + cuenta("sin-capacidad"),
+                },
+            };
+        }
         case 'leaderboard': {
             // MEJ-37. La demo muestra los TRES estados de una fila: rankeada,
             // sin período previo y no material. Con sólo filas rankeadas, la

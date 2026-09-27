@@ -10091,7 +10091,9 @@
     "tooltip_tab_internet": "Outbound data transfer (Egress), static Public IPs, and Azure NAT Gateways.",
     "tooltip_tab_ddos": "DDoS Protection Standard plans, attack history, protected VNets, and cost optimization.",
     "tabEgress": "Traffic & egress",
-    "tooltip_tab_egress": "Cost of moving data: outbound to internet, between zones, between regions and processed by NAT Gateway."
+    "tooltip_tab_egress": "Cost of moving data: outbound to internet, between zones, between regions and processed by NAT Gateway.",
+    "tabCapacity": "Link capacity",
+    "tooltip_tab_capacity": "ExpressRoute and VPN: contracted vs P95 actually used."
   },
   "NetworkPerimeter": {
     "page_title": "Perimeter Network",
@@ -15946,6 +15948,30 @@
       "cadence": "Cadence",
       "recipients": "Recipients",
       "lastSent": "Last sent"
+    }
+  },
+  "NetworkCapacity": {
+    "loading": "Measuring real usage against what's contracted…",
+    "error": "Could not read link capacity.",
+    "empty": "No ExpressRoute circuits or VPN gateways in this tenant.",
+    "oversized": "{n} oversized links",
+    "criterion": "They use less than {pct}% of what's contracted at P95 over the last {dias} days. Their SKU can be lowered.",
+    "reviewedOn": "SKU catalog reviewed on {date}",
+    "unmeasured": "{n} links could not be measured: they are NOT recommended for downsizing. Without metrics there's no telling idle from saturated, and lowering the SKU of a saturated link cuts it.",
+    "footnote": "Azure Monitor offers no percentile aggregation: P95 is computed over the hourly samples the API returns, so it is \"the 95th hour out of 100\", not the peak minute.",
+    "col": {
+      "link": "Link",
+      "sku": "SKU",
+      "contracted": "Contracted",
+      "p95": "P95 used",
+      "usage": "Usage",
+      "verdict": "Status"
+    },
+    "verdict": {
+      "subutilizado": "Oversized",
+      "ajustado": "Right-sized",
+      "sin-datos": "No metrics",
+      "sin-capacidad": "Capacity unreadable"
     }
   }
 }

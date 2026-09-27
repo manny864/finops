@@ -9,6 +9,7 @@ import {
     IconArrowsShuffle,
     IconWorld,
     IconShieldCheck,
+    IconRouter,
     IconArrowsUpDown,
 } from "@tabler/icons-react";
 import InfoTooltip from "@/components/InfoTooltip";
@@ -54,6 +55,15 @@ export default async function RedesLayout({ children }: { children: ReactNode })
             label: t("tabEgress"),
             icon: <IconArrowsUpDown className="w-4 h-4 text-[#0054A6]" stroke={1.5} />,
             tooltip: t("tooltip_tab_egress"),
+        },
+        {
+            // MEJ-19 criterio 3. Al lado de egress porque es la otra mitad de
+            // "cuánto de la red se paga de más", aunque la fuente sea otra:
+            // acá no hay costo, hay métricas de Azure Monitor.
+            href: "/intelligence/redes/capacidad",
+            label: t("tabCapacity"),
+            icon: <IconRouter className="w-4 h-4 text-[#0054A6]" stroke={1.5} />,
+            tooltip: t("tooltip_tab_capacity"),
         },
         {
             href: "/intelligence/redes/ddos-protection",

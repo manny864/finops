@@ -10091,7 +10091,9 @@
     "tooltip_tab_internet": "Tráfico de salida (Egress), IPs públicas estáticas y Azure NAT Gateways.",
     "tooltip_tab_ddos": "Planes de DDoS Protection Standard, historial de ataques, VNets protegidas y optimización de costos.",
     "tabEgress": "Tráfico y egress",
-    "tooltip_tab_egress": "Costo de mover datos: salida a internet, entre zonas, entre regiones y procesado por NAT Gateway."
+    "tooltip_tab_egress": "Costo de mover datos: salida a internet, entre zonas, entre regiones y procesado por NAT Gateway.",
+    "tabCapacity": "Capacidad de enlaces",
+    "tooltip_tab_capacity": "ExpressRoute y VPN: contratado contra P95 realmente usado."
   },
   "NetworkPerimeter": {
     "page_title": "Red Perimetral",
@@ -15946,6 +15948,30 @@
       "cadence": "Cadencia",
       "recipients": "Destinatarios",
       "lastSent": "Último envío"
+    }
+  },
+  "NetworkCapacity": {
+    "loading": "Midiendo el uso real contra lo contratado…",
+    "error": "No se pudo leer la capacidad de los enlaces.",
+    "empty": "No hay circuitos ExpressRoute ni gateways de VPN en este tenant.",
+    "oversized": "{n} enlaces sobredimensionados",
+    "criterion": "Usan menos del {pct}% de lo contratado en el P95 de los últimos {dias} días. Se pueden bajar de SKU.",
+    "reviewedOn": "Catálogo de SKUs revisado el {date}",
+    "unmeasured": "{n} enlaces no se pudieron medir: NO se recomiendan para achicar. Sin métricas no se sabe si están ociosos o saturados, y bajarle el SKU a uno saturado corta el enlace.",
+    "footnote": "Azure Monitor no ofrece agregación por percentil: el P95 se calcula sobre las muestras horarias que devuelve la API, así que es «la hora 95 de cada 100», no el minuto pico.",
+    "col": {
+      "link": "Enlace",
+      "sku": "SKU",
+      "contracted": "Contratado",
+      "p95": "P95 usado",
+      "usage": "Uso",
+      "verdict": "Estado"
+    },
+    "verdict": {
+      "subutilizado": "Sobredimensionado",
+      "ajustado": "Ajustado",
+      "sin-datos": "Sin métricas",
+      "sin-capacidad": "Sin capacidad legible"
     }
   }
 }

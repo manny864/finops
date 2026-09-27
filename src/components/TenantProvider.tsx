@@ -345,6 +345,23 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
           (window as any).__finopsOriginalFetch = originalFetch;
           window.fetch = async (input, init) => {
               const url = input.toString();
+              /**
+               * El PATHNAME solo, sin query.
+               *
+               * `url.includes('/api/x')` matchea también `/api/x/lo-que-sea`, y
+               * eso ya mordió dos veces: el archivo documenta más abajo que
+               * `/perspectives` se comía a `/perspectives/breakdown`. Lo mismo
+               * pasaba con `/api/intelligence/network`, que interceptaba a las
+               * SIETE subrutas de red —egress, analytics, basic, hybrid,
+               * internet, load-balancing, service-cost— y les devolvía el mock
+               * de la pantalla general. En un tenant demo esos paneles mostraban
+               * la forma equivocada, que es exactamente lo que MEJ-03 existe
+               * para evitar: no falla, queda absurdo.
+               */
+              const rutaDe = (u: string) => {
+                  try { return new URL(u, window.location.origin).pathname; }
+                  catch { return u.split("?")[0]; }
+              };
 
               // GUARDA DE FUGA (MEJ-03): los mocks son SÓLO para demo. Este
               // parche se instala sincrónicamente durante el render, pero sólo
@@ -394,7 +411,9 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
               // missingTags}` mientras la ruta devuelve `{expiredResources}` --
               // divergencia que nadie vio nunca porque no hay a quien mostrarsela.
               if (url.includes('/api/tags/compliance')) return new Response(JSON.stringify(getMockDataForRoute('tags_compliance', mockKey)), {status: 200});
-              if (url.includes('/api/intelligence/network')) return new Response(JSON.stringify(getMockDataForRoute('network', mockKey)), {status: 200});
+              // EXACTA, no por prefijo: cada subruta de red resuelve su propio
+              // mock antes del auth, que es el patrón al que llegó MEJ-03.
+              if (rutaDe(url) === '/api/intelligence/network') return new Response(JSON.stringify(getMockDataForRoute('network', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/rates')) return new Response(JSON.stringify(getMockDataForRoute('rates', mockKey)), {status: 200});
               // MEJ-34. El orden importa: `/breakdown` va PRIMERO porque
               // `includes('/api/intelligence/perspectives')` tambien matchea la

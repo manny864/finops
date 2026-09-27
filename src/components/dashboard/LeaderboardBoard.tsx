@@ -61,7 +61,15 @@ export default function LeaderboardBoard() {
 
     const { data, error, isLoading } = useSWR<Respuesta>(
         tenantId ? `/api/intelligence/leaderboard?tenantId=${encodeURIComponent(tenantId)}${esMock ? "&mock=true" : ""}` : null,
-        (url: string) => fetch(url).then((r) => r.json()),
+        async (u: string) => {
+            // Un `fetch` que no lanza ante un 401/403/500 le entrega a SWR un
+            // cuerpo `{error}` como si fuera datos: `error` queda en null, el
+            // componente cree que tiene respuesta y explota al desestructurar.
+            // Lo encontró el navegador con una sesión vencida, no los tests.
+            const r = await fetch(u);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.json();
+        },
         { revalidateOnFocus: false }
     );
 

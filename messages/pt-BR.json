@@ -10091,7 +10091,9 @@
     "tooltip_tab_internet": "Transferência de saída de dados (Egress), IPs públicos estáticos e Azure NAT Gateways.",
     "tooltip_tab_ddos": "Planos de DDoS Protection Standard, histórico de ataques, VNets protegidas e otimização de custos.",
     "tabEgress": "Tráfego e egress",
-    "tooltip_tab_egress": "Custo de mover dados: saída para a internet, entre zonas, entre regiões e processado pelo NAT Gateway."
+    "tooltip_tab_egress": "Custo de mover dados: saída para a internet, entre zonas, entre regiões e processado pelo NAT Gateway.",
+    "tabCapacity": "Capacidade de enlaces",
+    "tooltip_tab_capacity": "ExpressRoute e VPN: contratado contra o P95 realmente usado."
   },
   "NetworkPerimeter": {
     "page_title": "Rede Perimetral",
@@ -15946,6 +15948,30 @@
       "cadence": "Cadência",
       "recipients": "Destinatários",
       "lastSent": "Último envio"
+    }
+  },
+  "NetworkCapacity": {
+    "loading": "Medindo o uso real contra o contratado…",
+    "error": "Não foi possível ler a capacidade dos enlaces.",
+    "empty": "Não há circuitos ExpressRoute nem gateways de VPN neste tenant.",
+    "oversized": "{n} enlaces superdimensionados",
+    "criterion": "Usam menos de {pct}% do contratado no P95 dos últimos {dias} dias. Dá para baixar o SKU.",
+    "reviewedOn": "Catálogo de SKUs revisado em {date}",
+    "unmeasured": "{n} enlaces não puderam ser medidos: NÃO são recomendados para redução. Sem métricas não se sabe se estão ociosos ou saturados, e baixar o SKU de um saturado corta o enlace.",
+    "footnote": "O Azure Monitor não oferece agregação por percentil: o P95 é calculado sobre as amostras horárias que a API devolve, então é \"a hora 95 de cada 100\", não o minuto de pico.",
+    "col": {
+      "link": "Enlace",
+      "sku": "SKU",
+      "contracted": "Contratado",
+      "p95": "P95 usado",
+      "usage": "Uso",
+      "verdict": "Estado"
+    },
+    "verdict": {
+      "subutilizado": "Superdimensionado",
+      "ajustado": "Ajustado",
+      "sin-datos": "Sem métricas",
+      "sin-capacidad": "Capacidade ilegível"
     }
   }
 }

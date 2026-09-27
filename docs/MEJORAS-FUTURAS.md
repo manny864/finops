@@ -1884,7 +1884,7 @@ Azure Cosmos DB es uno de los servicios de mayor volatilidad financiera en Azure
 
 ## MEJ-19 — Mapa de Tráfico de Red, Egress y Fugas de Datos
 
-**Módulo:** Redes / Egress · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Parcial (núcleo hecho 2026-09)
+**Módulo:** Redes / Egress · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Parcial (núcleo 2026-09; criterio 3 hecho 2026-09-27)
 
 ### Contexto
 
@@ -1988,9 +1988,64 @@ lugar equivocado, sin una sola excepción. Ahora el NAT se reconoce por
 **servicio**, el resto cae en la categoría *procesamiento*, y la tabla muestra
 el servicio junto al medidor para que dos `Standard Data Processed` no sean la
 misma fila. Los siete casos están fijados en el test.
-- **ExpressRoute / VPN P95 (criterio 3).** Es otra fuente: métricas de Azure
-  Monitor, no costo. No comparte nada con lo de arriba salvo la pantalla.
+- ~~**ExpressRoute / VPN P95 (criterio 3).**~~ **Hecho el 2026-09-27**, ver abajo.
 - **Network Watcher Flow Logs.** Dan GB, no costo, y el costo ya lo tenemos.
+
+### Hecho — criterio 3: enlaces sobredimensionados (2026-09-27)
+
+`src/lib/networkCapacityCatalog.ts`, `GET /api/intelligence/network/capacity`,
+`/intelligence/redes/capacidad` como pestaña del hub. Ancho de banda contratado contra el P95 real
+de los últimos 30 días; por debajo del 15%, el enlace se puede bajar de SKU.
+
+**La regla que manda no es el cálculo, es la seguridad: sin métricas NO se recomienda achicar.** Un
+enlace sin muestras no está ocioso — lo más probable es que falte el permiso de lectura o que el
+recurso sea nuevo. Tratar la ausencia como 0% de uso recomendaría bajarle el SKU a un circuito que
+quizás está saturado. Es el mismo criterio que MEJ-39, pero acá el error no confunde: **corta un
+enlace**. Los no medidos se cuentan aparte y se dicen arriba de la tabla.
+
+**Cuatro contratos verificados en learn.microsoft.com, y cada uno tenía una trampa:**
+
+| | Lo verificado | Por qué importa |
+|---|---|---|
+| Percentiles | Azure Monitor **no** ofrece agregación por percentil — sólo Total, Average, Minimum y Maximum | Pedir P95 a la API no devuelve nada. Se calcula acá sobre las muestras horarias |
+| Unidades | ExpressRoute informa en **Bits**PerSecond; VPN Gateway en **Bytes**PerSecond | Sin el ×8 el gateway sale ocho veces más ocioso, y hacia el lado que recomienda achicar |
+| Capacidad ER | `serviceProviderProperties.bandwidthInMbps` **o** `properties.bandwidthInGbps` (ExpressRoute Direct) | Leer sólo la primera deja en cero justo a los circuitos de 10 y 100 Gbps |
+| Throughput VPN | La clave es **generación + SKU**, no el SKU | `VpnGw2` rinde 1 Gbps en Generation1 y 1,25 en Generation2: 25% de diferencia |
+
+Y una quinta que no es un contrato sino una confusión de tipos: un `virtualNetworkGateways` puede
+ser un gateway de **ExpressRoute**, no de VPN. Se filtra por `gatewayType`, porque no tiene
+throughput de VPN y su métrica de ancho de banda no significa lo mismo.
+
+Se toma el **máximo entre entrada y salida**, no la suma: un circuito soporta su ancho de banda en
+cada sentido, y sumarlos inflaría la utilización tapando justamente los que están de más.
+
+#### Dos defectos que encontró el navegador y ningún test
+
+Verificado en el navegador contra el servidor local con una sesión real — la primera vez en este
+ciclo que se pudo. Encontró dos cosas que 3.705 tests no:
+
+1. **Los tableros nuevos explotaban ante cualquier error de la API.** El `fetcher` de SWR no lanzaba
+   con un 401/403/500, así que le entregaba el cuerpo `{error}` como si fueran datos: `error` queda
+   en `null`, el componente cree que tiene respuesta y revienta al desestructurar —`Cannot read
+   properties of undefined`—, dejando la pantalla en blanco. Pasaba en `NetworkCapacityBoard` y en
+   `LifecycleBoard` (MEJ-39). Se arreglaron los tres fetchers nuevos y se agregó el guard de forma.
+2. **El interceptor de demo se comía siete subrutas de red.** `TenantProvider` matcheaba
+   `url.includes('/api/intelligence/network')`, así que en un tenant demo **egress, analytics,
+   basic, hybrid, internet, load-balancing y service-cost** recibían el mock de la pantalla general
+   en vez del propio. Es el mismo error de prefijo que el archivo ya documenta para
+   `/perspectives` vs `/breakdown`, y llevaba meses ahí. Ahora la intercepción es por pathname
+   exacto; el trinquete de `interceptacionDeFetch.test.ts` bajó de 51 a 50.
+
+Y un tercero propio: el mock iba **después** del auth, así que un tenant demo recibía 401. El patrón
+de MEJ-03 —que esta misma entrada cita para egress— es al revés.
+
+Tests: `__tests__/unit/capacidadDeRed.test.ts` (20).
+
+### Lo que sigue faltando
+
+- **El Sankey (criterio 1)**, con el mismo argumento de antes: son seis categorías y el desglose por
+  par origen-destino no existe en la ingesta.
+- **Network Watcher Flow Logs**: dan GB, no costo.
 
 ---
 

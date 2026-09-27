@@ -47,7 +47,11 @@ const PROVIDER = "src/components/TenantProvider.tsx";
  * es peor que uno que cuenta de más: el de más obliga a escribir esta nota, el
  * de menos no avisa nada.
  */
-const TOPE_REDUNDANTES = 51;
+// Bajó de 51 a 50 el 2026-09-27 (MEJ-19): la interceptación de
+// `/api/intelligence/network` era por PREFIJO y se comía a las siete subrutas
+// —egress, analytics, basic, hybrid, internet, load-balancing, service-cost—
+// devolviéndoles el mock de la pantalla general. Ahora es exacta.
+const TOPE_REDUNDANTES = 50;
 
 function rutasInterceptadas(): string[] {
     const src = readFileSync(PROVIDER, "utf8");
