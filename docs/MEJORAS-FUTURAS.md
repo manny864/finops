@@ -50,7 +50,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-33](#mej-33--cerrar-el-lazo-del-desvío-dueño-estado-persistente-y-seguimiento) | Cerrar el lazo del desvío: dueño, estado persistente y seguimiento | Anomalías / Gobernanza | Alto | Medio | Hecha |
 | [MEJ-31](#mej-31--test-de-storage-history-hardcodea-meses-absolutos-contra-reloj-real) | Test de storage-history hardcodea meses absolutos contra reloj real (rompe todos los meses) | Storage Efficiency / Tests | Medio | Bajo | Hecha |
 | [MEJ-34](#mej-34--perspectives-agrupación-multidimensional-del-gasto) | Perspectives: agrupación multidimensional del gasto — cinco criterios + selector transversal; lo adoptan el export FOCUS, Cost Groups (con su detalle), Centros de Costo (con sus recursos), Gastos y Proyección, la pizarra ejecutiva y **Almacenamiento**; quedan 3 candidatos medidos | Asignación / Transversal | Alto | Alto | Parcial |
-| [MEJ-35](#mej-35--suscripciones-a-reportes-cualquier-reporte-a-la-cadencia-que-elija-el-usuario) | Suscripciones a reportes: cualquier reporte, a la cadencia que elija el usuario, con link + imagen + CSV | Reportes | Alto | Medio | Propuesta |
+| [MEJ-35](#mej-35--suscripciones-a-reportes-cualquier-reporte-a-la-cadencia-que-elija-el-usuario) | Suscripciones a reportes, a la cadencia que elija el usuario, con link + gráfico + CSV — un solo cron evaluador; el gráfico va en HTML y no como imagen, con motivo | Reportes | Alto | Medio | Hecha |
 | [MEJ-36](#mej-36--presupuestos-rollover-y-año-fiscal-no-calendario) | Presupuestos: rollover con tope y año fiscal no calendario — el ejercicio estaba cableado a enero en cuatro lugares y corría todos los acumulados anuales sin decirlo | Presupuestos | Medio | Bajo | Hecha |
 | [MEJ-37](#mej-37--leaderboard-de-equipos-y-margen-bruto) | Leaderboard de equipos (ordenado por mejora, no por gasto) y split COGS/OpEx — **fase 1 hecha**; fase 2 (métricas de negocio) sin empezar | Integración con el negocio | Medio | Bajo | Parcial |
 | [MEJ-38](#mej-38--views-vistas-guardadas-y-con-alcance-por-equipo) | Views: el alcance por equipo aplicado en el SERVIDOR — permiso (default-deny, mapa por (ruta, método), un usuario con alcance no puede ser Admin/Owner) **y** `SavedViews`; la auditoría de la superficie encontró y cerró dos fugas por coincidencia de prefijo | Transversal / RBAC | Alto | Medio | Hecha |
@@ -3515,7 +3515,7 @@ Tests: `__tests__/unit/almacenamientoAlcance.test.ts` (9).
 
 ## MEJ-35 — Suscripciones a reportes: cualquier reporte, a la cadencia que elija el usuario
 
-**Módulo:** Reportes · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Propuesta
+**Módulo:** Reportes · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Hecha (2026-09-27)
 
 ### Contexto
 
@@ -3567,6 +3567,85 @@ a buscarlo** — y en una herramienta de FinOps, el reporte que hay que ir a bus
 2. El correo trae link, imagen y CSV.
 3. El alcance se respeta: quien se suscribe a su Cost Group no recibe el gasto de los demás.
 4. Una suscripción de un usuario dado de baja no sigue mandando.
+
+---
+
+### Hecho (2026-09-27)
+
+`migrations/20260927-003-report-subscriptions.sql`, `reportSubscriptions.service.ts` (puro),
+`reportRenderers.service.ts` (registro de generadores), `reportDispatch.service.ts`,
+`GET/POST/DELETE /api/reports/subscriptions`, `cron/report-subscriptions` cada hora, y una
+pestaña en el hub de Reportes que ya existía. Los cuatro criterios cumplidos.
+
+**El criterio 1 es el que manda.** El cron corre cada hora: una suscripción semanal lo ve 168
+veces. `last_sent_at` se compara contra el **comienzo del período**, no contra "hace 7 días": con
+una ventana móvil, una corrida que se atrasa una hora correría el horario de todas las siguientes
+hasta desalinearse del día. Hay un test que simula las 168 corridas y exige exactamente un envío.
+
+**La cadencia se evalúa en la zona del TENANT.** "Los lunes" tiene que ser el lunes del cliente:
+lunes 00:30 en Buenos Aires es domingo 21:30 en UTC, y con la zona del servidor la semanal se
+dispararía un día antes para medio mundo. Se usa `Intl` y no aritmética de offsets porque un offset
+fijo se rompe dos veces al año con el horario de verano — el mismo motivo por el que
+`Tenants.timezone` existe.
+
+**Un día 31 no se saltea febrero**: se recorta al último día del mes. Sin eso, una suscripción "el
+31" no llegaría nunca en los meses cortos, y **la ausencia de un correo no avisa** — es la falla
+silenciosa peor de las dos posibles.
+
+#### El gráfico va en HTML, no como imagen, y es una decisión con motivo
+
+El criterio 2 pide "imagen del gráfico". Se entrega como barras hechas con celdas de tabla y
+`background-color`, no como PNG. Tres razones, la última suficiente por sí sola:
+
+1. Un PNG exige renderizar del lado del servidor —puppeteer o chartjs-node-canvas—: dependencias
+   pesadas para mandar un mail, y el repo hoy no tiene ninguna (sólo `jspdf`).
+2. La salida usual sin dependencia es un servicio externo tipo QuickChart, que implica **mandarle
+   el costo del cliente a un tercero**. No se hace.
+3. **Gmail no renderiza SVG inline y Outlook tampoco.** Una imagen que no se ve no es una imagen.
+
+#### El error que sólo apareció al probar contra la base real
+
+La primera versión de la migración ponía `COLLATE utf8mb4_unicode_ci` en `tenant_id` —por la FK— y
+**no en `created_by`**. Pero `created_by` se compara con `Users.email` en el `LEFT JOIN` del cron, y
+`Users.email` es `utf8mb4_unicode_ci` mientras que una tabla nueva en MySQL 8 nace
+`utf8mb4_0900_ai_ci`: **ERROR 1267, Illegal mix of collations**. En el cron, en producción, y no al
+desplegar.
+
+Typecheck y 3.676 tests no lo vieron, y no podían: los tests mockean la base. Lo encontró correr la
+consulta del cron contra MySQL de verdad. Es la tercera vez que este repo tropieza con la misma
+colación y por eso queda escrito: **la regla no es "todas las columnas llevan COLLATE"** —107 de 113
+columnas de riesgo no lo llevan y están bien— sino que lo necesitan **las que se comparan
+columna contra columna entre tablas**. Contra un parámetro no hace falta: el literal adopta la
+colación de la columna. Se descartó un test guardián general justamente porque nacería en rojo
+sobre 107 filas legítimas.
+
+#### Otras decisiones que quedaron fijadas en tests
+
+- **Un reporte sin datos no se manda.** Un correo con la tabla vacía se lee como "tu equipo no gastó
+  nada", que es una afirmación sobre la factura del cliente y casi siempre es falsa: lo normal es
+  que la ingesta todavía no corrió. Se omite, pero el cron lo reporta y la corrida queda en
+  `warning` — callar es más honesto que afirmar mal; callar en silencio no.
+- **Un correo por destinatario**, no todos en el mismo: nadie se entera de a quién más le llega, y
+  un rebote no se lleva puesto el envío del resto.
+- **Si no salió ninguno, no se marca el período.** Marcarlo igual convertiría una caída de Graph en
+  un período perdido, y nadie reclama un correo que no sabe que existía.
+- **"Enviar ahora" no toca `last_sent_at`.** Si lo tocara, la prueba se comería el envío real de la
+  semana. Y usa exactamente el mismo camino que el envío programado: si fueran dos, la prueba podría
+  andar y el envío real no.
+- **El correo de un solo grupo no informa el "sin asignar" del tenant** —no es información suya—,
+  pero el de la vista completa sí, porque si no el total no cuadra con la factura.
+- El cron se registró en `infra/terraform/environments/prod/cron-jobs.tfvars`. **El apply va por CI**,
+  nunca local.
+
+Tests: `__tests__/unit/suscripcionesCadencia.test.ts` (14) y `suscripcionesEnvio.test.ts` (13).
+
+### Lo que queda
+
+- **Un solo tipo de reporte por ahora** (`gasto-por-equipo`, que es el caso que la propuesta nombra:
+  "mandame el desvío de mi grupo los lunes"). La arquitectura es un registro, así que sumar otro es
+  registrar una función; lo que no se hizo es escribirlos.
+- **El panel no valida la Perspective contra la lista**: se escribe el id a mano. Funciona, pero es
+  el lugar obvio para un selector.
 
 ---
 

@@ -1066,7 +1066,8 @@
     "tab_invoicing": "Reporte de Facturación",
     "tab_workbooks": "Workbooks",
     "tab_powerbi": "Plantillas Power BI",
-    "tab_focus": "Exportación FOCUS 1.1"
+    "tab_focus": "Exportación FOCUS 1.1",
+    "tab_subscriptions": "Suscripciones"
   },
   "AdminLoadTest": {
     "pageTitle": "Prueba de Carga",
@@ -15884,6 +15885,58 @@
     "outOfRank": {
       "sin-periodo-previo": "sin período anterior con el que comparar",
       "no-material": "muy chico para rankear sin que sea ruido"
+    }
+  },
+  "ReportSubscriptions": {
+    "intro": "Cualquier reporte, a la cadencia que elija cada quien, con link, gráfico y CSV. El correo llega solo: en FinOps, el reporte que hay que ir a buscar no se mira.",
+    "new": "Nueva suscripción",
+    "save": "Guardar",
+    "saving": "Guardando…",
+    "cancel": "Cancelar",
+    "saved": "Suscripción creada.",
+    "saveError": "No se pudo crear la suscripción.",
+    "deleted": "Suscripción eliminada.",
+    "deleteError": "No se pudo eliminar.",
+    "needRecipient": "Hace falta al menos un destinatario.",
+    "sendNow": "Mandar una de prueba ahora (no cuenta como el envío del período)",
+    "dayClamped": "En los meses más cortos se manda el último día, en vez de saltearse el mes.",
+    "loading": "Cargando…",
+    "empty": "Todavía no hay suscripciones.",
+    "never": "nunca",
+    "inactive": "desactivada: quien la creó ya no está activo",
+    "delete": "Eliminar",
+    "freq": {
+      "daily": "Todos los días",
+      "weekly": "Semanal",
+      "monthly": "Mensual",
+      "weeklyOn": "Semanal, los {day}",
+      "monthlyOn": "Mensual, el día {day}"
+    },
+    "day": {
+      "sun": "domingos",
+      "mon": "lunes",
+      "tue": "martes",
+      "wed": "miércoles",
+      "thu": "jueves",
+      "fri": "viernes",
+      "sat": "sábados"
+    },
+    "field": {
+      "report": "Reporte",
+      "frequency": "Frecuencia",
+      "dayOfWeek": "Día de la semana",
+      "dayOfMonth": "Día del mes",
+      "recipients": "Destinatarios (separados por coma)",
+      "perspective": "Perspective (opcional)",
+      "perspectivePlaceholder": "id, ej. 7",
+      "group": "Grupo (opcional)",
+      "groupPlaceholder": "sólo ese equipo"
+    },
+    "col": {
+      "report": "Reporte",
+      "cadence": "Cadencia",
+      "recipients": "Destinatarios",
+      "lastSent": "Último envío"
     }
   }
 }

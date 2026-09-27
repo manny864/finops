@@ -1066,7 +1066,8 @@
     "tab_invoicing": "Relatório de Faturamento",
     "tab_workbooks": "Workbooks",
     "tab_powerbi": "Modelos Power BI",
-    "tab_focus": "Exportação FOCUS 1.1"
+    "tab_focus": "Exportação FOCUS 1.1",
+    "tab_subscriptions": "Assinaturas"
   },
   "AdminLoadTest": {
     "pageTitle": "Teste de Carga",
@@ -15884,6 +15885,58 @@
     "outOfRank": {
       "sin-periodo-previo": "sem período anterior para comparar",
       "no-material": "pequeno demais para ranquear sem ser ruído"
+    }
+  },
+  "ReportSubscriptions": {
+    "intro": "Qualquer relatório, na cadência que cada um escolher, com link, gráfico e CSV. O e-mail chega sozinho: em FinOps, o relatório que é preciso ir buscar não é lido.",
+    "new": "Nova assinatura",
+    "save": "Salvar",
+    "saving": "Salvando…",
+    "cancel": "Cancelar",
+    "saved": "Assinatura criada.",
+    "saveError": "Não foi possível criar a assinatura.",
+    "deleted": "Assinatura excluída.",
+    "deleteError": "Não foi possível excluir.",
+    "needRecipient": "É preciso pelo menos um destinatário.",
+    "sendNow": "Enviar um teste agora (não conta como o envio do período)",
+    "dayClamped": "Nos meses mais curtos envia no último dia, em vez de pular o mês.",
+    "loading": "Carregando…",
+    "empty": "Ainda não há assinaturas.",
+    "never": "nunca",
+    "inactive": "desativada: quem a criou não está mais ativo",
+    "delete": "Excluir",
+    "freq": {
+      "daily": "Todos os dias",
+      "weekly": "Semanal",
+      "monthly": "Mensal",
+      "weeklyOn": "Semanal, às {day}",
+      "monthlyOn": "Mensal, no dia {day}"
+    },
+    "day": {
+      "sun": "domingos",
+      "mon": "segundas",
+      "tue": "terças",
+      "wed": "quartas",
+      "thu": "quintas",
+      "fri": "sextas",
+      "sat": "sábados"
+    },
+    "field": {
+      "report": "Relatório",
+      "frequency": "Frequência",
+      "dayOfWeek": "Dia da semana",
+      "dayOfMonth": "Dia do mês",
+      "recipients": "Destinatários (separados por vírgula)",
+      "perspective": "Perspective (opcional)",
+      "perspectivePlaceholder": "id, ex. 7",
+      "group": "Grupo (opcional)",
+      "groupPlaceholder": "somente esse time"
+    },
+    "col": {
+      "report": "Relatório",
+      "cadence": "Cadência",
+      "recipients": "Destinatários",
+      "lastSent": "Último envio"
     }
   }
 }

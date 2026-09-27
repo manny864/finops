@@ -1066,7 +1066,8 @@
     "tab_invoicing": "Invoicing Report",
     "tab_workbooks": "Workbooks",
     "tab_powerbi": "Power BI Templates",
-    "tab_focus": "FOCUS 1.1 Export"
+    "tab_focus": "FOCUS 1.1 Export",
+    "tab_subscriptions": "Subscriptions"
   },
   "AdminLoadTest": {
     "pageTitle": "Load Test",
@@ -15884,6 +15885,58 @@
     "outOfRank": {
       "sin-periodo-previo": "no previous period to compare against",
       "no-material": "too small to rank without it being noise"
+    }
+  },
+  "ReportSubscriptions": {
+    "intro": "Any report, at the cadence each person chooses, with link, chart and CSV. The email arrives on its own: in FinOps, the report you have to go looking for doesn't get read.",
+    "new": "New subscription",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "saved": "Subscription created.",
+    "saveError": "Could not create the subscription.",
+    "deleted": "Subscription deleted.",
+    "deleteError": "Could not delete.",
+    "needRecipient": "At least one recipient is required.",
+    "sendNow": "Send a test now (doesn't count as this period's delivery)",
+    "dayClamped": "In shorter months it's sent on the last day, instead of skipping the month.",
+    "loading": "Loading…",
+    "empty": "No subscriptions yet.",
+    "never": "never",
+    "inactive": "disabled: whoever created it is no longer active",
+    "delete": "Delete",
+    "freq": {
+      "daily": "Every day",
+      "weekly": "Weekly",
+      "monthly": "Monthly",
+      "weeklyOn": "Weekly, on {day}",
+      "monthlyOn": "Monthly, on day {day}"
+    },
+    "day": {
+      "sun": "Sundays",
+      "mon": "Mondays",
+      "tue": "Tuesdays",
+      "wed": "Wednesdays",
+      "thu": "Thursdays",
+      "fri": "Fridays",
+      "sat": "Saturdays"
+    },
+    "field": {
+      "report": "Report",
+      "frequency": "Frequency",
+      "dayOfWeek": "Day of week",
+      "dayOfMonth": "Day of month",
+      "recipients": "Recipients (comma separated)",
+      "perspective": "Perspective (optional)",
+      "perspectivePlaceholder": "id, e.g. 7",
+      "group": "Group (optional)",
+      "groupPlaceholder": "only that team"
+    },
+    "col": {
+      "report": "Report",
+      "cadence": "Cadence",
+      "recipients": "Recipients",
+      "lastSent": "Last sent"
     }
   }
 }

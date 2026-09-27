@@ -164,6 +164,12 @@ cron_jobs = {
   # Export FOCUS 1.1 diario por email.
   focus-export-daily = { cron = "0 4 * * *", timeout_seconds = 1800 } # 07:00 UTC
 
+  # MEJ-35 — el evaluador de suscripciones a reportes. UNO SOLO para todos los
+  # tipos de reporte, no uno por tipo: ya hay 26 jobs y sumar uno por reporte no
+  # escala. Corre cada hora porque la cadencia la decide cada suscripción (y su
+  # `last_sent_at` la hace idempotente), no el crontab.
+  report-subscriptions = { cron = "0 * * * *", timeout_seconds = 900 }
+
   # Alimenta /api/status y /status. Autentica por query param, no por header.
   status-snapshot = { cron = "*/5 * * * *", timeout_seconds = 120, auth_mode = "query" }
 

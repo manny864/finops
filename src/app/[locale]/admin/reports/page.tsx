@@ -5,6 +5,7 @@ import InvoicingReportPanel from "@/components/admin/panels/InvoicingReportPanel
 import WorkbooksPanel from "@/components/admin/panels/WorkbooksPanel";
 import PowerBiTemplatesPanel from "@/components/admin/panels/PowerBiTemplatesPanel";
 import FocusExportPanel from "@/components/admin/panels/FocusExportPanel";
+import ReportSubscriptionsPanel from "@/components/admin/panels/ReportSubscriptionsPanel";
 
 import { getTranslations } from "next-intl/server";
 
@@ -27,6 +28,9 @@ export default async function ReportsHubPage({
         { key: "workbooks", label: t("tab_workbooks"), originalHref: "/admin/workbooks", panel: <WorkbooksPanel /> },
         { key: "powerbi", label: t("tab_powerbi"), originalHref: "/admin/powerbi-templates", panel: <PowerBiTemplatesPanel /> },
         { key: "focus", label: t("tab_focus"), originalHref: "/admin/focus-export", panel: <FocusExportPanel /> },
+        // MEJ-35 — va como pestaña del hub que ya existe y no en una pantalla
+        // propia: es donde los reportes ya viven.
+        { key: "subscriptions", label: t("tab_subscriptions"), originalHref: "/admin/reports", panel: <ReportSubscriptionsPanel /> },
     ];
 
     return <AdminHubGate basePath={`/${locale}/admin/reports`} tabs={tabs} activeTab={tab ?? "executive"} />;
