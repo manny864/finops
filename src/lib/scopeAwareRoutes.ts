@@ -36,6 +36,10 @@ type Metodos = readonly string[] | "*";
  */
 export const RUTAS_CON_ALCANCE: Record<string, Metodos> = {
     "/api/cost-groups": ["GET"],
+    // El detalle de un Cost Group, que sabe recortar (MEJ-34). Se declara con
+    // `:name` y no por prefijo: asi `/api/cost-groups/<x>/resource-groups`, que
+    // NO sabe recortar, queda afuera.
+    "/api/cost-groups/:name": ["GET"],
     "/api/intelligence/cost-centers": ["GET"],
     "/api/intelligence/cost-centers/resources": ["GET"],
     "/api/intelligence/cost-projection": ["GET"],
@@ -60,7 +64,11 @@ export const RUTAS_CON_ALCANCE: Record<string, Metodos> = {
 export const RUTAS_DE_SHELL: Record<string, Metodos> = {
     "/api/tenants": ["GET"],
     "/api/subscriptions": ["GET"],
-    "/api/tenant-logo": ["GET"],
+    "/api/tenant-logo/:tenantId": ["GET"],
+    // La moneda de visualizacion del propio usuario. Sin ella `CurrencyProvider`
+    // cae a la de por defecto y los importes se dibujan en otra moneda.
+    // No devuelve un solo dato del tenant: la preferencia y la lista soportada.
+    "/api/fx/preference": ["GET"],
     "/api/academy/content": ["GET"],
     "/api/billing/addons/active": ["GET"],
     "/api/billing/plan": ["GET"],
@@ -95,15 +103,38 @@ export function paginaAdmiteAlcance(href: string): boolean {
     return PAGINAS_CON_ALCANCE.some((p) => href === p || href.startsWith(`${p}/`));
 }
 
+/**
+ * Coincidencia por SEGMENTOS. Un `:param` vale por exactamente un segmento.
+ *
+ * ANTES ERA POR PREFIJO, Y ESO ERA UN AGUJERO. `/api/intelligence/perspectives`
+ * está en la lista del shell porque devuelve nombres de reglas y —dice el
+ * comentario de arriba— «no devuelve un solo importe». Con prefijo habilitaba
+ * también a `/api/intelligence/perspectives/breakdown`, que devuelve el gasto
+ * de TODOS los grupos del tenant: exactamente lo que el alcance existe para
+ * recortar. Lo mismo `/api/cost-groups`, que arrastraba a `.../resource-groups`.
+ *
+ * Una lista de permitidos que se amplía sola cada vez que alguien agrega una
+ * subruta no es una lista de permitidos. Con segmentos, una subruta nueva nace
+ * negada —que es la premisa de todo este archivo— y para habilitarla hay que
+ * escribirla, que es cuando alguien piensa si sabe recortar.
+ */
+function coincidePatron(patron: string, pathname: string): boolean {
+    const p = patron.split("/");
+    const u = pathname.split("/");
+    if (p.length !== u.length) return false;
+    return p.every((seg, i) => (seg.startsWith(":") ? u[i].length > 0 : seg === u[i]));
+}
+
 function coincide(mapa: Record<string, Metodos>, pathname: string, metodo: string): boolean {
-    // Prefijo más largo primero, igual que `ROUTE_TIERS`: `/api/cost-groups/x`
-    // tiene que poder decidirse distinto de `/api/cost-groups`.
-    const claves = Object.keys(mapa).sort((a, b) => b.length - a.length);
+    // Lo literal antes que lo parametrizado: `/api/x/resources` le gana a
+    // `/api/x/:name` si algún día conviven.
+    const claves = Object.keys(mapa).sort(
+        (a, b) => (a.split(":").length - 1) - (b.split(":").length - 1)
+    );
     for (const clave of claves) {
-        if (pathname === clave || pathname.startsWith(`${clave}/`)) {
-            const metodos = mapa[clave];
-            return metodos === "*" || metodos.includes(metodo.toUpperCase());
-        }
+        if (!coincidePatron(clave, pathname)) continue;
+        const metodos = mapa[clave];
+        return metodos === "*" || metodos.includes(metodo.toUpperCase());
     }
     return false;
 }

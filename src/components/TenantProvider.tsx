@@ -1126,16 +1126,30 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                           }
                       }
                   } else {
-                      if (res.status !== 401 && res.status !== 403) {
+                      if (res.status === 403) {
+                          // UN 403 NUNCA ASCIENDE. El fallback de abajo existe para
+                          // el caso "el Owner todavia no esta en la tabla Users", que
+                          // es una AUSENCIA de dato; un 403 es lo contrario: el
+                          // servidor miro quien sos y te lo nego. Tratarlo como
+                          // ausencia le daba rol Admin en el cliente a quien el
+                          // servidor acababa de rechazar.
+                          //
+                          // Estaba latente hasta MEJ-38: esta ruta solo pedia
+                          // pertenencia al tenant, asi que nadie recibia 403. El
+                          // default-deny del alcance la niega a los usuarios
+                          // acotados -- y un usuario acotado no puede ser Admin,
+                          // que es justo el invariante que MEJ-38 declara y que
+                          // este camino rompia.
+                          console.warn("[TenantProvider] Rol denegado por el servidor (403): se aplica Reader.");
+                          setUserRole('Reader');
+                      } else {
                           console.warn("[TenantProvider] API Error fetching role. Status:", res.status);
-                      } else if (res.status === 403) {
-                          console.warn("[TenantProvider] Access to tenant users config restricted (403). Applying fallback role.");
+                          if (isAdmin || accounts[0].tenantId === selectedTenant.id || process.env.NODE_ENV === 'development') {
+                              console.warn("[TenantProvider] Fallback on API Error: assigning Admin role");
+                              setUserRole('Admin');
+                          }
+                          else setUserRole('Reader');
                       }
-                      if (isAdmin || accounts[0].tenantId === selectedTenant.id || process.env.NODE_ENV === 'development') {
-                          console.warn("[TenantProvider] Fallback on API Error: assigning Admin role");
-                          setUserRole('Admin');
-                      }
-                      else setUserRole('Reader');
                   }
               } catch(e) {
                   console.warn("[TenantProvider] Error fetching role exception:", e);

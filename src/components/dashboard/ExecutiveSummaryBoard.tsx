@@ -36,7 +36,7 @@ import { Responsive, WidthProvider } from "react-grid-layout/legacy";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { getCookie, setCookie } from "@/lib/clientCookie";
-import { AlcanceNoAplicado, usePerspectiveScope } from "@/components/PerspectiveScopeSelector";
+import { AlcanceNoAplicado, useAlcanceAsignado, usePerspectiveScope } from "@/components/PerspectiveScopeSelector";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -292,8 +292,22 @@ export default function ExecutiveSummaryBoard() {
   }, [canFetch, selectedTenant, locale, isDemo, mutate]);
 
   const summarySub = "All";
+  /**
+   * MEJ-38 — con un alcance asignado esta segunda consulta NO se hace.
+   *
+   * Es el respaldo de los KPIs (`data?.summary?.x ?? summaryData?.y ?? 0`) y
+   * habla del tenant ENTERO, sin recortar. Para un usuario acotado eso no es
+   * un respaldo: el servidor la niega, porque esta fuera del default-deny. Y
+   * si algun dia se la habilitara sin ensenarle a recortar, le llenaria las
+   * tarjetas con el gasto de toda la empresa.
+   *
+   * El whiteboard acotado es la fuente primaria y ya trae estos campos; sin el
+   * respaldo, lo que falte se ve vacio en vez de verse ajeno.
+   */
+  const { scope: alcanceAsignado } = useAlcanceAsignado();
+  const pedirResumenGlobal = canFetch && !alcanceAsignado;
   const { data: summaryData, isLoading: summaryLoading } = useSWR(
-    canFetch
+    pedirResumenGlobal
       ? `/api/dashboard/summary?tenantId=${selectedTenant!.id}&subscriptionId=${summarySub}${isDemo ? "&mock=true" : ""}`
       : null,
     fetcher,

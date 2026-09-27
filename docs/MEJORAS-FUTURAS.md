@@ -3860,11 +3860,72 @@ mismo usuario actualiza en vez de duplicar, y borrar la Perspective se lleva el 
 
 Tests: `__tests__/unit/alcanceComoPermiso.test.ts`.
 
-#### 9. Lo que queda
+#### 9. Auditoría de la superficie (2026-09-27) — la lista de permitidos se ampliaba sola
+
+El mecanismo estaba bien: el default niega y las rutas conscientes cortan. **El mapa no.** La
+coincidencia era por prefijo —copiada de `ROUTE_TIERS`, donde tiene sentido— y en una lista de
+permitidos significa que declarar una ruta habilita todo lo que cuelgue debajo, **incluso lo
+escrito después, incluso lo que no sabe recortar**. Dos rutas entraron así:
+
+| Ruta | Entraba por | Qué devolvía |
+|---|---|---|
+| `/api/intelligence/perspectives/breakdown` | `/api/intelligence/perspectives` | el gasto de **todos los grupos** del tenant |
+| `/api/cost-groups/<x>/resource-groups` | `/api/cost-groups` | el inventario de rg de cualquier grupo |
+
+La primera es la que duele: `/api/intelligence/perspectives` está en la lista del shell y su
+comentario dice, textual, que entra porque *"no devuelve un solo importe"*. El prefijo le
+regalaba la subruta que devuelve todos. **El razonamiento que justificaba la entrada era correcto
+y aun así el resultado era una fuga**, porque el criterio se escribió sobre una ruta y la
+coincidencia operaba sobre un subárbol.
+
+Ahora la coincidencia es **por segmentos**, con `:param` valiendo por exactamente uno. Una subruta
+nueva nace negada, que es la premisa del archivo, y habilitarla exige escribirla — que es el
+momento en que alguien se pregunta si sabe recortar. Superficie resultante: **22 rutas de 469**.
+
+**El hallazgo de fondo, que no era una fuga sino un ascenso.** `TenantProvider` resuelve el rol
+del usuario con `GET /api/admin/config/users`, y su manejo de error decía:
+
+```js
+if (isAdmin || accounts[0].tenantId === selectedTenant.id || …) setUserRole('Admin');
+```
+
+Ese respaldo se escribió para "el Owner todavía no está en la tabla `Users`", que es una **ausencia
+de dato**. Un 403 es lo contrario: el servidor miró quién sos y te lo negó. Estaba latente porque
+esa ruta sólo pedía pertenencia al tenant y nadie recibía 403 — **y MEJ-38 es justo lo que lo
+activa**, porque el default-deny se la niega a los usuarios acotados. O sea que el cliente le
+asignaba rol `Admin` al usuario que el servidor acababa de rechazar, contradiciendo el invariante
+que esta misma mejora declara (un usuario con alcance no puede ser `Admin`/`Owner`). El servidor
+seguía enforceando, así que no había escalamiento real de permisos; lo que había era una UI que
+mostraba un producto que no le correspondía. Ahora un 403 aplica `Reader` y nunca asciende.
+
+**Lo que quedó negado a propósito**, y no por olvido: `dashboard/summary` (gasto del tenant
+entero), `notifications` (avisos con importes de centros ajenos), `search` (inventario y pantallas
+que no tiene), `copilot` (responde sobre todo el tenant) y `tags/apply-bulk` (escritura). Cada una
+está fijada en el test, así que habilitarla exige cambiarlo.
+
+**Un falso positivo propio, anotado para no repetirlo.** El primer barrido dio 42 rutas negadas y
+eran 9: el mapa sólo actúa sobre rutas que pasan por `requireTenantAccess`, y `fx/rates`,
+`profile`, `onboard` y las de `leads`/`pricing` no tienen guard de tenant, así que el alcance ni
+las toca. **El login y el menú de perfil nunca estuvieron en riesgo.** La lista de rutas que una
+pantalla llama no es la lista de rutas que el alcance niega — el mismo error de método que ya
+había costado tres rutas equivocadas en MEJ-34.
+
+`ExecutiveSummaryBoard` dejó de pedir `dashboard/summary` cuando hay alcance: era el respaldo de
+los KPIs (`data?.summary?.x ?? summaryData?.y ?? 0`), hablaba del tenant entero y con el 403
+dejaba las tarjetas en **0 sin decir por qué**.
+
+Tests: `__tests__/unit/superficieDelAlcance.test.ts` (23).
+
+#### 10. Lo que queda
 
 `SavedViews` —la mitad de "vistas guardadas" de esta mejora— sigue sin hacerse, y es correcto que
 vaya última: es comodidad, no permiso. Y la lista de rutas que saben acotar tiene diez entradas de
 las 304 posibles: crece con MEJ-34, no con esto.
+
+Sin probar: el camino del usuario acotado **en el navegador**. No hay bypass de auth en desarrollo,
+así que exige credenciales reales. La auditoría estática cubre más que un paseo —mira las cinco
+páginas y las 469 rutas, no las que uno se acuerde de clickear— pero no ve un `useEffect` que
+dispare una llamada sólo bajo cierto estado.
 
 #### 8. Orden de implementación
 
