@@ -52,7 +52,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-34](#mej-34--perspectives-agrupación-multidimensional-del-gasto) | Perspectives: agrupación multidimensional del gasto — cinco criterios + selector transversal; lo adoptan el export FOCUS, Cost Groups (con su detalle), Centros de Costo (con sus recursos), Gastos y Proyección, la pizarra ejecutiva y **Almacenamiento**; quedan 3 candidatos medidos | Asignación / Transversal | Alto | Alto | Parcial |
 | [MEJ-35](#mej-35--suscripciones-a-reportes-cualquier-reporte-a-la-cadencia-que-elija-el-usuario) | Suscripciones a reportes: cualquier reporte, a la cadencia que elija el usuario, con link + imagen + CSV | Reportes | Alto | Medio | Propuesta |
 | [MEJ-36](#mej-36--presupuestos-rollover-y-año-fiscal-no-calendario) | Presupuestos: rollover con tope y año fiscal no calendario — el ejercicio estaba cableado a enero en cuatro lugares y corría todos los acumulados anuales sin decirlo | Presupuestos | Medio | Bajo | Hecha |
-| [MEJ-37](#mej-37--leaderboard-de-equipos-y-margen-bruto) | Leaderboard de equipos (ordenado por mejora, no por gasto) y split COGS/OpEx | Integración con el negocio | Medio | Bajo | Propuesta |
+| [MEJ-37](#mej-37--leaderboard-de-equipos-y-margen-bruto) | Leaderboard de equipos (ordenado por mejora, no por gasto) y split COGS/OpEx — **fase 1 hecha**; fase 2 (métricas de negocio) sin empezar | Integración con el negocio | Medio | Bajo | Parcial |
 | [MEJ-38](#mej-38--views-vistas-guardadas-y-con-alcance-por-equipo) | Views: el alcance por equipo aplicado en el SERVIDOR — permiso (default-deny, mapa por (ruta, método), un usuario con alcance no puede ser Admin/Owner) **y** `SavedViews`; la auditoría de la superficie encontró y cerró dos fugas por coincidencia de prefijo | Transversal / RBAC | Alto | Medio | Hecha |
 | [MEJ-39](#mej-39--fin-de-soporte-eoleos-de-la-plataforma-azure) | Fin de soporte (EOL/EOS) con el costo de lo afectado — **fase 1 hecha**: catálogo curado de AKS + PostgreSQL + MySQL Flexible, semáforo y costo mensual; fase 2 (licencias en la nube) sin empezar | Gobernanza / Riesgo | Alto | Medio | Parcial |
 | [MEJ-40](#mej-40--esr-y-riesgo-de-la-cartera-de-compromisos) | Concentración de vencimientos + ESR; se desbloqueó poblando `ListCost` de verdad | Compromisos | Alto | Medio | Hecha |
@@ -3662,7 +3662,7 @@ Tests: `__tests__/unit/anioFiscalYArrastre.test.ts` (el helper),
 
 ## MEJ-37 — Leaderboard de equipos y margen bruto
 
-**Módulo:** Integración con el negocio · **Impacto:** Medio · **Esfuerzo:** Bajo · **Estado:** Propuesta
+**Módulo:** Integración con el negocio · **Impacto:** Medio · **Esfuerzo:** Bajo · **Estado:** Hecha (fase 1, 2026-09-27)
 
 ### Contexto
 
@@ -3711,6 +3711,65 @@ serie temporal por tenant; el resto es dividir.
 3. El split COGS/OpEx suma el total, con `UNCLASSIFIED` visible.
 4. **Nadie con acceso al tenant ve un ranking que no puede explicar**: cada fila lleva al
    desglose de ese grupo. Un leaderboard sin drill-down genera discusión, no optimización.
+
+---
+
+### Hecho — fase 1 (2026-09-27)
+
+`src/services/leaderboard.service.ts` (puro), `GET/PUT /api/intelligence/leaderboard`,
+`/intelligence/leaderboard`, migración `20260927-002-perspective-cogs.sql`. Los cuatro criterios
+cumplidos.
+
+**El orden, que es la mejora entera.** Se ordena por la baja porcentual contra el período anterior
+y, a igual variación, por ahorro capturado. Las dos miran comportamiento y no tamaño. Y hubo que
+resolver **dos casos que lo habrían roto**, los dos con test:
+
+- **Un grupo sin período anterior no se rankea.** No mejoró ni empeoró: no hay contra qué
+  compararlo. Ponerlo primero lo premiaría por haber nacido y ponerlo último lo castigaría por lo
+  mismo. Aparece en la tabla, marcado, fuera del orden.
+- **Un grupo por debajo del 1% del gasto no se rankea.** Sin ese piso, uno que pasó de 1 a 0,50
+  dólares muestra −50% y le gana al equipo que recortó 50.000 con un −10%: el ranking premiaría al
+  ruido. El umbral va en la respuesta, no escondido en el código, para que la pantalla lo diga.
+
+**El presupuesto se cruza por NOMBRE, y es una convención, no un dato.** Un grupo de Perspective y
+un centro de costo son cosas distintas y no hay clave que los una. Cuando no coincide, la columna
+queda **vacía** en vez de mostrar el presupuesto de otro equipo, que sería peor que no mostrar
+ninguno. Es el criterio 2 y está en el test.
+
+**El ahorro capturado sale de remediaciones aprobadas Y con resultado de ejecución ARM**, no
+aprobadas a secas: aprobar es una intención, y esta columna afirma que ya se hizo. El enum de
+`status` no tiene un valor "ejecutada" —es `Pending/Approved/Rejected/Failed`—, así que la
+evidencia de que corrió es que exista el resultado de la llamada.
+
+Y se atribuye con **las mismas reglas** que el costo: las remediaciones entran a `repartir` como
+filas de costo. Una segunda forma de decidir de qué equipo es un recurso sería una segunda forma de
+equivocarse. Con una consecuencia que se asume explícita: `RemediationRequests` no guarda
+etiquetas, así que **una Perspective cuyas reglas sean por tag no puede atribuir ahorro** y esos
+montos caen en `sinAsignar`. Inventar la etiqueta desde el nombre del recurso pondría el ahorro en
+el equipo equivocado.
+
+**Tabla propia y no una columna.** Un grupo de Perspective no es una fila en ningún lado: existe
+sólo como el `group_name` que repiten las reglas. Poner `cogs_classification` en `PerspectiveRules`
+obligaría a repetir la clasificación en cada regla y a resolver qué pasa cuando dos reglas del
+mismo grupo dicen cosas distintas — una inconsistencia que la base no podría impedir. Tampoco se
+guarda una fila `UNCLASSIFIED`: sin fila ya está sin clasificar. Verificado contra MySQL real: el
+upsert no duplica y borrar la Perspective cascadea la clasificación.
+
+**Sin Perspective definida el tablero lo dice**, en vez de devolver una tabla vacía que se leería
+como "nadie gastó".
+
+No la ve un usuario con alcance asignado: un leaderboard es una comparación **entre** grupos y su
+recorte es justamente no ver los otros. El default-deny de MEJ-38 la niega sin escribir nada.
+
+Tests: `__tests__/unit/leaderboardDeEquipos.test.ts` (10, la función pura) y
+`leaderboardRuta.test.ts` (8, los cruces).
+
+### Lo que queda
+
+- **Fase 2 — métricas de negocio**: sin empezar. Es lo que convierte el split en margen bruto de
+  verdad, y sin la métrica del negocio no hay margen que calcular.
+- **La clasificación COGS/OpEx no tiene UI propia todavía**: el `PUT` existe y está probado, pero se
+  asigna por API. Ponerle pantalla es chico y va con la fase 2.
 
 ---
 

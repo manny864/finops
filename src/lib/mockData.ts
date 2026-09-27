@@ -3479,6 +3479,48 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
             const tickets = multiplier >= 3 ? [...extraTickets, ...baseTickets] : baseTickets;
             return { success: true, tickets, quota };
         }
+        case 'leaderboard': {
+            // MEJ-37. La demo muestra los TRES estados de una fila: rankeada,
+            // sin período previo y no material. Con sólo filas rankeadas, la
+            // regla que define el tablero no se vería.
+            const filas = [
+                { grupo: "Plataforma", puesto: 1, gasto: 84_200 * multiplier, gastoPrevio: 102_400 * multiplier,
+                  variacionPct: -17.77, presupuesto: 95_000 * multiplier, adherenciaPct: 88.6,
+                  ahorroCapturado: 4_120 * multiplier, clasificacion: "COGS", sinRanking: null },
+                { grupo: "Datos", puesto: 2, gasto: 41_900 * multiplier, gastoPrevio: 43_100 * multiplier,
+                  variacionPct: -2.78, presupuesto: null, adherenciaPct: null,
+                  ahorroCapturado: 0, clasificacion: "COGS", sinRanking: null },
+                { grupo: "Corporativo", puesto: 3, gasto: 22_600 * multiplier, gastoPrevio: 19_800 * multiplier,
+                  variacionPct: 14.14, presupuesto: 20_000 * multiplier, adherenciaPct: 113,
+                  ahorroCapturado: 0, clasificacion: "OPEX", sinRanking: null },
+                { grupo: "IA (nuevo)", puesto: null, gasto: 12_400 * multiplier, gastoPrevio: null,
+                  variacionPct: null, presupuesto: null, adherenciaPct: null,
+                  ahorroCapturado: 0, clasificacion: "UNCLASSIFIED", sinRanking: "sin-periodo-previo" },
+                { grupo: "Laboratorio", puesto: null, gasto: 180 * multiplier, gastoPrevio: 360 * multiplier,
+                  variacionPct: -50, presupuesto: null, adherenciaPct: null,
+                  ahorroCapturado: 0, clasificacion: "UNCLASSIFIED", sinRanking: "no-material" },
+            ];
+            const suma = (c: string) => Number(filas.filter((f) => f.clasificacion === c)
+                .reduce((a, f) => a + f.gasto, 0).toFixed(2));
+            return {
+                success: true,
+                mock: true,
+                perspective: { id: 1, name: "Equipos" },
+                perspectivas: [{ id: 1, name: "Equipos" }],
+                filas,
+                criterio: {
+                    ordenadoPor: "mejora",
+                    descripcion: "Ordenado por la baja porcentual del gasto contra el período anterior; a igual variación, por ahorro capturado. No por gasto: un ranking por gasto absoluto premia al equipo chico y castiga al que corre producción.",
+                    umbralMaterialidadPct: 1,
+                },
+                split: {
+                    COGS: suma("COGS"), OPEX: suma("OPEX"), UNCLASSIFIED: suma("UNCLASSIFIED"),
+                    total: Number(filas.reduce((a, f) => a + f.gasto, 0).toFixed(2)),
+                },
+                sinAsignar: { costo: 3_100 * multiplier, porcentaje: 1.9 },
+                coberturaPct: 98.1,
+            };
+        }
         case 'governance_lifecycle': {
             // MEJ-39. La demo tiene que mostrar las CUATRO ventanas, incluida
             // "sin-datos": si sólo mostrara lo retirado, nadie vería que el

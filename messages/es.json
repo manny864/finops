@@ -9927,7 +9927,8 @@
     "overview": "Resumen",
     "remediation": "Remediación",
     "perspectives": "Perspectives",
-    "lifecycle_eol": "Fin de soporte"
+    "lifecycle_eol": "Fin de soporte",
+    "team_leaderboard": "Leaderboard de equipos"
   },
   "Network": {
     "title": "Análisis de Red y Egress",
@@ -15855,5 +15856,34 @@
     "delete": "Borrar",
     "sharedTag": "compartida",
     "defaultTag": "predeterminada"
+  },
+  "Leaderboard": {
+    "pageTitle": "Leaderboard de equipos",
+    "pageSubtitle": "Quién mejoró, no quién gasta menos. Y cuánto del gasto es costo de venta.",
+    "loading": "Comparando el período con el anterior…",
+    "error": "No se pudo armar el ranking.",
+    "empty": "Ningún grupo con gasto en el período.",
+    "noPerspective": "Este tablero compara los grupos de una Perspective, y todavía no hay ninguna definida.",
+    "definePerspective": "Definir una",
+    "splitTitle": "Costo de venta y gasto operativo",
+    "unallocated": "{cost} ({pct}%) sin asignar: ninguna regla lo alcanza. Entra en el total pero no en ningún equipo.",
+    "drillDown": "Ver desglose",
+    "class": {
+      "COGS": "COGS",
+      "OPEX": "OpEx",
+      "UNCLASSIFIED": "Sin clasificar",
+      "total": "Total"
+    },
+    "col": {
+      "team": "Equipo",
+      "spend": "Gasto",
+      "change": "Variación",
+      "budget": "Presupuesto usado",
+      "savings": "Ahorro capturado"
+    },
+    "outOfRank": {
+      "sin-periodo-previo": "sin período anterior con el que comparar",
+      "no-material": "muy chico para rankear sin que sea ruido"
+    }
   }
 }

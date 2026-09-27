@@ -9927,7 +9927,8 @@
     "overview": "Overview",
     "remediation": "Remediation",
     "perspectives": "Perspectives",
-    "lifecycle_eol": "End of support"
+    "lifecycle_eol": "End of support",
+    "team_leaderboard": "Team leaderboard"
   },
   "Network": {
     "title": "Network & Egress Analysis",
@@ -15855,5 +15856,34 @@
     "delete": "Delete",
     "sharedTag": "shared",
     "defaultTag": "default"
+  },
+  "Leaderboard": {
+    "pageTitle": "Team leaderboard",
+    "pageSubtitle": "Who improved, not who spends least. And how much of the spend is cost of goods.",
+    "loading": "Comparing this period with the previous one…",
+    "error": "Could not build the ranking.",
+    "empty": "No group with spend in the period.",
+    "noPerspective": "This board compares the groups of a Perspective, and none is defined yet.",
+    "definePerspective": "Define one",
+    "splitTitle": "Cost of goods and operating expense",
+    "unallocated": "{cost} ({pct}%) unallocated: no rule reaches it. It counts in the total but in no team.",
+    "drillDown": "See breakdown",
+    "class": {
+      "COGS": "COGS",
+      "OPEX": "OpEx",
+      "UNCLASSIFIED": "Unclassified",
+      "total": "Total"
+    },
+    "col": {
+      "team": "Team",
+      "spend": "Spend",
+      "change": "Change",
+      "budget": "Budget used",
+      "savings": "Captured savings"
+    },
+    "outOfRank": {
+      "sin-periodo-previo": "no previous period to compare against",
+      "no-material": "too small to rank without it being noise"
+    }
   }
 }

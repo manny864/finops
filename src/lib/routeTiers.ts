@@ -93,6 +93,7 @@ export const ROUTE_TIERS: Record<string, 'Professional' | 'Business' | 'Enterpri
     '/governance/shift-left': 'Business',
     '/governance/ha': 'Business',
     '/governance/lifecycle': 'Business',
+    '/intelligence/leaderboard': 'Business',
     '/governance/credentials': 'Business',
     '/remediation/approvals': 'Business',
     '/governance/approvals': 'Business',
