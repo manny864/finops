@@ -15846,5 +15846,14 @@
       "endOfSupport": "End of support",
       "monthlyCost": "Monthly cost"
     }
+  },
+  "Views": {
+    "title": "Views",
+    "empty": "You haven't saved any views yet.",
+    "saveCurrent": "Save current view…",
+    "namePrompt": "What's this view called?",
+    "delete": "Delete",
+    "sharedTag": "shared",
+    "defaultTag": "default"
   }
 }

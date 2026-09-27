@@ -6,6 +6,7 @@ import { TenantProvider, useTenant } from './TenantProvider';
 import { SubscriptionProvider } from './SubscriptionProvider';
 import ScopeSelector from './ScopeSelector';
 import PerspectiveScopeSelector from './PerspectiveScopeSelector';
+import SavedViewSelector from './SavedViewSelector';
 import { ViewModeProvider, useViewMode } from '../context/ViewModeContext';
 import { ProviderProvider } from '../context/ProviderContext';
 import { Bell, HelpCircle } from 'lucide-react';
@@ -406,6 +407,8 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
                 {/* MEJ-34: al lado del de suscripcion porque hace lo mismo, acotar. Se
                     dibuja solo si el tenant tiene Perspectives. */}
                 <PerspectiveScopeSelector />
+                {/* MEJ-38: las vistas guardadas, pegadas al alcance que guardan. */}
+                <SavedViewSelector />
             </div>
 
             {/* En móvil el idioma vive en el Perfil y Soporte tiene su pestaña

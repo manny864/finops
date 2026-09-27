@@ -53,7 +53,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-35](#mej-35--suscripciones-a-reportes-cualquier-reporte-a-la-cadencia-que-elija-el-usuario) | Suscripciones a reportes: cualquier reporte, a la cadencia que elija el usuario, con link + imagen + CSV | Reportes | Alto | Medio | Propuesta |
 | [MEJ-36](#mej-36--presupuestos-rollover-y-año-fiscal-no-calendario) | Presupuestos: rollover con tope y año fiscal no calendario — el ejercicio estaba cableado a enero en cuatro lugares y corría todos los acumulados anuales sin decirlo | Presupuestos | Medio | Bajo | Hecha |
 | [MEJ-37](#mej-37--leaderboard-de-equipos-y-margen-bruto) | Leaderboard de equipos (ordenado por mejora, no por gasto) y split COGS/OpEx | Integración con el negocio | Medio | Bajo | Propuesta |
-| [MEJ-38](#mej-38--views-vistas-guardadas-y-con-alcance-por-equipo) | Views: el alcance por equipo aplicado en el SERVIDOR — **el permiso está hecho** (default-deny en `requireTenantAccess`, mapa por (ruta, método), un usuario con alcance no puede ser Admin/Owner); falta `SavedViews`, que es comodidad y no permiso | Transversal / RBAC | Alto | Medio | Parcial |
+| [MEJ-38](#mej-38--views-vistas-guardadas-y-con-alcance-por-equipo) | Views: el alcance por equipo aplicado en el SERVIDOR — permiso (default-deny, mapa por (ruta, método), un usuario con alcance no puede ser Admin/Owner) **y** `SavedViews`; la auditoría de la superficie encontró y cerró dos fugas por coincidencia de prefijo | Transversal / RBAC | Alto | Medio | Hecha |
 | [MEJ-39](#mej-39--fin-de-soporte-eoleos-de-la-plataforma-azure) | Fin de soporte (EOL/EOS) con el costo de lo afectado — **fase 1 hecha**: catálogo curado de AKS + PostgreSQL + MySQL Flexible, semáforo y costo mensual; fase 2 (licencias en la nube) sin empezar | Gobernanza / Riesgo | Alto | Medio | Parcial |
 | [MEJ-40](#mej-40--esr-y-riesgo-de-la-cartera-de-compromisos) | Concentración de vencimientos + ESR; se desbloqueó poblando `ListCost` de verdad | Compromisos | Alto | Medio | Hecha |
 
@@ -3689,7 +3689,7 @@ serie temporal por tenant; el resto es dividir.
 
 ## MEJ-38 — Views: vistas guardadas y con alcance por equipo
 
-**Módulo:** Transversal / RBAC · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Propuesta
+**Módulo:** Transversal / RBAC · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Hecha (2026-09-27)
 **Depende de:** MEJ-34 (sin Perspectives no hay por dónde recortar).
 
 ### Contexto
@@ -3916,11 +3916,48 @@ dejaba las tarjetas en **0 sin decir por qué**.
 
 Tests: `__tests__/unit/superficieDelAlcance.test.ts` (23).
 
-#### 10. Lo que queda
+#### 10. `SavedViews` — la mitad de comodidad (2026-09-27)
 
-`SavedViews` —la mitad de "vistas guardadas" de esta mejora— sigue sin hacerse, y es correcto que
-vaya última: es comodidad, no permiso. Y la lista de rutas que saben acotar tiene diez entradas de
-las 304 posibles: crece con MEJ-34, no con esto.
+`migrations/20260927-001-saved-views.sql`, `GET/POST/DELETE /api/intelligence/views`, y un selector
+en el shell pegado al de Perspective.
+
+**Aplicar una vista es escribir los mismos parámetros de URL que el usuario podría poner a mano.**
+Reusa `setScope` de `usePerspectiveScope` en vez de tener camino propio, y eso es deliberado: si una
+vista pudiera llevar a un estado que la URL no alcanza, sería un permiso disfrazado de comodidad.
+Son dos tablas y no una por lo mismo — una vista se elige y se deja de elegir; un alcance no.
+
+**El dueño se guarda como cadena vacía, no como NULL.** En MySQL un UNIQUE deja pasar todos los
+NULL que quieras porque `NULL != NULL`, así que `UNIQUE (tenant_id, user_email, name)` con NULL
+para las compartidas habría permitido diez vistas compartidas llamadas "Q3" — el mismo `NULL !=
+NULL` que ya obligó a envolver en `COALESCE` el predicado de MEJ-34. Verificado contra MySQL real:
+con `''` el segundo insert devuelve `ERROR 1062`.
+
+**Crear o borrar una compartida exige Admin/Owner**; la propia, sólo pertenecer al tenant. Una vista
+compartida la ve —y la pierde— todo el tenant, así que no es una escritura personal. Borrar la de
+otro usuario da 403, y un id inexistente pasa igual por el guard antes de contestar 404: si no, el
+404 le confirmaría a cualquiera qué ids existen en un tenant ajeno.
+
+**`is_default` no tiene restricción en la base.** "A lo sumo una en true por usuario" no se expresa
+con un UNIQUE común, y un trigger costaría más de mantener que la única escritura que lo toca. Lo
+garantiza el endpoint, apagando las demás **en la misma transacción** — hay test de que si la
+escritura falla se hace rollback y no quedan dos.
+
+Del lado del cliente, la predeterminada se aplica una sola vez y sólo si la URL no dice otra cosa,
+con un `ref` que no es decorativo: sin él `setScope` cambia la URL, el efecto vuelve a correr y se
+navega en círculo.
+
+El selector **no se dibuja** para un usuario con alcance asignado, y la ruta tampoco le responde
+(no está en `RUTAS_CON_ALCANCE`). Su recorte no se elige, no se guarda y no se cambia.
+
+Verificado contra MySQL real, con tres vistas: Ana ve la suya y la compartida, y **cero** filas de
+Beto.
+
+Tests: `__tests__/unit/vistasGuardadas.test.ts` (14).
+
+#### 11. Lo que queda
+
+La lista de rutas que saben acotar tiene once entradas de las 304 posibles: crece con MEJ-34, no
+con esto. Un usuario acotado tiene, a propósito, un producto chico.
 
 Sin probar: el camino del usuario acotado **en el navegador**. No hay bypass de auth en desarrollo,
 así que exige credenciales reales. La auditoría estática cubre más que un paseo —mira las cinco

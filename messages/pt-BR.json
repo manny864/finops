@@ -15846,5 +15846,14 @@
       "endOfSupport": "Fim de suporte",
       "monthlyCost": "Custo mensal"
     }
+  },
+  "Views": {
+    "title": "Visões",
+    "empty": "Você ainda não salvou nenhuma visão.",
+    "saveCurrent": "Salvar a visão atual…",
+    "namePrompt": "Como se chama esta visão?",
+    "delete": "Excluir",
+    "sharedTag": "compartilhada",
+    "defaultTag": "padrão"
   }
 }
