@@ -130,3 +130,61 @@ export function armarLeaderboard(entradas: EntradaDeGrupo[]): Leaderboard {
         split,
     };
 }
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MEJ-37 fase 2 — margen bruto
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface MargenBruto {
+    /** Ingresos del período. `null` = no se ingestó ninguno. */
+    ingresos: number | null;
+    /** El costo clasificado como COGS. */
+    cogs: number;
+    /** Gasto que ninguna clasificación alcanzó. Empuja el margen HACIA ARRIBA. */
+    cogsSinClasificar: number;
+    /** `(ingresos − cogs) / ingresos`, en porcentaje. `null` sin ingresos. */
+    margenPct: number | null;
+    /**
+     * El margen si TODO lo sin clasificar resultara ser COGS.
+     *
+     * No es pesimismo decorativo: mientras quede gasto sin clasificar, el margen
+     * de arriba es el mejor caso posible, y un margen optimista es el error que
+     * un número financiero no puede cometer. Mostrar el rango dice la verdad
+     * completa; mostrar sólo el primero la dice a medias y para el lado cómodo.
+     */
+    margenPeorCasoPct: number | null;
+    /** Si hay que mostrar el rango: hay gasto sin clasificar. */
+    esRango: boolean;
+}
+
+/**
+ * El margen bruto del período.
+ *
+ * DOS COSAS QUE NO SE HACEN, a propósito:
+ *
+ * - **Sin ingresos NO se devuelve 0%.** Cero por ciento es una afirmación
+ *   —"todo lo que entra se va en nube"— y lo que pasa es que nadie ingestó el
+ *   dato. `null` es lo único honesto.
+ * - **Un margen negativo NO se recorta a cero.** Gastar más de lo que entra es
+ *   un hecho, y es exactamente el hecho que esta pantalla existe para mostrar.
+ */
+export function margenBruto(
+    ingresos: number | null,
+    split: { COGS: number; UNCLASSIFIED: number },
+): MargenBruto {
+    const cogs = split.COGS;
+    const sinClasificar = split.UNCLASSIFIED;
+    const hayIngresos = ingresos !== null && ingresos > 0;
+
+    const pct = (c: number) => (hayIngresos ? Number((((ingresos! - c) / ingresos!) * 100).toFixed(2)) : null);
+
+    return {
+        ingresos,
+        cogs: Number(cogs.toFixed(2)),
+        cogsSinClasificar: Number(sinClasificar.toFixed(2)),
+        margenPct: pct(cogs),
+        margenPeorCasoPct: pct(cogs + sinClasificar),
+        esRango: sinClasificar > 0,
+    };
+}

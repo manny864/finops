@@ -13979,7 +13979,9 @@
     "svccat_STORAGE": "Armazenamento",
     "svccat_NETWORK": "Redes",
     "svccat_AI": "IA",
-    "svccat_OTHER": "Outros"
+    "svccat_OTHER": "Outros",
+    "metric_REVENUE_name": "Receita faturada",
+    "metric_REVENUE_unitOne": "USD"
   },
   "UnregisteredUser": {
     "badge": "Acesso Restrito",
@@ -15885,6 +15887,13 @@
     "outOfRank": {
       "sin-periodo-previo": "sem período anterior para comparar",
       "no-material": "pequeno demais para ranquear sem ser ruído"
+    },
+    "margin": {
+      "title": "Margem bruta",
+      "noRevenue": "Ainda não há receita carregada. Envie com POST /api/unit-metrics/ingest usando metricType REVENUE e a mesma API Key pública; a margem aparece sozinha.",
+      "worstCase": "· {pct}% se tudo sem classificar fosse COGS",
+      "formula": "{revenue} de receita − {cogs} de COGS",
+      "unclassifiedWarning": "Há {cost} de gasto sem classificar: enquanto restar, a margem acima é o melhor caso."
     }
   },
   "ReportSubscriptions": {

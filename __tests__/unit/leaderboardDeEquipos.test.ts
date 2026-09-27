@@ -115,3 +115,69 @@ describe("el split COGS/OpEx", () => {
         expect(split.COGS + split.OPEX + split.UNCLASSIFIED).toBe(split.total);
     });
 });
+
+describe("MEJ-37 fase 2 — el margen bruto", () => {
+    it("sin ingresos devuelve null, NO 0%", async () => {
+        // 0% sería afirmar que todo lo que entra se va en nube. Lo que pasa es
+        // que nadie ingestó el dato, que es otra cosa.
+        const { margenBruto } = await import("@/services/leaderboard.service");
+        const m = margenBruto(null, { COGS: 60_000, UNCLASSIFIED: 0 });
+        expect(m.margenPct).toBeNull();
+        expect(m.margenPeorCasoPct).toBeNull();
+    });
+
+    it("con ingresos en cero tampoco divide", async () => {
+        const { margenBruto } = await import("@/services/leaderboard.service");
+        expect(margenBruto(0, { COGS: 100, UNCLASSIFIED: 0 }).margenPct).toBeNull();
+    });
+
+    it("el cálculo es (ingresos − COGS) / ingresos", async () => {
+        const { margenBruto } = await import("@/services/leaderboard.service");
+        expect(margenBruto(200_000, { COGS: 60_000, UNCLASSIFIED: 0 }).margenPct).toBe(70);
+    });
+
+    it("un margen NEGATIVO no se recorta a cero", async () => {
+        // Gastar más de lo que entra es un hecho, y es el hecho que esta
+        // pantalla existe para mostrar.
+        const { margenBruto } = await import("@/services/leaderboard.service");
+        expect(margenBruto(50_000, { COGS: 80_000, UNCLASSIFIED: 0 }).margenPct).toBe(-60);
+    });
+
+    it("lo sin clasificar da un RANGO, porque empuja el margen hacia arriba", async () => {
+        // Sin el peor caso, el número se lee mejor de lo que es — y un margen
+        // optimista es el error que un número financiero no puede cometer.
+        const { margenBruto } = await import("@/services/leaderboard.service");
+        const m = margenBruto(200_000, { COGS: 60_000, UNCLASSIFIED: 40_000 });
+        expect(m.margenPct).toBe(70);
+        expect(m.margenPeorCasoPct).toBe(50);
+        expect(m.esRango).toBe(true);
+    });
+
+    it("sin gasto sin clasificar no hay rango que mostrar", async () => {
+        const { margenBruto } = await import("@/services/leaderboard.service");
+        const m = margenBruto(200_000, { COGS: 60_000, UNCLASSIFIED: 0 });
+        expect(m.esRango).toBe(false);
+        expect(m.margenPeorCasoPct).toBe(m.margenPct);
+    });
+});
+
+describe("REVENUE es dinero, no volumen", () => {
+    it("se puede ingestar", async () => {
+        const { isValidMetricType } = await import("@/services/azureUnitEconomics.service");
+        expect(isValidMetricType("REVENUE")).toBe(true);
+    });
+
+    it("pero NO sirve como denominador de un costo unitario", async () => {
+        // "costo por unidad de REVENUE" da uno menos el margen: un número
+        // correcto con el rótulo equivocado.
+        const { ES_VOLUMEN } = await import("@/types/azureUnitEconomics.types");
+        expect(ES_VOLUMEN.REVENUE).toBe(false);
+        expect(ES_VOLUMEN.TRANSACTIONS).toBe(true);
+    });
+
+    it("y no se escala como los volúmenes grandes", async () => {
+        const { UNIT_METRIC_CATALOG } = await import("@/types/azureUnitEconomics.types");
+        expect(UNIT_METRIC_CATALOG.REVENUE.scale).toBe(1);
+        expect(UNIT_METRIC_CATALOG.API_CALLS.scale).toBe(1_000_000);
+    });
+});

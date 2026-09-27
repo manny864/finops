@@ -8,7 +8,11 @@
  * explícitamente cuándo falta el denominador, en vez de estimarlo.
  */
 
-export type UnitMetricType = "DAU" | "MAU" | "TRANSACTIONS" | "API_CALLS" | "AI_TOKENS" | "STORAGE_TB";
+export type UnitMetricType =
+  | "DAU" | "MAU" | "TRANSACTIONS" | "API_CALLS" | "AI_TOKENS" | "STORAGE_TB"
+  // MEJ-37 fase 2. REVENUE es DINERO, no un conteo: es el numerador del margen
+  // bruto, no un denominador de volumen. `ES_VOLUMEN` de abajo lo separa.
+  | "REVENUE";
 
 export type ElasticityModel = "Elastic" | "Semi-Elastic" | "Fixed";
 
@@ -46,6 +50,20 @@ export const UNIT_METRIC_CATALOG: Record<UnitMetricType, { scale: number }> = {
   API_CALLS: { scale: 1_000_000 },
   AI_TOKENS: { scale: 1_000_000 },
   STORAGE_TB: { scale: 1 },
+  REVENUE: { scale: 1 },
+};
+
+/**
+ * Qué métricas sirven como DENOMINADOR de un costo unitario.
+ *
+ * `REVENUE` no está: "costo por unidad de REVENUE" es una división válida —da
+ * uno menos el margen— pero la pantalla la rotula "costo por unidad" y se
+ * leería como otra cosa. El margen bruto tiene su propio lugar.
+ */
+export const ES_VOLUMEN: Record<UnitMetricType, boolean> = {
+  DAU: true, MAU: true, TRANSACTIONS: true,
+  API_CALLS: true, AI_TOKENS: true, STORAGE_TB: true,
+  REVENUE: false,
 };
 
 /**

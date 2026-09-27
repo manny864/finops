@@ -49,6 +49,7 @@ import InfoTooltip from "@/components/InfoTooltip";
 import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import {
   UNIT_METRIC_CATALOG,
+  ES_VOLUMEN,
   UE_COLORS,
   type ServiceUnitCostItem,
   type UnitEconomicsPayload,
@@ -188,7 +189,12 @@ function MetricConfigDrawer({
               onChange={(e) => setMetric(e.target.value as UnitMetricType)}
               className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-[#0054A6]"
             >
-              {(Object.keys(UNIT_METRIC_CATALOG) as UnitMetricType[]).map((m) => (
+              {/* MEJ-37 fase 2: sólo las métricas de VOLUMEN pueden ser el
+                  denominador. `REVENUE` es dinero — "costo por unidad de
+                  REVENUE" da uno menos el margen, que es un número correcto
+                  con el rótulo equivocado. El margen bruto vive en el
+                  leaderboard. */}
+              {(Object.keys(UNIT_METRIC_CATALOG) as UnitMetricType[]).filter((m) => ES_VOLUMEN[m]).map((m) => (
                 <option key={m} value={m}>
                   {t(`metric_${m}_name`)}
                 </option>

@@ -52,7 +52,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-34](#mej-34--perspectives-agrupación-multidimensional-del-gasto) | Perspectives: agrupación multidimensional del gasto — cinco criterios + selector transversal; lo adoptan el export FOCUS, Cost Groups (con su detalle), Centros de Costo (con sus recursos), Gastos y Proyección, la pizarra ejecutiva y **Almacenamiento**; quedan 3 candidatos medidos | Asignación / Transversal | Alto | Alto | Parcial |
 | [MEJ-35](#mej-35--suscripciones-a-reportes-cualquier-reporte-a-la-cadencia-que-elija-el-usuario) | Suscripciones a reportes, a la cadencia que elija el usuario, con link + gráfico + CSV — un solo cron evaluador; el gráfico va en HTML y no como imagen, con motivo | Reportes | Alto | Medio | Hecha |
 | [MEJ-36](#mej-36--presupuestos-rollover-y-año-fiscal-no-calendario) | Presupuestos: rollover con tope y año fiscal no calendario — el ejercicio estaba cableado a enero en cuatro lugares y corría todos los acumulados anuales sin decirlo | Presupuestos | Medio | Bajo | Hecha |
-| [MEJ-37](#mej-37--leaderboard-de-equipos-y-margen-bruto) | Leaderboard de equipos (ordenado por mejora, no por gasto) y split COGS/OpEx — **fase 1 hecha**; fase 2 (métricas de negocio) sin empezar | Integración con el negocio | Medio | Bajo | Parcial |
+| [MEJ-37](#mej-37--leaderboard-de-equipos-y-margen-bruto) | Leaderboard de equipos (ordenado por mejora, no por gasto), split COGS/OpEx **y margen bruto** — la fase 2 resultó estar casi entera: la ingesta por API Key ya existía y sólo faltaba el tipo REVENUE | Integración con el negocio | Medio | Bajo | Hecha |
 | [MEJ-38](#mej-38--views-vistas-guardadas-y-con-alcance-por-equipo) | Views: el alcance por equipo aplicado en el SERVIDOR — permiso (default-deny, mapa por (ruta, método), un usuario con alcance no puede ser Admin/Owner) **y** `SavedViews`; la auditoría de la superficie encontró y cerró dos fugas por coincidencia de prefijo | Transversal / RBAC | Alto | Medio | Hecha |
 | [MEJ-39](#mej-39--fin-de-soporte-eoleos-de-la-plataforma-azure) | Fin de soporte (EOL/EOS) con el costo de lo afectado — **fase 1 hecha**: catálogo curado de AKS + PostgreSQL + MySQL Flexible, semáforo y costo mensual; fase 2 (licencias en la nube) sin empezar | Gobernanza / Riesgo | Alto | Medio | Parcial |
 | [MEJ-40](#mej-40--esr-y-riesgo-de-la-cartera-de-compromisos) | Concentración de vencimientos + ESR; se desbloqueó poblando `ListCost` de verdad | Compromisos | Alto | Medio | Hecha |
@@ -3741,7 +3741,7 @@ Tests: `__tests__/unit/anioFiscalYArrastre.test.ts` (el helper),
 
 ## MEJ-37 — Leaderboard de equipos y margen bruto
 
-**Módulo:** Integración con el negocio · **Impacto:** Medio · **Esfuerzo:** Bajo · **Estado:** Hecha (fase 1, 2026-09-27)
+**Módulo:** Integración con el negocio · **Impacto:** Medio · **Esfuerzo:** Bajo · **Estado:** Hecha (2026-09-27)
 
 ### Contexto
 
@@ -3843,12 +3843,55 @@ recorte es justamente no ver los otros. El default-deny de MEJ-38 la niega sin e
 Tests: `__tests__/unit/leaderboardDeEquipos.test.ts` (10, la función pura) y
 `leaderboardRuta.test.ts` (8, los cruces).
 
+### Hecho — fase 2: margen bruto (2026-09-27)
+
+**La fase 2 estaba casi entera y la entrada no lo sabía.** La propuesta pedía "un endpoint de
+ingesta (`POST /api/v1/business-metrics`, misma API Key pública) y una serie temporal por tenant; el
+resto es dividir". Al abrirlo:
+
+| Lo que pedía la fase 2 | Estado real |
+|---|---|
+| Endpoint de ingesta con API Key | **ya existía** — `POST /api/unit-metrics/ingest`, scope `write:metrics` |
+| Serie temporal por tenant | **ya existía** — `TenantUnitMetrics`, con upsert y validación por lote |
+| Dividir costo por la métrica | **ya existía** — `calcUnitCost`, elasticidad, atribución por servicio |
+| **Ingresos** | **no existía**: el ENUM de `metric_type` no tenía `REVENUE` |
+
+O sea que el trabajo real era una línea de ENUM y el cálculo del margen, no un módulo. No se creó
+`/api/v1/business-metrics`: habría sido un segundo endpoint de ingesta para la misma forma
+—tenant, fecha, número— con su propia validación y su propio upsert.
+
+**`REVENUE` es dinero, no un conteo, y eso tiene consecuencia.** Se excluye del selector de
+denominador de Unit Economics: "costo por unidad de REVENUE" es una división válida —da uno menos el
+margen— pero la pantalla la rotula "costo por unidad" y se leería como otra cosa. `ES_VOLUMEN` lo
+deja explícito en vez de confiar en que nadie la elija.
+
+**El margen se informa como RANGO cuando hay gasto sin clasificar**, y esa es la decisión que
+importa. El `UNCLASSIFIED` del split no es neutro: si parte del gasto todavía no se clasificó, el
+COGS está subestimado y **el margen sale mejor de lo que es**. Un margen optimista es el error que un
+número financiero no puede cometer, así que al lado del margen va el peor caso —todo lo sin
+clasificar contado como COGS— y cuánto gasto lo produce. Cierra el lazo con el criterio 3 de la
+fase 1: el `UNCLASSIFIED` visible no era una formalidad.
+
+Dos cosas que **no** se hacen, con test cada una:
+
+- **Sin ingresos no se devuelve 0%.** Cero por ciento afirma que todo lo que entra se va en nube;
+  lo que pasa es que nadie ingestó el dato. Es `null`, y la pantalla explica cómo mandarlo.
+- **Un margen negativo no se recorta a cero.** Gastar más de lo que entra es un hecho, y es el
+  hecho que esta pantalla existe para mostrar.
+
+Verificado contra MySQL real: `REVENUE` se ingesta y la consulta exacta de la ruta devuelve la suma
+del período.
+
+Tests: 9 más en `__tests__/unit/leaderboardDeEquipos.test.ts` (19 en total).
+
 ### Lo que queda
 
-- **Fase 2 — métricas de negocio**: sin empezar. Es lo que convierte el split en margen bruto de
-  verdad, y sin la métrica del negocio no hay margen que calcular.
-- **La clasificación COGS/OpEx no tiene UI propia todavía**: el `PUT` existe y está probado, pero se
-  asigna por API. Ponerle pantalla es chico y va con la fase 2.
+- **La clasificación COGS/OpEx no tiene UI propia**: el `PUT` existe y está probado, pero se asigna
+  por API. Es lo que más rinde de lo que falta, porque sin clasificar, el margen siempre se muestra
+  como rango.
+- **Costo por cliente o por feature**: la serie es por tenant, no por cliente. Para "cuánto me cuesta
+  este cliente" haría falta una dimensión más en `TenantUnitMetrics`, y es una discusión de modelo
+  que no hace falta tener para calcular margen.
 
 ---
 

@@ -13979,7 +13979,9 @@
     "svccat_STORAGE": "Storage",
     "svccat_NETWORK": "Networking",
     "svccat_AI": "AI",
-    "svccat_OTHER": "Other"
+    "svccat_OTHER": "Other",
+    "metric_REVENUE_name": "Billed revenue",
+    "metric_REVENUE_unitOne": "USD"
   },
   "UnregisteredUser": {
     "badge": "Restricted Access",
@@ -15885,6 +15887,13 @@
     "outOfRank": {
       "sin-periodo-previo": "no previous period to compare against",
       "no-material": "too small to rank without it being noise"
+    },
+    "margin": {
+      "title": "Gross margin",
+      "noRevenue": "No revenue loaded yet. Send it with POST /api/unit-metrics/ingest using metricType REVENUE and the same public API Key; the margin shows up on its own.",
+      "worstCase": "· {pct}% if everything unclassified were COGS",
+      "formula": "{revenue} revenue − {cogs} COGS",
+      "unclassifiedWarning": "There is {cost} of unclassified spend: while it remains, the margin above is the best case."
     }
   },
   "ReportSubscriptions": {

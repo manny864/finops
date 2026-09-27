@@ -31,6 +31,15 @@ interface Fila {
     sinRanking: "sin-periodo-previo" | "no-material" | null;
 }
 
+interface Margen {
+    ingresos: number | null;
+    cogs: number;
+    cogsSinClasificar: number;
+    margenPct: number | null;
+    margenPeorCasoPct: number | null;
+    esRango: boolean;
+}
+
 interface Respuesta {
     success: boolean;
     sinPerspectiva?: boolean;
@@ -39,6 +48,7 @@ interface Respuesta {
     filas?: Fila[];
     criterio?: { descripcion: string; umbralMaterialidadPct: number };
     split?: { COGS: number; OPEX: number; UNCLASSIFIED: number; total: number };
+    margen?: Margen;
     sinAsignar?: { costo: number; porcentaje: number };
     coberturaPct?: number;
 }
@@ -78,9 +88,49 @@ export default function LeaderboardBoard() {
 
     const filas = data.filas ?? [];
     const split = data.split;
+    const margen = data.margen;
 
     return (
         <div className="space-y-4">
+            {/* MEJ-37 fase 2 — margen bruto. Sin ingresos ingestados se explica
+                cómo mandarlos, en vez de mostrar 0% — que sería afirmar que
+                todo lo que entra se va en nube. */}
+            {margen && (
+                <div className="card p-5">
+                    <div className="text-sm font-semibold mb-3">{t("margin.title")}</div>
+                    {margen.margenPct === null ? (
+                        <p className="text-sm opacity-70">{t("margin.noRevenue")}</p>
+                    ) : (
+                        <>
+                            <div className="flex items-baseline gap-3 flex-wrap">
+                                <span className={`text-3xl font-bold ${margen.margenPct < 0 ? "text-red-600" : ""}`}>
+                                    {margen.margenPct.toFixed(1)}%
+                                </span>
+                                {/* El rango no es adorno: mientras quede gasto sin
+                                    clasificar, el número de la izquierda es el MEJOR
+                                    caso, y un margen optimista es el error que un
+                                    número financiero no puede cometer. */}
+                                {margen.esRango && margen.margenPeorCasoPct !== null && (
+                                    <span className="text-sm opacity-70">
+                                        {t("margin.worstCase", { pct: margen.margenPeorCasoPct.toFixed(1) })}
+                                    </span>
+                                )}
+                            </div>
+                            <div className="text-xs opacity-60 mt-2">
+                                {t("margin.formula", {
+                                    revenue: dinero.format(margen.ingresos ?? 0),
+                                    cogs: dinero.format(margen.cogs),
+                                })}
+                            </div>
+                            {margen.esRango && (
+                                <div className="text-xs opacity-60 mt-1">
+                                    {t("margin.unclassifiedWarning", { cost: dinero.format(margen.cogsSinClasificar) })}
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+            )}
             {/* Criterio 3: el split suma el total y UNCLASSIFIED se ve. Sin la
                 parte sin clasificar, el margen bruto se calcularía sobre un
                 COGS más chico de lo que es. */}

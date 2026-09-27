@@ -33,7 +33,7 @@ import {
   UeServiceCategory,
 } from "@/types/azureUnitEconomics.types";
 
-const VALID_METRICS: UnitMetricType[] = ["DAU", "MAU", "TRANSACTIONS", "API_CALLS", "AI_TOKENS", "STORAGE_TB"];
+const VALID_METRICS: UnitMetricType[] = ["DAU", "MAU", "TRANSACTIONS", "API_CALLS", "AI_TOKENS", "STORAGE_TB", "REVENUE"];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Normalización y validación

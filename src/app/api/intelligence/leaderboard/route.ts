@@ -22,7 +22,7 @@ import { AuthError, requireTenantRole, requireTenantTier } from "@/lib/requestAu
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { filasDeCosto, listarPerspectivas } from "@/services/perspectivesData.service";
 import { repartir, type FilaDeCosto } from "@/services/perspectives.service";
-import { armarLeaderboard, type Clasificacion, type EntradaDeGrupo } from "@/services/leaderboard.service";
+import { armarLeaderboard, margenBruto, type Clasificacion, type EntradaDeGrupo } from "@/services/leaderboard.service";
 import { errorMessage } from "@/lib/apiErrors";
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
         }
 
         const { actual, previo } = periodos();
-        const [filasActual, filasPrevio, clasificaciones, presupuestos, remediaciones] = await Promise.all([
+        const [filasActual, filasPrevio, clasificaciones, presupuestos, remediaciones, ingresosFila] = await Promise.all([
             filasDeCosto(tenantId, actual.desde, actual.hasta),
             filasDeCosto(tenantId, previo.desde, previo.hasta),
             pool.query<any[]>(
@@ -107,6 +107,21 @@ export async function GET(request: NextRequest) {
                 [tenantId]
             ).then(([r]) => r || []),
             ahorroCapturadoPorRecurso(tenantId, actual.desde, actual.hasta),
+            /**
+             * MEJ-37 fase 2 — los ingresos del período.
+             *
+             * Salen de `TenantUnitMetrics`, la serie que Unit Economics ya
+             * ingesta por API Key: no hizo falta un endpoint nuevo, sólo el
+             * tipo `REVENUE`. `SUM` sobre el mismo rango que el costo, porque
+             * un margen que cruza períodos distintos no es un margen.
+             */
+            pool.query<any[]>(
+                `SELECT COALESCE(SUM(unit_count), 0) AS total, COUNT(*) AS dias
+                   FROM TenantUnitMetrics
+                  WHERE tenant_id = ? AND metric_type = 'REVENUE'
+                    AND metric_date BETWEEN ? AND ?`,
+                [tenantId, actual.desde, actual.hasta]
+            ).then(([r]) => r?.[0] ?? { total: 0, dias: 0 }),
         ]);
 
         const repActual = repartir(filasActual, perspectiva.reglas);
@@ -162,12 +177,19 @@ export async function GET(request: NextRequest) {
 
         const leaderboard = armarLeaderboard(entradas);
 
+        // Sin ninguna fila de REVENUE el margen es `null`, no cero: cero por
+        // ciento sería afirmar que todo lo que entra se va en nube, y lo que
+        // pasa es que nadie ingestó el dato.
+        const ingresos = Number(ingresosFila?.dias || 0) > 0 ? Number(ingresosFila.total) : null;
+        const margen = margenBruto(ingresos, leaderboard.split);
+
         return NextResponse.json({
             success: true,
             perspective: { id: perspectiva.id, name: perspectiva.name },
             perspectivas: perspectivas.map((p) => ({ id: p.id, name: p.name })),
             periodos: { actual, previo },
             ...leaderboard,
+            margen,
             // Lo que ninguna regla asignó. Va al lado del split porque si no, el
             // total de la tabla no cuadra con la factura y nadie sabe por qué.
             sinAsignar: repActual.sinAsignar,

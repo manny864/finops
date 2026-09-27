@@ -13979,7 +13979,9 @@
     "svccat_STORAGE": "Almacenamiento",
     "svccat_NETWORK": "Redes",
     "svccat_AI": "IA",
-    "svccat_OTHER": "Otros"
+    "svccat_OTHER": "Otros",
+    "metric_REVENUE_name": "Ingresos facturados",
+    "metric_REVENUE_unitOne": "USD"
   },
   "UnregisteredUser": {
     "badge": "Acceso Restringido",
@@ -15885,6 +15887,13 @@
     "outOfRank": {
       "sin-periodo-previo": "sin período anterior con el que comparar",
       "no-material": "muy chico para rankear sin que sea ruido"
+    },
+    "margin": {
+      "title": "Margen bruto",
+      "noRevenue": "Todavía no hay ingresos cargados. Mandalos con POST /api/unit-metrics/ingest usando metricType REVENUE y la misma API Key pública; el margen aparece solo.",
+      "worstCase": "· {pct}% si todo lo sin clasificar fuera COGS",
+      "formula": "{revenue} de ingresos − {cogs} de COGS",
+      "unclassifiedWarning": "Hay {cost} de gasto sin clasificar: mientras quede, el margen de arriba es el mejor caso."
     }
   },
   "ReportSubscriptions": {
