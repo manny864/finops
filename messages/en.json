@@ -9926,7 +9926,8 @@
     "intelligence": "Intelligence",
     "overview": "Overview",
     "remediation": "Remediation",
-    "perspectives": "Perspectives"
+    "perspectives": "Perspectives",
+    "lifecycle_eol": "End of support"
   },
   "Network": {
     "title": "Network & Egress Analysis",
@@ -15814,5 +15815,36 @@
     "scopeEveryGroup": "All groups",
     "scopeNotApplied": "The Perspective scope could not be applied: this period's cost cannot be split row by row between what falls inside the scope and what does not. The figures below are for the whole board.",
     "scopeAssigned": "Your access is limited to this group. You cannot change it."
+  },
+  "Lifecycle": {
+    "pageTitle": "End of support",
+    "pageSubtitle": "What runs on a version Azure is retiring, when, and what it costs today.",
+    "loading": "Cross-checking inventory against the retirement calendar…",
+    "error": "Could not read the platform lifecycle.",
+    "empty": "No resources in the families with a retirement calendar.",
+    "atRisk": "{n} resources at risk",
+    "atRiskCost": "{cost} per month running on something Azure retires within the year, or already retired.",
+    "withoutCost": "{n} with no attributable cost: reported separately, never added as zero.",
+    "reviewedOn": "Catalog reviewed on {date}",
+    "noCost": "no data",
+    "daysLeft": "{n} days left",
+    "daysAgo": "expired {n} days ago",
+    "extendedUntil": "Extended support (paid) until {date}",
+    "footnote": "Dates come from Microsoft documentation, not from an API: if the catalog is stale, the review date above says so.",
+    "window": {
+      "retirado": "Retired",
+      "critico": "Under 90 days",
+      "proximo": "Under a year",
+      "soportado": "Supported",
+      "sin-datos": "No data"
+    },
+    "col": {
+      "resource": "Resource",
+      "family": "Product",
+      "version": "Version",
+      "status": "Status",
+      "endOfSupport": "End of support",
+      "monthlyCost": "Monthly cost"
+    }
   }
 }

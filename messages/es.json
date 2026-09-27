@@ -9926,7 +9926,8 @@
     "intelligence": "Inteligencia",
     "overview": "Resumen",
     "remediation": "Remediación",
-    "perspectives": "Perspectives"
+    "perspectives": "Perspectives",
+    "lifecycle_eol": "Fin de soporte"
   },
   "Network": {
     "title": "Análisis de Red y Egress",
@@ -15814,5 +15815,36 @@
     "scopeEveryGroup": "Todos los grupos",
     "scopeNotApplied": "No se pudo acotar por Perspective: el costo de este período no se puede separar fila por fila entre lo que entra en el alcance y lo que no. Los números de abajo son los del tablero completo.",
     "scopeAssigned": "Tu acceso está acotado a este grupo. No lo podés cambiar."
+  },
+  "Lifecycle": {
+    "pageTitle": "Fin de soporte",
+    "pageSubtitle": "Qué corre sobre una versión que Azure retira, cuándo, y cuánto cuesta hoy.",
+    "loading": "Cruzando el inventario contra el calendario de retiros…",
+    "error": "No se pudo leer el ciclo de vida de la plataforma.",
+    "empty": "Ningún recurso de las familias con calendario de retiro.",
+    "atRisk": "{n} recursos en riesgo",
+    "atRiskCost": "{cost} al mes corriendo sobre algo que Azure retira dentro del año, o que ya retiró.",
+    "withoutCost": "{n} sin costo atribuible: se informan aparte y no se suman como cero.",
+    "reviewedOn": "Catálogo revisado el {date}",
+    "noCost": "sin dato",
+    "daysLeft": "faltan {n} días",
+    "daysAgo": "venció hace {n} días",
+    "extendedUntil": "Soporte extendido (pago) hasta {date}",
+    "footnote": "Las fechas salen de la documentación de Microsoft, no de una API: si el catálogo quedó viejo, la fecha de revisión de arriba lo dice.",
+    "window": {
+      "retirado": "Retirado",
+      "critico": "Menos de 90 días",
+      "proximo": "Menos de un año",
+      "soportado": "Soportado",
+      "sin-datos": "Sin datos"
+    },
+    "col": {
+      "resource": "Recurso",
+      "family": "Producto",
+      "version": "Versión",
+      "status": "Estado",
+      "endOfSupport": "Fin de soporte",
+      "monthlyCost": "Costo mensual"
+    }
   }
 }

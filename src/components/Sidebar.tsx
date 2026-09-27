@@ -51,7 +51,8 @@ import {
     Recycle,
     Search,
     ShoppingBag,
-    X
+    X,
+    CalendarClock,
 } from 'lucide-react';
 import { IconCoins, IconDatabase } from '@tabler/icons-react';
 
@@ -154,6 +155,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/governance/policies', label: t('policies_autoblock'), icon: ShieldAlert, requiredTier: 'Enterprise' },
                 { href: '/governance/reporting', label: t('governance_reporting'), icon: ShieldCheck, requiredTier: 'Enterprise' },
                 { href: '/governance/ha', label: t('ha_recommendations'), icon: ShieldCheck, requiredTier: 'Business' },
+                { href: '/governance/lifecycle', label: t('lifecycle_eol'), icon: CalendarClock, requiredTier: 'Business' },
                 { href: '/governance/credentials', label: t('expiring_credentials'), icon: KeyRound, requiredTier: 'Business' },
                 { href: '/governance/approvals', label: t('approvals'), icon: CheckCircle, requiredTier: 'Business' }
             ]

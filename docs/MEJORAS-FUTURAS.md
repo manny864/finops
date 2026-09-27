@@ -54,7 +54,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-36](#mej-36--presupuestos-rollover-y-año-fiscal-no-calendario) | Presupuestos: rollover con tope y año fiscal no calendario — el ejercicio estaba cableado a enero en cuatro lugares y corría todos los acumulados anuales sin decirlo | Presupuestos | Medio | Bajo | Hecha |
 | [MEJ-37](#mej-37--leaderboard-de-equipos-y-margen-bruto) | Leaderboard de equipos (ordenado por mejora, no por gasto) y split COGS/OpEx | Integración con el negocio | Medio | Bajo | Propuesta |
 | [MEJ-38](#mej-38--views-vistas-guardadas-y-con-alcance-por-equipo) | Views: el alcance por equipo aplicado en el SERVIDOR — **el permiso está hecho** (default-deny en `requireTenantAccess`, mapa por (ruta, método), un usuario con alcance no puede ser Admin/Owner); falta `SavedViews`, que es comodidad y no permiso | Transversal / RBAC | Alto | Medio | Parcial |
-| [MEJ-39](#mej-39--fin-de-soporte-eoleos-de-la-plataforma-azure) | Fin de soporte (EOL/EOS) de la plataforma Azure, con el costo de lo afectado; fase 2: posición de licencias en la nube | Gobernanza / Riesgo | Alto | Medio | Propuesta |
+| [MEJ-39](#mej-39--fin-de-soporte-eoleos-de-la-plataforma-azure) | Fin de soporte (EOL/EOS) con el costo de lo afectado — **fase 1 hecha**: catálogo curado de AKS + PostgreSQL + MySQL Flexible, semáforo y costo mensual; fase 2 (licencias en la nube) sin empezar | Gobernanza / Riesgo | Alto | Medio | Parcial |
 | [MEJ-40](#mej-40--esr-y-riesgo-de-la-cartera-de-compromisos) | Concentración de vencimientos + ESR; se desbloqueó poblando `ListCost` de verdad | Compromisos | Alto | Medio | Hecha |
 
 ---
@@ -3941,7 +3941,7 @@ dispare una llamada sólo bajo cierto estado.
 
 ## MEJ-39 — Fin de soporte (EOL/EOS) de la plataforma Azure
 
-**Módulo:** Gobernanza / Riesgo · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Propuesta
+**Módulo:** Gobernanza / Riesgo · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Hecha (fase 1, 2026-09-27)
 
 ### Contexto
 
@@ -3998,6 +3998,76 @@ la fase 1, por eso va acá y no como entrada aparte.
 2. El catálogo muestra cuándo se revisó por última vez.
 3. Un tipo de recurso sin datos de ciclo de vida se marca **"sin datos"**, no "soportado".
    Asumir soporte por ausencia de dato es exactamente el error que hay que evitar.
+
+---
+
+### Hecho — fase 1 (2026-09-27)
+
+`src/lib/azureLifecycleCatalog.ts` (catálogo curado + evaluador puro),
+`GET /api/governance/lifecycle`, `/governance/lifecycle`. Los tres criterios cumplidos.
+
+**Se eligió catálogo curado sobre Service Health**, como la entrada anticipaba. El costo de la
+decisión está asumido y mitigado: `CATALOGO_REVISADO_EL` va en el payload y en la pantalla, porque
+un catálogo de fechas sin fecha propia calla igual cuando está al día que cuando quedó viejo.
+
+**Contratos verificados antes de escribir una línea**, que en Azure no es ceremonia: un campo
+equivocado devuelve vacío, no un error.
+
+| Familia | Campo | Cómo se verificó | Granularidad |
+|---|---|---|---|
+| AKS | `properties.kubernetesVersion` | referencia ARM | `major.minor` |
+| PostgreSQL Flexible | `properties.version` | referencia ARM: *"Major version of PostgreSQL database engine"* | **sólo mayor** (`"14"`) |
+| MySQL Flexible | `properties.version` | `az graph query` contra el tenant real | **completa** (`"8.0.21"`) |
+
+**Las dos bases usan el mismo nombre de campo y NO la misma granularidad.** Comparar la cadena
+cruda contra el catálogo habría fallado en una de las dos sin tirar ningún error: por eso existe
+`normalizar()`.
+
+**`microsoft.sql/servers` se dejó afuera a propósito.** Su `properties.version` devuelve `"12.0"`
+—verificado contra el tenant real— y vale `"12.0"` para todos: es la versión del *servidor lógico*,
+que no se retira nunca. Cruzarla contra un calendario de retiros habría producido una respuesta con
+forma de dato y sin significado, que es peor que no tenerla. El EOL de SQL vive en el nivel de
+compatibilidad de cada base y en SQL Server sobre VM: otro contrato, otra verificación.
+
+**El criterio 3, que es el que da nombre a la mejora.** Hay tres formas de no saber y las tres
+terminan en `"sin-datos"`, nunca en `"soportado"`: la versión no se pudo leer; la versión es
+*posterior* al catálogo (el viejo es el catálogo, no el recurso); y el tipo no está en el catálogo.
+Sólo se afirma `"retirado"` sin fecha cuando la versión está por debajo de la más antigua que la
+fuente publica, y eso se declara por familia (`menoresRetiradas`) en vez de asumirse.
+
+> El repo **ya tenía el error cometido**: `getOpenShiftLifecycleStatus` (`src/lib/aroUtils.ts:14`)
+> abre con `if (!version || version === "unknown") return "active_support"`. Un cluster cuya versión
+> no se pudo leer se pinta igual que uno al día. No se tocó —es de ARO y tiene su propio tablero—
+> pero queda anotado: una pantalla de riesgo que ante la duda tranquiliza es peor que no tenerla.
+
+**El costo, que es lo que lo hace FinOps y no un inventario.** Sale de `getMtdCostByResourceId`,
+el dato exacto por `ResourceId`, no un prorrateo. Y `null` no es `0`: uno es "no se pudo atribuir",
+el otro "costó cero". Colapsarlos bajaría el total y el riesgo se vería más chico — el mismo error
+que MEJ-40 ya había evitado en la concentración de vencimientos. Lo no valorizado se informa aparte.
+
+**Detalle de la fuente que hay que respetar:** AKS publica el fin como mes (`"Mar 2026"`) y aclara
+que significa el **último** día del mes. En el catálogo van resueltos a `2026-03-31`. Tomarlo como
+el día 1 adelantaría todos los vencimientos un mes.
+
+**Verificado contra Azure real, no contra el log.** Corriendo el catálogo sobre el inventario del
+tenant: `cscs-finops-prod-westus2-mysql` en `8.0.21` → normaliza a `8.0` → **próximo**, fin de
+soporte estándar 2027-01-31 (127 días), extendido pago hasta 2029-05-31. Es la base de datos de la
+propia plataforma, y es un hallazgo real, no un caso de prueba.
+
+Un usuario con alcance asignado (MEJ-38) no ve esta pantalla: no está en `RUTAS_CON_ALCANCE`, así
+que el default-deny la niega sola. Es lo correcto —el inventario de toda la plataforma no es su
+porción— y no hizo falta escribir nada.
+
+Tests: `__tests__/unit/finDeSoporte.test.ts` (20) y `finDeSoporteRuta.test.ts` (7).
+
+### Lo que queda
+
+- **Fase 2, posición de licencias en la nube**: sin empezar.
+- **Más familias**: runtimes de App Service, series de VM, `api-version` de ARM. Cada una exige
+  verificar su contrato; agregarla por analogía es exactamente lo que esta entrada prohíbe.
+- **La revisión del catálogo no está automatizada.** Hoy depende de que alguien mire las fechas y
+  actualice `CATALOGO_REVISADO_EL`. La pantalla lo expone, que es el mínimo honesto, pero un
+  recordatorio o un chequeo en CI sería mejor.
 
 ---
 

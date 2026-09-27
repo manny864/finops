@@ -9926,7 +9926,8 @@
     "intelligence": "Inteligência",
     "overview": "Visão Geral",
     "remediation": "Remediação",
-    "perspectives": "Perspectives"
+    "perspectives": "Perspectives",
+    "lifecycle_eol": "Fim de suporte"
   },
   "Network": {
     "title": "Análise de Rede e Egress",
@@ -15814,5 +15815,36 @@
     "scopeEveryGroup": "Todos os grupos",
     "scopeNotApplied": "Não foi possível restringir por Perspective: o custo deste período não pode ser separado linha a linha entre o que entra no alcance e o que não entra. Os números abaixo são os do painel completo.",
     "scopeAssigned": "Seu acesso está limitado a este grupo. Você não pode alterá-lo."
+  },
+  "Lifecycle": {
+    "pageTitle": "Fim de suporte",
+    "pageSubtitle": "O que roda numa versão que a Azure vai aposentar, quando, e quanto custa hoje.",
+    "loading": "Cruzando o inventário com o calendário de aposentadorias…",
+    "error": "Não foi possível ler o ciclo de vida da plataforma.",
+    "empty": "Nenhum recurso das famílias com calendário de aposentadoria.",
+    "atRisk": "{n} recursos em risco",
+    "atRiskCost": "{cost} por mês rodando em algo que a Azure aposenta dentro do ano, ou já aposentou.",
+    "withoutCost": "{n} sem custo atribuível: informados à parte, nunca somados como zero.",
+    "reviewedOn": "Catálogo revisado em {date}",
+    "noCost": "sem dado",
+    "daysLeft": "faltam {n} dias",
+    "daysAgo": "venceu há {n} dias",
+    "extendedUntil": "Suporte estendido (pago) até {date}",
+    "footnote": "As datas vêm da documentação da Microsoft, não de uma API: se o catálogo ficou velho, a data de revisão acima diz.",
+    "window": {
+      "retirado": "Aposentado",
+      "critico": "Menos de 90 dias",
+      "proximo": "Menos de um ano",
+      "soportado": "Suportado",
+      "sin-datos": "Sem dados"
+    },
+    "col": {
+      "resource": "Recurso",
+      "family": "Produto",
+      "version": "Versão",
+      "status": "Estado",
+      "endOfSupport": "Fim de suporte",
+      "monthlyCost": "Custo mensal"
+    }
   }
 }

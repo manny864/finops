@@ -3479,6 +3479,64 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
             const tickets = multiplier >= 3 ? [...extraTickets, ...baseTickets] : baseTickets;
             return { success: true, tickets, quota };
         }
+        case 'governance_lifecycle': {
+            // MEJ-39. La demo tiene que mostrar las CUATRO ventanas, incluida
+            // "sin-datos": si sólo mostrara lo retirado, nadie vería que el
+            // tablero distingue "no sabemos" de "está bien", que es su regla
+            // principal.
+            const recursos = [
+                {
+                    id: `/subscriptions/${'demo'}/resourceGroups/rg-data/providers/Microsoft.DBforMySQL/flexibleServers/mysql-core`,
+                    name: "mysql-core", type: "microsoft.dbformysql/flexibleservers",
+                    familia: "MySQL Flexible Server", resourceGroup: "rg-data", location: "eastus",
+                    version: "5.7", ventana: "retirado", finDeSoporte: "2026-09-30", finExtendido: "2029-03-31",
+                    diasRestantes: -12,
+                    nota: "La comunidad la retiró el 31-oct-2023. El soporte extendido de Azure se cobra aparte.",
+                    motivo: null, costoMensualUsd: 412.5 * multiplier,
+                    fuente: "https://learn.microsoft.com/azure/mysql/concepts-version-policy",
+                },
+                {
+                    id: `/subscriptions/${'demo'}/resourceGroups/rg-apps/providers/Microsoft.ContainerService/managedClusters/aks-prod`,
+                    name: "aks-prod", type: "microsoft.containerservice/managedclusters",
+                    familia: "Azure Kubernetes Service", resourceGroup: "rg-apps", location: "eastus",
+                    version: "1.34", ventana: "critico", finDeSoporte: "2026-11-30", finExtendido: null,
+                    diasRestantes: 64, nota: null, motivo: null, costoMensualUsd: 1840.2 * multiplier,
+                    fuente: "https://learn.microsoft.com/azure/aks/supported-kubernetes-versions",
+                },
+                {
+                    id: `/subscriptions/${'demo'}/resourceGroups/rg-data/providers/Microsoft.DBforPostgreSQL/flexibleServers/pg-analytics`,
+                    name: "pg-analytics", type: "microsoft.dbforpostgresql/flexibleservers",
+                    familia: "PostgreSQL Flexible Server", resourceGroup: "rg-data", location: "westus2",
+                    version: "14", ventana: "proximo", finDeSoporte: "2026-12-11", finExtendido: null,
+                    diasRestantes: 75, nota: null, motivo: null, costoMensualUsd: 238.9 * multiplier,
+                    fuente: "https://learn.microsoft.com/azure/postgresql/configure-maintain/concepts-version-policy",
+                },
+                {
+                    id: `/subscriptions/${'demo'}/resourceGroups/rg-apps/providers/Microsoft.ContainerService/managedClusters/aks-lab`,
+                    name: "aks-lab", type: "microsoft.containerservice/managedclusters",
+                    familia: "Azure Kubernetes Service", resourceGroup: "rg-apps", location: "westus2",
+                    version: "1.38", ventana: "sin-datos", finDeSoporte: null, finExtendido: null,
+                    diasRestantes: null, nota: null,
+                    motivo: "La versión 1.38 es posterior a la última revisión del catálogo (2026-09-27).",
+                    costoMensualUsd: null,
+                    fuente: "https://learn.microsoft.com/azure/aks/supported-kubernetes-versions",
+                },
+            ];
+            const enRiesgo = recursos.filter((r) => ["retirado", "critico", "proximo"].includes(r.ventana));
+            return {
+                mock: true,
+                revisadoEl: "2026-09-27",
+                umbrales: { critico: 90, proximo: 365 },
+                resources: recursos,
+                resumen: {
+                    porVentana: { retirado: 1, critico: 1, proximo: 1, soportado: 0, "sin-datos": 1 },
+                    costoEnRiesgoUsd: Number(
+                        enRiesgo.reduce((a, r) => a + (r.costoMensualUsd ?? 0), 0).toFixed(2)
+                    ),
+                    recursosSinCosto: enRiesgo.filter((r) => r.costoMensualUsd === null).length,
+                },
+            };
+        }
         default:
             return { success: true, message: "Mock data not defined for this route" };
     }
