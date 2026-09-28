@@ -3,6 +3,8 @@ import {
     normalizarCodigo,
     calcularComision,
     atribuirReferido,
+    fueraDeLaVentana,
+    MESES_DE_COMISION,
 } from "@/services/affiliates.service";
 
 /**
@@ -39,6 +41,52 @@ describe("afiliados · normalizarCodigo", () => {
         expect(normalizarCodigo("")).toBeNull();
         expect(normalizarCodigo(undefined)).toBeNull();
         expect(normalizarCodigo(42)).toBeNull();
+    });
+});
+
+describe("afiliados · la ventana del primer año", () => {
+    // El programa comisiona el PRIMER AÑO del cliente referido. Antes devengaba
+    // para siempre y el borrador legal lo decía así (§4.3): el motor le pagaba
+    // cada renovación, indefinidamente.
+    const cobro = (iso: string) => new Date(`${iso}T00:00:00Z`);
+
+    it("el primer cobro del cliente siempre entra", () => {
+        // Sin cobro previo no hay ventana que empezar: esta ES la que la abre.
+        expect(fueraDeLaVentana(null, cobro("2026-01-15"))).toBe(false);
+        expect(fueraDeLaVentana(undefined, cobro("2026-01-15"))).toBe(false);
+    });
+
+    it("los cobros mensuales del primer año entran, y el 13 no", () => {
+        const primero = "2026-01-15T10:00:00Z";
+        expect(fueraDeLaVentana(primero, cobro("2026-02-15"))).toBe(false);
+        expect(fueraDeLaVentana(primero, cobro("2026-12-15")), "mes 12").toBe(false);
+        // El del 15 de enero siguiente es el cobro 13: ya es el segundo año.
+        expect(fueraDeLaVentana(primero, cobro("2027-01-15"))).toBe(true);
+        expect(fueraDeLaVentana(primero, cobro("2027-02-15"))).toBe(true);
+    });
+
+    it("LA RENOVACIÓN ANUAL QUEDA AFUERA, que es lo que un tope por cantidad de cobros no ve", () => {
+        // Un plan anual factura UNA vez al año. Con "hasta 12 cobros" este
+        // cliente comisionaría doce años; con la ventana, sólo el primero.
+        const primero = "2026-03-01T00:00:00Z";
+        expect(fueraDeLaVentana(primero, cobro("2027-03-01"))).toBe(true);
+    });
+
+    it("el fin de mes no corre el vencimiento", () => {
+        // `sumarMeses` existe justamente por esto: 29 de febrero + 12 meses es
+        // el 28 de febrero, no el 1 de marzo.
+        expect(fueraDeLaVentana("2028-02-29T00:00:00Z", cobro("2029-02-28"))).toBe(true);
+        expect(fueraDeLaVentana("2028-02-29T00:00:00Z", cobro("2029-02-27"))).toBe(false);
+    });
+
+    it("ante una fecha ilegible DEVENGA, que es el error que se ve", () => {
+        // No pagarle a un partner no lo nota nadie; pagar de más queda en el
+        // libro y se corrige.
+        expect(fueraDeLaVentana("no-es-una-fecha", cobro("2030-01-01"))).toBe(false);
+    });
+
+    it("son doce meses", () => {
+        expect(MESES_DE_COMISION).toBe(12);
     });
 });
 

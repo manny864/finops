@@ -24,6 +24,7 @@ import Decimal from "decimal.js";
 import type { Pool, PoolConnection } from "mysql2/promise";
 import pool from "@/modules/storage/db";
 import { errorMessage } from "@/lib/apiErrors";
+import { sumarMeses } from "./commissions.service";
 
 /** Acepta un pool o una conexión: la atribución corre dentro de la transacción del onboarding. */
 type Ejecutor = Pool | PoolConnection;
@@ -127,6 +128,41 @@ export async function atribuirReferido(
 }
 
 /**
+ * Meses durante los que un cliente referido devenga comisión, contados desde su
+ * PRIMER cobro comisionado.
+ *
+ * POR QUÉ UNA VENTANA DE TIEMPO Y NO UN TOPE DE COBROS. Un plan anual se factura
+ * UNA vez al año (`TIER_ANNUAL_PRICE_USD` es el total que cobra Paddle), así que
+ * "hasta 12 cobros" le daría doce AÑOS de comisión a un cliente anual y doce
+ * meses a uno mensual. La ventana de tiempo da lo mismo para los dos: el
+ * mensual devenga sus 12 cobros y al anual le entra el primero y le queda afuera
+ * la renovación.
+ *
+ * El calendario del comercial sí cuenta cuotas, y ahí está bien: son cuotas de
+ * un valor anual ya conocido, no cobros del cliente (ver `commissions.service`).
+ */
+export const MESES_DE_COMISION = 12;
+
+/**
+ * ¿Este cobro cae fuera del primer año del cliente referido?
+ *
+ * Separada de la consulta para poder probar el criterio sin base de datos, que
+ * es el mismo motivo por el que `decideTagExactness` vive aparte.
+ *
+ * Ante una fecha que no se puede leer devuelve `false`, o sea DEVENGA. Es la
+ * dirección deliberada: no pagarle a un partner es un error que no se ve —ni él
+ * ni nosotros nos enteramos— mientras que pagar de más queda registrado en el
+ * libro y se puede corregir.
+ */
+export function fueraDeLaVentana(primerCobro: unknown, cobroActual?: Date | null): boolean {
+    if (!primerCobro) return false; // No hay cobro previo: este ES el primero.
+    const inicio = new Date(primerCobro as string | number | Date);
+    if (Number.isNaN(inicio.getTime())) return false;
+    const fecha = cobroActual ?? new Date();
+    return fecha.getTime() >= sumarMeses(inicio, MESES_DE_COMISION).getTime();
+}
+
+/**
  * Devenga la comisión de un cobro. Se llama desde el webhook de Paddle, que ya
  * verificó la firma.
  *
@@ -152,7 +188,12 @@ export async function devengarComision(params: {
 
     try {
         const [rows] = await pool.query<any[]>(
-            `SELECT r.affiliate_id, a.commission_pct
+            `SELECT r.affiliate_id, a.commission_pct,
+                    (SELECT MIN(COALESCE(c.billed_at, c.created_at))
+                       FROM Commissions c
+                      WHERE c.beneficiary_type = 'affiliate'
+                        AND c.beneficiary_id = r.affiliate_id
+                        AND c.tenant_id = r.tenant_id) AS primer_cobro
              FROM AffiliateReferrals r
              JOIN Affiliates a ON a.id = r.affiliate_id
              WHERE r.tenant_id = ? AND a.status = 'ACTIVE' LIMIT 1`,
@@ -160,6 +201,13 @@ export async function devengarComision(params: {
         );
         const referido = Array.isArray(rows) ? rows[0] : null;
         if (!referido) return { devengada: false, motivo: "tenant-sin-afiliado" };
+
+        // El primer año y nada más. Sin esto el referido devengaba para siempre
+        // —incluidas todas las renovaciones—, que es lo que decía el borrador
+        // legal y no lo que se ofrece.
+        if (fueraDeLaVentana(referido.primer_cobro, billedAt)) {
+            return { devengada: false, motivo: "fuera-de-la-ventana" };
+        }
 
         const pct = String(referido.commission_pct);
         const comision = calcularComision(baseAmount, pct);

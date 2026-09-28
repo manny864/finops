@@ -14,7 +14,7 @@
 > Las secciones marcadas **[A DEFINIR]** son parámetros de negocio que el código
 > **no** fija. Están vacíos a propósito.
 >
-> Última verificación contra el código: 2026-09-07.
+> Última verificación contra el código: 2026-09-28.
 
 ---
 
@@ -77,10 +77,19 @@ impuestos** de cada cobro, en la moneda del cobro. No se comisionan impuestos,
 percepciones ni cargos de la pasarela de pago.
 <sub>Implementa: el webhook usa `details.totals.subtotal` y guarda la moneda junto al monto.</sub>
 
-**4.3. Recurrencia.** La comisión se devenga en **cada** cobro del cliente
-atribuido, incluidas las renovaciones, mientras el cliente siga pagando y el
-Afiliado siga activo.
-<sub>Implementa: el devengo corre en cada `transaction.completed`.</sub>
+**4.3. Recurrencia, y su límite: el primer año.** La comisión se devenga en
+**cada** cobro del cliente atribuido —mensual o anual— durante los **12 meses
+corridos** siguientes a su primer cobro comisionado, y mientras el Afiliado siga
+activo. Los cobros posteriores a esa ventana **no** devengan comisión.
+
+Para un cliente mensual son sus doce cobros del primer año. Para un cliente
+anual es el cobro inicial; la renovación del año siguiente ya cae fuera.
+<sub>Implementa: el devengo corre en cada `transaction.completed` y `fueraDeLaVentana()` lo corta con `MESES_DE_COMISION = 12`.</sub>
+
+**4.3.bis. Por qué se mide en meses y no en cantidad de cobros.** Un tope de
+"hasta 12 cobros" daría doce años de comisión a un cliente de plan anual y doce
+meses a uno mensual, por la sola diferencia de con qué frecuencia factura la
+pasarela. La ventana de tiempo trata igual a los dos.
 
 **4.4. El porcentaje vigente se congela por cobro.** Cada comisión guarda el
 porcentaje que estaba acordado en el momento de devengarse. Una renegociación
@@ -173,6 +182,7 @@ Para que el acuerdo no prometa lo que la Plataforma no puede cumplir:
 | Panel de autogestión para el Afiliado | **No existe** |
 | Atribución multi-touch o última interacción | **No existe** (es primer toque) |
 | Atribución cross-device | **No existe** (depende de la cookie del navegador) |
+| Comisión más allá del primer año | **No existe** (la ventana de 4.3 la corta) |
 | Retención de impuestos | **No existe** |
 
 ## Anexo: dónde vive cada regla
