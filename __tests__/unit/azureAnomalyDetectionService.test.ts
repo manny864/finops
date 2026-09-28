@@ -133,12 +133,21 @@ describe("Anomaly Detection — Dataset Demo y Ensamblado Vivo", () => {
           expected_amount: 30.0,
           z_score: 3.5,
           status: "open",
+          // LA FORMA QUE ESCRIBE `getAnomalyTopContributors`, que es la unica
+          // que existe en la base: snake_case, `delta`, `delta_pct_of_total`.
+          //
+          // Este test traia camelCase --la forma de la UI-- y por eso pasaba
+          // sobre el bug: verificaba que el JSON se copiara tal cual, que era
+          // justamente lo roto. Con el dato real en la base, la pantalla
+          // dibujaba «% en» y «+$NaN».
           top_contributors: JSON.stringify([
             {
-              serviceName: "Azure Cosmos DB",
-              resourceGroup: "prod-db-rg",
-              contributionPercentage: 92.4,
-              deltaSpendUSD: 83.16,
+              resource_group: "prod-db-rg",
+              service_name: "Azure Cosmos DB",
+              cost: 90.0,
+              baseline_avg: 6.84,
+              delta: 83.16,
+              delta_pct_of_total: 92.4,
             },
           ]),
         },
@@ -148,6 +157,35 @@ describe("Anomaly Detection — Dataset Demo y Ensamblado Vivo", () => {
     expect(live.source).toBe("live");
     expect(live.summary.anomalies).toHaveLength(1);
     expect(live.summary.anomalies[0].state).toBe("OPEN");
-    expect(live.summary.anomalies[0].rootCauses[0].serviceName).toBe("Azure Cosmos DB");
+    expect(live.summary.anomalies[0].rootCauses[0]).toEqual({
+      serviceName: "Azure Cosmos DB",
+      resourceGroup: "prod-db-rg",
+      contributionPercentage: 92.4,
+      deltaSpendUSD: 83.16,
+    });
+    // El titulo sale del contribuyente dominante: si la traduccion se rompe,
+    // vuelve a decir DESCONOCIDO.
+    expect(live.summary.anomalies[0].titleService).toBe("Azure Cosmos DB");
+  });
+
+  it("un contribuyente incompleto da 0, nunca NaN", () => {
+    // Una fila vieja o a medio escribir no puede llegar a la pantalla como
+    // `+$NaN`: `money()` formatea lo que reciba.
+    const live = assembleLiveAnomalies({
+      dailyCosts: [],
+      dbAnomalies: [
+        {
+          id: 2, date: "2026-08-15", amount: 0.02, expected_amount: 0.01,
+          z_score: 3.74, status: "open",
+          top_contributors: JSON.stringify([{ service_name: "Key Vault" }]),
+        },
+      ],
+    });
+    expect(live.summary.anomalies[0].rootCauses[0]).toEqual({
+      serviceName: "Key Vault",
+      resourceGroup: "",
+      contributionPercentage: 0,
+      deltaSpendUSD: 0,
+    });
   });
 });

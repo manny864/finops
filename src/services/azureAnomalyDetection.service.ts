@@ -245,6 +245,43 @@ export function getMockAnomalyPayload(tenantId: string): AnomalyPayload {
 }
 
 /**
+ * Un contribuyente TAL COMO ESTÁ GUARDADO en `Anomalies.top_contributors`.
+ *
+ * NO es `AnomalyRootCauseItem`, y la diferencia costó una pantalla: quien
+ * escribe la columna (`getAnomalyTopContributors`) usa los nombres de las
+ * columnas de `CostSnapshots` --snake_case, `delta`, `delta_pct_of_total`-- y
+ * quien la lee dibuja `AnomalyRootCauseItem` --camelCase, `deltaSpendUSD`,
+ * `contributionPercentage`--. El JSON se pasaba derecho de una forma a la otra,
+ * así que TODOS los campos llegaban `undefined` y la atribución de causa raíz
+ * se dibujaba como «% en» con «+$NaN», con el dato intacto en la base.
+ *
+ * Es el modo de falla del que avisa CLAUDE.md para los contratos de Azure, acá
+ * con un contrato propio: no explota, devuelve vacío. Y el tipo lo tapaba —la
+ * fila declaraba `AnomalyRootCauseItem[]`, que es lo que nadie escribió nunca—,
+ * así que el compilador firmaba la conversión que no existía. Declarado aparte,
+ * la traducción es obligatoria y `comoRootCause` es el único lugar donde pasa.
+ *
+ * Todo opcional a propósito: es JSON de la base, no una promesa del compilador.
+ */
+interface ContribuyenteGuardado {
+  resource_group?: string;
+  service_name?: string;
+  cost?: number;
+  baseline_avg?: number;
+  delta?: number;
+  delta_pct_of_total?: number;
+}
+
+function comoRootCause(c: ContribuyenteGuardado): AnomalyRootCauseItem {
+  return {
+    serviceName: c.service_name || "",
+    resourceGroup: c.resource_group || "",
+    contributionPercentage: Number(c.delta_pct_of_total) || 0,
+    deltaSpendUSD: Number(c.delta) || 0,
+  };
+}
+
+/**
  * Ensambla anomalías en vivo con datos reales de CostSnapshots / Azure Cost Management.
  */
 export function assembleLiveAnomalies(input: {
@@ -256,23 +293,24 @@ export function assembleLiveAnomalies(input: {
     expected_amount: number;
     z_score: number;
     status: string;
-    top_contributors?: AnomalyRootCauseItem[] | string;
+    top_contributors?: ContribuyenteGuardado[] | string;
     detected_at?: string;
     resolved_at?: string;
     resolution_notes?: string;
   }>;
 }): AnomalyPayload {
   const anomalies: CostAnomalyItem[] = (input.dbAnomalies || []).map((row) => {
-    let rootCauses: AnomalyRootCauseItem[] = [];
+    let guardados: ContribuyenteGuardado[] = [];
     if (typeof row.top_contributors === "string") {
       try {
-        rootCauses = JSON.parse(row.top_contributors);
+        guardados = JSON.parse(row.top_contributors);
       } catch {
-        rootCauses = [];
+        guardados = [];
       }
     } else if (Array.isArray(row.top_contributors)) {
-      rootCauses = row.top_contributors;
+      guardados = row.top_contributors;
     }
+    const rootCauses = guardados.map(comoRootCause);
 
     const stateMap: Record<string, CostAnomalyItem["state"]> = {
       open: "OPEN",
