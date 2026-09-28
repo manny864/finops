@@ -141,6 +141,39 @@ export function coincidePatron(texto: string, patron: string): boolean {
     return new RegExp(`^${escapado}$`, "i").test(texto);
 }
 
+/**
+ * Los tipos de regla que NO se pueden evaluar sin el dato que trae el export
+ * FOCUS: `Tags` para las de etiqueta, `ResourceId` para las de nombre y tipo.
+ *
+ * `subscription` y `resource_group` quedan afuera porque su dato lo trae
+ * cualquiera de los dos caminos de ingesta -- el sync vía Cost Management
+ * agrega justamente por ServiceName/ResourceGroupName.
+ */
+const TIPOS_QUE_EXIGEN_PROCEDENCIA: readonly TipoRegla[] = ["tag", "name_pattern", "resource_type"];
+
+/**
+ * ¿Esta Perspective necesita que el costo venga del export FOCUS para poder
+ * evaluarse?
+ *
+ * SIRVE PARA DECIDIR SI UN ALCANCE SE PUEDE APLICAR (MEJ-38), y por eso importa
+ * que sea por TIPO DE REGLA y no por procedencia del dato en general.
+ *
+ * Una Perspective definida sólo por grupo de recursos o suscripción se evalúa
+ * perfectamente sobre el costo del sync, que no trae ni `Tags` ni `ResourceId`.
+ * Preguntar por la procedencia en vez de por lo que estas reglas necesitan
+ * rechazaba ese caso, y ese caso es la ingesta por defecto: el alcance como
+ * permiso quedaba inusable para cualquier tenant sin el export FOCUS.
+ *
+ * El otro motivo por el que la granularidad importa: el recorte viaja a SQL
+ * como un `IN` de ternas (suscripción, grupo de recursos, recurso). Sin
+ * `ResourceId` la terna colapsa al grupo de recursos, y una regla que separa
+ * MÁS FINO que eso --por etiqueta, por nombre-- ya no se puede expresar. Estas
+ * reglas son exactamente las que separan más fino.
+ */
+export function necesitaProcedenciaDeEtiquetas(reglas: ReglaPerspectiva[] | null | undefined): boolean {
+    return (reglas || []).some((r) => TIPOS_QUE_EXIGEN_PROCEDENCIA.includes(r.tipo));
+}
+
 /** Qué dato necesita cada tipo de regla, para poder decir que falta. */
 function datoQueFalta(regla: ReglaPerspectiva, fila: FilaDeCosto): string | null {
     switch (regla.tipo) {

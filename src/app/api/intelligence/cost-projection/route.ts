@@ -31,7 +31,7 @@ import { buildDailyHistogram, type DailySpendHistogramPoint } from "@/lib/costPr
 import { errorMessage } from '@/lib/apiErrors';
 import { getTagCoverage } from "@/lib/costTagCoverage";
 import {
-    filtroDeLaRequest, exigirRecorte, comoFilaDeCosto, recorteDeAlcance, DIMENSIONES_DE_ALCANCE,
+    filtroDeLaRequest, exigirRecorte, alcanceNecesitaProcedencia, comoFilaDeCosto, recorteDeAlcance, DIMENSIONES_DE_ALCANCE,
     type FilaConDimensiones, type RecorteDeAlcance, type Permiso,
 } from "@/services/perspectivesData.service";
 import type { FilaDeCosto } from "@/services/perspectives.service";
@@ -213,14 +213,17 @@ export async function GET(request: NextRequest) {
         const alcance = await filtroDeLaRequest(tenantId, searchParams, permiso);
 
         // UN ALCANCE SOLO SE APLICA SI SE PUEDE MEDIR, con el mismo criterio que
-        // los otros tableros: sin procedencia en el costo de la ventana, el
-        // reparto se aproxima por Resource Group y una aproximación no se
-        // recorta fila por fila.
+        // los otros tableros: lo deciden las reglas de la Perspective. Sólo las
+        // que miran etiqueta, nombre o tipo de recurso necesitan que el costo
+        // venga del export; sin eso el reparto se aproxima por Resource Group y
+        // una aproximación no se recorta fila por fila.
         const desde = new Date();
         desde.setMonth(desde.getMonth() - AZURE_COST_HISTORY_MAX_MONTHS);
-        const medible = !!alcance && (await getTagCoverage(
+        const cobertura = await getTagCoverage(
             tenantId, desde.toISOString().slice(0, 10), new Date().toISOString().slice(0, 10),
-        )).isExact;
+        );
+        const medible = !!alcance
+            && (cobertura.isExact || !(await alcanceNecesitaProcedencia(tenantId, searchParams, permiso)));
 
         // Predicado primero, plegado de respaldo. Ver `ModoDeAlcance`.
         let modo: ModoDeAlcance | null = null;
@@ -237,7 +240,7 @@ export async function GET(request: NextRequest) {
         const recorte = modo;
         // MEJ-38: `modo` no nulo significa que la serie se acota de alguna de las
         // dos formas --predicado o plegado--. Si no, con permiso se corta.
-        exigirRecorte(permiso, modo !== null);
+        exigirRecorte(permiso, modo !== null, cobertura.costTotal <= 0);
 
         // v5: dailyHistory ahora incluye continuidad (huecos rellenados con
         // $0), media móvil de 7d, flags de fin de semana/pico y servicio

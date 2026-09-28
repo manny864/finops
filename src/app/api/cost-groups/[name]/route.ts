@@ -276,8 +276,11 @@ async function resolverRecorte(
     );
     const r = recorteDeAlcance(filas as FilaConDimensiones[], alcance);
     const util = r !== null && (r.porGrupoAlcanza || r.resourceIds.size <= TOPE_IDS_KQL);
-    // MEJ-38: con alcance ASIGNADO no hay "mostrar el grupo entero".
-    exigirRecorte(permiso, util);
+    // MEJ-38: con alcance ASIGNADO no hay "mostrar el grupo entero". Salvo que
+    // no haya NADA en la ventana: ahí no hay recorte que aplicar ni nada que
+    // filtrar, y un 403 diría "no tenés permiso" cuando lo cierto es "no hay
+    // datos en este período".
+    exigirRecorte(permiso, util, (filas as unknown[]).length === 0);
     return util ? r : null;
 }
 

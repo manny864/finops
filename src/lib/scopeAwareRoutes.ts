@@ -74,6 +74,16 @@ export const RUTAS_DE_SHELL: Record<string, Metodos> = {
     // cae a la de por defecto y los importes se dibujan en otra moneda.
     // No devuelve un solo dato del tenant: la preferencia y la lista soportada.
     "/api/fx/preference": ["GET"],
+    // Encontradas caminando el camino del usuario acotado: el shell las pide en
+    // cada carga y sin ellas la pantalla queda con avisos rotos. Ninguna
+    // devuelve un importe.
+    //
+    // `announcements/active` son los comunicados de la plataforma (MEJ-11): no
+    // tienen nada que ver con el gasto y ocultárselos a un usuario acotado
+    // sería dejarlo sin enterarse de un aviso de mantenimiento.
+    "/api/announcements/active": ["GET"],
+    // La mesa de ayuda. Un usuario acotado abre tickets como cualquiera.
+    "/api/support/notifications": ["GET"],
     "/api/academy/content": ["GET"],
     "/api/billing/addons/active": ["GET"],
     "/api/billing/plan": ["GET"],

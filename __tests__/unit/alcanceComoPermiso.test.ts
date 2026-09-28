@@ -33,18 +33,22 @@ vi.mock("@/lib/azureResourceCounts", () => ({
 }));
 
 import { rutaAdmiteAlcance, RUTAS_CON_ALCANCE, PAGINAS_CON_ALCANCE_Y_SUS_RUTAS, paginaAdmiteAlcance } from "@/lib/scopeAwareRoutes";
-import { exigirRecorte, filtroDeLaRequest } from "@/services/perspectivesData.service";
+import { exigirRecorte, filtroDeLaRequest, alcanceNecesitaProcedencia } from "@/services/perspectivesData.service";
+import { necesitaProcedenciaDeEtiquetas } from "@/services/perspectives.service";
 import { ROLES_SIN_ALCANCE } from "@/services/userScope.service";
 import { aplicarAlcance, type RequestIdentity } from "@/lib/requestAuth";
 
 const PERMISO = { perspectiveId: 7, grupo: "Producción" };
 
-function stubPerspectiva(existe = true) {
+function stubPerspectiva(existe = true, tipos: string[] = ["tag"]) {
     queryMock.mockImplementation(async (sql: string) => {
         const s = String(sql);
         if (s.includes("FROM Perspectives")) return [existe ? [{ id: 7, name: "Entorno", description: null }] : []];
         if (s.includes("FROM PerspectiveRules")) {
-            return [[{ id: 1, perspective_id: 7, group_name: "Producción", match_type: "tag", match_key: "Environment", match_value: "prod", sort_order: 0 }]];
+            return [tipos.map((tipo, i) => ({
+                id: i + 1, perspective_id: 7, group_name: "Producción",
+                match_type: tipo, match_key: "Environment", match_value: "prod", sort_order: i,
+            }))];
         }
         return [[]];
     });
@@ -187,6 +191,55 @@ describe("exigirRecorte", () => {
 
     it("sin permiso no hace nada: ahí el aviso de MEJ-34 es la respuesta correcta", () => {
         expect(() => exigirRecorte(null, false)).not.toThrow();
+    });
+});
+
+describe("qué hace aplicable a un alcance: las REGLAS, no la procedencia del dato", () => {
+    // El gate era `tagCoverage.isExact`, que pregunta si las filas traen `Tags`
+    // o `ResourceId`. Con la ingesta por Cost Management --que es la de por
+    // defecto-- eso es 0%, así que un alcance por grupo de recursos daba 403
+    // aunque sus reglas fueran perfectamente evaluables. Medido contra un tenant
+    // real: 318 filas, 0 con ResourceId, 0 con Tags, 318 con resource_group.
+
+    it("por grupo de recursos o suscripción: no necesita el export", () => {
+        const regla = (tipo: string) => [{ id: 1, grupo: "P", tipo, clave: null, valor: "x", orden: 0 }] as any;
+        expect(necesitaProcedenciaDeEtiquetas(regla("resource_group"))).toBe(false);
+        expect(necesitaProcedenciaDeEtiquetas(regla("subscription"))).toBe(false);
+    });
+
+    it("por etiqueta, nombre o tipo de recurso: sí, y basta UNA", () => {
+        const reglas = (...tipos: string[]) =>
+            tipos.map((tipo, i) => ({ id: i, grupo: "P", tipo, clave: null, valor: "x", orden: i })) as any;
+        expect(necesitaProcedenciaDeEtiquetas(reglas("tag"))).toBe(true);
+        expect(necesitaProcedenciaDeEtiquetas(reglas("name_pattern"))).toBe(true);
+        expect(necesitaProcedenciaDeEtiquetas(reglas("resource_type"))).toBe(true);
+        // Mezcladas manda la más fina: sin ResourceId la terna colapsa al grupo
+        // de recursos y una regla por etiqueta ya no se puede expresar en SQL.
+        expect(necesitaProcedenciaDeEtiquetas(reglas("resource_group", "tag"))).toBe(true);
+    });
+
+    it("una Perspective sin reglas no exige nada", () => {
+        expect(necesitaProcedenciaDeEtiquetas([])).toBe(false);
+    });
+
+    it("resuelto contra la Perspective del permiso, que gana sobre la URL", async () => {
+        stubPerspectiva(true, ["resource_group"]);
+        // La URL pide la 99 y es de etiqueta según nadie: manda la 7 del permiso.
+        const sp = new URLSearchParams({ perspective: "99" });
+        expect(await alcanceNecesitaProcedencia("t1", sp, PERMISO)).toBe(false);
+
+        stubPerspectiva(true, ["tag"]);
+        expect(await alcanceNecesitaProcedencia("t1", sp, PERMISO)).toBe(true);
+    });
+
+    it("sin Perspective en juego no hay nada que exigir", async () => {
+        stubPerspectiva();
+        expect(await alcanceNecesitaProcedencia("t1", new URLSearchParams(), null)).toBe(false);
+    });
+
+    it("si la Perspective no resuelve, exige — que es el lado que no filtra", async () => {
+        stubPerspectiva(false);
+        expect(await alcanceNecesitaProcedencia("t1", new URLSearchParams(), PERMISO)).toBe(true);
     });
 });
 

@@ -7,7 +7,7 @@ import { redis } from "@/lib/redis";
 import { fetchResourceCountsByRg } from "@/lib/azureResourceCounts";
 import { getTagCoverage } from "@/lib/costTagCoverage";
 import {
-    filtroDeLaRequest, exigirRecorte, comoFilaDeCosto, DIMENSIONES_DE_ALCANCE,
+    filtroDeLaRequest, exigirRecorte, alcanceNecesitaProcedencia, comoFilaDeCosto, DIMENSIONES_DE_ALCANCE,
     type FilaConDimensiones, type Permiso,
 } from "@/services/perspectivesData.service";
 import type { FilaDeCosto } from "@/services/perspectives.service";
@@ -193,12 +193,17 @@ export async function GET(request: NextRequest) {
             const coverageWindow = { start: monthsAgoIso(2), end: todayIso() };
             const tagCoverage = await getTagCoverage(tenantId, coverageWindow.start, coverageWindow.end);
 
-            // UN ALCANCE SOLO SE APLICA SI SE PUEDE MEDIR. Sin procedencia en el
-            // costo del período, el reparto se resuelve aproximando por Resource
-            // Group y una aproximación no se recorta fila por fila: se devuelve
-            // el tablero entero con `scopeApplied: false` y la pantalla lo dice.
-            const recorte = alcance && tagCoverage.isExact ? alcance : null;
-            exigirRecorte(permiso, recorte !== null);
+            // UN ALCANCE SOLO SE APLICA SI SE PUEDE MEDIR, y eso lo deciden LAS
+            // REGLAS de su Perspective: una por grupo de recursos se evalúa exacta
+            // sobre costo sin etiquetas. Cuando sí necesita procedencia y no la
+            // hay, el reparto se aproxima por Resource Group y una aproximación no
+            // se recorta fila por fila: se devuelve el tablero entero con
+            // `scopeApplied: false` y la pantalla lo dice.
+            const medible = !!alcance
+                && (tagCoverage.isExact
+                    || !(await alcanceNecesitaProcedencia(tenantId, request.nextUrl.searchParams, permiso)));
+            const recorte = medible ? alcance! : null;
+            exigirRecorte(permiso, recorte !== null, tagCoverage.costTotal <= 0);
 
             const [spend, budgets] = await Promise.all([
                 getCostCenterSpend(tenantId, recorte || undefined),

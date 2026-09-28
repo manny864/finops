@@ -19,7 +19,7 @@ import { fetchResourceCountsByRg, fetchResourceGroupsByTag } from "@/lib/azureRe
 import { getTagCoverage } from "@/lib/costTagCoverage";
 import { rangoDelAnioFiscal, mesFiscalDelTenant } from "@/lib/fiscalYear";
 import {
-    filtroDeLaRequest, exigirRecorte, comoFilaDeCosto, DIMENSIONES_DE_ALCANCE, type FilaConDimensiones,
+    filtroDeLaRequest, exigirRecorte, alcanceNecesitaProcedencia, comoFilaDeCosto, DIMENSIONES_DE_ALCANCE, type FilaConDimensiones,
 } from "@/services/perspectivesData.service";
 import type { FilaDeCosto } from "@/services/perspectives.service";
 import type { Permiso } from "@/services/perspectivesData.service";
@@ -180,10 +180,10 @@ export async function GET(request: NextRequest) {
         // período) y `costGroupsCacheKeys` sólo invalida las tres sin recorte,
         // así que un grupo editado dejaría vistas acotadas viejas para siempre.
         const result = alcance
-            ? await fetchCostGroups(tenantId, period, alcance, permiso)
+            ? await fetchCostGroups(tenantId, period, url.searchParams, alcance, permiso)
             : await getWithStaleWhileRevalidate(
                 `cost-groups:v2:${tenantId}:${period}`,
-                () => fetchCostGroups(tenantId, period),
+                () => fetchCostGroups(tenantId, period, url.searchParams),
                 1800,
                 600
             );
@@ -196,7 +196,7 @@ export async function GET(request: NextRequest) {
     }
 }
 
-async function fetchCostGroups(tenantId: string, period: string, alcance?: Alcance, permiso?: Permiso | null) {
+async function fetchCostGroups(tenantId: string, period: string, sp: URLSearchParams, alcance?: Alcance, permiso?: Permiso | null) {
         const { start, end } = periodRange(period, await mesFiscalDelTenant(tenantId));
         const days = Math.max(1, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86400000) || 30);
 
@@ -205,16 +205,18 @@ async function fetchCostGroups(tenantId: string, period: string, alcance?: Alcan
         // Group sobra. Se resuelve UNA vez por request, no por grupo.
         const tagCoverage = await getTagCoverage(tenantId, start, end);
 
-        // UN ALCANCE SÓLO SE APLICA SI SE PUEDE MEDIR. Cuando el costo del
-        // período llega sin procedencia (sync por Cost Management: sin `Tags` ni
-        // `ResourceId`), el reparto se resuelve aproximando por Resource Group —
-        // y una aproximación por RG no se puede recortar fila por fila. Filtrar
-        // igual daría un tablero que suma menos que la factura sin decir por
-        // qué, así que se devuelve el tablero entero con `scopeApplied: false`
-        // y que la pantalla lo diga.
-        const recorte = alcance && tagCoverage.isExact ? alcance : null;
+        // UN ALCANCE SÓLO SE APLICA SI SE PUEDE MEDIR, y lo que decide eso son
+        // LAS REGLAS DE SU PERSPECTIVE, no la procedencia del dato en general.
+        // Una Perspective por grupo de recursos se evalúa exacta sobre costo sin
+        // etiquetas; una por etiqueta o por nombre de recurso, no —ahí el reparto
+        // se aproxima por Resource Group y una aproximación no se recorta fila
+        // por fila—. En ese caso se devuelve el tablero entero con
+        // `scopeApplied: false` y que la pantalla lo diga.
+        const medible = !!alcance
+            && (tagCoverage.isExact || !(await alcanceNecesitaProcedencia(tenantId, sp, permiso)));
+        const recorte = medible ? alcance! : null;
         // MEJ-38: con alcance ASIGNADO, no acotar sería servirle el tenant entero.
-        exigirRecorte(permiso, recorte !== null);
+        exigirRecorte(permiso, recorte !== null, tagCoverage.costTotal <= 0);
 
         // COUNT(DISTINCT subscription_id) excluye 'mg-aggregated'/'default': el
         // sync diario a veces graba un placeholder ahí en vez del GUID real

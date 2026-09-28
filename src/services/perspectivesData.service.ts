@@ -9,7 +9,7 @@
 
 import pool from "@/modules/storage/db";
 import { AuthError } from "@/lib/requestAuth";
-import { evaluarFila } from "./perspectives.service";
+import { evaluarFila, necesitaProcedenciaDeEtiquetas } from "./perspectives.service";
 import type { FilaDeCosto, ReglaPerspectiva, TipoRegla } from "./perspectives.service";
 
 export interface Perspectiva {
@@ -192,8 +192,48 @@ export async function filtroDeLaRequest(
         if (!f) throw new AuthError("Tu alcance asignado no se pudo resolver.", 403, "SCOPE_UNRESOLVED");
         return f;
     }
+    return filtroDeAlcance(tenantId, perspectivaEnJuego(sp, null), sp.get("pgroup"));
+}
+
+/**
+ * Qué Perspective manda en esta request. **El permiso gana sobre la URL**, con
+ * el mismo criterio que `filtroDeLaRequest` y `alcanceDeLaRuta`; está acá para
+ * que esa frase viva en un solo lugar.
+ */
+export function perspectivaEnJuego(sp: URLSearchParams, permiso?: Permiso | null): number | null {
+    if (permiso) return permiso.perspectiveId;
     const pid = Number(sp.get("perspective"));
-    return filtroDeAlcance(tenantId, Number.isInteger(pid) && pid > 0 ? pid : null, sp.get("pgroup"));
+    return Number.isInteger(pid) && pid > 0 ? pid : null;
+}
+
+/**
+ * MEJ-38 — ¿el recorte de esta request exige que el costo venga del export
+ * FOCUS?
+ *
+ * Los tableros que agregan en SQL preguntaban por `tagCoverage.isExact`, que
+ * mide la PROCEDENCIA DEL DATO: si las filas traen `Tags` o `ResourceId`. Esa
+ * es la pregunta correcta para MEJ-30 --decidir si un Cost Group por etiqueta
+ * es exacto o hay que aproximar por Resource Group-- y la equivocada para
+ * decidir si un alcance se puede aplicar.
+ *
+ * Una Perspective definida por grupo de recursos se evalúa exactamente sobre
+ * costo sin etiquetas: el dato que sus reglas miran está en todas las filas.
+ * Medido contra la base local, un tenant real con 318 filas del sync --0 con
+ * `ResourceId`, 0 con `Tags`, 318 con `resource_group`-- veía un 403 con una
+ * Perspective perfectamente evaluable. Y como ese es el camino de ingesta por
+ * defecto, el alcance como permiso quedaba inusable salvo con el export FOCUS.
+ */
+export async function alcanceNecesitaProcedencia(
+    tenantId: string,
+    sp: URLSearchParams,
+    permiso?: Permiso | null,
+): Promise<boolean> {
+    const pid = perspectivaEnJuego(sp, permiso);
+    if (!pid) return false;
+    const perspectiva = (await listarPerspectivas(tenantId)).find((p) => p.id === pid);
+    // Sin Perspective no hay reglas que mirar; exigir es la respuesta que no
+    // filtra. En la práctica no se llega: `filtroDeLaRequest` ya cortó.
+    return perspectiva ? necesitaProcedenciaDeEtiquetas(perspectiva.reglas) : true;
 }
 
 /**
@@ -204,8 +244,24 @@ export async function filtroDeLaRequest(
  * aviso, que es el comportamiento de MEJ-34. Con permiso, ese mismo aviso sería
  * la fuga: el usuario vería el gasto del tenant completo.
  */
-export function exigirRecorte(permiso: Permiso | null | undefined, aplicado: boolean): void {
-    if (permiso && !aplicado) {
+export function exigirRecorte(
+    permiso: Permiso | null | undefined,
+    aplicado: boolean,
+    /**
+     * La ventana consultada no tiene NADA de gasto.
+     *
+     * Entonces no hay recorte que aplicar, y tampoco hay nada que filtrar: la
+     * respuesta es vacía de las dos formas. Cortar acá con 403 le diría "no
+     * tenés permiso" a quien simplemente eligió un período sin datos — a
+     * principio de mes, antes de que corra la ingesta, o mirando un rango
+     * anterior al primer dato. Lo encontró caminar el camino del usuario
+     * acotado en el navegador: `decideTagExactness` devuelve `false` con
+     * `costTotal = 0` —correcto en su contexto, "sin gasto no hay nada que
+     * declarar exacto"— y eso llegaba hasta acá convertido en un 403.
+     */
+    ventanaSinGasto = false,
+): void {
+    if (permiso && !aplicado && !ventanaSinGasto) {
         throw new AuthError(
             "El costo de este período no se puede separar entre lo que entra en tu alcance y lo que no.",
             403, "SCOPE_NOT_APPLICABLE",
@@ -255,9 +311,8 @@ export async function alcanceDeLaRuta(
      */
     permiso?: { perspectiveId: number; grupo: string | null } | null,
 ): Promise<AlcanceDeLaRuta> {
-    const pid = permiso ? permiso.perspectiveId : Number(sp.get("perspective"));
     const grupo = permiso ? permiso.grupo : sp.get("pgroup");
-    const alcance = await filtroDeAlcance(tenantId, Number.isInteger(pid) && pid > 0 ? pid : null, grupo);
+    const alcance = await filtroDeAlcance(tenantId, perspectivaEnJuego(sp, permiso), grupo);
     if (!alcance) {
         // Con permiso, que la Perspective no resuelva no puede degradar a "sin
         // recorte". No debería pasar --borrarla cascadea la fila de UserScopes--
