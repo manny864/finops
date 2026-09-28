@@ -85,6 +85,9 @@ export default function PerspectivesBoard() {
     const [reparto, setReparto] = useState<Reparto | null>(null);
     const [calculando, setCalculando] = useState(false);
     const [guardando, setGuardando] = useState(false);
+    const [nombreNuevo, setNombreNuevo] = useState("");
+    const [creando, setCreando] = useState(false);
+    const [borrando, setBorrando] = useState(false);
     const [aviso, setAviso] = useState<string | null>(null);
 
     // Al elegir una Perspective se cargan SUS reglas; a partir de ahí se edita
@@ -143,6 +146,73 @@ export default function PerspectivesBoard() {
         }
     }, [tenantId, seleccionada, reglas, instance, accounts, esMock, mutate, t]);
 
+    /**
+     * Crear la primera —y las siguientes—.
+     *
+     * El `POST` existía en la API desde el principio y NADIE lo llamaba: la
+     * pantalla sólo sabía listar, editar reglas y previsualizar. Con cero
+     * Perspectives mostraba "creá la primera" y no daba con qué, así que toda
+     * la cadena que depende de esto (el selector transversal, MEJ-35, MEJ-37 y
+     * MEJ-38) no se podía arrancar desde el producto.
+     */
+    const crear = useCallback(async () => {
+        const name = nombreNuevo.trim();
+        if (!tenantId || !name) return;
+        setCreando(true);
+        setAviso(null);
+        try {
+            const res = await fetch(
+                `/api/intelligence/perspectives?tenantId=${encodeURIComponent(tenantId)}`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", ...(await authHeaders(instance, accounts, esMock)) },
+                    // Nace SIN reglas: con una regla vacía de arranque, la vista
+                    // previa mostraría un grupo sin nombre y el "sin asignar" al
+                    // 100%, que se lee como que algo falló.
+                    body: JSON.stringify({ name, reglas: [] }),
+                },
+            );
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+            setNombreNuevo("");
+            await mutate();
+            // Se selecciona la recién creada para poder cargarle reglas ya.
+            if (json.id) { setSeleccionada(Number(json.id)); setReglas([]); setReparto(null); }
+            setAviso(t("created"));
+        } catch (e) {
+            setAviso(errorMessage(e));
+        } finally {
+            setCreando(false);
+        }
+    }, [tenantId, nombreNuevo, instance, accounts, esMock, mutate, t]);
+
+    const borrar = useCallback(async () => {
+        if (!tenantId || seleccionada === null) return;
+        const nombre = perspectivas.find((p) => p.id === seleccionada)?.name ?? "";
+        // Borrar se lleva las reglas por CASCADE y deja sin alcance a quien la
+        // tuviera asignada: se pregunta antes, con el nombre a la vista.
+        if (!window.confirm(t("confirmDelete", { name: nombre }))) return;
+        setBorrando(true);
+        setAviso(null);
+        try {
+            const res = await fetch(
+                `/api/intelligence/perspectives?tenantId=${encodeURIComponent(tenantId)}&id=${seleccionada}`,
+                { method: "DELETE", headers: await authHeaders(instance, accounts, esMock) },
+            );
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+            setSeleccionada(null);
+            setReglas([]);
+            setReparto(null);
+            await mutate();
+            setAviso(t("deleted"));
+        } catch (e) {
+            setAviso(errorMessage(e));
+        } finally {
+            setBorrando(false);
+        }
+    }, [tenantId, seleccionada, perspectivas, instance, accounts, esMock, mutate, t]);
+
     const mover = (i: number, delta: number) => {
         const j = i + delta;
         if (j < 0 || j >= reglas.length) return;
@@ -172,6 +242,32 @@ export default function PerspectivesBoard() {
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t("subtitle")}</p>
             </header>
 
+            {/* El alta vive FUERA del condicional a propósito: con cero
+                Perspectives la pantalla decía "creá la primera" y no daba con
+                qué, porque el selector y los botones sólo se renderizaban
+                cuando ya existía una. */}
+            {!isLoading && (
+                <div className="flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                    <label className="min-w-[14rem] flex-1 text-sm">
+                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">{t("newLabel")}</span>
+                        <input
+                            className="w-full rounded-lg border border-slate-300 bg-white p-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+                            placeholder={t("newPlaceholder")}
+                            value={nombreNuevo}
+                            onChange={(e) => setNombreNuevo(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") crear(); }}
+                        />
+                    </label>
+                    <button
+                        onClick={crear}
+                        disabled={creando || !nombreNuevo.trim()}
+                        className="flex items-center gap-1 rounded-lg bg-[#0054A6] px-3 py-2 text-sm font-bold text-white disabled:opacity-50"
+                    >
+                        <IconPlus className="h-4 w-4" /> {creando ? t("creating") : t("create")}
+                    </button>
+                </div>
+            )}
+
             {isLoading ? (
                 <p className="text-sm text-slate-500">{t("loading")}</p>
             ) : perspectivas.length === 0 ? (
@@ -191,6 +287,15 @@ export default function PerspectivesBoard() {
                                 <option key={p.id} value={p.id}>{p.name}</option>
                             ))}
                         </select>
+                        {/* Al lado del selector, no entre los botones de las
+                            reglas: esto borra la Perspective ENTERA, no una regla. */}
+                        <button
+                            onClick={borrar}
+                            disabled={borrando || seleccionada === null}
+                            className="ml-auto flex items-center gap-1 rounded-lg border border-red-300 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/40"
+                        >
+                            <IconTrash className="h-4 w-4" /> {borrando ? t("deleting") : t("delete")}
+                        </button>
                     </div>
 
                     {/* Reglas. El orden es la semántica, así que se edita con

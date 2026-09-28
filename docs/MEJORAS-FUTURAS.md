@@ -3545,6 +3545,36 @@ Tests: `__tests__/unit/almacenamientoAlcance.test.ts` (9).
 
 ---
 
+### El hueco que bloqueaba toda la cadena (2026-09-27)
+
+**No se podía crear una Perspective desde el producto.** El `POST` y el `DELETE` existían en la
+API desde el principio y **no los llamaba nadie**: `PerspectivesBoard` sólo sabía listar (`GET`),
+editar reglas de una existente (`PUT`) y previsualizar (`POST /breakdown`).
+
+Peor: con cero Perspectives la pantalla renderizaba **únicamente** el párrafo *"Todavía no hay
+Perspectives. Creá la primera…"*. El selector, el editor de reglas y los botones estaban todos
+dentro del `else`, o sea que sólo aparecían **si ya existía una**. El texto invitaba a hacer algo
+que la pantalla no permitía, y el único camino era pegarle a la API con `curl`.
+
+Eso explica por qué la cadena entera —el selector transversal, MEJ-35, MEJ-37 y MEJ-38— no se podía
+arrancar: nadie podía crear la primera.
+
+Ahora el alta vive **fuera del condicional**, así que existe tanto con cero como con varias. Nace
+**sin reglas** a propósito: con una regla vacía de arranque, la vista previa mostraría un grupo sin
+nombre y el "sin asignar" al 100%, que se lee como que algo falló. El borrado pregunta antes, con el
+nombre a la vista, porque se lleva las reglas por CASCADE y deja sin alcance a quien la tuviera
+asignada.
+
+**Y de paso, un segundo hueco en el interceptor de demo.** La intercepción de
+`/api/intelligence/perspectives` matcheaba por URL **sin mirar el método**, a diferencia de otras
+del mismo archivo que sí lo hacen. Un `POST`/`PUT`/`DELETE` recibía la LISTA como respuesta: `res.ok`
+daba `true`, la pantalla decía *"creada"* y no aparecía nada. Es la falla que MEJ-03 persigue — no
+rompe, miente. Ahora una escritura en demo contesta 403 con *"La demo no guarda cambios: las
+Perspectives son de ejemplo"*, y la pantalla lo muestra.
+
+Verificado en el navegador contra el servidor local: los cinco botones presentes, el alta habilita
+el botón al escribir, y el aviso de la demo aparece sin falso éxito.
+
 ### Propuesta
 
 1. **Perspectives definidas por reglas, no por lista manual.** Cada una es un conjunto

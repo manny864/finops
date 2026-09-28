@@ -427,7 +427,20 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   try { reglas = JSON.parse(String(init?.body || '{}'))?.reglas || []; } catch { reglas = []; }
                   return new Response(JSON.stringify(getMockPerspectivesBreakdown(mockKey, reglas)), {status: 200});
               }
-              if (url.includes('/api/intelligence/perspectives')) return new Response(JSON.stringify(getMockDataForRoute('perspectives', mockKey)), {status: 200});
+              if (url.includes('/api/intelligence/perspectives')) {
+                  // POR MÉTODO, no por URL. Sin esto, un POST/PUT/DELETE recibía
+                  // la LISTA de Perspectives como respuesta: `res.ok` daba true,
+                  // la pantalla decía "creada" y no aparecía nada. Es la falla
+                  // que MEJ-03 persigue — no rompe, miente.
+                  const metodo = (init?.method || 'GET').toUpperCase();
+                  if (metodo !== 'GET') {
+                      return new Response(
+                          JSON.stringify({ error: 'La demo no guarda cambios: las Perspectives son de ejemplo.' }),
+                          {status: 403},
+                      );
+                  }
+                  return new Response(JSON.stringify(getMockDataForRoute('perspectives', mockKey)), {status: 200});
+              }
               if (url.includes('/api/subscriptions')) return new Response(JSON.stringify({ subscriptions: [{id: 'mock-sub', name: 'Demo Subscription'}]}), {status: 200});
               if (url.includes('/api/budgets/burn')) return new Response(JSON.stringify(getMockDataForRoute('budgets_burn', mockKey)), {status: 200});
               if (url.includes('/api/budgets/alerts')) return new Response(JSON.stringify(getMockDataForRoute('alerts', mockKey)), {status: 200});

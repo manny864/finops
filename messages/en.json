@@ -15820,7 +15820,16 @@
     "scopeAll": "All spend",
     "scopeEveryGroup": "All groups",
     "scopeNotApplied": "The Perspective scope could not be applied: this period's cost cannot be split row by row between what falls inside the scope and what does not. The figures below are for the whole board.",
-    "scopeAssigned": "Your access is limited to this group. You cannot change it."
+    "scopeAssigned": "Your access is limited to this group. You cannot change it.",
+    "newLabel": "New Perspective",
+    "newPlaceholder": "e.g. Teams, Products, Environments",
+    "create": "Create",
+    "creating": "Creating…",
+    "created": "Perspective created. You can add rules now.",
+    "delete": "Delete",
+    "deleting": "Deleting…",
+    "deleted": "Perspective deleted.",
+    "confirmDelete": "Delete the Perspective “{name}”? Its rules go with it, and anyone who had it assigned as their scope loses it."
   },
   "Lifecycle": {
     "pageTitle": "End of support",

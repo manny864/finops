@@ -15820,7 +15820,16 @@
     "scopeAll": "Todo el gasto",
     "scopeEveryGroup": "Todos los grupos",
     "scopeNotApplied": "No se pudo acotar por Perspective: el costo de este período no se puede separar fila por fila entre lo que entra en el alcance y lo que no. Los números de abajo son los del tablero completo.",
-    "scopeAssigned": "Tu acceso está acotado a este grupo. No lo podés cambiar."
+    "scopeAssigned": "Tu acceso está acotado a este grupo. No lo podés cambiar.",
+    "newLabel": "Nueva Perspective",
+    "newPlaceholder": "Ej.: Equipos, Productos, Entornos",
+    "create": "Crear",
+    "creating": "Creando…",
+    "created": "Perspective creada. Ya le podés cargar reglas.",
+    "delete": "Eliminar",
+    "deleting": "Eliminando…",
+    "deleted": "Perspective eliminada.",
+    "confirmDelete": "¿Eliminar la Perspective «{name}»? Se borran también sus reglas, y quien la tenga asignada como alcance deja de tenerlo."
   },
   "Lifecycle": {
     "pageTitle": "Fin de soporte",
