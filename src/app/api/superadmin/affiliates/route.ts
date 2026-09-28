@@ -9,6 +9,8 @@
  * POST { action: "update", id, ... }         → edición
  * POST { action: "delete", id }              → baja (se niega si hay comisiones)
  * POST { action: "setStatus", ids, status }  → aprobar / liquidar comisiones
+ * POST { action: "portalLink", id }          → emite (o rota) el enlace del panel
+ * POST { action: "revokePortal", id }        → lo revoca
  */
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireSuperAdmin } from "@/lib/requestAuth";
@@ -22,6 +24,7 @@ import {
     actualizarEstadoComisiones,
     type EstadoComision,
 } from "@/services/affiliates.service";
+import { emitirEnlaceDePanel, revocarEnlaceDePanel } from "@/services/affiliatePortal.service";
 
 const ESTADOS: EstadoComision[] = ["PENDING", "APPROVED", "PAID", "REVERSED", "CANCELLED"];
 
@@ -92,6 +95,26 @@ export async function POST(request: NextRequest) {
             }
             const { actualizadas } = await actualizarEstadoComisiones(body.ids, body.status);
             return NextResponse.json({ success: true, updated: actualizadas });
+        }
+
+        if (body?.action === "portalLink") {
+            if (!body?.id) return NextResponse.json({ error: "Falta el id del afiliado" }, { status: 400 });
+            const emitido = await emitirEnlaceDePanel(body.id);
+            if (!emitido) return NextResponse.json({ error: "El afiliado no existe." }, { status: 404 });
+            // El token en claro sale de acá UNA sola vez: lo que queda guardado
+            // es su hash. Si el operador cierra el modal sin copiarlo, hay que
+            // emitir otro — que es la misma regla de las claves de API.
+            const base = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+            return NextResponse.json({
+                success: true,
+                prefix: emitido.prefijo,
+                url: `${base}/es/partner#k=${emitido.bruto}`,
+            });
+        }
+
+        if (body?.action === "revokePortal") {
+            if (!body?.id) return NextResponse.json({ error: "Falta el id del afiliado" }, { status: 400 });
+            return NextResponse.json({ success: true, revoked: await revocarEnlaceDePanel(body.id) });
         }
 
         return NextResponse.json({ error: "Acción no reconocida" }, { status: 400 });

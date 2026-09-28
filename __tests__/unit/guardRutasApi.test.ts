@@ -29,8 +29,9 @@ import { join, dirname, normalize } from "path";
  *
  * 2. **La lista de mecanismos no es una sola.** Ademas de los `require*` de
  *    requestAuth estan `verifyApiKey` (API publica v1 e ingesta),
- *    `authenticateMcpToken` (MCP), `verifyWebhookJwt` (marketplace de Azure) y
- *    la firma de Paddle. Una lista corta da un numero de "sin guard" alto y
+ *    `authenticateMcpToken` (MCP), `verifyWebhookJwt` (marketplace de Azure),
+ *    `afiliadoPorToken` (panel del partner) y la firma de Paddle. Una lista
+ *    corta da un numero de "sin guard" alto y
  *    lleno de falsos positivos, que es la forma mas rapida de que nadie mire
  *    el test.
  *
@@ -60,6 +61,9 @@ const MECANISMOS = [
     "authenticateMcpToken",
     "verifyWebhookJwt",
     "paddle-signature",
+    // Panel del afiliado: el token del enlace ES la credencial y se resuelve
+    // contra el hash guardado. No es una ruta publica -- sin token no responde.
+    "afiliadoPorToken",
 ];
 
 /**

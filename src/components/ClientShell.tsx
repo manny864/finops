@@ -36,7 +36,13 @@ const AUTH_TOKEN_ROUTES = ['/verify-email', '/reset-password', '/accept-invite']
 // desde la pantalla de precios, desde el pie del sidebar, o linkeadas desde
 // afuera— y en el caso de las legales tienen que ser alcanzables por
 // cumplimiento, no sólo por comodidad.
-const PUBLIC_ROUTES = ['/legal', '/status'];
+//
+// `/partner` es el panel del afiliado. No tiene sesión de Entra ID porque el
+// afiliado no es usuario de ningún tenant: su credencial es el token del
+// enlace, que la propia página presenta contra `/api/partner/panel`. Sin esta
+// línea, ClientShell le tapa el panel con la pantalla de precios — que fue
+// exactamente lo que pasó al construirlo.
+const PUBLIC_ROUTES = ['/legal', '/status', '/partner'];
 import CookieConsent from './CookieConsent';
 import TelemetryDelayModal from './TelemetryDelayModal';
 import { useActionLogStore } from '@/store/actionLogStore';

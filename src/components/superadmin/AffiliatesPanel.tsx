@@ -15,6 +15,8 @@ import {
     IconRefresh,
     IconPencil,
     IconTrash,
+    IconLayoutDashboard,
+    IconLinkOff,
 } from "@tabler/icons-react";
 
 type Afiliado = {
@@ -30,6 +32,8 @@ type Afiliado = {
     pendienteDePago: string;
     yaPagado: string;
     moneda: string | null;
+    portalPrefix: string | null;
+    portalLastUsedAt: string | null;
 };
 
 type Comision = {
@@ -82,6 +86,12 @@ export default function AffiliatesPanel() {
     const [guardando, setGuardando] = useState(false);
     const FORM_VACIO = { name: "", email: "", referralCode: "", commissionPct: "20", payoutMethod: "", payoutReference: "", status: "ACTIVE" };
     const [alta, setAlta] = useState<Record<string, string>>(FORM_VACIO);
+    /**
+     * El enlace del panel recién emitido. Se muestra UNA vez: lo que queda
+     * guardado es su hash, así que si el operador cierra esto sin copiarlo hay
+     * que emitir otro. Misma regla que las claves de API.
+     */
+    const [enlacePanel, setEnlacePanel] = useState<{ nombre: string; url: string } | null>(null);
 
     const cabeceras = useCallback(async () => {
         const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -212,6 +222,40 @@ export default function AffiliatesPanel() {
         }
     };
 
+    /** Emite —o rota— el enlace del panel del afiliado. */
+    const emitirPanel = async (a: Afiliado) => {
+        if (a.portalPrefix && !window.confirm(t("confirmRotatePortal", { name: a.name }))) return;
+        try {
+            const headers = await cabeceras();
+            const res = await fetch("/api/superadmin/affiliates", {
+                method: "POST", headers,
+                body: JSON.stringify({ action: "portalLink", id: a.id }),
+            });
+            const cuerpo = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(cuerpo.error || `HTTP ${res.status}`);
+            setEnlacePanel({ nombre: a.name, url: cuerpo.url });
+            await cargar();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : String(e));
+        }
+    };
+
+    const revocarPanel = async (a: Afiliado) => {
+        if (!window.confirm(t("confirmRevokePortal", { name: a.name }))) return;
+        try {
+            const headers = await cabeceras();
+            const res = await fetch("/api/superadmin/affiliates", {
+                method: "POST", headers,
+                body: JSON.stringify({ action: "revokePortal", id: a.id }),
+            });
+            if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
+            toast.success(t("portalRevoked"));
+            await cargar();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : String(e));
+        }
+    };
+
     const suspender = async (a: Afiliado) => {
         const nuevo = a.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE";
         try {
@@ -283,6 +327,37 @@ export default function AffiliatesPanel() {
                         </button>
                     </div>
                 </div>
+
+                {/* El enlace emitido, UNA vez. No se puede volver a mostrar:
+                    en la base sólo queda su hash. */}
+                {enlacePanel && (
+                    <div className="mt-4 p-4 rounded-xl border border-[#0054A6] bg-blue-50/60 dark:bg-blue-950/20 space-y-2">
+                        <div className="flex items-start justify-between gap-3">
+                            <div>
+                                <p className="text-xs font-bold text-[#0054A6] dark:text-blue-300">
+                                    {t("portalLinkFor", { name: enlacePanel.nombre })}
+                                </p>
+                                <p className="text-[11px] text-slate-600 dark:text-slate-400">{t("portalLinkOnce")}</p>
+                            </div>
+                            <button
+                                onClick={() => setEnlacePanel(null)}
+                                className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                            >
+                                {t("close")}
+                            </button>
+                        </div>
+                        <code className="block break-all rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-2 text-[11px] font-mono text-slate-800 dark:text-slate-200">
+                            {enlacePanel.url}
+                        </code>
+                        <button
+                            onClick={() => { void navigator.clipboard.writeText(enlacePanel.url); toast.success(t("copied")); }}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-[#0054A6] bg-white dark:bg-slate-900 px-3 py-1.5 text-[11px] font-bold text-[#0054A6] dark:text-blue-400"
+                        >
+                            <IconCopy className="w-3.5 h-3.5" />
+                            {t("copyLink")}
+                        </button>
+                    </div>
+                )}
 
                 {mostrarAlta && (
                     <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
@@ -407,6 +482,26 @@ export default function AffiliatesPanel() {
                                     </td>
                                     <td className="px-4 py-2">
                                         <div className="flex items-center justify-end gap-1.5">
+                                            <button
+                                                onClick={() => void emitirPanel(a)}
+                                                title={a.portalPrefix ? t("rotatePortal", { prefix: a.portalPrefix }) : t("createPortal")}
+                                                aria-label={a.portalPrefix ? t("rotatePortal", { prefix: a.portalPrefix }) : t("createPortal")}
+                                                className={`p-1.5 rounded-lg border transition-colors ${a.portalPrefix
+                                                    ? "border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                                                    : "border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"}`}
+                                            >
+                                                <IconLayoutDashboard className="w-3.5 h-3.5" />
+                                            </button>
+                                            {a.portalPrefix && (
+                                                <button
+                                                    onClick={() => void revocarPanel(a)}
+                                                    title={t("revokePortal")}
+                                                    aria-label={t("revokePortal")}
+                                                    className="p-1.5 rounded-lg border border-amber-300 dark:border-amber-900/60 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
+                                                >
+                                                    <IconLinkOff className="w-3.5 h-3.5" />
+                                                </button>
+                                            )}
                                             <button
                                                 onClick={() => abrirEdicion(a)}
                                                 title={t("edit")}
