@@ -93,7 +93,12 @@ export const ROUTE_TIERS: Record<string, 'Professional' | 'Business' | 'Enterpri
     '/governance/shift-left': 'Business',
     '/governance/ha': 'Business',
     '/governance/lifecycle': 'Business',
-    '/intelligence/leaderboard': 'Business',
+    // Enterprise y no Business: el leaderboard rankea LOS GRUPOS DE UNA
+    // PERSPECTIVE, y Perspectives es Enterprise. En Business la pantalla no
+    // podía hacer otra cosa que mostrar "no hay ninguna definida" con un link
+    // a una página que `RouteTierGate` le bloquea. Ofrecerla en ese tier era
+    // una promesa que el producto no puede cumplir.
+    '/intelligence/leaderboard': 'Enterprise',
     '/governance/credentials': 'Business',
     '/remediation/approvals': 'Business',
     '/governance/approvals': 'Business',

@@ -3857,7 +3857,8 @@ entre sí** y poder separar COGS de OpEx.
 - **Base de Datos:** ninguna tabla nueva. Sale de `CostSnapshots` más las reglas de MEJ-34
   y `CostCenterBudgets`; sólo se agrega `cogs_classification` ENUM('COGS','OPEX','UNCLASSIFIED')
   a nivel de grupo de Perspective.
-- **Backend:** `GET /api/intelligence/leaderboard`, tier Business.
+- **Backend:** `GET /api/intelligence/leaderboard`, ~~tier Business~~ → **tier Enterprise**
+  (corregido el 2026-09-27: ver abajo).
 - **Frontend:** `/intelligence/leaderboard`, con el split COGS/OpEx como tarjeta aparte.
 
 ### Fase 2 — métricas de negocio para costo por cliente
@@ -3929,7 +3930,14 @@ como "nadie gastó".
 No la ve un usuario con alcance asignado: un leaderboard es una comparación **entre** grupos y su
 recorte es justamente no ver los otros. El default-deny de MEJ-38 la niega sin escribir nada.
 
-Tests: `__tests__/unit/leaderboardDeEquipos.test.ts` (10, la función pura) y
+**Corrección de tier (2026-09-27): Enterprise, no Business.** La propuesta decía Business y era
+inconsistente consigo misma: este tablero rankea **los grupos de una Perspective**, y Perspectives
+es Enterprise. Un tenant Business veía la entrada en el menú, la abría, encontraba *"todavía no hay
+ninguna definida"* y un link a "Definir una" que `RouteTierGate` le bloqueaba. Un callejón sin
+salida con una promesa que el tier no permite cumplir. Se subió en los tres lugares —`routeTiers`,
+Sidebar y el `requireTenantTier` de la ruta— porque con uno solo la puerta queda entreabierta.
+
+Tests: `__tests__/unit/leaderboardDeEquipos.test.ts` (19, la función pura y el margen) y
 `leaderboardRuta.test.ts` (8, los cruces).
 
 ### Hecho — fase 2: margen bruto (2026-09-27)

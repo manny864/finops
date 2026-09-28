@@ -70,8 +70,10 @@ export async function GET(request: NextRequest) {
         const tenantId = sp.get("tenantId");
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
-        // Tier Business, como pide la propuesta.
-        await requireTenantTier(request, tenantId, "Business");
+        // Enterprise, y NO Business como decía la propuesta: este tablero
+        // rankea los grupos de una Perspective, y Perspectives es Enterprise.
+        // En Business no podía mostrar nada — ver el comentario en routeTiers.
+        await requireTenantTier(request, tenantId, "Enterprise");
 
         if (isMockTenant(tenantId)) {
             return NextResponse.json(getMockDataForRoute("leaderboard", tenantId));
