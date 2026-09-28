@@ -363,6 +363,50 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.confirm == 'APPLY-PROD'
         run: terraform apply -auto-approve tfplan
 
+      # ── Devolver APP_VERSION, que el apply se lleva puesta ──────────────────
+      #
+      # El deploy la setea con `--set-env-vars APP_VERSION=<sha>` porque como
+      # build-arg invalidaría el cache justo antes del `npm run build` y los
+      # deploys pasaban a durar 20-60 min. Terraform no la conoce, así que en
+      # cada apply la ve como deriva y la BORRA: /api/status deja de reportar el
+      # SHA desplegado y pasa a decir "unknown" hasta el próximo deploy.
+      #
+      # NO se arregla con `ignore_changes` sobre `env`. Ese bloque es `dynamic`,
+      # así que no se puede ignorar UNA variable: o se ignora `env` entero o
+      # nada. Y `env` entero es justo donde viven DB_HOST, REDIS_HOST y
+      # AZURE_KEYVAULT_URL — ignorarlos significaría que un cambio de FQDN de
+      # MySQL no llegaría nunca a la app, en silencio. Perder el marcador de
+      # versión es molesto; apuntar a la base equivocada, no.
+      #
+      # Se reconstruye desde el TAG DE LA IMAGEN, que es el mismo SHA y que
+      # Terraform sí ignora (ver el `lifecycle` del módulo containerapp). Por eso
+      # este paso es idempotente: sirve igual si el apply se corre dos veces.
+      - name: Restaurar APP_VERSION
+        if: github.event_name == 'workflow_dispatch' && inputs.confirm == 'APPLY-PROD'
+        run: |
+          set -euo pipefail
+          terraform output -json web_apps | jq -r 'to_entries[] | "\(.value.resource_group) \(.value.app)"' |
+          while read -r RG APP; do
+            [ -n "$RG" ] && [ -n "$APP" ] || continue
+            IMG=$(az containerapp show -g "$RG" -n "$APP" \
+                    --query "properties.template.containers[0].image" -o tsv)
+            SHA="${IMG##*:}"
+            # Un tag que no parece un SHA de git (por ejemplo `latest`) no se
+            # usa: preferimos dejarla vacía a escribir un valor que miente.
+            case "$SHA" in
+              [0-9a-f]*) [ ${#SHA} -ge 7 ] || { echo "::warning::tag '$SHA' no parece un SHA en $APP"; continue; } ;;
+              *) echo "::warning::tag '$SHA' no parece un SHA en $APP"; continue ;;
+            esac
+            ACTUAL=$(az containerapp show -g "$RG" -n "$APP" \
+                       --query "properties.template.containers[0].env[?name=='APP_VERSION'].value | [0]" -o tsv)
+            if [ "$ACTUAL" = "$SHA" ]; then
+              echo "APP_VERSION ya está en $SHA para $APP"
+            else
+              echo "Restaurando APP_VERSION=$SHA en $APP (estaba: '${ACTUAL:-vacía}')"
+              az containerapp update -g "$RG" -n "$APP" --set-env-vars APP_VERSION="$SHA" >/dev/null
+            fi
+          done
+
       # Corre pase lo que pase: si el plan o el apply fallan, la IP de este
       # runner NO debe quedar en la allowlist del vault.
       - name: Cerrar el Key Vault
