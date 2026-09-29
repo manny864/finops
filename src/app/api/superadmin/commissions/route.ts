@@ -17,6 +17,7 @@
  * POST { action: "createRun", currency, minimo?, notes? }   → arma la corrida
  * POST { action: "payRun", id, paidAt?, reference?, referencias? } → la confirma
  * POST { action: "cancelRun", id }                          → la cancela y libera
+ * POST { action: "payoneerInvite", type, id }               → enlace de alta en Payoneer
  */
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireSuperAdmin } from "@/lib/requestAuth";
@@ -34,6 +35,8 @@ import {
     previsualizarCorrida, crearCorrida, detalleCorrida, listarCorridas,
     marcarCorridaPagada, cancelarCorrida,
 } from "@/services/payoutRuns.service";
+import { beneficiarioParaAlta, registrarAltaDePayoneer } from "@/services/commissions.service";
+import { configDePayoneer, crearEnlaceDeRegistro } from "@/services/payoneer.service";
 
 const ESTADOS: EstadoComision[] = ["PENDING", "DUE", "APPROVED", "PAID", "REVERSED", "CANCELLED"];
 const TIPOS: TipoBeneficiario[] = ["affiliate", "sales_rep"];
@@ -173,6 +176,37 @@ export async function POST(request: NextRequest) {
                 adminEmail: identity.email,
             });
             return NextResponse.json({ success: true, pagadas });
+        }
+
+        if (action === "payoneerInvite") {
+            const config = configDePayoneer();
+            // Que Payoneer no esté configurado es el estado normal hasta que
+            // alguien pida las credenciales: se dice, no se rompe.
+            if (!config) return NextResponse.json({ error: "payoneerNotConfigured" }, { status: 409 });
+
+            const tipo = TIPOS.includes(body?.type) ? (body.type as TipoBeneficiario) : null;
+            if (!tipo || !body?.id) {
+                return NextResponse.json({ error: "Falta el beneficiario." }, { status: 400 });
+            }
+
+            const beneficiario = await beneficiarioParaAlta(tipo, String(body.id));
+            if (!beneficiario) return NextResponse.json({ error: "El beneficiario no existe o está suspendido." }, { status: 404 });
+
+            const origen = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+            const alta = await crearEnlaceDeRegistro({
+                config,
+                tipo,
+                beneficiario: { id: beneficiario.id, nombre: beneficiario.nombre, email: beneficiario.email },
+                redirectUrl: `${origen}/es/partner`,
+            });
+
+            await registrarAltaDePayoneer(tipo, beneficiario.id, alta.payeeId);
+            return NextResponse.json({
+                success: true,
+                payeeId: alta.payeeId,
+                registrationLink: alta.registrationLink,
+                sandbox: config.entorno === "sandbox",
+            });
         }
 
         if (action === "createRun") {

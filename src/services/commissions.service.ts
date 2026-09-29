@@ -349,6 +349,71 @@ export async function listarLibroDeComisiones(filtro?: {
 }
 
 /**
+ * Las dos tablas de beneficiarios, para las operaciones que valen igual en las
+ * dos. La lista es blanca y cerrada: el nombre de tabla se interpola en el SQL
+ * y no puede salir de acá.
+ */
+const TABLA_DEL_BENEFICIARIO: Record<TipoBeneficiario, string> = {
+    affiliate: "Affiliates",
+    sales_rep: "SalesReps",
+};
+
+export interface BeneficiarioParaAlta {
+    id: string;
+    nombre: string;
+    email: string;
+    payoneerPayeeId: string | null;
+    payoneerStatus: "NONE" | "INVITED" | "ACTIVE" | "DECLINED";
+}
+
+/** Los datos mínimos para invitar a alguien al rail de pago. */
+export async function beneficiarioParaAlta(
+    tipo: TipoBeneficiario,
+    id: string,
+): Promise<BeneficiarioParaAlta | null> {
+    const tabla = TABLA_DEL_BENEFICIARIO[tipo];
+    if (!tabla) return null;
+    const [rows] = await pool.query<any[]>(
+        `SELECT id, name, email, payoneer_payee_id, payoneer_status
+           FROM ${tabla} WHERE id = ? AND status = 'ACTIVE' LIMIT 1`,
+        [id],
+    );
+    const b = Array.isArray(rows) ? rows[0] : null;
+    if (!b) return null;
+    return {
+        id: b.id,
+        nombre: b.name,
+        email: b.email,
+        payoneerPayeeId: b.payoneer_payee_id || null,
+        payoneerStatus: b.payoneer_status || "NONE",
+    };
+}
+
+/**
+ * Deja registrado que se invitó a alguien al rail de pago.
+ *
+ * NO pisa un `ACTIVE`: reenviar la invitación a quien ya completó el alta no
+ * puede hacerlo retroceder a "invitado" — el estado lo manda Payoneer por
+ * webhook, y esto es sólo nuestra copia para el panel.
+ */
+export async function registrarAltaDePayoneer(
+    tipo: TipoBeneficiario,
+    id: string,
+    payeeId: string,
+): Promise<void> {
+    const tabla = TABLA_DEL_BENEFICIARIO[tipo];
+    if (!tabla) return;
+    await pool.query(
+        `UPDATE ${tabla}
+            SET payoneer_payee_id = ?,
+                payoneer_status = IF(payoneer_status = 'ACTIVE', 'ACTIVE', 'INVITED'),
+                payoneer_invited_at = NOW()
+          WHERE id = ?`,
+        [payeeId, id],
+    );
+}
+
+/**
  * "Marcar como Pagado" del criterio 4.
  *
  * `status <> 'PAID'` en el WHERE: repetir el click no reescribe la fecha de pago

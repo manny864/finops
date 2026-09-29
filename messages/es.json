@@ -12848,7 +12848,15 @@
     "portalRevoked": "Enlace del panel revocado.",
     "portalLinkFor": "Enlace del panel de {name}",
     "portalLinkOnce": "Se muestra una sola vez: en la base queda sólo su hash. Si lo perdés, emitís otro.",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "payoneer_NONE": "Invitar a Payoneer",
+    "payoneer_INVITED": "Invitado a Payoneer — reenviar enlace",
+    "payoneer_ACTIVE": "Registrado en Payoneer — reenviar enlace",
+    "payoneer_DECLINED": "Payoneer rechazó el alta — reintentar",
+    "payoneerLinkFor": "Enlace de alta en Payoneer para {name}",
+    "payoneerLinkOnce": "Vale para un solo registro. Mandáselo a la persona: ahí carga sus datos y su forma de cobro.",
+    "payoneerSandbox": "SANDBOX: no mueve plata real.",
+    "payoneerNotConfigured": "Payoneer no está configurado. Faltan las credenciales del programa."
   },
   "SuperAdminCommissions": {
     "title": "Comisiones",

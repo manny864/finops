@@ -17,6 +17,7 @@ import {
     IconTrash,
     IconLayoutDashboard,
     IconLinkOff,
+    IconBuildingBank,
 } from "@tabler/icons-react";
 
 type Afiliado = {
@@ -34,6 +35,8 @@ type Afiliado = {
     moneda: string | null;
     portalPrefix: string | null;
     portalLastUsedAt: string | null;
+    payoneerPayeeId: string | null;
+    payoneerStatus: "NONE" | "INVITED" | "ACTIVE" | "DECLINED";
 };
 
 type Comision = {
@@ -92,6 +95,11 @@ export default function AffiliatesPanel() {
      * que emitir otro. Misma regla que las claves de API.
      */
     const [enlacePanel, setEnlacePanel] = useState<{ nombre: string; url: string } | null>(null);
+    /**
+     * El enlace de alta en Payoneer. Vale para UN registro, así que se muestra
+     * igual que el del panel: a la vista hasta que el operador lo mande.
+     */
+    const [altaPayoneer, setAltaPayoneer] = useState<{ nombre: string; url: string; sandbox: boolean } | null>(null);
 
     const cabeceras = useCallback(async () => {
         const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -256,6 +264,27 @@ export default function AffiliatesPanel() {
         }
     };
 
+    /** Pide a Payoneer el enlace de alta de este afiliado. */
+    const invitarAPayoneer = async (a: Afiliado) => {
+        try {
+            const headers = await cabeceras();
+            const res = await fetch("/api/superadmin/commissions", {
+                method: "POST", headers,
+                body: JSON.stringify({ action: "payoneerInvite", type: "affiliate", id: a.id }),
+            });
+            const cuerpo = await res.json().catch(() => ({}));
+            if (res.status === 409 && cuerpo.error === "payoneerNotConfigured") {
+                toast.error(t("payoneerNotConfigured"));
+                return;
+            }
+            if (!res.ok) throw new Error(cuerpo.error || `HTTP ${res.status}`);
+            setAltaPayoneer({ nombre: a.name, url: cuerpo.registrationLink, sandbox: !!cuerpo.sandbox });
+            await cargar();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : String(e));
+        }
+    };
+
     const suspender = async (a: Afiliado) => {
         const nuevo = a.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE";
         try {
@@ -327,6 +356,40 @@ export default function AffiliatesPanel() {
                         </button>
                     </div>
                 </div>
+
+                {altaPayoneer && (
+                    <div className="mt-4 p-4 rounded-xl border border-emerald-300 dark:border-emerald-900/60 bg-emerald-50/60 dark:bg-emerald-950/20 space-y-2">
+                        <div className="flex items-start justify-between gap-3">
+                            <div>
+                                <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                                    {t("payoneerLinkFor", { name: altaPayoneer.nombre })}
+                                </p>
+                                <p className="text-[11px] text-slate-600 dark:text-slate-400">{t("payoneerLinkOnce")}</p>
+                                {altaPayoneer.sandbox && (
+                                    <p className="mt-1 text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                                        {t("payoneerSandbox")}
+                                    </p>
+                                )}
+                            </div>
+                            <button
+                                onClick={() => setAltaPayoneer(null)}
+                                className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                            >
+                                {t("close")}
+                            </button>
+                        </div>
+                        <code className="block break-all rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-2 text-[11px] font-mono text-slate-800 dark:text-slate-200">
+                            {altaPayoneer.url}
+                        </code>
+                        <button
+                            onClick={() => { void navigator.clipboard.writeText(altaPayoneer.url); toast.success(t("copied")); }}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-600 bg-white dark:bg-slate-900 px-3 py-1.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-400"
+                        >
+                            <IconCopy className="w-3.5 h-3.5" />
+                            {t("copyLink")}
+                        </button>
+                    </div>
+                )}
 
                 {/* El enlace emitido, UNA vez. No se puede volver a mostrar:
                     en la base sólo queda su hash. */}
@@ -482,6 +545,20 @@ export default function AffiliatesPanel() {
                                     </td>
                                     <td className="px-4 py-2">
                                         <div className="flex items-center justify-end gap-1.5">
+                                            <button
+                                                onClick={() => void invitarAPayoneer(a)}
+                                                title={t(`payoneer_${a.payoneerStatus}`)}
+                                                aria-label={t(`payoneer_${a.payoneerStatus}`)}
+                                                className={`p-1.5 rounded-lg border transition-colors ${
+                                                    a.payoneerStatus === "ACTIVE"
+                                                        ? "border-emerald-300 dark:border-emerald-900/60 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                                                        : a.payoneerStatus === "INVITED"
+                                                            ? "border-amber-300 dark:border-amber-900/60 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                                                            : "border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                                }`}
+                                            >
+                                                <IconBuildingBank className="w-3.5 h-3.5" />
+                                            </button>
                                             <button
                                                 onClick={() => void emitirPanel(a)}
                                                 title={a.portalPrefix ? t("rotatePortal", { prefix: a.portalPrefix }) : t("createPortal")}

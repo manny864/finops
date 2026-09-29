@@ -311,6 +311,9 @@ export interface AfiliadoConMetricas {
     /** Prefijo del enlace de panel emitido, o `null` si no tiene. */
     portalPrefix: string | null;
     portalLastUsedAt: string | null;
+    /** Estado del alta en el rail de pago. Nuestra copia; la verdad la manda Payoneer. */
+    payoneerPayeeId: string | null;
+    payoneerStatus: "NONE" | "INVITED" | "ACTIVE" | "DECLINED";
 }
 
 /**
@@ -327,6 +330,7 @@ export async function listarAfiliados(): Promise<AfiliadoConMetricas[]> {
         `SELECT a.id, a.name, a.email, a.referral_code, a.commission_pct, a.status,
                 a.payout_method, a.payout_reference, a.notes, a.created_at,
                 a.portal_token_prefix, a.portal_token_last_used_at,
+                a.payoneer_payee_id, a.payoneer_status,
                 (SELECT COUNT(*) FROM AffiliateReferrals r WHERE r.affiliate_id = a.id) AS tenants_referidos,
                 (SELECT COALESCE(SUM(c.commission_amount), 0) FROM Commissions c
                    WHERE c.beneficiary_type = 'affiliate' AND c.beneficiary_id = a.id
@@ -355,6 +359,8 @@ export async function listarAfiliados(): Promise<AfiliadoConMetricas[]> {
         // el prefijo alcanza para decir "hay uno emitido" y cuál.
         portalPrefix: r.portal_token_prefix || null,
         portalLastUsedAt: r.portal_token_last_used_at ? new Date(r.portal_token_last_used_at).toISOString() : null,
+        payoneerPayeeId: r.payoneer_payee_id || null,
+        payoneerStatus: r.payoneer_status || "NONE",
         tenantsReferidos: Number(r.tenants_referidos || 0),
         pendienteDePago: String(r.pendiente ?? "0"),
         yaPagado: String(r.pagado ?? "0"),
