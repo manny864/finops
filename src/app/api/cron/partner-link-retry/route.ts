@@ -3,6 +3,7 @@ import pool, { initializeDatabase } from "@/modules/storage/db";
 import { linkPal } from "@/lib/partner/pal";
 import { recordCronRun } from "@/lib/cronRunTracker";
 import { notifyTenant } from "@/lib/notifications";
+import { urlPublica } from "@/lib/urlPublica";
 
 type TenantRow = {
   tenant_id: string;
@@ -109,8 +110,10 @@ export async function GET(request: NextRequest) {
             tenantName: tenant.company_name || tenant.tenant_id,
             fromStatus: tenant.partner_link_status,
             toStatus: nextStatus,
+            // Un cron no lo dispara una persona: el Host de la request es
+            // el que haya usado el programador, no el dominio del producto.
+            origin: urlPublica(request),
             detail: result.detail,
-            origin: request.nextUrl.origin,
           });
         } catch (notifyError) {
           console.warn("[cron/partner-link-retry] notify failed:", notifyError);

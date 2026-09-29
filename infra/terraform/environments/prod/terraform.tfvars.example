@@ -177,6 +177,18 @@ allowed_ip_ranges = []
 # El resto del .env que NO es secreto. Los secretos van por key_vault_secret_ids.
 extra_env_vars = {
   NEXT_PUBLIC_SSO_ENABLED   = "true"
+  # La URL pública, para los enlaces que la plataforma le manda a alguien de
+  # afuera: el panel del afiliado, el aviso de anomalía que sale por webhook,
+  # el .pbids que abre Power BI en la máquina del cliente.
+  #
+  # SIN ESTO cada enlace se arma con el Host de quien pidió, así que depende de
+  # por dónde entró el operador --y desde un cron no hay operador ninguno--.
+  # El 2026-09-29 un enlace de partner salió a `0.0.0.0:3000` por ese motivo.
+  #
+  # Es `NEXT_PUBLIC_*` pero NO llega al navegador: esas sólo se inlinean en
+  # tiempo de build. Acá es variable de runtime y la lee el SERVIDOR, que es
+  # donde se arman estos enlaces.
+  NEXT_PUBLIC_APP_URL = "https://finops.cscloudsolutions.com.ar"
   AZURE_SENDER_EMAIL_ALERTS = "alerts@cscloudsolutions.com.ar"
   # APP_BASE_URL, NEXT_PUBLIC_CLIENT_ID, AZURE_TENANT_ID, etc.
   # Local/dev fallback only (prod recomendado vía Key Vault):

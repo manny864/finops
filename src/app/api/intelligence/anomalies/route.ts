@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isMockTenant } from "@/lib/mockData";
+import { urlPublica } from "@/lib/urlPublica";
 import pool from "@/modules/storage/db";
 import { sendWebhookAlert } from "@/lib/notifications";
 import { AuthError, requireTenantAccess, requireTenantRole } from "@/lib/requestAuth";
@@ -93,7 +94,7 @@ export async function GET(request: NextRequest) {
                 };
             });
             if (anomalies.length > 0) {
-                const dashboardUrl = `${request.nextUrl.origin}/intelligence/anomalies`;
+                const dashboardUrl = `${urlPublica(request)}/intelligence/anomalies`;
                 await sendWebhookAlert(tenantId,
                     "🚨 Anomalía de Gasto Detectada (Z-Score Alert)",
                     `Gasto anormal de **$${anomalies[0].amount.toFixed(2)}** en *${subscriptionId}*. Promedio esperado: $${mean.toFixed(2)}.\n\n<a href="${dashboardUrl}">🔍 Investigar</a>`,
@@ -146,7 +147,7 @@ export async function GET(request: NextRequest) {
             assigned_detail?: string | null;
         })[] = rawAnomalies;
         if (rawAnomalies.length > 0) {
-            const dashboardUrl = `${request.nextUrl.origin}/intelligence/anomalies`;
+            const dashboardUrl = `${urlPublica(request)}/intelligence/anomalies`;
             try {
                 const result = await persistAndNotifyAnomalies(tenantId, rawAnomalies, dashboardUrl);
                 enrichedAnomalies = result.anomalies;

@@ -26,9 +26,14 @@ import {
 } from '@/services/tenantConfiguration.service';
 import { isItsmSystem } from '@/types/tenantConfiguration.types';
 import { assertPublicHttpsUrl } from '@/lib/webhookSecurity';
+import { urlPublica } from "@/lib/urlPublica";
 
+/**
+ * La URL que se le entrega a Power BI Desktop, que corre en la máquina del
+ * cliente: tiene que ser alcanzable desde afuera. Ver `urlPublica`.
+ */
 function originOf(request: NextRequest): string {
-    return process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+    return urlPublica(request);
 }
 
 export async function GET(request: NextRequest) {

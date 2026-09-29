@@ -5,6 +5,7 @@ import { runAnomalyDetection, persistAndNotifyAnomalies } from "@/services/anoma
 import { recordCronRun } from "@/lib/cronRunTracker";
 import { redis } from "@/lib/redis";
 import { escribirEstado, leerEstado, tomarLock, iniciarLatido, soltarLock } from "@/lib/cronAsyncJob";
+import { urlPublica } from "@/lib/urlPublica";
 
 /**
  * Evaluador REAL de detección de anomalías — antes esta feature solo se
@@ -174,7 +175,7 @@ export async function GET(request: NextRequest) {
         // adentro, nadie renueva y el lock expira en minutos -- el disparo
         // siguiente arranca limpio en vez de esperar media hora.
         iniciarLatido(JOB);
-        launchAnomalySweep(startedAt, `${request.nextUrl.origin}/intelligence/anomalies`);
+        launchAnomalySweep(startedAt, `${urlPublica(request)}/intelligence/anomalies`);
 
         return NextResponse.json(
             {

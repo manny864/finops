@@ -16,6 +16,7 @@ import pool from "@/modules/storage/db";
 import { AuthError, requireTenantRole } from "@/lib/requestAuth";
 import { linkPal } from "@/lib/partner/pal";
 import { notifyTenant } from "@/lib/notifications";
+import { urlPublica } from "@/lib/urlPublica";
 
 interface TenantRow {
   tenant_id: string;
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
           tenantId,
           tenantName: tenant.company_name || tenantId,
           detail: "Rechazado por el cliente",
-          origin: request.nextUrl.origin,
+          origin: urlPublica(request),
         });
       } catch (notifyError) {
         console.warn("[api/tenants/partner-link] notify declination failed:", notifyError);
@@ -149,7 +150,7 @@ export async function POST(request: NextRequest) {
         tenantId,
         tenantName: tenant.company_name || tenantId,
         detail: result.detail,
-        origin: request.nextUrl.origin,
+        origin: urlPublica(request),
       });
     } catch (notifyError) {
       console.warn("[api/tenants/partner-link] notify status failed:", notifyError);

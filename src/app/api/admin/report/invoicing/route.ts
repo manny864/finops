@@ -14,6 +14,7 @@ import { buildInvoicingPayload } from "@/services/invoicingAggregationService";
 import { getActiveOverrides, getMarkupSettings } from "@/services/tenantPartnerMarkup.service";
 import Decimal from "decimal.js";
 import { toMoneyNumber } from "@/lib/moneyDecimal";
+import { urlPublica } from "@/lib/urlPublica";
 
 const MOCK_LINES = [
     { date: "2026-06-01", customerId: "cust-001", customerName: "ACME Corp", subscriptionId: "sub-prod-001", service: "Virtual Machines", resourceGroup: "rg-prod-acme", originalCost: 1230.50, adjustedCost: 1415.08 },
@@ -201,7 +202,10 @@ export async function GET(request: NextRequest) {
         // refrescar) — el usuario la pega una sola vez como credencial "Web
         // API" en Power BI Desktop. Las keys se generan en Configuración > API Keys.
         if (format === "pbit") {
-            const origin = request.nextUrl.origin;
+            // `urlPublica`: este .pbids lo abre Power BI Desktop en la
+            // máquina del cliente, así que la URL tiene que resolver desde
+            // afuera de nuestra red.
+            const origin = urlPublica(request);
             const feedUrl = `${origin}/api/exports/powerbi-feed?type=invoicing&period=${encodeURIComponent(period)}`;
             const pbids = {
                 version: "0.1",
