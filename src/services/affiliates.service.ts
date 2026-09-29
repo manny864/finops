@@ -24,7 +24,7 @@ import Decimal from "decimal.js";
 import type { Pool, PoolConnection } from "mysql2/promise";
 import pool from "@/modules/storage/db";
 import { errorMessage } from "@/lib/apiErrors";
-import { sumarMeses } from "./commissions.service";
+import { sumarMeses, fechaSql } from "./commissions.service";
 
 /** Acepta un pool o una conexión: la atribución corre dentro de la transacción del onboarding. */
 type Ejecutor = Pool | PoolConnection;
@@ -144,6 +144,22 @@ export async function atribuirReferido(
 export const MESES_DE_COMISION = 12;
 
 /**
+ * Ventana de retención del afiliado, en meses: cuánto se espera entre el cobro
+ * y que su comisión sea exigible.
+ *
+ * CERO HOY, y está escrito en vez de omitido. Es el [A DEFINIR] de §5.3 del
+ * borrador del programa —"el sistema no impone ninguna"— y tenerlo como
+ * constante es lo que hace que acordar una retención el día de mañana sea
+ * cambiar este número y nada más.
+ *
+ * Que sea cero NO significa que se pueda omitir `payment_due_date`. Mientras el
+ * devengo la dejaba en NULL, `promoverComisionesExigibles` no podía promover
+ * nada y las comisiones de afiliado se quedaban en `PENDING` para siempre:
+ * invisibles como exigibles en el resumen, e invisibles para la corrida de pago.
+ */
+export const MESES_DE_RETENCION_AFILIADO = 0;
+
+/**
  * ¿Este cobro cae fuera del primer año del cliente referido?
  *
  * Separada de la consulta para poder probar el criterio sin base de datos, que
@@ -213,13 +229,18 @@ export async function devengarComision(params: {
         const comision = calcularComision(baseAmount, pct);
         if (new Decimal(comision).lte(0)) return { devengada: false, motivo: "comision-cero" };
 
+        // `payment_due_date` la necesita `promoverComisionesExigibles` para
+        // poder pasar esto a `DUE`. Con la retención en cero es la fecha del
+        // cobro: exigible desde que el cliente pagó.
+        const exigibleDesde = fechaSql(sumarMeses(billedAt || new Date(), MESES_DE_RETENCION_AFILIADO));
+
         const [res] = await pool.query<any>(
             `INSERT IGNORE INTO Commissions
                (beneficiary_type, beneficiary_id, tenant_id, paddle_transaction_id, paddle_subscription_id,
-                base_amount, currency, commission_pct, commission_amount, status, billed_at)
-             VALUES ('affiliate', ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)`,
+                base_amount, currency, commission_pct, commission_amount, status, billed_at, payment_due_date)
+             VALUES ('affiliate', ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?)`,
             [referido.affiliate_id, tenantId, transactionId, subscriptionId || null,
-             baseAmount, currency, pct, comision, billedAt || null]
+             baseAmount, currency, pct, comision, billedAt || null, exigibleDesde]
         );
         if (!res?.affectedRows) return { devengada: false, motivo: "ya-devengada" };
 

@@ -99,6 +99,9 @@ export default function CommissionsPanel() {
     const [nuevoNombre, setNuevoNombre] = useState("");
     const [nuevoEmail, setNuevoEmail] = useState("");
     const [nuevoPct, setNuevoPct] = useState("20");
+    const [corridas, setCorridas] = useState<any[]>([]);
+    const [corridaMoneda, setCorridaMoneda] = useState("USD");
+    const [corridaMinimo, setCorridaMinimo] = useState("0");
     const [asignarTenant, setAsignarTenant] = useState("");
     const [asignarRep, setAsignarRep] = useState("");
 
@@ -120,17 +123,21 @@ export default function CommissionsPanel() {
             if (filtroTipo) query.set("type", filtroTipo);
             if (filtroEstado) query.set("status", filtroEstado);
 
-            const [resLibro, resResumen, resReps] = await Promise.all([
+            const [resLibro, resResumen, resReps, resCorridas] = await Promise.all([
                 fetch(`/api/superadmin/commissions?${query}`, { headers }),
                 fetch("/api/superadmin/commissions?view=summary", { headers }),
                 fetch("/api/superadmin/commissions?view=reps", { headers }),
+                fetch("/api/superadmin/commissions?view=runs", { headers }),
             ]);
-            const [jLibro, jResumen, jReps] = await Promise.all([resLibro.json(), resResumen.json(), resReps.json()]);
+            const [jLibro, jResumen, jReps, jCorridas] = await Promise.all([
+                resLibro.json(), resResumen.json(), resReps.json(), resCorridas.json(),
+            ]);
             if (!resLibro.ok) throw new Error(jLibro.error || t("loadError"));
 
             setLibro(jLibro.ledger || []);
             setResumen(jResumen.summary || []);
             setComerciales(jReps.reps || []);
+            setCorridas(jCorridas.runs || []);
             setSeleccion([]);
         } catch (e) {
             toast.error(errorMessage(e));
@@ -140,6 +147,34 @@ export default function CommissionsPanel() {
     }, [authHeaders, filtroTipo, filtroEstado, t]);
 
     useEffect(() => { cargar(); }, [cargar]);
+
+    /** Descarga la orden de pago de una corrida: una fila por beneficiario. */
+    const bajarOrdenDePago = async (runId: number) => {
+        try {
+            const res = await fetch(
+                `/api/superadmin/commissions?view=run&id=${runId}&format=csv`,
+                { headers: await authHeaders() },
+            );
+            if (!res.ok) throw new Error(t("csvError"));
+            const url = URL.createObjectURL(await res.blob());
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `corrida-${runId}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (e) {
+            toast.error(errorMessage(e));
+        }
+    };
+
+    const confirmarCorrida = async (run: any) => {
+        const comprobante = window.prompt(t("runReferencePrompt", { id: run.id }));
+        if (comprobante === null) return;
+        await accionar(
+            { action: "payRun", id: run.id, reference: comprobante || null },
+            t("runPaid", { id: run.id }),
+        );
+    };
 
     const accionar = async (body: Record<string, unknown>, exito: string) => {
         setGuardando(true);
@@ -226,6 +261,113 @@ export default function CommissionsPanel() {
                         <IconRefresh size={16} stroke={1.5} /> {t("refresh")}
                     </button>
                 </div>
+            </div>
+
+            {/* Corridas de pago: el lote que ata una transferencia a las N
+                comisiones que cubrió. */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 mb-6">
+                <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
+                    <div>
+                        <h2 className="text-sm font-bold text-[#1B2A41] dark:text-white">{t("runsTitle")}</h2>
+                        <p className="text-[11px] text-slate-500">{t("runsHelp")}</p>
+                    </div>
+                    <div className="flex flex-wrap items-end gap-2">
+                        <label className="block">
+                            <span className="block text-[10px] font-semibold uppercase text-slate-500">{t("runCurrency")}</span>
+                            <input
+                                value={corridaMoneda}
+                                onChange={(e) => setCorridaMoneda(e.target.value.toUpperCase().slice(0, 3))}
+                                className="mt-0.5 w-20 px-2 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs uppercase"
+                            />
+                        </label>
+                        <label className="block">
+                            <span className="block text-[10px] font-semibold uppercase text-slate-500">{t("runMinimum")}</span>
+                            <input
+                                type="number" min="0" step="0.01"
+                                value={corridaMinimo}
+                                onChange={(e) => setCorridaMinimo(e.target.value)}
+                                className="mt-0.5 w-28 px-2 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
+                            />
+                        </label>
+                        <button
+                            disabled={guardando}
+                            onClick={() => void accionar(
+                                { action: "createRun", currency: corridaMoneda, minimo: corridaMinimo },
+                                t("runCreated"),
+                            )}
+                            className={BTN_PRIMARY}
+                        >
+                            <IconCash size={16} stroke={1.5} /> {t("createRun")}
+                        </button>
+                    </div>
+                </div>
+
+                {corridas.length === 0 ? (
+                    <p className="text-xs text-slate-500">{t("runsEmpty")}</p>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                            <thead className="text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                                <tr>
+                                    <th className="text-left py-2">{t("runId")}</th>
+                                    <th className="text-left py-2">{t("runDate")}</th>
+                                    <th className="text-left py-2">{t("runBeneficiaries")}</th>
+                                    <th className="text-right py-2">{t("runTotal")}</th>
+                                    <th className="text-left py-2 pl-3">{t("runStatus")}</th>
+                                    <th className="text-right py-2">{t("runActions")}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {corridas.map((r) => (
+                                    <tr key={r.id} className="border-b border-slate-100 dark:border-slate-800/60">
+                                        <td className="py-2 font-mono">#{r.id}</td>
+                                        <td className="py-2">{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "—"}</td>
+                                        <td className="py-2">{r.beneficiarios}</td>
+                                        <td className="py-2 text-right font-mono font-bold">
+                                            {Number(r.total).toFixed(2)} {r.currency}
+                                        </td>
+                                        <td className="py-2 pl-3">
+                                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                                                r.status === "PAID"
+                                                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
+                                                    : r.status === "CANCELLED"
+                                                        ? "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+                                                        : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
+                                            }`}>
+                                                {t(`runStatus_${r.status}`)}
+                                            </span>
+                                        </td>
+                                        <td className="py-2">
+                                            <div className="flex items-center justify-end gap-1.5">
+                                                <button onClick={() => void bajarOrdenDePago(r.id)} className={BTN_NEUTRAL}>
+                                                    <IconDownload size={14} stroke={1.5} /> {t("runCsv")}
+                                                </button>
+                                                {r.status === "OPEN" && (
+                                                    <>
+                                                        <button onClick={() => void confirmarCorrida(r)} disabled={guardando} className={BTN_PRIMARY}>
+                                                            <IconCheck size={14} stroke={2} /> {t("runConfirm")}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                if (window.confirm(t("runCancelConfirm", { id: r.id }))) {
+                                                                    void accionar({ action: "cancelRun", id: r.id }, t("runCancelled", { id: r.id }));
+                                                                }
+                                                            }}
+                                                            disabled={guardando}
+                                                            className={BTN_NEUTRAL}
+                                                        >
+                                                            {t("runCancel")}
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
 
             {/* Cuánto se le debe a cada uno */}

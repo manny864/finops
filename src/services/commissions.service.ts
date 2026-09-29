@@ -260,6 +260,10 @@ export interface ComisionDelLibro {
     beneficiaryType: TipoBeneficiario;
     beneficiaryId: string;
     beneficiaryName: string | null;
+    beneficiaryEmail: string | null;
+    /** Cómo se le paga, de la ficha del afiliado o del comercial. */
+    payoutMethod: string | null;
+    payoutReference: string | null;
     tenantId: string;
     companyName: string | null;
     transactionId: string;
@@ -300,6 +304,12 @@ export async function listarLibroDeComisiones(filtro?: {
     const [rows] = await pool.query<any[]>(
         `SELECT c.id, c.beneficiary_type, c.beneficiary_id,
                 COALESCE(a.name, r.name) AS beneficiary_name,
+                COALESCE(a.email, r.email) AS beneficiary_email,
+                -- Cómo pagarle. Sin esto el CSV dice a quién y cuánto, pero no
+                -- por dónde, y hay que ir a buscar los datos de cada persona a
+                -- otra pantalla para poder transferir.
+                COALESCE(a.payout_method, r.payout_method) AS payout_method,
+                COALESCE(a.payout_reference, r.payout_reference) AS payout_reference,
                 c.tenant_id, t.company_name, c.paddle_transaction_id,
                 c.base_amount, c.currency, c.commission_pct, c.commission_amount,
                 c.installment_number, c.installment_total,
@@ -319,6 +329,9 @@ export async function listarLibroDeComisiones(filtro?: {
         beneficiaryType: r.beneficiary_type,
         beneficiaryId: r.beneficiary_id,
         beneficiaryName: r.beneficiary_name || null,
+        beneficiaryEmail: r.beneficiary_email || null,
+        payoutMethod: r.payout_method || null,
+        payoutReference: r.payout_reference || null,
         tenantId: r.tenant_id,
         companyName: r.company_name || null,
         transactionId: r.paddle_transaction_id,

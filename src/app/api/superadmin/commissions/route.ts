@@ -8,9 +8,15 @@
  * GET  ?view=summary            → cuánto se le debe a cada beneficiario
  * GET  ?view=reps               → comerciales dados de alta
  * GET  ?format=csv              → el libro en CSV para contabilidad
+ * GET  ?view=runs               → corridas de pago
+ * GET  ?view=run&id=[&format=csv] → una corrida y sus líneas (CSV = orden de pago)
+ * GET  ?view=runPreview&currency=&min= → qué entraría en una corrida, sin crearla
  * POST { action: "pay", ids, paidAt?, reference?, notes? }  → marcar pagadas
  * POST { action: "createRep", name, email, commissionPct? } → alta de comercial
  * POST { action: "assignRep", tenantId, salesRepId }        → atribuir una venta
+ * POST { action: "createRun", currency, minimo?, notes? }   → arma la corrida
+ * POST { action: "payRun", id, paidAt?, reference?, referencias? } → la confirma
+ * POST { action: "cancelRun", id }                          → la cancela y libera
  */
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireSuperAdmin } from "@/lib/requestAuth";
@@ -24,6 +30,10 @@ import {
     type EstadoComision,
     type TipoBeneficiario,
 } from "@/services/commissions.service";
+import {
+    previsualizarCorrida, crearCorrida, detalleCorrida, listarCorridas,
+    marcarCorridaPagada, cancelarCorrida,
+} from "@/services/payoutRuns.service";
 
 const ESTADOS: EstadoComision[] = ["PENDING", "DUE", "APPROVED", "PAID", "REVERSED", "CANCELLED"];
 const TIPOS: TipoBeneficiario[] = ["affiliate", "sales_rep"];
@@ -42,6 +52,44 @@ export async function GET(request: NextRequest) {
 
         if (view === "summary") {
             return NextResponse.json({ success: true, summary: await resumenPorBeneficiario() });
+        }
+
+        if (view === "runs") {
+            return NextResponse.json({ success: true, runs: await listarCorridas() });
+        }
+
+        if (view === "runPreview") {
+            const lineas = await previsualizarCorrida({
+                currency: (searchParams.get("currency") || "USD").toUpperCase(),
+                minimo: searchParams.get("min") || 0,
+            });
+            return NextResponse.json({ success: true, lineas });
+        }
+
+        if (view === "run") {
+            const corrida = await detalleCorrida(Number(searchParams.get("id")));
+            if (!corrida) return NextResponse.json({ error: "La corrida no existe." }, { status: 404 });
+
+            if (searchParams.get("format") === "csv") {
+                // LA ORDEN DE PAGO: una fila por beneficiario, con cuánto y por
+                // dónde. `referencia` es el id de la línea y es el que hay que
+                // conservar para conciliar el comprobante.
+                const cabecera = [
+                    "referencia", "tipo", "beneficiario", "email", "medio_de_pago",
+                    "datos_de_pago", "comisiones", "moneda", "monto",
+                ].join(",");
+                const filas = corrida.lineas.map((l) => [
+                    l.referencia, l.beneficiaryType, l.nombre, l.email, l.payoutMethod,
+                    l.payoutReference, l.comisiones, corrida.currency, l.monto,
+                ].map(campoCsv).join(","));
+                return new NextResponse([cabecera, ...filas].join("\n"), {
+                    headers: {
+                        "Content-Type": "text/csv; charset=utf-8",
+                        "Content-Disposition": `attachment; filename="corrida-${corrida.id}-${corrida.currency}.csv"`,
+                    },
+                });
+            }
+            return NextResponse.json({ success: true, run: corrida });
         }
 
         if (view === "reps") {
@@ -75,13 +123,20 @@ export async function GET(request: NextRequest) {
         });
 
         if (searchParams.get("format") === "csv") {
+            // `email`, `medio_de_pago` y `datos_de_pago` van en el CSV porque
+            // este archivo ES la orden de pago: sin ellos dice a quién y cuánto,
+            // pero no por dónde, y hay que ir a buscar los datos de cada persona
+            // a otra pantalla para poder transferir.
             const cabecera = [
-                "id", "tipo", "beneficiario", "tenant", "empresa", "transaccion", "base",
+                "id", "tipo", "beneficiario", "email", "medio_de_pago", "datos_de_pago",
+                "tenant", "empresa", "transaccion", "base",
                 "moneda", "porcentaje", "comision", "cuota", "estado", "vence", "pagada_el", "comprobante",
             ].join(",");
             const filas = libro.map((c) =>
                 [
-                    c.id, c.beneficiaryType, c.beneficiaryName, c.tenantId, c.companyName, c.transactionId,
+                    c.id, c.beneficiaryType, c.beneficiaryName, c.beneficiaryEmail,
+                    c.payoutMethod, c.payoutReference,
+                    c.tenantId, c.companyName, c.transactionId,
                     c.baseAmount, c.currency, c.commissionPct, c.commissionAmount, c.installment,
                     c.status, c.paymentDueDate, c.paidAt, c.paymentReference,
                 ].map(campoCsv).join(",")
@@ -118,6 +173,38 @@ export async function POST(request: NextRequest) {
                 adminEmail: identity.email,
             });
             return NextResponse.json({ success: true, pagadas });
+        }
+
+        if (action === "createRun") {
+            const corrida = await crearCorrida({
+                currency: String(body.currency || "USD").toUpperCase(),
+                minimo: body.minimo,
+                notes: body.notes || null,
+                adminEmail: identity.email,
+            });
+            if (!corrida) {
+                return NextResponse.json({ error: "nothingToPay" }, { status: 409 });
+            }
+            return NextResponse.json({ success: true, run: corrida });
+        }
+
+        if (action === "payRun") {
+            const r = await marcarCorridaPagada(Number(body.id), {
+                adminEmail: identity.email,
+                paidAt: body.paidAt,
+                reference: body.reference,
+                referencias: body.referencias,
+            });
+            // null = la corrida no estaba abierta. No es un error del pedido:
+            // confirmar dos veces la misma corrida tiene que ser inocuo.
+            if (!r) return NextResponse.json({ error: "runNotOpen" }, { status: 409 });
+            return NextResponse.json({ success: true, pagadas: r.pagadas });
+        }
+
+        if (action === "cancelRun") {
+            const ok = await cancelarCorrida(Number(body.id));
+            if (!ok) return NextResponse.json({ error: "runNotOpen" }, { status: 409 });
+            return NextResponse.json({ success: true });
         }
 
         if (action === "createRep") {
