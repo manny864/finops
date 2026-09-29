@@ -914,8 +914,7 @@ más — ni el gasto cloud de los clientes que trajo, ni datos de otros afiliado
 > |---|---|
 > | Lo das de alta y fijás su % | Comparte su link de referido |
 > | Le generás el enlace de su panel | Entra al panel a ver sus números |
-> | Lo invitás a Payoneer (17.6) | Completa su registro en Payoneer |
-> | Armás la corrida y transferís (17.7) | Te factura, si corresponde |
+> | Armás la corrida y transferís (17.6) | Te factura, si corresponde |
 
 ### 17.1 Dar de alta un colaborador
 
@@ -1042,49 +1041,7 @@ falta revocar además.
 > El enlace **es** la credencial: quien lo tenga ve esos números. Mandáselo por
 > un canal directo a la persona, no lo pegues en un grupo.
 
-### 17.6 Invitar al partner a Payoneer
-
-> Esto sólo aparece si Payoneer está configurado. Si no, el botón responde
-> "Payoneer no está configurado" y no es un error: es que todavía no se cargaron
-> las credenciales del programa. Ver `docs/payoneer-payouts.md`.
-
-Payoneer no le puede transferir a alguien que no esté registrado en nuestro
-programa. El botón del **banco** en la fila del afiliado pide ese alta y devuelve
-un enlace de registro, que también se muestra una sola vez y vale para **un
-único registro**.
-
-El color del botón dice en qué estado está:
-
-| Color | Significa |
-|---|---|
-| Gris | Todavía no se lo invitó |
-| Ámbar | Invitado; falta que complete el registro |
-| Verde | Registrado y en condiciones de recibir pagos |
-
-**Lo que hace el partner con ese enlace**, y conviene anticipárselo porque es lo
-que más consultas genera:
-
-1. Abre el enlace. Le llegan precargados su nombre y su email, y puede
-   corregirlos.
-2. Elige si cobra como **persona** o como **empresa**, y completa sus datos de
-   contacto y su domicilio.
-3. Sube un **documento de identidad**. Payoneer hace verificación de identidad
-   (KYC) y esto no es opcional ni lo podemos saltear nosotros.
-4. Carga la **cuenta bancaria** donde quiere recibir el dinero.
-5. Si ya tenía cuenta de Payoneer, el flujo le ofrece vincular la existente en
-   vez de crear una nueva.
-
-La aprobación **no es inmediata**: la resuelve Payoneer y puede tardar. Hasta
-que no esté aprobado, no se le puede transferir — sus comisiones se siguen
-devengando igual, sólo que quedan esperando.
-
-> **Decíselo antes de que empiece:** Payoneer le cobra al que recibe, y las
-> condiciones cambian según el país. Para alguien en Argentina eso puede pesar
-> más que la comodidad. Si prefiere transferencia directa, el campo *Medio de
-> pago* de su ficha existe justamente para eso y no necesita registrarse en
-> ningún lado.
-
-### 17.7 Corridas de pago
+### 17.6 Corridas de pago
 
 **Ruta:** `/superadmin/comisiones`
 

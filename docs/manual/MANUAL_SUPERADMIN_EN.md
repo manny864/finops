@@ -916,8 +916,7 @@ about other affiliates.
 > |---|---|
 > | Register them and set their % | Shares their referral link |
 > | Generate their dashboard link | Opens the dashboard to see their numbers |
-> | Invite them to Payoneer (17.6) | Completes their Payoneer registration |
-> | Build the run and transfer (17.7) | Invoices you, where applicable |
+> | Build the run and transfer (17.6) | Invoices you, where applicable |
 
 ### 17.1 Registering a partner
 
@@ -1048,48 +1047,7 @@ there is no need to revoke as well.
 > The link **is** the credential: whoever holds it sees those numbers. Send it
 > to the person over a direct channel, do not paste it into a group chat.
 
-### 17.6 Inviting the partner to Payoneer
-
-> This only works if Payoneer is configured. Otherwise the button answers
-> "Payoneer is not configured", which is not an error: the program credentials
-> simply have not been loaded yet. See `docs/payoneer-payouts.md`.
-
-Payoneer cannot transfer to someone who is not registered in our program. The
-**bank** button on the affiliate's row requests that registration and returns a
-sign-up link, which is also shown only once and is valid for **a single
-registration**.
-
-The button colour tells you where they stand:
-
-| Colour | Means |
-|---|---|
-| Grey | Not invited yet |
-| Amber | Invited; registration still pending |
-| Green | Registered and able to receive payments |
-
-**What the partner does with that link**, worth telling them up front because it
-is what generates the most questions:
-
-1. Opens the link. Their name and email arrive pre-filled, and they can correct
-   them.
-2. Chooses whether they are paid as an **individual** or a **company**, and
-   completes contact details and address.
-3. Uploads an **identity document**. Payoneer runs identity verification (KYC);
-   this is not optional and we cannot skip it for them.
-4. Adds the **bank account** where they want the money.
-5. If they already had a Payoneer account, the flow offers to link the existing
-   one instead of creating another.
-
-Approval is **not immediate**: Payoneer decides and it can take time. Until they
-are approved you cannot transfer to them — their commissions keep accruing all
-the same, they just wait.
-
-> **Tell them before they start:** Payoneer charges the recipient, and the terms
-> vary by country. For someone in Argentina that can outweigh the convenience.
-> If they prefer a direct transfer, the *Payout method* field on their record
-> exists for exactly that and requires no registration anywhere.
-
-### 17.7 Payout runs
+### 17.6 Payout runs
 
 **Path:** `/superadmin/comisiones`
 

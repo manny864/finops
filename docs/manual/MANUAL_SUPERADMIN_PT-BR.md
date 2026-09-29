@@ -902,8 +902,7 @@ gasto em nuvem dos clientes que trouxe, nem dados de outros afiliados.
 > |---|---|
 > | Cadastra e define o % | Compartilha o link de indicação |
 > | Gera o link do painel dele | Entra no painel para ver seus números |
-> | Convida para o Payoneer (17.6) | Conclui o cadastro no Payoneer |
-> | Monta o lote e transfere (17.7) | Emite nota fiscal, quando couber |
+> | Monta o lote e transfere (17.6) | Emite nota fiscal, quando couber |
 
 ### 17.1 Cadastrar um parceiro
 
@@ -1031,47 +1030,7 @@ revogar além disso.
 > O link **é** a credencial: quem o tiver vê esses números. Envie direto para a
 > pessoa, não cole em um grupo.
 
-### 17.6 Convidar o parceiro para o Payoneer
-
-> Isso só funciona se o Payoneer estiver configurado. Caso contrário o botão
-> responde "o Payoneer não está configurado", o que não é um erro: as
-> credenciais do programa simplesmente ainda não foram carregadas. Ver
-> `docs/payoneer-payouts.md`.
-
-O Payoneer não transfere para quem não estiver cadastrado no nosso programa. O
-botão do **banco** na linha do afiliado solicita esse cadastro e devolve um link
-de registro, também exibido uma única vez e válido para **um único cadastro**.
-
-A cor do botão indica o estado:
-
-| Cor | Significa |
-|---|---|
-| Cinza | Ainda não foi convidado |
-| Âmbar | Convidado; falta concluir o cadastro |
-| Verde | Cadastrado e apto a receber pagamentos |
-
-**O que o parceiro faz com esse link**, e convém avisar antes porque é o que
-mais gera dúvidas:
-
-1. Abre o link. Nome e e-mail chegam preenchidos, e ele pode corrigir.
-2. Escolhe se recebe como **pessoa física** ou **empresa**, e completa contato e
-   endereço.
-3. Envia um **documento de identidade**. O Payoneer faz verificação de
-   identidade (KYC); não é opcional e não podemos pular por ele.
-4. Cadastra a **conta bancária** onde quer receber.
-5. Se já tiver conta Payoneer, o fluxo oferece vincular a existente em vez de
-   criar outra.
-
-A aprovação **não é imediata**: quem decide é o Payoneer e pode demorar. Até ser
-aprovado não dá para transferir — as comissões continuam sendo apuradas do mesmo
-jeito, apenas ficam esperando.
-
-> **Avise antes de ele começar:** o Payoneer cobra de quem recebe, e as
-> condições mudam conforme o país. Se ele preferir transferência direta, o campo
-> *Forma de pagamento* no cadastro existe exatamente para isso e não exige
-> registro em lugar nenhum.
-
-### 17.7 Lotes de pagamento
+### 17.6 Lotes de pagamento
 
 **Rota:** `/superadmin/comisiones`
 
