@@ -12848,15 +12848,7 @@
     "portalRevoked": "Link do painel revogado.",
     "portalLinkFor": "Link do painel de {name}",
     "portalLinkOnce": "Exibido uma única vez: o banco guarda apenas o hash. Se perder, emita outro.",
-    "close": "Fechar",
-    "payoneer_NONE": "Convidar para o Payoneer",
-    "payoneer_INVITED": "Convidado ao Payoneer — reenviar link",
-    "payoneer_ACTIVE": "Registrado no Payoneer — reenviar link",
-    "payoneer_DECLINED": "O Payoneer recusou o cadastro — tentar de novo",
-    "payoneerLinkFor": "Link de cadastro no Payoneer para {name}",
-    "payoneerLinkOnce": "Vale para um único cadastro. Envie para a pessoa: é lá que ela informa seus dados e a forma de recebimento.",
-    "payoneerSandbox": "SANDBOX: não movimenta dinheiro real.",
-    "payoneerNotConfigured": "O Payoneer não está configurado. Faltam as credenciais do programa."
+    "close": "Fechar"
   },
   "SuperAdminCommissions": {
     "title": "Comissões",

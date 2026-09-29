@@ -12848,15 +12848,7 @@
     "portalRevoked": "Dashboard link revoked.",
     "portalLinkFor": "Dashboard link for {name}",
     "portalLinkOnce": "Shown only once: the database keeps just its hash. If you lose it, issue a new one.",
-    "close": "Close",
-    "payoneer_NONE": "Invite to Payoneer",
-    "payoneer_INVITED": "Invited to Payoneer — resend link",
-    "payoneer_ACTIVE": "Registered with Payoneer — resend link",
-    "payoneer_DECLINED": "Payoneer declined the registration — retry",
-    "payoneerLinkFor": "Payoneer registration link for {name}",
-    "payoneerLinkOnce": "Valid for a single registration. Send it to them: that is where they enter their details and payout method.",
-    "payoneerSandbox": "SANDBOX: no real money moves.",
-    "payoneerNotConfigured": "Payoneer is not configured. The program credentials are missing."
+    "close": "Close"
   },
   "SuperAdminCommissions": {
     "title": "Commissions",
