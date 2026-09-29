@@ -25,6 +25,7 @@ import {
     type EstadoComision,
 } from "@/services/affiliates.service";
 import { emitirEnlaceDePanel, revocarEnlaceDePanel } from "@/services/affiliatePortal.service";
+import { urlPublica } from "@/lib/urlPublica";
 
 const ESTADOS: EstadoComision[] = ["PENDING", "APPROVED", "PAID", "REVERSED", "CANCELLED"];
 
@@ -104,7 +105,11 @@ export async function POST(request: NextRequest) {
             // El token en claro sale de acá UNA sola vez: lo que queda guardado
             // es su hash. Si el operador cierra el modal sin copiarlo, hay que
             // emitir otro — que es la misma regla de las claves de API.
-            const base = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+            // `urlPublica` y no el origin de la request: este enlace se lo
+            // mandamos a una persona de afuera. Con el origin a secas, un
+            // operador que entra por la dirección de red del dev server genera
+            // enlaces a `0.0.0.0:3000`, que no lleva a ninguna parte.
+            const base = urlPublica(request);
             return NextResponse.json({
                 success: true,
                 prefix: emitido.prefijo,
