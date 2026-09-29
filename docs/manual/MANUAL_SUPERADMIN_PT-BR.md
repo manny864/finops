@@ -889,8 +889,21 @@ são registros nossos.
 
 Um afiliado é um terceiro — revendedor, influenciador ou parceiro — que promove
 a plataforma com um link próprio e recebe uma porcentagem do que pagam os
-clientes que ele trouxe. O afiliado **não acessa a plataforma**: você compartilha
-o link dele e informa os números daqui.
+clientes que ele trouxe.
+
+O afiliado **não é usuário de nenhum tenant** e não tem conta na plataforma: ele
+entra em um painel próprio, somente leitura, por um link pessoal que você gera
+(17.5). Lá ele vê seus clientes indicados e suas comissões, e nada mais — nem o
+gasto em nuvem dos clientes que trouxe, nem dados de outros afiliados.
+
+> **Quem faz o quê, resumido**
+>
+> | Você, aqui | O parceiro, por conta dele |
+> |---|---|
+> | Cadastra e define o % | Compartilha o link de indicação |
+> | Gera o link do painel dele | Entra no painel para ver seus números |
+> | Convida para o Payoneer (17.6) | Conclui o cadastro no Payoneer |
+> | Monta o lote e transfere (17.7) | Emite nota fiscal, quando couber |
 
 ### 17.1 Cadastrar um parceiro
 
@@ -961,8 +974,16 @@ atribuição, e isso não pode ser desfeito.
 ### 17.4 Comissões e liquidação
 
 A tabela **Comissões apuradas** se preenche sozinha: cada vez que um cliente
-atribuído paga, uma comissão é registrada. É **recorrente** — também é apurada
-em cada renovação, enquanto o cliente continuar pagando.
+atribuído paga, uma comissão é registrada.
+
+**Durante o primeiro ano de cada cliente, e não além disso.** A janela é de 12
+meses a partir da primeira cobrança daquele cliente: um cliente mensal apura
+suas doze cobranças, e um anual recebe a cobrança inicial enquanto a renovação
+do ano seguinte fica de fora. É medida em meses e não em quantidade de cobranças
+justamente por isso — "até 12 cobranças" daria doze anos ao cliente anual.
+
+O painel do parceiro mostra a data de corte de cada cliente, então "até quando
+eu recebo por este cliente?" se responde sozinho.
 
 | Status | O que significa |
 |---|---|
@@ -982,3 +1003,107 @@ sair, **Marcar como paga**.
 As colunas **A liquidar** e **Pago** na tabela de parceiros são totais na moeda
 da cobrança mais recente. Se um mesmo afiliado tiver clientes pagando em moedas
 diferentes, esses totais não são comparáveis — verifique o detalhe por comissão.
+
+### 17.5 O painel do parceiro
+
+O botão do **painel** na linha do afiliado gera o link pessoal dele:
+
+```
+https://finops.cscloudsolutions.com.ar/pt-BR/partner#k=afp_live_...
+```
+
+**É exibido uma única vez.** No banco fica apenas o hash, então não há como vê-lo
+de novo: se perder, você gera outro — e isso invalida o anterior. Mesmo critério
+das chaves de API.
+
+O que o parceiro vê: seus totais (a receber e já pago), seu link de indicação,
+seus clientes indicados com a data até a qual cada um gera comissão, e o detalhe
+das comissões com o status de cada uma.
+
+O que ele **não** vê, e vale saber para responder: o gasto em nuvem dos clientes
+que trouxe, os identificadores de Azure deles, nem nada de outros afiliados.
+Apenas o nome da empresa, as datas e os valores da própria comissão.
+
+O botão de **link cortado** revoga o acesso sem tocar no afiliado nem nas
+comissões. E **suspender** um afiliado também fecha o painel dele: não é preciso
+revogar além disso.
+
+> O link **é** a credencial: quem o tiver vê esses números. Envie direto para a
+> pessoa, não cole em um grupo.
+
+### 17.6 Convidar o parceiro para o Payoneer
+
+> Isso só funciona se o Payoneer estiver configurado. Caso contrário o botão
+> responde "o Payoneer não está configurado", o que não é um erro: as
+> credenciais do programa simplesmente ainda não foram carregadas. Ver
+> `docs/payoneer-payouts.md`.
+
+O Payoneer não transfere para quem não estiver cadastrado no nosso programa. O
+botão do **banco** na linha do afiliado solicita esse cadastro e devolve um link
+de registro, também exibido uma única vez e válido para **um único cadastro**.
+
+A cor do botão indica o estado:
+
+| Cor | Significa |
+|---|---|
+| Cinza | Ainda não foi convidado |
+| Âmbar | Convidado; falta concluir o cadastro |
+| Verde | Cadastrado e apto a receber pagamentos |
+
+**O que o parceiro faz com esse link**, e convém avisar antes porque é o que
+mais gera dúvidas:
+
+1. Abre o link. Nome e e-mail chegam preenchidos, e ele pode corrigir.
+2. Escolhe se recebe como **pessoa física** ou **empresa**, e completa contato e
+   endereço.
+3. Envia um **documento de identidade**. O Payoneer faz verificação de
+   identidade (KYC); não é opcional e não podemos pular por ele.
+4. Cadastra a **conta bancária** onde quer receber.
+5. Se já tiver conta Payoneer, o fluxo oferece vincular a existente em vez de
+   criar outra.
+
+A aprovação **não é imediata**: quem decide é o Payoneer e pode demorar. Até ser
+aprovado não dá para transferir — as comissões continuam sendo apuradas do mesmo
+jeito, apenas ficam esperando.
+
+> **Avise antes de ele começar:** o Payoneer cobra de quem recebe, e as
+> condições mudam conforme o país. Se ele preferir transferência direta, o campo
+> *Forma de pagamento* no cadastro existe exatamente para isso e não exige
+> registro em lugar nenhum.
+
+### 17.7 Lotes de pagamento
+
+**Rota:** `/superadmin/comisiones`
+
+Um lote agrupa tudo o que está exigível em **uma moeda**, por beneficiário, e é
+o que vincula a transferência às comissões que ela cobriu. Afiliados e
+comerciais vão juntos: estão no mesmo livro.
+
+O ciclo do mês:
+
+1. **Escolha a moeda e o mínimo por pessoa** e monte o lote. O mínimo se aplica
+   ao **total de cada beneficiário**, não a cada comissão: doze comissões de
+   $0,30 são $3,60, o que pode valer uma transferência mesmo que nenhuma das
+   doze valha sozinha. Quem não atinge o mínimo fica de fora e o saldo é
+   levado ao lote seguinte.
+2. **Baixe a ordem de pagamento** (CSV). Uma linha por pessoa com o valor, o
+   e-mail, a forma de pagamento e os dados de recebimento: é o que você precisa
+   para transferir, sem procurar o cadastro de cada um.
+3. **Transfira**, pelo meio combinado com cada um.
+4. **Confirme o pagamento** com o comprovante. Só então as comissões daquele
+   lote passam a *Paga*, todas juntas e com a mesma referência.
+
+**Cancelar** um lote aberto libera suas comissões para o próximo. Um lote já
+pago não se cancela: o dinheiro saiu, e isso se corrige com um ajuste.
+
+Três coisas que evitam sustos:
+
+- **Uma moeda por lote.** Não dá para transferir em duas moedas ao mesmo tempo,
+  e a plataforma não inventa uma taxa de câmbio.
+- **Dois lotes não se atropelam.** As comissões que entraram em um ficam
+  reservadas; outro lote montado em paralelo não as leva.
+- **Confirmar duas vezes não faz nada.** É seguro tentar de novo se a conexão
+  caiu.
+
+O mínimo usado fica guardado no lote. Mudar o padrão no mês que vem não
+reescreve por que um lote antigo deixou alguém de fora.

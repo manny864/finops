@@ -902,8 +902,22 @@ not our records.
 
 An affiliate is a third party — a reseller, influencer or partner — who promotes
 the platform with their own link and earns a percentage of what the customers
-they brought in pay. Affiliates **do not sign in to the platform**: you share
-their link with them and report their numbers from here.
+they brought in pay.
+
+An affiliate **is not a user of any tenant** and has no account on the platform:
+they get their own read-only dashboard through a personal link that you generate
+(17.5). There they see their referred customers and their commissions, and
+nothing else — not the cloud spend of the customers they brought in, and nothing
+about other affiliates.
+
+> **Who does what, at a glance**
+>
+> | You, here | The partner, on their own |
+> |---|---|
+> | Register them and set their % | Shares their referral link |
+> | Generate their dashboard link | Opens the dashboard to see their numbers |
+> | Invite them to Payoneer (17.6) | Completes their Payoneer registration |
+> | Build the run and transfer (17.7) | Invoices you, where applicable |
 
 ### 17.1 Registering a partner
 
@@ -975,8 +989,17 @@ unattributed, and that cannot be undone.
 ### 17.4 Commissions and settlement
 
 The **Accrued commissions** table fills itself: every time an attributed
-customer pays, a commission is recorded. It is **recurring** — it also accrues
-on every renewal, for as long as the customer keeps paying.
+customer pays, a commission is recorded.
+
+**Through each customer's first year, and no further.** The window is 12 months
+from that customer's first charge: a monthly customer accrues their twelve
+charges, and an annual one gets the initial charge while next year's renewal
+falls outside. It is measured in months rather than in number of charges
+precisely for that reason — "up to 12 charges" would give an annual customer
+twelve years.
+
+The partner dashboard shows the cut-off date per customer, so "how long do I
+earn on this one?" answers itself.
 
 | Status | What it means |
 |---|---|
@@ -997,3 +1020,109 @@ The **Unsettled** and **Paid** columns in the partners table are totals in the
 currency of the most recent charge. If one affiliate has customers paying in
 different currencies, those totals are not comparable — check the per-commission
 detail.
+
+### 17.5 The partner dashboard
+
+The **dashboard** button on the affiliate's row generates their personal link:
+
+```
+https://finops.cscloudsolutions.com.ar/en/partner#k=afp_live_...
+```
+
+**It is shown only once.** The database keeps nothing but its hash, so there is
+no way to see it again: if you lose it, you issue a new one — and that
+invalidates the previous link. Same deal as API keys.
+
+What the partner sees: their totals (pending and already paid), their referral
+link, their referred customers with the date each one stops earning, and the
+detail of their commissions with each status.
+
+What they do **not** see, worth knowing so you can answer: the cloud spend of
+the customers they brought in, their Azure identifiers, or anything about other
+affiliates. Only the company name, the dates and their own commission amounts.
+
+The **broken-link** button revokes access without touching the affiliate or
+their commissions. And **suspending** an affiliate also closes their dashboard:
+there is no need to revoke as well.
+
+> The link **is** the credential: whoever holds it sees those numbers. Send it
+> to the person over a direct channel, do not paste it into a group chat.
+
+### 17.6 Inviting the partner to Payoneer
+
+> This only works if Payoneer is configured. Otherwise the button answers
+> "Payoneer is not configured", which is not an error: the program credentials
+> simply have not been loaded yet. See `docs/payoneer-payouts.md`.
+
+Payoneer cannot transfer to someone who is not registered in our program. The
+**bank** button on the affiliate's row requests that registration and returns a
+sign-up link, which is also shown only once and is valid for **a single
+registration**.
+
+The button colour tells you where they stand:
+
+| Colour | Means |
+|---|---|
+| Grey | Not invited yet |
+| Amber | Invited; registration still pending |
+| Green | Registered and able to receive payments |
+
+**What the partner does with that link**, worth telling them up front because it
+is what generates the most questions:
+
+1. Opens the link. Their name and email arrive pre-filled, and they can correct
+   them.
+2. Chooses whether they are paid as an **individual** or a **company**, and
+   completes contact details and address.
+3. Uploads an **identity document**. Payoneer runs identity verification (KYC);
+   this is not optional and we cannot skip it for them.
+4. Adds the **bank account** where they want the money.
+5. If they already had a Payoneer account, the flow offers to link the existing
+   one instead of creating another.
+
+Approval is **not immediate**: Payoneer decides and it can take time. Until they
+are approved you cannot transfer to them — their commissions keep accruing all
+the same, they just wait.
+
+> **Tell them before they start:** Payoneer charges the recipient, and the terms
+> vary by country. For someone in Argentina that can outweigh the convenience.
+> If they prefer a direct transfer, the *Payout method* field on their record
+> exists for exactly that and requires no registration anywhere.
+
+### 17.7 Payout runs
+
+**Path:** `/superadmin/comisiones`
+
+A run groups everything due in **one currency** into a batch, per beneficiary,
+and is what ties a transfer to the commissions it covered. Affiliates and sales
+reps go together: they are in the same ledger.
+
+The monthly cycle:
+
+1. **Pick a currency and a per-person minimum** and build the run. The minimum
+   applies to **each beneficiary's total**, not to each commission: twelve
+   commissions of $0.30 are $3.60, which may be worth a transfer even though
+   none of the twelve is on its own. Anyone below it stays out and their balance
+   carries over to the next run.
+2. **Download the payment order** (CSV). One row per person with the amount,
+   email, payout method and payout details: what you need in order to transfer,
+   without looking up each record.
+3. **Transfer**, by whatever means you agreed with each of them.
+4. **Confirm the payment** with the reference. Only then do that run's
+   commissions become *Paid*, all together and under the same reference.
+
+**Cancelling** an open run releases its commissions for the next one. A run
+already paid cannot be cancelled: the money left, and that is fixed with an
+adjustment.
+
+Three things that prevent surprises:
+
+- **One currency per run.** You cannot transfer in two currencies at once, and
+  the platform does not invent an exchange rate.
+- **Two runs do not collide.** Commissions taken by one are reserved; a run
+  built in parallel will not take them.
+- **Confirming twice does nothing.** It is safe to retry if the connection
+  dropped.
+
+The minimum you used is stored on the run. Changing the default next month does
+not rewrite why an old run left someone out.

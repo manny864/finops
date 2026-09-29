@@ -901,8 +901,21 @@ registros nuestros.
 
 Un afiliado es un tercero —comercial, influencer, partner— que promociona la
 plataforma con un link propio y cobra un porcentaje de lo que paguen los
-clientes que trajo. El afiliado **no accede a la plataforma**: vos le compartís
-su link y le informás sus números desde acá.
+clientes que trajo.
+
+El afiliado **no es usuario de ningún tenant** y no tiene cuenta en la
+plataforma: entra a un panel propio de sólo lectura, con un enlace personal que
+le generás vos (17.5). Ahí ve sus clientes referidos y sus comisiones, y nada
+más — ni el gasto cloud de los clientes que trajo, ni datos de otros afiliados.
+
+> **Quién hace qué, de un vistazo**
+>
+> | Vos, acá | El partner, por su cuenta |
+> |---|---|
+> | Lo das de alta y fijás su % | Comparte su link de referido |
+> | Le generás el enlace de su panel | Entra al panel a ver sus números |
+> | Lo invitás a Payoneer (17.6) | Completa su registro en Payoneer |
+> | Armás la corrida y transferís (17.7) | Te factura, si corresponde |
 
 ### 17.1 Dar de alta un colaborador
 
@@ -971,8 +984,16 @@ y eso no se puede deshacer.
 ### 17.4 Comisiones y liquidación
 
 La tabla **Comisiones devengadas** se llena sola: cada vez que un cliente
-atribuido paga, se registra una comisión. Es **recurrente** — se devenga también
-en cada renovación, mientras el cliente siga pagando.
+atribuido paga, se registra una comisión.
+
+**Durante el primer año de cada cliente, y no más.** La ventana son 12 meses
+corridos desde el primer cobro de ese cliente: un cliente mensual devenga sus
+doce cobros, y a uno anual le entra el cobro inicial y le queda afuera la
+renovación del año siguiente. Se mide en meses y no en cantidad de cobros
+justamente por eso — "hasta 12 cobros" le daría doce años al cliente anual.
+
+En el panel del partner cada cliente muestra su fecha de corte, así que la
+pregunta "¿hasta cuándo cobro por este cliente?" se responde sola.
 
 | Estado | Qué significa |
 |---|---|
@@ -993,6 +1014,112 @@ Las columnas **Por liquidar** y **Pagado** de la tabla de colaboradores son la
 suma en la moneda del último cobro. Si un mismo afiliado tiene clientes que
 pagan en monedas distintas, esos totales no son comparables — revisá el detalle
 por comisión.
+
+### 17.5 El panel del partner
+
+El botón del **tablero** en la fila del afiliado genera su enlace personal:
+
+```
+https://finops.cscloudsolutions.com.ar/es/partner#k=afp_live_...
+```
+
+**Se muestra una sola vez.** En la base queda únicamente su hash, así que no hay
+forma de volver a verlo: si lo perdés, generás otro — y eso invalida el
+anterior. Es el mismo trato que las claves de API.
+
+Qué ve el partner ahí: sus totales (por cobrar y ya cobrado), su link de
+referido, sus clientes referidos con la fecha hasta la que comisiona cada uno, y
+el detalle de sus comisiones con el estado de cada una.
+
+Qué **no** ve, y conviene saberlo para responder: el gasto cloud de los clientes
+que trajo, sus identificadores de Azure, ni nada de otros afiliados. Sólo el
+nombre de la empresa, las fechas y los montos de su propia comisión.
+
+El botón del **enlace cortado** revoca el acceso sin tocar al afiliado ni a sus
+comisiones. Y **suspender** a un afiliado también le cierra el panel: no hace
+falta revocar además.
+
+> El enlace **es** la credencial: quien lo tenga ve esos números. Mandáselo por
+> un canal directo a la persona, no lo pegues en un grupo.
+
+### 17.6 Invitar al partner a Payoneer
+
+> Esto sólo aparece si Payoneer está configurado. Si no, el botón responde
+> "Payoneer no está configurado" y no es un error: es que todavía no se cargaron
+> las credenciales del programa. Ver `docs/payoneer-payouts.md`.
+
+Payoneer no le puede transferir a alguien que no esté registrado en nuestro
+programa. El botón del **banco** en la fila del afiliado pide ese alta y devuelve
+un enlace de registro, que también se muestra una sola vez y vale para **un
+único registro**.
+
+El color del botón dice en qué estado está:
+
+| Color | Significa |
+|---|---|
+| Gris | Todavía no se lo invitó |
+| Ámbar | Invitado; falta que complete el registro |
+| Verde | Registrado y en condiciones de recibir pagos |
+
+**Lo que hace el partner con ese enlace**, y conviene anticipárselo porque es lo
+que más consultas genera:
+
+1. Abre el enlace. Le llegan precargados su nombre y su email, y puede
+   corregirlos.
+2. Elige si cobra como **persona** o como **empresa**, y completa sus datos de
+   contacto y su domicilio.
+3. Sube un **documento de identidad**. Payoneer hace verificación de identidad
+   (KYC) y esto no es opcional ni lo podemos saltear nosotros.
+4. Carga la **cuenta bancaria** donde quiere recibir el dinero.
+5. Si ya tenía cuenta de Payoneer, el flujo le ofrece vincular la existente en
+   vez de crear una nueva.
+
+La aprobación **no es inmediata**: la resuelve Payoneer y puede tardar. Hasta
+que no esté aprobado, no se le puede transferir — sus comisiones se siguen
+devengando igual, sólo que quedan esperando.
+
+> **Decíselo antes de que empiece:** Payoneer le cobra al que recibe, y las
+> condiciones cambian según el país. Para alguien en Argentina eso puede pesar
+> más que la comodidad. Si prefiere transferencia directa, el campo *Medio de
+> pago* de su ficha existe justamente para eso y no necesita registrarse en
+> ningún lado.
+
+### 17.7 Corridas de pago
+
+**Ruta:** `/superadmin/comisiones`
+
+Una corrida agrupa en un lote todo lo exigible de **una moneda**, por
+beneficiario, y es lo que ata la transferencia a las comisiones que cubrió.
+Afiliados y comerciales van juntos: están en el mismo libro.
+
+El circuito del mes:
+
+1. **Elegís moneda y piso por persona** y armás la corrida. El piso se aplica al
+   **total de cada beneficiario**, no a cada comisión: doce comisiones de $0,30
+   son $3,60, que puede valer una transferencia aunque ninguna de las doce la
+   valga sola. Quien no llega al piso queda afuera y su saldo se arrastra a la
+   corrida siguiente.
+2. **Descargás la orden de pago** (CSV). Trae una fila por persona con el monto,
+   el email, el medio de pago y los datos de cobro: es lo que necesitás para
+   transferir, sin ir a buscar la ficha de cada uno.
+3. **Transferís**, por el medio que hayas acordado con cada uno.
+4. **Confirmás el pago** con el comprobante. Recién ahí las comisiones de esa
+   corrida pasan a *Pagada*, todas juntas y con la misma referencia.
+
+**Cancelar** una corrida abierta libera sus comisiones para la siguiente. Una
+corrida ya pagada no se cancela: la plata salió, y eso se corrige con un ajuste.
+
+Tres cosas que evitan sustos:
+
+- **Una moneda por corrida.** No se puede transferir en dos monedas a la vez, y
+  la plataforma no inventa un tipo de cambio.
+- **Dos corridas no se pisan.** Las comisiones que entraron a una quedan
+  reservadas; otra corrida armada en paralelo no se las lleva.
+- **Confirmar dos veces no hace nada.** Es seguro reintentar si se cortó la
+  conexión.
+
+El piso que usaste queda guardado en la corrida. Cambiar el default el mes que
+viene no reescribe por qué una corrida vieja dejó a alguien afuera.
 
 ## Soporte y contacto
 
