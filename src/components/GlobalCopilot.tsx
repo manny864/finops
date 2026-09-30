@@ -27,7 +27,7 @@ const SUGGESTION_KEYS = ["suggestion_leak", "suggestion_savings", "suggestion_fo
 const DEFAULT_PAGE_LABEL = 'Dashboard';
 
 export default function GlobalCopilot() {
-    const { selectedTenant } = useTenant();
+    const { selectedTenant, isDemoMode } = useTenant();
     const { instance, accounts } = useMsal();
     const isMsalAuthenticated = useIsAuthenticated();
     const currentTier = (selectedTenant as any).tier || 'Professional';
@@ -43,14 +43,19 @@ export default function GlobalCopilot() {
     const locale = useLocale();
     const pathname = usePathname();
 
-    // La página de login del demo (/es/demo, /en/demo, /pt-BR/demo, ...) es
-    // pre-autenticación: el Copilot nunca debe aparecer ahí. Un tenant mock
-    // que quedó en localStorage de una sesión demo previa hace que
-    // isMockTenant() sea true, lo cual (sin este check) burlaba el
-    // early-return de abajo y auto-abría el Copilot sobre el formulario de
-    // login del demo. El demo YA autenticado redirige a "/" (ver
-    // setDemoSession), nunca a "/demo", así que acotar por esta ruta es seguro.
-    const isDemoLoginRoute = /^\/[^/]+\/demo(\/|$)/.test(pathname || '');
+    // Páginas legales (/legal, /legal/privacy, /legal/terms, /legal/dpa, /legal/security, /legal/subprocessors)
+    // son documentos normativos y estáticos: FinOps Copilot NUNCA debe aparecer en ellas,
+    // ni con sesión ni sin sesión.
+    // Rutas públicas o pre-autenticación (/demo, /status, /partner, /login, /signup, etc.)
+    // tampoco deben renderizar el asistente.
+    const isLegalRoute = /^\/(?:[a-zA-Z]{2}(?:-[a-zA-Z]{2,4})?\/)?legal(?:\/|$)/.test(pathname || '');
+    const isPublicOrPreAuthRoute = /^\/(?:[a-zA-Z]{2}(?:-[a-zA-Z]{2,4})?\/)?(status|partner|demo|login|signup|verify-email|reset-password|accept-invite)(?:\/|$)/.test(pathname || '');
+    const isExcludedRoute = isLegalRoute || isPublicOrPreAuthRoute;
+
+    // Sesión iniciada Y validada. Requiere cuenta MSAL activa O sesión demo explícita (isDemoMode)
+    // con un tenant mock. Un residuo de finops_active_tenant en localStorage SIN isDemoMode NO es una sesión válida.
+    const isDemoTenant = isMockTenant(selectedTenant?.id || '');
+    const hasValidatedSession = (isMsalAuthenticated && accounts.length > 0) || (!!isDemoMode && isDemoTenant);
 
     // Fallback automático: si la página activa nunca llamó a
     // `setPageContext` (la gran mayoría no lo hace), capturamos su contenido
@@ -69,7 +74,7 @@ export default function GlobalCopilot() {
         : (autoPageLabel || currentPage);
 
     React.useEffect(() => {
-        if (!isOpen || currentDataPayload) return; // ya hay contexto manual real, no lo pisamos
+        if (!isOpen || isExcludedRoute || !hasValidatedSession || currentDataPayload) return; // ya hay contexto manual real, no lo pisamos
         setAutoPayload(null);
         setAutoPageLabel(deriveLabelFromPathname(pathname));
         setContextHydrated(false);
@@ -336,7 +341,7 @@ export default function GlobalCopilot() {
     };
 
     React.useEffect(() => {
-        if (!canAccessCopilot || isDemoLoginRoute) return;
+        if (!canAccessCopilot || isExcludedRoute || !hasValidatedSession) return;
         // Mostrar UNA SOLA VEZ por sesión: si el usuario lo minimiza, queda así
         // hasta que reabra manualmente o inicie nueva sesión.
         try {
@@ -348,10 +353,10 @@ export default function GlobalCopilot() {
         } catch {
             // sessionStorage no disponible (SSR/privacy mode): no auto-abrir
         }
-    }, [setIsOpen, canAccessCopilot, isDemoLoginRoute]);
+    }, [setIsOpen, canAccessCopilot, isExcludedRoute, hasValidatedSession]);
 
     React.useEffect(() => {
-        if (isOpen && canAccessCopilot && selectedTenant?.id && selectedTenant.id !== 'default') {
+        if (isOpen && canAccessCopilot && hasValidatedSession && !isExcludedRoute && selectedTenant?.id && selectedTenant.id !== 'default') {
             const account = accounts[0] || null;
             const doFetch = isMockTenant(selectedTenant.id)
                 ? fetch(`/api/intelligence/copilot/quota?tenantId=${selectedTenant.id}`)
@@ -364,7 +369,7 @@ export default function GlobalCopilot() {
                 })
                 .catch(e => console.error("[Copilot Quota] Failed to load quota", e));
         }
-    }, [isOpen, canAccessCopilot, selectedTenant?.id, instance, accounts]);
+    }, [isOpen, canAccessCopilot, hasValidatedSession, isExcludedRoute, selectedTenant?.id, instance, accounts]);
 
     const handleSend = async (overridePrompt?: string, displayText?: string) => {
         const promptText = overridePrompt || input;
@@ -539,21 +544,11 @@ export default function GlobalCopilot() {
     // Directiva: nunca autogenerar reporte ejecutivo al abrir el Copilot.
     // El análisis debe iniciar solo por solicitud explícita del usuario.
 
-    // Página de login del demo: pre-auth, sin Copilot (ver isDemoLoginRoute arriba).
-    if (isDemoLoginRoute) {
+    // Páginas legales o rutas públicas/pre-auth: exclusión estricta (no renderizar widget)
+    if (isExcludedRoute) {
         return null;
     }
 
-    // El demo público (/demo) es 100% anónimo — nunca hay cuenta MSAL, así que
-    // se lo admite explícitamente por tenant mock en vez de por sesión.
-    const isDemoTenant = isMockTenant(selectedTenant?.id || '');
-
-    // Sesión iniciada Y validada. `accounts.length > 0` solo dice que MSAL tiene
-    // una cuenta en cache: sobrevive a un token vencido y es true durante el
-    // handshake. useIsAuthenticated() es la señal de que la sesión quedó
-    // establecida. Se exigen las dos, más un tenant resuelto (`default` es el
-    // placeholder previo a que TenantProvider responda).
-    const hasValidatedSession = (isMsalAuthenticated && accounts.length > 0) || isDemoTenant;
     if (!hasValidatedSession || !selectedTenant || selectedTenant.id === 'default') {
         return null;
     }

@@ -22,12 +22,12 @@ export default function PrivacyPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-900">
+    <div className="min-h-screen bg-white dark:bg-slate-900 text-gray-900 dark:text-white">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-brand-deep/10 to-brand-bright/10 border-b border-line py-8">
+      <div className="bg-gradient-to-r from-brand-deep/10 to-brand-bright/10 dark:from-brand-deep/20 dark:to-brand-bright/20 border-b border-line dark:border-slate-800 py-8">
         <div className="max-w-7xl mx-auto px-6">
-          <h1 className="text-4xl font-bold text-ink mb-2">{t('title')}</h1>
-          <p className="text-gray-600">
+          <h1 className="text-4xl font-bold text-ink dark:text-white mb-2">{t('title')}</h1>
+          <p className="text-gray-600 dark:text-slate-300">
             {t('lastUpdated', { date: getLegalVersionDate('privacy').toLocaleDateString() })}
           </p>
         </div>
@@ -36,8 +36,8 @@ export default function PrivacyPage() {
       <div className="max-w-7xl mx-auto px-6 py-12 grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Sidebar TOC */}
         <div className="lg:col-span-1">
-          <div className="sticky top-20 bg-surface/50 rounded-lg p-4 border border-line">
-            <h3 className="font-bold text-ink mb-4">{t('tocTitle')}</h3>
+          <div className="sticky top-20 bg-surface/50 dark:bg-slate-800/70 rounded-lg p-4 border border-line dark:border-slate-700">
+            <h3 className="font-bold text-ink dark:text-white mb-4">{t('tocTitle')}</h3>
             <nav className="space-y-2">
               {sections.map((section) => (
                 <button
@@ -46,7 +46,7 @@ export default function PrivacyPage() {
                   className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
                     activeSection === section.id
                       ? 'bg-brand-deep text-white font-semibold'
-                      : 'text-gray-700 hover:bg-gray-100'
+                      : 'text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700/60 dark:hover:text-white'
                   }`}
                 >
                   {section.title}
@@ -61,9 +61,9 @@ export default function PrivacyPage() {
           {/* Data Collection */}
           {activeSection === 'data-collection' && (
             <section id="data-collection" className="space-y-4">
-              <h2 className="text-2xl font-bold text-ink">{t('dcTitle')}</h2>
-              <p className="text-gray-700 leading-relaxed">{t('dcIntro')}</p>
-              <ul className="list-disc list-inside space-y-3 text-gray-700">
+              <h2 className="text-2xl font-bold text-ink dark:text-white">{t('dcTitle')}</h2>
+              <p className="text-gray-700 dark:text-white leading-relaxed">{t('dcIntro')}</p>
+              <ul className="list-disc list-inside space-y-3 text-gray-700 dark:text-white">
                 <li>{t('dcBullet1')}</li>
                 <li>{t('dcBullet2')}</li>
                 <li>{t('dcBullet3')}</li>
@@ -76,19 +76,19 @@ export default function PrivacyPage() {
           {/* Usage */}
           {activeSection === 'usage' && (
             <section id="usage" className="space-y-4">
-              <h2 className="text-2xl font-bold text-ink">{t('usageTitle')}</h2>
+              <h2 className="text-2xl font-bold text-ink dark:text-white">{t('usageTitle')}</h2>
               <div className="space-y-4">
                 <div>
-                  <h3 className="font-semibold text-ink mb-2">{t('usageServiceTitle')}</h3>
-                  <p className="text-gray-700">{t('usageServiceBody')}</p>
+                  <h3 className="font-semibold text-ink dark:text-white mb-2">{t('usageServiceTitle')}</h3>
+                  <p className="text-gray-700 dark:text-white">{t('usageServiceBody')}</p>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-ink mb-2">{t('usagePlatformTitle')}</h3>
-                  <p className="text-gray-700">{t('usagePlatformBody')}</p>
+                  <h3 className="font-semibold text-ink dark:text-white mb-2">{t('usagePlatformTitle')}</h3>
+                  <p className="text-gray-700 dark:text-white">{t('usagePlatformBody')}</p>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-ink mb-2">{t('usageSecurityTitle')}</h3>
-                  <p className="text-gray-700">{t('usageSecurityBody')}</p>
+                  <h3 className="font-semibold text-ink dark:text-white mb-2">{t('usageSecurityTitle')}</h3>
+                  <p className="text-gray-700 dark:text-white">{t('usageSecurityBody')}</p>
                 </div>
               </div>
             </section>
@@ -97,39 +97,39 @@ export default function PrivacyPage() {
           {/* Processors */}
           {activeSection === 'processors' && (
             <section id="processors" className="space-y-4">
-              <h2 className="text-2xl font-bold text-ink">{t('procTitle')}</h2>
-              <p className="text-gray-700">{t('procIntro')}</p>
+              <h2 className="text-2xl font-bold text-ink dark:text-white">{t('procTitle')}</h2>
+              <p className="text-gray-700 dark:text-white">{t('procIntro')}</p>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm border-collapse">
                   <thead>
-                    <tr className="bg-gray-100 border-b border-line">
+                    <tr className="bg-gray-100 dark:bg-slate-800 border-b border-line dark:border-slate-700 text-gray-800 dark:text-white">
                       <th className="text-left p-3 font-semibold">{t('procColProcessor')}</th>
                       <th className="text-left p-3 font-semibold">{t('procColPurpose')}</th>
                       <th className="text-left p-3 font-semibold">{t('procColLocation')}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-b border-line hover:bg-gray-50">
+                    <tr className="border-b border-line dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/50 text-gray-700 dark:text-white">
                       <td className="p-3">Microsoft Azure</td>
                       <td className="p-3">{t('procRow1Purpose')}</td>
                       <td className="p-3">US, EU, LATAM</td>
                     </tr>
-                    <tr className="border-b border-line hover:bg-gray-50">
+                    <tr className="border-b border-line dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/50 text-gray-700 dark:text-white">
                       <td className="p-3">MySQL Host</td>
                       <td className="p-3">{t('procRow2Purpose')}</td>
                       <td className="p-3">Configurable</td>
                     </tr>
-                    <tr className="border-b border-line hover:bg-gray-50">
+                    <tr className="border-b border-line dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/50 text-gray-700 dark:text-white">
                       <td className="p-3">Paddle</td>
                       <td className="p-3">{t('procRow3Purpose')}</td>
                       <td className="p-3">US/UK</td>
                     </tr>
-                    <tr className="border-b border-line hover:bg-gray-50">
+                    <tr className="border-b border-line dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/50 text-gray-700 dark:text-white">
                       <td className="p-3">WorkOS</td>
                       <td className="p-3">{t('procRow4Purpose')}</td>
                       <td className="p-3">US</td>
                     </tr>
-                    <tr className="border-b border-line hover:bg-gray-50">
+                    <tr className="border-b border-line dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/50 text-gray-700 dark:text-white">
                       <td className="p-3">Google Gemini AI</td>
                       <td className="p-3">{t('procRow5Purpose')}</td>
                       <td className="p-3">US</td>
@@ -137,9 +137,9 @@ export default function PrivacyPage() {
                   </tbody>
                 </table>
               </div>
-              <p className="text-sm text-gray-600 mt-4">
+              <p className="text-sm text-gray-600 dark:text-slate-300 mt-4">
                 {t('procFooterBefore')}
-                <Link href="/legal/subprocessors" className="text-brand-deep hover:underline">{t('procFooterLinkText')}</Link>
+                <Link href="/legal/subprocessors" className="text-brand-deep dark:text-brand-bright hover:underline">{t('procFooterLinkText')}</Link>
                 {t('procFooterAfter')}
               </p>
             </section>
@@ -148,23 +148,23 @@ export default function PrivacyPage() {
           {/* Retention */}
           {activeSection === 'retention' && (
             <section id="retention" className="space-y-4">
-              <h2 className="text-2xl font-bold text-ink">{t('retentionTitle')}</h2>
+              <h2 className="text-2xl font-bold text-ink dark:text-white">{t('retentionTitle')}</h2>
               <div className="space-y-4">
                 <div>
-                  <h3 className="font-semibold text-ink mb-2">{t('retentionTelemetryTitle')}</h3>
-                  <p className="text-gray-700">{t('retentionTelemetryBody')}</p>
+                  <h3 className="font-semibold text-ink dark:text-white mb-2">{t('retentionTelemetryTitle')}</h3>
+                  <p className="text-gray-700 dark:text-white">{t('retentionTelemetryBody')}</p>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-ink mb-2">{t('retentionBillingTitle')}</h3>
-                  <p className="text-gray-700">{t('retentionBillingBody')}</p>
+                  <h3 className="font-semibold text-ink dark:text-white mb-2">{t('retentionBillingTitle')}</h3>
+                  <p className="text-gray-700 dark:text-white">{t('retentionBillingBody')}</p>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-ink mb-2">{t('retentionAuditTitle')}</h3>
-                  <p className="text-gray-700">{t('retentionAuditBody')}</p>
+                  <h3 className="font-semibold text-ink dark:text-white mb-2">{t('retentionAuditTitle')}</h3>
+                  <p className="text-gray-700 dark:text-white">{t('retentionAuditBody')}</p>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-ink mb-2">{t('retentionAccountTitle')}</h3>
-                  <p className="text-gray-700">{t('retentionAccountBody')}</p>
+                  <h3 className="font-semibold text-ink dark:text-white mb-2">{t('retentionAccountTitle')}</h3>
+                  <p className="text-gray-700 dark:text-white">{t('retentionAccountBody')}</p>
                 </div>
               </div>
             </section>
@@ -173,9 +173,9 @@ export default function PrivacyPage() {
           {/* Rights */}
           {activeSection === 'rights' && (
             <section id="rights" className="space-y-4">
-              <h2 className="text-2xl font-bold text-ink">{t('rightsTitle')}</h2>
-              <p className="text-gray-700">{t('rightsIntro')}</p>
-              <ul className="list-disc list-inside space-y-2 text-gray-700">
+              <h2 className="text-2xl font-bold text-ink dark:text-white">{t('rightsTitle')}</h2>
+              <p className="text-gray-700 dark:text-white">{t('rightsIntro')}</p>
+              <ul className="list-disc list-inside space-y-2 text-gray-700 dark:text-white">
                 <li>{t('rightsBullet1')}</li>
                 <li>{t('rightsBullet2')}</li>
                 <li>{t('rightsBullet3')}</li>
@@ -183,9 +183,9 @@ export default function PrivacyPage() {
                 <li>{t('rightsBullet5')}</li>
                 <li>{t('rightsBullet6')}</li>
               </ul>
-              <p className="text-gray-700 mt-4">
+              <p className="text-gray-700 dark:text-white mt-4">
                 {t('rightsContactBefore')}
-                <a href="mailto:privacy@cscloudsolutions.com.ar" className="text-brand-deep hover:underline">privacy@cscloudsolutions.com.ar</a>
+                <a href="mailto:privacy@cscloudsolutions.com.ar" className="text-brand-deep dark:text-brand-bright hover:underline">privacy@cscloudsolutions.com.ar</a>
                 {t('rightsContactAfter')}
               </p>
             </section>
@@ -194,17 +194,17 @@ export default function PrivacyPage() {
           {/* International Transfers */}
           {activeSection === 'transfers' && (
             <section id="transfers" className="space-y-4">
-              <h2 className="text-2xl font-bold text-ink">{t('transfersTitle')}</h2>
-              <p className="text-gray-700">{t('transfersBody1')}</p>
-              <p className="text-gray-700">{t('transfersBody2')}</p>
+              <h2 className="text-2xl font-bold text-ink dark:text-white">{t('transfersTitle')}</h2>
+              <p className="text-gray-700 dark:text-white">{t('transfersBody1')}</p>
+              <p className="text-gray-700 dark:text-white">{t('transfersBody2')}</p>
             </section>
           )}
 
           {/* Contact */}
           {activeSection === 'contact' && (
             <section id="contact" className="space-y-4">
-              <h2 className="text-2xl font-bold text-ink">{t('contactTitle')}</h2>
-              <div className="space-y-3 text-gray-700">
+              <h2 className="text-2xl font-bold text-ink dark:text-white">{t('contactTitle')}</h2>
+              <div className="space-y-3 text-gray-700 dark:text-white">
                 <p>
                   <strong>{t('contactOfficerLabel')}</strong><br />
                   privacy@cscloudsolutions.com.ar

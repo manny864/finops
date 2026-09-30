@@ -79,13 +79,13 @@ export default function DPAPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-900">
+    <div className="min-h-screen bg-white dark:bg-slate-900 text-gray-900 dark:text-white">
       {/* Header */}
-      <div className="bg-gradient-to-r from-brand-deep/10 to-brand-bright/10 border-b border-line py-8">
+      <div className="bg-gradient-to-r from-brand-deep/10 to-brand-bright/10 dark:from-brand-deep/20 dark:to-brand-bright/20 border-b border-line dark:border-slate-800 py-8">
         <div className="max-w-4xl mx-auto px-6">
-          <h1 className="text-4xl font-bold text-ink mb-2">{t('title')}</h1>
-          <p className="text-gray-600 mb-4">{t('subtitle')}</p>
-          <p className="text-gray-600">
+          <h1 className="text-4xl font-bold text-ink dark:text-white mb-2">{t('title')}</h1>
+          <p className="text-gray-600 dark:text-slate-300 mb-4">{t('subtitle')}</p>
+          <p className="text-gray-600 dark:text-slate-300">
             {t('lastUpdated', { date: getLegalVersionDate('dpa').toLocaleDateString() })}
           </p>
         </div>
@@ -93,13 +93,13 @@ export default function DPAPage() {
 
       <div className="max-w-4xl mx-auto px-6 py-12 space-y-8">
         {/* Sign CTA */}
-        <div className="bg-brand-deep/5 border-2 border-brand-deep rounded-lg p-6">
+        <div className="bg-brand-deep/5 dark:bg-brand-deep/15 border-2 border-brand-deep dark:border-brand-bright/40 rounded-lg p-6">
           {signed ? (
-            <div className="flex items-center gap-3 text-green-700">
+            <div className="flex items-center gap-3 text-green-700 dark:text-green-400">
               <CheckCircle2 className="w-6 h-6" />
               <div>
-                <p className="font-semibold">{t('signedTitle')}</p>
-                <p className="text-sm">
+                <p className="font-semibold text-gray-900 dark:text-white">{t('signedTitle')}</p>
+                <p className="text-sm text-gray-700 dark:text-slate-300">
                   {t('signedBy', {
                     user: signingUser ?? '',
                     date: signedAt ? new Date(signedAt).toLocaleDateString() : new Date().toLocaleDateString(),
@@ -109,7 +109,7 @@ export default function DPAPage() {
             </div>
           ) : (
             <div>
-              <p className="text-gray-700 mb-4">{t('unsignedIntro')}</p>
+              <p className="text-gray-700 dark:text-white mb-4">{t('unsignedIntro')}</p>
               <button
                 onClick={handleSign}
                 disabled={signing}
@@ -123,8 +123,8 @@ export default function DPAPage() {
         </div>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-bold text-ink">{t('s1Title')}</h2>
-          <div className="space-y-3 text-gray-700">
+          <h2 className="text-2xl font-bold text-ink dark:text-white">{t('s1Title')}</h2>
+          <div className="space-y-3 text-gray-700 dark:text-white">
             <p>{t('s1Controller')}</p>
             <p>{t('s1Processor')}</p>
             <p>{t('s1PersonalData')}</p>
@@ -133,8 +133,8 @@ export default function DPAPage() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-bold text-ink">{t('s2Title')}</h2>
-          <div className="space-y-3 text-gray-700">
+          <h2 className="text-2xl font-bold text-ink dark:text-white">{t('s2Title')}</h2>
+          <div className="space-y-3 text-gray-700 dark:text-white">
             <p>{t('s2SubjectMatter')}</p>
             <p>{t('s2Duration')}</p>
             <p>{t('s2Nature')}</p>
@@ -143,16 +143,16 @@ export default function DPAPage() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-bold text-ink">{t('s3Title')}</h2>
-          <div className="space-y-3 text-gray-700">
+          <h2 className="text-2xl font-bold text-ink dark:text-white">{t('s3Title')}</h2>
+          <div className="space-y-3 text-gray-700 dark:text-white">
             <p><strong>{t('s3SubjectsLabel')}</strong></p>
-            <ul className="list-disc list-inside ml-4">
+            <ul className="list-disc list-inside ml-4 space-y-1">
               <li>{t('s3Subject1')}</li>
               <li>{t('s3Subject2')}</li>
               <li>{t('s3Subject3')}</li>
             </ul>
             <p className="mt-3"><strong>{t('s3CategoriesLabel')}</strong></p>
-            <ul className="list-disc list-inside ml-4">
+            <ul className="list-disc list-inside ml-4 space-y-1">
               <li>{t('s3Category1')}</li>
               <li>{t('s3Category2')}</li>
               <li>{t('s3Category3')}</li>
@@ -162,34 +162,34 @@ export default function DPAPage() {
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-bold text-ink">{t('s4Title')}</h2>
-          <p className="text-gray-700">{t('s4Intro')}</p>
+          <h2 className="text-2xl font-bold text-ink dark:text-white">{t('s4Title')}</h2>
+          <p className="text-gray-700 dark:text-white">{t('s4Intro')}</p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="bg-gray-100 border-b border-line">
+                <tr className="bg-gray-100 dark:bg-slate-800 border-b border-line dark:border-slate-700 text-gray-800 dark:text-white">
                   <th className="text-left p-3 font-semibold">Processor</th>
                   <th className="text-left p-3 font-semibold">Purpose</th>
                   <th className="text-left p-3 font-semibold">Location</th>
                 </tr>
               </thead>
               <tbody>
-                <tr className="border-b border-line hover:bg-gray-50">
+                <tr className="border-b border-line dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/50 text-gray-700 dark:text-white">
                   <td className="p-3">Microsoft Azure</td>
                   <td className="p-3">{t('s4Row1Purpose')}</td>
                   <td className="p-3">US, EU, LATAM</td>
                 </tr>
-                <tr className="border-b border-line hover:bg-gray-50">
+                <tr className="border-b border-line dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/50 text-gray-700 dark:text-white">
                   <td className="p-3">MySQL Provider</td>
                   <td className="p-3">{t('s4Row2Purpose')}</td>
                   <td className="p-3">Configurable</td>
                 </tr>
-                <tr className="border-b border-line hover:bg-gray-50">
+                <tr className="border-b border-line dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/50 text-gray-700 dark:text-white">
                   <td className="p-3">Paddle</td>
                   <td className="p-3">{t('s4Row3Purpose')}</td>
                   <td className="p-3">US/UK</td>
                 </tr>
-                <tr className="border-b border-line hover:bg-gray-50">
+                <tr className="border-b border-line dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/50 text-gray-700 dark:text-white">
                   <td className="p-3">WorkOS</td>
                   <td className="p-3">{t('s4Row4Purpose')}</td>
                   <td className="p-3">US</td>
@@ -197,70 +197,70 @@ export default function DPAPage() {
               </tbody>
             </table>
           </div>
-          <p className="text-sm text-gray-600 mt-4">
+          <p className="text-sm text-gray-600 dark:text-slate-300 mt-4">
             {t('s4FooterBefore')}
-            <Link href="/legal/subprocessors" className="text-brand-deep hover:underline">{t('s4FooterLinkText')}</Link>
+            <Link href="/legal/subprocessors" className="text-brand-deep dark:text-brand-bright hover:underline">{t('s4FooterLinkText')}</Link>
           </p>
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-bold text-ink">{t('s5Title')}</h2>
-          <p className="text-gray-700">
+          <h2 className="text-2xl font-bold text-ink dark:text-white">{t('s5Title')}</h2>
+          <p className="text-gray-700 dark:text-white">
             {t('s5BodyBefore')}
-            <a href="mailto:privacy@cscloudsolutions.com.ar" className="text-brand-deep hover:underline">privacy@cscloudsolutions.com.ar</a>
+            <a href="mailto:privacy@cscloudsolutions.com.ar" className="text-brand-deep dark:text-brand-bright hover:underline">privacy@cscloudsolutions.com.ar</a>
             {t('s5BodyAfter')}
           </p>
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-bold text-ink">{t('s6Title')}</h2>
-          <p className="text-gray-700">{t('s6Intro')}</p>
-          <ul className="list-disc list-inside space-y-2 text-gray-700">
+          <h2 className="text-2xl font-bold text-ink dark:text-white">{t('s6Title')}</h2>
+          <p className="text-gray-700 dark:text-white">{t('s6Intro')}</p>
+          <ul className="list-disc list-inside space-y-2 text-gray-700 dark:text-white">
             <li>{t('s6Bullet1')}</li>
             <li>{t('s6Bullet2')}</li>
             <li>{t('s6Bullet3')}</li>
             <li>{t('s6Bullet4')}</li>
             <li>{t('s6Bullet5')}</li>
           </ul>
-          <p className="text-sm text-gray-600 mt-3">
+          <p className="text-sm text-gray-600 dark:text-slate-300 mt-3">
             {t('s6FooterBefore')}
-            <Link href="/legal/security" className="text-brand-deep hover:underline">{t('s6FooterLinkText')}</Link>
+            <Link href="/legal/security" className="text-brand-deep dark:text-brand-bright hover:underline">{t('s6FooterLinkText')}</Link>
             {t('s6FooterAfter')}
           </p>
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-bold text-ink">{t('s7Title')}</h2>
-          <p className="text-gray-700">{t('s7Body')}</p>
+          <h2 className="text-2xl font-bold text-ink dark:text-white">{t('s7Title')}</h2>
+          <p className="text-gray-700 dark:text-white">{t('s7Body')}</p>
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-bold text-ink">{t('s8Title')}</h2>
-          <p className="text-gray-700">{t('s8Body')}</p>
+          <h2 className="text-2xl font-bold text-ink dark:text-white">{t('s8Title')}</h2>
+          <p className="text-gray-700 dark:text-white">{t('s8Body')}</p>
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-bold text-ink">{t('annex1Title')}</h2>
-          <p className="text-gray-700">
+          <h2 className="text-2xl font-bold text-ink dark:text-white">{t('annex1Title')}</h2>
+          <p className="text-gray-700 dark:text-white">
             {t('annex1Before')}
-            <Link href="/legal/subprocessors" className="text-brand-deep hover:underline">{t('annex1LinkText')}</Link>.
+            <Link href="/legal/subprocessors" className="text-brand-deep dark:text-brand-bright hover:underline">{t('annex1LinkText')}</Link>.
           </p>
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-2xl font-bold text-ink">{t('annex2Title')}</h2>
-          <div className="space-y-3 text-gray-700">
+          <h2 className="text-2xl font-bold text-ink dark:text-white">{t('annex2Title')}</h2>
+          <div className="space-y-3 text-gray-700 dark:text-white">
             <p>{t('annex2Technical')}</p>
             <p>{t('annex2Organizational')}</p>
             <p className="text-sm">{t('annex2Details')}</p>
           </div>
         </section>
 
-        <div className="mt-8 p-4 bg-gray-50 rounded-lg border border-line">
-          <p className="text-sm text-gray-700">
+        <div className="mt-8 p-4 bg-gray-50 dark:bg-slate-800/60 rounded-lg border border-line dark:border-slate-700">
+          <p className="text-sm text-gray-700 dark:text-white">
             {t('footerLastUpdated', { date: getLegalVersionDate('dpa').toLocaleDateString() })} |
-            <Link href="/legal/terms" className="text-brand-deep hover:underline ml-2">{t('footerTermsLink')}</Link> |
-            <Link href="/legal/privacy" className="text-brand-deep hover:underline ml-2">{t('footerPrivacyLink')}</Link>
+            <Link href="/legal/terms" className="text-brand-deep dark:text-brand-bright hover:underline ml-2">{t('footerTermsLink')}</Link> |
+            <Link href="/legal/privacy" className="text-brand-deep dark:text-brand-bright hover:underline ml-2">{t('footerPrivacyLink')}</Link>
           </p>
         </div>
       </div>

@@ -61,6 +61,7 @@ interface TenantContextType {
   // ya lo hicieron). null = todavía no se resolvió.
   academyCertified: boolean | null;
   setAcademyCertified: (certified: boolean) => void;
+  isDemoMode: boolean;
 }
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
@@ -91,7 +92,14 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('finops_active_tenant');
       if (saved) {
-        try { return JSON.parse(saved); } catch {}
+        try {
+          const parsed = JSON.parse(saved);
+          // Si no estamos en modo demo y no hay cuenta MSAL, un tenant mock guardado en localStorage
+          // no debe cargarse como tenant activo para un usuario sin sesión.
+          if (!isMockTenant(parsed?.id) || isDemoMode) {
+            return parsed;
+          }
+        } catch {}
       }
     }
     return { id: 'default', name: 'Cargando entornos...' };
@@ -1202,7 +1210,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   const requiresRbacUpdate = selectedTenant?.requires_rbac_update;
 
   return (
-    <TenantContext.Provider value={{ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole, userPermissions, systemRole, authzResolved, userScope, requiresRbacUpdate, isUserRegistered, academyCertified, setAcademyCertified, activeAddonKeys }}>
+    <TenantContext.Provider value={{ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole, userPermissions, systemRole, authzResolved, userScope, requiresRbacUpdate, isUserRegistered, academyCertified, setAcademyCertified, activeAddonKeys, isDemoMode }}>
       {children}
     </TenantContext.Provider>
   );

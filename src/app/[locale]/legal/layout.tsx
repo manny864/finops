@@ -35,12 +35,12 @@ export default async function LegalLayout({
     const t = await getTranslations({ locale, namespace: 'Footer' });
 
     return (
-        <div className="min-h-screen bg-white dark:bg-slate-950">
+        <div className="min-h-screen bg-white dark:bg-slate-950 text-gray-900 dark:text-white">
             <div className="border-b border-gray-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur sticky top-0 z-30">
                 <div className="max-w-5xl mx-auto px-6 py-3 flex flex-wrap items-center gap-x-4 gap-y-2">
                     <Link
                         href="/"
-                        className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:text-brand-deep transition-colors"
+                        className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-white hover:text-brand-deep dark:hover:text-brand-bright transition-colors"
                     >
                         <img
                             src="/logo_29k.png"
@@ -55,7 +55,7 @@ export default async function LegalLayout({
                             <Link
                                 key={href}
                                 href={href}
-                                className="text-gray-500 dark:text-gray-400 hover:text-brand-deep transition-colors"
+                                className="text-gray-500 dark:text-slate-200 hover:text-brand-deep dark:hover:text-white transition-colors"
                             >
                                 {t(key)}
                             </Link>
