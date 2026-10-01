@@ -427,9 +427,9 @@ export function getMockPerspectivesBreakdown(arg2: string, reglas: ReglaPerspect
     };
 }
 
-export function getMockDataForRoute<K extends keyof MockContracts>(route: K, arg2: string, locale?: string): MockContracts[K];
-export function getMockDataForRoute(route: string, arg2: string, locale?: string): any;
-export function getMockDataForRoute(route: string, arg2: string, locale?: string): any {
+export function getMockDataForRoute<K extends keyof MockContracts>(route: K, arg2: string, locale?: string, options?: Record<string, any>): MockContracts[K];
+export function getMockDataForRoute(route: string, arg2: string, locale?: string, options?: Record<string, any>): any;
+export function getMockDataForRoute(route: string, arg2: string, locale?: string, options?: Record<string, any>): any {
     // Arg2 can be either a tenantId (from backend) or a tier string (from frontend mock override)
     const isTenantId = arg2 && arg2.length > 20; // tenantIds are GUIDs
     if (isTenantId && !isMockTenant(arg2)) {
@@ -1981,9 +1981,12 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
         case 'white_board': {
             const round2 = (x: number) => Math.round(x * 100) / 100;
             const scale = Math.max(1, multiplier / 5); // Enterprise-only feature: multiplier ya es 50, escala base razonable
+            const timeRange = (options?.timeRange as "MTD" | "30D" | "90D") || 'MTD';
             const currentFYCost = round2(420000 * scale);
             const previousFYCost = round2(currentFYCost * 0.88);
             const costMtdUSD = round2(currentFYCost / 12 * 1.1);
+            const timeMultiplier = timeRange === '90D' ? 2.9 : (timeRange === '30D' ? 1.05 : 1.0);
+            const costPeriodUSD = round2(costMtdUSD * timeMultiplier);
             const forecastEomUSD = round2(costMtdUSD * 1.14);
             const monthLabel = (offset: number) => {
                 const d = new Date();
@@ -1998,7 +2001,9 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                 success: true,
                 mock: true,
                 summary: {
+                    timeRange,
                     costMtdUSD,
+                    costPeriodUSD,
                     forecastEomUSD,
                     zombieResourcesCount: Math.round(17 * scale),
                     zombieMonthlyWasteUSD: round2(2150 * scale),
@@ -2013,10 +2018,10 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                     { costCenterName: "Customer Experience Applications", allocatedBudgetUSD: round2(9800 * scale), currentSpendUSD: round2(5770 * scale), percentageUsed: 58.9 },
                 ],
                 topServices: [
-                    { serviceName: "Virtual Machines", monthlyCostUSD: round2(costMtdUSD * 0.34), sharePercentage: 34 },
-                    { serviceName: "Azure SQL Database", monthlyCostUSD: round2(costMtdUSD * 0.23), sharePercentage: 23 },
-                    { serviceName: "Storage", monthlyCostUSD: round2(costMtdUSD * 0.19), sharePercentage: 19 },
-                    { serviceName: "Azure AI Services", monthlyCostUSD: round2(costMtdUSD * 0.12), sharePercentage: 12 },
+                    { serviceName: "Virtual Machines", monthlyCostUSD: round2(costPeriodUSD * 0.34), sharePercentage: 34 },
+                    { serviceName: "Azure SQL Database", monthlyCostUSD: round2(costPeriodUSD * 0.23), sharePercentage: 23 },
+                    { serviceName: "Storage", monthlyCostUSD: round2(costPeriodUSD * 0.19), sharePercentage: 19 },
+                    { serviceName: "Azure AI Services", monthlyCostUSD: round2(costPeriodUSD * 0.12), sharePercentage: 12 },
                 ],
                 quickWins: [
                     { id: "qw-vm", title: "Right-size underutilized virtual machines", category: "Cost", resourceName: "vm-app-prod-03", resourceGroup: "rg-app-prod", resourceType: "Microsoft.Compute/virtualMachines", estimatedMonthlySavingsUSD: round2(1250 * scale), actionType: "RESIZE", description: "Sustained CPU below 10% over the last 30 days.", commandCli: `az vm resize --resource-group "rg-app-prod" --name "vm-app-prod-03" --size "Standard_D4s_v5"`, commandPowerShell: `Update-AzVM -ResourceGroupName "rg-app-prod" -Name "vm-app-prod-03" -Size "Standard_D4s_v5"` },

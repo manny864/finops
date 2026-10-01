@@ -39,16 +39,28 @@ export function readCostCenter(tags: unknown): string {
   return "Sin asignar";
 }
 
-export async function getCurrentMonthCostAggregation(tenantId: string): Promise<CurrentMonthCostAggregation> {
+export async function getCurrentMonthCostAggregation(
+  tenantId: string,
+  timeRange: "MTD" | "30D" | "90D" = "MTD"
+): Promise<CurrentMonthCostAggregation> {
   let entries: Array<Record<string, unknown>> = [];
-  try {
-    entries = (await getCurrentMonthAmortizedCosts(tenantId, "All", "ActualCost")) as unknown as Array<Record<string, unknown>>;
-  } catch (error) {
-    console.warn("[whiteboard.service] live Cost Management aggregation failed:", error);
+  if (timeRange === "MTD") {
+    try {
+      entries = (await getCurrentMonthAmortizedCosts(tenantId, "All", "ActualCost")) as unknown as Array<Record<string, unknown>>;
+    } catch (error) {
+      console.warn("[whiteboard.service] live Cost Management aggregation failed:", error);
+    }
   }
 
   if (entries.length === 0) {
     try {
+      const dateClause =
+        timeRange === "90D"
+          ? "DATE(COALESCE(date, ChargePeriodStart)) >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)"
+          : timeRange === "30D"
+          ? "DATE(COALESCE(date, ChargePeriodStart)) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)"
+          : "DATE(COALESCE(date, ChargePeriodStart)) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')";
+
       const [rows]: any = await pool.query(
         `SELECT
             COALESCE(service_name, 'Other') AS serviceName,
@@ -56,7 +68,7 @@ export async function getCurrentMonthCostAggregation(tenantId: string): Promise<
             COALESCE(EffectiveCost, cost_usd, 0) AS effectiveCost
          FROM CostSnapshots
          WHERE tenant_id = ?
-           AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')`,
+           AND ${dateClause}`,
         [tenantId]
       );
       entries = (rows as Array<Record<string, unknown>>) || [];
@@ -130,10 +142,11 @@ export function buildQuickWinCliCommand(win: { actionType: string; resourceName:
 export async function getWhiteboardExecutiveData(
   tenantId: string,
   locale = "es",
-  forceMock = false
+  forceMock = false,
+  timeRange: "MTD" | "30D" | "90D" = "MTD"
 ): Promise<WhiteboardExecutivePayload> {
   if (forceMock || isMockTenant(tenantId)) {
-    const mockPayload = getMockDataForRoute("white_board", tenantId, locale);
+    const mockPayload = getMockDataForRoute("white_board", tenantId, locale, { timeRange });
     return mockPayload as WhiteboardExecutivePayload;
   }
 
@@ -143,7 +156,7 @@ export async function getWhiteboardExecutiveData(
   } catch (err) {
     console.warn("[whiteboard.service] Azure credential resolution failed:", err);
   }
-  const currentMonth = await getCurrentMonthCostAggregation(tenantId);
+  const currentMonth = await getCurrentMonthCostAggregation(tenantId, undefined, timeRange);
   const now = new Date();
 
   // 1. Cost Figures
@@ -333,7 +346,9 @@ export async function getWhiteboardExecutiveData(
   const potentialSavingsUSD = Number(rawPotentialSavingsUSD.toFixed(2));
 
   const summary: WhiteboardSummary = {
+    timeRange,
     costMtdUSD,
+    costPeriodUSD: Number(currentMonth.totalUSD.toFixed(2)),
     forecastEomUSD,
     zombieCount,
     zombieSavingsUSD,

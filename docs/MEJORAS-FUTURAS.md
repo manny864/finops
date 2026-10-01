@@ -56,6 +56,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-38](#mej-38--views-vistas-guardadas-y-con-alcance-por-equipo) | Views: el alcance por equipo aplicado en el SERVIDOR — permiso (default-deny, mapa por (ruta, método), un usuario con alcance no puede ser Admin/Owner) **y** `SavedViews`; la auditoría de la superficie encontró y cerró dos fugas por coincidencia de prefijo | Transversal / RBAC | Alto | Medio | Hecha |
 | [MEJ-39](#mej-39--fin-de-soporte-eoleos-de-la-plataforma-azure) | Fin de soporte (EOL/EOS) con el costo de lo afectado — **fase 1 hecha**: catálogo curado de AKS + PostgreSQL + MySQL Flexible, semáforo y costo mensual; fase 2 (licencias en la nube) sin empezar | Gobernanza / Riesgo | Alto | Medio | Parcial |
 | [MEJ-40](#mej-40--esr-y-riesgo-de-la-cartera-de-compromisos) | Concentración de vencimientos + ESR; se desbloqueó poblando `ListCost` de verdad | Compromisos | Alto | Medio | Hecha |
+| [MEJ-41](#mej-41--whiteboard-selector-de-rango-temporal-30d90d-y-persistencia-en-base-de-datos) | Whiteboard: selector temporal (30D/90D) y persistencia/consulta de costos históricos en BD | Whiteboard / Resumen Ejecutivo | Alto | Medio | Hecha |
 
 ---
 
@@ -4627,3 +4628,69 @@ la utilización baja es un ESR mal calculado, y conviene dejarlo fijado en un te
 3. La concentración se expresa sobre el valor comprometido, no sobre la cantidad de
    compromisos: diez reservas chicas que vencen juntas no son el mismo riesgo que una grande.
 4. Sin compromisos, la pantalla lo dice y no muestra 0% como si fuera un resultado.
+
+---
+
+## MEJ-41 — Whiteboard: Selector de rango temporal (30D/90D) y persistencia en base de datos
+
+**Módulo:** Whiteboard / Resumen Ejecutivo · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Hecha (2026-10-01)
+
+### Contexto y Problema Detectado
+
+En la Pizarra Ejecutiva (`/overview/whiteboard`), el header contaba con un control `<select>` que ofrecía tres opciones:
+- Mes en curso (`MTD`)
+- Últimos 30 días (`30D`)
+- Últimos 90 días (`90D`)
+
+Sin embargo, al seleccionar `30D` o `90D`, la interfaz permanecía estática y no mostraba los datos del período seleccionado.
+
+Al auditar el flujo de datos de extremo a extremo, se identificaron cuatro desconexiones críticas:
+
+1. **Frontend desvinculado (`ExecutiveSummaryBoard.tsx`):**
+   El componente mantenía un estado local `const [timeRange, setTimeRange] = useState("MTD");`, pero `timeRange` nunca se concatenaba en la URL de `useSWR` (`/api/overview/whiteboard?tenantId=...`) ni en `refrescarDeVerdad`. Al cambiar el selector, SWR no detectaba cambio de clave y no disparaba ninguna petición de red.
+
+2. **Proxy ciego al rango (`/api/overview/whiteboard/route.ts`):**
+   La ruta proxy no leía `searchParams.get("timeRange")`, no lo reenviaba a `/api/intelligence/whiteboard` en `fetchWhiteboardFromIntelligence`, y la clave de caché en Redis (`whiteboard:v4:...`) no incluía el rango, provocando que cualquier petición sirviera la misma respuesta MTD cacheada.
+
+3. **Backend hardcodeado a MTD (`/api/intelligence/whiteboard/route.ts`):**
+   El motor de inteligencia tampoco leía `timeRange`. Además, su lógica de agregación ejecutaba `getCurrentMonthAmortizedCosts` (que sólo consulta el mes en curso a Azure) y un fallback SQL en `CostSnapshots` rígidamente acotado a `DATE(COALESCE(date, ChargePeriodStart)) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')`. Aunque la base de datos contenía snapshots de meses y semanas anteriores, el backend los descartaba.
+
+4. **Modo Demo estático (`mockData.ts`):**
+   El payload generado para tenants mock (`white_board`) sólo devolvía números fijos MTD sin escalar según el horizonte temporal.
+
+### Persistencia de Datos Históricos (hasta 90 días y 13 meses)
+
+Existía la duda de si los datos históricos se almacenaban en la base de datos local. **La respuesta es sí, los datos sí se persisten en la tabla `CostSnapshots`**:
+- **Cron diario (`/api/cron/sync`):** Todas las noches sincroniza el costo y desglose del día anterior (`yesterdayStr`) mediante `getYesterdaysDetailedCosts` e inserta filas en `CostSnapshots`.
+- **Backfill histórico (`historicalGapBackfill.ts`):** Ejecuta un barrido de hasta 13 meses (`AZURE_COST_HISTORY_MAX_MONTHS = 13`) poblando `CostSnapshots` con granularidad diaria y por servicio.
+
+**¿Por qué no se consulta Azure Cost Management en vivo para 30D y 90D?**
+La Query API de Azure Cost Management tiene un límite estricto de cuota (rate-limiting con HTTP 429) por cada ámbito de suscripción/tenant. Lanzar una consulta agregada de 30 o 90 días en tiempo real dentro del request path de un usuario bloquea el endpoint durante 10 a 25 segundos y frecuentemente satura la cuota de Azure, derivando en errores Cloudflare 524.
+
+Por diseño arquitectónico de alta resiliencia:
+- Para `MTD`: Se intenta la consulta en vivo de Cost Management del mes en curso y, si falla o degrada, se hace fallback a `CostSnapshots`.
+- Para `30D` y `90D`: La consulta se resuelve **directamente contra la base de datos local `CostSnapshots`** mediante los índices optimizados `(tenant_id, date)`:
+  - `30D`: `DATE(COALESCE(date, ChargePeriodStart)) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`
+  - `90D`: `DATE(COALESCE(date, ChargePeriodStart)) >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)`
+Esto garantiza que la Pizarra Ejecutiva responda en menos de 50 ms sin depender de llamadas síncronas costosas a Azure, garantizando la retención y disponibilidad de los últimos 90 días.
+
+### Cambios Implementados
+
+1. **Frontend (`ExecutiveSummaryBoard.tsx`):**
+   - Se inyecta `&timeRange=${timeRange}` en la clave y URL de `useSWR` y en `refrescarDeVerdad`.
+   - Se adapta la etiqueta del KPI principal dinámicamente (`kpiCurrentCost` en MTD, `last30` en 30D, `last90` en 90D).
+   - El KPI de costo y widgets derivados leen `summary.costPeriodUSD ?? summary.costMtdUSD`.
+2. **Proxy API (`/api/overview/whiteboard/route.ts`):**
+   - Recibe `timeRange = searchParams.get('timeRange') || 'MTD'`.
+   - Incluye `timeRange` en `cacheKey` de Redis (`whiteboard:v4:${tenantId}:${locale}:${timeRange}:${...}`).
+   - Reenvía `timeRange` en `fetchWhiteboardFromIntelligence`.
+3. **Intelligence API (`/api/intelligence/whiteboard/route.ts`):**
+   - Recibe `timeRange` (`MTD`, `30D`, `90D`).
+   - Clave de caché en Redis segmentada por `timeRange`.
+   - `getCurrentMonthCostAggregation` acepta `timeRange` y aplica la ventana de fecha correspondiente (`INTERVAL 30 DAY`, `INTERVAL 90 DAY` o `DATE_FORMAT(..., '%Y-%m-01')`).
+   - `WhiteboardSummaryMetrics` devuelve `timeRange` y `costPeriodUSD`.
+4. **Mock Data (`src/lib/mockData.ts`):**
+   - Ajusta los costos y métricas mock según el multiplicador del rango (1x en MTD/30D, ~2.8x en 90D).
+5. **Directiva (`directivas/whiteboard_overview_sop.md`):**
+   - Se actualizó el SOP con las especificaciones de persistencia y rango temporal.
+

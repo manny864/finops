@@ -28,11 +28,13 @@ async function fetchWhiteboardFromIntelligence(
     request: NextRequest,
     forceMock: boolean,
     locale: string,
-    bust: boolean
+    bust: boolean,
+    timeRange: string = "MTD"
 ): Promise<any> {
     const baseUrl = getInternalBaseUrl(request.nextUrl.port);
     const url = new URL(`${baseUrl}/api/intelligence/whiteboard?tenantId=${encodeURIComponent(tenantId)}`);
     url.searchParams.set('locale', locale);
+    url.searchParams.set('timeRange', timeRange);
     if (forceMock) url.searchParams.set('mock', 'true');
     if (bust) url.searchParams.set('bust', '1');
     // MEJ-34: el alcance transversal se reenvía. Esta ruta es la que la UI
@@ -67,6 +69,7 @@ export async function GET(request: NextRequest) {
     const tenantId = searchParams.get('tenantId');
     const forceMock = searchParams.get('mock') === 'true';
     const locale = searchParams.get('locale') || 'es';
+    const timeRange = searchParams.get('timeRange') || 'MTD';
 
     if (!tenantId) {
         return NextResponse.json({ error: 'Missing tenantId' }, { status: 400 });
@@ -87,7 +90,7 @@ export async function GET(request: NextRequest) {
         }
     }
 
-    const cacheKey = `whiteboard:v4:${tenantId}:${locale}:${forceMock ? 'mock' : 'live'}`;
+    const cacheKey = `whiteboard:v4:${tenantId}:${locale}:${timeRange}:${forceMock ? 'mock' : 'live'}`;
     // MEJ-34: con alcance no se lee ni se escribe el caché — su clave no lo
     // incluye, así que una pizarra acotada serviría la de otro grupo.
     const acotado = !!request.nextUrl.searchParams.get('perspective');
@@ -103,6 +106,9 @@ export async function GET(request: NextRequest) {
             await redis.del(`whiteboard:v5:azure:${tenantId}:es`);
             await redis.del(`whiteboard:v5:azure:${tenantId}:en`);
             await redis.del(`whiteboard:v5:azure:${tenantId}:pt-BR`);
+            await redis.del(`whiteboard:v5:azure:${tenantId}:es:${timeRange}`);
+            await redis.del(`whiteboard:v5:azure:${tenantId}:en:${timeRange}`);
+            await redis.del(`whiteboard:v5:azure:${tenantId}:pt-BR:${timeRange}`);
         } catch { /* ignore */ }
     }
 
@@ -147,7 +153,7 @@ export async function GET(request: NextRequest) {
 
     // Cache miss, error o refresco explícito: traer dato fresco.
     try {
-        const payload = await fetchWhiteboardFromIntelligence(tenantId, request, forceMock, locale, bust);
+        const payload = await fetchWhiteboardFromIntelligence(tenantId, request, forceMock, locale, bust, timeRange);
 
         // UN CERO DEGRADADO NO PISA AL ÚLTIMO VALOR BUENO (2026-09-15). Es la
         // otra mitad de "carga los datos y después los pierde": con Cost

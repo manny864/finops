@@ -258,7 +258,7 @@ export default function ExecutiveSummaryBoard() {
 
   const { data, error, isLoading, mutate } = useSWR(
     canFetch
-      ? `/api/overview/whiteboard?tenantId=${selectedTenant.id}&locale=${locale}${isDemo ? "&mock=true" : ""}${alcanceQs}`
+      ? `/api/overview/whiteboard?tenantId=${selectedTenant.id}&locale=${locale}&timeRange=${timeRange}${isDemo ? "&mock=true" : ""}${alcanceQs}`
       : null,
     fetcher,
     { revalidateOnFocus: false }
@@ -282,6 +282,7 @@ export default function ExecutiveSummaryBoard() {
     if (!canFetch || !selectedTenant) return;
     const url =
       `/api/overview/whiteboard?tenantId=${selectedTenant.id}&locale=${locale}` +
+      `&timeRange=${timeRange}` +
       `${isDemo ? "&mock=true" : ""}&bust=1${alcanceQs}`;
     try {
       await fetcher(url);
@@ -289,7 +290,7 @@ export default function ExecutiveSummaryBoard() {
       /* el mutate de abajo reporta el error por el camino normal */
     }
     await mutate();
-  }, [canFetch, selectedTenant, locale, isDemo, mutate]);
+  }, [canFetch, selectedTenant, locale, timeRange, isDemo, mutate]);
 
   const summarySub = "All";
   /**
@@ -305,7 +306,7 @@ export default function ExecutiveSummaryBoard() {
    * respaldo, lo que falte se ve vacio en vez de verse ajeno.
    */
   const { scope: alcanceAsignado } = useAlcanceAsignado();
-  const pedirResumenGlobal = canFetch && !alcanceAsignado;
+  const pedirResumenGlobal = canFetch && !alcanceAsignado && timeRange === "MTD";
   const { data: summaryData, isLoading: summaryLoading } = useSWR(
     pedirResumenGlobal
       ? `/api/dashboard/summary?tenantId=${selectedTenant!.id}&subscriptionId=${summarySub}${isDemo ? "&mock=true" : ""}`
@@ -528,7 +529,12 @@ export default function ExecutiveSummaryBoard() {
   const isCardVisible = (cardId: string) => !hiddenCards.includes(cardId);
 
   // Reconciled values from unified data source
-  const costMtdUSD = Number(data?.summary?.costMtdUSD ?? summaryData?.actualCost ?? 0);
+  const costActualUSD = Number(
+    (timeRange === "30D" || timeRange === "90D"
+      ? data?.summary?.costPeriodUSD ?? data?.summary?.costMtdUSD
+      : data?.summary?.costPeriodUSD ?? data?.summary?.costMtdUSD ?? summaryData?.actualCost) ?? 0
+  );
+  const costMtdUSD = costActualUSD;
   const forecastEomUSD = Number(data?.summary?.forecastEomUSD ?? summaryData?.projectedCost ?? 0);
   // `||` y no `??`: el whiteboard SIEMPRE define estos campos (0 cuando su
   // enriquecimiento server-side falla), así que con `??` el 0 ganaba y anulaba
@@ -615,9 +621,21 @@ export default function ExecutiveSummaryBoard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3.5">
         <KpiCard
           icon={IconReceipt2}
-          label={t("kpiCurrentCost")}
+          label={
+            timeRange === "90D"
+              ? `${t("kpiCurrentCost").replace(/\s*\(MTD\)/i, "")} (90D)`
+              : timeRange === "30D"
+              ? `${t("kpiCurrentCost").replace(/\s*\(MTD\)/i, "")} (30D)`
+              : t("kpiCurrentCost")
+          }
           value={summaryLoading ? "…" : format(costMtdUSD)}
-          sub={t("kpiCurrentCostSub")}
+          sub={
+            timeRange === "90D"
+              ? t("last90")
+              : timeRange === "30D"
+              ? t("last30")
+              : t("kpiCurrentCostSub")
+          }
           badge={
             momVariation !== 0
               ? {

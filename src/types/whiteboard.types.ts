@@ -2,6 +2,8 @@
 
 export interface WhiteboardSummary {
   costMtdUSD: number;
+  timeRange?: "MTD" | "30D" | "90D";
+  costPeriodUSD?: number;
   forecastEomUSD: number;
   /**
    * De dónde salió la proyección: `azure` es el pronóstico de Cost Management

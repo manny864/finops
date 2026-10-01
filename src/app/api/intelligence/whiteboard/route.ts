@@ -87,6 +87,7 @@ async function getCurrentMonthCostAggregation(
     tenantId: string,
     alDegradar?: () => void,
     alcance: Recorte = SIN_RECORTE,
+    timeRange: "MTD" | "30D" | "90D" = "MTD",
 ): Promise<CurrentMonthCostAggregation> {
     // ESTA LLAMADA TAMBIEN LLEVA TECHO. Es la unica fuente de costo que no
     // pasaba por `fuente()`, porque se resuelve ANTES del `Promise.all` --su
@@ -106,35 +107,33 @@ async function getCurrentMonthCostAggregation(
     // proposito: al vencer, `entries` queda vacio y corre el respaldo de
     // CostSnapshots de abajo. Con el techo por fuera se perderia tambien ese
     // respaldo y la tarjeta mostraria $0 --justo lo que el respaldo evita--.
-    let entries: Array<Record<string, unknown>> = await fuente(
-        "costMtdLive",
-        [] as Array<Record<string, unknown>>,
-        async () =>
-            (await getCurrentMonthAmortizedCosts(tenantId, "All", "ActualCost")) as unknown as Array<
-                Record<string, unknown>
-            >,
-        alDegradar,
-    );
+    let entries: Array<Record<string, unknown>> = [];
+    if (timeRange === "MTD") {
+        entries = await fuente(
+            "costMtdLive",
+            [] as Array<Record<string, unknown>>,
+            async () =>
+                (await getCurrentMonthAmortizedCosts(tenantId, "All", "ActualCost")) as unknown as Array<
+                    Record<string, unknown>
+                >,
+            alDegradar,
+        );
+    }
 
     let origen: "live" | "snapshot" | "vacio" = entries.length > 0 ? "live" : "vacio";
 
     if (entries.length === 0) {
         try {
             // EL FILTRO VA POR `date`, igual que /api/dashboard/summary.
-            //
-            // Acá decía `DATE(COALESCE(ChargePeriodStart, date))`, que prioriza
-            // el inicio del PERÍODO DE CARGO. Cuando ese período arranca antes
-            // del mes en curso --que es lo normal en un ciclo de facturación
-            // que no empieza el día 1-- la fila queda fuera del filtro y el
-            // respaldo devuelve vacío.
-            //
-            // El síntoma en producción (2026-09-14): el mismo tenant mostraba
-            // $0.00 en el Resumen Ejecutivo mientras el log del dashboard decía
-            //   actualCost DEGRADADO ... sale de CostSnapshots (243.25470456)
-            // O sea: el dato estaba, y dos caminos de la misma app calculaban
-            // "el costo del mes" con criterios distintos. Que difieran es peor
-            // que que falten: el usuario ve dos números y ninguno explica al
-            // otro.
+            // Para 30D y 90D consulta los datos persistidos en CostSnapshots.
+            // Para MTD filtra desde el inicio del mes actual.
+            const dateClause =
+                timeRange === "90D"
+                    ? "DATE(COALESCE(date, ChargePeriodStart)) >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)"
+                    : timeRange === "30D"
+                    ? "DATE(COALESCE(date, ChargePeriodStart)) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)"
+                    : "DATE(COALESCE(date, ChargePeriodStart)) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')";
+
             const [rows]: any = await pool.query(
                 `SELECT
                     COALESCE(service_name, 'Other') AS serviceName,
@@ -142,7 +141,7 @@ async function getCurrentMonthCostAggregation(
                     COALESCE(EffectiveCost, BilledCost, cost_usd, 0) AS effectiveCost
                  FROM CostSnapshots
                  WHERE tenant_id = ?
-                   AND DATE(COALESCE(date, ChargePeriodStart)) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+                   AND ${dateClause}
                    ${alcance.and}`,
                 [tenantId, ...alcance.params]
             );
@@ -542,10 +541,13 @@ export async function GET(request: NextRequest) {
         const tenantId = request.nextUrl.searchParams.get("tenantId");
         const locale = request.nextUrl.searchParams.get("locale") || "es";
         const forceMock = request.nextUrl.searchParams.get("mock") === "true";
+        const rawTimeRange = request.nextUrl.searchParams.get("timeRange");
+        const timeRange: "MTD" | "30D" | "90D" =
+            rawTimeRange === "30D" || rawTimeRange === "90D" ? rawTimeRange : "MTD";
         if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
 
         if (forceMock || isMockTenant(tenantId)) {
-            return NextResponse.json(getMockDataForRoute("white_board", tenantId));
+            return NextResponse.json(getMockDataForRoute("white_board", tenantId, locale, { timeRange }));
         }
 
         const identidad = await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
@@ -560,10 +562,13 @@ export async function GET(request: NextRequest) {
         }, identidad.alcance ?? null);
         const alcance: Recorte = { and: alcanceRuta.and, params: alcanceRuta.params };
 
-        const cacheKey = `whiteboard:v5:azure:${tenantId}:${locale}`;
+        const cacheKey = `whiteboard:v5:azure:${tenantId}:${locale}:${timeRange}`;
         const bust = request.nextUrl.searchParams.get("bust") === "1";
         if (bust) {
-            try { await redis.del(cacheKey); } catch {}
+            try {
+                await redis.del(cacheKey);
+                await redis.del(`whiteboard:v5:azure:${tenantId}:${locale}`);
+            } catch {}
         }
         const ensamblar = async () => {
             let argClient: ResourceGraphClient | null = null;
@@ -582,7 +587,7 @@ export async function GET(request: NextRequest) {
 
             const currentMonth = await getCurrentMonthCostAggregation(tenantId, () => {
                 costDegraded = true;
-            }, alcance);
+            }, alcance, timeRange);
 
             const [
                 costFigures,
@@ -783,6 +788,8 @@ export async function GET(request: NextRequest) {
 
             const summary: WhiteboardSummaryMetrics = {
                 costMtdUSD,
+                timeRange,
+                costPeriodUSD: costMtdUSD,
                 forecastEomUSD,
                 forecastSource,
                 zombieCount: Number(executiveEnrichment.zombieResourcesCount || 0),
@@ -799,6 +806,8 @@ export async function GET(request: NextRequest) {
             const armado = {
                 success: true,
                 mock: false,
+                timeRange,
+                costPeriodUSD: costMtdUSD,
                 costs: costFigures,
                 security: securityScore,
                 vulnerabilities,
