@@ -41,8 +41,13 @@ export function readCostCenter(tags: unknown): string {
 
 export async function getCurrentMonthCostAggregation(
   tenantId: string,
-  timeRange: "MTD" | "30D" | "90D" = "MTD"
+  timeRangeOrAlDegradar?: ("MTD" | "30D" | "90D") | (() => void),
+  maybeTimeRange?: "MTD" | "30D" | "90D"
 ): Promise<CurrentMonthCostAggregation> {
+  const timeRange: "MTD" | "30D" | "90D" =
+    typeof timeRangeOrAlDegradar === "string"
+      ? timeRangeOrAlDegradar
+      : maybeTimeRange || "MTD";
   let entries: Array<Record<string, unknown>> = [];
   if (timeRange === "MTD") {
     try {
@@ -156,7 +161,7 @@ export async function getWhiteboardExecutiveData(
   } catch (err) {
     console.warn("[whiteboard.service] Azure credential resolution failed:", err);
   }
-  const currentMonth = await getCurrentMonthCostAggregation(tenantId, undefined, timeRange);
+  const currentMonth = await getCurrentMonthCostAggregation(tenantId, timeRange);
   const now = new Date();
 
   // 1. Cost Figures
