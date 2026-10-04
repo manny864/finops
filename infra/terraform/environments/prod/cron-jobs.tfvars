@@ -155,6 +155,10 @@ cron_jobs = {
   # Entornos efímeros por vencer/vencidos.
   ttl-expiry-alerts = { cron = "0 6 * * *" } # 09:00 UTC
 
+  # MEJ-16 — reservas que vencen en 90, 60 y 30 días. Pega a Microsoft.Capacity,
+  # no a Cost Management, así que no compite con los prewarm.
+  reservation-expiry-alerts = { cron = "3 6 * * *" } # 09:03 UTC
+
   # Corta acceso a tenants CANCELED con período pagado vencido.
   subscription-expiry = { cron = "30 3 * * *" } # 06:30 UTC
 

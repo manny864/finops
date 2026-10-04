@@ -62,7 +62,11 @@ export default function LanguageSwitcher({
     startTransition(() => {
       const search = searchParams.toString();
       const query = search ? `?${search}` : "";
-      router.replace(`${pathname}${query}` as any, { locale: nextLocale });
+      // El fragmento también: el panel del partner lleva su credencial ahí
+      // (`/partner#k=…`), y sin él la página dependía de que el navegador
+      // hubiera guardado la sesión.
+      const hash = typeof window !== "undefined" ? window.location.hash : "";
+      router.replace(`${pathname}${query}${hash}` as any, { locale: nextLocale });
     });
   };
 

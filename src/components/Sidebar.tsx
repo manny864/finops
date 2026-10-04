@@ -4,7 +4,7 @@ import { Link, usePathname } from '@/i18n/routing';
 import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { hasAccess } from '@/lib/tierLogic';
-import { paginaAdmiteAlcance } from '@/lib/scopeAwareRoutes';
+import { entradaConAlcance } from '@/lib/scopeAwareRoutes';
 import { useAlcanceAsignado } from '@/components/PerspectiveScopeSelector';
 import { addonUnlocksPath } from '@/lib/addonCatalog';
 import { getTagsForRoute, hasAnyTag } from '@/lib/pageRoleTags';
@@ -55,7 +55,7 @@ import {
     CalendarClock,
     Trophy,
 } from 'lucide-react';
-import { IconCoins, IconDatabase } from '@tabler/icons-react';
+import { IconCoins, IconDatabase, IconGitPullRequest } from '@tabler/icons-react';
 
 interface SidebarProps {
     sidebarOpen: boolean;
@@ -158,6 +158,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/governance/reporting', label: t('governance_reporting'), icon: ShieldCheck, requiredTier: 'Enterprise' },
                 { href: '/governance/ha', label: t('ha_recommendations'), icon: ShieldCheck, requiredTier: 'Business' },
                 { href: '/governance/lifecycle', label: t('lifecycle_eol'), icon: CalendarClock, requiredTier: 'Business' },
+                { href: '/governance/shift-left', label: t('shift_left'), icon: IconGitPullRequest as any, requiredTier: 'Business' },
                 { href: '/governance/credentials', label: t('expiring_credentials'), icon: KeyRound, requiredTier: 'Business' },
                 { href: '/governance/approvals', label: t('approvals'), icon: CheckCircle, requiredTier: 'Business' }
             ]
@@ -311,9 +312,19 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
     // saben acotarse; el resto le devuelve 403. Ofrecérselas igual sería mandarlo
     // a chocarse contra la puerta. Es el mismo criterio que el recorte por tier,
     // y el mapa se mantiene a mano por el mismo motivo.
+    //
+    // Un hub entra si alguna de sus pestañas sabe acotar, y el link lleva a esa
+    // pestaña (`entrada`): `href` queda como el hub para que la entrada siga
+    // marcada mientras el usuario recorre las demás pestañas permitidas.
     const categoriasVisibles = alcanceAsignado
         ? roleCategories
-            .map(cat => ({ ...cat, items: cat.items.filter(i => paginaAdmiteAlcance(i.href)) }))
+            .map(cat => ({
+                ...cat,
+                items: cat.items.flatMap(i => {
+                    const entrada = entradaConAlcance(i.href);
+                    return entrada ? [{ ...i, entrada }] : [];
+                }),
+            }))
             .filter(cat => cat.items.length > 0)
         : roleCategories;
 
@@ -395,7 +406,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                             return (
                                 <Link
                                     key={item.href}
-                                    href={item.href}
+                                    href={(item as any).entrada ?? item.href}
                                     onClick={() => {
                                         setSearchQuery('');
                                         if (window.innerWidth <= 768) setSidebarOpen(false);
@@ -457,7 +468,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                                     const renderedLink = (
                                         <Link
                                             key={item.href}
-                                            href={item.href}
+                                            href={(item as any).entrada ?? item.href}
                                             title={sidebarOpen ? undefined : item.label}
                                             onClick={() => {
                                                 if (window.innerWidth <= 768) {

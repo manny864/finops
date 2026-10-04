@@ -2,8 +2,8 @@
 /**
  * Configuración Global — pestaña General.
  *
- * Bloques: Apariencia (tema), Marca (logo), Integraciones (webhook / ITSM /
- * Power BI) y Zona de Peligro.
+ * Bloques: Apariencia (tema), Año fiscal, Marca (logo), Integraciones
+ * (webhook / ITSM / Power BI) y Zona de Peligro.
  *
  * La configuración se lee UNA vez en este componente y baja por props. Antes
  * cada sub-bloque llamaba a `useTenant()` y hacía su propio fetch, así que un
@@ -14,6 +14,7 @@ import { useTheme } from "next-themes";
 import { useCallback, useEffect, useState } from "react";
 import {
     IconAlertTriangle,
+    IconCalendarStats,
     IconCheck,
     IconCopy,
     IconDeviceDesktop,
@@ -30,7 +31,7 @@ import {
     IconTrash,
     IconUpload,
 } from "@tabler/icons-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { toast } from 'sonner';
@@ -165,6 +166,8 @@ export default function ConfigPage() {
                 <>
                     <AppearanceCard config={config} tenantId={tenantId} authHeaders={authHeaders} isMock={isMock} />
 
+                    <FiscalYearCard tenantId={tenantId} authHeaders={authHeaders} isMock={isMock} canFetch={canFetch} />
+
                     <Card>
                         <CardHeader
                             icon={<IconPhoto size={18} stroke={1.5} className="text-[#0078D4]" />}
@@ -283,6 +286,106 @@ function AppearanceCard({
                             );
                         })}
                     </div>
+                </div>
+            </div>
+        </Card>
+    );
+}
+
+/* -------------------------------- Año fiscal ------------------------------ */
+
+/**
+ * MEJ-36: el mes en que empieza el ejercicio. Antes sólo se cambiaba por API.
+ * Corta el acumulado anual de Grupos de Costos y del Whiteboard, y hasta dónde
+ * se arrastra el presupuesto no gastado.
+ */
+function FiscalYearCard({
+    tenantId, authHeaders, isMock, canFetch,
+}: {
+    tenantId: string;
+    authHeaders: () => Promise<Record<string, string>>;
+    isMock: boolean;
+    canFetch: boolean;
+}) {
+    const t = useTranslations('AdminConfig');
+    const locale = useLocale();
+    const [mes, setMes] = useState<number | null>(null);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        if (!canFetch) return;
+        if (isMock) { setMes(1); return; }
+        let vivo = true;
+        (async () => {
+            try {
+                const res = await fetch(`/api/admin/tenant-settings?tenantId=${encodeURIComponent(tenantId)}`, {
+                    headers: await authHeaders(),
+                });
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.error);
+                if (vivo) setMes(Number(json.fiscalYearStartMonth) || 1);
+            } catch (e) {
+                if (vivo) toast.error(t('fiscalYearLoadFailed'), { description: errorMessage(e) });
+            }
+        })();
+        return () => { vivo = false; };
+    }, [canFetch, isMock, tenantId, authHeaders, t]);
+
+    // Los nombres salen de Intl en el idioma activo: doce claves por idioma
+    // para algo que el navegador ya sabe decir.
+    const meses = Array.from({ length: 12 }, (_, i) =>
+        new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(2026, i, 15))),
+    );
+
+    const guardar = async (nuevo: number) => {
+        const anterior = mes;
+        setMes(nuevo);
+        if (isMock) return;
+        setSaving(true);
+        try {
+            const res = await fetch('/api/admin/tenant-settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+                body: JSON.stringify({ tenantId, fiscalYearStartMonth: nuevo }),
+            });
+            if (!res.ok) {
+                const json = await res.json().catch(() => ({}));
+                throw new Error(json.error || t('fiscalYearSaveFailed'));
+            }
+            toast.success(t('fiscalYearSaved'));
+        } catch (e) {
+            setMes(anterior); // no dejar una UI que miente sobre lo guardado
+            toast.error(t('fiscalYearSaveFailed'), { description: errorMessage(e) });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <Card>
+            <CardHeader
+                icon={<IconCalendarStats size={18} stroke={1.5} className="text-[#0078D4]" />}
+                title={t('fiscalYearSection')}
+                tooltip={t('tooltips.fiscalYear')}
+            />
+            <div className="p-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h4 className="font-semibold text-[#1B2A41] dark:text-white">{t('fiscalYearTitle')}</h4>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('fiscalYearSubtitle')}</p>
+                    </div>
+                    <select
+                        aria-label={t('fiscalYearTitle')}
+                        className={`${INPUT} md:w-56 capitalize`}
+                        value={mes ?? ''}
+                        disabled={mes === null || saving}
+                        onChange={(e) => guardar(Number(e.target.value))}
+                    >
+                        {mes === null && <option value="">…</option>}
+                        {meses.map((nombre, i) => (
+                            <option key={i + 1} value={i + 1}>{nombre}</option>
+                        ))}
+                    </select>
                 </div>
             </div>
         </Card>

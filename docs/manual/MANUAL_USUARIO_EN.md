@@ -17,13 +17,13 @@
 
 ## Recent updates (September – October 2026)
 
-- **Perspectives and team scope.** You can now create Perspectives from the screen —by Tag, Name pattern, Subscription, Resource group or Resource type—, see how much of the spend falls inside each group, and narrow Cost Groups, Cost Centers, Spend & Forecast, Storage, the Whiteboard and the What-If simulator with a cross-cutting selector. An Admin can also **assign a scope to a user**: the API returns only their slice, it is not a screen filter (5.3 and 8.2). **Saved views** remember a scope combination so you can return to it in one click.
-- **Team leaderboard and gross margin.** A ranking that sorts by improvement —not by who spends least—, the cost of goods sold (COGS) / operating expense (OpEx) split, and gross margin once you load revenue (5.2).
+- **Perspectives and team scope.** You can now create Perspectives from the screen —by Tag, Name pattern, Subscription, Resource group or Resource type—, see how much of the spend falls inside each group, and narrow Cost Groups, Cost Centers, Spend & Forecast, Storage, the Whiteboard and the What-If simulator with a cross-cutting selector. An Admin can also **assign a scope to a user** from **Users & Access**: the API returns only their slice, it is not a screen filter (5.3 and 8.2). **Saved views** remember a scope combination so you can return to it in one click, and they can be **shared with the team** or marked as **default** (3.4).
+- **Team leaderboard and gross margin.** A ranking that sorts by improvement —not by who spends least—, the cost of goods sold (COGS) / operating expense (OpEx) split —each group is classified from the same table— and gross margin once you load revenue (5.2).
 - **Report subscriptions.** The **Subscriptions** tab of Reports & Export emails a report at the cadence you choose, with a link, a chart and a CSV (8.6).
-- **Fiscal year and budget rollover.** The tenant's fiscal year is no longer fixed to January, and a budget can carry unspent money over to the next month, with a cap (5.1.5).
+- **Fiscal year and budget rollover.** The tenant's fiscal year is no longer fixed to January —you choose it in **Configuration → General**— and a budget can carry unspent money over to the next month, with a cap, from the budgets table itself (5.1.5).
 - **End of support.** What runs on a version Azure is retiring, when, and what it costs today: AKS, PostgreSQL and MySQL Flexible Server (7.9).
-- **Commitments.** Expiry concentration warning, **ESR** (effective savings rate), a break-even simulator with optimal mix, and tracking of the annual reservation-refund cap (5.4).
-- **Shift-Left FinOps.** The cost of a `terraform plan` inside the Pull Request, before the merge, with per-repository thresholds (7.10).
+- **Commitments.** Expiry concentration warning, **ESR** (effective savings rate), a break-even simulator with optimal mix, tracking of the annual reservation-refund cap, and **automatic notices 90, 60 and 30 days before each reservation expires** (5.4.4).
+- **Shift-Left FinOps.** The cost of a `terraform plan` inside the Pull Request, before the merge, with per-repository thresholds; it is under **Governance → Shift-Left (PRs)** (7.10).
 - **Cosmos DB with real telemetry** and an RU/s optimizer: manual vs autoscale vs serverless, and hot partitions (5.5).
 - **Networking: Traffic & egress, and Link capacity** (oversized ExpressRoute and VPN links) (5.8).
 - **Azure Virtual Desktop** inside Compute: host pools, session hosts, FSLogix profiles and cost per user (5.6).
@@ -105,11 +105,13 @@ When you connect your Azure subscription (step 2 of the onboarding wizard, or fr
 
 | Tier | Built-in roles | Custom role (*CSCloudSolutions Remediation Role*) |
 |---|---|---|
-| Professional (platform floor) | Reader, Cost Management Reader, Monitoring Reader, Billing Reader, Security Reader | — (read-only) |
+| Professional (platform floor) | Reader, Cost Management Reader, Monitoring Reader, Billing Reader, Security Reader and, at tenant level, Reservations Reader | — (read-only) |
 | Business | Professional + Tag Contributor | Start, stop, restart and deallocate VMs; write tags; manage Azure budgets; and **delete** the orphaned resources that Cloud Cleanup detects (VMs, disks, snapshots, App Service plans, NICs, public IPs, NSGs and the other network types of Networking Zombies) |
 | Enterprise | Business + Monitoring Contributor | Business + create resource groups |
 
 In addition, the script grants the identity **Microsoft Graph read permissions** on all plans (`Directory.Read.All`, `Reports.Read.All`, `User.Read.All` and `Organization.Read.All`) and, depending on the plan: `Application.ReadWrite.OwnedBy` (Business+, to rotate secrets: it only reaches the App Registrations the identity *owns*), `AuditLog.Read.All` (Enterprise, sign-in activity for *Users & Licenses*) and `ExternalConnection.ReadWrite.OwnedBy` (Enterprise, Copilot M365 connector).
+
+**Reservations Reader** is assigned on `/providers/Microsoft.Capacity`, at tenant level and not per subscription: without it, reservations do not show up in Optimization & Savings and their expiry notices do not arrive. Assigning it requires being *Reservations Administrator*, or Owner / User Access Administrator on that scope; if the script marks it as `[FAIL]`, someone with that permission has to assign it.
 
 > ⚠️ **Reader, Cost Management Reader, Monitoring Reader and Billing Reader are the absolute minimum** for the Real Consumption page to show data. If `Cost Management Reader` or `Billing Reader` is missing, Azure silently returns 0 rows. `Security Reader` adds read access to the security posture (Defender/WAF).
 
@@ -177,7 +179,7 @@ The left sidebar groups everything into 5 pillars (collapsible sections — the 
 - **Visibility** — Whiteboard, FinOps Academy, Azure Advisor, FinOps Maturity, Historical Progress, TOP Expenses, Resources, Green FinOps, Captured Savings and Financial Leaks.
 - **Financial Intelligence** — Consumption & Budget, Team leaderboard, Perspectives, Optimization & Savings, Databases, Compute, Storage, Networking, Users & Licenses, Azure AI, Azure Integration Services, Monitoring, Security and Advanced Analytics.
 - **Cloud Cleanup** — Zombie Resources, Networking Zombies, TTL Expirations and Orphaned Backups.
-- **Governance** — Tag Compliance, Self-Service Alerts, Power Schedules, Auto-Block Policies, Governance Reporting, High Availability, End of support, Expiring Credentials and Approvals.
+- **Governance** — Tag Compliance, Self-Service Alerts, Power Schedules, Auto-Block Policies, Governance Reporting, High Availability, End of support, Shift-Left (PRs), Expiring Credentials and Approvals.
 - **Administration** — Support, Users & Access, Configuration, Reports & Export, Integrations & API, Billing & Audit and Marketplace.
 
 **What you see depends on three things:** your **plan** (each screen states the plan it is available from), your **role** (what you can do) and your **domain permissions** (which pages are shown to you). Whatever your plan does not include appears with a lock and an upgrade notice, or can be added on its own from the **Marketplace** (8.10).
@@ -215,7 +217,7 @@ The header has three selectors that narrow what the dashboards show:
 
 - **Scope (tenant and subscription).** You pick the whole tenant or one Azure subscription. If your organization has more than one tenant, you also switch tenants from here.
 - **Perspective and group.** It appears only if your plan is Enterprise and the tenant has Perspectives defined (5.3). You pick a Perspective and a group —for example *Teams → Engineering*— and the dashboards that support it show only that slice of the spend. The choice travels in the URL: it can be shared by link and survives a refresh.
-- **Views** (bookmark icon). With a Perspective selected, *Save the current view…* remembers the combination —Perspective and group— under the name you give it, and you apply it again in one click from the same selector. Views you save from the screen are personal. Views created through the API (`/api/intelligence/views`) can also be **shared** —the whole tenant sees them, and only Admins and Owners create or delete them— or **default**, applied automatically on entry when the URL does not specify a scope. The selector is shown only when there are saved views or an active Perspective to save.
+- **Views** (bookmark icon). With a Perspective selected, *Save the current view…* remembers the combination —Perspective and group— under the name you give it, and you apply it again in one click from the same selector. When saving it you can mark it to **open by default** —it is applied automatically when the URL does not specify a scope— and, if you are an Admin or Owner, **share it with the whole team**. The star next to each view marks or unmarks it as the default. Shared views are visible to the whole tenant and only Admins and Owners change or delete them. If there is a default of yours and one from the team, yours wins. The selector is shown only when there are saved views or an active Perspective to save.
 
 > If your account has a **scope assigned** by an Admin (8.2), the Perspective selector is fixed on your group, with a lock, and the Views selector is not shown: your slice is not chosen, saved or changed by you.
 
@@ -350,9 +352,9 @@ You define cost centers, assign resources (manually or in bulk) and the system a
 - A month in the red carries over **zero**, never a negative balance: a one-off overspend does not put the following months in debt without anyone deciding it.
 - The cap is applied **at every step**, month by month.
 - With rollover off —the default— the dashboard is identical to the usual one.
-- It is turned on per cost center through the API: `PUT /api/intelligence/cost-centers` with `rolloverEnabled` and, optionally, `rolloverCapUsd` (Admin or Owner).
+- It is turned on per cost center from the table: the pencil in the budget column opens the **base** amount together with **Carry over unspent budget** and its **Cap (USD)** (empty = no cap). Admins and Owners change it. Through the API it is `PUT /api/intelligence/cost-centers` with `rolloverEnabled` and `rolloverCapUsd`, and a save that does not send them keeps what was there.
 
-**Fiscal year.** The annual accumulations —the Whiteboard's, the *Fiscal Year* period of Cost Groups and the forecast— count from the month in which your **tenant's fiscal year** starts, which defaults to January. If yours starts in another month (for example April), it is configured with `PUT /api/admin/tenant-settings` (`fiscalYearStartMonth`, 1 to 12; Admin or Owner) or by asking support. The annual forecast divides by the days of the fiscal year and not by the days since January, so it does not come out low when the fiscal year is not the calendar year.
+**Fiscal year.** The annual accumulations —the Whiteboard's, the *Fiscal Year* period of Cost Groups and the forecast— count from the month in which your **tenant's fiscal year** starts, which defaults to January. If yours starts in another month (for example April), you choose it in **Configuration → General → Fiscal year** (Admin or Owner), and dashboards pick it up immediately. Through the API it is `PUT /api/admin/tenant-settings` with `fiscalYearStartMonth`, 1 to 12. The annual forecast divides by the days of the fiscal year and not by the days since January, so it does not come out low when the fiscal year is not the calendar year.
 
 **Under a Perspective scope** (3.4) the budget is **not narrowed**: it is defined for the whole center, and comparing it against a slice would show a margin that does not exist. The screen says so instead of leaving the cell empty.
 
@@ -384,6 +386,7 @@ Manual or scheduled import of cost files in the **FOCUS** standard and of Azure 
 | **Change** | Against the previous period |
 | **Budget used** | How much of the budget it consumed |
 | **Captured savings** | Remediations approved **and executed** in Azure for that group |
+| **Classification** | COGS, OpEx or Unclassified. Admins and Owners change it right there; for everyone else it is read-only |
 
 **How it is sorted.** By the percentage drop against the previous period and, at equal change, by captured savings. Two cases stay **outside the order** but in view, with their reason: a group with *no previous period to compare against* (it neither improved nor worsened) and one *too small to rank without it being noise* (below 1% of spend: one that goes from 1 to 0.50 dollars does not beat the one that cut thousands). Each row has **See breakdown** to reach that group's detail: a ranking that cannot be explained creates arguments, not optimization.
 
@@ -393,7 +396,7 @@ Three things that clarify the numbers:
 - **Captured savings come from what was executed**, not merely approved. Since remediations do not store tags, in a Perspective defined by tags those savings fall into *unassigned*.
 - **Unassigned spend** (no rule reaches it) is part of the total but of no team, and is reported separately.
 
-**Cost of goods sold and operating expense.** A card splits the spend into **COGS**, **OpEx** and **Unclassified**, and the sum matches the total. Each group is classified with `PUT /api/intelligence/leaderboard` (`perspectiveId`, `groupName`, `classification` = `COGS`, `OPEX` or `UNCLASSIFIED`; Admin or Owner): the screen shows the result, the classification is assigned through the API.
+**Cost of goods sold and operating expense.** A card splits the spend into **COGS**, **OpEx** and **Unclassified**, and the sum matches the total. Each group is classified in the table's **Classification** column (COGS, OpEx or Unclassified): Admins and Owners choose it, and the split and the margin are recalculated instantly. For other roles the column is read-only. Through the API it is `PUT /api/intelligence/leaderboard` (`perspectiveId`, `groupName`, `classification`).
 
 **Gross margin.** When you load **revenue**, the card calculates *revenue − COGS*. It is sent with `POST /api/unit-metrics/ingest`, with a public API Key that has the `write:metrics` permission and `metricType` = `REVENUE` (11.11). Honesty rules of the calculation:
 
@@ -470,6 +473,8 @@ Above the dashboard, three readings of the portfolio:
 - **Annual refund limit (US$ 50,000).** Microsoft caps reservation cancellations and refunds at **US$ 50,000 per year** per Billing Account, in a rolling 12-month window. A bar shows how much of the quota you have used and how much is left, and warns once you pass 80%.
 
 **Break-even and optimal mix simulator.** Choose the workload type (**General Mix**, **Flexible Compute** or **Databases**) and your monthly pay-as-you-go (PAYG) spend: the simulator calculates in which month a **1-year** (~38% reference discount) or **3-year** (~62%) reservation beats paying on demand, how much you save per month after that point, and suggests a **3-layer mix**: Savings Plans for flexibility, reservations for stable workloads such as databases, and a pay-as-you-go cushion (*elastic PAYG*) to absorb peaks.
+
+**Expiry notices (90, 60 and 30 days).** Every day the platform checks the expiry date of each active reservation and sends a notice when one enters the **90-day** window, again at **60** and again at **30**: once per step, even though the check runs daily, and if it misses a day the notice goes out the next one. It reaches the whole tenant's **bell** and the **Notification channels** you have configured (Slack, Teams, email or webhook, 8.5), with the name, the date and whether the reservation **renews automatically**. It is **critical** when a reservation without auto-renewal is 30 days or less away; one with auto-renewal is informational, because it does not stop covering. If the reservation is renewed or extended, the ladder starts again with the new date. It uses the same reading as this table: if you do not see your reservations here —the *Reservations Reader* role is missing (1.3)— no notices arrive either. It does not apply to tenants connected through Azure Lighthouse, because reservations are tenant-level and Lighthouse delegates per subscription.
 
 #### 5.4.5. Saving Plan
 
@@ -870,7 +875,7 @@ This screen is not shown to users with an assigned scope: it is the inventory of
 
 ### 7.10. Shift-Left FinOps (`/governance/shift-left`, Business+)
 
-**Cost is decided when someone writes the `.tf`, not when the invoice arrives.** Shift-Left brings the economic impact of an infrastructure change into the **Pull Request** review, which is where it is still cheap to correct. It works on Terraform.
+**Cost is decided when someone writes the `.tf`, not when the invoice arrives.** Shift-Left brings the economic impact of an infrastructure change into the **Pull Request** review, which is where it is still cheap to correct. It works on Terraform. In the menu it is under **Governance → Shift-Left (PRs)**.
 
 **How it works.** In the PR pipeline the plan is generated (`terraform plan`), a GitHub action sends it to the platform, and the platform estimates the **monthly cost delta** with **Azure list prices**. The result comes back as a comment on the Pull Request (edited on every push, not accumulated) and can **fail the check** if the increase exceeds a threshold. The action and its workflow example are described in 11.10, and it needs an API Key with the `write:shift-left` permission.
 
@@ -988,13 +993,9 @@ none selected, they see every subscription in the tenant.
 
 **It is not a screen filter: the server applies it.** With a scope assigned, the API returns only their slice —changing a URL parameter does not show more— and the dashboards' totals and percentages are calculated over that slice. Screens that do not yet know how to narrow **deny access** instead of showing the whole tenant: when in doubt, the system fails closed.
 
-**How it is assigned.** Today it is through the API, done by an Admin or Owner, and only on an Enterprise tenant:
+**How it is assigned.** An Admin or Owner does it, only on an Enterprise tenant, from **Users & Access → Users & Permissions**: the **Team (data)** column shows each person's scope (*Whole tenant* if they have none) and the **Scope** button opens the choice of **Perspective** and **Group** (*all groups* is the whole Perspective, without the unassigned spend). Before saving, the dialog says which screens they will keep. **Change** replaces the scope and the **✕** removes it. It is not offered for an Admin or Owner.
 
-- `POST /api/admin/user-scopes` with `tenantId`, `email`, `perspectiveId` and `group` (optional: without a group, the scope is the whole Perspective).
-- `GET /api/admin/user-scopes?tenantId=…` lists the current scopes.
-- `DELETE /api/admin/user-scopes?tenantId=…&email=…` removes it.
-
-The assignment response includes **how many screens are left** for that person (`screensWhenScoped`): assigning blindly would be assigning without knowing what is being taken away.
+Through the API: `POST /api/admin/user-scopes` (`tenantId`, `email`, `perspectiveId` and optional `group`), `GET /api/admin/user-scopes?tenantId=…` and `DELETE /api/admin/user-scopes?tenantId=…&email=…`. The POST response includes **how many screens are left** (`screensWhenScoped`): assigning blindly would be assigning without knowing what is being taken away.
 
 **Rules.**
 
@@ -1002,7 +1003,7 @@ The assignment response includes **how many screens are left** for that person (
 - **Reader and Colaborador only.** An **Admin or Owner cannot have a scope**: they could issue themselves an API key —which belongs to the tenant, not to them— and bypass the restriction.
 - If the Perspective is deleted, the scope of whoever had it assigned is deleted with it.
 
-**What the scoped person sees.** Only the screens that today know how to narrow to a group, all cut down to their slice: the Whiteboard, Cost Groups (`/intelligence/cost-groups`), Cost Group Budgets (`/intelligence/cost-centers`), Spend & Forecast (`/intelligence/cost-projection`), the Scorecard (`/intelligence/scorecard`) and the *Storage Accounts* tab of Storage (`/intelligence/almacenamiento/storage-accounts-finops-cmp`). Everything else answers with access denied. The side menu shows only the entries that are, by themselves, one of those screens (today, the Whiteboard): the others are reached by their address. The Perspective selector stays fixed with a lock and Views are not shown. It is a small product on purpose: it grows as more dashboards learn to narrow.
+**What the scoped person sees.** Only the screens that today know how to narrow to a group, all cut down to their slice: the **Whiteboard**; in **Consumption & Budget**, the Cost Groups, Cost Group Budgets and Spend & Forecast tabs; in **Advanced Analytics**, the Scorecard (Fama); and in **Storage**, the *Storage Accounts* tab. Everything else answers with access denied. The side menu shows them only those places: each hub takes them straight to its first allowed tab and, inside, the tabs that cannot narrow are not shown. The Perspective selector stays fixed with a lock and Views are not shown. It is a small product on purpose: it grows as more dashboards learn to narrow.
 
 ### 8.3. Configuration (`/admin/config`)
 
@@ -1010,7 +1011,7 @@ A hub with five tabs:
 
 | Tab | What you do there |
 |---|---|
-| **General** | Tenant profile administration: name, logo, default language for new users, timezone for reports and billing cycle |
+| **General** | Appearance (light, dark or system theme), **Fiscal year** (the month the fiscal year starts, 5.1.5), branding (the tenant logo) and integrations: alert webhook, ITSM and the Power BI feed |
 | **AI** | Enable or disable AI features, choose the model, adjust the sensitivity of detections and what data is shared (Professional+) |
 | **Notifications** | Delivery channels: Slack, Teams, email and webhook (8.5) |
 | **Account Status** | Your Azure subscriptions, the state of the ingestion and credential expiry; from here you unlink and relink subscriptions to choose which ones are monitored (15) |
@@ -1067,7 +1068,7 @@ If the card shows *"Online purchase is not available"*, your account has no acti
 
 ### 8.5. Notification Configuration (`/admin/notifications`, Professional+)
 
-Three supported channels: **Slack**, **Microsoft Teams**, **Email (SMTP)**.
+Three supported channels: **Slack**, **Microsoft Teams**, **Email (SMTP)**. Besides the alerts you configure, these channels also receive automatic platform notices, such as **reservation expiry** at 90, 60 and 30 days (5.4.4).
 
 #### 8.5.1. Global Notification Center (Navbar Bell)
 - **Interactive Bell:** `IconBell` icon with corporate blue badge (`#0078D4`) indicating unread notifications.
@@ -1123,7 +1124,7 @@ A hub with seven tabs:
 | **Report** | Today there is one type: **Spend by team** (the deviation of a group's spend) |
 | **Frequency** | *Every day*, *Weekly* (with the day of the week) or *Monthly* (with the day of the month) |
 | **Recipients** | Emails separated by commas; at least one is required |
-| **Perspective and Group** (optional) | To send only one team's spend: whoever subscribes to their group does not receive the others'. Today the Perspective is typed by its *id* |
+| **Perspective and Group** (optional) | To send only one team's spend: whoever subscribes to their group does not receive the others'. They are picked from the tenant's list of Perspectives (Enterprise); without a Perspective, the report covers the whole tenant |
 
 **Worth knowing:**
 

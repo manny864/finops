@@ -3,6 +3,8 @@ import pool from "@/modules/storage/db";
 import { requireTenantRole, requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isValidTimeZone, DEFAULT_TIMEZONE } from "@/lib/timezone";
 import { mesFiscalValido } from "@/lib/fiscalYear";
+import { invalidateCache, invalidateCachePattern, costGroupsCacheKeys } from "@/lib/cache";
+import { costCentersCacheKey, whiteboardCachePrefix } from "@/lib/cacheKeys";
 
 /**
  * Preferencias del tenant que gobiernan cómo se presenta la información.
@@ -91,6 +93,14 @@ export async function PUT(request: NextRequest) {
             valores.push(Number(fiscalYearStartMonth));
         }
         await pool.query(`UPDATE Tenants SET ${sets.join(", ")} WHERE tenant_id = ?`, [...valores, tenantId]);
+
+        // El ejercicio corta los acumulados de tres tableros cacheados —el
+        // Whiteboard, hasta 12 h—. Sin esto el cambio no se ve hasta que vencen
+        // y parece que no se guardó.
+        if (fiscalYearStartMonth !== undefined) {
+            await invalidateCache(...costGroupsCacheKeys(tenantId), costCentersCacheKey(tenantId));
+            await invalidateCachePattern(`${whiteboardCachePrefix(tenantId)}:*`);
+        }
 
         return NextResponse.json({ success: true, timezone, fiscalYearStartMonth });
     } catch (e) {

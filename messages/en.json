@@ -835,6 +835,12 @@
     "pageTitle": "Global Configuration",
     "pageSubtitle": "Customize the appearance and behavior of the FinOps platform.",
     "appearanceSection": "Appearance",
+    "fiscalYearSection": "Fiscal year",
+    "fiscalYearTitle": "Fiscal year start month",
+    "fiscalYearSubtitle": "Sets where the yearly totals of Cost Groups and the Whiteboard start, and how far unspent budget is carried over.",
+    "fiscalYearSaved": "Fiscal year saved. Dashboards already use it.",
+    "fiscalYearSaveFailed": "The fiscal year could not be saved.",
+    "fiscalYearLoadFailed": "The fiscal year could not be loaded.",
     "themeTitle": "Interface Theme",
     "themeSubtitle": "Choose how you want to view the platform.",
     "themeLight": "Light",
@@ -933,7 +939,8 @@
       "webhook": "Anomalies, budget overruns and remediations are posted to this Slack or Teams channel.",
       "itsm": "Lets the Action Center open remediation tickets on your board instead of only notifying them.",
       "itsmToken": "Stored encrypted (AES-256-GCM) and never returned to the browser. Leave empty to keep the current token.",
-      "powerbi": "Feed with the FOCUS 1.0 schema. The token is sent as an Authorization header, not in the URL."
+      "powerbi": "Feed with the FOCUS 1.0 schema. The token is sent as an Authorization header, not in the URL.",
+      "fiscalYear": "If your company's fiscal year doesn't end in December, choose the month it starts in. Changing it recalculates the yearly totals; no data is deleted or moved."
     }
   },
   "AdminContractTenant": {
@@ -2062,6 +2069,25 @@
     "col_role_help": "Which actions the user can execute. Change it in one click from the dropdown.",
     "col_scope": "Page scope",
     "col_scope_help": "How many modules are enabled. Edit it in Granular permissions.",
+    "col_dataScope": "Team (data)",
+    "col_dataScope_help": "The Perspective group the user is scoped to: they see only its spend, and only the screens that can filter by it. Empty = the whole tenant.",
+    "dataScopeNone": "Whole tenant",
+    "dataScopeAllGroups": "all groups",
+    "dataScopeAssign": "Scope",
+    "dataScopeChange": "Change",
+    "dataScopeRemove": "Remove scope",
+    "dataScopeAdminNotAllowed": "Admins and Owners can't be scoped: they could issue an API key, which is tenant-wide, and bypass the scope.",
+    "dataScopeModalTitle": "Scope {email}",
+    "dataScopeWarning": "With an assigned scope, this user sees only their group's spend and only the screens that can filter by it: White Board, Cost Groups, Cost Group Budgets, Spend & Forecast, Scorecard (Fama) and Storage Accounts. Everything else disappears from their menu.",
+    "dataScopePerspective": "Perspective",
+    "dataScopeGroup": "Group",
+    "dataScopeNoPerspectives": "To scope a user you first need a Perspective with groups. They are defined in Financial Intelligence → Perspectives.",
+    "dataScopeCancel": "Cancel",
+    "dataScopeSave": "Save scope",
+    "dataScopeSaved": "{email} is now scoped.",
+    "dataScopeRemoved": "{email} sees the whole tenant again.",
+    "dataScopeRemoveConfirm": "Remove the scope from {email}? They will see the whole tenant's spend again.",
+    "dataScopeSaveError": "The scope could not be changed.",
     "col_mfa": "2FA status",
     "col_mfa_help": "MFA registration in Entra ID. \"No data\" means Entra ID has not answered yet, not that a second factor is missing.",
     "col_lastLogin": "Last sign-in",
@@ -7443,7 +7469,12 @@
     "networkError": "Network error: {error}",
     "max100": "Max. 100",
     "scopeHidesBudget": "Narrowed by Perspective: budgets are hidden because they are set for the whole cost center. Comparing one against a slice would show headroom that isn't there.",
-    "rolloverBreakdown": "Base budget {base} plus {carry} carried over from earlier months of the fiscal year. The month is measured against the total."
+    "rolloverBreakdown": "Base budget {base} plus {carry} carried over from earlier months of the fiscal year. The month is measured against the total.",
+    "rolloverToggle": "Carry over unspent budget",
+    "rolloverHint": "What isn't spent in a month is added to the next month's budget, within the same fiscal year.",
+    "rolloverCapLabel": "Cap (USD)",
+    "rolloverCapNone": "no cap",
+    "invalidRolloverCap": "The cap must be a number greater than or equal to 0."
   },
   "IntelligenceHybridBenefit": {
     "title": "Azure Hybrid Benefit Scanner",
@@ -9929,6 +9960,7 @@
     "remediation": "Remediation",
     "perspectives": "Perspectives",
     "lifecycle_eol": "End of support",
+    "shift_left": "Shift-Left (PRs)",
     "team_leaderboard": "Team leaderboard"
   },
   "Network": {
@@ -10399,6 +10431,8 @@
     "notif_addon_expiry_title": "{addonName} expires in {days, plural, one {# day} other {# days}}",
     "notif_idle_resources_msg": "There is around USD {amount} per month in unused resources. Review them in Cloud Cleanup.",
     "notif_idle_resources_title": "{count, plural, one {# idle resource} other {# idle resources}}",
+    "notif_reservation_expiry_title": "{count, plural, one {# Azure reservation expiring} other {# Azure reservations expiring}}",
+    "notif_reservation_expiry_msg": "The nearest one expires in {days, plural, one {# day} other {# days}}. If it is not renewed, the usage it covers goes back to pay-as-you-go prices.",
     "notif_credential_expiry_msg": "Rule \"{ruleName}\" found App Registration credentials that are close to expiring.",
     "notif_credential_expiry_title": "{count, plural, one {# credential expiring} other {# credentials expiring}} — {ruleName}",
     "notif_demo_anomaly_msg": "A +{pct}% spend increase was detected in the last 24 h.",
@@ -15900,10 +15934,19 @@
     "title": "Views",
     "empty": "You haven't saved any views yet.",
     "saveCurrent": "Save current view…",
-    "namePrompt": "What's this view called?",
+    "namePrompt": "View name",
     "delete": "Delete",
     "sharedTag": "shared",
-    "defaultTag": "default"
+    "defaultTag": "default",
+    "markDefault": "Open it by default",
+    "shareWithTeam": "Share it with the whole team",
+    "shareHint": "A shared view is visible to the whole tenant, and only Admins or Owners can change or delete it.",
+    "setDefault": "Use as default",
+    "unsetDefault": "Stop using as default",
+    "save": "Save",
+    "cancel": "Cancel",
+    "saveError": "The view could not be saved.",
+    "deleteError": "The view could not be deleted."
   },
   "Leaderboard": {
     "pageTitle": "Team leaderboard",
@@ -15916,6 +15959,9 @@
     "splitTitle": "Cost of goods and operating expense",
     "unallocated": "{cost} ({pct}%) unallocated: no rule reaches it. It counts in the total but in no team.",
     "drillDown": "See breakdown",
+    "classHint": "COGS is the cost of what you sell and goes into gross margin; OpEx is operating expense. Admins and Owners can change it.",
+    "classSaveError": "The classification could not be saved.",
+    "classFor": "Classification of {team}",
     "class": {
       "COGS": "COGS",
       "OPEX": "OpEx",
@@ -15927,7 +15973,8 @@
       "spend": "Spend",
       "change": "Change",
       "budget": "Budget used",
-      "savings": "Captured savings"
+      "savings": "Captured savings",
+      "class": "Classification"
     },
     "outOfRank": {
       "sin-periodo-previo": "no previous period to compare against",
@@ -15982,9 +16029,9 @@
       "dayOfMonth": "Day of month",
       "recipients": "Recipients (comma separated)",
       "perspective": "Perspective (optional)",
-      "perspectivePlaceholder": "id, e.g. 7",
+      "perspectiveNone": "None (whole tenant)",
       "group": "Group (optional)",
-      "groupPlaceholder": "only that team"
+      "groupAll": "All groups"
     },
     "col": {
       "report": "Report",
@@ -16057,6 +16104,8 @@
     "manualPdf": "Download PDF",
     "manualMd": "Markdown",
     "manualOtherLanguages": "Also in:",
-    "footnote": "Amounts reflect commissions accrued from charges already recorded. Payouts follow the terms of your partner agreement."
+    "footnote": "Amounts reflect commissions accrued from charges already recorded. Payouts follow the terms of your partner agreement.",
+    "metaTitle": "Partner Dashboard | CSCloudSolutions",
+    "metaDescription": "Your referrals and commissions in the CSCloudSolutions Partner Program."
   }
 }

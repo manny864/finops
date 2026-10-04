@@ -25,6 +25,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { IconDownload, IconMarkdown } from "@tabler/icons-react";
 import { MANUALES_DEL_PARTNER, manualParaIdioma } from "@/lib/manualesPartner";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 const CLAVE_SESION = "cscs.partner.k";
 
@@ -228,7 +229,15 @@ function ManualDelPartner({ locale }: { locale: string }) {
 function Marco({ children }: { children: React.ReactNode }) {
     return (
         <main className="min-h-screen bg-white dark:bg-slate-950 px-4 py-10">
-            <div className="mx-auto max-w-4xl space-y-6">{children}</div>
+            <div className="mx-auto max-w-4xl space-y-6">
+                {/* El portal vive fuera del shell de la app, que es donde está el
+                    selector de idioma: sin esto el partner quedaba en el idioma
+                    del enlace. Va también en la carga y en el error. */}
+                <div className="flex justify-end">
+                    <LanguageSwitcher />
+                </div>
+                {children}
+            </div>
         </main>
     );
 }

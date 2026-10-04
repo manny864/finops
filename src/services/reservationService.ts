@@ -12,7 +12,13 @@ export interface ActiveReservationDetail {
     reservationId: string;
     orderId: string;
     name: string;                 // displayName
-    status: string;               // provisioningState (Succeeded, Expired, ...)
+    status: string;               // displayProvisioningState, o provisioningState si falta
+    /**
+     * El enum crudo (Succeeded, Cancelled, Expired, Split, Merged, Failed...).
+     * `status` es el de PANTALLA, que es texto libre ("Expiring", "Warning");
+     * para decidir si una reserva sigue viva hay que mirar este.
+     */
+    provisioningState?: string | null;
     expiryDate: string | null;    // ISO date
     scopeType: string;            // Single | Shared | ManagementGroup
     scope: string;                // scope legible (subs/RG/MG destino) o "Shared"
@@ -109,6 +115,7 @@ export async function getActiveReservations(credential: TokenCredential): Promis
                 orderId: parsed?.orderId || "",
                 name: props.displayName || String(item.name || "—"),
                 status: props.displayProvisioningState || props.provisioningState || "Unknown",
+                provisioningState: props.provisioningState || null,
                 expiryDate: props.expiryDateTime || props.expiryDate || null,
                 scopeType: props.appliedScopeType || "—",
                 scope: readableScope(props.appliedScopeType || "", props.appliedScopes),

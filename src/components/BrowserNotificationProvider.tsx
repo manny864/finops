@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePendingDeletionsStore } from '@/store/pendingDeletionsStore';
 import { useLocale } from 'next-intl';
+import { useMsal } from '@azure/msal-react';
+import { fetchWithAuthRetry } from '@/lib/msalToken';
+import { isMockTenant } from '@/lib/mockData';
 import { Bell } from 'lucide-react';
 
 const DISMISSED_KEY = 'finops_browser_notifications_dismissed';
@@ -15,6 +18,7 @@ export default function BrowserNotificationProvider() {
   const [mounted, setMounted] = useState<boolean>(false);
   const [permissionState, setPermissionState] = useState<NotificationPermission | null>(null);
   const [dismissed, setDismissed] = useState<boolean>(true);
+  const { instance, accounts } = useMsal();
 
   useEffect(() => {
     setMounted(true);
@@ -68,11 +72,16 @@ export default function BrowserNotificationProvider() {
 
       for (const [tenantId, resourceIds] of Object.entries(byTenant)) {
         try {
-          const res = await fetch('/api/resources/status', {
+          // La ruta exige la sesión: sin el token respondía 401 y el aviso de
+          // "se terminó de borrar" no llegaba nunca.
+          const init = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tenantId, resourceIds })
-          });
+          };
+          const res = isMockTenant(tenantId) || accounts.length === 0
+            ? await fetch('/api/resources/status', init)
+            : await fetchWithAuthRetry(instance, accounts[0], '/api/resources/status', init);
 
           if (res.ok) {
             const data = await res.json();
@@ -107,7 +116,7 @@ export default function BrowserNotificationProvider() {
         clearInterval(intervalRef.current);
       }
     };
-  }, [pendingDeletions, removePending]);
+  }, [pendingDeletions, removePending, instance, accounts]);
 
   // Si no está montado en cliente, o ya fue descartado, o ya tiene permiso otorgado/denegado, no renderizar nada
   if (!mounted || dismissed || permissionState !== 'default') {

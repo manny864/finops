@@ -3,6 +3,7 @@ import pool from "@/modules/storage/db";
 import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { costCentersCacheKey } from "@/lib/cacheKeys";
 import { redis } from "@/lib/redis";
 import { fetchResourceCountsByRg } from "@/lib/azureResourceCounts";
 import { getTagCoverage } from "@/lib/costTagCoverage";
@@ -33,7 +34,7 @@ const monthsAgoIso = (months: number) => {
     const pad = (n: number) => String(n).padStart(2, "0");
     return `${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}`;
 };
-const cacheKey = (tenantId: string) => `cost-centers:v2:${tenantId}`;
+const cacheKey = costCentersCacheKey;
 
 // Presupuesto por Centro de Costos: agrupa el gasto real (CostSnapshots) por
 // el tag de Azure `CostCenter` (mismo tag que ya usa Gobernanza de Etiquetas
@@ -266,6 +267,9 @@ export async function GET(request: NextRequest) {
                     budget,
                     budgetBase: arr ? arr.base : null,
                     budgetRollover: arr ? arr.arrastre : 0,
+                    // La configuración, no sólo su efecto: la tabla la edita.
+                    rolloverEnabled: cfg?.rollover ?? false,
+                    rolloverCapUsd: cfg?.tope ?? null,
                     pctUsed,
                     overBudget: budget !== null && s.currentMonthCost > budget,
                     projectedMonthEndSpend,
@@ -283,6 +287,7 @@ export async function GET(request: NextRequest) {
                     costCenters.push({
                         name, currentMonthCost: 0, previousMonthCost: 0, changePct: 0,
                         budget: arr.efectivo, budgetBase: arr.base, budgetRollover: arr.arrastre,
+                        rolloverEnabled: cfg.rollover, rolloverCapUsd: cfg.tope,
                         pctUsed: 0, overBudget: false,
                         projectedMonthEndSpend: 0, projectedPctUsed: 0, isProjectedOverBudget: false, resourceCount: 0,
                     });
@@ -345,15 +350,20 @@ export async function PUT(request: NextRequest) {
         await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
         await requireTenantTier(request, tenantId, "Business");
 
+        // Un campo de arrastre que NO viene se conserva. Antes se pisaba con
+        // "apagado": editar el monto desde la tabla —que no los manda— le
+        // borraba el arrastre a quien lo había encendido.
         await pool.query(
             `INSERT INTO CostCenterBudgets (tenant_id, cost_center_name, monthly_budget_usd, rollover_enabled, rollover_cap_usd)
              VALUES (?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE monthly_budget_usd = VALUES(monthly_budget_usd),
-                                     rollover_enabled = VALUES(rollover_enabled),
-                                     rollover_cap_usd = VALUES(rollover_cap_usd)`,
+                                     rollover_enabled = IF(?, VALUES(rollover_enabled), rollover_enabled),
+                                     rollover_cap_usd = IF(?, VALUES(rollover_cap_usd), rollover_cap_usd)`,
             [tenantId, costCenterName, Number(monthlyBudgetUsd),
              rolloverEnabled === true ? 1 : 0,
-             rolloverCapUsd == null ? null : Number(rolloverCapUsd)]
+             rolloverCapUsd == null ? null : Number(rolloverCapUsd),
+             rolloverEnabled !== undefined ? 1 : 0,
+             rolloverCapUsd !== undefined ? 1 : 0]
         );
         await redis.del(cacheKey(tenantId)).catch(() => {});
 

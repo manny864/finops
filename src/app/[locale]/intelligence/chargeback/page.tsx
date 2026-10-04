@@ -12,6 +12,8 @@ import { calculateChargeback, CostEntry, AllocationRule } from '@/services/alloc
 import Pagination, { usePagination } from '@/components/Pagination';
 import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import { errorMessage } from '@/lib/apiErrors';
+import { fetchWithAuthRetry } from '@/lib/msalToken';
+import { isMockTenant } from '@/lib/mockData';
 import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 const COLORS = ['#0054A6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#64748b'];
@@ -47,7 +49,11 @@ export default function ChargebackPage() {
         setLoading(true);
         try {
             const url = `/api/intelligence/chargeback?tenantId=${selectedTenant.id}&subscriptionId=${selectedSubscription}&tagKey=${encodeURIComponent(activeTagKey)}`;
-            const res = await fetch(url);
+            // La ruta exige Admin u Owner del tenant: sin el token respondía 401
+            // y la pantalla se quedaba sin datos.
+            const res = isMockTenant(selectedTenant.id) || accounts.length === 0
+                ? await fetch(url)
+                : await fetchWithAuthRetry(instance, accounts[0], url);
             const json = await res.json();
             if (json.data) {
                 setData(json.data.sort((a: any, b: any) => b.value - a.value));

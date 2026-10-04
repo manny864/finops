@@ -1,6 +1,7 @@
 "use client";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { toast } from "sonner";
@@ -20,6 +21,7 @@ import {
     IconUsersGroup,
 } from "@tabler/icons-react";
 import { isMockTenant } from "@/lib/mockData";
+import { hasAccess } from "@/lib/tierLogic";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { errorMessage } from "@/lib/apiErrors";
 import Pagination, { usePagination } from "@/components/Pagination";
@@ -29,6 +31,7 @@ import { CELL, ColumnMenu, SCROLL_X, useColumnConfig, type TableColumnConfig } f
 import { KpiCard } from "@/components/support/supportUi";
 import UserPermissionsDrawer from "@/components/admin/users/UserPermissionsDrawer";
 import EntraSyncModal, { type EntraDirectoryUser } from "@/components/admin/users/EntraSyncModal";
+import UserDataScopeCell, { type AlcanceDeDatos, type PerspectivaConGrupos } from "@/components/admin/users/UserDataScopeCell";
 import { roleToDb, scopeLabel, shortOid } from "@/services/tenantUsers.service";
 import type {
     EntraGroupSearchResult,
@@ -62,6 +65,8 @@ const USER_COLUMNS: TableColumnConfig[] = [
     { id: "oid", label: "Entra ID (OID)", visible: true },
     { id: "role", label: "Rol en plataforma", visible: true },
     { id: "scope", label: "Alcance de páginas", visible: true },
+    // MEJ-38: el grupo de una Perspective al que queda acotado. Sólo Enterprise.
+    { id: "dataScope", label: "Equipo (datos)", visible: true },
     { id: "mfa", label: "Estado 2FA", visible: true },
     { id: "lastLogin", label: "Último acceso", visible: true },
     { id: "actions", label: "Acciones", visible: true },
@@ -73,6 +78,7 @@ const COLUMN_MIN_WIDTHS: Record<string, number> = {
     oid: 140,
     role: 160,
     scope: 160,
+    dataScope: 230,
     mfa: 130,
     lastLogin: 140,
     actions: 200,
@@ -153,6 +159,37 @@ export default function UsersPanel() {
     }, [instance, accounts]);
 
     const canFetch = Boolean(tenantId) && tenantId !== "default" && (isMock || accounts.length > 0);
+
+    // MEJ-38: el alcance de datos. Perspectives es Enterprise y la API de
+    // alcances también, así que fuera de Enterprise la columna no existe.
+    const esEnterprise = hasAccess(selectedTenant?.tier || "", "Enterprise");
+    const pedirAlcances = esEnterprise && isAdmin && canFetch && !isMock;
+    const fetcherConSesion = useCallback(
+        async (url: string) => {
+            const res = await fetch(url, { headers: await authHeaders() });
+            if (!res.ok) throw new Error(String(res.status));
+            return res.json();
+        },
+        [authHeaders],
+    );
+    const { data: alcancesData, mutate: recargarAlcances } = useSWR(
+        pedirAlcances ? `/api/admin/user-scopes?tenantId=${encodeURIComponent(tenantId)}` : null,
+        fetcherConSesion,
+        { revalidateOnFocus: false },
+    );
+    const { data: perspectivasData } = useSWR(
+        pedirAlcances ? `/api/intelligence/perspectives?tenantId=${encodeURIComponent(tenantId)}` : null,
+        fetcherConSesion,
+        { revalidateOnFocus: false },
+    );
+    const alcancePorEmail = useMemo(
+        () => new Map<string, AlcanceDeDatos>(
+            ((alcancesData?.scopes ?? []) as AlcanceDeDatos[]).map((a) => [a.email.toLowerCase(), a]),
+        ),
+        [alcancesData],
+    );
+    const perspectivas: PerspectivaConGrupos[] = perspectivasData?.perspectives ?? [];
+    const verColumna = (id: string) => cols.isVisible(id) && (id !== "dataScope" || pedirAlcances);
 
     const loadUsers = useCallback(
         async (refreshMfa = false) => {
@@ -689,7 +726,7 @@ export default function UsersPanel() {
                             <table className="w-full text-left text-xs border-collapse">
                                 <thead className="bg-slate-50 dark:bg-slate-800/50">
                                     <tr>
-                                        {USER_COLUMNS.filter((c) => cols.isVisible(c.id)).map((c) => (
+                                        {USER_COLUMNS.filter((c) => verColumna(c.id)).map((c) => (
                                             <ResizableTh key={c.id} minWidth={COLUMN_MIN_WIDTHS[c.id] || 120} className={TH}>
                                                 <span className="inline-flex items-center gap-1">
                                                     {t(`col_${c.id}` as never)}
@@ -783,6 +820,19 @@ export default function UsersPanel() {
                                                                     ? t("scopeNone")
                                                                     : t("scopePartial", { count: scope.count })}
                                                         </span>
+                                                    </td>
+                                                )}
+                                                {verColumna("dataScope") && (
+                                                    <td className={TD}>
+                                                        <UserDataScopeCell
+                                                            email={u.email}
+                                                            rol={u.role}
+                                                            asignado={alcancePorEmail.get(u.email.toLowerCase()) ?? null}
+                                                            perspectivas={perspectivas}
+                                                            tenantId={tenantId}
+                                                            authHeaders={authHeaders}
+                                                            onChanged={() => recargarAlcances()}
+                                                        />
                                                     </td>
                                                 )}
                                                 {cols.isVisible("mfa") && (

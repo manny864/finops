@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
+import { useMsal } from '@azure/msal-react';
+import { fetchWithAuthRetry } from '@/lib/msalToken';
 import { Shield, Download, CheckCircle, Clock } from 'lucide-react';
 import { LEGAL_VERSIONS } from '@/lib/legalVersions';
 import Link from 'next/link';
@@ -17,6 +19,7 @@ interface ComplianceStatus {
 export default function AdminCompliancePage() {
   const t = useTranslations('AdminCompliance');
   const { selectedTenant } = useTenant();
+  const { instance, accounts } = useMsal();
   const [statuses, setStatuses] = useState<ComplianceStatus[]>([
     { documentType: 'dpa', version: LEGAL_VERSIONS.dpa, accepted: false },
     { documentType: 'terms', version: LEGAL_VERSIONS.terms, accepted: false },
@@ -63,7 +66,9 @@ export default function AdminCompliancePage() {
 
     setRequestingSoc2(true);
     try {
-      const response = await fetch('/api/admin/compliance/request-soc2', {
+      // La ruta exige Admin u Owner: sin el token respondía 401 y el pedido
+      // fallaba siempre.
+      const response = await fetchWithAuthRetry(instance, accounts[0], '/api/admin/compliance/request-soc2', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

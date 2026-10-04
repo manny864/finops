@@ -136,7 +136,7 @@ It is the number one security question. Answer it with the table:
 
 | Plan | Azure roles | What it can do with them |
 |---|---|---|
-| **Professional** | Reader, Cost Management Reader, Monitoring Reader, Billing Reader, Security Reader | **Read only.** It cannot modify or delete anything. |
+| **Professional** | Reader, Cost Management Reader, Monitoring Reader, Billing Reader, Security Reader and, at tenant level, Reservations Reader (to see reservations) | **Read only.** It cannot modify or delete anything. |
 | **Business** | Those of Professional + Tag Contributor + a **custom role** (*CSCloudSolutions Remediation Role*) | Tag; **power VMs on, off, restart and deallocate**; manage Azure budgets; and **delete orphaned resources** (VMs, disks, snapshots, App Service plans, NICs, public IPs, NSGs and the other network types Cloud Cleanup detects). |
 | **Enterprise** | Those of Business + Monitoring Contributor | Business plus creating resource groups. |
 
@@ -267,7 +267,7 @@ This is the map of what the customer will use every day. For each screen: **the 
 | Hub | Problem it solves | What the user sees | How to tell it | Plan |
 |---|---|---|---|---|
 | **Consumption & Budget** | Understanding real spend, budgeting it and forecasting it | Real consumption by service and resource, by category, **budgets with alerts**, **Cost Groups** by project or line of business, cost-center budget with **rollover of unspent balance**, **forecast** for 3-24 months, FOCUS CSV ingestion | "From the invoice to the budget, in one place" | P+ (advanced tabs B/E) |
-| **Optimization & Savings** | Paying less for the same thing | **Rightsizing** (the optimal SKU from 30 days of real usage), **Reservations** and Savings Plans with a break-even simulator, **effective savings rate (ESR)**, a warning for reservations expiring together, Hybrid Benefit, zero cost, Optimization Index | "Every purchase decision with its number" | E |
+| **Optimization & Savings** | Paying less for the same thing | **Rightsizing** (the optimal SKU from 30 days of real usage), **Reservations** and Savings Plans with a break-even simulator, **effective savings rate (ESR)**, a warning for reservations expiring together, **automatic notices 90, 60 and 30 days before each reservation expires**, Hybrid Benefit, zero cost, Optimization Index | "Every purchase decision with its number" | E |
 | **Databases** | Databases are among the most volatile line items | Cosmos DB (with **RU/s optimizer**), SQL, PostgreSQL, MySQL, MongoDB, Redis and Fabric, with real metrics | "Where there is spare capacity and where there is a shortage" | B+ |
 | **Compute** | Oversized or idle VMs, containers and serverless | VMs, App Services, Functions, **Azure Virtual Desktop** (cost per user), containers, VMSS, **Kubernetes** (with chargeback by namespace) and OpenShift | The operations team's cockpit | B+ |
 | **Storage** | Accounts, disks and backups that grow without an owner | Storage Accounts, disks, backups and Data Lake, with potential savings and efficiency | "Which storage does not need to be where it is" | E |
@@ -278,7 +278,7 @@ This is the map of what the customer will use every day. For each screen: **the 
 | **Monitoring** and **Security** | Observability and security services also bill | Log Analytics, Application Insights, Sentinel, Defender, Key Vault, WAF, DDoS… with savings opportunities | "Even what it costs to watch, under control" | E |
 | **Advanced Analytics** | Expert-level financial decisions | **Unit Economics** (cost per transaction or customer), shared-cost **allocation**, Scorecard, **anomaly detection**, tenant health, **What-If** simulator and **MACC** commitment tracking | What a FinOps analyst asks for | E |
 | **Perspectives** | Splitting spend by team, product or environment **without depending on everything being tagged** | Ordered rules that split the cost; **the sum of the groups plus "unassigned" equals the total exactly** | "An allocation that adds up and can be audited" | E |
-| **Team leaderboard** | Rewarding whoever optimizes, not whoever spends least | Ranking by **improvement**, cost-of-goods / operating-expense split and **gross margin** | "Gamification with judgment" | E |
+| **Team leaderboard** | Rewarding whoever optimizes, not whoever spends least | Ranking by **improvement**, cost-of-goods / operating-expense split (each team is classified from the table) and **gross margin** | "Gamification with judgment" | E |
 
 ### 5.3. Cloud Cleanup — "stop paying for what nobody uses"
 
@@ -316,7 +316,7 @@ This is the map of what the customer will use every day. For each screen: **the 
 | **Support** | Tickets with the team inside the platform, with SLA | P+ |
 | **Mobile app (PWA)** | Summary, alerts, approvals, support and profile from the phone | All |
 | **Multi-language and multi-currency** | Spanish, English and Portuguese; the user sees amounts in their currency | All |
-| **Team scope** | Each owner sees **only their slice** of spend, enforced on the server | E |
+| **Team scope** | Each owner sees **only their slice** of spend, enforced on the server; it is assigned from the users screen | E |
 
 ---
 
@@ -708,8 +708,10 @@ https://finops.cscloudsolutions.com.ar/signup?ref=YOURCODE
 When we sign you up you receive a **personal read-only link** to your panel. You need no user or password: **the link is the credential**.
 
 ```
-https://finops.cscloudsolutions.com.ar/en/partner#k=…
+https://finops.cscloudsolutions.com.ar/partner#k=…
 ```
+
+It opens in your browser's language, and you can switch it with the **language selector** at the top right (Spanish, English or Portuguese) without losing access.
 
 **What you see:**
 

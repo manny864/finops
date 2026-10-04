@@ -26,6 +26,10 @@ Tudo o que mudou para o usuário de um tenant está no **Manual do Usuário** e 
 - **Funil de cadastro (21), Unidades de preço (23), Teste de carga (24) e IA — Configuração global (25):** documentados pela primeira vez neste manual.
 - **Anomalias com responsável e acompanhamento (18) e assinaturas fora do limite de um plano (19):** o que o cliente vê e como explicar para ele.
 - **Links que saem da plataforma:** o link do painel do parceiro e os demais links que enviamos por e-mail usam a URL pública configurada (`NEXT_PUBLIC_APP_URL`), não o host com o qual entrou quem os pediu.
+- **Avisos de vencimento de reservas (MEJ-16):** um cron diário novo, `reservation-expiry-alerts` (09:03 UTC), avisa cada tenant 90, 60 e 30 dias antes do vencimento das suas reservas, pelo sino e pelos seus canais de notificação (5.4.4). O que já foi avisado fica registrado em `ReservationExpiryNotices`, então não se repete. É agendado com o `terraform apply` por CI: até que seja aplicado, o job não existe.
+- **O que era só por API agora tem tela:** alcance por usuário (8.2), visões compartilhadas e padrão (3.4), classificação COGS/OpEx (5.2), transferência de orçamento e ano fiscal (5.1.5). O Shift-Left tem entrada no menu, e um usuário restrito vê os hubs que lhe cabem em vez de só o Whiteboard.
+- **Telas que não enviavam a sessão:** Leaderboard, Fim de suporte, Capacidade de enlaces, Visões salvas, Assinaturas de relatórios, o histórico de logins do M365, a barra de impersonação e o aviso de exclusão concluída chamavam a API sem o token e, para qualquer tenant real, recebiam 401; no demo funcionavam porque são interceptadas. Agora o enviam, e um teste (`fetchConSesion.test.ts`) impede que volte.
+- **Afiliados com 15 % por padrão (17.1)** e **portal do parceiro no idioma dele (17.5)**: o link não força mais o espanhol e o painel tem seletor de idioma.
 - **Infraestrutura:** o `terraform apply` em produção é feito **somente por CI** (workflow `terraform.yml`, confirmação `APPLY-PROD`), nunca de uma máquina local; os valores de ambiente de produção vivem no segredo `TF_VARS_PROD`.
 
 **Novidades de agosto 2026**
@@ -133,11 +137,13 @@ Se você é SuperAdmin da CSCloudSolutions dando alta a um tenant novo:
 
 | Tier | Papéis built-in | Papel personalizado (*CSCloudSolutions Remediation Role*) |
 |---|---|---|
-| Professional (piso da plataforma) | Reader, Cost Management Reader, Monitoring Reader, Billing Reader, Security Reader | — (somente leitura) |
+| Professional (piso da plataforma) | Reader, Cost Management Reader, Monitoring Reader, Billing Reader, Security Reader e, no nível do tenant, Reservations Reader | — (somente leitura) |
 | Business | Professional + Tag Contributor | Ligar, desligar, reiniciar e desalocar VMs; gravar tags; gerenciar orçamentos do Azure; e **excluir** os recursos órfãos que a Limpeza de Nuvem detecta (VMs, discos, snapshots, planos do App Service, NICs, IPs públicos, NSGs e os demais tipos de rede de Zumbis de Rede) |
 | Enterprise | Business + Monitoring Contributor | Business + criar grupos de recursos |
 
 Além disso, o script concede à identidade **permissões de leitura do Microsoft Graph** em todos os planos (`Directory.Read.All`, `Reports.Read.All`, `User.Read.All` e `Organization.Read.All`) e, conforme o plano: `Application.ReadWrite.OwnedBy` (Business+, para rotacionar segredos: só alcança as App Registrations das quais a identidade é *owner*), `AuditLog.Read.All` (Enterprise, atividade de login para *Usuários e Licenças*) e `ExternalConnection.ReadWrite.OwnedBy` (Enterprise, conector do Copilot M365).
+
+**Reservations Reader** é atribuído em `/providers/Microsoft.Capacity`, no nível do tenant e não por assinatura: sem ele, as reservas não aparecem em Otimização e Economia e os seus avisos de vencimento não chegam. Atribuí-lo exige ser *Reservations Administrator*, ou Owner / User Access Administrator nesse escopo; se o script o marcar como `[FAIL]`, alguém com essa permissão tem que atribuí-lo.
 
 > ⚠️ **Reader, Cost Management Reader, Monitoring Reader e Billing Reader são o mínimo absoluto** para que a página Consumo Real mostre dados. Se faltar `Cost Management Reader` ou `Billing Reader`, o Azure retorna 0 linhas silenciosamente. O `Security Reader` soma a leitura da postura de segurança (Defender/WAF).
 
@@ -218,7 +224,7 @@ O menu lateral esquerdo agrupa tudo em 5 pilares (seções recolhíveis — a se
 - **Visibilidade** — Whiteboard, Academia FinOps, Azure Advisor, Maturidade FinOps, Progresso Histórico, TOP Despesas, Recursos, Green FinOps, Economia Capturada e Vazamentos Financeiros.
 - **Inteligência Financeira** — Consumo e Orçamento, Leaderboard de times, Perspectives, Otimização e Economia, Bancos de Dados, Computação, Armazenamento, Redes, Usuários e Licenças, Azure AI, Azure Integration Services, Monitoramento, Segurança e Analítica Avançada.
 - **Limpeza de Nuvem** — Recursos Zumbi, Zumbis de Rede, Expirações TTL e Backups Órfãos.
-- **Governança** — Conformidade de Tags, Alertas Self-Service, Agendas de Desligamento, Políticas Auto-Block, Relatórios de Governança, Alta Disponibilidade, Fim de suporte, Credenciais a Expirar e Aprovações.
+- **Governança** — Conformidade de Tags, Alertas Self-Service, Agendas de Desligamento, Políticas Auto-Block, Relatórios de Governança, Alta Disponibilidade, Fim de suporte, Shift-Left (PRs), Credenciais a Expirar e Aprovações.
 - **Administração** — Suporte, Usuários e Acessos, Configuração, Relatórios e Exportação, Integrações e API, Faturamento e Auditoria e Marketplace.
 
 **O que você vê depende de três coisas:** seu **plano** (cada tela indica a partir de qual está disponível), seu **papel** (o que você pode fazer) e suas **permissões de domínio** (quais páginas aparecem para você). O que o seu plano não inclui aparece marcado com um cadeado e um aviso de upgrade, ou pode ser adicionado avulso no **Marketplace** (8.10).
@@ -256,7 +262,7 @@ No cabeçalho há três seletores que restringem o que os painéis mostram:
 
 - **Alcance (tenant e assinatura).** Você escolhe o tenant inteiro ou uma assinatura do Azure. Se sua organização tem mais de um tenant, você também troca de tenant daqui.
 - **Perspective e grupo.** Aparece só se o seu plano é Enterprise e o tenant tem Perspectives definidas (5.3). Você escolhe uma Perspective e um grupo —por exemplo *Times → Engenharia*— e os painéis que suportam isso mostram só essa parcela do gasto. A escolha viaja na URL: pode ser compartilhada por link e sobrevive a um refresh.
-- **Visões** (ícone de marcador). Com uma Perspective escolhida, *Salvar a visão atual…* lembra a combinação —Perspective e grupo— com o nome que você der, e você a aplica de novo com um clique no mesmo seletor. As visões que você salva pela tela são pessoais. As criadas pela API (`/api/intelligence/views`) podem ser também **compartilhadas** —o tenant inteiro as vê, e só Admin e Owner as criam ou apagam— ou **padrão**, aplicadas sozinhas ao entrar quando a URL não indica um alcance. O seletor só é mostrado quando há visões salvas ou uma Perspective ativa para salvar.
+- **Visões** (ícone de marcador). Com uma Perspective escolhida, *Salvar a visão atual…* lembra a combinação —Perspective e grupo— com o nome que você der, e você a aplica de novo com um clique no mesmo seletor. Ao salvá-la você pode marcá-la para **abrir por padrão ao entrar** —aplica-se sozinha quando a URL não indica um alcance— e, se for Admin ou Owner, **compartilhá-la com toda a equipe**. A estrela de cada visão a marca ou desmarca como padrão. As compartilhadas são vistas por todo o tenant e só Admin e Owner as alteram ou excluem. Se houver uma padrão sua e outra da equipe, vale a sua. O seletor só é mostrado quando há visões salvas ou uma Perspective ativa para salvar.
 
 > Se a sua conta tem um **alcance atribuído** por um Admin (8.2), o seletor de Perspective fica fixo no seu grupo, com cadeado, e o de Visões não é mostrado: o seu recorte não é escolhido, salvo nem alterado por você.
 
@@ -391,9 +397,9 @@ Você define centros de custo, atribui recursos (manualmente ou em massa) e o si
 - Um mês no vermelho transfere **zero**, nunca um saldo negativo: um estouro pontual não endivida os meses seguintes sem que ninguém decida.
 - O teto é aplicado **a cada passo**, mês a mês.
 - Com a transferência desligada —o valor padrão— o painel é idêntico ao de sempre.
-- Liga-se por centro de custo pela API: `PUT /api/intelligence/cost-centers` com `rolloverEnabled` e, opcionalmente, `rolloverCapUsd` (Admin ou Owner).
+- Liga-se por centro de custo na própria tabela: o lápis da coluna de orçamento abre o valor **base** junto com **Transferir o não gasto** e o seu **Teto (USD)** (vazio = sem teto). Admin e Owner o alteram. Pela API é `PUT /api/intelligence/cost-centers` com `rolloverEnabled` e `rolloverCapUsd`, e um salvamento que não os envia conserva o que havia.
 
-**Ano fiscal.** Os acumulados anuais —o do Whiteboard, o período *Ano Fiscal* de Cost Groups e a projeção— contam a partir do mês em que começa o **exercício do seu tenant**, que por padrão é janeiro. Se o seu começa em outro mês (por exemplo abril), configura-se com `PUT /api/admin/tenant-settings` (`fiscalYearStartMonth`, de 1 a 12; Admin ou Owner) ou pedindo ao suporte. A projeção anual divide pelos dias do exercício e não pelos dias desde janeiro, de modo que não sai baixa quando o exercício não é o ano civil.
+**Ano fiscal.** Os acumulados anuais —o do Whiteboard, o período *Ano Fiscal* de Cost Groups e a projeção— contam a partir do mês em que começa o **exercício do seu tenant**, que por padrão é janeiro. Se o seu começa em outro mês (por exemplo abril), você o escolhe em **Configuração → Geral → Ano fiscal** (Admin ou Owner), e os painéis o usam na hora. Pela API é `PUT /api/admin/tenant-settings` com `fiscalYearStartMonth`, de 1 a 12. A projeção anual divide pelos dias do exercício e não pelos dias desde janeiro, de modo que não sai baixa quando o exercício não é o ano civil.
 
 **Sob um alcance de Perspective** (3.4) o orçamento **não é recortado**: está definido para o centro inteiro, e compará-lo com uma parcela mostraria uma folga que não existe. A tela avisa em vez de deixar a célula vazia.
 
@@ -425,6 +431,7 @@ Importação manual ou programada de arquivos de custos no padrão **FOCUS** e d
 | **Variação** | Contra o período anterior |
 | **Orçamento usado** | Quanto do orçamento consumiu |
 | **Economia capturada** | Remediações aprovadas **e executadas** no Azure para esse grupo |
+| **Classificação** | COGS, OpEx ou Sem classificar. Admin e Owner a alteram ali mesmo; para os demais é somente leitura |
 
 **Como se ordena.** Pela queda percentual contra o período anterior e, com variação igual, pela economia capturada. Dois casos ficam **fora da ordem** mas à vista, com o seu motivo: um grupo *sem período anterior com o qual comparar* (não melhorou nem piorou) e um *pequeno demais para ranquear sem que seja ruído* (abaixo de 1% do gasto: um que passa de 1 para 0,50 dólar não ganha de quem cortou milhares). Cada linha tem **Ver detalhamento** para chegar ao detalhe desse grupo: um ranking que não se pode explicar gera discussão, não otimização.
 
@@ -434,7 +441,7 @@ Três coisas que esclarecem os números:
 - **A economia capturada sai do que foi executado**, não do simplesmente aprovado. Como as remediações não guardam tags, em uma Perspective definida por tags essa economia cai em *não atribuído*.
 - **O gasto não atribuído** (nenhuma regra o alcança) entra no total, mas em nenhum time, e é informado à parte.
 
-**Custo dos produtos vendidos e despesa operacional.** Um cartão divide o gasto em **COGS**, **OpEx** e **Não classificado**, e a soma fecha com o total. Cada grupo é classificado com `PUT /api/intelligence/leaderboard` (`perspectiveId`, `groupName`, `classification` = `COGS`, `OPEX` ou `UNCLASSIFIED`; Admin ou Owner): a tela mostra o resultado, a classificação é atribuída por API.
+**Custo dos produtos vendidos e despesa operacional.** Um cartão divide o gasto em **COGS**, **OpEx** e **Não classificado**, e a soma fecha com o total. Cada grupo é classificado na coluna **Classificação** da tabela (COGS, OpEx ou Sem classificar): Admin e Owner a escolhem, e a divisão e a margem são recalculadas na hora. Para os demais papéis a coluna é somente leitura. Pela API é `PUT /api/intelligence/leaderboard` (`perspectiveId`, `groupName`, `classification`).
 
 **Margem bruta.** Quando você carrega a **receita**, o cartão calcula *receita − COGS*. Ela é enviada com `POST /api/unit-metrics/ingest`, com uma API Key pública com a permissão `write:metrics` e `metricType` = `REVENUE` (11.11). Regras de honestidade do cálculo:
 
@@ -511,6 +518,8 @@ Acima do painel, três leituras da carteira:
 - **Limite anual de devolução (US$ 50.000).** A Microsoft limita os cancelamentos e reembolsos de reservas a **US$ 50.000 por ano** e por Billing Account, em uma janela móvel de 12 meses. Uma barra mostra quanto da cota você consumiu e quanto resta, e avisa ao passar de 80%.
 
 **Simulador de ponto de equilíbrio e mix ótimo.** Escolha o tipo de carga (**Mix Geral**, **Computação Flexível** ou **Bancos de Dados**) e o seu gasto mensal sob demanda (PAYG): o simulador calcula em que mês uma reserva de **1 ano** (~38% de desconto de referência) ou de **3 anos** (~62%) supera pagar sob demanda, quanto você economiza por mês depois desse ponto, e sugere um **mix em 3 camadas**: Savings Plans para a flexibilidade, reservas para as cargas estáveis como os bancos de dados, e um colchão de pagamento sob demanda (*PAYG elástico*) para absorver os picos.
+
+**Avisos de vencimento (90, 60 e 30 dias).** Todo dia a plataforma revisa a data de vencimento de cada reserva ativa e avisa quando uma entra na janela de **90 dias**, de novo aos **60** e de novo aos **30**: uma vez por degrau, ainda que a verificação rode todos os dias, e se um dia ela não roda, o aviso sai no seguinte. Chega ao **sino** de todo o tenant e aos **canais de Notificações** que você tiver configurado (Slack, Teams, e-mail ou webhook, 8.5), com o nome, a data e se a reserva **se renova sozinha**. É **crítico** quando uma reserva sem renovação automática está a 30 dias ou menos; uma com renovação automática avisa como informativa, porque não deixa de cobrir. Se a reserva for renovada ou estendida, a escada recomeça com a nova data. Usa a mesma leitura desta tabela: se aqui você não vê suas reservas —falta o papel *Reservations Reader* (1.3)—, os avisos também não chegam. Não se aplica aos tenants conectados por Azure Lighthouse, porque as reservas são de nível de tenant e o Lighthouse delega por assinatura.
 
 #### 5.4.5. Saving Plan
 
@@ -910,7 +919,7 @@ Esta tela não é mostrada a usuários com alcance atribuído: é o inventário 
 
 ### 7.10. Shift-Left FinOps (`/governance/shift-left`, Business+)
 
-**O custo se decide quando alguém escreve o `.tf`, não quando chega a fatura.** O Shift-Left leva o impacto econômico de uma mudança de infraestrutura para a revisão do **Pull Request**, que é onde ainda é barato corrigi-lo. Funciona sobre Terraform.
+**O custo se decide quando alguém escreve o `.tf`, não quando chega a fatura.** O Shift-Left leva o impacto econômico de uma mudança de infraestrutura para a revisão do **Pull Request**, que é onde ainda é barato corrigi-lo. Funciona sobre Terraform. No menu, fica em **Governança → Shift-Left (PRs)**.
 
 **Como funciona.** No pipeline do PR gera-se o plano (`terraform plan`), uma action do GitHub o envia à plataforma, e a plataforma estima o **delta de custo mensal** com os **preços de tabela do Azure**. O resultado volta como comentário no Pull Request (que é editado a cada push, não se acumula) e pode **fazer o check falhar** se o aumento superar um limite. A action e o seu exemplo de workflow são descritos em 11.10, e ela precisa de uma API Key com a permissão `write:shift-left`.
 
@@ -1058,13 +1067,9 @@ As **permissões de domínio** (seção 2) decidem quais *páginas* uma pessoa v
 
 **Não é um filtro de tela: o servidor o aplica.** Com um alcance atribuído a API devolve só a sua parcela —mudar um parâmetro na URL não mostra mais— e os totais e porcentagens dos painéis são calculados sobre essa parcela. As telas que ainda não sabem se restringir **negam o acesso** em vez de mostrar o tenant inteiro: na dúvida, o sistema falha fechado.
 
-**Como se atribui.** Hoje é por API, feita por um Admin ou Owner, e só em um tenant Enterprise:
+**Como se atribui.** Um Admin ou Owner o faz, só em um tenant Enterprise, em **Usuários e Acessos → Usuários e Permissões**: a coluna **Equipe (dados)** mostra o alcance de cada pessoa (*Todo o tenant* se não tiver) e o botão **Restringir** abre a escolha de **Perspective** e **Grupo** (*todos os grupos* é a Perspective inteira, sem o não atribuído). Antes de salvar, o diálogo diz quais telas vão sobrar. **Alterar** substitui o alcance e o **✕** o remove. Não é oferecido para um Admin ou Owner.
 
-- `POST /api/admin/user-scopes` com `tenantId`, `email`, `perspectiveId` e `group` (opcional: sem grupo, o alcance é a Perspective inteira).
-- `GET /api/admin/user-scopes?tenantId=…` lista os alcances vigentes.
-- `DELETE /api/admin/user-scopes?tenantId=…&email=…` o remove.
-
-A resposta da atribuição inclui **quantas telas sobram** para essa pessoa (`screensWhenScoped`): atribuir às cegas seria atribuir sem saber o que se está tirando.
+Pela API: `POST /api/admin/user-scopes` (`tenantId`, `email`, `perspectiveId` e `group` opcional), `GET /api/admin/user-scopes?tenantId=…` e `DELETE /api/admin/user-scopes?tenantId=…&email=…`. A resposta do POST inclui **quantas telas sobram** (`screensWhenScoped`): atribuir às cegas seria atribuir sem saber o que se está tirando.
 
 **Regras.**
 
@@ -1072,7 +1077,7 @@ A resposta da atribuição inclui **quantas telas sobram** para essa pessoa (`sc
 - **Somente Reader e Colaborador.** Um usuário **Admin ou Owner não pode ter alcance**: poderia emitir para si uma chave de API —que é do tenant, não dele— e contornar o recorte.
 - Se a Perspective é excluída, o alcance de quem a tinha atribuída é eliminado junto.
 
-**O que a pessoa restrita vê.** Somente as telas que hoje sabem se restringir a um grupo, todas recortadas à sua parcela: o Whiteboard, Cost Groups (`/intelligence/cost-groups`), Orçamento por Grupos de Custos (`/intelligence/cost-centers`), Gastos e Projeção (`/intelligence/cost-projection`), o Scorecard (`/intelligence/scorecard`) e a aba *Storage Accounts* de Armazenamento (`/intelligence/almacenamiento/storage-accounts-finops-cmp`). O resto responde com acesso negado. O menu lateral mostra apenas as entradas que são, por si mesmas, uma dessas telas (hoje, o Whiteboard): às demais se chega pelo seu endereço. O seletor de Perspective fica fixo com cadeado e as Visões não são mostradas. É um produto pequeno de propósito: cresce à medida que mais painéis aprendem a se restringir.
+**O que a pessoa restrita vê.** Somente as telas que hoje sabem se restringir a um grupo, todas recortadas à sua parcela: o **Whiteboard**; em **Consumo e Orçamento**, as abas Grupos de Custos, Orçamento por Grupos de Custos e Gastos e Projeção; em **Analítica Avançada**, o Scorecard (Fama); e em **Armazenamento**, a aba *Storage Accounts*. O resto responde com acesso negado. O menu lateral mostra só esses lugares: cada hub a leva direto à sua primeira aba permitida e, dentro, as abas que não sabem se restringir não aparecem. O seletor de Perspective fica fixo com cadeado e as Visões não são mostradas. É um produto pequeno de propósito: cresce à medida que mais painéis aprendem a se restringir.
 
 ### 8.3. Configuração (`/admin/config`)
 
@@ -1080,7 +1085,7 @@ Hub com cinco abas:
 
 | Aba | O que você faz ali |
 |---|---|
-| **Geral** | Administração do perfil do tenant: nome, logo, idioma padrão para novos usuários, fuso horário dos relatórios e ciclo de faturamento |
+| **Geral** | Aparência (tema claro, escuro ou do sistema), **Ano fiscal** (o mês em que começa o exercício, 5.1.5), marca (o logo do tenant) e integrações: webhook de alertas, ITSM e o feed para Power BI |
 | **IA** | Habilitar ou desabilitar funções de IA, escolher o modelo, ajustar a sensibilidade das detecções e quais dados são compartilhados (Professional+) |
 | **Notificações** | Canais de entrega: Slack, Teams, e-mail e webhook (8.5) |
 | **Status da Conta** | Suas assinaturas do Azure, o estado da ingestão e o vencimento de credenciais; daqui você desvincula e revincula assinaturas para escolher quais são monitoradas (19) |
@@ -1137,7 +1142,7 @@ Se o cartão mostrar *"A contratação on-line não está disponível"*, é porq
 
 ### 8.5. Configuração de Notificações (`/admin/notifications`, Professional+)
 
-Três canais suportados: **Slack**, **Microsoft Teams**, **Email (SMTP)**.
+Três canais suportados: **Slack**, **Microsoft Teams**, **Email (SMTP)**. Além dos alertas que você configura, por esses canais chegam avisos automáticos da plataforma, como o **vencimento de reservas** a 90, 60 e 30 dias (5.4.4).
 
 #### 8.5.1. Central Global de Notificações (Sino na Barra Superior)
 - **Sino Interativo:** Ícone `IconBell` com badge em azul corporativo (`#0078D4`) indicando alertas não lidos.
@@ -1193,7 +1198,7 @@ Hub com sete abas:
 | **Relatório** | Hoje há um tipo: **Gasto por time** (o desvio do gasto de um grupo) |
 | **Frequência** | *Todos os dias*, *Semanal* (com o dia da semana) ou *Mensal* (com o dia do mês) |
 | **Destinatários** | E-mails separados por vírgula; é preciso pelo menos um |
-| **Perspective e Grupo** (opcional) | Para enviar só o gasto de um time: quem se assina ao seu grupo não recebe o dos demais. Hoje a Perspective se digita pelo seu *id* |
+| **Perspective e Grupo** (opcional) | Para enviar só o gasto de um time: quem se assina ao seu grupo não recebe o dos demais. Escolhem-se na lista de Perspectives do tenant (Enterprise); sem Perspective, o relatório é do tenant inteiro |
 
 **O que convém saber:**
 
@@ -1697,10 +1702,11 @@ gasto em nuvem dos clientes que trouxe, nem dados de outros afiliados.
 2. Preencha nome, e-mail e **código de indicação**. O código vai na URL, então
    aceita letras, números, hifens e sublinhados, e precisa começar com letra ou
    número. Tem que ser único.
-3. **Comissão (%)** — 20 % por padrão. É a porcentagem aplicada a cada cobrança
-   dos clientes desse afiliado. **Atenção ao programa padrão:** a indicação é paga com
-   **15 %** (a co-venda, 20 %, é cadastrada como comercial: seção 20), então
-   **ajuste a porcentagem ao cadastrar**.
+3. **Comissão (%)** — 15 % por padrão, a do programa padrão de Indicação. É a
+   porcentagem aplicada a cada cobrança dos clientes desse afiliado. A co-venda (20 %)
+   não vai aqui: é cadastrada como comercial (seção 20). Os afiliados cadastrados antes
+   de 2026-10-04 nasceram com 20 % e o conservam; se algum devia ser 15 %, corrige-se
+   com **Editar**, que não reescreve as comissões já apuradas.
 4. *Forma de pagamento* e *Referência de pagamento* são texto livre para quem
    liquida (transferência, PayPal, alias). Não são armazenados dados bancários
    estruturados.
@@ -1797,8 +1803,12 @@ diferentes, esses totais não são comparáveis — verifique o detalhe por comi
 O botão do **painel** na linha do afiliado gera o link pessoal dele:
 
 ```
-https://finops.cscloudsolutions.com.ar/pt-BR/partner#k=afp_live_...
+https://finops.cscloudsolutions.com.ar/partner#k=afp_live_...
 ```
+
+O link **não leva idioma**: ao abri-lo, a plataforma escolhe o do navegador do
+parceiro (espanhol, inglês ou português) e redireciona conservando o token. No
+painel há um **seletor de idioma** no canto superior direito, que também o conserva.
 
 **É exibido uma única vez.** No banco fica apenas o hash, então não há como vê-lo
 de novo: se perder, você gera outro — e isso invalida o anterior. Mesmo critério

@@ -118,6 +118,14 @@ export const PAGINAS_CON_ALCANCE_Y_SUS_RUTAS: Record<string, readonly string[]> 
     "/intelligence/cost-centers": ["/api/intelligence/cost-centers"],
     "/intelligence/cost-projection": ["/api/intelligence/cost-projection"],
     "/intelligence/scorecard": ["/api/intelligence/scorecard"],
+    // Las mismas pantallas en su pestaña del hub, que es por donde entra el
+    // menú. Sin ellas `paginaAdmiteAlcance` sólo dejaba pasar el Whiteboard:
+    // el menú se pasó a hubs y esta lista seguía con las direcciones viejas.
+    // El orden importa: la primera de cada hub es adonde lleva el menú.
+    "/intelligence/consumo-y-presupuesto/grupos-de-costos": ["/api/cost-groups"],
+    "/intelligence/consumo-y-presupuesto/presupuesto-por-grupos-de-costos": ["/api/intelligence/cost-centers"],
+    "/intelligence/consumo-y-presupuesto/gastos-y-proyeccion": ["/api/intelligence/cost-projection"],
+    "/intelligence/analitica-avanzada/scorecard-fama": ["/api/intelligence/scorecard"],
     // MEJ-34. Auditada con el cruce página → rutas antes de habilitarla: sus 12
     // llamadas caen todas en el mapa, así que no hay un 403 esperándola. Son
     // DOS rutas: con una sola, la pantalla mostraría un total acotado y un
@@ -134,6 +142,17 @@ export const PAGINAS_CON_ALCANCE: readonly string[] = Object.keys(PAGINAS_CON_AL
 /** ¿Esta página se le puede ofrecer a un usuario con alcance asignado? */
 export function paginaAdmiteAlcance(href: string): boolean {
     return PAGINAS_CON_ALCANCE.some((p) => href === p || href.startsWith(`${p}/`));
+}
+
+/**
+ * Adónde lleva una entrada del menú a un usuario acotado: a ella misma si
+ * admite alcance, o a la primera pestaña de su hub que lo admita. `null` si
+ * no tiene ninguna. La portada de un hub suele ser una pestaña que no sabe
+ * recortar, así que mandar al usuario ahí era mandarlo a un 403.
+ */
+export function entradaConAlcance(href: string): string | null {
+    if (paginaAdmiteAlcance(href)) return href;
+    return PAGINAS_CON_ALCANCE.find((p) => p.startsWith(`${href}/`)) ?? null;
 }
 
 /**

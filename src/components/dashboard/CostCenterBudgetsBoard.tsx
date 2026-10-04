@@ -48,8 +48,20 @@ function BudgetCell({ costCenter, isAdmin, onSaved, onDeleted, t }: { costCenter
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const [editing, setEditing] = useState(false);
-    const [value, setValue] = useState(String(costCenter.budget ?? ""));
+    const [value, setValue] = useState("");
+    const [arrastre, setArrastre] = useState(false);
+    const [tope, setTope] = useState("");
     const [saving, setSaving] = useState(false);
+
+    // Se carga al abrir y no al montar: la fila se refresca después de guardar.
+    // El monto es la BASE: `budget` ya trae sumado el arrastre del mes, y
+    // guardarlo como base lo volvía a sumar el mes siguiente.
+    const empezar = () => {
+        setValue(String(costCenter.budgetBase ?? costCenter.budget ?? ""));
+        setArrastre(Boolean(costCenter.rolloverEnabled));
+        setTope(costCenter.rolloverCapUsd == null ? "" : String(costCenter.rolloverCapUsd));
+        setEditing(true);
+    };
 
     const remove = async () => {
         if (!confirm(t("confirmDeleteBudget"))) return;
@@ -76,13 +88,24 @@ function BudgetCell({ costCenter, isAdmin, onSaved, onDeleted, t }: { costCenter
             toast.error(t("invalidBudget"));
             return;
         }
+        const topeNum = tope.trim() === "" ? null : Number(tope);
+        if (arrastre && topeNum !== null && (!Number.isFinite(topeNum) || topeNum < 0)) {
+            toast.error(t("invalidRolloverCap"));
+            return;
+        }
         setSaving(true);
         try {
             const idToken = await getFreshIdToken(instance, accounts[0]);
             const res = await fetch("/api/intelligence/cost-centers", {
                 method: "PUT",
                 headers: { Authorization: `Bearer ${idToken}`, "Content-Type": "application/json" },
-                body: JSON.stringify({ tenantId: selectedTenant.id, costCenterName: costCenter.name, monthlyBudgetUsd: num }),
+                body: JSON.stringify({
+                    tenantId: selectedTenant.id,
+                    costCenterName: costCenter.name,
+                    monthlyBudgetUsd: num,
+                    rolloverEnabled: arrastre,
+                    rolloverCapUsd: arrastre ? topeNum : null,
+                }),
             });
             const json = await res.json();
             if (!res.ok) throw new Error(json.error || t("saveError"));
@@ -117,7 +140,7 @@ function BudgetCell({ costCenter, isAdmin, onSaved, onDeleted, t }: { costCenter
                 )}
                 {isAdmin && (
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => setEditing(true)} className="p-1 rounded text-gray-400 hover:text-brand-deep hover:bg-gray-100 dark:hover:bg-slate-800" title={t("editBudgetTooltip")}>
+                        <button onClick={empezar} className="p-1 rounded text-gray-400 hover:text-brand-deep hover:bg-gray-100 dark:hover:bg-slate-800" title={t("editBudgetTooltip")}>
                             <Pencil className="w-3.5 h-3.5" />
                         </button>
                         {costCenter.budget !== null && (
@@ -132,21 +155,42 @@ function BudgetCell({ costCenter, isAdmin, onSaved, onDeleted, t }: { costCenter
     }
 
     return (
-        <div className="flex items-center gap-1.5">
-            <input
-                type="number"
-                min={0}
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                autoFocus
-                className="w-24 px-2 py-1 border border-gray-300 dark:border-slate-700 rounded-md text-sm bg-white dark:bg-slate-900"
-            />
-            <button onClick={save} disabled={saving} className="text-emerald-600 hover:text-emerald-700 disabled:opacity-50" title={t("saveTooltip")}>
-                <Check className="w-4 h-4" />
-            </button>
-            <button onClick={() => setEditing(false)} disabled={saving} className="text-gray-400 hover:text-gray-600" title={t("cancelTooltip")}>
-                <X className="w-4 h-4" />
-            </button>
+        <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-1.5">
+                <input
+                    type="number"
+                    min={0}
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    autoFocus
+                    aria-label={t("editBudgetTooltip")}
+                    className="w-24 px-2 py-1 border border-gray-300 dark:border-slate-700 rounded-md text-sm bg-white dark:bg-slate-900"
+                />
+                <button onClick={save} disabled={saving} className="text-emerald-600 hover:text-emerald-700 disabled:opacity-50" title={t("saveTooltip")}>
+                    <Check className="w-4 h-4" />
+                </button>
+                <button onClick={() => setEditing(false)} disabled={saving} className="text-gray-400 hover:text-gray-600" title={t("cancelTooltip")}>
+                    <X className="w-4 h-4" />
+                </button>
+            </div>
+            {/* MEJ-36: antes sólo se encendía por API. */}
+            <label className="flex items-center gap-1.5 text-[11px] text-gray-600 dark:text-gray-400" title={t("rolloverHint")}>
+                <input type="checkbox" checked={arrastre} onChange={(e) => setArrastre(e.target.checked)} className="accent-[#0054A6]" />
+                {t("rolloverToggle")}
+            </label>
+            {arrastre && (
+                <label className="flex items-center gap-1.5 text-[11px] text-gray-600 dark:text-gray-400">
+                    {t("rolloverCapLabel")}
+                    <input
+                        type="number"
+                        min={0}
+                        value={tope}
+                        placeholder={t("rolloverCapNone")}
+                        onChange={(e) => setTope(e.target.value)}
+                        className="w-20 px-1.5 py-0.5 border border-gray-300 dark:border-slate-700 rounded text-[11px] bg-white dark:bg-slate-900"
+                    />
+                </label>
+            )}
         </div>
     );
 }
@@ -591,13 +635,15 @@ export default function CostCenterBudgetsBoard() {
     const unassignedSharePct = data?.totalSpend > 0 ? Number(((unassignedSpend / data.totalSpend) * 100).toFixed(1)) : 0;
     const showUnassignedBanner = unassignedSharePct > 20;
 
+    // Optimista con la base y después se revalida: con el arrastre encendido el
+    // efectivo del mes lo calcula el servidor, no esta fila.
     const handleBudgetSaved = (name: string, value: number) => {
         mutate({
             ...data,
             costCenters: costCenters.map((c) => c.name === name
                 ? { ...c, budget: value, pctUsed: value > 0 ? Number(((c.currentMonthCost / value) * 100).toFixed(1)) : null, overBudget: c.currentMonthCost > value }
                 : c),
-        }, false);
+        }, true);
     };
 
     const handleBudgetDeleted = (name: string) => {

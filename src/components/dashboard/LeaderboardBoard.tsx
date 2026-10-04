@@ -8,11 +8,14 @@
  * vez de conversación sobre el gasto, que es lo contrario de lo que se busca.
  */
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
+import { toast } from "sonner";
 import useSWR from "swr";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
+import { useMsal } from "@azure/msal-react";
+import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import { IconTrophy, IconArrowRight, IconInfoCircle } from "@tabler/icons-react";
 
@@ -55,23 +58,56 @@ interface Respuesta {
 
 export default function LeaderboardBoard() {
     const t = useTranslations("Leaderboard");
-    const { selectedTenant } = useTenant();
+    const { selectedTenant, userRole } = useTenant();
     const tenantId = selectedTenant?.id || "";
     const esMock = isMockTenant(tenantId);
+    const { instance, accounts } = useMsal();
 
-    const { data, error, isLoading } = useSWR<Respuesta>(
-        tenantId ? `/api/intelligence/leaderboard?tenantId=${encodeURIComponent(tenantId)}${esMock ? "&mock=true" : ""}` : null,
+    const { data, error, isLoading, mutate } = useSWR<Respuesta>(
+        tenantId && (esMock || accounts.length > 0) ? `/api/intelligence/leaderboard?tenantId=${encodeURIComponent(tenantId)}${esMock ? "&mock=true" : ""}` : null,
         async (u: string) => {
+            // La ruta exige el token de sesión. Este fetch no lo mandaba y TODO
+            // tenant real recibía 401; se leyó como "sesión vencida" porque el
+            // demo, que intercepta el fetch, sí mostraba datos.
+            const headers: Record<string, string> = esMock
+                ? {}
+                : { Authorization: `Bearer ${await getFreshIdToken(instance, accounts[0])}` };
             // Un `fetch` que no lanza ante un 401/403/500 le entrega a SWR un
             // cuerpo `{error}` como si fuera datos: `error` queda en null, el
             // componente cree que tiene respuesta y explota al desestructurar.
-            // Lo encontró el navegador con una sesión vencida, no los tests.
-            const r = await fetch(u);
+            const r = await fetch(u, { headers });
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             return r.json();
         },
         { revalidateOnFocus: false }
     );
+
+    // Clasificar mueve el margen bruto de toda la empresa: la API lo limita a
+    // Admin y Owner, y la pantalla no ofrece lo que la API va a rechazar. En el
+    // demo no hay dónde guardarlo.
+    const puedeClasificar = !esMock && (userRole === "Admin" || userRole === "Owner");
+    const [clasificando, setClasificando] = useState<string | null>(null);
+
+    const clasificar = async (grupo: string, clasificacion: Clasificacion) => {
+        if (!data?.perspective) return;
+        setClasificando(grupo);
+        try {
+            const r = await fetch("/api/intelligence/leaderboard", {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${await getFreshIdToken(instance, accounts[0])}`,
+                },
+                body: JSON.stringify({ tenantId, perspectiveId: data.perspective.id, groupName: grupo, classification: clasificacion }),
+            });
+            if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+            await mutate(); // el split y el margen los recalcula el servidor
+        } catch (e) {
+            toast.error(t("classSaveError"), { description: e instanceof Error ? e.message : undefined });
+        } finally {
+            setClasificando(null);
+        }
+    };
 
     const dinero = useMemo(
         () => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }),
@@ -190,12 +226,13 @@ export default function LeaderboardBoard() {
                                 <th className="px-4 py-3 font-semibold text-right">{t("col.change")}</th>
                                 <th className="px-4 py-3 font-semibold text-right">{t("col.budget")}</th>
                                 <th className="px-4 py-3 font-semibold text-right">{t("col.savings")}</th>
+                                <th className="px-4 py-3 font-semibold" title={t("classHint")}>{t("col.class")}</th>
                                 <th className="px-4 py-3 font-semibold"></th>
                             </tr>
                         </thead>
                         <tbody>
                             {filas.length === 0 && (
-                                <tr><td colSpan={7} className="px-4 py-8 text-center opacity-60">{t("empty")}</td></tr>
+                                <tr><td colSpan={8} className="px-4 py-8 text-center opacity-60">{t("empty")}</td></tr>
                             )}
                             {filas.map((f) => (
                                 <tr key={f.grupo} className="border-b border-gray-100 dark:border-slate-800">
@@ -226,6 +263,26 @@ export default function LeaderboardBoard() {
                                     </td>
                                     <td className="px-4 py-3 text-right">
                                         {f.ahorroCapturado > 0 ? dinero.format(f.ahorroCapturado) : <span className="opacity-40">—</span>}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        {/* MEJ-37: antes sólo se clasificaba por API. */}
+                                        {puedeClasificar ? (
+                                            <select
+                                                aria-label={t("classFor", { team: f.grupo })}
+                                                value={f.clasificacion}
+                                                disabled={clasificando === f.grupo}
+                                                onChange={(e) => clasificar(f.grupo, e.target.value as Clasificacion)}
+                                                className="rounded-md border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs disabled:opacity-50"
+                                            >
+                                                {(["COGS", "OPEX", "UNCLASSIFIED"] as const).map((k) => (
+                                                    <option key={k} value={k}>{t(`class.${k}`)}</option>
+                                                ))}
+                                            </select>
+                                        ) : (
+                                            <span className={`text-xs ${f.clasificacion === "UNCLASSIFIED" ? "opacity-50" : ""}`}>
+                                                {t(`class.${f.clasificacion}`)}
+                                            </span>
+                                        )}
                                     </td>
                                     <td className="px-4 py-3">
                                         {/* Criterio 4: cada fila lleva al desglose de ese grupo.

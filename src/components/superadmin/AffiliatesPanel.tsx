@@ -84,7 +84,7 @@ export default function AffiliatesPanel() {
     // null = alta; un id = edicion de ese afiliado. El formulario es el mismo.
     const [editandoId, setEditandoId] = useState<string | null>(null);
     const [guardando, setGuardando] = useState(false);
-    const FORM_VACIO = { name: "", email: "", referralCode: "", commissionPct: "20", payoutMethod: "", payoutReference: "", status: "ACTIVE" };
+    const FORM_VACIO = { name: "", email: "", referralCode: "", commissionPct: "15", payoutMethod: "", payoutReference: "", status: "ACTIVE" };
     const [alta, setAlta] = useState<Record<string, string>>(FORM_VACIO);
     /**
      * El enlace del panel recién emitido. Se muestra UNA vez: lo que queda

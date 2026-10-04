@@ -2,8 +2,9 @@
 import { AlertCircle, AlertTriangle } from "lucide-react";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
-
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+import { useMsal } from "@azure/msal-react";
+import { fetchWithAuthRetry } from "@/lib/msalToken";
+import { isMockTenant } from "@/lib/mockData";
 
 interface CapabilityMetrics {
   capability: string;
@@ -29,9 +30,18 @@ interface AzureServiceTabProps {
 
 export function AzureServiceTab({ tenantId, capability }: AzureServiceTabProps) {
   const t = useTranslations("AzureAI");
+  const { instance, accounts } = useMsal();
   const { data, error, isLoading } = useSWR<{ capabilities: CapabilityMetrics[] }>(
     `/api/intelligence/azure-ai?tenantId=${tenantId}`,
-    fetcher,
+    // La ruta exige la sesión; sin el token respondía 401 para cualquier
+    // tenant real. El demo sí intercepta el fetch y no lo necesita.
+    async (url: string) => {
+      const res = isMockTenant(tenantId) || accounts.length === 0
+        ? await fetch(url)
+        : await fetchWithAuthRetry(instance, accounts[0], url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    },
     { revalidateOnFocus: true }
   );
 

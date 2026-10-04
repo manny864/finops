@@ -19,10 +19,13 @@
  * regalaba a la subruta que devuelve todos.
  */
 import { describe, it, expect } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import {
     rutaAdmiteAlcance,
     rutaRecorta,
     paginaAdmiteAlcance,
+    entradaConAlcance,
     PAGINAS_CON_ALCANCE,
 } from "@/lib/scopeAwareRoutes";
 
@@ -103,5 +106,37 @@ describe("las páginas y las rutas no se contradicen", () => {
     it("una página que no está en la lista no se ofrece", () => {
         expect(paginaAdmiteAlcance("/admin/users")).toBe(false);
         expect(paginaAdmiteAlcance("/intelligence/anomalies")).toBe(false);
+    });
+});
+
+describe("el menú por hubs le llega al usuario acotado", () => {
+    // El menú se pasó a hubs y la lista siguió con las direcciones viejas: el
+    // único item que pasaba el filtro era el Whiteboard.
+    it.each([
+        ["/overview/whiteboard", "/overview/whiteboard"],
+        ["/intelligence/consumo-y-presupuesto", "/intelligence/consumo-y-presupuesto/grupos-de-costos"],
+        ["/intelligence/almacenamiento", "/intelligence/almacenamiento/storage-accounts-finops-cmp"],
+        ["/intelligence/analitica-avanzada", "/intelligence/analitica-avanzada/scorecard-fama"],
+    ])("%s lleva a %s", (item, entrada) => {
+        expect(entradaConAlcance(item)).toBe(entrada);
+    });
+
+    it("un hub sin ninguna pestaña que sepa acotar no se ofrece", () => {
+        expect(entradaConAlcance("/intelligence/redes")).toBeNull();
+        expect(entradaConAlcance("/admin/access")).toBeNull();
+    });
+
+    it("la portada de un hub no se ofrece sola: suele ser una pestaña que no recorta", () => {
+        expect(paginaAdmiteAlcance("/intelligence/consumo-y-presupuesto")).toBe(false);
+        expect(paginaAdmiteAlcance("/intelligence/consumo-y-presupuesto/presupuestos")).toBe(false);
+    });
+
+    it("cada página de la lista existe", () => {
+        // Una dirección mal escrita acá no rompe nada a la vista: la entrada
+        // simplemente desaparece del menú del usuario acotado.
+        for (const pagina of PAGINAS_CON_ALCANCE) {
+            const archivo = path.join(process.cwd(), "src/app/[locale]", pagina, "page.tsx");
+            expect(fs.existsSync(archivo), `${pagina} no tiene page.tsx`).toBe(true);
+        }
     });
 });

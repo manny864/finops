@@ -69,8 +69,8 @@ declaraciones falsas sobre el producto o su precio, y reventa no autorizada. Hoy
 ## 4. Comisión
 
 **4.1. Porcentaje.** El porcentaje se acuerda por Afiliado. El valor por defecto
-del sistema es **20 %**.
-<sub>Implementa: `commission_pct DECIMAL(5,2) NOT NULL DEFAULT 20.00`.</sub>
+del sistema es **15 %**, el del programa de Referido.
+<sub>Implementa: `commission_pct DECIMAL(5,2) NOT NULL DEFAULT 15.00` (migración `20261004-001`; antes era 20.00).</sub>
 
 **4.2. Base de cálculo.** La comisión se calcula sobre el **subtotal antes de
 impuestos** de cada cobro, en la moneda del cobro. No se comisionan impuestos,

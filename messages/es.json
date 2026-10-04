@@ -835,6 +835,12 @@
     "pageTitle": "Configuración Global",
     "pageSubtitle": "Personalizá la apariencia y el comportamiento de la plataforma FinOps.",
     "appearanceSection": "Apariencia",
+    "fiscalYearSection": "Año fiscal",
+    "fiscalYearTitle": "Mes de inicio del año fiscal",
+    "fiscalYearSubtitle": "Corta el acumulado anual de Grupos de Costos y del Whiteboard, y hasta dónde se arrastra el presupuesto no gastado.",
+    "fiscalYearSaved": "Año fiscal guardado. Los tableros ya lo usan.",
+    "fiscalYearSaveFailed": "No se pudo guardar el año fiscal.",
+    "fiscalYearLoadFailed": "No se pudo leer el año fiscal.",
     "themeTitle": "Tema de la Interfaz",
     "themeSubtitle": "Elegí cómo querés visualizar la plataforma.",
     "themeLight": "Claro",
@@ -933,7 +939,8 @@
       "webhook": "Anomalías, desvíos de presupuesto y remediaciones se publican en este canal de Slack o Teams.",
       "itsm": "Permite que el Action Center abra tickets de remediación en tu tablero en vez de sólo notificarlos.",
       "itsmToken": "Se guarda cifrado (AES-256-GCM) y nunca vuelve al navegador. Dejalo vacío para conservar el token actual.",
-      "powerbi": "Feed con esquema FOCUS 1.0. El token se manda como header Authorization, no en la URL."
+      "powerbi": "Feed con esquema FOCUS 1.0. El token se manda como header Authorization, no en la URL.",
+      "fiscalYear": "Si tu empresa cierra el ejercicio en otro mes que diciembre, elegí acá en qué mes empieza. Cambiarlo recalcula los acumulados anuales; no borra ni mueve datos."
     }
   },
   "AdminContractTenant": {
@@ -2062,6 +2069,25 @@
     "col_role_help": "Qué acciones puede ejecutar. Se cambia en un clic desde el desplegable.",
     "col_scope": "Alcance de páginas",
     "col_scope_help": "Cuántos módulos tiene habilitados. Se edita en Permisos granulares.",
+    "col_dataScope": "Equipo (datos)",
+    "col_dataScope_help": "El grupo de una Perspective al que el usuario queda acotado: ve sólo su gasto, y sólo las pantallas que saben recortarlo. Vacío = todo el tenant.",
+    "dataScopeNone": "Todo el tenant",
+    "dataScopeAllGroups": "todos los grupos",
+    "dataScopeAssign": "Acotar",
+    "dataScopeChange": "Cambiar",
+    "dataScopeRemove": "Quitar el alcance",
+    "dataScopeAdminNotAllowed": "Admin y Owner no se pueden acotar: podrían emitirse una clave de API, que es por tenant, y saltear el alcance.",
+    "dataScopeModalTitle": "Acotar a {email}",
+    "dataScopeWarning": "Con alcance asignado, este usuario ve sólo el gasto de su grupo y sólo las pantallas que saben recortarlo: White Board, Grupos de Costos, Presupuesto por Grupos de Costos, Gastos y Proyección, Scorecard (Fama) y Storage Accounts. El resto deja de aparecerle en el menú.",
+    "dataScopePerspective": "Perspective",
+    "dataScopeGroup": "Grupo",
+    "dataScopeNoPerspectives": "Para acotar a un usuario primero hace falta una Perspective con grupos. Se definen en Inteligencia Financiera → Perspectives.",
+    "dataScopeCancel": "Cancelar",
+    "dataScopeSave": "Guardar alcance",
+    "dataScopeSaved": "{email} quedó acotado.",
+    "dataScopeRemoved": "{email} vuelve a ver todo el tenant.",
+    "dataScopeRemoveConfirm": "¿Quitarle el alcance a {email}? Va a volver a ver el gasto de todo el tenant.",
+    "dataScopeSaveError": "No se pudo cambiar el alcance.",
     "col_mfa": "Estado 2FA",
     "col_mfa_help": "Registro de MFA en Entra ID. \"Sin dato\" significa que Entra ID todavía no respondió, no que falte el segundo factor.",
     "col_lastLogin": "Último acceso",
@@ -7443,7 +7469,12 @@
     "networkError": "Error de red: {error}",
     "max100": "Máx. 100",
     "scopeHidesBudget": "Acotado por Perspective: el presupuesto no se muestra porque está definido para el centro de costo entero. Compararlo contra una porción diría que hay margen donde no lo hay.",
-    "rolloverBreakdown": "Presupuesto base {base} más {carry} arrastrados de meses anteriores del ejercicio. El mes se mide contra la suma."
+    "rolloverBreakdown": "Presupuesto base {base} más {carry} arrastrados de meses anteriores del ejercicio. El mes se mide contra la suma.",
+    "rolloverToggle": "Arrastrar lo no gastado",
+    "rolloverHint": "Lo que no se gasta en un mes se suma al presupuesto del siguiente, dentro del mismo año fiscal.",
+    "rolloverCapLabel": "Tope (USD)",
+    "rolloverCapNone": "sin tope",
+    "invalidRolloverCap": "El tope tiene que ser un número mayor o igual a 0."
   },
   "IntelligenceHybridBenefit": {
     "title": "Escáner de Azure Hybrid Benefit",
@@ -9929,6 +9960,7 @@
     "remediation": "Remediación",
     "perspectives": "Perspectives",
     "lifecycle_eol": "Fin de soporte",
+    "shift_left": "Shift-Left (PRs)",
     "team_leaderboard": "Leaderboard de equipos"
   },
   "Network": {
@@ -10399,6 +10431,8 @@
     "notif_addon_expiry_title": "{addonName} vence en {days, plural, one {# día} other {# días}}",
     "notif_idle_resources_msg": "Hay alrededor de USD {amount} al mes en recursos sin uso. Revisalos en Limpieza de Nube.",
     "notif_idle_resources_title": "{count, plural, one {# recurso ocioso} other {# recursos ociosos}}",
+    "notif_reservation_expiry_title": "{count, plural, one {# reserva de Azure por vencer} other {# reservas de Azure por vencer}}",
+    "notif_reservation_expiry_msg": "La más próxima vence en {days, plural, one {# día} other {# días}}. Si no se renueva, el consumo que cubre pasa a precio de lista.",
     "notif_credential_expiry_msg": "La regla \"{ruleName}\" detectó credenciales de App Registration próximas a vencer.",
     "notif_credential_expiry_title": "{count, plural, one {# credencial por vencer} other {# credenciales por vencer}} — {ruleName}",
     "notif_demo_anomaly_msg": "Se detectó un incremento de gasto del +{pct}% en las últimas 24 h.",
@@ -15900,10 +15934,19 @@
     "title": "Vistas",
     "empty": "Todavía no guardaste ninguna vista.",
     "saveCurrent": "Guardar la vista actual…",
-    "namePrompt": "¿Cómo se llama esta vista?",
+    "namePrompt": "Nombre de la vista",
     "delete": "Borrar",
     "sharedTag": "compartida",
-    "defaultTag": "predeterminada"
+    "defaultTag": "predeterminada",
+    "markDefault": "Abrirla por defecto al entrar",
+    "shareWithTeam": "Compartirla con todo el equipo",
+    "shareHint": "Una vista compartida la ve todo el tenant, y sólo Admin u Owner la pueden cambiar o borrar.",
+    "setDefault": "Usarla por defecto",
+    "unsetDefault": "Dejar de usarla por defecto",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "saveError": "No se pudo guardar la vista.",
+    "deleteError": "No se pudo borrar la vista."
   },
   "Leaderboard": {
     "pageTitle": "Leaderboard de equipos",
@@ -15916,6 +15959,9 @@
     "splitTitle": "Costo de venta y gasto operativo",
     "unallocated": "{cost} ({pct}%) sin asignar: ninguna regla lo alcanza. Entra en el total pero no en ningún equipo.",
     "drillDown": "Ver desglose",
+    "classHint": "COGS es el costo de lo que vendés y entra en el margen bruto; OpEx es gasto operativo. Lo cambian Admin y Owner.",
+    "classSaveError": "No se pudo guardar la clasificación.",
+    "classFor": "Clasificación de {team}",
     "class": {
       "COGS": "COGS",
       "OPEX": "OpEx",
@@ -15927,7 +15973,8 @@
       "spend": "Gasto",
       "change": "Variación",
       "budget": "Presupuesto usado",
-      "savings": "Ahorro capturado"
+      "savings": "Ahorro capturado",
+      "class": "Clasificación"
     },
     "outOfRank": {
       "sin-periodo-previo": "sin período anterior con el que comparar",
@@ -15982,9 +16029,9 @@
       "dayOfMonth": "Día del mes",
       "recipients": "Destinatarios (separados por coma)",
       "perspective": "Perspective (opcional)",
-      "perspectivePlaceholder": "id, ej. 7",
+      "perspectiveNone": "Ninguna (todo el tenant)",
       "group": "Grupo (opcional)",
-      "groupPlaceholder": "sólo ese equipo"
+      "groupAll": "Todos los grupos"
     },
     "col": {
       "report": "Reporte",
@@ -16057,6 +16104,8 @@
     "manualPdf": "Descargar PDF",
     "manualMd": "Markdown",
     "manualOtherLanguages": "También en:",
-    "footnote": "Los montos son los devengados según los cobros ya registrados. La liquidación se hace según lo acordado en tu contrato de partner."
+    "footnote": "Los montos son los devengados según los cobros ya registrados. La liquidación se hace según lo acordado en tu contrato de partner.",
+    "metaTitle": "Panel del Partner | CSCloudSolutions",
+    "metaDescription": "Tus referidos y comisiones del Programa de Partners de CSCloudSolutions."
   }
 }

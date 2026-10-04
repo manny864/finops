@@ -35,7 +35,7 @@ vi.mock("@/lib/azureResourceCounts", () => ({
 }));
 
 import { GET as costGroups } from "@/app/api/cost-groups/route";
-import { GET as costCenters } from "@/app/api/intelligence/cost-centers/route";
+import { GET as costCenters, PUT as guardarPresupuesto } from "@/app/api/intelligence/cost-centers/route";
 
 /** Un tenant con el ejercicio arrancando en abril. */
 function stub({ mesFiscal = 4, presupuesto = null as null | any, mensual = [] as any[] } = {}) {
@@ -120,5 +120,31 @@ describe("el arrastre en el tablero de Centros de Costo", () => {
         });
         const j = await (await pedir()).json();
         expect(j.costCenters.find((c: any) => c.name === "IT").budgetRollover).toBe(500);
+    });
+
+    it("la tabla recibe la configuración, no sólo su efecto: la edita", async () => {
+        stub({ presupuesto: { cost_center_name: "IT", monthly_budget_usd: 1000, rollover_enabled: 1, rollover_cap_usd: 500 } });
+        const it = (await (await pedir()).json()).costCenters.find((c: any) => c.name === "IT");
+        expect(it).toMatchObject({ rolloverEnabled: true, rolloverCapUsd: 500 });
+    });
+});
+
+describe("guardar un presupuesto no le apaga el arrastre", () => {
+    const guardar = (body: object) => guardarPresupuesto(new NextRequest("http://localhost/api/intelligence/cost-centers", {
+        method: "PUT", body: JSON.stringify({ tenantId: "t1", costCenterName: "IT", ...body }),
+    }));
+    // Los dos últimos parámetros dicen si el arrastre y el tope vinieron en el cuerpo.
+    const banderas = () => (queryMock.mock.calls.find(([s]) => String(s).includes("INSERT INTO CostCenterBudgets"))?.[1] as unknown[]).slice(-2);
+
+    it("sin los campos de arrastre, se conservan los que había", async () => {
+        stub();
+        await guardar({ monthlyBudgetUsd: 1200 });
+        expect(banderas()).toEqual([0, 0]);
+    });
+
+    it("con los campos, se escriben", async () => {
+        stub();
+        await guardar({ monthlyBudgetUsd: 1200, rolloverEnabled: true, rolloverCapUsd: null });
+        expect(banderas()).toEqual([1, 1]);
     });
 });

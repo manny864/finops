@@ -4,7 +4,7 @@ import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { useTranslations } from "next-intl";
-import { getFreshIdToken } from "@/lib/msalToken";
+import { getFreshIdToken, fetchWithAuthRetry } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import {
     ResponsiveContainer,
@@ -250,6 +250,7 @@ function UserDetailDrawer({ user, onClose, tenantId }: { user: any; onClose: () 
     const { format } = useCurrency();
     const [signIns, setSignIns] = useState<any[] | null>(null);
     const [loadingSignIns, setLoadingSignIns] = useState(false);
+    const { instance, accounts } = useMsal();
 
     useEffect(() => {
         if (!user?.id) return;
@@ -257,14 +258,19 @@ function UserDetailDrawer({ user, onClose, tenantId }: { user: any; onClose: () 
         (async () => {
             setLoadingSignIns(true);
             try {
-                const res = await fetch(`/api/m365/user-activity/signin-history?tenantId=${tenantId}&userId=${user.id}`);
+                // La ruta exige la sesión: sin token respondía 401 y el
+                // historial salía vacío, que se leía como "nunca inició sesión".
+                const url = `/api/m365/user-activity/signin-history?tenantId=${tenantId}&userId=${user.id}`;
+                const res = isMockTenant(tenantId) || accounts.length === 0
+                    ? await fetch(url)
+                    : await fetchWithAuthRetry(instance, accounts[0], url);
                 const json = await res.json();
                 if (!cancelled) setSignIns(json.entries || []);
             } catch { if (!cancelled) setSignIns([]); }
             if (!cancelled) setLoadingSignIns(false);
         })();
         return () => { cancelled = true; };
-    }, [user?.id, tenantId]);
+    }, [user?.id, tenantId, instance, accounts]);
 
     return (
         <>

@@ -17,10 +17,17 @@ import { listarPerspectivas } from "@/services/perspectivesData.service";
 import {
     alcanceDelUsuario, asignarAlcance, listarAlcances, quitarAlcance, rolDelUsuario, ROLES_SIN_ALCANCE,
 } from "@/services/userScope.service";
-import { RUTAS_CON_ALCANCE } from "@/lib/scopeAwareRoutes";
+import { PAGINAS_CON_ALCANCE_Y_SUS_RUTAS } from "@/lib/scopeAwareRoutes";
 
-/** Cuántas pantallas de datos le quedan a un usuario acotado, hoy. */
-const PANTALLAS_CON_ALCANCE = Object.keys(RUTAS_CON_ALCANCE).length;
+/**
+ * Cuántas pantallas de datos le quedan a un usuario acotado, hoy. Antes se
+ * contaban RUTAS de API (13), que no son pantallas. Una pantalla que se abre
+ * por dos direcciones —la vieja y su pestaña del hub— declara las mismas rutas
+ * y se cuenta una vez.
+ */
+const PANTALLAS_CON_ALCANCE = new Set(
+    Object.values(PAGINAS_CON_ALCANCE_Y_SUS_RUTAS).map((rutas) => rutas.join("|")),
+).size;
 
 export async function GET(request: NextRequest) {
     try {

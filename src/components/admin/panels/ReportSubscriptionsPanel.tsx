@@ -11,7 +11,11 @@ import React, { useCallback, useMemo, useState } from "react";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
 import { toast } from "react-hot-toast";
+import { useMsal } from "@azure/msal-react";
 import { useTenant } from "@/components/TenantProvider";
+import { fetchWithAuthRetry } from "@/lib/msalToken";
+import { isMockTenant } from "@/lib/mockData";
+import { hasAccess } from "@/lib/tierLogic";
 import { IconTrash, IconSend, IconPlus } from "@tabler/icons-react";
 
 type Frecuencia = "daily" | "weekly" | "monthly";
@@ -32,7 +36,18 @@ interface Suscripcion {
 export default function ReportSubscriptionsPanel() {
     const t = useTranslations("ReportSubscriptions");
     const { selectedTenant } = useTenant();
+    const { instance, accounts } = useMsal();
     const tenantId = selectedTenant?.id || "";
+    const esMock = isMockTenant(tenantId);
+
+    // La API exige la sesión en los tres métodos. Antes no se mandaba y, para
+    // cualquier tenant real, el panel no listaba ni creaba nada.
+    const pedir = useCallback(
+        (url: string, init: RequestInit & { headers?: Record<string, string> } = {}) =>
+            esMock ? fetch(url, init) : fetchWithAuthRetry(instance, accounts[0], url, init),
+        [esMock, instance, accounts],
+    );
+    const listo = Boolean(tenantId) && (esMock || accounts.length > 0);
 
     const [abierto, setAbierto] = useState(false);
     const [guardando, setGuardando] = useState(false);
@@ -47,10 +62,35 @@ export default function ReportSubscriptionsPanel() {
         enviarAhora: false,
     });
 
-    const url = tenantId ? `/api/reports/subscriptions?tenantId=${encodeURIComponent(tenantId)}` : null;
+    const url = listo ? `/api/reports/subscriptions?tenantId=${encodeURIComponent(tenantId)}` : null;
     const { data, mutate, isLoading } = useSWR<{ subscriptions: Suscripcion[]; tiposDisponibles: string[] }>(
-        url, (u: string) => fetch(u).then((r) => r.json()), { revalidateOnFocus: false }
+        url,
+        async (u: string) => {
+            const r = await pedir(u);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.json();
+        },
+        { revalidateOnFocus: false }
     );
+
+    // La Perspective se elige de una lista, no se escribe por id. Perspectives
+    // es Enterprise: en otro plan la lista no se pide (daría 403) y el reporte
+    // sale para todo el tenant.
+    const conPerspectives = hasAccess(selectedTenant?.tier || "", "Enterprise");
+    const { data: dataPerspectivas } = useSWR<{ perspectives: { id: number; name: string; reglas: { grupo: string | null }[] }[] }>(
+        listo && conPerspectives && !esMock ? `/api/intelligence/perspectives?tenantId=${encodeURIComponent(tenantId)}` : null,
+        async (u: string) => {
+            const r = await pedir(u);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.json();
+        },
+        { revalidateOnFocus: false }
+    );
+    const perspectivas = useMemo(() => dataPerspectivas?.perspectives ?? [], [dataPerspectivas]);
+    const gruposDeLaElegida = useMemo(() => {
+        const p = perspectivas.find((x) => String(x.id) === form.perspectiveId);
+        return [...new Set((p?.reglas ?? []).map((r) => r.grupo).filter((g): g is string => Boolean(g)))];
+    }, [perspectivas, form.perspectiveId]);
 
     const dias = useMemo(
         () => [t("day.sun"), t("day.mon"), t("day.tue"), t("day.wed"), t("day.thu"), t("day.fri"), t("day.sat")],
@@ -68,7 +108,7 @@ export default function ReportSubscriptionsPanel() {
         if (destinatarios.length === 0) { toast.error(t("needRecipient")); return; }
         setGuardando(true);
         try {
-            const res = await fetch("/api/reports/subscriptions", {
+            const res = await pedir("/api/reports/subscriptions", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -96,14 +136,14 @@ export default function ReportSubscriptionsPanel() {
         } finally {
             setGuardando(false);
         }
-    }, [form, tenantId, t, mutate]);
+    }, [form, tenantId, t, mutate, pedir]);
 
     const borrar = useCallback(async (id: number) => {
-        const res = await fetch(`/api/reports/subscriptions?tenantId=${encodeURIComponent(tenantId)}&id=${id}`, { method: "DELETE" });
+        const res = await pedir(`/api/reports/subscriptions?tenantId=${encodeURIComponent(tenantId)}&id=${id}`, { method: "DELETE" });
         if (!res.ok) { toast.error(t("deleteError")); return; }
         toast.success(t("deleted"));
         await mutate();
-    }, [tenantId, t, mutate]);
+    }, [tenantId, t, mutate, pedir]);
 
     const subs = data?.subscriptions ?? [];
 
@@ -177,18 +217,23 @@ export default function ReportSubscriptionsPanel() {
 
                         <label className="text-sm">
                             <span className="block mb-1 opacity-70">{t("field.perspective")}</span>
-                            <input className="w-full border rounded px-2 py-1.5 bg-transparent"
-                                   placeholder={t("field.perspectivePlaceholder")}
-                                   value={form.perspectiveId}
-                                   onChange={(e) => setForm({ ...form, perspectiveId: e.target.value })} />
+                            <select className="w-full border rounded px-2 py-1.5 bg-transparent"
+                                    value={form.perspectiveId}
+                                    onChange={(e) => setForm({ ...form, perspectiveId: e.target.value, grupo: "" })}>
+                                <option value="">{t("field.perspectiveNone")}</option>
+                                {perspectivas.map((p) => <option key={p.id} value={String(p.id)}>{p.name}</option>)}
+                            </select>
                         </label>
 
                         <label className="text-sm">
                             <span className="block mb-1 opacity-70">{t("field.group")}</span>
-                            <input className="w-full border rounded px-2 py-1.5 bg-transparent"
-                                   placeholder={t("field.groupPlaceholder")}
-                                   value={form.grupo}
-                                   onChange={(e) => setForm({ ...form, grupo: e.target.value })} />
+                            <select className="w-full border rounded px-2 py-1.5 bg-transparent disabled:opacity-50"
+                                    value={form.grupo}
+                                    disabled={!form.perspectiveId}
+                                    onChange={(e) => setForm({ ...form, grupo: e.target.value })}>
+                                <option value="">{t("field.groupAll")}</option>
+                                {gruposDeLaElegida.map((g) => <option key={g} value={g}>{g}</option>)}
+                            </select>
                         </label>
                     </div>
 

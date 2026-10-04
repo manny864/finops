@@ -4,6 +4,7 @@ import { getAzureCredential } from "@/lib/azure";
 import { getCostForecast } from "@/modules/collectors/azure/billingService";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import { whiteboardCachePrefix } from "@/lib/cacheKeys";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getAdvisorExecutiveData, buildAdvisorRemediationCommand } from "@/services/azureAdvisor.service";
 import { translateAdvisorText } from "@/lib/advisorI18n";
@@ -562,12 +563,12 @@ export async function GET(request: NextRequest) {
         }, identidad.alcance ?? null);
         const alcance: Recorte = { and: alcanceRuta.and, params: alcanceRuta.params };
 
-        const cacheKey = `whiteboard:v5:azure:${tenantId}:${locale}:${timeRange}`;
+        const cacheKey = `${whiteboardCachePrefix(tenantId)}:${locale}:${timeRange}`;
         const bust = request.nextUrl.searchParams.get("bust") === "1";
         if (bust) {
             try {
                 await redis.del(cacheKey);
-                await redis.del(`whiteboard:v5:azure:${tenantId}:${locale}`);
+                await redis.del(`${whiteboardCachePrefix(tenantId)}:${locale}`);
             } catch {}
         }
         const ensamblar = async () => {

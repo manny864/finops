@@ -110,10 +110,14 @@ export async function POST(request: NextRequest) {
             // operador que entra por la dirección de red del dev server genera
             // enlaces a `0.0.0.0:3000`, que no lleva a ninguna parte.
             const base = urlPublica(request);
+            // SIN idioma en la ruta: el middleware de next-intl lo elige por el
+            // navegador del partner (o su cookie) y redirige, y el navegador
+            // conserva el fragmento en la redirección. Con `/es/` fijo, todo
+            // partner caía en castellano.
             return NextResponse.json({
                 success: true,
                 prefix: emitido.prefijo,
-                url: `${base}/es/partner#k=${emitido.bruto}`,
+                url: `${base}/partner#k=${emitido.bruto}`,
             });
         }
 

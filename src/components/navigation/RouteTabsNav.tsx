@@ -4,6 +4,8 @@ import React from "react";
 import { Link } from "@/i18n/routing";
 import { usePathname } from "@/i18n/routing";
 import InfoTooltip from "@/components/InfoTooltip";
+import { useAlcanceAsignado } from "@/components/PerspectiveScopeSelector";
+import { paginaAdmiteAlcance } from "@/lib/scopeAwareRoutes";
 
 export type RouteTab = {
     href: string;
@@ -20,10 +22,14 @@ export default function RouteTabsNav({
     className?: string;
 }) {
     const pathname = (usePathname() || "").replace(/\/$/, "");
+    // MEJ-38: a un usuario con alcance asignado sólo se le ofrecen las pestañas
+    // que saben acotarse. Las demás le devuelven 403, igual que en el Sidebar.
+    const { scope } = useAlcanceAsignado();
+    const visibles = scope ? tabs.filter((tab) => paginaAdmiteAlcance(tab.href)) : tabs;
 
     return (
         <div className={`flex flex-wrap gap-1 border-b border-gray-200 dark:border-slate-800 ${className}`}>
-            {tabs.map((tab) => {
+            {visibles.map((tab) => {
                 const tabPath = tab.href.replace(/\/$/, "");
                 const active = pathname === tabPath;
                 return (

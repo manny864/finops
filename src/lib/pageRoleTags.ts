@@ -119,6 +119,11 @@ export const PAGE_ROLE_TAGS: Record<string, RoleTag[]> = {
     "/governance/reporting": ["Security"],
     "/governance/ha": ["CloudAdmin"],
     "/governance/credentials": ["Security"],
+    // Las dos sin etiqueta caían al ["Platform"] del fallback: un usuario con
+    // permiso de dominio no las veía en el menú y RouteTierGate le cerraba la
+    // página aunque la abriera por dirección.
+    "/governance/lifecycle": ["CloudAdmin", "Security"],
+    "/governance/shift-left": ["CloudAdmin", "FinOps"],
     "/remediation/approvals": ["CloudAdmin"],
     "/governance/approvals": ["CloudAdmin"],
 

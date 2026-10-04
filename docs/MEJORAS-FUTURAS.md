@@ -1725,6 +1725,17 @@ Actualmente, el módulo de compromisos (`/commitments` y `/intelligence/advisor`
 2. El monitor de cupo refleja fielmente el consumo de la cuota anual de $50k USD de cancelaciones de Azure.
 3. El sistema dispara alertas automáticas a los 90, 60 y 30 días previos a la expiración de cualquier reserva activa.
 
+> **Criterio 3, cerrado el 2026-10-04.** Figuraba «Hecha» sin el cron: lo de septiembre cubría
+> simulador, cupo de devolución, ESR y concentración de vencimientos, pero nadie avisaba a 90/60/30
+> días. Ahora `reservation-expiry-alerts` (diario, 09:03 UTC) lee las reservas con la misma fuente que
+> la pestaña (`getActiveReservations`), ubica cada una en el escalón que le toca HOY y anota el aviso en
+> `ReservationExpiryNotices` (tenant, reserva, vencimiento, escalón): no se repite y una corrida perdida
+> se recupera en la siguiente. Avisa por la campanita y por `notifyTenant` —los canales del tenant—, sin
+> regla que configurar: los escalones son los de la propuesta. Quedan afuera los tenants por Lighthouse
+> (las reservas son de nivel tenant y la credencial sería la nuestra) y los que no tienen la pantalla.
+> Los estados terminales se excluyen por `provisioningState`, verificado en learn.microsoft.com.
+> Savings Plans no entran: el repo no lee `Microsoft.BillingBenefits`.
+
 ---
 
 ## MEJ-17 — AKS FinOps Cockpit (Costos por Namespace, Workload y Eficiencia de Contenedores)
@@ -3857,6 +3868,12 @@ enero y a los 2 presupuestos sin arrastre — o sea que desplegarlo no mueve un 
 Tests: `__tests__/unit/anioFiscalYArrastre.test.ts` (el helper),
 `__tests__/unit/anioFiscalEnLasRutas.test.ts` (el cableado, que era lo que estaba roto).
 
+> **2026-10-04 — con pantalla.** El arrastre y su tope se editan en la tabla de Presupuesto por Grupos
+> de Costos, y el año fiscal en Configuración → General. Al hacerlo salieron dos bugs: guardar el monto
+> desde la tabla APAGABA el arrastre (el PUT pisaba los campos que no venían; ahora los conserva) y el
+> campo arrancaba con el presupuesto efectivo, así que guardar inflaba la base con lo arrastrado. Cambiar
+> el ejercicio invalida los cachés de Cost Groups, Centros de Costo y el Whiteboard (éste, de hasta 12 h).
+
 ---
 
 ## MEJ-37 — Leaderboard de equipos y margen bruto
@@ -4048,6 +4065,11 @@ Tests: 9 más en `__tests__/unit/leaderboardDeEquipos.test.ts` (19 en total).
 > pods. Acá el techo es el rol custom del onboarding y no se pide Contributor sobre la
 > suscripción del cliente. De ellos se toman **métricas y recomendaciones, nunca
 > ejecución** — y eso descarta de entrada una categoría entera de roadmap.
+
+> **2026-10-04 — clasificación desde la tabla.** Columna *Clasificación* editable por Admin/Owner. Y
+> la pantalla no mandaba el token de sesión: para cualquier tenant real el Leaderboard respondía 401;
+> sólo el demo, que intercepta el fetch, lo mostraba.
+
 
 ## MEJ-38 — Views: vistas guardadas y con alcance por equipo
 
@@ -4335,6 +4357,13 @@ dispare una llamada sólo bajo cierto estado.
 3. El Sidebar oculta lo que no está en el mapa.
 4. Las escrituras de las seis, validando identificadores.
 5. Recién entonces, `SavedViews` — que es comodidad y no permiso, y por eso va última.
+
+> **2026-10-04 — asignación desde Usuarios, vistas compartidas y predeterminadas, y menú por hubs.**
+> `PAGINAS_CON_ALCANCE` declaraba sólo las direcciones viejas y el menú ya era por hubs: un usuario
+> acotado veía únicamente el Whiteboard. Ahora declara las pestañas de los hubs, `entradaConAlcance`
+> manda cada hub a su primera pestaña permitida y `RouteTabsNav` esconde las que no saben acotar. El
+> selector de vistas no mandaba el token, así que en tenants reales las vistas no cargaban ni se
+> guardaban. Con una predeterminada personal y otra compartida, gana la personal.
 
 ---
 

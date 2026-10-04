@@ -835,6 +835,12 @@
     "pageTitle": "Configuração Global",
     "pageSubtitle": "Personalize a aparência e o comportamento da plataforma FinOps.",
     "appearanceSection": "Aparência",
+    "fiscalYearSection": "Ano fiscal",
+    "fiscalYearTitle": "Mês de início do ano fiscal",
+    "fiscalYearSubtitle": "Define onde começa o acumulado anual de Grupos de Custos e do Whiteboard, e até onde o orçamento não gasto é transferido.",
+    "fiscalYearSaved": "Ano fiscal salvo. Os painéis já o utilizam.",
+    "fiscalYearSaveFailed": "Não foi possível salvar o ano fiscal.",
+    "fiscalYearLoadFailed": "Não foi possível ler o ano fiscal.",
     "themeTitle": "Tema da Interface",
     "themeSubtitle": "Escolha como você quer visualizar a plataforma.",
     "themeLight": "Claro",
@@ -933,7 +939,8 @@
       "webhook": "Anomalias, estouros de orçamento e remediações são publicados neste canal do Slack ou Teams.",
       "itsm": "Permite que o Action Center abra tickets de remediação no seu quadro em vez de apenas notificar.",
       "itsmToken": "Armazenado criptografado (AES-256-GCM) e nunca retorna ao navegador. Deixe vazio para manter o token atual.",
-      "powerbi": "Feed com o esquema FOCUS 1.0. O token vai no cabeçalho Authorization, não na URL."
+      "powerbi": "Feed com o esquema FOCUS 1.0. O token vai no cabeçalho Authorization, não na URL.",
+      "fiscalYear": "Se o exercício da sua empresa não termina em dezembro, escolha aqui o mês em que ele começa. Alterá-lo recalcula os acumulados anuais; nenhum dado é apagado ou movido."
     }
   },
   "AdminContractTenant": {
@@ -2062,6 +2069,25 @@
     "col_role_help": "Quais ações o usuário pode executar. Muda em um clique pelo seletor.",
     "col_scope": "Alcance de páginas",
     "col_scope_help": "Quantos módulos estão habilitados. Edite em Permissões granulares.",
+    "col_dataScope": "Equipe (dados)",
+    "col_dataScope_help": "O grupo de uma Perspective ao qual o usuário fica restrito: vê só o gasto dele, e só as telas que sabem recortá-lo. Vazio = todo o tenant.",
+    "dataScopeNone": "Todo o tenant",
+    "dataScopeAllGroups": "todos os grupos",
+    "dataScopeAssign": "Restringir",
+    "dataScopeChange": "Alterar",
+    "dataScopeRemove": "Remover a restrição",
+    "dataScopeAdminNotAllowed": "Admin e Owner não podem ser restritos: poderiam emitir uma chave de API, que vale para o tenant, e contornar a restrição.",
+    "dataScopeModalTitle": "Restringir {email}",
+    "dataScopeWarning": "Com escopo atribuído, este usuário vê só o gasto do seu grupo e só as telas que sabem recortá-lo: White Board, Grupos de Custos, Orçamento por Grupos de Custos, Gastos e Projeção, Scorecard (Fama) e Storage Accounts. O resto deixa de aparecer no menu.",
+    "dataScopePerspective": "Perspective",
+    "dataScopeGroup": "Grupo",
+    "dataScopeNoPerspectives": "Para restringir um usuário, primeiro é preciso uma Perspective com grupos. Elas são definidas em Inteligência Financeira → Perspectives.",
+    "dataScopeCancel": "Cancelar",
+    "dataScopeSave": "Salvar escopo",
+    "dataScopeSaved": "{email} ficou restrito.",
+    "dataScopeRemoved": "{email} volta a ver todo o tenant.",
+    "dataScopeRemoveConfirm": "Remover a restrição de {email}? Ele voltará a ver o gasto de todo o tenant.",
+    "dataScopeSaveError": "Não foi possível alterar o escopo.",
     "col_mfa": "Status 2FA",
     "col_mfa_help": "Registro de MFA no Entra ID. \"Sem dado\" significa que o Entra ID ainda não respondeu, não que falte o segundo fator.",
     "col_lastLogin": "Último acesso",
@@ -7443,7 +7469,12 @@
     "networkError": "Erro de rede: {error}",
     "max100": "Máx. 100",
     "scopeHidesBudget": "Restrito por Perspective: o orçamento não é exibido porque está definido para o centro de custo inteiro. Compará-lo com uma porção indicaria uma folga que não existe.",
-    "rolloverBreakdown": "Orçamento base {base} mais {carry} transferidos de meses anteriores do exercício. O mês é medido contra a soma."
+    "rolloverBreakdown": "Orçamento base {base} mais {carry} transferidos de meses anteriores do exercício. O mês é medido contra a soma.",
+    "rolloverToggle": "Transferir o não gasto",
+    "rolloverHint": "O que não é gasto em um mês soma-se ao orçamento do mês seguinte, dentro do mesmo ano fiscal.",
+    "rolloverCapLabel": "Teto (USD)",
+    "rolloverCapNone": "sem teto",
+    "invalidRolloverCap": "O teto deve ser um número maior ou igual a 0."
   },
   "IntelligenceHybridBenefit": {
     "title": "Scanner do Azure Hybrid Benefit",
@@ -9929,6 +9960,7 @@
     "remediation": "Remediação",
     "perspectives": "Perspectives",
     "lifecycle_eol": "Fim de suporte",
+    "shift_left": "Shift-Left (PRs)",
     "team_leaderboard": "Leaderboard de times"
   },
   "Network": {
@@ -10399,6 +10431,8 @@
     "notif_addon_expiry_title": "{addonName} vence em {days, plural, one {# dia} other {# dias}}",
     "notif_idle_resources_msg": "Há cerca de USD {amount} por mês em recursos sem uso. Revise em Limpeza de Nuvem.",
     "notif_idle_resources_title": "{count, plural, one {# recurso ocioso} other {# recursos ociosos}}",
+    "notif_reservation_expiry_title": "{count, plural, one {# reserva do Azure vencendo} other {# reservas do Azure vencendo}}",
+    "notif_reservation_expiry_msg": "A mais próxima vence em {days, plural, one {# dia} other {# dias}}. Se não for renovada, o consumo que ela cobre volta ao preço de tabela.",
     "notif_credential_expiry_msg": "A regra \"{ruleName}\" detectou credenciais de App Registration próximas do vencimento.",
     "notif_credential_expiry_title": "{count, plural, one {# credencial expirando} other {# credenciais expirando}} — {ruleName}",
     "notif_demo_anomaly_msg": "Detectado aumento de gasto de +{pct}% nas últimas 24 h.",
@@ -15900,10 +15934,19 @@
     "title": "Visões",
     "empty": "Você ainda não salvou nenhuma visão.",
     "saveCurrent": "Salvar a visão atual…",
-    "namePrompt": "Como se chama esta visão?",
+    "namePrompt": "Nome da visão",
     "delete": "Excluir",
     "sharedTag": "compartilhada",
-    "defaultTag": "padrão"
+    "defaultTag": "padrão",
+    "markDefault": "Abri-la por padrão ao entrar",
+    "shareWithTeam": "Compartilhá-la com toda a equipe",
+    "shareHint": "Uma visão compartilhada é vista por todo o tenant, e só Admin ou Owner podem alterá-la ou excluí-la.",
+    "setDefault": "Usar como padrão",
+    "unsetDefault": "Deixar de usar como padrão",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "saveError": "Não foi possível salvar a visão.",
+    "deleteError": "Não foi possível excluir a visão."
   },
   "Leaderboard": {
     "pageTitle": "Leaderboard de times",
@@ -15916,6 +15959,9 @@
     "splitTitle": "Custo de venda e despesa operacional",
     "unallocated": "{cost} ({pct}%) sem alocação: nenhuma regra o alcança. Entra no total mas em nenhum time.",
     "drillDown": "Ver detalhamento",
+    "classHint": "COGS é o custo do que você vende e entra na margem bruta; OpEx é despesa operacional. Admin e Owner podem alterá-la.",
+    "classSaveError": "Não foi possível salvar a classificação.",
+    "classFor": "Classificação de {team}",
     "class": {
       "COGS": "COGS",
       "OPEX": "OpEx",
@@ -15927,7 +15973,8 @@
       "spend": "Gasto",
       "change": "Variação",
       "budget": "Orçamento usado",
-      "savings": "Economia capturada"
+      "savings": "Economia capturada",
+      "class": "Classificação"
     },
     "outOfRank": {
       "sin-periodo-previo": "sem período anterior para comparar",
@@ -15982,9 +16029,9 @@
       "dayOfMonth": "Dia do mês",
       "recipients": "Destinatários (separados por vírgula)",
       "perspective": "Perspective (opcional)",
-      "perspectivePlaceholder": "id, ex. 7",
+      "perspectiveNone": "Nenhuma (todo o tenant)",
       "group": "Grupo (opcional)",
-      "groupPlaceholder": "somente esse time"
+      "groupAll": "Todos os grupos"
     },
     "col": {
       "report": "Relatório",
@@ -16057,6 +16104,8 @@
     "manualPdf": "Baixar PDF",
     "manualMd": "Markdown",
     "manualOtherLanguages": "Também em:",
-    "footnote": "Os valores refletem as comissões apuradas sobre cobranças já registradas. O pagamento segue os termos do seu contrato de parceiro."
+    "footnote": "Os valores refletem as comissões apuradas sobre cobranças já registradas. O pagamento segue os termos do seu contrato de parceiro.",
+    "metaTitle": "Painel do Parceiro | CSCloudSolutions",
+    "metaDescription": "Suas indicações e comissões no Programa de Parceiros da CSCloudSolutions."
   }
 }

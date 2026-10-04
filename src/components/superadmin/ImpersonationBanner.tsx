@@ -5,6 +5,9 @@ import { useTranslations } from "next-intl";
 import { useRouter, usePathname } from "next/navigation";
 import { IconShieldLock, IconLogout, IconLoader2 } from "@tabler/icons-react";
 import { toast } from "sonner";
+import { useMsal } from "@azure/msal-react";
+import { useTenant } from "@/components/TenantProvider";
+import { fetchWithAuthRetry } from "@/lib/msalToken";
 import type { ImpersonationSessionData } from "@/types/sessionImpersonation.types";
 
 export function ImpersonationBanner() {
@@ -13,10 +16,20 @@ export function ImpersonationBanner() {
   const pathname = usePathname();
   const [session, setSession] = useState<ImpersonationSessionData | null>(null);
   const [isStopping, setIsStopping] = useState<boolean>(false);
+  const { instance, accounts } = useMsal();
+  const { systemRole } = useTenant();
+  const esSuperAdmin = systemRole === "SUPERADMIN";
 
   const checkStatus = useCallback(async () => {
+    // Sólo un superadmin puede estar impersonando, y la ruta exige su sesión.
+    // Antes se llamaba sin token —y para todos, en cada navegación—, así que
+    // respondía 401 y la barra no aparecía nunca.
+    if (!esSuperAdmin || accounts.length === 0) {
+      setSession(null);
+      return;
+    }
     try {
-      const res = await fetch("/api/superadmin/impersonate/status");
+      const res = await fetchWithAuthRetry(instance, accounts[0], "/api/superadmin/impersonate/status");
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.isImpersonating && data.session) {
@@ -28,7 +41,7 @@ export function ImpersonationBanner() {
     } catch {
       // Ignorar errores silenciosos
     }
-  }, []);
+  }, [esSuperAdmin, instance, accounts]);
 
   useEffect(() => {
     checkStatus();
@@ -37,7 +50,7 @@ export function ImpersonationBanner() {
   const handleStopImpersonation = async () => {
     try {
       setIsStopping(true);
-      const res = await fetch("/api/superadmin/impersonate/stop", {
+      const res = await fetchWithAuthRetry(instance, accounts[0], "/api/superadmin/impersonate/stop", {
         method: "POST",
       });
 

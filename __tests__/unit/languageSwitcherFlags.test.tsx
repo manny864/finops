@@ -82,4 +82,16 @@ describe("LanguageSwitcher Component", () => {
     fireEvent.click(enOption!);
     expect(mockReplace).toHaveBeenCalledWith("/dashboard?tab=overview", { locale: "en" });
   });
+
+  it("keeps the URL fragment: the partner panel carries its credential there", () => {
+    window.history.replaceState(null, "", "/es/partner#k=afp_live_prueba");
+    try {
+      render(<LanguageSwitcher />);
+      fireEvent.click(screen.getByRole("button", { name: /seleccionar idioma/i }));
+      fireEvent.click(screen.getAllByRole("option").find((opt) => opt.textContent?.includes("PT-BR"))!);
+      expect(mockReplace).toHaveBeenLastCalledWith("/dashboard?tab=overview#k=afp_live_prueba", { locale: "pt-BR" });
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
+  });
 });

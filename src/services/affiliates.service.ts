@@ -434,7 +434,8 @@ export async function crearAfiliado(datos: {
     const nombre = String(datos.name || "").trim();
     if (!nombre) throw new Error("El nombre es obligatorio.");
 
-    const pct = new Decimal(String(datos.commissionPct ?? 20));
+    // 15 % es el programa de Referido; el 20 % es la co-venta del comercial.
+    const pct = new Decimal(String(datos.commissionPct ?? 15));
     if (pct.lte(0) || pct.gt(100)) throw new Error("El porcentaje de comisión tiene que estar entre 0 y 100.");
 
     const id = crypto.randomUUID();

@@ -13,6 +13,8 @@ import React, { useMemo } from "react";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
+import { useMsal } from "@azure/msal-react";
+import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import { IconRouter, IconAlertTriangle, IconExternalLink } from "@tabler/icons-react";
 
@@ -43,15 +45,21 @@ export default function NetworkCapacityBoard() {
     const { selectedTenant } = useTenant();
     const tenantId = selectedTenant?.id || "";
     const esMock = isMockTenant(tenantId);
+    const { instance, accounts } = useMsal();
 
     const { data, error, isLoading } = useSWR<Respuesta>(
-        tenantId ? `/api/intelligence/network/capacity?tenantId=${encodeURIComponent(tenantId)}${esMock ? "&mock=true" : ""}` : null,
+        tenantId && (esMock || accounts.length > 0) ? `/api/intelligence/network/capacity?tenantId=${encodeURIComponent(tenantId)}${esMock ? "&mock=true" : ""}` : null,
         async (u: string) => {
+            // La ruta exige el token de sesión. Este fetch no lo mandaba y TODO
+            // tenant real recibía 401; se leyó como "sesión vencida" porque el
+            // demo, que intercepta el fetch, sí mostraba datos.
+            const headers: Record<string, string> = esMock
+                ? {}
+                : { Authorization: `Bearer ${await getFreshIdToken(instance, accounts[0])}` };
             // Un `fetch` que no lanza ante un 401/403/500 le entrega a SWR un
             // cuerpo `{error}` como si fuera datos: `error` queda en null, el
             // componente cree que tiene respuesta y explota al desestructurar.
-            // Lo encontró el navegador con una sesión vencida, no los tests.
-            const r = await fetch(u);
+            const r = await fetch(u, { headers });
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             return r.json();
         },
