@@ -16052,6 +16052,11 @@
     "status_PAID": "Paga",
     "status_REVERSED": "Revertida",
     "status_CANCELLED": "Cancelada",
+    "manualTitle": "Manual do parceiro",
+    "manualIntro": "Como a plataforma funciona e como vendê-la: planos e preços, roteiro de demo, objeções e como a sua comissão é liquidada.",
+    "manualPdf": "Baixar PDF",
+    "manualMd": "Markdown",
+    "manualOtherLanguages": "Também em:",
     "footnote": "Os valores refletem as comissões apuradas sobre cobranças já registradas. O pagamento segue os termos do seu contrato de parceiro."
   }
 }

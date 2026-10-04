@@ -2,30 +2,49 @@
 <img src="../../public/CSCloudSolutions.png" alt="CSCloudSolutions" class="cover-logo" width="360" />
 <h1 class="cover-title">Manual do Usuário</h1>
 <p class="cover-sub">FinOps SaaS · CSCloudSolutions</p>
-<p class="cover-meta">Versão 2.0 · Agosto 2026</p>
+<p class="cover-meta">Versão 2.1 · Outubro 2026</p>
 <p class="cover-copyright">© 2026 CSCloudSolutions. Todos os direitos reservados.</p>
 </div>
 
 # 📘 Manual do Usuário — FinOps SaaS (CSCloudSolutions)
 
-**Versão:** 2.0 (detalhada)
+**Versão:** 2.1 (detalhada)
 **Idioma:** Português Brasileiro
-**Última atualização:** Agosto 2026
+**Última atualização:** Outubro 2026
 **Público:** usuários técnicos (Cloud Admin, DevOps, FinOps Analyst) e não técnicos (financeiro, gerência, product owners)
 
 ---
 
-## Atualizações recentes (Agosto 2026)
+## Atualizações recentes (Setembro – Outubro 2026)
 
-- **Novo módulo Azure Integration Services (iPaaS):** o hub `Intelligence → Azure Integration Services` foi adicionado com abas para Logic Apps, APIM, Service Bus, Event Grid, Event Hubs e ADF.
-- **Conectores Enterprise em Logic Apps:** foi adicionada uma seção dedicada para separar conectores Standard vs Enterprise e seu impacto operacional/custo.
-- **IA Enterprise (Azure IA):** a configuração global de IA agora suporta **URL de endpoint** + deployment para Azure IA, em vez de depender apenas do nome do recurso.
-- **Padrão de tabelas FinOps/CMP (SaaS):** todas as tabelas padronizadas agora incluem filtros base (**Recurso, Região, Tipo, Grupo de recursos**), ordenação (A-Z/Z-A/custo), paginação **15/30/45/60**, layout responsivo full-width e colunas redimensionáveis.
-- **Monitoramento e Segurança alinhados:** as telas desses módulos agora seguem o mesmo padrão visual e operacional de Bancos de Dados e Computação para decisões FinOps mais rápidas.
-- **Correções no AI Cost Analytics:** o painel de Microsoft Foundry/Azure OpenAI agora prioriza consumo real, mantém tendência MTD desde o dia 1 e corrige inconsistências de cache/fontes.
-- **Novo cron de prewarm de Segurança:** `GET /api/cron/prewarm-security-finops` agora pré-aquece Defender + famílias de Segurança para acelerar carregamento em staging e produção.
-- **Hardening da Inteligência de Bancos de Dados:** Redis, MySQL, PostgreSQL, Cosmos DB, MongoDB e SQL/Managed Instance agora exibem status e métricas com fallback por métrica, evitando `N/A/unknown` quando a telemetria do Azure vem parcial.
-- **Refresh visual de módulos FinOps:** cards principais de Inteligência, Consumo, Governança, Cleanup, Overview e Copilot M365 agora usam ícones Tabler sem fundo azul para leitura mais limpa.
+- **Perspectives e alcance por equipe.** Agora você cria Perspectives pela tela —por Tag, Padrão de nome, Assinatura, Grupo de recursos ou Tipo de recurso—, vê quanto do gasto cai dentro de cada grupo e restringe com um seletor transversal os painéis de Cost Groups, Centros de Custo, Gastos e Projeção, Armazenamento, o Whiteboard e o simulador What-If. Um Admin também pode **atribuir um alcance a um usuário**: a API devolve só a sua parcela, não é um filtro de tela (5.3 e 8.2). As **Visões salvas** lembram uma combinação de alcance para voltar a ela com um clique.
+- **Leaderboard de times e margem bruta.** Um ranking que ordena por melhoria —não por quem gasta menos—, a divisão custo dos produtos vendidos (COGS) / despesa operacional (OpEx) e a margem bruta quando você carrega a receita (5.2).
+- **Assinaturas de relatórios.** A aba **Assinaturas** de Relatórios e Exportação envia o relatório por e-mail na cadência que você escolher, com link, gráfico e CSV (8.6).
+- **Ano fiscal e transferência de orçamento.** O exercício do tenant deixa de estar fixo em janeiro e um orçamento pode transferir ao mês seguinte o que não foi gasto, com teto (5.1.5).
+- **Fim de suporte.** O que roda sobre uma versão que o Azure aposenta, quando, e quanto custa hoje: AKS, PostgreSQL e MySQL Flexible Server (7.9).
+- **Compromissos.** Aviso de concentração de vencimentos, **ESR** (taxa efetiva de economia), simulador de ponto de equilíbrio com mix ótimo e controle do limite anual de devoluções de reservas (5.4).
+- **Shift-Left FinOps.** O custo de um `terraform plan` dentro do Pull Request, antes do merge, com limites por repositório (7.10).
+- **Cosmos DB com telemetria real** e otimizador de RU/s: manual vs autoscale vs serverless, e partições quentes (5.5).
+- **Redes: Tráfego e egress, e Capacidade de enlaces** (ExpressRoute e VPN superdimensionados) (5.8).
+- **Azure Virtual Desktop** dentro de Computação: host pools, session hosts, perfis FSLogix e custo por usuário (5.6).
+- **Armazenamento** como hub próprio: Storage Accounts, Managed Disk, Backups e Data Lake Gen2 (5.7).
+- **Whiteboard com intervalo de tempo:** mês atual, últimos 30 dias ou últimos 90 dias, com o histórico guardado na base da plataforma (4.1).
+- **Marketplace de módulos e capacidades à la carte**, para somar uma função ou uma cota sem mudar de plano (8.10).
+- **FinOps Copilot com conversa contínua** entre páginas e botão **Nova conversa** (9).
+- **App móvel (PWA)** com Resumo, Alertas, Aprovações, Suporte e Perfil (11.12).
+- **Anomalias com responsável e acompanhamento** (14) e **assinaturas fora do limite do seu plano** (15).
+
+**Novidades de agosto 2026**
+
+- **Novo módulo Azure Integration Services (iPaaS):** hub com abas de Logic Apps, APIM, Service Bus, Event Grid, Event Hubs e ADF.
+- **Conectores Enterprise em Logic Apps:** seção dedicada para distinguir conectores Standard vs Enterprise e seu impacto operacional/custo.
+- **IA Enterprise (Azure IA):** a configuração global de IA suporta **endpoint URL** + deployment para Azure IA em vez de depender só do nome do recurso.
+- **Padrão de tabelas FinOps/CMP (SaaS):** todas as tabelas do padrão incluem filtros base (**Recurso, Região, Tipo, Grupo de recursos**), ordenação (A-Z/Z-A/custo), paginação **15/30/45/60**, design responsivo, largura total e colunas redimensionáveis.
+- **Monitoramento e Segurança homologados:** usam o mesmo padrão visual/operacional de Bancos de Dados e Computação, com foco em leitura rápida para decisões FinOps.
+- **AI Cost Analytics corrigido:** o painel de Microsoft Foundry/Azure OpenAI prioriza consumo real, mantém a tendência MTD desde o dia 1 do mês e corrige inconsistências de cache/fontes.
+- **Cron de pré-aquecimento de Segurança:** `GET /api/cron/prewarm-security-finops` pré-aquece Defender + famílias de Segurança para acelerar o carregamento.
+- **Inteligência de Bancos de Dados reforçada:** Redis, MySQL, PostgreSQL, Cosmos DB, MongoDB e SQL/Managed Instance mostram estado e métricas com fallback por métrica para evitar `N/A/unknown` por telemetria parcial do Azure.
+- **Refresh visual de navegação e módulos FinOps:** cartões-chave de Inteligência, Consumo, Governança, Cleanup, Overview e Copilot M365 migraram para iconografia Tabler e cabeçalhos sem fundo azul.
 
 ## Como usar este manual
 
@@ -47,6 +66,9 @@ Cada seção explica **o que é** a funcionalidade, **quem** pode usá-la (papel
 10. [Segurança da Conta (MFA)](#10-segurança-da-conta-mfa)
 11. [Funcionalidades Avançadas e Integrações](#11-funcionalidades-avançadas-e-integrações)
 12. [Melhores Práticas](#12-melhores-práticas)
+13. [Avisos da plataforma](#13-avisos-da-plataforma)
+14. [Anomalias de gasto: quem as atende](#14-anomalias-de-gasto-quem-as-atende)
+15. [Assinaturas fora do limite do seu plano](#15-assinaturas-fora-do-limite-do-seu-plano)
 
 ---
 
@@ -81,13 +103,15 @@ Quando você conecta sua assinatura do Azure (passo 2 do assistente de onboardin
 
 **Papéis do Azure necessários, por tier contratado:**
 
-| Tier | Papéis built-in | Papel personalizado |
+| Tier | Papéis built-in | Papel personalizado (*CSCloudSolutions Remediation Role*) |
 |---|---|---|
-| Professional (piso da plataforma) | Reader, Cost Management Reader, Monitoring Reader, Billing Reader | — |
-| Business | Professional + Tag Contributor | Start/Stop/Restart/Deallocate de VM + tags |
-| Enterprise | Business + Tag Contributor | Business + excluir disco/snapshot/NIC/IP pública/NSG |
+| Professional (piso da plataforma) | Reader, Cost Management Reader, Monitoring Reader, Billing Reader, Security Reader | — (somente leitura) |
+| Business | Professional + Tag Contributor | Ligar, desligar, reiniciar e desalocar VMs; gravar tags; gerenciar orçamentos do Azure; e **excluir** os recursos órfãos que a Limpeza de Nuvem detecta (VMs, discos, snapshots, planos do App Service, NICs, IPs públicos, NSGs e os demais tipos de rede de Zumbis de Rede) |
+| Enterprise | Business + Monitoring Contributor | Business + criar grupos de recursos |
 
-> ⚠️ **Os 4 papéis base do Professional são o mínimo absoluto** para que a página Consumo Real mostre dados. Se faltar `Cost Management Reader` ou `Billing Reader`, o Azure retorna 0 linhas silenciosamente.
+Além disso, o script concede à identidade **permissões de leitura do Microsoft Graph** em todos os planos (`Directory.Read.All`, `Reports.Read.All`, `User.Read.All` e `Organization.Read.All`) e, conforme o plano: `Application.ReadWrite.OwnedBy` (Business+, para rotacionar segredos: só alcança as App Registrations das quais a identidade é *owner*), `AuditLog.Read.All` (Enterprise, atividade de login para *Usuários e Licenças*) e `ExternalConnection.ReadWrite.OwnedBy` (Enterprise, conector do Copilot M365).
+
+> ⚠️ **Reader, Cost Management Reader, Monitoring Reader e Billing Reader são o mínimo absoluto** para que a página Consumo Real mostre dados. Se faltar `Cost Management Reader` ou `Billing Reader`, o Azure retorna 0 linhas silenciosamente. O `Security Reader` soma a leitura da postura de segurança (Defender/WAF).
 
 > ℹ️ **AI Cost Analytics (Microsoft Foundry / Azure OpenAI)** usa os mesmos papéis base (`Reader`, `Cost Management Reader`, `Monitoring Reader`, `Billing Reader`): **não requer papel adicional**.
 
@@ -150,13 +174,15 @@ Além do papel, cada usuário pode ter uma ou mais **permissões de domínio** a
 
 O menu lateral esquerdo agrupa tudo em 5 pilares (seções recolhíveis — a seção da página ativa se expande automaticamente):
 
-- **Visibilidade** — painéis, academia, maturidade FinOps
-- **Inteligência Financeira** — billing, orçamentos, otimização
-- **Limpeza de Nuvem** — recursos zumbis, TTL
-- **Governança** — tags, políticas, aprovações
-- **Administração** — usuários, configuração, faturamento, API
+- **Visibilidade** — Whiteboard, Academia FinOps, Azure Advisor, Maturidade FinOps, Progresso Histórico, TOP Despesas, Recursos, Green FinOps, Economia Capturada e Vazamentos Financeiros.
+- **Inteligência Financeira** — Consumo e Orçamento, Leaderboard de times, Perspectives, Otimização e Economia, Bancos de Dados, Computação, Armazenamento, Redes, Usuários e Licenças, Azure AI, Azure Integration Services, Monitoramento, Segurança e Analítica Avançada.
+- **Limpeza de Nuvem** — Recursos Zumbi, Zumbis de Rede, Expirações TTL e Backups Órfãos.
+- **Governança** — Conformidade de Tags, Alertas Self-Service, Agendas de Desligamento, Políticas Auto-Block, Relatórios de Governança, Alta Disponibilidade, Fim de suporte, Credenciais a Expirar e Aprovações.
+- **Administração** — Suporte, Usuários e Acessos, Configuração, Relatórios e Exportação, Integrações e API, Faturamento e Auditoria e Marketplace.
 
-Uma **busca** no topo do menu lateral permite encontrar páginas por nome ou conteúdo sem navegar manualmente pelas categorias.
+**O que você vê depende de três coisas:** seu **plano** (cada tela indica a partir de qual está disponível), seu **papel** (o que você pode fazer) e suas **permissões de domínio** (quais páginas aparecem para você). O que o seu plano não inclui aparece marcado com um cadeado e um aviso de upgrade, ou pode ser adicionado avulso no **Marketplace** (8.10).
+
+Uma **busca** no topo do menu lateral permite encontrar páginas pelo nome sem navegar pelas categorias, e só lista o que você pode abrir.
 
 ### 3.1. Botão "Histórico" — evolução temporal de qualquer métrica
 
@@ -177,32 +203,48 @@ Clique no seu **avatar** (círculo com sua inicial, canto superior direito) para
 - **Aparência** — Claro / Escuro / Automático (segue o tema do sistema operacional).
 - **Sair.**
 
+### 3.3. Hubs com abas
+
+Muitas entradas do menu são **hubs**: uma tela com abas que agrupa as visões de um mesmo tema. Você entra pelo hub e se move entre as abas sem voltar ao menu; a aba ativa fica na URL, então você pode compartilhar o link exato. São hubs, entre outros, **Consumo e Orçamento**, **Otimização e Economia**, **Bancos de Dados**, **Computação**, **Armazenamento**, **Redes**, **Monitoramento**, **Segurança**, **Azure AI**, **Azure Integration Services**, **Analítica Avançada** e, em Administração, **Usuários e Acessos**, **Configuração**, **Relatórios e Exportação**, **Integrações e API** e **Faturamento e Auditoria**.
+
+As URLs anteriores aos hubs (por exemplo `/intelligence/billing` ou `/admin/users`) continuam funcionando: abrem a mesma tela ou redirecionam para a aba correspondente, então os favoritos antigos não quebram.
+
+### 3.4. A barra de alcance: assinatura, Perspective e Visões
+
+No cabeçalho há três seletores que restringem o que os painéis mostram:
+
+- **Alcance (tenant e assinatura).** Você escolhe o tenant inteiro ou uma assinatura do Azure. Se sua organização tem mais de um tenant, você também troca de tenant daqui.
+- **Perspective e grupo.** Aparece só se o seu plano é Enterprise e o tenant tem Perspectives definidas (5.3). Você escolhe uma Perspective e um grupo —por exemplo *Times → Engenharia*— e os painéis que suportam isso mostram só essa parcela do gasto. A escolha viaja na URL: pode ser compartilhada por link e sobrevive a um refresh.
+- **Visões** (ícone de marcador). Com uma Perspective escolhida, *Salvar a visão atual…* lembra a combinação —Perspective e grupo— com o nome que você der, e você a aplica de novo com um clique no mesmo seletor. As visões que você salva pela tela são pessoais. As criadas pela API (`/api/intelligence/views`) podem ser também **compartilhadas** —o tenant inteiro as vê, e só Admin e Owner as criam ou apagam— ou **padrão**, aplicadas sozinhas ao entrar quando a URL não indica um alcance. O seletor só é mostrado quando há visões salvas ou uma Perspective ativa para salvar.
+
+> Se a sua conta tem um **alcance atribuído** por um Admin (8.2), o seletor de Perspective fica fixo no seu grupo, com cadeado, e o de Visões não é mostrado: o seu recorte não é escolhido, salvo nem alterado por você.
+
+### 3.5. Atalhos e app móvel
+
+- **Paleta de comandos:** `⌘K` (Mac) ou `Ctrl+K` (Windows/Linux) abre uma busca de telas, ações rápidas e também de recursos do seu ambiente (digite pelo menos dois caracteres).
+- **Manual:** o ícone de ajuda (**?**) do cabeçalho abre este manual em PDF, no idioma que você tiver ativo.
+- **Celular:** em telas estreitas a plataforma oferece uma experiência móvel dedicada (11.12).
+
 ---
 
 ## 4. Seção Visibilidade
 
 ### 4.1. Dashboard (White Board)
 
-Seu painel executivo de entrada. Reúne Custo Atual MTD, forecast, Recursos Zumbis, Economia Potencial e Impacto Ambiental, além de orçamentos, serviços dominantes, governança, Advisor e Quick Wins.
+Seu painel executivo de entrada. Reúne Custo Atual, forecast, Recursos Zumbi, Economia Potencial e Impacto Ambiental, junto com orçamentos, serviços dominantes, governança, Advisor e Quick Wins.
 
 **Como usar:**
-1. Revise a barra de sincronização e use **Atualizar** para ignorar o cache e consultar o ciclo vigente.
-2. Compare o gasto MTD com os orçamentos por centro de custos e ajuste a taxa do forecast de 12 meses.
-3. Fixe/desafixe widgets pelo ícone de pin para adicioná-los ao **Meu Dashboard**.
-4. Em **Top Quick Wins**, escolha **Otimizar** para abrir o modal de remediação com scripts CLI, PowerShell e Terraform.
+1. Escolha o **período** no seletor do cabeçalho: **Mês Atual (MTD)**, **Últimos 30 dias** ou **Últimos 90 dias**. O mês atual é consultado ao vivo no Azure Cost Management (com a base da plataforma como respaldo se o Azure não responder); os intervalos de 30 e 90 dias são lidos do histórico que a plataforma guarda toda noite, então respondem na hora e não gastam cota de consultas do Azure. O cartão de custo principal muda de rótulo conforme o intervalo.
+2. Confira a barra de sincronização e use **Atualizar** para ignorar o cache e consultar o ciclo vigente.
+3. Compare o gasto com os orçamentos por centro de custos e ajuste a taxa do forecast de 12 meses.
+4. Fixe/desafixe widgets pelo ícone de pin para levá-los a **Meu Dashboard**.
+5. Em **Top Quick Wins**, escolha **Otimizar** para abrir o modal de remediação com scripts CLI, PowerShell e Terraform.
 
-### 4.2. Gastos e Projeção (`/intelligence/cost-projection`, tier Professional+)
+O Whiteboard respeita o **alcance** da barra superior (3.4): com uma Perspective e um grupo escolhidos, os números são os dessa parcela do gasto.
 
-Combina duas ferramentas em uma página:
+### 4.2. Gastos e Projeção (aba do hub Consumo e Orçamento, plano Enterprise)
 
-- **Histograma de custos:** distribuição diária do gasto, com seletor de intervalo desde o último mês até **13 meses atrás** (tudo que o Azure Cost Management permite consultar), em cache no Redis para resposta instantânea.
-- **Projeção de Gastos:** calcule quanto você vai gastar no futuro.
-  1. O sistema usa a média mensal dos últimos 12 meses como base.
-  2. Você insere um **% de crescimento anual esperado** (valores negativos permitidos para simular um cenário de otimização/economia).
-  3. Escolhe o horizonte: 3, 6, 12 ou 24 meses.
-  4. O resultado mostra: média base, taxa mensal equivalente e total projetado, com um gráfico de linha real vs. projetado.
-
-Há um cartão resumo disso no Dashboard com o link **"Ver detalhe completo"**.
+Esta tela vive como aba do hub **Consumo e Orçamento** e é descrita em 5.1.6. O Dashboard mostra um cartão-resumo do mesmo conteúdo com o link **"Ver detalhe completo"**.
 
 ### 4.3. Azure Advisor
 
@@ -230,127 +272,381 @@ Centro de aprendizagem interativa sobre FinOps e otimização do Azure — curso
 
 > ⚠️ **Gate obrigatório:** usuários novos devem completar a Academia antes de acessar o resto da plataforma (com um aviso explicando o motivo). O progresso é registrado **por usuário**, não por organização — cada pessoa nova do tenant precisa completar, e uma vez completado não pode ser refeito.
 
-### 4.6-4.10. Progresso Histórico, TOP Gastos, Recursos, Green FinOps, Economia Capturada, Vazamentos Financeiros (Professional/Business+)
+### 4.6-4.10. Progresso Histórico, TOP Despesas, Recursos, Green FinOps, Economia Capturada, Vazamentos Financeiros (Professional/Business+)
 
-- **Progresso Histórico:** gráficos de tendência mensal, marcos de economia alcançados, comparativas mês a mês e ano a ano. Você pode adicionar anotações manuais explicando uma mudança (ex.: "migração para reservas").
-- **TOP Gastos:** ranking de suas maiores fontes de gasto por serviço, assinatura ou grupo de recursos, com drilldown até o nível de recurso individual.
-- **Recursos** (Business+): inventário completo — filtro e busca avançados, marcação em massa, exportação.
-- **Green FinOps** (Professional+): estimativa de pegada de carbono por serviço, comparação das regiões mais eficientes, recomendações de sustentabilidade.
-- **Economia Capturada** (Professional+): rastreamento de economias reais já conseguidas via RIs, Savings Plans e Hybrid Benefit, com cálculo de ROI.
-- **Vazamentos Financeiros** (Professional+): identifica dinheiro mal gasto (recursos abandonados, sobre-dimensionamento, redundância desnecessária) com um calendário de remediação.
+- **Progresso Histórico:** gráficos de tendência mensal, marcos de economia alcançados, comparativos mês a mês e ano a ano. Você pode adicionar anotações manuais sobre eventos que expliquem uma mudança (ex.: "migração para reservas").
+- **TOP Despesas:** ranking das suas maiores fontes de gasto por serviço, assinatura ou grupo de recursos, com drilldown até o nível de recurso individual.
+- **Recursos** (Business+): inventário completo — filtro e busca avançada, tagueamento em massa, exportação. Um recurso filho sem cobrança própria (por exemplo, a extensão de uma VM) não soma seu custo duas vezes: aparece em cinza como *em <recurso pai> · $valor*, e o valor conta uma única vez, no pai.
+- **Green FinOps** (Professional+): estimativa de pegada de carbono por serviço, comparativo das regiões mais eficientes, recomendações de sustentabilidade.
+- **Economia Capturada** (Professional+): acompanhamento das economias reais já obtidas via RIs, Savings Plans e Hybrid Benefit, com cálculo de ROI. O histórico inclui também o que sua equipe economizou **diretamente no Azure**, sem passar pela plataforma (um disco apagado pelo portal, uma VM desligada por CLI): é detectado porque o gasto do recurso cai e, quando o Activity Log do Azure ainda guarda o evento (90 dias), mostra quem fez e quando.
+- **Vazamentos Financeiros** (Professional+): identifica dinheiro mal gasto (recursos abandonados, superdimensionamento, redundância desnecessária) com calendário de remediação.
 
 ---
 
 ## 5. Seção Inteligência Financeira
 
-### 5.1. Consumo Real (`/intelligence/billing`, Professional+)
+Aqui está a análise de custos e de otimização do Azure. Quase toda entrada do menu é um **hub com abas** (3.3). O plano mínimo aparece junto de cada nome; se o seu não o inclui, a tela avisa e oferece o upgrade ou o módulo avulso do Marketplace (8.10).
 
-O painel de faturamento detalhado, em tempo real, direto do Azure.
+| Hub | Plano | Para que serve |
+|---|---|---|
+| **Consumo e Orçamento** | Professional+ | Gasto real, orçamentos, grupos de custos e projeção |
+| **Leaderboard de times** | Enterprise | Qual time melhorou, custo dos produtos vendidos e margem bruta |
+| **Perspectives** | Enterprise | Dividir o gasto pelas suas próprias dimensões |
+| **Otimização e Economia** | Enterprise | Rightsizing, tarifas, compromissos, Hybrid Benefit, custo zero |
+| **Bancos de Dados** | Business+ | Cosmos DB, SQL, PostgreSQL, MySQL, MongoDB, Redis e Fabric |
+| **Computação** | Business+ | VMs, VMSS, App Service, Functions, AVD, contêineres, Kubernetes e OpenShift |
+| **Armazenamento** | Enterprise | Storage Accounts, discos, backups e Data Lake |
+| **Redes** | Business+ | Análise de rede, conectividade, balanceamento, egress e capacidade de enlaces |
+| **Usuários e Licenças** | Enterprise | Licenças M365 e atividade de usuários |
+| **Azure AI** | Enterprise | Custo e consumo dos serviços de IA do Azure |
+| **Azure Integration Services** | Enterprise | Logic Apps, APIM, Service Bus, Event Grid, Event Hubs e ADF |
+| **Monitoramento** | Enterprise | Application Insights, Log Analytics, Monitor, Sentinel e alertas |
+| **Segurança** | Enterprise | Defender, Sentinel, Key Vault, Entra ID, WAF e DDoS |
+| **Analítica Avançada** | Enterprise | Unit Economics, rateio, scorecard, anomalias, saúde, What-If e MACC |
+
+### 5.1. Consumo e Orçamento (`/intelligence/consumo-y-presupuesto`)
+
+Sete abas: **Consumo Real**, **Por Categoria**, **Orçamentos**, **Grupos de Custos**, **Orçamento por Grupos de Custos**, **Gastos e Projeção** e **Ingestão CSV**.
+
+#### 5.1.1. Consumo Real (Professional+)
+
+O painel de faturamento detalhado, em tempo real direto do Azure.
 
 **Como usar:**
 1. Filtre por período, assinatura e grupo de recursos.
-2. Dê zoom em um serviço específico para ver seu detalhamento.
+2. Dê zoom em um serviço específico para ver o detalhamento por recurso.
 3. Baixe a fatura ou exporte os dados para Excel pelo botão correspondente.
-4. Crie alertas de limite direto da mesma página (leva ao formulário de Alertas Self-Service com o contexto pré-carregado).
+4. Crie alertas de limite na mesma página (leva você ao formulário de Alertas Self-Service com o contexto pré-carregado).
 
-### 5.2. Orçamentos (`/intelligence/budgets`, Professional+)
+> Se um recurso gasta em dois serviços do Azure (uma storage account em *Storage* e em *Bandwidth*, uma VM em *Virtual Machines* e em *Managed Disks*), ele aparece **completo sob o seu serviço principal** em vez de repartido. O detalhamento nunca soma mais do que o total do seu cartão, mas um recurso pode estar atribuído a um serviço que não é o único onde ele gasta.
+
+#### 5.1.2. Por Categoria (Business+)
+
+Distribuição do custo por categorias FinOps (Computação, Storage, Redes, AI etc.), para responder "em que família de serviços vai a minha fatura?" sem percorrer serviço por serviço.
+
+#### 5.1.3. Orçamentos (Professional+)
 
 1. **Criar orçamento:** nome, período (mensal/trimestral/anual), limite em $.
-2. **Limite de alerta:** defina em qual % do orçamento você quer ser notificado (ex.: 75%).
-3. O sistema acompanha automaticamente — você vê consumo real vs. orçamento em tempo real, com histórico de períodos anteriores.
+2. **Limite de alerta:** você define em que % do orçamento quer ser notificado (ex.: 75%).
+3. O sistema acompanha automaticamente — você vê consumo real vs. orçamento em tempo real, com histórico dos períodos anteriores.
 
-### 5.3. Cost Groups (`/intelligence/cost-groups`, Business+)
+#### 5.1.4. Grupos de Custos — Cost Groups (Business+)
 
-Agrupamento personalizado de custos de acordo com sua própria lógica de negócio (por projeto, linha de negócio, aplicação ou ambiente).
+Agrupamento personalizado de custos conforme a sua própria lógica de negócio (por projeto, linha de negócio, aplicação ou ambiente).
 
-1. Crie um grupo com regras de nomenclatura (quais recursos entram, por padrão de nome ou tag).
-2. Atribua recursos manualmente se precisar ajustar.
-3. Clicar em um grupo abre um modal com abas: **Custos**, **Ações**, **Recursos**, **Governança** — cada uma com o detalhe correspondente àquele grupo.
-4. Compare grupos entre si a partir da visualização em lista.
+1. Você cria um grupo com regras de nomenclatura (quais recursos entram, por padrão de nome ou tag).
+2. Atribui recursos manualmente se precisar ajustar.
+3. Ao clicar em um grupo abre-se um modal com abas: **Custos**, **Ações**, **Recursos**, **Governança** — cada uma com o detalhe correspondente a esse grupo.
+4. Você compara grupos entre si na visão de lista. Entre os períodos disponíveis está o **Ano Fiscal** do seu tenant (5.1.5).
 
-### 5.4. Reservas Ativas — Descontos por Compromisso (`/intelligence/commitments`, Enterprise+)
+Esta tela e o seu detalhe respeitam o **alcance de Perspective** da barra superior (3.4).
+
+#### 5.1.5. Orçamento por Grupos de Custos (Enterprise)
+
+Você define centros de custo, atribui recursos (manualmente ou em massa) e o sistema rateia o gasto automaticamente para gerar **chargeback interno** por departamento, contra o orçamento mensal de cada centro.
+
+**Transferência de orçamento (rollover).** Um orçamento pode transferir ao mês seguinte o que não foi gasto, com um teto. O mês é medido contra a soma do orçamento base mais o que foi transferido, e o cartão mostra isso com um selo e o seu detalhamento: *«Orçamento base X mais Y transferidos de meses anteriores do exercício»*. Regras que convém saber:
+
+- Um mês no vermelho transfere **zero**, nunca um saldo negativo: um estouro pontual não endivida os meses seguintes sem que ninguém decida.
+- O teto é aplicado **a cada passo**, mês a mês.
+- Com a transferência desligada —o valor padrão— o painel é idêntico ao de sempre.
+- Liga-se por centro de custo pela API: `PUT /api/intelligence/cost-centers` com `rolloverEnabled` e, opcionalmente, `rolloverCapUsd` (Admin ou Owner).
+
+**Ano fiscal.** Os acumulados anuais —o do Whiteboard, o período *Ano Fiscal* de Cost Groups e a projeção— contam a partir do mês em que começa o **exercício do seu tenant**, que por padrão é janeiro. Se o seu começa em outro mês (por exemplo abril), configura-se com `PUT /api/admin/tenant-settings` (`fiscalYearStartMonth`, de 1 a 12; Admin ou Owner) ou pedindo ao suporte. A projeção anual divide pelos dias do exercício e não pelos dias desde janeiro, de modo que não sai baixa quando o exercício não é o ano civil.
+
+**Sob um alcance de Perspective** (3.4) o orçamento **não é recortado**: está definido para o centro inteiro, e compará-lo com uma parcela mostraria uma folga que não existe. A tela avisa em vez de deixar a célula vazia.
+
+#### 5.1.6. Gastos e Projeção (Enterprise)
+
+Combina duas ferramentas em uma página:
+
+- **Histograma de custos:** distribuição diária do gasto, com seletor de intervalo desde o último mês até **13 meses atrás** (tudo o que o Azure Cost Management permite consultar), em cache no Redis para resposta instantânea.
+- **Projeção de Gastos:** calcule quanto você vai gastar no futuro.
+  1. O sistema toma a média mensal dos últimos 12 meses como base.
+  2. Você informa um **% de crescimento anual esperado** (pode usar valores negativos para simular um cenário de otimização/economia).
+  3. Escolhe o horizonte: 3, 6, 12 ou 24 meses.
+  4. O resultado mostra: média base, taxa mensal equivalente e o total projetado, com um gráfico de linha real vs. projetado.
+
+Há um cartão-resumo disso no Dashboard com o link **"Ver detalhe completo"**. Os dois cartões respeitam o alcance de Perspective; a comparação com o orçamento não (5.1.5).
+
+#### 5.1.7. Ingestão CSV (Business+)
+
+Importação manual ou programada de arquivos de custos no padrão **FOCUS** e de exports do Azure: você sobe o CSV de faturamento de terceiros e o analisa junto com os seus dados do Azure.
+
+### 5.2. Leaderboard de times (`/intelligence/leaderboard`, Enterprise)
+
+**Quem melhorou, não quem gasta menos.** O painel compara os **grupos de uma Perspective** (3.3 e 5.3) e os ordena por melhoria, que é o comportamento que se quer premiar: um ranking por gasto absoluto puniria o time que roda produção e premiaria o pequeno.
+
+| Coluna | O que mostra |
+|---|---|
+| **Time** | O grupo da Perspective |
+| **Gasto** | O que foi gasto no período |
+| **Variação** | Contra o período anterior |
+| **Orçamento usado** | Quanto do orçamento consumiu |
+| **Economia capturada** | Remediações aprovadas **e executadas** no Azure para esse grupo |
+
+**Como se ordena.** Pela queda percentual contra o período anterior e, com variação igual, pela economia capturada. Dois casos ficam **fora da ordem** mas à vista, com o seu motivo: um grupo *sem período anterior com o qual comparar* (não melhorou nem piorou) e um *pequeno demais para ranquear sem que seja ruído* (abaixo de 1% do gasto: um que passa de 1 para 0,50 dólar não ganha de quem cortou milhares). Cada linha tem **Ver detalhamento** para chegar ao detalhe desse grupo: um ranking que não se pode explicar gera discussão, não otimização.
+
+Três coisas que esclarecem os números:
+
+- **O orçamento é cruzado por nome.** Um grupo de Perspective e um centro de custo são coisas distintas; se o nome do grupo coincide com o de um centro de custo, mostra-se o seu orçamento, e se não, a célula fica vazia em vez de mostrar o de outro time.
+- **A economia capturada sai do que foi executado**, não do simplesmente aprovado. Como as remediações não guardam tags, em uma Perspective definida por tags essa economia cai em *não atribuído*.
+- **O gasto não atribuído** (nenhuma regra o alcança) entra no total, mas em nenhum time, e é informado à parte.
+
+**Custo dos produtos vendidos e despesa operacional.** Um cartão divide o gasto em **COGS**, **OpEx** e **Não classificado**, e a soma fecha com o total. Cada grupo é classificado com `PUT /api/intelligence/leaderboard` (`perspectiveId`, `groupName`, `classification` = `COGS`, `OPEX` ou `UNCLASSIFIED`; Admin ou Owner): a tela mostra o resultado, a classificação é atribuída por API.
+
+**Margem bruta.** Quando você carrega a **receita**, o cartão calcula *receita − COGS*. Ela é enviada com `POST /api/unit-metrics/ingest`, com uma API Key pública com a permissão `write:metrics` e `metricType` = `REVENUE` (11.11). Regras de honestidade do cálculo:
+
+- **Sem receita não há margem**, não 0%: o cartão explica como enviá-la.
+- **Se há gasto não classificado, a margem é uma faixa**: junto do melhor caso mostra-se o pior (tudo o que não foi classificado contado como COGS), porque um COGS subestimado faz a margem sair melhor do que é.
+- Uma **margem negativa** é mostrada como é: gastar mais do que entra é justamente o que esta tela existe para mostrar.
+
+Sem Perspectives definidas o painel avisa e leva você a **Definir uma**. Não o veem os usuários com alcance atribuído: um ranking compara grupos entre si e o seu recorte é justamente não ver os demais.
+
+### 5.3. Perspectives (`/intelligence/perspectives`, Enterprise)
+
+Uma **Perspective** divide o gasto por uma dimensão do seu negócio —times, produtos, ambientes, centros de custo— sem mexer nas tags do Azure. Cada uma é um conjunto **ordenado** de regras que atribuem um recurso a um grupo.
+
+Três propriedades que a tornam auditável:
+
+1. **Um recurso cai em um único grupo por Perspective**, e quem decide é a **primeira regra que coincide**: a ordem importa e se edita.
+2. **O mesmo recurso pode estar em grupos de Perspectives distintas.** O mesmo disco pode ser «Produção» em *Ambientes* e «Engenharia» em *Centros de Custo*.
+3. **A soma dos grupos mais o *Não atribuído* dá exatamente o total do período.** O grupo *Não atribuído* é sempre mostrado, com seu valor e porcentagem: uma Perspective que cobre 60% do gasto e não diz isso seria lida como se fosse o total.
+
+**Criar uma Perspective.**
+1. Em **Nova Perspective** digite o nome (por exemplo *Times*, *Produtos* ou *Ambientes*) e pressione **Criar**. Ela nasce **sem regras**, de propósito: com uma regra vazia a divisão mostraria um grupo sem nome e 100% não atribuído, o que se lê como se algo tivesse falhado.
+2. Adicione regras com **Adicionar regra**. Cada regra tem um **Grupo** (o nome do time, produto ou ambiente) e um critério:
+
+   | Tipo de regra | O que compara |
+   |---|---|
+   | **Tag** | Chave e valor de uma tag do recurso (o valor aceita `*`) |
+   | **Padrão de nome** | O nome do recurso |
+   | **Assinatura** | A assinatura do Azure |
+   | **Grupo de recursos** | O grupo de recursos |
+   | **Tipo de recurso** | O tipo de recurso do Azure |
+
+3. Ordene-as com **Subir** e **Descer**: vence a primeira que coincide.
+4. **Ver divisão** calcula, sem salvar nada, quanto do gasto do período cai em cada grupo e quanto fica *Não atribuído*, com a porcentagem de cobertura. Mudar a ordem das regras muda a divisão na prévia.
+5. **Salvar** aplica as regras.
+
+**Excluir** uma Perspective pede confirmação com o nome à vista: as regras também são apagadas, e quem a tinha atribuída como alcance deixa de tê-la.
+
+**«Não atribuído» e «Sem dados para avaliar» não são a mesma coisa.** *Não atribuído* é o gasto que nenhuma regra alcançou: é o que falta taguear ou regra por escrever. *Sem dados para avaliar* aparece quando as regras precisam de um dado que a plataforma ainda não ingere para essas linhas —por exemplo, regras por tag em um tenant cuja sincronização de custos não traz tags em nível de recurso—: não é um problema do seu tagueamento. Configurar o **export FOCUS do Azure** completa essas tags.
+
+**Onde se aplica.** Com uma Perspective e um grupo escolhidos na barra superior (3.4), restringem o seu conteúdo: Cost Groups e o seu detalhe, Orçamento por Grupos de Custos e o seu inventário de recursos, Gastos e Projeção, o Whiteboard, Armazenamento, o simulador What-If e o export FOCUS (`/api/exports/focus?perspective=&pgroup=`, útil para entregar ao financeiro só a parcela de um time). Quando uma tela **não consegue restringir** com exatidão, não mostra uma parcela duvidosa: avisa (*«Não foi possível restringir por Perspective… os números abaixo são os do painel completo»*).
+
+**Alcance atribuído a uma pessoa.** Um Admin pode deixar um usuário *restrito* a um grupo (8.2). Para essa pessoa o recorte não é uma preferência: a API o aplica, então mudar um parâmetro no navegador não mostra mais, e as telas que não sabem restringir respondem com acesso negado em vez de mostrar o painel inteiro.
+
+Na demo as Perspectives são de exemplo e não se salvam alterações.
+
+### 5.4. Otimização e Economia (`/intelligence/optimizacion-y-ahorro`, Enterprise)
+
+Sete abas: **Rightsizing**, **Otimização de Tarifas**, **Benefícios Híbridos**, **Reservas de Instâncias (RIs)**, **Saving Plan**, **Custo Zero** e **Índice de Otimização**.
+
+#### 5.4.1. Rightsizing
+
+Analisa 30 dias de uso real e recomenda o SKU ideal; mostra a economia estimada antes de você aprovar a mudança. Verticais dedicadas em `/intelligence/rightsizing/{vmss,appservice,sqldb,storage}`.
+
+#### 5.4.2. Otimização de Tarifas
+
+Oportunidades de tarifa —planos de economia, Spot e descontos por volume—, comparando suas tarifas atuais com benchmarks de mercado para preparar uma negociação com a Microsoft.
+
+#### 5.4.3. Benefícios Híbridos (AHB)
+
+Mostra quais VMs poderiam usar licenças com Software Assurance (Windows Server e SQL Server) e quanto você economizaria ao ativá-lo; acompanhamento do que já o usa.
+
+#### 5.4.4. Reservas de Instâncias (RIs) — Descontos por Compromisso
 
 Além da cobertura e utilização global, a tabela **Reservas Ativas** replica o blade *Reservations* do Azure: Nome, Status, Expiração, Escopo, Tipo, Produto, Região, Renovação, Quantidade, e utilização do último dia e dos últimos 7 dias.
 
-- Clique no botão de **Renovação** → modal para **ativar/desativar a renovação automática** daquela reserva. A mudança se aplica diretamente no Azure — requer papel Admin/Owner do tenant **e** permissões `Reservations Contributor/Owner` no Azure.
-- Clique em qualquer **porcentagem de utilização** → modal com detalhe de último dia / 7 dias / 30 dias e tendência diária.
+- Clique no botão de **Renovação** → modal para **ativar/desativar a renovação automática** dessa reserva. A mudança é aplicada diretamente no Azure — requer papel Admin/Owner do tenant **e** permissões `Reservations Contributor/Owner` no Azure.
+- Clique em qualquer **porcentagem de utilização** → modal com detalhe de último dia / 7 dias / 30 dias e a tendência diária.
+- As **reservas órfãs** —continuam faturando sem consumo real— são marcadas com um alerta para você revisar se o recurso existe ou cancelar a reserva.
 
-### 5.5. Savings Plan vs Reserva (`/intelligence/commitment-simulator`, Professional+)
+Acima do painel, três leituras da carteira:
 
-Simule ambas as opções de compra com seus números reais e compare a economia em 1 e 3 anos antes de se comprometer.
+- **Taxa efetiva de economia (ESR).** Quanto você economiza de verdade contra pagar tudo a preço de tabela: `(preço de tabela − custo efetivo) / preço de tabela`, nos últimos 30 dias. O custo efetivo **inclui o compromisso que não foi usado**, então comprar demais não melhora o número. É calculada só sobre o gasto que tem preço de tabela, e a tela diz sobre que porcentagem: o que não pôde ser valorizado fica de fora em vez de contar como zero de desconto. Se o tenant ainda não tem o **export FOCUS** de custos configurado, não há preço de tabela e o ESR não é desenhado.
+- **Vence junto.** Que parte do valor comprometido vence no mesmo mês ou em uma janela de três meses corridos: se toda a carteira vence ao mesmo tempo, o gasto volta ao preço de tabela de uma vez. É ponderado por **valor**, não por quantidade (dez reservas pequenas não pesam como uma grande), e avisa quantas reservas ficaram sem custo ou sem data para não minimizar o risco.
+- **Limite anual de devolução (US$ 50.000).** A Microsoft limita os cancelamentos e reembolsos de reservas a **US$ 50.000 por ano** e por Billing Account, em uma janela móvel de 12 meses. Uma barra mostra quanto da cota você consumiu e quanto resta, e avisa ao passar de 80%.
 
-### 5.6. Simulador What-If (`/intelligence/simulator`, tier Enterprise para salvar/comparar)
+**Simulador de ponto de equilíbrio e mix ótimo.** Escolha o tipo de carga (**Mix Geral**, **Computação Flexível** ou **Bancos de Dados**) e o seu gasto mensal sob demanda (PAYG): o simulador calcula em que mês uma reserva de **1 ano** (~38% de desconto de referência) ou de **3 anos** (~62%) supera pagar sob demanda, quanto você economiza por mês depois desse ponto, e sugere um **mix em 3 camadas**: Savings Plans para a flexibilidade, reservas para as cargas estáveis como os bancos de dados, e um colchão de pagamento sob demanda (*PAYG elástico*) para absorver os picos.
 
-Simule o impacto de escalar computação/armazenamento, variar tráfego de rede, ou ativar o Azure Hybrid Benefit sobre seu custo atual — **antes de aplicar a mudança real**.
+#### 5.4.5. Saving Plan
+
+Comparador **Savings Plan vs Reserva**: simule as duas opções de compra com os seus números reais e compare a economia em 1 e 3 anos antes de se comprometer. Os Savings Plans for Compute são compromissos flexíveis de gasto por hora.
+
+#### 5.4.6. Custo Zero
+
+Inventário de recursos zumbis, órfãos e desligados que geram custos residuais, e quais recursos são gratuitos na sua assinatura (free tier, créditos) para aproveitá-los ao máximo.
+
+#### 5.4.7. Índice de Otimização (COIN)
+
+Indicador consolidado de eficiência e aproveitamento do gasto: pontuação 0-100 composta, com a taxa de adoção das recomendações, o funil de estados (pendentes, aceitas, implementadas, adiadas, descartadas), o detalhamento pelos 5 pilares do Well-Architected Framework e a série histórica contra o benchmark de excelência.
+
+### 5.5. Bancos de Dados (`/intelligence/bases-de-datos`, Business+)
+
+Visibilidade, métricas e recomendações de custo para os bancos de dados do Azure. Sete abas:
+
+| Aba | O que cobre |
+|---|---|
+| **CosmosDB** | Consumo de RUs, particionamento e custos |
+| **Azure SQL / Managed Instance** | DTUs, vCores, Elastic Pools e Managed Instances |
+| **PostgreSQL** | Custos, IOPS e escalabilidade no Flexible Server |
+| **MongoDB** | Clusters Mongo e compatibilidade de API no Cosmos DB for MongoDB |
+| **Azure Cache for Redis** | Memória, taxa de acerto e dimensionamento; inclui o monitoramento detalhado das 12 métricas críticas do Azure Cache for Redis |
+| **MySQL** | Computação, armazenamento e alta disponibilidade no Flexible Server |
+| **Microsoft Fabric** | Capacidades F-SKU, armazenamento OneLake e consumo analítico |
+
+Como no resto dos cockpits, se o Azure não devolve uma métrica a plataforma mostra **«sem dado»** e não um zero: um zero seria lido como «ocioso» e levaria a reduzir algo que talvez esteja trabalhando.
+
+**Cosmos DB: telemetria real e otimizador de RU/s.** Cada conta é medida com as métricas reais do Azure Monitor (RU normalizada, throughput provisionado, requisições e as limitadas com erro 429, armazenamento, latência) e o painel emite três decisões, sempre com a economia derivada do que foi medido e das tarifas publicadas:
+
+1. **Baixar o RU/s manual** quando está superdimensionado: dimensiona-se pelo **percentil 95 de uso com 25% de margem** —não pela média, que deixa o banco curto em cada pico— e nunca abaixo do mínimo de 400 RU/s.
+2. **Migrar para Autoscale** quando o uso médio é baixo em relação ao teto: o limite (~66%) sai do quociente entre as duas tarifas publicadas, não é um número escolhido.
+3. **Passar para Serverless** quando a conta consome pouco e de forma intermitente: decide-se com as RUs realmente consumidas extrapoladas para o mês, e o teto de 5.000 RU/s é medido contra o **pico real**, não contra o provisionado.
+
+Também detecta **partições quentes** (uma partição física que concentra o consumo enquanto as demais sobram). Essa recomendação vai com economia **zero** de propósito: distribuir melhor a chave evita os erros 429, não baixa a fatura por si só, e pôr um número ali seria inventá-lo.
+
+### 5.6. Computação (`/intelligence/computo`, Business+)
+
+Eficiência e custos das plataformas de computação. Nove abas:
+
+| Aba | O que cobre |
+|---|---|
+| **Eficiência de Computação** (Enterprise) | Custo unitário por core, benchmark regional e otimização de compromissos. Na tabela **Por SKU e Arquitetura**, *vCPU/VM* e *RAM/VM* são a ficha de **uma** instância do SKU, *Instâncias* diz quantas você tem e as razões *$/Core* e *$/GiB* dividem o custo total pela frota desse SKU |
+| **Kubernetes** (Enterprise) | Clusters AKS: nós ativos, utilização real vs. superprovisionamento, custo de infraestrutura e de planos de controle, custo por pod, recomendações de auto-scaling e **chargeback por namespace** (você atribui namespaces a times e calcula-se quanto cada um gasta, para faturamento interno) |
+| **Estrutura de Contêineres** | Azure Container Apps, Registries e Environments: inventário financeiro, forecast e rightsizing; custo mensal por app, CPU/memória e réplicas, e oportunidades de *scale-to-zero* (apps com réplica mínima ≥ 1 que poderiam ser desligadas sem tráfego) |
+| **Web Apps & App Services** | Cockpit de App Service Plans e Web Apps com densidade de apps, consolidação e detecção de instâncias subutilizadas |
+| **Function Apps** | Invocações, GB-s, auditoria de logs, planos dedicados e flexíveis, e playbooks de sampling/downgrade |
+| **Azure Virtual Machines** | Custo de computação separado do armazenamento persistente (vazamentos em VMs desalocadas), AHUB, rightsizing para Série B, schedules 8x5, descarte de VMs abandonadas e oportunidades de Spot e Savings Plans |
+| **Azure Virtual Desktop** | Veja abaixo |
+| **Virtual Machine Scale Sets** | Elasticidade, políticas de autoscale e Spot instances |
+| **Azure Red Hat OpenShift** | Governança de custos, capacidade de nós e TCO de clusters ARO |
+
+**Azure Virtual Desktop.** Inventário de **Host Pools** e seus **Session Hosts** (a VM subjacente e seu custo real), com KPIs de host pools, session hosts, sessões ativas, custo de computação mensal e custo do **armazenamento de perfis FSLogix** (detectado pelo nome do recurso: o Azure não oferece um vínculo direto). Por usuário mostra horas de conexão, pico de usuários simultâneos e **custo por usuário** dos últimos dias; além disso lista os *application groups*, os *workspaces* e as atribuições de usuários. Um host pool cujos grupos de aplicações não estão publicados em nenhuma workspace é marcado **INALCANÇÁVEL**: ninguém consegue se conectar a ele embora continue custando. As recomendações de remediação trazem o botão **Ver remediação**.
+
+### 5.7. Armazenamento (`/intelligence/almacenamiento`, Enterprise)
+
+Visibilidade e otimização de custos dos serviços de armazenamento. Quatro abas: **Storage Accounts**, **Managed Disk**, **Backups** e **Data Lake Gen2**.
+
+Cada uma é um *cockpit* com o mesmo esquema: KPIs de custo MTD, forecast de fim de mês, economia potencial, variação contra o mês anterior, recursos avaliados, eficiência, baixa utilização e saúde operacional; filtros por recurso, tier e grupo de recursos; ordenação e recomendações priorizadas.
+
+Além das abas, a **eficiência de storage** (`/intelligence/storage-efficiency`) simula a economia de mover blobs entre tiers Hot/Cool/Archive antes de aplicar. Com um alcance de Perspective ativo (3.4), o painel é recortado com o custo que pode ser atribuído por recurso; se não há com o que recortar, avisa em vez de mostrar «seu grupo não tem storage».
+
+### 5.8. Redes (`/intelligence/redes`, Business+)
+
+Análise de rede, conectividade, balanceamento e acesso à internet. Oito abas:
+
+| Aba | O que cobre |
+|---|---|
+| **Análise de Rede** | Detalhamento por recurso de todos os serviços de rede do tenant: largura de banda, gateways, load balancers e IPs públicos; picos de transferência e IPs ociosos para dar baixa |
+| **Redes Básicas** | Topologia, conectividade privada e observabilidade de custos em Virtual Networks, Private Endpoints, DNS, NSGs e tabelas de roteamento (UDR) |
+| **Conectividade Híbrida** | ExpressRoute, Virtual WAN, VPN Gateways e conexões: otimização de túneis, arbitragem de ExpressRoute, gateways ociosos e túneis caídos |
+| **Balanceamento e Publicação** | Application Gateways / WAF, Azure Front Door, Load Balancers e Traffic Manager: balanceadores órfãos, autoscale e arbitragem de Front Door |
+| **Acesso à Internet** | IPs públicos, NAT Gateways, Azure Firewall e DDoS Protection: IPs órfãos, planos DDoS e rightsizing de firewalls |
+| **Tráfego e egress** | Veja abaixo |
+| **Capacidade de enlaces** | Veja abaixo |
+| **Proteção DDoS** | Planos DDoS IP Protection e Network Protection |
+
+**Tráfego e egress.** Para onde vai o dinheiro de mover dados, que não aparece no custo dos recursos de rede. Classifica o custo faturado de transferência em **saída para a internet**, **entre zonas de disponibilidade**, **processado pelo NAT Gateway**, **entre regiões do continente**, **entre continentes** e **entrada**, com custo e volume por região e medidor, em uma janela dos últimos N dias. O custo é o faturado pelo Azure, não uma estimativa. Dá sugestões para os dois tráfegos evitáveis: o tráfego **entre zonas** é pago nas duas direções e costuma vir de réplicas ou balanceamento espalhados sem necessidade; o **NAT Gateway** cobra por GB processado e, se o destino é um serviço do Azure, um Private Endpoint ou um Service Endpoint o evita por completo. Uma limitação que a tela declara: o **volume é um piso** (as linhas sem cobrança, como a faixa gratuita de saída, não são ingeridas), enquanto o custo é o total.
+
+**Capacidade de enlaces.** Compara a largura de banda **contratada** de cada circuito ExpressRoute e gateway de VPN contra o **P95 do uso real dos últimos 30 dias**. Os que usam menos de **15%** do contratado são marcados como **superdimensionados**: podem ser reduzidos de SKU. A regra que manda é a segurança: **sem métricas não se recomenda reduzir**. Um enlace sem amostras não está ocioso, provavelmente falta a permissão de leitura ou é novo, e baixar o SKU de um saturado cortaria o enlace; esses enlaces são contados à parte e avisados acima da tabela. O P95 é calculado sobre as amostras horárias (o Azure Monitor não oferece percentis), e a tela mostra a data de revisão do catálogo de SKUs.
+
+### 5.9. Usuários e Licenças (`/intelligence/licenses`, Enterprise)
+
+Três abas: **Dashboard** (KPIs de M365 e Entra ID), **Atividade de Usuários** (tabela filtrável) e **Otimização de Licenças** (recursos sem Hybrid Benefit via Resource Graph e métricas por SKU via Microsoft Graph).
+
+### 5.10. Azure AI (`/intelligence/azure-ai`, Enterprise)
+
+Plataforma de inteligência artificial do Azure: busca vetorial, processamento de documentos, transcrição, visão, moderação, MLOps e analítica distribuída. Nove abas: **Visão Geral**, **Azure Foundry**, **AI Search**, **Document Intelligence**, **Speech & Language**, **Vision & Video**, **Content Safety**, **Machine Learning** e **Databricks**.
+
+A aba **Azure Foundry** é o *AI Cost Analytics*: custo por modelo e consumo de tokens no Microsoft Foundry / Azure OpenAI, com recomendações de otimização de chamadas. Para Document Intelligence veja 4.3.1.
+
+### 5.11. Azure Integration Services (`/intelligence/integration-services`, Enterprise)
+
+Operação e custo de integrações empresariais. Seis abas: **Azure Logic Apps** (com a distinção entre conectores Standard e Enterprise e seu impacto no custo), **Azure API Management (APIM)**, **Azure Service Bus**, **Azure Event Grid**, **Azure Event Hubs** e **Azure Data Factory (ADF)**.
+
+### 5.12. Monitoramento (`/intelligence/monitoreo`, Enterprise)
+
+Observabilidade e operação dos serviços de monitoramento. Oito abas: **Application Insights**, **Log Analytics Workspace**, **Azure Monitor**, **Microsoft Sentinel**, **Alerts**, **Action Groups**, **Workbooks** e **Network Watcher**.
+
+Em **Log Analytics Workspace** você controla custo mensal, retenção e ingestão estimada por workspace; detecta ingestão massiva desnecessária (workspaces sem limite diário), retenção excessiva e oportunidades de *Commitment Tier*, com economia potencial estimada. Também aparece como cartão no White Board.
+
+### 5.13. Segurança (`/intelligence/seguridad`, Enterprise)
+
+Visibilidade e controle de custos nos serviços de segurança. Seis abas: **Defender for Cloud** (planos de proteção por recurso: Servers, Containers, SQL, Storage), **Microsoft Sentinel** (ingestão de logs e compromissos de capacidade), **Key Vault**, **Entra ID** (licenciamento P1/P2 e identidades de carga de trabalho), **WAF** e **DDoS Protection**. Um cron de pré-aquecimento acelera o carregamento.
+
+### 5.14. Analítica Avançada (`/intelligence/analitica-avanzada`, Enterprise)
+
+Modelos avançados de alocação, anomalias, saúde e simulação financeira. Sete abas:
+
+| Aba | O que faz |
+|---|---|
+| **Unit Economics** | Você define a sua própria métrica unitária (custo por transação, por usuário, por MB processado) e o sistema calcula o custo unitário sobre os seus dados do Azure: gasto total do período dividido pelo volume total, não a média das médias diárias. O volume de negócio é carregado à mão na configuração da tela ou automatizado a partir do seu pipeline com o endpoint de ingestão (11.11) |
+| **Rateio (Allocation)** | Regras de distribuição de custos compartilhados entre áreas, centros de custo e times (por uso real, proporcional ou fixo) |
+| **Scorecard (Fama)** | Pontuação 0-100 da sua saúde financeira com indicadores individuais (economia, cobertura de reserva, eficiência) e avaliação de maturidade em *Inform, Optimize e Operate* (framework FAMA); você pode definir metas |
+| **Detecção de Anomalias** | Identifica picos ou quedas anormais de gasto (Z-Score) e permite criar alertas ajustando a sensibilidade. Cada anomalia tem responsável e acompanhamento (14) |
+| **Saúde do Tenant** | Índice integral de saúde arquitetural e de governança: problemas detectados, consistência de faturamento, cobertura de reservas e conformidade de políticas |
+| **Simulador (What If)** | Veja 5.14.1 |
+| **MACC Tracking** | Acompanhamento do compromisso mínimo anual (EA/MCA) — consumido vs. comprometido, burn-rate e projeção de cumprimento |
+
+#### 5.14.1. Simulador What-If
+
+Simule o impacto de escalar computação/storage, variar o tráfego de rede ou ativar o Azure Hybrid Benefit sobre o seu custo atual, **antes de aplicar a mudança real**.
 
 **Fluxo completo:**
-1. Mova os sliders: escala de computação, escala de armazenamento, % de aumento de tráfego de rede, ativar/desativar AHB.
-2. Clique em **"Executar Simulação"** — veja o detalhamento: custo base, custo projetado, delta e % de mudança.
-3. **Salvar o cenário:** clique em **"Salvar atual"** → dê um nome e notas opcionais. O cenário fica congelado com esses números (não é recalculado depois, mesmo que seu custo base real mude com o tempo — assim você pode comparar cenários salvos em momentos diferentes de forma consistente).
-4. Repita 2-3 vezes com sliders diferentes para ter vários cenários salvos.
-5. **Comparar:** marque de 2 a 4 cenários com os checkboxes → clique em **"Comparar"** → abre um modal lado a lado com cada cenário como cartão, marcando qual é a linha de base.
-6. **Exportar:** escolha o formato (CSV, PDF ou Markdown) junto aos botões de download — pode exportar um cenário individual, todos os salvos, ou a comparação completa com o delta de cada um contra a base.
-7. **Excluir:** ícone de lixeira em cada linha (apenas o criador do cenário ou um Admin/Owner podem excluir).
+1. Você move os sliders: escala de computação, escala de storage, % de aumento do tráfego de rede, ativar/desativar AHB.
+2. Pressiona **"Executar Simulação"** — vê o detalhamento: custo base, custo projetado, delta e % de mudança.
+3. **Salvar o cenário:** botão **"Salvar atual"** → você dá um nome e notas opcionais. O cenário fica congelado com esses números (não é recalculado depois, mesmo que o seu custo base real mude com o tempo — assim você pode comparar cenários salvos em momentos distintos entre si de forma consistente).
+4. Repita o processo 2-3 vezes com sliders diferentes para ter vários cenários salvos.
+5. **Comparar:** marque de 2 a 4 cenários nos checkboxes → botão **"Comparar"** → abre-se um modal lado a lado com cada cenário como cartão, indicando qual é a linha base.
+6. **Exportar:** escolha o formato (CSV, PDF ou Markdown) junto dos botões de download — você pode exportar um cenário individual, todos os salvos, ou a comparação completa com o delta de cada um contra a base.
+7. **Apagar:** ícone de lixeira em cada linha (só o criador do cenário ou um Admin/Owner pode apagá-lo).
 
-> O mix de custo assumido é Azure-first: 60% do custo é computação, 25% armazenamento, 15% rede; AHB ativado aplica um desconto fixo de 18% sobre o total.
+> O mix de cálculo assumido é Azure-first: 60% do custo é computação, 25% storage, 15% rede; o AHB aplica um desconto flat de 18% sobre o total se estiver ativado.
 
-### 5.7-5.29. Demais módulos de Inteligência Financeira
-
-| Módulo | Tier | Para que serve e como usar |
-|---|---|---|
-| **Orçamento por Centro de Custos** | Enterprise | Define centros de custo, atribui recursos (manual ou em massa), e o sistema rateia o gasto automaticamente para gerar chargeback interno por departamento. |
-| **Análise de Rede** | Business | Custo de largura de banda, gateways, load balancers e IPs públicos; identifica picos de transferência e IPs ociosas para desativar. |
-| **Hybrid Benefit (AHB)** | Business | Mostra quais VMs poderiam usar licenças com Software Assurance e quanto você economizaria ativando; rastreamento do que já usa. |
-| **Controle AKS** | Enterprise | Nós ativos, utilização real vs. sobre-provisionamento, custo por pod, recomendações de auto-scaling. |
-| **AKS Chargeback** | Enterprise | Atribui namespaces a equipes e o sistema calcula quanto cada equipe gasta no cluster, para faturamento interno. |
-| **Container Apps** | Business | Controle de custos de Azure Container Apps: custo mensal por app, ambiente, CPU/memória e réplicas. Detecta oportunidades de *scale-to-zero* (apps com réplica mínima ≥ 1 que poderiam ser desligadas sem tráfego) e estima a economia potencial. Também disponível como card no White Board. |
-| **Log Analytics** | Business | Controle de custos de Log Analytics Workspaces: custo mensal, retenção e ingestão estimada por workspace. Detecta ingestão massiva desnecessária (workspaces sem limite diário), retenção excessiva e oportunidades de *Commitment Tier*, com economia potencial estimada. Também disponível como card no White Board. |
-| **Unit Economics** | Enterprise | Define sua própria métrica unitária (custo por transação, por usuário, por MB processado) e o sistema calcula o custo unitário automaticamente sobre seus dados do Azure. |
-| **Usuários e Licenças** (fusão com "Licenças") | Professional | 3 abas: **Dashboard** (KPIs M365/Entra ID), **Atividade de Usuários** (tabela filtrável), **Otimização de Licenças** (recursos sem Hybrid Benefit via Resource Graph + métricas por SKU via Microsoft Graph). |
-| **Ingestão CSV** | Business | Carrega um CSV com faturamento de terceiros no padrão FOCUS para analisar junto com seus dados do Azure. |
-| **Alertas Self-Service** | Business/Professional | Cria regras de alerta de orçamento ou anomalia você mesmo, sem pedir nada ao suporte — condição + canal de notificação. |
-| **Scorecard** | Business | Pontuação 0-100 da sua saúde financeira com indicadores individuais (economia, cobertura de reserva, eficiência); você pode definir metas. |
-| **Saúde do Tenant** | Business | Estado geral — problemas detectados, consistência de faturamento, cobertura de reservas, conformidade de políticas. |
-| **Rightsizing** (+ verticais VMSS/App Service/SQL/Storage) | Enterprise | Analisa 30 dias de uso real e recomenda o SKU ideal; mostra economia estimada antes de aprovar a mudança. Verticais dedicadas em `/intelligence/rightsizing/{vmss,appservice,sqldb,storage}`. |
-| **Eficiência de Storage** | Business | Simula a economia de mover blobs entre os tiers Hot/Cool/Archive antes de aplicar. |
-| **Compute $/Core** | Professional | Detalhamento de custo por núcleo vCPU para comparar famílias de VM entre si. Na tabela **Por SKU e Arquitetura**, as colunas *vCPU/VM* e *RAM/VM* são a ficha de **uma** instância do SKU e *Instâncias* informa quantas você tem; os índices *$/Core* e *$/GiB* dividem o custo total pela frota desse SKU. |
-| **Cockpits de Computação (VMs, VMSS, App Services, Function Apps)** | Business/Enterprise | Módulos de otimização e governança granular: **Virtual Machines** (`/intelligence/computo/avm`) com separação de custo de computação vs armazenamento persistente (desperdício em VMs desligadas), AHUB, rightsizing na Série B, agendamento 8x5 e descarte de VMs abandonadas; **Function Apps** (`/intelligence/computo/fapps`) com telemetria de invocações, GB-s, auditoria de logs e playbooks de sampling/downgrade; **App Services** (`/intelligence/computo/waas`) com densidade de apps e empacotamento; e **VMSS** (`/intelligence/computo/vmss`) com autoscale e instâncias Spot. |
-| **Detecção de Anomalias** | Enterprise | Identifica automaticamente picos ou quedas anormais de gasto e permite criar alertas ajustando a sensibilidade. |
-| **Índice de Otimização (COIN)** | Enterprise | Pontuação composta 0-100, comparável com benchmarks da indústria. |
-| **Eficiência de Compute** | Enterprise | Utilização real de CPU/memória/disco por VM, com recomendação de redimensionamento e economia calculada. |
-| **Otimização de Tarifas** | Enterprise | Compara suas tarifas atuais com benchmarks de mercado para preparar uma negociação com a Microsoft. |
-| **Custo Zero** | Todos | Quais recursos são gratuitos na sua assinatura (free tier, créditos) para maximizar seu uso. |
-| **Rateio (Allocation)** | Enterprise | Regras de distribuição de custos compartilhados entre múltiplas áreas (por uso real, proporcional ou fixo). |
-| **MACC Tracking** | Enterprise | Rastreamento do compromisso mínimo anual (EA/MCA) — consumido vs. comprometido, com projeção de cumprimento. |
-| **AI Cost Analytics** | Enterprise | Custo por modelo de IA e consumo de tokens no Microsoft Foundry / Azure OpenAI, com recomendações de otimização de chamadas. |
-| **Bancos de Dados** | Business | Visibilidade, métricas em tempo real e diagnósticos de desempenho para CosmosDB, Azure SQL, PostgreSQL, MySQL, MongoDB e Redis. Inclui a aba especial **acfr** para monitoramento detalhado das 12 métricas críticas do Azure Cache for Redis por meio de gráficos de área com agregação média. |
+**Com um alcance de Perspective ativo**, o gasto base dos últimos 30 dias é o dessa parcela: «o que acontece se o meu time crescer 20%?» responde-se sobre o gasto do time e não sobre o do tenant. A lista de cenários salvos continua sendo a do tenant.
 
 ---
 
 ## 6. Seção Limpeza de Nuvem
 
-### 6.1. Recursos Zumbis (`/cleanup/zombies`, Professional+; remediação Business+)
+### 6.1. Recursos Zumbi (`/cleanup/zombies`, Professional+; remediação Business+)
 
-Detecta recursos órfãos que geram gasto desnecessário: discos não conectados, IPs públicos sem uso, App Service Plans vazios, VMs desconectadas há 30+ dias.
+Detecta recursos órfãos e subutilizados em 25 tipos de infraestrutura Azure (discos não anexados, IPs públicos órfãos, NICs sem VM, App Service Plans vazios, Elastic Pools sem bancos, VMSS ociosos, snapshots antigos e VMs desalocadas com storage ativo).
 
-**Fluxo de uso:**
-1. Lista com filtro por tipo de recurso.
-2. Revise o último uso registrado de cada recurso.
-3. Opcional: tire um snapshot do recurso antes de mexer em qualquer coisa (caso precise recuperá-lo depois).
-4. **Excluir** — requer papel Business+ e permissões do Azure para exclusão (veja a tabela de papéis do script na seção 1.3).
+**Capacidades e fluxo:**
+1. **Omni-Scan de 25 Resource Types:** Análise exaustiva no Azure Resource Graph.
+2. **Classificação Hard vs Soft Waste:** Diferenciação visual entre desperdício monetário direto (Hard Waste) e desalinhamento de governança/tags (Soft Waste).
+3. **Resolução de assinaturas:** Mostra sempre o nome amigável da assinatura (ex.: `CSCS-LandingZone`).
+4. **Tabela personalizável:** Colunas com alças de largura interativas (`col-resize`) e seletor suspenso `Personalizar Colunas` (`IconColumns`) persistente por navegador.
+5. **Remediação segura:** Criação de snapshots preventivos e execução de playbooks CLI/PowerShell.
 
-### 6.2. Networking Zombies (`/cleanup/zombies/networking`, Professional+; remediação Business+)
+### 6.2. Zumbis de Rede (`/cleanup/zombies/networking`, Professional+; remediação Business+)
 
-Igual ao anterior mas focado em recursos de rede: Load Balancers vazios, NSGs sem associação, Public IPs órfãs, gateways VPN sem conexões ativas.
+Auditoria especializada em infraestrutura de rede:
+- **Gateways VPN / ExpressRoute ociosos:** Detecção de gateways sem conexões ativas nem túneis IPsec configurados.
+- **IPs públicos órfãos:** Identificação de IPs atribuídos sem associação a NICs nem balanceadores (excluindo os Network Watchers do sistema).
+- **Private Endpoints desconectados:** Diagnóstico de endpoints privados com estado `Disconnected` ou apontando para recursos excluídos.
+- **NAT Gateways e Firewalls:** Detecção de NAT Gateways sem sub-redes e Firewalls/Application Gateways sem regras de roteamento nem backend pools.
 
-### 6.3. Expirações TTL (Business+)
+### 6.3. Expirações TTL — Time-To-Live (`/cleanup/ttl`, Business+)
 
-Controle de ambientes efêmeros (sandboxes, ambientes de teste) com data de expiração.
+Controle automatizado do ciclo de vida de recursos efêmeros (ambientes de teste, laboratórios de desenvolvimento e sandboxes):
+1. **Políticas TTL centralizadas:** Definição de vida útil máxima por tipo de recurso e ambiente.
+2. **Tag `ExpireOn`:** Aplicação otimista de tags de expiração com validação de datas.
+3. **Semáforos de vencimento:** Indicadores em tempo real (`CRITICAL` vencidos, `WARNING` prestes a vencer em menos de 72h, `ACTIVE` vigentes).
+4. **Prorrogações interativas:** Extensão rápida do tempo de vida (+7d, +14d, +30d) para recursos que precisam de mais tempo de teste.
+5. **Auditoria imutável:** Histórico inalterável dos desprovisionamentos executados em `TtlDeletions`.
 
-1. Crie uma política TTL: qual tipo de recurso, quantos dias de vida.
-2. Marque os recursos afetados com a data de expiração (manual ou automaticamente por regra).
-3. O sistema alerta antes da exclusão automática.
-4. Consulte o histórico do que foi excluído e quando.
+### 6.4. Backups Órfãos (`/cleanup/backup-orphans`, Professional+; remediação Business+)
+
+Gestão de armazenamento, custos acumulados e conformidade legal de cópias de segurança em **Recovery Services Vaults**:
+1. **Detecção de Protected Items desvinculados:** Identificação de instâncias protegidas cujo recurso original já foi excluído do Azure mas que continuam acumulando tarifas de armazenamento e custos base.
+2. **Cálculo de custo composto:** Detalhamento do custo mensal exato somando a tarifa base por tipo de item (`AzureIaasVM`, `AzureWorkload`, `AzureStorage`, `AzureDisk`) e o consumo de armazenamento no cofre a \$0.0224/GB/mês.
+3. **Purga segura com Soft Delete:** Modal de confirmação estrita com verificação por nome e alerta sobre a janela preventiva de 14 dias de Soft Delete antes da exclusão definitiva.
+4. **Isenções por conformidade legal:** Drawer lateral para registrar tickets de auditoria (SOX, fiscal, regulatório) com retenções de 1 a 10 anos ou indefinidas, excluindo o item do desperdício ativo.
+5. **Transferência para Archive Tier:** Movimento para a camada de armazenamento frio para obter até 85% de redução no custo de retenção de longo prazo.
 
 ---
 
@@ -526,6 +822,72 @@ solicitação aparece como **Falha** com a resposta literal do erro, não como a
 foi criado— o identificador do snapshot de backup. O KPI de "Economia Liberada" soma **apenas o que o Azure
 confirmou**: uma aprovação que falhou não liberou nada e não é contada.
 
+### 7.8. Alertas Self-Service (`/governance/alerts`, Professional+)
+
+Regras de alerta financeiro que você mesmo cria, sem pedir nada ao suporte, com entrega para Microsoft Teams, Slack, webhooks, e-mail e ServiceNow. São criadas com um assistente de **3 passos** (*Configuração de disparo e destino*).
+
+**Quatro tipos de alerta:**
+
+| Tipo | Dispara quando… |
+|---|---|
+| **Orçamento (% de consumo)** | o gasto supera uma porcentagem do orçamento |
+| **Limite fixo ($ USD)** | o gasto supera um valor em dólares |
+| **Anomalia estatística (+% desvio)** | o gasto se desvia do habitual mais do que a porcentagem escolhida |
+| **Forecast de fechamento do mês (> % EOM)** | a projeção para o fim do mês supera a porcentagem escolhida |
+
+**Alcance.** Cada regra pode olhar o **tenant inteiro**, uma **assinatura**, um **grupo de recursos** ou um **centro de custo** (por tag). A **prévia da condição** mostra em uma frase quando o alerta será emitido (*«quando o gasto em X superar Y sob o critério de Z»*) antes de salvar.
+
+**Tabela de regras.** Você busca por nome, assinatura ou canal; filtra por tipo, canal e estado (ativas ou pausadas); ordena por mais disparadas, última ativação, nome ou limite. Cada regra é **pausada com um interruptor**, **editada** sem se duplicar, e tem **«Testar envio»**, que despacha uma notificação de teste ao canal para verificar a entrega antes de depender dele. As colunas *Última ativação* e *Disparos* dizem se a regra está viva.
+
+Os canais de entrega são configurados em **Configuração → Notificações** (8.5).
+
+### 7.9. Fim de suporte (`/governance/lifecycle`, Business+)
+
+**O que roda sobre uma versão que o Azure aposenta, quando, e quanto custa hoje.** Ficar em uma versão aposentada tem dois finais e os dois se pagam: uma migração de urgência sem orçamento, ou suporte estendido pago. Vê-lo com meses de antecedência permite planejá-lo.
+
+Cruza o inventário do seu tenant contra o calendário de aposentadorias do Azure. Hoje cobre **AKS** (versão do Kubernetes), **PostgreSQL Flexible Server** e **MySQL Flexible Server**.
+
+**No topo**, um resumo: *«N recursos em risco — $X por mês rodando sobre algo que o Azure aposenta dentro do ano, ou que já aposentou»*.
+
+**A tabela** mostra por recurso o produto, a versão, o **estado**, a data de **fim de suporte** (*faltam N dias* ou *venceu há N dias*), a data de suporte estendido pago quando existe, e o **custo mensal**. O estado é um semáforo por janela:
+
+| Estado | Significa |
+|---|---|
+| **Aposentado** | O Azure já aposentou essa versão |
+| **Menos de 90 dias** | Crítico: a aposentadoria é iminente |
+| **Menos de um ano** | Próximo: há tempo para planejar |
+| **Suportado** | Com suporte além de um ano |
+| **Sem dados** | Não se pode afirmar nada |
+
+**A regra que dá nome à tela: ausência de dado nunca é «suportado».** Um recurso cuja versão não pôde ser lida, uma versão posterior à última que o catálogo conhece, ou um tipo de recurso que o catálogo não cobre, são marcados **Sem dados**. O mesmo com o custo: um recurso sem custo atribuível aparece como *sem dado* e é informado à parte —não se soma como zero—, porque somá-lo baixaria o total e faria o risco parecer menor.
+
+**De onde saem as datas.** Da documentação da Microsoft, mantidas em um catálogo próprio —não de uma API do Azure—. Por isso a tela mostra a **data da última revisão do catálogo**: se ficou velho, ela diz. Quando o Azure publica o fim de uma versão como um mês (por exemplo «Mar 2026») significa o **último dia** desse mês, e assim é carregado.
+
+**O que ainda não cobre:** os servidores lógicos do Azure SQL (a versão deles é a do servidor, que não se aposenta; o fim de suporte do SQL vive no nível de compatibilidade de cada banco), os runtimes do App Service, as séries de VM e as licenças na nuvem.
+
+Esta tela não é mostrada a usuários com alcance atribuído: é o inventário de toda a plataforma, não a parcela de um time.
+
+### 7.10. Shift-Left FinOps (`/governance/shift-left`, Business+)
+
+**O custo se decide quando alguém escreve o `.tf`, não quando chega a fatura.** O Shift-Left leva o impacto econômico de uma mudança de infraestrutura para a revisão do **Pull Request**, que é onde ainda é barato corrigi-lo. Funciona sobre Terraform.
+
+**Como funciona.** No pipeline do PR gera-se o plano (`terraform plan`), uma action do GitHub o envia à plataforma, e a plataforma estima o **delta de custo mensal** com os **preços de tabela do Azure**. O resultado volta como comentário no Pull Request (que é editado a cada push, não se acumula) e pode **fazer o check falhar** se o aumento superar um limite. A action e o seu exemplo de workflow são descritos em 11.10, e ela precisa de uma API Key com a permissão `write:shift-left`.
+
+**Como ler o número.** O delta é um **piso, não um total**: precifica-se o que a plataforma sabe mapear a um medidor da Azure Retail Prices API —hoje **máquinas virtuais Linux e Windows, discos gerenciados e IPs públicos**—; o resto é contado à parte como *sem precificar* e aparece no comentário, e se esse número não é zero o custo real é maior. São **preços de tabela**: não incluem as suas reservas, Savings Plans, descontos EA/CSP nem markup. Serve para comparar o antes contra o depois de um PR, não substitui o custo real que a plataforma mostra.
+
+**O que você vê na tela.**
+- Quatro KPIs: **Planos analisados**, **Aumento detectado**, **Economia detectada** e **Bloqueados por limite**.
+- O **histórico**: uma linha para cada `terraform plan` analisado, com repositório, autor, custo *antes* e *depois*, **delta mensal**, estado do limite (*Dentro do limite*, *Limite superado* ou *Sem limite*) e data. Se há recursos que não puderam ser precificados, a tela avisa que **o delta é um piso, não o total**.
+
+**Budget Gates.** Você define, por repositório, quantos USD por mês um Pull Request pode adicionar. Se superar, o check do GitHub falha. Como os limites se combinam:
+
+- O `threshold-usd` do workflow, se existir, **vence** sobre o da plataforma: um time pode ser mais estrito no seu próprio pipeline, não mais frouxo.
+- Sem nenhum limite o gate fica *não avaliado*: informa e não bloqueia.
+- Se a plataforma não responde, **também não bloqueia**: é um controle de custo, e parar o trabalho de um time por uma queda nossa é pior do que deixar passar uma mudança cara.
+- Só um **Admin ou Owner** pode alterar os limites.
+
+**Limites atuais.** Apenas Terraform (não Bicep) e apenas GitHub (não Azure DevOps). O limite é em USD absolutos —não percentual—, e o desbloqueio de um PR bloqueado se resolve com os mecanismos do próprio repositório (outro commit, ou as regras de proteção de branches): a plataforma não tem um fluxo de aprovação próprio.
+
 
 ---
 
@@ -571,10 +933,11 @@ também não corre — a bola está do seu lado.
 Recursos zumbis, Rateio de custos, Alertas, Agendamentos de desligamento, Governança de tags). Não é
 obrigatório, mas acelera o encaminhamento para a equipe correta.
 
-### 8.2. Usuários e Permissões (`/admin/users`)
+### 8.2. Usuários e Acessos (`/admin/access`)
 
-Veja a seção 2 para o detalhe de papel vs. permissões. Daqui você adiciona usuários, edita seu papel,
-ajusta o alcance de módulos ou remove o acesso. Somente Admin e Owner do tenant entram nesta tela.
+O hub tem cinco abas: **Usuários e Permissões** (o que descreve esta seção), **Segurança (2FA)** (seção 10), **SSO SAML** (11.1), **Onboarding de Clientes** (1.2 e 1.3) e **Onboarding Lighthouse** (Enterprise, para delegar o acesso de um cliente sem pedir credenciais).
+
+Veja a seção 2 para o detalhe de papel vs. permissões. Pela aba **Usuários e Permissões** você adiciona usuários, edita seu papel, ajusta o alcance de módulos ou remove o acesso. Somente Admin e Owner do tenant entram nesta tela.
 
 **Quatro indicadores no topo:** usuários registrados (e quantos seu plano permite), administradores e
 owners, leitores, e a **conformidade de 2FA** da sua equipe.
@@ -619,9 +982,39 @@ Administração e suporte. Desligar um módulo o remove do menu daquele usuário
 ele tentar entrar digitando a URL. Abaixo você pode limitar quais assinaturas do Azure ele vê: sem
 nenhuma marcada, ele vê todas as do tenant.
 
+#### Alcance por equipe: restringir uma pessoa à sua parcela do gasto (Enterprise)
+
+As **permissões de domínio** (seção 2) decidem quais *páginas* uma pessoa vê; o **alcance por equipe** decide qual *parcela dos dados* ela vê. Serve para que o responsável por um time entre na plataforma e veja só o gasto do seu grupo de uma Perspective (5.3), sem ver o do resto da organização.
+
+**Não é um filtro de tela: o servidor o aplica.** Com um alcance atribuído a API devolve só a sua parcela —mudar um parâmetro na URL não mostra mais— e os totais e porcentagens dos painéis são calculados sobre essa parcela. As telas que ainda não sabem se restringir **negam o acesso** em vez de mostrar o tenant inteiro: na dúvida, o sistema falha fechado.
+
+**Como se atribui.** Hoje é por API, feita por um Admin ou Owner, e só em um tenant Enterprise:
+
+- `POST /api/admin/user-scopes` com `tenantId`, `email`, `perspectiveId` e `group` (opcional: sem grupo, o alcance é a Perspective inteira).
+- `GET /api/admin/user-scopes?tenantId=…` lista os alcances vigentes.
+- `DELETE /api/admin/user-scopes?tenantId=…&email=…` o remove.
+
+A resposta da atribuição inclui **quantas telas sobram** para essa pessoa (`screensWhenScoped`): atribuir às cegas seria atribuir sem saber o que se está tirando.
+
+**Regras.**
+
+- **Um alcance por usuário.** Atribuir outro substitui o anterior.
+- **Somente Reader e Colaborador.** Um usuário **Admin ou Owner não pode ter alcance**: poderia emitir para si uma chave de API —que é do tenant, não dele— e contornar o recorte.
+- Se a Perspective é excluída, o alcance de quem a tinha atribuída é eliminado junto.
+
+**O que a pessoa restrita vê.** Somente as telas que hoje sabem se restringir a um grupo, todas recortadas à sua parcela: o Whiteboard, Cost Groups (`/intelligence/cost-groups`), Orçamento por Grupos de Custos (`/intelligence/cost-centers`), Gastos e Projeção (`/intelligence/cost-projection`), o Scorecard (`/intelligence/scorecard`) e a aba *Storage Accounts* de Armazenamento (`/intelligence/almacenamiento/storage-accounts-finops-cmp`). O resto responde com acesso negado. O menu lateral mostra apenas as entradas que são, por si mesmas, uma dessas telas (hoje, o Whiteboard): às demais se chega pelo seu endereço. O seletor de Perspective fica fixo com cadeado e as Visões não são mostradas. É um produto pequeno de propósito: cresce à medida que mais painéis aprendem a se restringir.
+
 ### 8.3. Configuração (`/admin/config`)
 
-Administração geral do perfil do tenant: nome, logo, idioma padrão para novos usuários, fuso horário para relatórios, ciclo de faturamento.
+Hub com cinco abas:
+
+| Aba | O que você faz ali |
+|---|---|
+| **Geral** | Administração do perfil do tenant: nome, logo, idioma padrão para novos usuários, fuso horário dos relatórios e ciclo de faturamento |
+| **IA** | Habilitar ou desabilitar funções de IA, escolher o modelo, ajustar a sensibilidade das detecções e quais dados são compartilhados (Professional+) |
+| **Notificações** | Canais de entrega: Slack, Teams, e-mail e webhook (8.5) |
+| **Status da Conta** | Suas assinaturas do Azure, o estado da ingestão e o vencimento de credenciais; daqui você desvincula e revincula assinaturas para escolher quais são monitoradas (15) |
+| **Partner Markup (CSP)** | Margens configuráveis por serviço para parceiros CSP, aplicadas automaticamente no faturamento (Enterprise) |
 
 ### 8.4. Faturamento — Mudança de Plano (`/admin/billing`, Professional+, papel Owner)
 
@@ -629,8 +1022,8 @@ Administração geral do perfil do tenant: nome, logo, idioma padrão para novos
 | Plano | Assinaturas do Azure Permitidas | Usuários por Tenant | Suporte / SLA |
 |---|---|---|---|
 | **Professional** | Até 2 assinaturas | Até 3 usuários | 20 tickets/mês (24 h) |
-| **Business** | Até 3 assinaturas | Até 5 usuários | Prioritário (12 h) |
-| **Enterprise** | Ilimitadas | Ilimitados | Dedicado 24/7 (SLA 99.9%) |
+| **Business** | Até 3 assinaturas | Até 5 usuários | Tickets ilimitados (resposta em 8 h) |
+| **Enterprise** | Ilimitadas | Ilimitados | Suporte dedicado, tickets ilimitados (SLA máximo 4 h) |
 
 **Procedimento de mudança:**
 1. Escolha o novo plano (Professional / Business / Enterprise).
@@ -660,11 +1053,11 @@ No topo você vê quanto está usando: *"Você está usando 3 de 3 assinaturas d
 
 **A capacidade não é liberada na hora:** ativa alguns segundos depois, quando o gateway de pagamento confirma. Se não aparecer de imediato, aguarde e recarregue.
 
-**Preços por unidade, conforme seu plano:**
+**Preço de tabela por unidade** (o cartão mostra o preço vigente, o que o gateway de pagamento cobra):
 
 | Add-on | Professional | Business |
 |---|---|---|
-| Assinatura do Azure adicional | $50/mês | $40/mês |
+| Assinatura do Azure adicional | $40/mês | $40/mês |
 | Tenant adicional | $90/mês | $240/mês |
 
 **Enterprise não usa este cartão:** sua capacidade é ajustada por contrato. Fale com seu executivo de conta.
@@ -705,26 +1098,92 @@ Três canais suportados: **Slack**, **Microsoft Teams**, **Email (SMTP)**.
 
 **Se as notificações não chegam**, verifique nesta ordem: canal habilitado (`enabled = true`) → filtro de severidade corresponde ao nível do alerta → você testou o canal pela interface → há pelo menos um canal configurado para o tenant. O log de envios (com erros) está disponível para diagnóstico.
 
-### 8.6. Relatório Executivo (Business+)
+### 8.6. Relatórios e Exportação (`/admin/reports`, Professional+)
 
-Geração automatizada de relatórios periódicos de alto nível, pensados para apresentar à diretoria — resumo executivo para download.
+Hub com sete abas:
 
-### 8.7-8.17. Demais módulos de Administração
-
-| Módulo | Tier | Uso |
+| Aba | Plano | O que faz |
 |---|---|---|
-| **Azure Lighthouse Onboarding** | Enterprise | Geração de template ARM para delegação cross-tenant, em `/admin/onboarding/lighthouse`. |
-| **Configuração de IA** | Professional | Habilitar/desabilitar funções de IA, escolher modelo, ajustar sensibilidade de detecções e quais dados são compartilhados. |
-| **Invoicing Report** | Enterprise | Export em JSON/CSV/PBIT stub com detalhe por billing profile, invoice section e customer, em `/admin/report`. |
-| **Workbooks** | Enterprise | Relatórios personalizados: layout próprio, gráficos, tabelas de dados, exportáveis para PDF e compartilháveis por link. |
-| **Auditoria** | Professional | Log completo de quem mudou o quê e quando, filtrável por usuário/ação/data, exportável para conformidade. |
-| **MCP API Keys** | Enterprise | Chaves de API para integrações tipo MCP — gerar, rotacionar e revogar. |
-| **API Pública** | Enterprise | REST API documentada (OpenAPI/Swagger), com limites de taxa e monitoramento de uso. |
-| **Power BI Templates** | Enterprise | Templates `.pbit` para download, pré-conectados aos seus dados do SaaS. |
-| **FOCUS 1.1 Export** | Professional | Exportação dos seus dados no formato padrão FOCUS, programável para geração diária automática. |
-| **SSO SAML** | Enterprise | Configure seu Identity Provider, mapeie atributos (papéis, emails), teste e ative para toda a organização. |
-| **Partner Markup (CSP)** | Enterprise | Margens configuráveis por serviço para partners CSP, aplicadas automaticamente no faturamento. |
-| **M365 Copilot** | Enterprise | Configuração do tenant + chat assistido sobre seus próprios dados FinOps, em `/admin/copilot-m365`. |
+| **Relatório Executivo** | Business+ | Geração automatizada de relatórios de alto nível, pensados para apresentar à diretoria: resumo executivo baixável em PDF e com envio por e-mail |
+| **Histórico de Relatórios** | Business+ | Os relatórios executivos já gerados, para reabrir ou baixar |
+| **Relatório de Faturamento** | Business+ | Faturas showback/chargeback por cliente ou centro de custo (11.4) |
+| **Workbooks** | Enterprise | Relatórios personalizados: layout próprio, gráficos, tabelas de dados, exportáveis para PDF e compartilháveis por link |
+| **Modelos Power BI** | Enterprise | Modelos `.pbit` baixáveis, pré-conectados aos seus dados do SaaS |
+| **Exportação FOCUS 1.1** | Professional+ | Seus dados no formato padrão FOCUS, programáveis para geração diária automática (11.5) |
+| **Assinaturas** | Professional+ | Relatórios por e-mail na cadência que você escolher (abaixo) |
+
+#### Assinaturas de relatórios
+
+*Em uma ferramenta de FinOps, o relatório que é preciso ir buscar não é olhado.* Uma assinatura faz o relatório **chegar sozinho**, na cadência que cada um escolher, com **link para o relatório, gráfico e CSV anexo** dos dados brutos (o CSV é o que permite ao financeiro cruzá-lo com o seu próprio modelo).
+
+**Criar uma assinatura** (Admin ou Owner, porque envia e-mail a terceiros): **Nova assinatura** e preencha:
+
+| Campo | O que é |
+|---|---|
+| **Relatório** | Hoje há um tipo: **Gasto por time** (o desvio do gasto de um grupo) |
+| **Frequência** | *Todos os dias*, *Semanal* (com o dia da semana) ou *Mensal* (com o dia do mês) |
+| **Destinatários** | E-mails separados por vírgula; é preciso pelo menos um |
+| **Perspective e Grupo** (opcional) | Para enviar só o gasto de um time: quem se assina ao seu grupo não recebe o dos demais. Hoje a Perspective se digita pelo seu *id* |
+
+**O que convém saber:**
+
+- **A cadência é avaliada no fuso horário do seu tenant**: «as segundas» são as segundas da sua organização, não as do servidor.
+- **Um dia 31 não pula os meses curtos**: envia-se no último dia do mês.
+- **Envia-se uma única vez por período**, embora o sistema verifique a cada hora.
+- **Um relatório sem dados não é enviado.** Um e-mail com a tabela vazia seria lido como «seu time não gastou nada», e quase sempre significa que a ingestão ainda não rodou.
+- **Um e-mail por destinatário**: ninguém vê quem mais o recebe, e um retorno não afeta os demais.
+- **Se quem criou a assinatura deixa de estar ativo** no tenant, a assinatura fica **desativada** e deixa de enviar.
+- **Enviar um de teste agora** usa o mesmo caminho do envio programado e **não conta** como o envio do período.
+- O gráfico vai **dentro do corpo do e-mail** (não como imagem anexa) para que se veja igual no Gmail e no Outlook.
+
+### 8.7. Integrações e API (`/admin/integrations`, Enterprise)
+
+Hub com três abas: **Copilot M365** (configuração do tenant e chat assistido sobre os seus próprios dados FinOps), **MCP API Keys** (chaves para integrações com assistentes de IA do tipo MCP: gerar, rotacionar e revogar) e **API Pública** (REST documentada com OpenAPI/Swagger, com limites de uso e monitoramento; veja 11.3).
+
+### 8.8. Faturamento e Auditoria (`/admin/account`, Professional+)
+
+Duas abas: **Faturamento** (plano, cotas, método de pagamento e mudança de plano; veja 8.4) e **Audit Trail** (o log de quem mudou o quê e quando; veja 11.2).
+
+### 8.9. Outros módulos de Administração
+
+| Módulo | Onde está | Plano | Uso |
+|---|---|---|---|
+| **Azure Lighthouse Onboarding** | Usuários e Acessos → Onboarding Lighthouse | Enterprise | Template ARM para delegação cross-tenant, em `/admin/onboarding/lighthouse` |
+| **Configuração de IA** | Configuração → IA | Professional | Habilitar ou desabilitar funções de IA, escolher o modelo, ajustar a sensibilidade e quais dados são compartilhados |
+| **Relatório de Faturamento (Invoicing)** | Relatórios e Exportação | Business | Export em JSON/CSV/PBIT stub com detalhe por billing profile, invoice section e customer |
+| **Workbooks** | Relatórios e Exportação | Enterprise | Relatórios personalizados exportáveis para PDF e compartilháveis por link |
+| **Auditoria** | Faturamento e Auditoria → Audit Trail | Professional | Log completo de quem mudou o quê e quando, filtrável por usuário, ação e data, exportável para compliance |
+| **MCP API Keys** | Integrações e API | Enterprise | Chaves de API para integrações do tipo MCP — gerar, rotacionar e revogar |
+| **API Pública** | Integrações e API | Enterprise | REST API documentada (OpenAPI/Swagger), com rate limits e monitoramento de uso |
+| **Modelos Power BI** | Relatórios e Exportação | Enterprise | Modelos `.pbit` baixáveis, pré-conectados aos seus dados do SaaS |
+| **FOCUS 1.1 Export** | Relatórios e Exportação | Professional | Exportação dos seus dados no formato padrão FOCUS, programável para geração diária automática |
+| **SSO SAML** | Usuários e Acessos | Enterprise | Você configura o seu Identity Provider, mapeia atributos (papéis, e-mails), testa e ativa para toda a organização |
+| **Partner Markup (CSP)** | Configuração | Enterprise | Margens configuráveis por serviço para parceiros CSP, aplicadas automaticamente no faturamento |
+| **M365 Copilot** | Integrações e API | Enterprise | Configuração do tenant + chat assistido sobre os seus próprios dados FinOps |
+
+### 8.10. Marketplace de Add-ons: módulos e capacidades à la carte (`/marketplace`)
+
+Se você precisa de uma função ou de uma cota que o seu plano não inclui, **não é preciso mudar de plano**: o Marketplace vende complementos avulsos. Contratam-se com **assinatura mensal rateada** ou com um **passe temporário** de 1, 3, 6, 9 ou 12 meses, e pagam-se pelo mesmo gateway (Paddle) do seu plano.
+
+**O que se vende:**
+
+| Tipo | O que inclui |
+|---|---|
+| **Funcionalidades** | *Simulador de Compromissos RIs & Savings Plans*, *Auditoria Avançada de Zumbis e Redes*, *Relatórios Executivos em PDF* e os **módulos de navegação**: Inventário de Recursos, Bancos de Dados, Computação, Redes, TTL, Power Schedules, Alta Disponibilidade, Credenciais a Expirar, Aprovações, Otimização e Economia, Armazenamento, Usuários e Licenças, Azure AI, Azure Integration Services, Monitoramento, Segurança, Analítica Avançada, Políticas e Auto-Block e Relatórios de Governança |
+| **Cotas e capacidade** | Assinatura do Azure adicional, assentos de usuário extras (+5) e tenant adicional |
+
+**Como se usa:**
+
+1. Filtre por *Funcionalidades* ou *Cotas e capacidade*. Cada cartão explica o que desbloqueia e mostra o preço vigente.
+2. **Passe temporário:** escolha a duração e pressione **Ativar Passe**. Paga-se uma vez e, ao vencer, o módulo se desabilita sozinho sem tocar no seu plano base. Se você já tem um ativo, aparece **Estender Passe**.
+3. **Assinatura mensal:** **Adicionar à assinatura mensal** soma o complemento à sua assinatura atual com rateio.
+4. No topo, **Suas Capacidades e Passes Ativos** mostra o que você tem e os dias que restam a cada passe.
+
+Um módulo comprado abre **tanto a tela quanto as suas APIs**, e você recebe um aviso antes de vencer. A ativação ocorre quando o gateway confirma a cobrança, alguns segundos depois.
+
+O **tenant adicional** —soma outro tenant do Azure ao seu contrato, com a mesma conta e os mesmos acessos, herdando os limites do seu plano— contrata-se em **Faturamento → Ampliar capacidade** (8.4.2): modifica a sua assinatura existente em vez de abrir uma compra à parte, e o Marketplace o mostra para que você o encontre.
+
+Os clientes **Enterprise** têm tudo incluído (verão o selo *Plano Enterprise Ativo*). Se a sua assinatura é faturada pelo **Marketplace da Microsoft Azure**, os módulos adicionais não podem ser contratados daqui: escreva para nós e resolvemos pelo seu canal de compra.
 
 ---
 
@@ -735,6 +1194,13 @@ Geração automatizada de relatórios periódicos de alto nível, pensados para 
 - **Consciência de contexto automática:** o Copilot lê o conteúdo da página em que você está — não é preciso dizer em qual módulo você está. Ao abri-lo, sem digitar nada, ele gera um **relatório executivo** do que está sendo exibido: contexto do módulo, principais achados, oportunidades de economia priorizadas por impacto, riscos e um plano de ação de 7 dias.
 - **Perguntas direcionadas:** além do relatório automático, você pode perguntar diretamente. Ex.: em Orçamentos: *"Resuma o estado atual dos nossos orçamentos"*.
 - **Sugestões e informações estratégicas:** o Copilot fornece exclusivamente recomendações analíticas, sugestões de otimização de custos e respostas informativas para apoiar a tomada de decisão da equipe — não executa ações corretivas nem modificações diretas na sua infraestrutura.
+
+- **Conversa contínua:** o Copilot lembra a conversa mesmo que você mude de página, então você pode perguntar *«compare este rightsizing com as anomalias que vimos agora há pouco»* e ele resolve a referência ao que foi falado na tela anterior. Lembra as últimas perguntas da conversa (até 8 turnos) e, se um turno antigo contradiz o que a tela mostra hoje, **valem as cifras atuais**.
+- **Cota mensal de consultas:** Professional **50**, Business **150** e Enterprise **sem teto**. Se o tenant configura **a sua própria chave de IA** (*Configuração → IA*), o Copilot não tem teto de consultas.
+- **Nova conversa:** o botão do cabeçalho do painel apaga o fio para começar do zero (fica desativado enquanto o Copilot está respondendo).
+- **Leitura confortável:** a resposta chega palavra por palavra e o painel a acompanha; se você sobe para reler um relatório, ele não te arrasta de volta ao final até que você faça uma nova pergunta.
+
+> O Copilot vive dentro da plataforma: não aparece nas páginas públicas (legais, status, painel do parceiro, demo, login e cadastro) nem antes de iniciar a sessão.
 
 ---
 
@@ -791,7 +1257,7 @@ Além do log filtrável (por email, tipo de ação, status e intervalo de datas,
 Acesso programático somente leitura aos seus dados (custos, orçamentos, recomendações, anomalias) para conectar ferramentas de BI ou scripts próprios.
 
 **Como gerar e usar:**
-1. **Admin → API Pública** → gere uma nova chave, escolhendo apenas os **escopos** que precisa (`read:cost`, `read:resources`, `read:budgets`, `read:recommendations`, `read:anomalies`) — peça o mínimo necessário, por exemplo `read:cost` se for apenas para alimentar um painel de BI.
+1. **Admin → API Pública** → gere uma nova chave, escolhendo apenas os **escopos** que precisa (`read:cost`, `read:resources`, `read:budgets`, `read:recommendations`, `read:anomalies`, mais os de escrita, `write:metrics` e `write:shift-left`, que precisam ser concedidos de propósito: 11.10 e 11.11) — peça o mínimo necessário, por exemplo `read:cost` se for apenas para alimentar um painel de BI.
 2. Autentique cada requisição com o header `X-API-Key: pak_live_xxx` (ou `Authorization: Bearer pak_live_xxx`).
 3. Exemplos de endpoints: `GET /cost/summary?from=...&to=...&groupBy=service`, `GET /cost/timeseries?granularity=daily|monthly`, `GET /resources?type=...&limit=100`, `GET /budgets`, `GET /recommendations`, `GET /anomalies?severity=low|medium|high`.
 4. Documentação interativa (Swagger) disponível em `/api/v1/docs`.
@@ -849,6 +1315,61 @@ Você pode fazer upgrade para um plano pago a qualquer momento em **Faturamento*
 - **Redis de produção:** Azure Managed Redis com HA habilitada.
 - **Edge/CDN:** usamos Cloudflare na frente da origem no Azure.
 
+### 11.10. Shift-Left FinOps: API e GitHub Action (Business+)
+
+O que faz e como ler o resultado: veja 7.10. Aqui, a parte técnica.
+
+**A permissão.** O escopo **`write:shift-left`** não vem nas chaves existentes: é preciso concedê-lo explicitamente ao gerar a key em **Integrações e API → API Pública** (11.3). É de propósito: uma chave de leitura de custos não deveria poder escrever estimativas.
+
+**A API.** `POST /api/v1/shift-left/estimate`, com a API Key no header `X-API-Key`. Recebe o plano do Terraform em JSON (a saída de `terraform show -json`, até 6 MB) e devolve o delta de custo mensal, o custo projetado, a quantidade de recursos sem precificar e o estado do Budget Gate do repositório (`OK`, `EXCEEDED` ou `NOT_EVALUATED`).
+
+**A GitHub Action** *FinOps PR Cost Estimator* envolve essa chamada em um passo do workflow do Pull Request:
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write   # sem isto não consegue comentar
+
+steps:
+  - uses: actions/checkout@v4
+  - uses: hashicorp/setup-terraform@v3
+  - run: terraform init
+  - run: terraform plan -out=tfplan.bin
+  - uses: ./integrations/github-action      # a action, como você a tiver no seu repositório
+    with:
+      api-key: ${{ secrets.FINOPS_API_KEY }} # sempre por secrets, nunca literal
+      plan-file: tfplan.bin
+      threshold-usd: '200'                   # opcional: Budget Gate local
+```
+
+Entradas: `api-key` (obrigatória), `plan-file` (padrão `tfplan.bin`), `plan-json` (um plano já convertido, para não precisar do Terraform no runner), `threshold-usd`, `comment` e `api-url`. Saídas, para encadear com outros passos: `delta-usd`, `projected-usd`, `unpriced` e `gate-status`. Precisa de `jq`, `curl` e `bc`, que já vêm nos runners do GitHub.
+
+### 11.11. Ingestão de métricas de negócio por API (receita e volume)
+
+Para calcular o **custo unitário** (Unit Economics, 5.14) e a **margem bruta** (Leaderboard, 5.2), a plataforma precisa saber quanto você vendeu ou processou. Você envia isso do seu pipeline ou de um cron com uma API Key pública que tenha o escopo **`write:metrics`**:
+
+```
+curl -X POST https://<host>/api/unit-metrics/ingest \
+  -H "x-api-key: pak_..." -H "Content-Type: application/json" \
+  -d '[{"metricDate":"2026-08-21","metricType":"TRANSACTIONS","unitCount":14320}]'
+```
+
+Até **400 linhas por chamada**; o tenant sai da própria key, nunca do corpo da requisição. `metricType` = `REVENUE` carrega **receita** (em dinheiro, não uma contagem de unidades: não é oferecida como denominador do custo unitário) e habilita a margem bruta.
+
+### 11.12. App móvel (PWA)
+
+A plataforma pode ser instalada no celular como um **aplicativo web progressivo** (adicionar à tela inicial) e, em telas estreitas, oferece uma experiência móvel dedicada em `/mobile` com cinco abas:
+
+| Aba | O que você vê |
+|---|---|
+| **Resumo** | Custo do mês, projeção, economia potencial e recursos zumbi |
+| **Alertas** | O estado das suas regras de alerta (disparadas, pausadas) e credenciais vencidas ou a vencer em 30 dias ou menos |
+| **Aprovar** | As aprovações de remediação pendentes, com o botão **Aprovar** para resolvê-las pelo celular |
+| **Suporte** | Abrir um ticket com a equipe |
+| **Perfil** | Sua conta, o idioma e o acesso à versão desktop |
+
+O resumo traz atalhos para **Alertas** (orçamentos, anomalias e credenciais), **Recomendações** (as economias sugeridas pelo Azure Advisor) e **Suporte**. Se preferir a versão desktop, escolha-a com **Usar versão desktop**.
+
 ---
 
 ## 12. Melhores Práticas
@@ -859,16 +1380,6 @@ Você pode fazer upgrade para um plano pago a qualquer momento em **Faturamento*
 - **Use o Simulador What-If antes de se comprometer:** antes de comprar uma Reserva ou Savings Plan, simule o cenário e salve-o — isso dá um número concreto para justificar a decisão perante o financeiro.
 - **Configure pelo menos um canal de notificação desde o primeiro dia** (Slack/Teams se sua equipe já vive lá, ou email se preferir simplicidade) — alertas de orçamento não servem de nada se ninguém os vê a tempo.
 
----
-
-## Suporte e Contato
-
-Para qualquer assistência adicional, abra um ticket em **Suporte** (`/support`) dentro da plataforma, ou escreva para **soporte@cscloudsolutions.com.ar**.
-
----
-
-**Manual do Usuário — FinOps SaaS**
-**Versão 2.0 | Português Brasileiro | Julho 2026**
 
 
 ## 13. Avisos da plataforma
@@ -934,7 +1445,7 @@ Se a anomalia tem responsável, a notificação **chega a essa pessoa**. Se não
 
 ## 15. Assinaturas fora do limite do seu plano
 
-Em **Configuração → Contas Cloud** são listadas **todas** as assinaturas do
+Em **Configuração → Status da Conta** (antes «Contas Cloud») são listadas **todas** as assinaturas do
 Azure que a plataforma descobre. Se você tiver mais do que o seu plano permite
 (Professional 2, Business 3, Enterprise sem limite), as que ficam de fora
 aparecem **esmaecidas** e com o badge âmbar **"Fora do plano"**.
@@ -988,3 +1499,14 @@ assinatura e não é herdado. Portal do Azure → a assinatura → Controle de a
 > atribuição no management group raiz não chegou a ser feita quando o onboarding
 > foi executado. Nesse caso é preciso atribuir os papéis de leitura nessa
 > assinatura.
+
+---
+
+## Suporte e Contato
+
+Para qualquer assistência adicional, abra um ticket em **Suporte** (`/support`) dentro da plataforma, ou escreva para **soporte@cscloudsolutions.com.ar**.
+
+---
+
+**Manual do Usuário — FinOps SaaS**
+**Versão 2.1 | Português Brasileiro | Outubro 2026**

@@ -23,6 +23,8 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
+import { IconDownload, IconMarkdown } from "@tabler/icons-react";
+import { MANUALES_DEL_PARTNER, manualParaIdioma } from "@/lib/manualesPartner";
 
 const CLAVE_SESION = "cscs.partner.k";
 
@@ -132,6 +134,8 @@ export default function PageClient() {
                 </code>
             </section>
 
+            <ManualDelPartner locale={locale} />
+
             <Tabla
                 titulo={t("referralsTitle")}
                 vacio={t("noReferrals")}
@@ -157,6 +161,67 @@ export default function PageClient() {
                 {t("footnote")}
             </p>
         </Marco>
+    );
+}
+
+/** El manual en el idioma activo, con los otros dos a un clic. */
+function ManualDelPartner({ locale }: { locale: string }) {
+    const t = useTranslations("PartnerPanel");
+    const actual = manualParaIdioma(locale);
+    const otros = MANUALES_DEL_PARTNER.filter((m) => m.lang !== actual.lang);
+    const boton =
+        "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors";
+    return (
+        <section className="space-y-2">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">{t("manualTitle")}</h2>
+            <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 p-4 space-y-3">
+                <p className="text-sm text-slate-600 dark:text-slate-400">{t("manualIntro")}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                    <a
+                        href={`/manual/${actual.archivo}.pdf`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`${boton} bg-[#0054A6] text-white hover:bg-[#003a73]`}
+                    >
+                        <IconDownload className="w-4 h-4" />
+                        {t("manualPdf")}
+                    </a>
+                    <a
+                        href={`/manual/${actual.archivo}.md`}
+                        download
+                        className={`${boton} border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800`}
+                    >
+                        <IconMarkdown className="w-4 h-4" />
+                        {t("manualMd")}
+                    </a>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+                    <span>{t("manualOtherLanguages")}</span>
+                    {otros.map((m) => (
+                        <span key={m.lang}>
+                            {m.etiqueta} (
+                            <a
+                                href={`/manual/${m.archivo}.pdf`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[#0054A6] dark:text-sky-400 hover:underline"
+                            >
+                                PDF
+                            </a>
+                            {" · "}
+                            <a
+                                href={`/manual/${m.archivo}.md`}
+                                download
+                                className="text-[#0054A6] dark:text-sky-400 hover:underline"
+                            >
+                                {t("manualMd")}
+                            </a>
+                            )
+                        </span>
+                    ))}
+                </div>
+            </div>
+        </section>
     );
 }
 

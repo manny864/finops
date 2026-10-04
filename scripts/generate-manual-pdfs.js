@@ -9,6 +9,12 @@ const MANUAL_DIR = path.join(process.cwd(), 'docs', 'manual');
 // así que su copia final vive en public/manual. Los de SUPERADMIN no se sirven
 // públicamente (public: false). `public: true` sincroniza el PDF a public/manual
 // tras generarlo para que no se desincronice del de docs/manual.
+//
+// Los de PARTNER se ofrecen desde el panel del partner (/partner, botón "Manual
+// del partner"), en PDF y en Markdown: `publicMd: true` copia además el .md a
+// public/manual, SIN el bloque de portada (usa una ruta relativa al logo que
+// fuera del repositorio no resuelve). docs/ no entra a la imagen (.dockerignore),
+// por eso la copia servida vive en public/.
 const PUBLIC_MANUAL_DIR = path.join(process.cwd(), 'public', 'manual');
 
 const COPYRIGHT = {
@@ -24,6 +30,9 @@ const FILES = [
   { md: 'MANUAL_SUPERADMIN_ES.md', pdf: 'MANUAL_SUPERADMIN_ES.pdf', lang: 'es', public: false },
   { md: 'MANUAL_SUPERADMIN_EN.md', pdf: 'MANUAL_SUPERADMIN_EN.pdf', lang: 'en', public: false },
   { md: 'MANUAL_SUPERADMIN_PT-BR.md', pdf: 'MANUAL_SUPERADMIN_PT-BR.pdf', lang: 'pt-BR', public: false },
+  { md: 'MANUAL_PARTNER_ES.md', pdf: 'MANUAL_PARTNER_ES.pdf', lang: 'es', public: true, publicMd: true },
+  { md: 'MANUAL_PARTNER_EN.md', pdf: 'MANUAL_PARTNER_EN.pdf', lang: 'en', public: true, publicMd: true },
+  { md: 'MANUAL_PARTNER_PT-BR.md', pdf: 'MANUAL_PARTNER_PT-BR.pdf', lang: 'pt-BR', public: true, publicMd: true },
 ];
 
 // Logo embebido como data URI: los paths relativos del MD (../../public/...) no
@@ -133,7 +142,11 @@ async function main() {
     if (f.public) {
       fs.mkdirSync(PUBLIC_MANUAL_DIR, { recursive: true });
       fs.copyFileSync(pdfPath, path.join(PUBLIC_MANUAL_DIR, f.pdf));
-      console.log(`OK: ${f.pdf} (${size} KB) -> docs/manual + public/manual`);
+      if (f.publicMd) {
+        const sinPortada = md.replace(/<div class="cover">[\s\S]*?<\/div>\s*/, '');
+        fs.writeFileSync(path.join(PUBLIC_MANUAL_DIR, f.md), sinPortada);
+      }
+      console.log(`OK: ${f.pdf} (${size} KB) -> docs/manual + public/manual${f.publicMd ? ' (+ .md)' : ''}`);
     } else {
       console.log(`OK: ${f.pdf} (${size} KB) -> docs/manual`);
     }

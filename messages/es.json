@@ -16052,6 +16052,11 @@
     "status_PAID": "Pagada",
     "status_REVERSED": "Revertida",
     "status_CANCELLED": "Cancelada",
+    "manualTitle": "Manual del partner",
+    "manualIntro": "Cómo funciona la plataforma y cómo venderla: planes y precios, guion de demo, objeciones y cómo se liquida tu comisión.",
+    "manualPdf": "Descargar PDF",
+    "manualMd": "Markdown",
+    "manualOtherLanguages": "También en:",
     "footnote": "Los montos son los devengados según los cobros ya registrados. La liquidación se hace según lo acordado en tu contrato de partner."
   }
 }

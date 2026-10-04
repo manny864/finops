@@ -16052,6 +16052,11 @@
     "status_PAID": "Paid",
     "status_REVERSED": "Reversed",
     "status_CANCELLED": "Cancelled",
+    "manualTitle": "Partner manual",
+    "manualIntro": "How the platform works and how to sell it: plans and pricing, demo script, objections and how your commission is settled.",
+    "manualPdf": "Download PDF",
+    "manualMd": "Markdown",
+    "manualOtherLanguages": "Also in:",
     "footnote": "Amounts reflect commissions accrued from charges already recorded. Payouts follow the terms of your partner agreement."
   }
 }
