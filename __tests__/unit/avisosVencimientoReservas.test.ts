@@ -6,7 +6,7 @@
  * los días, que una corrida perdida no pierda el aviso, y que una reserva que
  * ya no está viva (cancelada, dividida, fusionada) no avise.
  */
-import { vi, describe, it, expect, beforeEach } from "vitest";
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
 import {
     escalonPara, diasHastaVencer, avisosDeVencimiento, gravedad, textoDelAviso,
@@ -118,7 +118,12 @@ describe("GET /api/cron/reservation-expiry-alerts", () => {
     let tenants: { tenant_id: string; tier: string }[];
     let anotados: Set<string>;
 
+    // El cron usa la fecha del sistema y las reservas se arman contra HOY: sin
+    // fijar el reloj, el test pasaba o fallaba según la hora. Así frenó el
+    // deploy del 2026-10-05, corrido pasada la medianoche UTC.
     beforeEach(() => {
+        vi.useFakeTimers({ toFake: ["Date"] });
+        vi.setSystemTime(HOY);
         vi.clearAllMocks();
         process.env.CRON_SECRET = SECRET;
         tenants = [{ tenant_id: "t-ent", tier: "Enterprise" }];
@@ -141,6 +146,10 @@ describe("GET /api/cron/reservation-expiry-alerts", () => {
         m.canales.mockResolvedValue({ sent: 1, failed: 0, results: [] });
     });
 
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
     it("sin el secreto del cron no corre", async () => {
         const { GET } = await import("@/app/api/cron/reservation-expiry-alerts/route");
         const res = await GET(new NextRequest(new URL("http://localhost:3000/api/cron/reservation-expiry-alerts")));
@@ -160,21 +169,15 @@ describe("GET /api/cron/reservation-expiry-alerts", () => {
     });
 
     it("cuando pasan los días y la reserva baja al escalón siguiente, vuelve a avisar", async () => {
-        vi.useFakeTimers({ toFake: ["Date"] });
-        try {
-            const { GET } = await import("@/app/api/cron/reservation-expiry-alerts/route");
-            vi.setSystemTime(HOY);
-            await GET(pedir());                       // 45 días: escalón de 60
-            vi.setSystemTime(new Date("2026-10-24T12:00:00Z"));
-            await GET(pedir());                       // 25 días: escalón de 30
-            vi.setSystemTime(new Date("2026-10-25T12:00:00Z"));
-            await GET(pedir());                       // 24 días: mismo escalón, nada
-            expect(m.campanita).toHaveBeenCalledTimes(2);
-            expect(m.campanita.mock.calls[1][0]).toMatchObject({ severity: "critical", params: { days: 25 } });
-            expect(m.canales.mock.calls[1][1]).toMatchObject({ severity: "error" });
-        } finally {
-            vi.useRealTimers();
-        }
+        const { GET } = await import("@/app/api/cron/reservation-expiry-alerts/route");
+        await GET(pedir());                       // 45 días: escalón de 60
+        vi.setSystemTime(new Date("2026-10-24T12:00:00Z"));
+        await GET(pedir());                       // 25 días: escalón de 30
+        vi.setSystemTime(new Date("2026-10-25T12:00:00Z"));
+        await GET(pedir());                       // 24 días: mismo escalón, nada
+        expect(m.campanita).toHaveBeenCalledTimes(2);
+        expect(m.campanita.mock.calls[1][0]).toMatchObject({ severity: "critical", params: { days: 25 } });
+        expect(m.canales.mock.calls[1][1]).toMatchObject({ severity: "error" });
     });
 
     it("si la reserva se renueva y cambia su fecha, la escalera empieza de nuevo", async () => {
