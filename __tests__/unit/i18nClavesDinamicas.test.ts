@@ -1661,7 +1661,6 @@ const TABLEROS_LIMPIOS = [
     "src/components/dashboard/MyPinnedWidgets.tsx",
     "src/components/dashboard/NetworkAnalyticsDashboard.tsx",
     "src/components/dashboard/NetworkServiceCostBoard.tsx",
-    "src/components/dashboard/NetworkingZombiesPanel.tsx",
     "src/components/dashboard/OptimizationDashboard.tsx",
     "src/components/dashboard/PageHeaderTierBadge.tsx",
     "src/components/dashboard/PartnerMarkup.tsx",
