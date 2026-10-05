@@ -165,12 +165,10 @@ export async function ingestCostExportsForTenant(tenantId: string): Promise<Inge
     }
 
     try {
-        const prefix = `focus-cost-data/${tenantId}/`;
-        let blobNames = await listBlobs(CONTAINER_NAME, prefix);
-        if (blobNames.length === 0) {
-            // Probar sin prefijo de tenant (ej. root folder focus-cost-data)
-            blobNames = await listBlobs(CONTAINER_NAME, "focus-cost-data/");
-        }
+        // Sólo la carpeta del tenant. Antes, si estaba vacía, se listaba
+        // `focus-cost-data/` entero —que tiene las carpetas de TODOS los
+        // tenants— y esos costos se guardaban con el tenant_id de este.
+        const blobNames = await listBlobs(CONTAINER_NAME, `focus-cost-data/${tenantId}/`);
 
         if (blobNames.length === 0) {
             return {

@@ -368,3 +368,25 @@ describe("ingesta del export: el costo se SUMA, no se pisa", () => {
         warn.mockRestore();
     });
 });
+
+describe("ingesta del export: cada tenant lee sólo su carpeta", () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(azureBlob.isBlobStorageEnabled).mockReturnValue(true);
+        vi.mocked(pool.query).mockResolvedValue([[]] as any);
+    });
+
+    it("sin archivos propios no cae a la carpeta compartida", async () => {
+        // Antes, una carpeta vacía disparaba un listado de `focus-cost-data/`
+        // entero y los costos de otro tenant se guardaban con este tenant_id.
+        vi.mocked(azureBlob.listBlobs).mockImplementation(async (_c: string, prefix?: string) =>
+            prefix === "focus-cost-data/t1/" ? [] : ["focus-cost-data/otro/miexport/20260901-20260930/run-x/part0.csv"]);
+        vi.mocked(azureBlob.downloadBlob).mockResolvedValue(Buffer.from("Date,BilledCost\n2026-09-01,10\n"));
+
+        const res = await ingestCostExportsForTenant("t1");
+
+        expect(vi.mocked(azureBlob.listBlobs).mock.calls.map(([, prefix]) => prefix)).toEqual(["focus-cost-data/t1/"]);
+        expect(res.rowsIngested).toBe(0);
+        expect(pool.query).not.toHaveBeenCalled();
+    });
+});
