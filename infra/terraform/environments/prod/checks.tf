@@ -9,13 +9,20 @@
 # ---------------------------------------------------------------------------
 
 locals {
-  # Jobs que pegan a Azure Cost Management Y corren todas las horas (hora = "*").
+  # Jobs horarios (hora = "*") que NO pegan a Azure Cost Management: son los
+  # unicos que pueden usar "*/N" o compartir minuto. La lista es de EXCLUSION a
+  # proposito. Antes era de inclusion (prewarm* mas dos nombres) y
+  # report-subscriptions entro el 2026-09-28 en "0 * * * *", el minuto de
+  # prewarm-dashboard, sin que este check lo viera: el prewarm empezo a caer en
+  # 429 a las 00, 03, 06 y 12 UTC. Un job horario nuevo queda vigilado por
+  # defecto; eximirlo es escribirlo aca.
+  sin_cost_management = ["power-schedules", "status-snapshot"]
+
   # Los diarios quedan afuera: prewarm-daily es "0 4 * * *" y comparte el minuto
   # 0 con prewarm-dashboard, pero solo coinciden una vez al dia, no cada hora.
   cost_jobs_horarios = {
     for k, v in var.cron_jobs : k => split(" ", v.cron)[0]
-    if(startswith(k, "prewarm") || contains(["sync-azure-ai", "anomaly-detection"], k))
-    && split(" ", v.cron)[1] == "*"
+    if !contains(local.sin_cost_management, k) && split(" ", v.cron)[1] == "*"
   }
 
   # "0,30" -> ["0","30"]. El modulo de cronjobs desplaza la HORA a UTC pero

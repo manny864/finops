@@ -172,7 +172,15 @@ cron_jobs = {
   # tipos de reporte, no uno por tipo: ya hay 26 jobs y sumar uno por reporte no
   # escala. Corre cada hora porque la cadencia la decide cada suscripción (y su
   # `last_sent_at` la hace idempotente), no el crontab.
-  report-subscriptions = { cron = "0 * * * *", timeout_seconds = 900 }
+  #
+  # Minuto 17 y no 0 (2026-10-05). En "0 * * * *" arrancaba junto con
+  # prewarm-dashboard (0,30): las horas con reportes para mandar, los dos
+  # consultaban Cost Management a la vez, llegaba el 429 y el prewarm de las 00,
+  # 03, 06 y 12 UTC fallaba para todos los tenants. El check
+  # prewarm_no_comparten_minuto no lo vio porque elegía los jobs por nombre.
+  # La decisión de qué reporte toca es por día (`correspondeEnviar`), así que el
+  # minuto no cambia qué se manda, sólo cuándo.
+  report-subscriptions = { cron = "17 * * * *", timeout_seconds = 900 }
 
   # Alimenta /api/status y /status. Autentica por query param, no por header.
   status-snapshot = { cron = "*/5 * * * *", timeout_seconds = 120, auth_mode = "query" }
