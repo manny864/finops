@@ -16,7 +16,10 @@ locals {
   # prewarm-dashboard, sin que este check lo viera: el prewarm empezo a caer en
   # 429 a las 00, 03, 06 y 12 UTC. Un job horario nuevo queda vigilado por
   # defecto; eximirlo es escribirlo aca.
-  sin_cost_management = ["power-schedules", "status-snapshot"]
+  # azure-api-usage-rollup sólo vuelca contadores a MySQL
+  # (volcarUsoApiAzureAMysql) y comparte el minuto 13 con sync-azure-ai, que
+  # llega por el tfvars del secret y no está en cron-jobs.tfvars.
+  sin_cost_management = ["power-schedules", "status-snapshot", "azure-api-usage-rollup"]
 
   # Los diarios quedan afuera: prewarm-daily es "0 4 * * *" y comparte el minuto
   # 0 con prewarm-dashboard, pero solo coinciden una vez al dia, no cada hora.
