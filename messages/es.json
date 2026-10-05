@@ -10861,7 +10861,18 @@
     "cancel": "Cancelar",
     "nextStep": "Siguiente →",
     "finopsFrameworkRef": "Marco de referencia oficial FinOps Foundation (Crawl, Walk, Run)",
-    "stepOf": "Paso {current} de {total}"
+    "stepOf": "Paso {current} de {total}",
+    "scorePolicyLabel": "Cómo se calcula el puntaje:",
+    "scorePolicy": {
+      "self_assessment": "Manda la autoevaluación del equipo",
+      "telemetry": "Manda la telemetría de Azure",
+      "blended_50_50": "Promedio 50/50"
+    },
+    "scorePolicyHint": "Autoevaluación: lo que el equipo declara en el cuestionario manda sobre su dominio (el modelo Crawl-Walk-Run de la FinOps Foundation). Telemetría: manda lo medido en Azure; sirve a un cliente auditado, donde lo declarado no alcanza. Promedio: la mitad de cada una. Con cualquiera de las tres, si las dos lecturas se separan más de 20 puntos, el plan de acción lo marca. La cambian Admin y Owner.",
+    "scorePolicySaved": "Política guardada. El radar ya se recalculó.",
+    "scorePolicySaveError": "No se pudo cambiar la política.",
+    "scoreContrast": "Equipo {team} · Azure {azure}",
+    "scoreContrastHint": "Lo que declaró el equipo y lo que mide Azure. El puntaje de la barra sale de la política elegida."
   },
   "OverviewProgress": {
     "selectTenantTitle": "Seleccioná un Tenant",

@@ -21,6 +21,7 @@
 - **Leaderboard de equipos y margen bruto.** Un ranking que ordena por mejora —no por quién gasta menos—, el split costo de venta (COGS) / gasto operativo (OpEx) —cada grupo se clasifica desde la misma tabla— y el margen bruto cuando cargás ingresos (5.2).
 - **Suscripciones a reportes.** La pestaña **Suscripciones** de Reportes y Exportación manda el reporte por correo a la cadencia que elijas, con link, gráfico y CSV (8.6).
 - **Año fiscal y arrastre de presupuesto.** El ejercicio del tenant deja de estar fijo en enero —se elige en **Configuración → General**— y un presupuesto puede arrastrar al mes siguiente lo no gastado, con tope, desde la misma tabla de presupuestos (5.1.5).
+- **Madurez FinOps.** Elegís si en el puntaje manda la autoevaluación del equipo, la telemetría de Azure o un promedio, y cada dimensión muestra las dos lecturas (4.4).
 - **Fin de soporte.** Qué corre sobre una versión que Azure retira, cuándo, y cuánto cuesta hoy: AKS, PostgreSQL y MySQL Flexible Server (7.9).
 - **Compromisos.** Aviso de concentración de vencimientos, **ESR** (tasa efectiva de ahorro), simulador de punto de equilibrio con mix óptimo, control del cupo anual de devoluciones de reservas y **avisos automáticos a los 90, 60 y 30 días del vencimiento de cada reserva** (5.4.4).
 - **Shift-Left FinOps.** El costo de un `terraform plan` dentro del Pull Request, antes del merge, con umbrales por repositorio; está en **Gobernanza → Shift-Left (PRs)** (7.10).
@@ -266,7 +267,19 @@ En `Inteligencia Financiera → Azure AI → Document Intelligence` podés revis
 
 ### 4.4. Madurez FinOps
 
-Evaluación interactiva que ubica a tu organización en Crawl / Walk / Run según 5 pilares (visibilidad, optimización, gobernanza, inteligencia, operaciones). Respondé el cuestionario y obtené un score por pilar más un roadmap de mejora personalizado.
+Ubica a tu organización en **Gatear / Caminar / Correr** —el modelo Crawl-Walk-Run de la FinOps Foundation— en seis dimensiones: Visibilidad e Información, Optimización de Tasa, Optimización de Uso, Gobernanza y Asignación, Automatización y Cultura FinOps. El radar muestra el puntaje de cada una (Gatear por debajo de 40, Caminar de 40 a 75, Correr por encima de 75), con la hoja de ruta de los próximos hitos.
+
+Cada dimensión tiene **dos lecturas**: la **telemetría** que la plataforma mide en tu Azure y la **autoevaluación** que el equipo completa con **Retomar Evaluación** (una pregunta por dimensión). Cuando están las dos, la fila las muestra juntas (*Equipo 70 · Azure 45*), y si se separan más de 20 puntos el plan de acción lo marca: o el equipo se está dando por maduro sin evidencia, o hay capacidades implementadas que nadie documentó.
+
+**Cómo se calcula el puntaje.** Arriba del radar se elige qué lectura manda. La eligen Admin y Owner; los demás ven cuál está activa.
+
+| Opción | Qué hace | Para quién |
+|---|---|---|
+| **Manda la autoevaluación del equipo** (por defecto) | El puntaje de cada dimensión es lo que declaró el equipo | Un equipo en adopción, que quiere medir su propia lectura |
+| **Manda la telemetría de Azure** | El puntaje es lo medido; lo declarado queda como contraste | Un cliente auditado, donde lo declarado no alcanza |
+| **Promedio 50/50** | La mitad de cada lectura | Un punto intermedio |
+
+Cambiarla recalcula el radar en el momento y no borra ninguna respuesta.
 
 ### 4.5. Academia FinOps
 

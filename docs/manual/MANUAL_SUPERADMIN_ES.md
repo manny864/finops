@@ -27,7 +27,7 @@ Todo lo que cambió para el usuario de un tenant está en el **Manual de Usuario
 - **Anomalías con responsable y seguimiento (18) y suscripciones fuera del tope de un plan (19):** lo que ve el cliente y cómo explicárselo.
 - **Enlaces que salen de la plataforma:** el enlace del panel del partner y el resto de los enlaces que mandamos por correo usan la URL pública configurada (`NEXT_PUBLIC_APP_URL`), no el host con el que entró quien los pidió.
 - **Avisos de vencimiento de reservas (MEJ-16):** un cron diario nuevo, `reservation-expiry-alerts` (09:03 UTC), avisa a cada tenant a los 90, 60 y 30 días del vencimiento de sus reservas, por la campanita y por sus canales de notificación (5.4.4). Lo que ya avisó queda anotado en `ReservationExpiryNotices`, así que no se repite. Se agenda con el `terraform apply` por CI: hasta que se aplique, el job no existe.
-- **Lo que era sólo por API ya tiene pantalla:** alcance por usuario (8.2), vistas compartidas y predeterminadas (3.4), clasificación COGS/OpEx (5.2), arrastre de presupuesto y año fiscal (5.1.5). Shift-Left tiene entrada en el menú, y un usuario acotado ve los hubs que le corresponden en vez de sólo el Whiteboard.
+- **Lo que era sólo por API ya tiene pantalla:** alcance por usuario (8.2), vistas compartidas y predeterminadas (3.4), clasificación COGS/OpEx (5.2), arrastre de presupuesto y año fiscal (5.1.5), y la política del puntaje de madurez (MEJ-08, 4.4). Shift-Left tiene entrada en el menú, y un usuario acotado ve los hubs que le corresponden en vez de sólo el Whiteboard.
 - **Pantallas que no mandaban la sesión:** Leaderboard, Fin de soporte, Capacidad de red, Vistas guardadas, Suscripciones a reportes, el historial de inicios de sesión de M365, la barra de impersonación y el aviso de borrado terminado llamaban a la API sin el token y, para cualquier tenant real, recibían 401; en el demo funcionaban porque se interceptan. Ya lo mandan, y un test (`fetchConSesion.test.ts`) impide que vuelva.
 - **Afiliados al 15 % por defecto (17.1)** y **portal del partner en su idioma (17.5)**: el enlace ya no fuerza español y el panel tiene selector de idioma.
 - **Infraestructura:** el `terraform apply` a producción se hace **sólo por CI** (workflow `terraform.yml`, confirmación `APPLY-PROD`), nunca desde una máquina local; los valores de entorno de producción viven en el secreto `TF_VARS_PROD`.
@@ -312,7 +312,19 @@ En `Inteligencia Financiera → Azure AI → Document Intelligence` podés revis
 
 ### 4.4. Madurez FinOps
 
-Evaluación interactiva que ubica a tu organización en Crawl / Walk / Run según 5 pilares (visibilidad, optimización, gobernanza, inteligencia, operaciones). Respondé el cuestionario y obtené un score por pilar más un roadmap de mejora personalizado.
+Ubica a tu organización en **Gatear / Caminar / Correr** —el modelo Crawl-Walk-Run de la FinOps Foundation— en seis dimensiones: Visibilidad e Información, Optimización de Tasa, Optimización de Uso, Gobernanza y Asignación, Automatización y Cultura FinOps. El radar muestra el puntaje de cada una (Gatear por debajo de 40, Caminar de 40 a 75, Correr por encima de 75), con la hoja de ruta de los próximos hitos.
+
+Cada dimensión tiene **dos lecturas**: la **telemetría** que la plataforma mide en tu Azure y la **autoevaluación** que el equipo completa con **Retomar Evaluación** (una pregunta por dimensión). Cuando están las dos, la fila las muestra juntas (*Equipo 70 · Azure 45*), y si se separan más de 20 puntos el plan de acción lo marca: o el equipo se está dando por maduro sin evidencia, o hay capacidades implementadas que nadie documentó.
+
+**Cómo se calcula el puntaje.** Arriba del radar se elige qué lectura manda. La eligen Admin y Owner; los demás ven cuál está activa.
+
+| Opción | Qué hace | Para quién |
+|---|---|---|
+| **Manda la autoevaluación del equipo** (por defecto) | El puntaje de cada dimensión es lo que declaró el equipo | Un equipo en adopción, que quiere medir su propia lectura |
+| **Manda la telemetría de Azure** | El puntaje es lo medido; lo declarado queda como contraste | Un cliente auditado, donde lo declarado no alcanza |
+| **Promedio 50/50** | La mitad de cada lectura | Un punto intermedio |
+
+Cambiarla recalcula el radar en el momento y no borra ninguna respuesta.
 
 ### 4.5. Academia FinOps
 

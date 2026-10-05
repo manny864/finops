@@ -111,6 +111,94 @@ ${bodyHtml}
 </html>`;
 }
 
+// La portada de docs/manual (index.html) se ESCRIBE acá, con la misma lista de
+// arriba. La anterior se había hecho a mano en julio y tres meses después seguía
+// anunciando sólo el manual de usuario, la versión 2.0 y ningún PDF: una portada
+// a mano envejece con el primer manual nuevo.
+const TIPOS = {
+  USUARIO: {
+    titulo: 'Manual de Usuario',
+    para: 'Para los usuarios de cada tenant. La plataforma lo sirve desde el ícono de ayuda del encabezado.',
+  },
+  SUPERADMIN: {
+    titulo: 'Manual de SuperAdmin',
+    para: 'Uso interno de CSCloudSolutions: operación de la plataforma, afiliados, comisiones y configuración global. No se publica.',
+  },
+  PARTNER: {
+    titulo: 'Manual del Partner y del Equipo Comercial',
+    para: 'Para partners y comerciales: cómo funciona la plataforma y cómo venderla. Se descarga desde el panel del partner, en PDF y en Markdown.',
+  },
+};
+const IDIOMA = { es: 'Español', en: 'English', 'pt-BR': 'Português' };
+
+function escribirIndice() {
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const secciones = Object.entries(TIPOS).map(([tipo, info]) => {
+    const filas = FILES.filter((f) => f.md.startsWith(`MANUAL_${tipo}_`)).map((f) => {
+      const mdPath = path.join(MANUAL_DIR, f.md);
+      if (!fs.existsSync(mdPath)) return '';
+      // La versión y la fecha salen de la portada del propio manual.
+      const meta = (fs.readFileSync(mdPath, 'utf-8').match(/<p class="cover-meta">([^<]*)<\/p>/) || [])[1] || '';
+      const pdfPath = path.join(MANUAL_DIR, f.pdf);
+      const pdf = fs.existsSync(pdfPath)
+        ? `<a href="${f.pdf}">PDF</a> <span class="kb">${(fs.statSync(pdfPath).size / 1024).toFixed(0)} KB</span>`
+        : '<span class="kb">sin PDF</span>';
+      return `      <tr><td>${IDIOMA[f.lang]}</td><td class="meta">${esc(meta)}</td><td>${pdf}</td><td><a href="${f.md}">Markdown</a></td></tr>`;
+    }).join('\n');
+    return `    <section>
+      <h2>${info.titulo}</h2>
+      <p>${info.para}</p>
+      <table>
+${filas}
+      </table>
+    </section>`;
+  }).join('\n');
+
+  const html = `<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manuales FinOps SaaS</title>
+<!-- Generado por scripts/generate-manual-pdfs.js. No editar a mano: se reescribe con cada corrida. -->
+<style>
+  :root { --bg: #f4f8fc; --card: #ffffff; --ink: #1B2A41; --soft: #5b6b80; --line: #d6e4f2; --brand: #0054A6; --accent: #0078D4; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0b1220; --card: #111a2c; --ink: #e6eef8; --soft: #9fb0c6; --line: #22324a; --brand: #6cb4ff; --accent: #38bdf8; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  main { max-width: 880px; margin: 0 auto; padding: 40px 16px 56px; }
+  header img { height: 40px; }
+  h1 { color: var(--brand); font-size: 28px; margin: 16px 0 6px; }
+  .nota { color: var(--soft); font-size: 13px; margin: 0 0 28px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; margin-bottom: 18px; }
+  h2 { color: var(--brand); font-size: 18px; margin: 0 0 6px; }
+  section p { color: var(--soft); font-size: 14px; margin: 0 0 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td { padding: 8px 6px; border-top: 1px solid var(--line); }
+  a { color: var(--accent); font-weight: 600; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .kb, .meta { color: var(--soft); font-size: 12px; font-weight: 400; }
+  footer { color: var(--soft); font-size: 12px; text-align: center; margin-top: 28px; }
+  @media (max-width: 560px) { td.meta { display: none; } }
+</style>
+</head>
+<body>
+  <main>
+    <header><img src="../../public/CSCloudSolutions.png" alt="CSCloudSolutions"></header>
+    <h1>Manuales de FinOps SaaS</h1>
+    <p class="nota">La escribe <code>scripts/generate-manual-pdfs.js</code> cada vez que se regeneran los PDF.</p>
+${secciones}
+    <footer>Soporte: <a href="mailto:soporte@cscloudsolutions.com.ar">soporte@cscloudsolutions.com.ar</a></footer>
+  </main>
+</body>
+</html>
+`;
+  fs.writeFileSync(path.join(MANUAL_DIR, 'index.html'), html);
+  console.log('OK: index.html -> docs/manual');
+}
+
 async function main() {
   const browser = await chromium.launch();
   for (const f of FILES) {
@@ -152,6 +240,7 @@ async function main() {
     }
   }
   await browser.close();
+  escribirIndice();
 }
 
 main().catch((err) => {

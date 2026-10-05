@@ -28,14 +28,19 @@ import {
   Radar,
   Tooltip,
 } from "recharts";
-import { getFreshIdToken } from "@/lib/msalToken";
+import { toast } from "sonner";
+import { getFreshIdToken, fetchWithAuthRetry } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/mockData";
 import PageHeaderTierBadge from "@/components/dashboard/PageHeaderTierBadge";
+import InfoTooltip from "@/components/InfoTooltip";
 import type {
   MaturityPayload,
   MaturityMilestone,
   MaturityStage,
+  MaturityScorePolicy,
 } from "@/types/finopsMaturity.types";
+
+const POLITICAS: MaturityScorePolicy[] = ["self_assessment", "telemetry", "blended_50_50"];
 import { MATURITY_QUESTIONS, calculateMaturityStage } from "@/lib/finopsMaturityConstants";
 import { useChartTheme } from "@/lib/chartTheme";
 
@@ -79,7 +84,7 @@ function buildFetcher(instance: any, accounts: any[], isDemo: boolean) {
 
 export default function MaturityDashboard() {
   const t = useTranslations("OverviewMaturity");
-  const { selectedTenant } = useTenant();
+  const { selectedTenant, userRole } = useTenant();
   const { instance, accounts } = useMsal();
 
   const tenantId = selectedTenant?.id;
@@ -114,6 +119,31 @@ export default function MaturityDashboard() {
   );
 
   const isRefreshing = isLoading;
+
+  // MEJ-08: qué pesa en el puntaje. Antes se cambiaba sólo por API. La elige
+  // Admin u Owner —la API lo exige—; los demás la ven, porque explica el número.
+  const politica: MaturityScorePolicy = data?.scorePolicy ?? "self_assessment";
+  const puedeElegirPolitica = !isDemo && (userRole === "Admin" || userRole === "Owner");
+  const [guardandoPolitica, setGuardandoPolitica] = useState(false);
+
+  const cambiarPolitica = async (nueva: MaturityScorePolicy) => {
+    if (!selectedTenant || nueva === politica) return;
+    setGuardandoPolitica(true);
+    try {
+      const res = await fetchWithAuthRetry(instance, accounts[0], "/api/admin/config/general", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantId: selectedTenant.id, maturityScorePolicy: nueva }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
+      toast.success(t("scorePolicySaved"));
+      await mutate(); // el radar lo recalcula el servidor con la política nueva
+    } catch (e) {
+      toast.error(t("scorePolicySaveError"), { description: e instanceof Error ? e.message : undefined });
+    } finally {
+      setGuardandoPolitica(false);
+    }
+  };
 
   // ─── Radar Data Format ───
   const radarChartData = useMemo(() => {
@@ -154,17 +184,24 @@ export default function MaturityDashboard() {
       const score = answers[q.id];
       if (typeof score === "number") byDomain[q.domainKey] = score;
     }
-    const dimensions = current.summary.dimensions.map((d) =>
-      byDomain[d.key] === undefined
-        ? d
-        : {
-            ...d,
-            score: byDomain[d.key],
-            stage: calculateMaturityStage(byDomain[d.key]),
-            telemetryScore: d.telemetryScore ?? d.score,
-            scoreSource: "self_assessment" as const,
-          }
-    );
+    // La proyección respeta la política, igual que el servidor
+    // (applySelfAssessment): con "telemetría" el radar no se mueve por lo que
+    // declare el equipo, y mostrarlo moverse para después volver sería mentir.
+    const pol = current.scorePolicy ?? "self_assessment";
+    const dimensions = current.summary.dimensions.map((d) => {
+      const declared = byDomain[d.key];
+      if (declared === undefined) return d;
+      const tele = d.telemetryScore ?? d.score;
+      const score = pol === "telemetry" ? tele : pol === "blended_50_50" ? Math.round((declared + tele) / 2) : declared;
+      return {
+        ...d,
+        score,
+        stage: calculateMaturityStage(score),
+        telemetryScore: tele,
+        declaredScore: declared,
+        scoreSource: pol === "telemetry" ? ("telemetry" as const) : pol === "blended_50_50" ? ("blended" as const) : ("self_assessment" as const),
+      };
+    });
     const overallScore = Math.round(
       dimensions.reduce((acc, d) => acc + d.score, 0) / Math.max(1, dimensions.length)
     );
@@ -342,6 +379,27 @@ export default function MaturityDashboard() {
             </span>
           </div>
 
+          {/* MEJ-08 — cómo se combina lo declarado con lo medido. */}
+          <div className="flex items-center gap-2 flex-wrap text-[11px] text-slate-500 dark:text-slate-400 mb-1">
+            <span className="font-semibold">{t("scorePolicyLabel")}</span>
+            {puedeElegirPolitica ? (
+              <select
+                aria-label={t("scorePolicyLabel")}
+                value={politica}
+                disabled={guardandoPolitica}
+                onChange={(e) => cambiarPolitica(e.target.value as MaturityScorePolicy)}
+                className="rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-[11px] text-slate-700 dark:text-slate-200 disabled:opacity-50"
+              >
+                {POLITICAS.map((p) => (
+                  <option key={p} value={p}>{t(`scorePolicy.${p}`)}</option>
+                ))}
+              </select>
+            ) : (
+              <span className="font-bold text-slate-700 dark:text-slate-200">{t(`scorePolicy.${politica}`)}</span>
+            )}
+            <InfoTooltip content={t("scorePolicyHint")} />
+          </div>
+
           <div className="w-full h-72 flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart data={radarChartData} margin={{ top: 10, right: 25, bottom: 10, left: 25 }}>
@@ -412,6 +470,13 @@ export default function MaturityDashboard() {
                       {t(`dimension.${dim.key}`)}
                     </span>
                     <div className="flex items-center gap-2">
+                      {/* Las dos lecturas, gane cuál gane: el contraste es la
+                          conversación FinOps útil (MEJ-08). */}
+                      {dim.declaredScore !== undefined && dim.telemetryScore !== undefined && (
+                        <span className="text-[10px] font-mono text-slate-400" title={t("scoreContrastHint")}>
+                          {t("scoreContrast", { team: dim.declaredScore, azure: dim.telemetryScore })}
+                        </span>
+                      )}
                       <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${stageConf.bgClass} ${stageConf.textClass}`}>
                         {t(`stage.${dim.stage}`)}
                       </span>

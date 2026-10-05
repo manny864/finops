@@ -108,4 +108,12 @@ describe('applySelfAssessment — ponderación por tenant (MEJ-08)', () => {
   it('sin autoevaluación devuelve las dimensiones intactas', () => {
     expect(applySelfAssessment(dims, {}, 'telemetry')).toEqual(dims);
   });
+
+  it('las dos lecturas viajan con cualquier política: la pantalla las muestra lado a lado', () => {
+    for (const pol of ['self_assessment', 'telemetry', 'blended_50_50'] as const) {
+      const v = porClave(applySelfAssessment(dims, declarado, pol), 'visibility');
+      expect(v.declaredScore, pol).toBe(declarado.visibility);
+      expect(v.telemetryScore, pol).toBe(porClave(dims, 'visibility').score);
+    }
+  });
 });

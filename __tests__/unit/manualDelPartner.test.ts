@@ -114,4 +114,13 @@ describe("los manuales tienen la misma estructura en los tres idiomas", () => {
             }
         }
     });
+
+    it("la portada de docs/manual enlaza todos los manuales, en PDF y en Markdown", () => {
+        // La escribe el generador. La anterior se hizo a mano y, tres meses
+        // después, sólo listaba el manual de usuario y ningún PDF.
+        const indice = leer(path.join(DOCS, "index.html"));
+        for (const archivo of fs.readdirSync(DOCS).filter((f) => /^MANUAL_.*\.(md|pdf)$/.test(f))) {
+            expect(indice, `la portada no enlaza ${archivo}`).toContain(`href="${archivo}"`);
+        }
+    });
 });

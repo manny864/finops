@@ -10861,7 +10861,18 @@
     "cancel": "Cancel",
     "nextStep": "Next →",
     "finopsFrameworkRef": "Official FinOps Foundation framework (Crawl, Walk, Run)",
-    "stepOf": "Step {current} of {total}"
+    "stepOf": "Step {current} of {total}",
+    "scorePolicyLabel": "How the score is calculated:",
+    "scorePolicy": {
+      "self_assessment": "The team's self-assessment wins",
+      "telemetry": "Azure telemetry wins",
+      "blended_50_50": "50/50 average"
+    },
+    "scorePolicyHint": "Self-assessment: what the team declares in the questionnaire wins for its domain (the FinOps Foundation's Crawl-Walk-Run model). Telemetry: what is measured in Azure wins; useful for an audited customer, where a declaration is not enough. Average: half of each. With any of the three, if the two readings are more than 20 points apart, the action plan flags it. Admins and Owners can change it.",
+    "scorePolicySaved": "Policy saved. The radar has been recalculated.",
+    "scorePolicySaveError": "The policy could not be changed.",
+    "scoreContrast": "Team {team} · Azure {azure}",
+    "scoreContrastHint": "What the team declared and what Azure measures. The bar's score comes from the chosen policy."
   },
   "OverviewProgress": {
     "selectTenantTitle": "Select a Tenant",

@@ -35,6 +35,8 @@ export interface MaturityDimension {
   divergenceParams?: Record<string, string | number>;
   /** Score derivado de telemetría de Azure, cuando la autoevaluación lo sustituye. */
   telemetryScore?: number;
+  /** Lo que declaró el equipo en la autoevaluación, gane o no (MEJ-08). */
+  declaredScore?: number;
   /** De dónde sale `score`: respuesta del equipo, telemetría, o el promedio. */
   scoreSource?: 'self_assessment' | 'telemetry' | 'blended';
 }
@@ -103,6 +105,8 @@ export interface MaturityPayload {
   tier: string;
   assessmentQuestions?: MaturityAssessmentQuestion[];
   lastAssessed?: string;
+  /** Con qué política se calcularon los puntajes (MEJ-08). */
+  scorePolicy?: MaturityScorePolicy;
   source: 'live' | 'mock';
   error?: string;
 }

@@ -253,7 +253,7 @@ Este é o mapa do que o cliente vai usar todos os dias. Para cada tela: **o prob
 |---|---|---|---|---|
 | **White Board** | «Como vai o gasto neste mês e onde há dinheiro para recuperar?» | Custo do período (mês atual, 30 ou 90 dias), forecast, recursos zumbi, **Economia Potencial**, impacto ambiental, orçamentos, serviços que mais pesam e **Quick Wins** com botão *Otimizar* | A tela para a Diretoria: em dez segundos sabe se há um problema | P+ |
 | **Azure Advisor** | As recomendações da Microsoft estão dispersas e ninguém as acompanha | As recomendações nativas do Azure no seu idioma, com economia estimada, e a possibilidade de **adiar** ou **descartar** com registro | «O que o Azure já recomenda, organizado e com acompanhamento» | P+ |
-| **Maturidade FinOps** | «Quão bem gerenciamos a nuvem?» | Avaliação Crawl / Walk / Run em 5 pilares, com pontuação e roadmap de melhoria | Uma conversa de Diretoria: onde estamos e o que vem a seguir | P+ |
+| **Maturidade FinOps** | «Quão bem gerenciamos a nuvem?» | Avaliação Crawl / Walk / Run em 6 dimensões, com pontuação e roteiro; o cliente escolhe se vale a autoavaliação da equipe, a telemetria do Azure ou uma média | Uma conversa de Diretoria: onde estamos e o que vem a seguir | P+ |
 | **Progresso Histórico** | «Estamos melhorando?» | Tendência mensal, marcos de economia, comparativos mês a mês e ano a ano, anotações | Prova de resultados para o comitê | P+ |
 | **TOP Despesas** | «O que mais pesa?» | Ranking por serviço, assinatura ou grupo de recursos, com detalhe por recurso | Onde focar o esforço | P+ |
 | **Recursos** | «O que tenho implantado e a que custo?» | Inventário completo com filtros, tagueamento em massa e exportação | O inventário que o Azure não dá com o custo ao lado | B+ |

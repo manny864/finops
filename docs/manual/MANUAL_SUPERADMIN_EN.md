@@ -27,7 +27,7 @@ Everything that changed for a tenant's user is in the **User Manual** and is inc
 - **Anomalies with an owner and follow-up (18) and subscriptions beyond a plan's limit (19):** what the client sees and how to explain it.
 - **Links that leave the platform:** the partner-panel link and the other links we email use the configured public URL (`NEXT_PUBLIC_APP_URL`), not the host the requester came in through.
 - **Reservation expiry notices (MEJ-16):** a new daily cron, `reservation-expiry-alerts` (09:03 UTC), notifies each tenant 90, 60 and 30 days before its reservations expire, through the bell and its notification channels (5.4.4). What it has already notified is recorded in `ReservationExpiryNotices`, so it is not repeated. It is scheduled with the CI `terraform apply`: until that is applied, the job does not exist.
-- **What was API-only now has a screen:** per-user scope (8.2), shared and default views (3.4), COGS/OpEx classification (5.2), budget rollover and fiscal year (5.1.5). Shift-Left has a menu entry, and a scoped user sees the hubs that apply to them instead of only the Whiteboard.
+- **What was API-only now has a screen:** per-user scope (8.2), shared and default views (3.4), COGS/OpEx classification (5.2), budget rollover and fiscal year (5.1.5), and the maturity score policy (MEJ-08, 4.4). Shift-Left has a menu entry, and a scoped user sees the hubs that apply to them instead of only the Whiteboard.
 - **Screens that did not send the session:** Leaderboard, End of support, Link capacity, Saved views, Report subscriptions, the M365 sign-in history, the impersonation bar and the deletion-finished notice called the API without the token and, for any real tenant, got a 401; they worked in the demo because it is intercepted. They send it now, and a test (`fetchConSesion.test.ts`) keeps it from coming back.
 - **Affiliates at 15 % by default (17.1)** and **the partner portal in their language (17.5)**: the link no longer forces Spanish and the panel has a language selector.
 - **Infrastructure:** the production `terraform apply` is done **only through CI** (`terraform.yml` workflow, `APPLY-PROD` confirmation), never from a local machine; production environment values live in the `TF_VARS_PROD` secret.
@@ -312,7 +312,19 @@ Under `Financial Intelligence → Azure AI → Document Intelligence`, review MT
 
 ### 4.4. FinOps Maturity
 
-Interactive assessment that places your organization at Crawl / Walk / Run across 5 pillars (visibility, optimization, governance, intelligence, operations). Answer the questionnaire to get a score per pillar plus a personalized improvement roadmap.
+Places your organization at **Crawl / Walk / Run** —the FinOps Foundation model— across six dimensions: Visibility & Insight, Rate Optimization, Usage Optimization, Governance & Allocation, Automation and FinOps Culture. The radar shows each one's score (Crawl below 40, Walk 40 to 75, Run above 75), with the roadmap of next milestones.
+
+Each dimension has **two readings**: the **telemetry** the platform measures in your Azure and the **self-assessment** the team completes with **Retake Assessment** (one question per dimension). When both exist, the row shows them together (*Team 70 · Azure 45*), and if they are more than 20 points apart the action plan flags it: either the team is calling itself mature without evidence, or there are capabilities in place that nobody documented.
+
+**How the score is calculated.** Above the radar you choose which reading wins. Admins and Owners choose it; everyone else sees which one is active.
+
+| Option | What it does | For whom |
+|---|---|---|
+| **The team's self-assessment wins** (default) | Each dimension's score is what the team declared | A team in adoption, measuring its own reading |
+| **Azure telemetry wins** | The score is what was measured; the declaration stays as a contrast | An audited customer, where a declaration is not enough |
+| **50/50 average** | Half of each reading | A middle ground |
+
+Changing it recalculates the radar immediately and deletes no answers.
 
 ### 4.5. FinOps Academy
 

@@ -1007,6 +1007,13 @@ O sea que `theme_preference`, `organization_display_name`, `custom_logo_blob_url
 Eso es un hueco más grande que MEJ-08 y merece entrada propia. Hasta que exista ese camino de escritura,
 la política se cambia con un UPDATE.
 
+> **2026-10-04 — con pantalla.** La política se elige arriba del radar de Madurez FinOps (Admin u
+> Owner; los demás ven cuál rige), y cada dimensión muestra las dos lecturas: *Equipo 70 · Azure 45*.
+> Para eso `getLiveMaturityData` devuelve `scorePolicy` y `applySelfAssessment` suma `declaredScore`. La
+> proyección optimista del cuestionario respeta la política: con «telemetría», el radar se movía con lo
+> declarado y volvía atrás al revalidar; ahora no se mueve. La «Nota» de arriba quedó vieja: el camino de
+> escritura existe desde la corrección (`PUT /api/admin/config/general`), sólo faltaba la pantalla.
+
 ---
 
 ## MEJ-09 — Deuda de linting

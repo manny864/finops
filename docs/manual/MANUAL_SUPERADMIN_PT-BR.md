@@ -27,7 +27,7 @@ Tudo o que mudou para o usuário de um tenant está no **Manual do Usuário** e 
 - **Anomalias com responsável e acompanhamento (18) e assinaturas fora do limite de um plano (19):** o que o cliente vê e como explicar para ele.
 - **Links que saem da plataforma:** o link do painel do parceiro e os demais links que enviamos por e-mail usam a URL pública configurada (`NEXT_PUBLIC_APP_URL`), não o host com o qual entrou quem os pediu.
 - **Avisos de vencimento de reservas (MEJ-16):** um cron diário novo, `reservation-expiry-alerts` (09:03 UTC), avisa cada tenant 90, 60 e 30 dias antes do vencimento das suas reservas, pelo sino e pelos seus canais de notificação (5.4.4). O que já foi avisado fica registrado em `ReservationExpiryNotices`, então não se repete. É agendado com o `terraform apply` por CI: até que seja aplicado, o job não existe.
-- **O que era só por API agora tem tela:** alcance por usuário (8.2), visões compartilhadas e padrão (3.4), classificação COGS/OpEx (5.2), transferência de orçamento e ano fiscal (5.1.5). O Shift-Left tem entrada no menu, e um usuário restrito vê os hubs que lhe cabem em vez de só o Whiteboard.
+- **O que era só por API agora tem tela:** alcance por usuário (8.2), visões compartilhadas e padrão (3.4), classificação COGS/OpEx (5.2), transferência de orçamento e ano fiscal (5.1.5), e a política da pontuação de maturidade (MEJ-08, 4.4). O Shift-Left tem entrada no menu, e um usuário restrito vê os hubs que lhe cabem em vez de só o Whiteboard.
 - **Telas que não enviavam a sessão:** Leaderboard, Fim de suporte, Capacidade de enlaces, Visões salvas, Assinaturas de relatórios, o histórico de logins do M365, a barra de impersonação e o aviso de exclusão concluída chamavam a API sem o token e, para qualquer tenant real, recebiam 401; no demo funcionavam porque são interceptadas. Agora o enviam, e um teste (`fetchConSesion.test.ts`) impede que volte.
 - **Afiliados com 15 % por padrão (17.1)** e **portal do parceiro no idioma dele (17.5)**: o link não força mais o espanhol e o painel tem seletor de idioma.
 - **Infraestrutura:** o `terraform apply` em produção é feito **somente por CI** (workflow `terraform.yml`, confirmação `APPLY-PROD`), nunca de uma máquina local; os valores de ambiente de produção vivem no segredo `TF_VARS_PROD`.
@@ -311,7 +311,19 @@ Em `Inteligência Financeira → Azure AI → Document Intelligence`, revise cus
 
 ### 4.4. Maturidade FinOps
 
-Avaliação interativa que posiciona sua organização em Crawl / Walk / Run em 5 pilares (visibilidade, otimização, governança, inteligência, operações). Responda o questionário para obter uma pontuação por pilar mais um roteiro de melhoria personalizado.
+Posiciona sua organização em **Engatinhar / Caminhar / Correr** —o modelo Crawl-Walk-Run da FinOps Foundation— em seis dimensões: Visibilidade e Informação, Otimização de Taxa, Otimização de Uso, Governança e Alocação, Automação e Cultura FinOps. O radar mostra a pontuação de cada uma (Engatinhar abaixo de 40, Caminhar de 40 a 75, Correr acima de 75), com o roteiro dos próximos marcos.
+
+Cada dimensão tem **duas leituras**: a **telemetria** que a plataforma mede no seu Azure e a **autoavaliação** que a equipe preenche com **Refazer Avaliação** (uma pergunta por dimensão). Quando existem as duas, a linha as mostra juntas (*Equipe 70 · Azure 45*), e se elas se afastam mais de 20 pontos o plano de ação o sinaliza: ou a equipe está se dando por madura sem evidência, ou há capacidades implementadas que ninguém documentou.
+
+**Como a pontuação é calculada.** Acima do radar escolhe-se qual leitura vale. Admin e Owner a escolhem; os demais veem qual está ativa.
+
+| Opção | O que faz | Para quem |
+|---|---|---|
+| **Vale a autoavaliação da equipe** (padrão) | A pontuação de cada dimensão é o que a equipe declarou | Uma equipe em adoção, que quer medir a própria leitura |
+| **Vale a telemetria do Azure** | A pontuação é o medido; o declarado fica como contraste | Um cliente auditado, onde o declarado não basta |
+| **Média 50/50** | Metade de cada leitura | Um meio-termo |
+
+Alterá-la recalcula o radar na hora e não apaga nenhuma resposta.
 
 ### 4.5. Academia FinOps
 

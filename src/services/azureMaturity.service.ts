@@ -252,6 +252,8 @@ export function applySelfAssessment(
       score,
       stage: calculateMaturityStage(score),
       telemetryScore,
+      // Lo declarado, gane quien gane: la pantalla muestra las dos lecturas.
+      declaredScore: declared,
       scoreSource,
       // La prosa se concatena para los consumidores que no traducen; la UI
       // renderiza `actionPlanKey` y `divergenceKey` por separado, porque
@@ -284,10 +286,11 @@ export async function getLiveMaturityData(tenantId: string): Promise<MaturityPay
       // Sin suscripciones conectadas la telemetría es 0, pero la autoevaluación
       // sí debe reflejarse: es el único insumo que tiene el tenant todavía.
       const selfNoSubs = await getLatestSelfAssessment(tenantId);
+      const politicaNoSubs = await getMaturityScorePolicy(tenantId);
       const dimsNoSubs = applySelfAssessment(
         emptyDimensions,
         selfNoSubs.scoresByDomain,
-        await getMaturityScorePolicy(tenantId)
+        politicaNoSubs
       );
       const overallNoSubs = Math.round(
         dimsNoSubs.reduce((acc, d) => acc + d.score, 0) / Math.max(1, dimsNoSubs.length)
@@ -304,6 +307,7 @@ export async function getLiveMaturityData(tenantId: string): Promise<MaturityPay
         tier: "Enterprise",
         assessmentQuestions: MATURITY_QUESTIONS,
         lastAssessed: selfNoSubs.assessedAtIso || undefined,
+        scorePolicy: politicaNoSubs,
         source: "live",
       };
     }
@@ -431,10 +435,11 @@ export async function getLiveMaturityData(tenantId: string): Promise<MaturityPay
     // La autoevaluación manda sobre su dominio (ver applySelfAssessment): sin
     // esto el cuestionario se guardaba y el radar seguía igual.
     const selfAssessment = await getLatestSelfAssessment(tenantId);
+    const politica = await getMaturityScorePolicy(tenantId);
     const effectiveDimensions = applySelfAssessment(
       dimensions,
       selfAssessment.scoresByDomain,
-      await getMaturityScorePolicy(tenantId)
+      politica
     );
 
     const overallScore = Math.round(
@@ -499,6 +504,8 @@ export async function getLiveMaturityData(tenantId: string): Promise<MaturityPay
       lastAssessed: selfAssessment.assessedAtIso
         ? selfAssessment.assessedAtIso.slice(0, 10)
         : undefined,
+      // MEJ-08: la pantalla dice con qué política se calculó y la deja cambiar.
+      scorePolicy: politica,
       source: "live",
     };
   } catch (error) {
@@ -521,6 +528,8 @@ export async function getLiveMaturityData(tenantId: string): Promise<MaturityPay
       tenantName: tenantId,
       tier: "Enterprise",
       assessmentQuestions: MATURITY_QUESTIONS,
+      // Aun sin telemetría la política se muestra: es la que se va a aplicar.
+      scorePolicy: await getMaturityScorePolicy(tenantId),
       source: "live",
     };
   }

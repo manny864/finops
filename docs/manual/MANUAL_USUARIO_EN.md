@@ -21,6 +21,7 @@
 - **Team leaderboard and gross margin.** A ranking that sorts by improvement —not by who spends least—, the cost of goods sold (COGS) / operating expense (OpEx) split —each group is classified from the same table— and gross margin once you load revenue (5.2).
 - **Report subscriptions.** The **Subscriptions** tab of Reports & Export emails a report at the cadence you choose, with a link, a chart and a CSV (8.6).
 - **Fiscal year and budget rollover.** The tenant's fiscal year is no longer fixed to January —you choose it in **Configuration → General**— and a budget can carry unspent money over to the next month, with a cap, from the budgets table itself (5.1.5).
+- **FinOps Maturity.** You choose whether the score follows the team's self-assessment, Azure telemetry or an average, and each dimension shows both readings (4.4).
 - **End of support.** What runs on a version Azure is retiring, when, and what it costs today: AKS, PostgreSQL and MySQL Flexible Server (7.9).
 - **Commitments.** Expiry concentration warning, **ESR** (effective savings rate), a break-even simulator with optimal mix, tracking of the annual reservation-refund cap, and **automatic notices 90, 60 and 30 days before each reservation expires** (5.4.4).
 - **Shift-Left FinOps.** The cost of a `terraform plan` inside the Pull Request, before the merge, with per-repository thresholds; it is under **Governance → Shift-Left (PRs)** (7.10).
@@ -266,7 +267,19 @@ Under `Financial Intelligence → Azure AI → Document Intelligence`, review MT
 
 ### 4.4. FinOps Maturity
 
-Interactive assessment that places your organization at Crawl / Walk / Run across 5 pillars (visibility, optimization, governance, intelligence, operations). Answer the questionnaire to get a score per pillar plus a personalized improvement roadmap.
+Places your organization at **Crawl / Walk / Run** —the FinOps Foundation model— across six dimensions: Visibility & Insight, Rate Optimization, Usage Optimization, Governance & Allocation, Automation and FinOps Culture. The radar shows each one's score (Crawl below 40, Walk 40 to 75, Run above 75), with the roadmap of next milestones.
+
+Each dimension has **two readings**: the **telemetry** the platform measures in your Azure and the **self-assessment** the team completes with **Retake Assessment** (one question per dimension). When both exist, the row shows them together (*Team 70 · Azure 45*), and if they are more than 20 points apart the action plan flags it: either the team is calling itself mature without evidence, or there are capabilities in place that nobody documented.
+
+**How the score is calculated.** Above the radar you choose which reading wins. Admins and Owners choose it; everyone else sees which one is active.
+
+| Option | What it does | For whom |
+|---|---|---|
+| **The team's self-assessment wins** (default) | Each dimension's score is what the team declared | A team in adoption, measuring its own reading |
+| **Azure telemetry wins** | The score is what was measured; the declaration stays as a contrast | An audited customer, where a declaration is not enough |
+| **50/50 average** | Half of each reading | A middle ground |
+
+Changing it recalculates the radar immediately and deletes no answers.
 
 ### 4.5. FinOps Academy
 
