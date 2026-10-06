@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "fs";
 import {
     normalizarCodigo,
     calcularComision,
     atribuirReferido,
     atribuirTenantManual,
+    SQL_PRIMER_PAGO_DEL_TENANT,
     fueraDeLaVentana,
     MESES_DE_COMISION,
 } from "@/services/affiliates.service";
@@ -234,5 +236,26 @@ describe("afiliados · atribución manual desde superadmin", () => {
         const { ejecutor } = ejecutorConParams([TENANT, CODIGO, AFILIADO, [], { affectedRows: 0 }, [{ name: "Ana Partner" }]]);
         const r = await atribuirTenantManual("af-1", "tenant-1", "ops@cscloudsolutions.com", ejecutor);
         expect(r).toEqual({ atribuido: false, motivo: "ya-atribuido", afiliadoActual: "Ana Partner" });
+    });
+});
+
+describe("afiliados · la ventana de 12 meses se cuenta desde el primer pago del cliente", () => {
+    it("el primer pago sale de BillingTransactions: completado y con monto", () => {
+        const sql = SQL_PRIMER_PAGO_DEL_TENANT.replace(/\s+/g, " ");
+        expect(sql).toContain("FROM BillingTransactions bt");
+        expect(sql).toContain("bt.status = 'completed'");
+        expect(sql).toContain("bt.amount > 0");
+        // No de Commissions: con la regla vieja, atribuir a mano reiniciaba el año.
+        expect(sql).not.toContain("Commissions");
+    });
+
+    it("el devengo y el panel del partner usan la misma fecha", () => {
+        // Si uno calculara la ventana por su cuenta, el partner vería un
+        // "comisiona hasta" distinto del que aplica el devengo.
+        for (const archivo of ["src/services/affiliates.service.ts", "src/services/affiliatePortal.service.ts"]) {
+            const fuente = readFileSync(archivo, "utf8");
+            expect(fuente, archivo).toContain("${SQL_PRIMER_PAGO_DEL_TENANT} AS primer_cobro");
+            expect(fuente, archivo).not.toMatch(/MIN\(COALESCE\(c\.billed_at, c\.created_at\)\) AS primer_cobro/);
+        }
     });
 });

@@ -1755,9 +1755,10 @@ Três regras que vale conhecer para responder perguntas:
 se cadastrou sem o link, o botão **Atribuir tenant** (pessoa com um +) na linha
 do afiliado abre um seletor de tenants. Valem as mesmas regras do cadastro: o
 afiliado precisa estar ativo, o tenant não pode já ter outro afiliado e não há
-autoindicação. Não é retroativa: a comissão começa a ser gerada na próxima
-cobrança e os 12 meses contam a partir daí. Fica registrado qual superadmin fez
-a atribuição.
+autoindicação. Não é retroativa e não reinicia a janela: gera a partir da
+próxima cobrança, mas os 12 meses contam desde o primeiro pagamento do cliente,
+então um que já paga há mais de um ano fica atribuído sem gerar comissão. Fica
+registrado qual superadmin fez a atribuição.
 
 ### 17.3 Editar, suspender e excluir
 

@@ -138,9 +138,9 @@ export async function atribuirReferido(
  * (afiliado ACTIVO, un afiliado por tenant, sin auto-referido) y no una copia
  * que se desfase con el tiempo.
  *
- * No es retroactiva: la comisión se devenga en el próximo cobro de Paddle, y la
- * ventana de MESES_DE_COMISION arranca ahí, porque se cuenta desde el primer
- * cobro comisionado (ver `devengarComision`).
+ * No es retroactiva y no reinicia la ventana: devenga desde el próximo cobro de
+ * Paddle, pero los MESES_DE_COMISION se cuentan desde el primer pago del
+ * cliente. Si ya pasaron, la atribución queda y no devenga nada.
  */
 export async function atribuirTenantManual(
     affiliateId: string,
@@ -177,8 +177,20 @@ export async function atribuirTenantManual(
 }
 
 /**
+ * Fecha del primer pago del cliente: desde ahí corren los MESES_DE_COMISION.
+ * Pago es un cobro completado y con monto; los fallidos y los de $0 (prueba,
+ * descuento total) no cuentan. La usan el devengo y el panel del partner, que
+ * tienen que decir la misma fecha. Espera `AffiliateReferrals` con el alias `r`.
+ */
+export const SQL_PRIMER_PAGO_DEL_TENANT = `(SELECT MIN(COALESCE(bt.billed_at, bt.created_at))
+       FROM BillingTransactions bt
+      WHERE bt.tenant_id = r.tenant_id AND bt.status = 'completed' AND bt.amount > 0)`;
+
+/**
  * Meses durante los que un cliente referido devenga comisión, contados desde su
- * PRIMER cobro comisionado.
+ * PRIMER PAGO (ver SQL_PRIMER_PAGO_DEL_TENANT), haya habido comisión ese día o
+ * no. Por eso un cliente atribuido a mano que ya pagaba hace más de un año no
+ * devenga nada: la ventana es la del cliente, no la de la atribución.
  *
  * POR QUÉ UNA VENTANA DE TIEMPO Y NO UN TOPE DE COBROS. Un plan anual se factura
  * UNA vez al año (`TIER_ANNUAL_PRICE_USD` es el total que cobra Paddle), así que
@@ -254,11 +266,7 @@ export async function devengarComision(params: {
     try {
         const [rows] = await pool.query<any[]>(
             `SELECT r.affiliate_id, a.commission_pct,
-                    (SELECT MIN(COALESCE(c.billed_at, c.created_at))
-                       FROM Commissions c
-                      WHERE c.beneficiary_type = 'affiliate'
-                        AND c.beneficiary_id = r.affiliate_id
-                        AND c.tenant_id = r.tenant_id) AS primer_cobro
+                    ${SQL_PRIMER_PAGO_DEL_TENANT} AS primer_cobro
              FROM AffiliateReferrals r
              JOIN Affiliates a ON a.id = r.affiliate_id
              WHERE r.tenant_id = ? AND a.status = 'ACTIVE' LIMIT 1`,

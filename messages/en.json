@@ -12896,7 +12896,7 @@
     "close": "Close",
     "attributeTenant": "Attribute tenant",
     "attributeTenantFor": "Attribute a tenant to {name}",
-    "attributeTenantHint": "For a customer this affiliate brought in who signed up without the link. The signup rules apply: one affiliate per tenant and no self-referral. It isn't retroactive: commission accrues from the next charge.",
+    "attributeTenantHint": "For a customer this affiliate brought in who signed up without the link. The signup rules apply: one affiliate per tenant and no self-referral. It isn't retroactive and doesn't restart the window: it accrues from the next charge, but the 12 months are counted from the customer's first payment, so one who has been paying for more than a year generates no commission.",
     "attributeTenantSelect": "Choose the tenant",
     "attributeTenantConfirm": "Attribute",
     "tenantAttributed": "Tenant attributed to {name}."

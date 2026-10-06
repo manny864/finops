@@ -12896,7 +12896,7 @@
     "close": "Cerrar",
     "attributeTenant": "Atribuir tenant",
     "attributeTenantFor": "Atribuir un tenant a {name}",
-    "attributeTenantHint": "Para el cliente que trajo este afiliado y se registró sin el link. Rigen las reglas del alta: un afiliado por tenant y sin que el afiliado se refiera a sí mismo. No es retroactiva: la comisión se devenga desde el próximo cobro.",
+    "attributeTenantHint": "Para el cliente que trajo este afiliado y se registró sin el link. Rigen las reglas del alta: un afiliado por tenant y sin que el afiliado se refiera a sí mismo. No es retroactiva y no reinicia la ventana: devenga desde el próximo cobro, pero los 12 meses se cuentan desde el primer pago del cliente, así que uno que ya paga hace más de un año no genera comisión.",
     "attributeTenantSelect": "Elegí el tenant",
     "attributeTenantConfirm": "Atribuir",
     "tenantAttributed": "Tenant atribuido a {name}."

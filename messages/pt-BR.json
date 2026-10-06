@@ -12896,7 +12896,7 @@
     "close": "Fechar",
     "attributeTenant": "Atribuir tenant",
     "attributeTenantFor": "Atribuir um tenant a {name}",
-    "attributeTenantHint": "Para o cliente que este afiliado trouxe e que se cadastrou sem o link. Valem as regras do cadastro: um afiliado por tenant e sem autoindicação. Não é retroativa: a comissão é gerada a partir da próxima cobrança.",
+    "attributeTenantHint": "Para o cliente que este afiliado trouxe e que se cadastrou sem o link. Valem as regras do cadastro: um afiliado por tenant e sem autoindicação. Não é retroativa e não reinicia a janela: gera a partir da próxima cobrança, mas os 12 meses contam desde o primeiro pagamento do cliente, então um que já paga há mais de um ano não gera comissão.",
     "attributeTenantSelect": "Escolha o tenant",
     "attributeTenantConfirm": "Atribuir",
     "tenantAttributed": "Tenant atribuído a {name}."

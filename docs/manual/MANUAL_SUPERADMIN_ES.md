@@ -1757,9 +1757,10 @@ Tres reglas que conviene saber para responder preguntas:
 registró sin el link, el botón **Atribuir tenant** (persona con un +) de la
 fila del afiliado abre un selector con los tenants. Valen las mismas reglas que
 en el alta: el afiliado tiene que estar activo, el tenant no puede tener ya otro
-afiliado y no hay auto-referidos. No es retroactiva: la comisión empieza a
-devengarse en el próximo cobro y los 12 meses se cuentan desde ahí. Queda
-registrado qué superadmin hizo la atribución.
+afiliado y no hay auto-referidos. No es retroactiva y no reinicia la ventana:
+devenga desde el próximo cobro, pero los 12 meses se cuentan desde el primer
+pago del cliente, así que uno que ya paga hace más de un año queda atribuido
+sin generar comisión. Queda registrado qué superadmin hizo la atribución.
 
 ### 17.3 Editar, suspender y eliminar
 

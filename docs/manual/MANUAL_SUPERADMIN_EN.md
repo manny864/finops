@@ -1761,9 +1761,11 @@ Three rules worth knowing when answering questions:
 signed up without the link, the **Attribute tenant** button (a person with a +)
 on the affiliate's row opens a tenant picker. The signup rules apply: the
 affiliate must be active, the tenant can't already have another affiliate, and
-there are no self-referrals. It isn't retroactive: commission starts accruing on
-the next charge and the 12 months are counted from there. The superadmin who
-made the attribution is recorded.
+there are no self-referrals. It isn't retroactive and doesn't restart the
+window: it accrues from the next charge, but the 12 months are counted from the
+customer's first payment, so one who has been paying for more than a year stays
+attributed without generating commission. The superadmin who made the
+attribution is recorded.
 
 ### 17.3 Editing, suspending and deleting
 
