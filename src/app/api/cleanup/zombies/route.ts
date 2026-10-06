@@ -12,6 +12,7 @@ import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { runGraphAudits } from "@/services/auditService";
 import { getMonthlyCostEstimate } from "@/services/pricingService";
 import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { getWithStaleWhileRevalidate, invalidateCache } from "@/lib/cache";
 import { isMockTenant } from "@/lib/mockData";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
@@ -276,6 +277,7 @@ export async function GET(request: NextRequest) {
     }
 
     await requireTenantAccess(request, tenantId);
+    await exigirSuscripcionDelTenant(tenantId, subscriptionId);
 
     const cacheKey = `cleanup:zombies:v5:${tenantId}:${subscriptionId || "all"}`;
     const rawItems = await getWithStaleWhileRevalidate(

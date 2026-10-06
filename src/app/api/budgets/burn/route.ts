@@ -3,6 +3,7 @@ import { getNativeBudgets, calculateBudgetProjection, fetchMtdCostForSub } from 
 import { recordDailySnapshotAsync } from "@/services/snapshotService";
 import { isMockTenant } from "@/lib/mockData";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { soloSuscripcionesDelTenant } from "@/lib/scopeDelTenant";
 import { getAzureCredential, getAllSubscriptionsForTenant } from "@/lib/azure";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 import type { BudgetBurnResponse, BudgetBurnSubBudget } from "@/lib/budgetTypes";
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
 
         const subIds = subscriptionId.toLowerCase() === "all"
             ? await getAllSubscriptionsForTenant(tenantId, await getAzureCredential(tenantId))
-            : subscriptionId.split(",").map(s => s.trim()).filter(s => s.length > 0);
+            : await soloSuscripcionesDelTenant(tenantId, subscriptionId.split(",").map(s => s.trim()).filter(s => s.length > 0));
         
         const promises = subIds.map(subId => getNativeBudgets(tenantId, subId));
         const results = await Promise.all(promises);

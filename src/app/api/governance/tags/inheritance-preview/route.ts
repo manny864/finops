@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { getAzureCredential } from "@/lib/azure";
 import { analyzeMissingTags } from "@/services/tagInheritanceService";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
@@ -18,6 +19,8 @@ export async function GET(request: NextRequest) {
         }
 
         await requireTenantAccess(request, tenantId);
+        // analyzeMissingTags lo pega en el KQL de una consulta sin suscripciones.
+        await exigirSuscripcionDelTenant(tenantId, subscriptionId);
 
         let credential;
         try {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential } from "@/lib/azure";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 import { isMockTenant } from "@/lib/mockData";
 
@@ -15,6 +16,7 @@ export async function GET(request: NextRequest) {
         }
 
         await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador']);
+        await exigirScopesDelTenant(tenantId, [subscriptionId]);
 
         // Tenant demo: sin esto `getAzureCredential` falla y el selector de
         // regiones del modal de crear Resource Group queda vacío. El catálogo

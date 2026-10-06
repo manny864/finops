@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { generateExecutiveReportEmailIntro, getAssessment } from "@/modules/core/aiProvider";
 import rateLimiter from "@/lib/rateLimiter";
 import { isAiGloballyEnabled } from "@/services/aiService";
@@ -373,6 +374,8 @@ export async function POST(request: NextRequest) {
         }
 
         const identity = await requireTenantAccess(request, tenantId);
+        // El job guarda la suscripción y la usa después contra Azure.
+        await exigirSuscripcionDelTenant(tenantId, subscriptionId);
         const rl = await rateLimiter.checkByKeyDistributed(`ai:executive-report:${tenantId}:${identity.email}`, AI_RL_LIMIT, AI_RL_WINDOW_MS);
         if (!rl.allowed) {
             return NextResponse.json(

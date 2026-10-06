@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { soloSuscripcionesDelTenant } from "@/lib/scopeDelTenant";
 import { isMockTenant } from "@/lib/mockData";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import {
@@ -43,8 +44,10 @@ export async function GET(request: NextRequest) {
 
         // ✅ PASO 3: Consultar APIs vivas de Azure (Zero-Fallback a Mocks)
         const subscriptionIdsParam = searchParams.get("subscriptions");
+        // El servicio las pone en un filtro KQL sobre una consulta sin
+        // suscripciones: una ajena llegaba a los recursos de otro cliente.
         const subscriptionIds = subscriptionIdsParam
-            ? subscriptionIdsParam.split(",").map((s) => s.trim()).filter(Boolean)
+            ? await soloSuscripcionesDelTenant(tenantId, subscriptionIdsParam.split(",").map((s) => s.trim()).filter(Boolean))
             : undefined;
 
         const data = await getWithStaleWhileRevalidate(

@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
                 // de NUESTRO directorio y no la del cliente.
                 if ((await getAccessModel(tenantId)) === "lighthouse") continue;
 
-                const reservas = await getActiveReservations(await getAzureCredential(tenantId));
+                const reservas = await getActiveReservations(tenantId, await getAzureCredential(tenantId));
                 evaluados++;
 
                 const nuevos = await reclamarNuevos(tenantId, avisosDeVencimiento(reservas, hoy));

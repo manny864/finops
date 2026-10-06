@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { AuthError, requireTenantAccess, requireTenantRole, requireTenantTier } from "@/lib/requestAuth";
 import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
-import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
+import { exigirScopesDelTenant, exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { isMockTenant } from "@/lib/mockData";
 import { errorMessage, errorStatus } from "@/lib/apiErrors";
 import {
@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
 
     // 2. Tenant Real: Validación obligatoria de RBAC
     await requireTenantAccess(req, tenantId);
+    await exigirSuscripcionDelTenant(tenantId, subscriptionId);
 
     const credential = await getAzureCredential(tenantId);
     let subs: string[] = [];
@@ -42,6 +43,9 @@ export async function GET(req: NextRequest) {
     const liveData = await scanTagGovernanceLive(credential, subs, tenantId);
     return NextResponse.json(liveData);
   } catch (err: any) {
+    if (err instanceof AuthError) {
+      return NextResponse.json({ error: errorMessage(err) }, { status: errorStatus(err) });
+    }
     console.error("[api/governance/tags] Error:", errorMessage(err));
     return NextResponse.json({ error: errorMessage(err) }, { status: 500 });
   }

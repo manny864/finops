@@ -1,5 +1,6 @@
 import { TokenCredential } from "@azure/identity";
 import { errorMessage } from '@/lib/apiErrors';
+import { getAccessModel } from "@/lib/lighthouseAccess";
 
 const ARM_BASE = "https://management.azure.com";
 const CAPACITY_API_VERSION = "2022-11-01";
@@ -83,8 +84,18 @@ function readableScope(scopeType: string, appliedScopes: any): string {
  * Renewal, Cantidad, Utilización 1 día / 7 días).
  *
  * RBAC Azure mínimo: rol "Reservations Reader" sobre el/los reservation order(s).
+ *
+ * CON LIGHTHOUSE NO SE LISTAN. Este endpoint devuelve las reservas "in the
+ * current tenant" (Learn, Reservation - List All): las del directorio del
+ * TOKEN, y con Lighthouse el token es de nuestro directorio, así que la lista
+ * sería la nuestra y le llegaría al cliente. Tampoco hay forma de pedir las
+ * suyas: una reserva no cuelga de una suscripción, "It's a tenant-level
+ * resource" con RBAC propio (Learn, view-reservations), y Lighthouse delega
+ * sólo suscripciones y resource groups. Lo que sí se ve es su costo amortizado
+ * por suscripción en Cost Management, y de ahí salen cobertura y costo.
  */
-export async function getActiveReservations(credential: TokenCredential): Promise<ActiveReservationDetail[]> {
+export async function getActiveReservations(tenantId: string, credential: TokenCredential): Promise<ActiveReservationDetail[]> {
+    if ((await getAccessModel(tenantId)) === "lighthouse") return [];
     const token = await armToken(credential);
     const results: ActiveReservationDetail[] = [];
     let url: string | null =

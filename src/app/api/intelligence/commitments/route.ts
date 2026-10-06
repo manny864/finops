@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
             // Nombre, Status, Expiration, Scope, Type, Product name, Region, Renewal,
             // Cantidad, Utilización 1 día / 7 días.
             try {
-                reservationDetails = await getActiveReservations(credential);
+                reservationDetails = await getActiveReservations(tenantId, credential);
                 const activeItems = reservationDetails.filter(r => {
                     const s = (r.status || '').toLowerCase();
                     return s.includes('succeed') || s.includes('active');

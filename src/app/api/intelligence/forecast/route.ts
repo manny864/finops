@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentMonthAmortizedCosts, getCostForecast } from "@/modules/collectors/azure/billingService";
 import pool from "@/modules/storage/db";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import {
   linearForecast,
@@ -36,6 +37,7 @@ export async function GET(request: NextRequest) {
         }
 
         await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+        await exigirSuscripcionDelTenant(tenantId, subscriptionId);
 
         // Tenant demo: se sirve el payload de ejemplo en vez de consultar
         // Azure/DB, que para el tenant de demostración no tienen datos.

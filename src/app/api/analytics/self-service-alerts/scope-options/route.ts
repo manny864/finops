@@ -19,6 +19,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { errorMessage } from "@/lib/apiErrors";
 import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
@@ -77,6 +78,7 @@ export async function GET(request: NextRequest) {
     }
 
     await requireTenantAccess(request, tenantId);
+    await exigirSuscripcionDelTenant(tenantId, subscriptionId);
 
     const rgs = new Set<string>();
     const centros = new Set<string>();

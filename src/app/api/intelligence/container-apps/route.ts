@@ -11,6 +11,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, requireTenantTier, AuthError } from "@/lib/requestAuth";
+import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { getContainerAppsCost } from "@/modules/collectors/azure/containerAppsCostService";
 import { isMockTenant } from "@/lib/mockData";
 import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
@@ -37,6 +38,9 @@ export async function GET(request: NextRequest) {
         // la primera suscripción que tenga Container Apps. Si ARG falla, degradamos
         // a "All" en vez de responder vacío (evita cargas intermitentes).
         let targetSubscriptionId = searchParams.get("subscriptionId") || "";
+        // La lista de abajo no alcanza para validarlo: si ARG falla queda vacía
+        // y el pedido pasaba tal cual.
+        await exigirSuscripcionDelTenant(tenantId, targetSubscriptionId);
         let availableSubscriptions: string[] = [];
         let selectedSubscriptionName = "N/A";
 

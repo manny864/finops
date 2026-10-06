@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { isMockTenant } from "@/lib/mockData";
 import { AzureSustainabilityService } from "@/services/azureSustainability.service";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
@@ -60,6 +61,8 @@ export async function GET(request: NextRequest) {
         ) {
             return NextResponse.json({ success: false, error: "subscriptionId inválido" }, { status: 400 });
         }
+        // Un GUID bien formado puede ser de otro cliente.
+        await exigirSuscripcionDelTenant(tenantId, subscriptionId);
 
         const summary = await AzureSustainabilityService.getSustainabilitySummary(tenantId, subscriptionId, tier);
 

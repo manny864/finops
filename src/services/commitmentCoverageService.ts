@@ -43,7 +43,7 @@ export async function getRealCommitmentsCoverage(tenantId: string): Promise<Comm
     try {
         const credential = await getAzureCredential(tenantId);
         const { getActiveReservations } = await import("@/services/reservationService");
-        const details = await getActiveReservations(credential).catch(() => []);
+        const details = await getActiveReservations(tenantId, credential).catch(() => []);
         const active = details.filter((r) => {
             const s = (r.status || "").toLowerCase();
             return s.includes("succeed") || s.includes("active");

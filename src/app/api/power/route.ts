@@ -5,7 +5,7 @@ import { MonitorClient } from "@azure/arm-monitor";
 import { getResourceGraphClient, getSubscriptionsForTenant } from "@/lib/azure";
 import { AuthError, requireTenantAccess, requireTenantRole } from "@/lib/requestAuth";
 import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
-import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
+import { exigirScopesDelTenant, exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { withArgLimit } from "@/lib/argConcurrency";
 import { isMockTenant } from "@/lib/mockData";
 import { getMockPowerManagementPayload } from "@/services/azureVmPowerManagement.service";
@@ -71,6 +71,7 @@ export async function GET(request: NextRequest) {
         // Delegacion de solo lectura: 403 explicativo en vez del 403 crudo de Azure.
         const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
         if (bloqueo) return bloqueo;
+        await exigirSuscripcionDelTenant(tenantId, subscriptionId);
 
         const normalizedSubscription = subscriptionId && subscriptionId.toLowerCase() !== "all"
             ? subscriptionId

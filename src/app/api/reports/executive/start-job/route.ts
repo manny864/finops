@@ -6,6 +6,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { AuthError, requireTenantAccess } from '@/lib/requestAuth';
+import { exigirSuscripcionDelTenant } from '@/lib/scopeDelTenant';
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 import { isMockTenant } from '@/lib/mockData';
 import { startExecutiveReportJob } from '@/services/executiveReportJob.service';
@@ -40,6 +41,8 @@ export async function POST(request: NextRequest) {
         if (!isMockTenant(tenantId)) {
             const identity = await requireTenantAccess(request, tenantId);
             requesterEmail = identity.email || 'user@cscloudsolutions.com';
+            // El job guarda el scopeId y lo usa después como suscripción en Azure.
+            if (scope !== 'TENANT_ALL') await exigirSuscripcionDelTenant(tenantId, scopeId);
         }
 
         const res = await startExecutiveReportJob({

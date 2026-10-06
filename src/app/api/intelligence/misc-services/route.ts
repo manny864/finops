@@ -5,6 +5,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
 import { getMiscServicesCost, MISC_SERVICE_TYPES } from "@/modules/collectors/azure/miscServicesCostService";
 import { isMockTenant } from "@/lib/mockData";
@@ -25,6 +26,9 @@ export async function GET(request: NextRequest) {
         }
 
         let targetSubscriptionId = searchParams.get("subscriptionId") || "";
+        // La lista de abajo no alcanza para validarlo: si ARG falla queda vacía
+        // y el pedido pasaba tal cual.
+        await exigirSuscripcionDelTenant(tenantId, targetSubscriptionId);
         let availableSubscriptions: string[] = [];
         try {
             const client = await getResourceGraphClient(tenantId);

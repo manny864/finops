@@ -3,6 +3,7 @@ import { getAzureCredential, listTenantSubscriptions } from "@/lib/azure";
 import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { errorMessage, errorStatus, serverError } from '@/lib/apiErrors';
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, findCostColumnIndex } from '@/lib/azureCostColumn';
 
@@ -19,6 +20,7 @@ export async function GET(request: NextRequest) {
 
         // Auth: validate JWT and assert caller belongs to this tenant.
         await requireTenantRole(request, tenantId, ['Admin', 'Owner', 'Reader', 'Colaborador']);
+        await exigirSuscripcionDelTenant(tenantId, subscriptionId);
 
         const cacheKey = `intelligence:chargeback:v2:azure:${tenantId}:${subscriptionId}:${tagKey}`;
 

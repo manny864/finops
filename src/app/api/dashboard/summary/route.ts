@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { redis } from "@/lib/redis";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import pool from "@/modules/storage/db";
 import { getCurrentMonthAmortizedCosts, getHistoricalDailyCosts, AZURE_COST_HISTORY_MAX_MONTHS } from "@/modules/collectors/azure/billingService";
 import { tenantUsesAzure } from "@/lib/tenantProviderContext";
@@ -372,6 +373,8 @@ export async function GET(request: NextRequest) {
     }
 
     await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+    // Antes del cache: lo cacheado antes de este chequeo puede ser de otro tenant.
+    await exigirSuscripcionDelTenant(tenantId, subscriptionId);
 
     const cacheKey = `dashboard:summary:v9:${tenantId}:${subscriptionId.toLowerCase()}:${histogramMonths}m`;
 

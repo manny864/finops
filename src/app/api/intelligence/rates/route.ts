@@ -14,6 +14,7 @@ export interface RatesResponse {
 }
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
@@ -27,6 +28,7 @@ export async function GET(request: NextRequest) {
         }
 
         await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+        await exigirScopesDelTenant(tenantId, [subscriptionId]);
 
         const cacheKey = `rates:${tenantId}:${subscriptionId}`;
         const data = await getWithStaleWhileRevalidate(cacheKey, async () => {

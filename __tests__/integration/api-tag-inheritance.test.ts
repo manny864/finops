@@ -34,9 +34,12 @@ vi.mock("@/lib/requestAuth", async () => {
 vi.mock("@/lib/azure", () => ({
     getAzureCredential: mocks.mockGetAzureCredential,
 }));
-// Los guards de escritura tienen sus propios tests (scopeDelTenant y lighthouseGuardEscritura).
+// Los guards tienen sus propios tests (scopeDelTenant, lighthouseGuardEscritura y lighthouseGuardLectura).
 vi.mock("@/lib/lighthouseAccess", () => ({ bloqueoPorDelegacionDeLectura: vi.fn(async () => null) }));
-vi.mock("@/lib/scopeDelTenant", () => ({ exigirScopesDelTenant: vi.fn(async () => {}) }));
+vi.mock("@/lib/scopeDelTenant", () => ({
+    exigirScopesDelTenant: vi.fn(async () => {}),
+    exigirSuscripcionDelTenant: vi.fn(async () => {}),
+}));
 
 vi.mock("@/services/tagInheritanceService", () => ({
     analyzeMissingTags: mocks.mockAnalyzeMissingTags,
