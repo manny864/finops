@@ -68,9 +68,6 @@ const ESCRIBEN_EN_AZURE: Array<[ruta: string, porque: string]> = [
     // escribe en Azure hasta sus rutas: unas no estaban clasificadas y otras
     // figuraban como lectura.
     ["remediation/downgrade", "downgradeVirtualMachine: resize de la VM"],
-    ["advisor", "deleteResource en la acción delete"],
-    ["automation/kill-switch", "deallocate de todas las VMs del resource group"],
-    ["admin/governance-policies", "PUT y DELETE de policyAssignments en el management group"],
     ["governance/approvals", "executeApprovedAction: DELETE, PATCH y snapshot al aprobar"],
     ["governance/tags", "applyTagInheritance: PATCH de etiquetas"],
     ["governance/tags/inherit-rg", "applyTagInheritance: PATCH de etiquetas a los hijos del RG"],
