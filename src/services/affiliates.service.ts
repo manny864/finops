@@ -25,7 +25,13 @@ import type { Pool, PoolConnection } from "mysql2/promise";
 import pool from "@/modules/storage/db";
 import { errorMessage } from "@/lib/apiErrors";
 import { getAffiliateWelcomeEmail, sendEmailStrict } from "@/lib/emailHelper";
-import { sumarMeses, fechaSql } from "./commissions.service";
+import {
+    sumarMeses,
+    fechaSql,
+    MESES_DE_RETENCION,
+    sqlPrimerPagoDelTenant,
+    sqlFechaDeVentaDelTenant,
+} from "./commissions.service";
 
 /** Acepta un pool o una conexión: la atribución corre dentro de la transacción del onboarding. */
 type Ejecutor = Pool | PoolConnection;
@@ -178,18 +184,8 @@ export async function atribuirTenantManual(
 }
 
 /**
- * Fecha del primer pago del cliente: desde ahí corren los MESES_DE_COMISION.
- * Pago es un cobro completado y con monto; los fallidos y los de $0 (prueba,
- * descuento total) no cuentan. La usan el devengo y el panel del partner, que
- * tienen que decir la misma fecha. Espera `AffiliateReferrals` con el alias `r`.
- */
-export const SQL_PRIMER_PAGO_DEL_TENANT = `(SELECT MIN(COALESCE(bt.billed_at, bt.created_at))
-       FROM BillingTransactions bt
-      WHERE bt.tenant_id = r.tenant_id AND bt.status = 'completed' AND bt.amount > 0)`;
-
-/**
  * Meses durante los que un cliente referido devenga comisión, contados desde su
- * PRIMER PAGO (ver SQL_PRIMER_PAGO_DEL_TENANT), haya habido comisión ese día o
+ * PRIMER PAGO (ver sqlPrimerPagoDelTenant en commissions.service), haya habido comisión ese día o
  * no. Por eso un cliente atribuido a mano que ya pagaba hace más de un año no
  * devenga nada: la ventana es la del cliente, no la de la atribución.
  *
@@ -206,20 +202,21 @@ export const SQL_PRIMER_PAGO_DEL_TENANT = `(SELECT MIN(COALESCE(bt.billed_at, bt
 export const MESES_DE_COMISION = 12;
 
 /**
- * Ventana de retención del afiliado, en meses: cuánto se espera entre el cobro
- * y que su comisión sea exigible.
+ * Desde cuándo es exigible la comisión de un referido (decisión 2026-10-06):
+ * igual que la del comercial, manda la FECHA DE VENTA del tenant. Lo cobrado
+ * dentro de los primeros MESES_DE_RETENCION desde la venta vence al cumplirse
+ * ese plazo; lo cobrado después, con su propio cobro.
  *
- * CERO HOY, y está escrito en vez de omitido. Es el [A DEFINIR] de §5.3 del
- * borrador del programa —"el sistema no impone ninguna"— y tenerlo como
- * constante es lo que hace que acordar una retención el día de mañana sea
- * cambiar este número y nada más.
- *
- * Que sea cero NO significa que se pueda omitir `payment_due_date`. Mientras el
- * devengo la dejaba en NULL, `promoverComisionesExigibles` no podía promover
- * nada y las comisiones de afiliado se quedaban en `PENDING` para siempre:
- * invisibles como exigibles en el resumen, e invisibles para la corrida de pago.
+ * Reemplaza a la retención cero del §5.3 del borrador, que corría desde cada
+ * cobro. Sin fecha de venta ni primer pago —no debería pasar: el cobro actual
+ * ya está en BillingTransactions— el propio cobro hace de fecha de venta.
  */
-export const MESES_DE_RETENCION_AFILIADO = 0;
+export function vencimientoComisionReferido(cobro: Date, fechaVenta: unknown): Date {
+    const venta = fechaVenta ? new Date(fechaVenta as string) : null;
+    const base = venta && !Number.isNaN(venta.getTime()) ? venta : cobro;
+    const finDeRetencion = sumarMeses(base, MESES_DE_RETENCION);
+    return finDeRetencion > cobro ? finDeRetencion : cobro;
+}
 
 /**
  * ¿Este cobro cae fuera del primer año del cliente referido?
@@ -267,7 +264,8 @@ export async function devengarComision(params: {
     try {
         const [rows] = await pool.query<any[]>(
             `SELECT r.affiliate_id, a.commission_pct,
-                    ${SQL_PRIMER_PAGO_DEL_TENANT} AS primer_cobro
+                    ${sqlPrimerPagoDelTenant("r.tenant_id")} AS primer_cobro,
+                    ${sqlFechaDeVentaDelTenant("r.tenant_id")} AS fecha_venta
              FROM AffiliateReferrals r
              JOIN Affiliates a ON a.id = r.affiliate_id
              WHERE r.tenant_id = ? AND a.status = 'ACTIVE' LIMIT 1`,
@@ -288,9 +286,8 @@ export async function devengarComision(params: {
         if (new Decimal(comision).lte(0)) return { devengada: false, motivo: "comision-cero" };
 
         // `payment_due_date` la necesita `promoverComisionesExigibles` para
-        // poder pasar esto a `DUE`. Con la retención en cero es la fecha del
-        // cobro: exigible desde que el cliente pagó.
-        const exigibleDesde = fechaSql(sumarMeses(billedAt || new Date(), MESES_DE_RETENCION_AFILIADO));
+        // poder pasar esto a `DUE`. Ver `vencimientoComisionReferido`.
+        const exigibleDesde = fechaSql(vencimientoComisionReferido(billedAt || new Date(), referido.fecha_venta));
 
         const [res] = await pool.query<any>(
             `INSERT IGNORE INTO Commissions
@@ -523,29 +520,6 @@ export async function enviarBienvenidaAfiliado(
         console.error("[Afiliados] no salió el mail de bienvenida:", errorMessage(e));
         return { enviado: false, error: errorMessage(e) };
     }
-}
-
-/**
- * Cambia el estado de un lote de comisiones. `PAID` sella `paid_at`.
- *
- * No permite volver a PENDING desde PAID: una vez liquidada, corregir es una
- * operación contable, no un click. El SQL lo restringe además de la UI.
- */
-export async function actualizarEstadoComisiones(
-    ids: number[],
-    estado: EstadoComision
-): Promise<{ actualizadas: number }> {
-    const limpios = (ids || []).map(Number).filter((n) => Number.isInteger(n) && n > 0);
-    if (limpios.length === 0) return { actualizadas: 0 };
-
-    const marcadores = limpios.map(() => "?").join(",");
-    const [res] = await pool.query<any>(
-        `UPDATE Commissions
-         SET status = ?, paid_at = ${estado === "PAID" ? "NOW()" : "paid_at"}
-         WHERE id IN (${marcadores}) AND beneficiary_type = 'affiliate' AND status <> 'PAID'`,
-        [estado, ...limpios]
-    );
-    return { actualizadas: Number(res?.affectedRows || 0) };
 }
 
 /**

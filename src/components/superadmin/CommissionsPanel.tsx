@@ -41,6 +41,7 @@ type Comision = {
     installment: string | null;
     status: string;
     paymentDueDate: string | null;
+    saleDate: string | null;
     paidAt: string | null;
     paymentReference: string | null;
 };
@@ -527,6 +528,7 @@ export default function CommissionsPanel() {
                                     </th>
                                     <th className="text-left py-2 pr-3">{t("beneficiary")}</th>
                                     <th className="text-left py-2 pr-3">{t("tenant")}</th>
+                                    <th className="text-left py-2 pr-3">{t("saleDate")}</th>
                                     <th className="text-left py-2 pr-3">{t("installment")}</th>
                                     <th className="text-right py-2 pr-3">{t("amount")}</th>
                                     <th className="text-left py-2 pr-3">{t("dueDate")}</th>
@@ -557,6 +559,7 @@ export default function CommissionsPanel() {
                                                 </span>
                                             </td>
                                             <td className="py-2 pr-3 text-slate-600 dark:text-slate-300">{c.companyName || c.tenantId}</td>
+                                            <td className="py-2 pr-3 text-slate-600 dark:text-slate-300">{c.saleDate || "—"}</td>
                                             <td className="py-2 pr-3 text-slate-500">{c.installment || "—"}</td>
                                             <td className="py-2 pr-3 text-right font-semibold text-slate-800 dark:text-slate-100">
                                                 {c.commissionAmount} {c.currency}

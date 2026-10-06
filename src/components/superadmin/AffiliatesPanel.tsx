@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
@@ -10,7 +10,6 @@ import {
     IconCopy,
     IconCheck,
     IconPlus,
-    IconCash,
     IconLink,
     IconRefresh,
     IconPencil,
@@ -82,7 +81,6 @@ export default function AffiliatesPanel() {
     const [cargando, setCargando] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [copiado, setCopiado] = useState<string | null>(null);
-    const [seleccion, setSeleccion] = useState<number[]>([]);
     const [mostrarAlta, setMostrarAlta] = useState(false);
     // null = alta; un id = edicion de ese afiliado. El formulario es el mismo.
     const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -322,32 +320,6 @@ export default function AffiliatesPanel() {
             toast.error(e instanceof Error ? e.message : String(e));
         }
     };
-
-    const marcar = async (status: "APPROVED" | "PAID") => {
-        if (seleccion.length === 0) return;
-        try {
-            const headers = await cabeceras();
-            const res = await fetch("/api/superadmin/affiliates", {
-                method: "POST",
-                headers,
-                body: JSON.stringify({ action: "setStatus", ids: seleccion, status }),
-            });
-            const cuerpo = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(cuerpo.error || `HTTP ${res.status}`);
-            toast.success(t("commissionsUpdated", { count: cuerpo.updated ?? 0 }));
-            setSeleccion([]);
-            await cargar();
-        } catch (e) {
-            toast.error(e instanceof Error ? e.message : String(e));
-        }
-    };
-
-    // Las comisiones ya liquidadas no se re-seleccionan: el endpoint las excluye
-    // igual, así la UI no ofrece una acción que el servidor va a ignorar.
-    const seleccionables = useMemo(
-        () => comisiones.filter((c) => c.status !== "PAID" && c.status !== "REVERSED" && c.status !== "CANCELLED"),
-        [comisiones]
-    );
 
     return (
         <div className="space-y-6">
@@ -634,39 +606,19 @@ export default function AffiliatesPanel() {
             <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm">
                 <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
                     <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">{t("commissionsTitle")}</h3>
-                    <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                            {t("selectedCount", { count: seleccion.length })}
-                        </span>
-                        <button
-                            onClick={() => void marcar("APPROVED")}
-                            disabled={seleccion.length === 0}
-                            className="rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 px-3 py-1.5 text-[11px] font-bold text-[#0054A6] dark:text-blue-400 disabled:opacity-40"
-                        >
-                            {t("approve")}
-                        </button>
-                        <button
-                            onClick={() => void marcar("PAID")}
-                            disabled={seleccion.length === 0}
-                            className="inline-flex items-center gap-1 rounded-xl border border-emerald-600 bg-white dark:bg-slate-900 px-3 py-1.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 disabled:opacity-40"
-                        >
-                            <IconCash className="w-3.5 h-3.5" />
-                            {t("markPaid")}
-                        </button>
-                    </div>
+                    {/* Sólo lectura a propósito: los pagos de afiliados y comerciales
+                        salen de UN lugar, las corridas de Superadmin › Comisiones. */}
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {t("paymentsInCommissions")}{" "}
+                        <a href={`/${locale}/superadmin/comisiones`} className="font-semibold text-[#0054A6] dark:text-blue-400 hover:underline">
+                            {t("goToCommissions")}
+                        </a>
+                    </p>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
                         <thead className="bg-slate-50 dark:bg-slate-800/50 text-xs text-slate-500 dark:text-slate-400">
                             <tr>
-                                <th className="px-4 py-2 w-8">
-                                    <input
-                                        type="checkbox"
-                                        aria-label={t("selectAll")}
-                                        checked={seleccionables.length > 0 && seleccion.length === seleccionables.length}
-                                        onChange={(e) => setSeleccion(e.target.checked ? seleccionables.map((c) => c.id) : [])}
-                                    />
-                                </th>
                                 <th className="px-4 py-2 font-semibold">{t("colAffiliate")}</th>
                                 <th className="px-4 py-2 font-semibold">{t("colTenant")}</th>
                                 <th className="px-4 py-2 font-semibold text-right">{t("colBase")}</th>
@@ -678,23 +630,11 @@ export default function AffiliatesPanel() {
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
                             {!cargando && comisiones.length === 0 && (
-                                <tr><td colSpan={8} className="px-4 py-6 text-center text-xs text-slate-500">{t("noCommissions")}</td></tr>
+                                <tr><td colSpan={7} className="px-4 py-6 text-center text-xs text-slate-500">{t("noCommissions")}</td></tr>
                             )}
                             {comisiones.map((c) => {
-                                const liquidable = c.status !== "PAID" && c.status !== "REVERSED" && c.status !== "CANCELLED";
                                 return (
                                     <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/20">
-                                        <td className="px-4 py-2">
-                                            <input
-                                                type="checkbox"
-                                                aria-label={t("selectRow")}
-                                                disabled={!liquidable}
-                                                checked={seleccion.includes(c.id)}
-                                                onChange={(e) =>
-                                                    setSeleccion((s) => (e.target.checked ? [...s, c.id] : s.filter((x) => x !== c.id)))
-                                                }
-                                            />
-                                        </td>
                                         <td className="px-4 py-2 text-slate-800 dark:text-slate-200">{c.affiliateName}</td>
                                         <td className="px-4 py-2">
                                             <div className="text-slate-800 dark:text-slate-200">{c.companyName || c.tenantId}</div>

@@ -738,7 +738,7 @@ Cada comisión pasa por estos estados, y los ves todos en tu panel:
 
 | Estado | Qué significa |
 |---|---|
-| **Pendiente** | Devengada. El cliente pagó y tu comisión quedó registrada; se espera la ventana de reembolsos antes de aprobarla. |
+| **Pendiente** | Devengada. El cliente pagó y tu comisión quedó registrada. Se vuelve exigible a los **2 meses de la fecha de venta** del cliente; lo que paga después de ese plazo es exigible con cada pago. |
 | **Exigible** | Lista para liquidar. |
 | **Aprobada** | Revisada de nuestro lado. |
 | **Pagada** | Ya te la transferimos, con su comprobante. |

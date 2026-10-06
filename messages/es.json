@@ -12870,12 +12870,6 @@
     "copied": "Copiado",
     "linkCopied": "Link de referido copiado",
     "linkCopyFailed": "No se pudo copiar el link",
-    "selectedCount": "{count} seleccionadas",
-    "selectAll": "Seleccionar todas",
-    "selectRow": "Seleccionar comisión",
-    "approve": "Aprobar",
-    "markPaid": "Marcar pagada",
-    "commissionsUpdated": "{count} comisiones actualizadas",
     "status_ACTIVE": "Activo",
     "status_SUSPENDED": "Suspendido",
     "status_PENDING": "Pendiente",
@@ -12900,7 +12894,9 @@
     "attributeTenantConfirm": "Atribuir",
     "tenantAttributed": "Tenant atribuido a {name}.",
     "welcomeSent": "Afiliado dado de alta. Le mandamos el mail de bienvenida a {email}.",
-    "welcomeNotSent": "Afiliado dado de alta, pero el mail de bienvenida no salió. Copiá el enlace del panel de abajo y mandáselo junto con su link de referido."
+    "welcomeNotSent": "Afiliado dado de alta, pero el mail de bienvenida no salió. Copiá el enlace del panel de abajo y mandáselo junto con su link de referido.",
+    "paymentsInCommissions": "Los pagos de afiliados y comerciales se hacen desde un solo lugar:",
+    "goToCommissions": "Comisiones"
   },
   "SuperAdminCommissions": {
     "title": "Comisiones",
@@ -12977,7 +12973,8 @@
     "runPaid": "Corrida #{id} confirmada.",
     "runReferencePrompt": "Comprobante de la transferencia de la corrida #{id} (opcional):",
     "nothingToPay": "No hay nada exigible por encima del piso en esa moneda.",
-    "runNotOpen": "Esa corrida ya no está abierta."
+    "runNotOpen": "Esa corrida ya no está abierta.",
+    "saleDate": "Fecha de venta"
   },
   "SuperAdminPlatformUsage": {
     "title": "Consumo de Plataforma",

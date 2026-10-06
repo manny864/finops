@@ -22,8 +22,8 @@
 
 import crypto from "crypto";
 import pool from "@/modules/storage/db";
-import { MESES_DE_COMISION, SQL_PRIMER_PAGO_DEL_TENANT } from "./affiliates.service";
-import { sumarMeses } from "./commissions.service";
+import { MESES_DE_COMISION } from "./affiliates.service";
+import { sumarMeses, sqlPrimerPagoDelTenant } from "./commissions.service";
 
 /** Prefijo del token. `afp` = afiliado · panel. */
 const PREFIJO_TOKEN = "afp_live_";
@@ -144,7 +144,7 @@ export async function panelDelAfiliado(
         `SELECT t.company_name AS empresa, r.referred_at AS desde,
                 COUNT(c.id) AS cobros,
                 COALESCE(SUM(c.commission_amount), 0) AS acumulado,
-                ${SQL_PRIMER_PAGO_DEL_TENANT} AS primer_cobro
+                ${sqlPrimerPagoDelTenant("r.tenant_id")} AS primer_cobro
            FROM AffiliateReferrals r
            LEFT JOIN Tenants t ON t.tenant_id = r.tenant_id
            LEFT JOIN Commissions c

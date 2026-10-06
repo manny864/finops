@@ -8,7 +8,6 @@
  * POST { action: "create", ... }            → alta de afiliado
  * POST { action: "update", id, ... }         → edición
  * POST { action: "delete", id }              → baja (se niega si hay comisiones)
- * POST { action: "setStatus", ids, status }  → aprobar / liquidar comisiones
  * POST { action: "portalLink", id }          → emite (o rota) el enlace del panel
  * POST { action: "revokePortal", id }        → lo revoca
  */
@@ -21,7 +20,6 @@ import {
     crearAfiliado,
     actualizarAfiliado,
     eliminarAfiliado,
-    actualizarEstadoComisiones,
     atribuirTenantManual,
     enviarBienvenidaAfiliado,
     type EstadoComision,
@@ -148,14 +146,6 @@ export async function POST(request: NextRequest) {
                 commissions: r.comisiones,
                 paid: r.pagadas,
             }, { status: 409 });
-        }
-
-        if (body?.action === "setStatus") {
-            if (!ESTADOS.includes(body?.status)) {
-                return NextResponse.json({ error: "Estado de comisión inválido" }, { status: 400 });
-            }
-            const { actualizadas } = await actualizarEstadoComisiones(body.ids, body.status);
-            return NextResponse.json({ success: true, updated: actualizadas });
         }
 
         if (body?.action === "portalLink") {

@@ -1816,14 +1816,20 @@ earn on this one?" answers itself.
 
 | Status | What it means |
 |---|---|
-| **Pending** | Accrued. Just charged to the customer; it is worth waiting out the refund window before approving. |
+| **Pending** | Accrued, not yet due. What is charged within 2 months of the tenant's **sale date** falls due when that period ends; what is charged later, with its own charge. It is the same holdback as the sales rep's (section 20). |
+| **Due** | The holdback is over: it goes into the next payout run (17.6). |
 | **Approved** | Reviewed and ready to pay. |
 | **Paid** | Already settled with the affiliate. |
 | **Reversed** | The customer requested a refund and the commission was voided automatically. |
 | **Cancelled** | Voided manually. |
 
-To settle: tick the rows, click **Approve**, and once the transfer goes out,
-**Mark as paid**.
+The tenant's **sale date** is the one in its commercial deal (Superadmin ›
+Tenants) and, if it has none —self-service signup does not create one—, the
+date of its first payment.
+
+**Payments happen in one place:** the payout runs in **Superadmin › Commissions**
+(17.6), together with the sales reps'. This table is read-only: it no longer has
+buttons to approve or mark as paid, so nothing is settled outside a run.
 
 > A **Paid** commission cannot be rolled back from the interface, and a later
 > refund will not reverse it either. If it needs correcting, deduct it from the
@@ -2051,7 +2057,7 @@ Rules worth knowing in order to answer questions:
 
 ### 20.4 The ledger
 
-The **Ledger** table shows each movement with tenant (client), installment, commission, status and due date; it is filtered by beneficiary type (*Affiliate* or *Sales rep*) and by status. The **What each person is owed** summary separates what is **Due**, what is **In retention** and what is **Paid**. The statuses are those of 17.4. **Mark as paid** and the **CSV payment order** work the same as for affiliates, and the recommended way to pay is the **payout run** (17.6).
+The **Ledger** table shows each movement with tenant (client), **sale date**, installment, commission, status and due date; it is filtered by beneficiary type (*Affiliate* or *Sales rep*) and by status. The **What each person is owed** summary separates what is **Due**, what is **In retention** and what is **Paid**. The statuses are those of 17.4. **Mark as paid** and the **CSV payment order** work the same as for affiliates, and the recommended way to pay is the **payout run** (17.6).
 
 `DUE` (due) does not depend on a cron: it is calculated when the panel opens, from each commission's due date.
 

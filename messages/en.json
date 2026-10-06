@@ -12870,12 +12870,6 @@
     "copied": "Copied",
     "linkCopied": "Referral link copied",
     "linkCopyFailed": "Could not copy the link",
-    "selectedCount": "{count} selected",
-    "selectAll": "Select all",
-    "selectRow": "Select commission",
-    "approve": "Approve",
-    "markPaid": "Mark as paid",
-    "commissionsUpdated": "{count} commissions updated",
     "status_ACTIVE": "Active",
     "status_SUSPENDED": "Suspended",
     "status_PENDING": "Pending",
@@ -12900,7 +12894,9 @@
     "attributeTenantConfirm": "Attribute",
     "tenantAttributed": "Tenant attributed to {name}.",
     "welcomeSent": "Affiliate created. The welcome email was sent to {email}.",
-    "welcomeNotSent": "Affiliate created, but the welcome email failed. Copy the dashboard link below and send it along with their referral link."
+    "welcomeNotSent": "Affiliate created, but the welcome email failed. Copy the dashboard link below and send it along with their referral link.",
+    "paymentsInCommissions": "Affiliate and sales rep payments are made from a single place:",
+    "goToCommissions": "Commissions"
   },
   "SuperAdminCommissions": {
     "title": "Commissions",
@@ -12977,7 +12973,8 @@
     "runPaid": "Run #{id} confirmed.",
     "runReferencePrompt": "Transfer reference for run #{id} (optional):",
     "nothingToPay": "Nothing is due above the minimum in that currency.",
-    "runNotOpen": "That run is no longer open."
+    "runNotOpen": "That run is no longer open.",
+    "saleDate": "Sale date"
   },
   "SuperAdminPlatformUsage": {
     "title": "Platform Usage",

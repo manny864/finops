@@ -1807,14 +1807,21 @@ eu recebo por este cliente?" se responde sozinho.
 
 | Status | O que significa |
 |---|---|
-| **Pendente** | Apurada. Recém cobrada do cliente; vale esperar a janela de reembolso antes de aprovar. |
+| **Pendente** | Apurada, ainda não exigível. O que é cobrado dentro de 2 meses da **data da venda** do tenant vence ao fim desse prazo; o que é cobrado depois, com a própria cobrança. É a mesma retenção do comercial (seção 20). |
+| **Exigível** | A retenção venceu: entra na próxima rodada de pagamento (17.6). |
 | **Aprovada** | Revisada e pronta para pagar. |
 | **Paga** | Já liquidada com o afiliado. |
 | **Revertida** | O cliente pediu reembolso e a comissão foi anulada automaticamente. |
 | **Cancelada** | Anulada manualmente. |
 
-Para liquidar: marque as linhas, clique em **Aprovar** e, quando a transferência
-sair, **Marcar como paga**.
+A **data da venda** do tenant é a do seu acordo comercial (Superadmin ›
+Tenants) e, se não tiver —o cadastro self-service não o cria—, a do seu primeiro
+pagamento.
+
+**O pagamento é feito em um só lugar:** as rodadas de **Superadmin › Comissões**
+(17.6), junto com as dos comerciais. Esta tabela é só de consulta: não tem mais
+botões para aprovar nem marcar como paga, para que nada seja liquidado fora de
+uma rodada.
 
 > Uma comissão **Paga** não pode ser desfeita pela interface, e um reembolso
 > posterior também não a reverte. Se precisar de correção, desconte da
@@ -2040,7 +2047,7 @@ Regras que convém saber para responder perguntas:
 
 ### 20.4 O livro-razão
 
-A tabela **Livro-razão** mostra cada movimento com tenant (cliente), parcela, comissão, estado e data de vencimento; filtra-se por tipo de beneficiário (*Afiliado* ou *Comercial*) e por estado. O resumo **Quanto se deve a cada um** separa o **Exigível**, o que está **Em retenção** e o **Pago**. Os estados são os de 17.4. **Marcar como pago** e a **ordem de pagamento em CSV** funcionam como para os afiliados, e a forma recomendada de pagar é a **rodada de pagamento** (17.6).
+A tabela **Livro-razão** mostra cada movimento com tenant (cliente), **data da venda**, parcela, comissão, estado e data de vencimento; filtra-se por tipo de beneficiário (*Afiliado* ou *Comercial*) e por estado. O resumo **Quanto se deve a cada um** separa o **Exigível**, o que está **Em retenção** e o **Pago**. Os estados são os de 17.4. **Marcar como pago** e a **ordem de pagamento em CSV** funcionam como para os afiliados, e a forma recomendada de pagar é a **rodada de pagamento** (17.6).
 
 `DUE` (exigível) não depende de um cron: calcula-se ao abrir o painel, a partir da data de vencimento de cada comissão.
 

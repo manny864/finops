@@ -1809,14 +1809,19 @@ pregunta "¿hasta cuándo cobro por este cliente?" se responde sola.
 
 | Estado | Qué significa |
 |---|---|
-| **Pendiente** | Devengada. Recién cobrada al cliente; conviene esperar la ventana de reembolsos antes de aprobarla. |
+| **Pendiente** | Devengada, todavía no exigible. Lo cobrado dentro de los 2 meses desde la **fecha de venta** del tenant vence al cumplirse ese plazo; lo cobrado después, con su propio cobro. Es la misma retención que la del comercial (sección 20). |
+| **Exigible** | Venció la retención: entra en la próxima corrida de pago (17.6). |
 | **Aprobada** | Revisada y lista para pagar. |
 | **Pagada** | Ya liquidada al afiliado. |
 | **Revertida** | El cliente pidió reembolso y la comisión se anuló automáticamente. |
 | **Cancelada** | Anulada a mano. |
 
-Para liquidar: tildá las filas, **Aprobar**, y cuando salga la transferencia,
-**Marcar pagada**.
+La **fecha de venta** del tenant es la de su acuerdo comercial (Superadmin ›
+Tenants) y, si no tiene —el alta self-service no lo crea—, la de su primer pago.
+
+**Se paga en un solo lugar:** las corridas de **Superadmin › Comisiones** (17.6),
+junto con las de los comerciales. Esta tabla es de consulta: ya no tiene botones
+para aprobar ni marcar pagada, para que nada se liquide por fuera de una corrida.
 
 > Una comisión **Pagada** no se puede volver atrás desde la interfaz, ni la
 > revierte un reembolso posterior. Si hay que corregirla, se descuenta de la
@@ -2043,7 +2048,7 @@ Reglas que conviene saber para responder preguntas:
 
 ### 20.4 El libro mayor
 
-La tabla **Libro mayor** muestra cada movimiento con tenant (cliente), cuota, comisión, estado y fecha de vencimiento; se filtra por tipo de beneficiario (*Afiliado* o *Comercial*) y por estado. El resumen **Cuánto se le debe a cada uno** separa lo **Exigible**, lo que está **En retención** y lo **Pagado**. Los estados son los de 17.4. **Marcar como pagado** y la **orden de pago en CSV** funcionan igual que para los afiliados, y la forma recomendada de pagar es la **corrida de pago** (17.6).
+La tabla **Libro mayor** muestra cada movimiento con tenant (cliente), **fecha de venta**, cuota, comisión, estado y fecha de vencimiento; se filtra por tipo de beneficiario (*Afiliado* o *Comercial*) y por estado. El resumen **Cuánto se le debe a cada uno** separa lo **Exigible**, lo que está **En retención** y lo **Pagado**. Los estados son los de 17.4. **Marcar como pagado** y la **orden de pago en CSV** funcionan igual que para los afiliados, y la forma recomendada de pagar es la **corrida de pago** (17.6).
 
 `DUE` (exigible) no depende de un cron: se calcula al abrir el panel a partir de la fecha de vencimiento de cada comisión.
 

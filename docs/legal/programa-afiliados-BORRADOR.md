@@ -110,10 +110,12 @@ siempre que no haya sido liquidada.
 descuenta de la liquidación siguiente.
 <sub>Implementa: la reversa excluye el estado `PAID`. El ajuste es manual y deliberado.</sub>
 
-**5.3. [A DEFINIR] Ventana de retención.** Plazo entre el devengo y la
-aprobación para cubrir reembolsos. Hoy el sistema **no** impone ninguno: una
-comisión puede aprobarse y pagarse el mismo día del cobro. Es una decisión
-operativa, no técnica.
+**5.3. Ventana de retención (definida el 2026-10-06).** La comisión es
+exigible a los **2 meses de la fecha de venta** del cliente —la de su acuerdo
+comercial; si no tiene, la de su primer pago—, y lo cobrado después de ese plazo,
+con su propio cobro. Es la misma retención que la del comercial (co-venta), y el
+sistema la aplica sola: hasta entonces la comisión no entra en ninguna corrida de
+pago.
 
 ## 6. Liquidación
 
@@ -176,7 +178,7 @@ Para que el acuerdo no prometa lo que la Plataforma no puede cumplir:
 | Cláusula típica | Estado |
 |---|---|
 | Umbral mínimo de pago | **No existe** |
-| Ventana de retención antes de aprobar | **No existe** |
+| Ventana de retención antes de pagar | **2 meses desde la fecha de venta** (§5.3) |
 | Plazo comprometido de liquidación | **No existe** |
 | Detección automática de fraude o auto-referido por otros medios | **No existe** (sólo la regla de correo de 3.1) |
 | Panel de autogestión para el Afiliado | **No existe** |

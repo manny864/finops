@@ -12870,12 +12870,6 @@
     "copied": "Copiado",
     "linkCopied": "Link de indicação copiado",
     "linkCopyFailed": "Não foi possível copiar o link",
-    "selectedCount": "{count} selecionadas",
-    "selectAll": "Selecionar todas",
-    "selectRow": "Selecionar comissão",
-    "approve": "Aprovar",
-    "markPaid": "Marcar como paga",
-    "commissionsUpdated": "{count} comissões atualizadas",
     "status_ACTIVE": "Ativo",
     "status_SUSPENDED": "Suspenso",
     "status_PENDING": "Pendente",
@@ -12900,7 +12894,9 @@
     "attributeTenantConfirm": "Atribuir",
     "tenantAttributed": "Tenant atribuído a {name}.",
     "welcomeSent": "Afiliado cadastrado. Enviamos o e-mail de boas-vindas para {email}.",
-    "welcomeNotSent": "Afiliado cadastrado, mas o e-mail de boas-vindas não foi enviado. Copie o link do painel abaixo e envie junto com o link de indicação."
+    "welcomeNotSent": "Afiliado cadastrado, mas o e-mail de boas-vindas não foi enviado. Copie o link do painel abaixo e envie junto com o link de indicação.",
+    "paymentsInCommissions": "Os pagamentos de afiliados e comerciais são feitos em um só lugar:",
+    "goToCommissions": "Comissões"
   },
   "SuperAdminCommissions": {
     "title": "Comissões",
@@ -12977,7 +12973,8 @@
     "runPaid": "Lote #{id} confirmado.",
     "runReferencePrompt": "Comprovante da transferência do lote #{id} (opcional):",
     "nothingToPay": "Não há nada exigível acima do mínimo nessa moeda.",
-    "runNotOpen": "Esse lote não está mais aberto."
+    "runNotOpen": "Esse lote não está mais aberto.",
+    "saleDate": "Data da venda"
   },
   "SuperAdminPlatformUsage": {
     "title": "Consumo da Plataforma",

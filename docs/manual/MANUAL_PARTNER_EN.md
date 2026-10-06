@@ -738,7 +738,7 @@ Each commission goes through these statuses, and you see all of them in your pan
 
 | Status | What it means |
 |---|---|
-| **Pending** | Accrued. The customer paid and your commission was recorded; we wait out the refund window before approving it. |
+| **Pending** | Accrued. The customer paid and your commission was recorded. It falls due **2 months after the customer's sale date**; what they pay after that period falls due with each payment. |
 | **Due** | Ready to settle. |
 | **Approved** | Reviewed on our side. |
 | **Paid** | Already transferred to you, with its receipt. |

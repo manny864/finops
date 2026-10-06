@@ -39,6 +39,34 @@ export const CUOTAS_MENSUALES = 12;
 /** Meses de retención antes de que una comisión sea exigible. */
 export const MESES_DE_RETENCION = 2;
 
+/** Lo único que se acepta interpolar en las consultas de abajo: `alias.columna`. */
+function columnaSegura(columna: string): string {
+    if (!/^[A-Za-z_]\w*\.[A-Za-z_]\w*$/.test(columna)) throw new Error(`Columna inválida: ${columna}`);
+    return columna;
+}
+
+/**
+ * Primer pago del tenant: el primer cobro completado y con monto de
+ * BillingTransactions. Los fallidos y los de $0 (prueba, descuento total) no
+ * cuentan. De acá corre la ventana de comisión del referido.
+ */
+export function sqlPrimerPagoDelTenant(columnaTenant: string): string {
+    return `(SELECT MIN(COALESCE(bt.billed_at, bt.created_at))
+       FROM BillingTransactions bt
+      WHERE bt.tenant_id = ${columnaSegura(columnaTenant)} AND bt.status = 'completed' AND bt.amount > 0)`;
+}
+
+/**
+ * Fecha de venta del tenant: la de su acuerdo comercial
+ * (`TenantCommercialDeals.sold_at`) y, si no tiene —el alta self-service no
+ * crea acuerdo—, la de su primer pago. Pesa en el pago de los DOS programas
+ * (decisión 2026-10-06): desde ella corre la retención, y el libro la muestra.
+ */
+export function sqlFechaDeVentaDelTenant(columnaTenant: string): string {
+    const col = columnaSegura(columnaTenant);
+    return `COALESCE((SELECT d.sold_at FROM TenantCommercialDeals d WHERE d.tenant_id = ${col}), ${sqlPrimerPagoDelTenant(col)})`;
+}
+
 export interface ResultadoDevengo {
     devengada: boolean;
     motivo?: string;
@@ -266,6 +294,8 @@ export interface ComisionDelLibro {
     payoutReference: string | null;
     tenantId: string;
     companyName: string | null;
+    /** Fecha de venta del tenant: ver sqlFechaDeVentaDelTenant. */
+    saleDate: string | null;
     transactionId: string;
     baseAmount: string;
     currency: string;
@@ -311,6 +341,7 @@ export async function listarLibroDeComisiones(filtro?: {
                 COALESCE(a.payout_method, r.payout_method) AS payout_method,
                 COALESCE(a.payout_reference, r.payout_reference) AS payout_reference,
                 c.tenant_id, t.company_name, c.paddle_transaction_id,
+                ${sqlFechaDeVentaDelTenant("c.tenant_id")} AS sale_date,
                 c.base_amount, c.currency, c.commission_pct, c.commission_amount,
                 c.installment_number, c.installment_total,
                 c.status, c.billed_at, c.payment_due_date, c.paid_at, c.payment_reference
@@ -334,6 +365,7 @@ export async function listarLibroDeComisiones(filtro?: {
         payoutReference: r.payout_reference || null,
         tenantId: r.tenant_id,
         companyName: r.company_name || null,
+        saleDate: r.sale_date ? fechaSql(new Date(r.sale_date)) : null,
         transactionId: r.paddle_transaction_id,
         baseAmount: String(r.base_amount),
         currency: r.currency,

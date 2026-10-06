@@ -730,7 +730,7 @@ Cada comissão passa por estes estados, e você os vê todos no seu painel:
 
 | Estado | O que significa |
 |---|---|
-| **Pendente** | Acumulada. O cliente pagou e a sua comissão ficou registrada; espera-se a janela de reembolsos antes de aprová-la. |
+| **Pendente** | Acumulada. O cliente pagou e a sua comissão ficou registrada. Ela se torna exigível **2 meses após a data da venda** do cliente; o que ele paga depois desse prazo é exigível a cada pagamento. |
 | **Exigível** | Pronta para liquidar. |
 | **Aprovada** | Revisada do nosso lado. |
 | **Paga** | Já a transferimos a você, com o seu comprovante. |

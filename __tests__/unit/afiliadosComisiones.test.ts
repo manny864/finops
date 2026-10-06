@@ -1,11 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
+import { sqlPrimerPagoDelTenant, sqlFechaDeVentaDelTenant } from "@/services/commissions.service";
 import {
     normalizarCodigo,
     calcularComision,
     atribuirReferido,
     atribuirTenantManual,
-    SQL_PRIMER_PAGO_DEL_TENANT,
+    vencimientoComisionReferido,
     fueraDeLaVentana,
     MESES_DE_COMISION,
 } from "@/services/affiliates.service";
@@ -241,8 +242,9 @@ describe("afiliados · atribución manual desde superadmin", () => {
 
 describe("afiliados · la ventana de 12 meses se cuenta desde el primer pago del cliente", () => {
     it("el primer pago sale de BillingTransactions: completado y con monto", () => {
-        const sql = SQL_PRIMER_PAGO_DEL_TENANT.replace(/\s+/g, " ");
+        const sql = sqlPrimerPagoDelTenant("r.tenant_id").replace(/\s+/g, " ");
         expect(sql).toContain("FROM BillingTransactions bt");
+        expect(sql).toContain("bt.tenant_id = r.tenant_id");
         expect(sql).toContain("bt.status = 'completed'");
         expect(sql).toContain("bt.amount > 0");
         // No de Commissions: con la regla vieja, atribuir a mano reiniciaba el año.
@@ -254,8 +256,44 @@ describe("afiliados · la ventana de 12 meses se cuenta desde el primer pago del
         // "comisiona hasta" distinto del que aplica el devengo.
         for (const archivo of ["src/services/affiliates.service.ts", "src/services/affiliatePortal.service.ts"]) {
             const fuente = readFileSync(archivo, "utf8");
-            expect(fuente, archivo).toContain("${SQL_PRIMER_PAGO_DEL_TENANT} AS primer_cobro");
+            expect(fuente, archivo).toContain('${sqlPrimerPagoDelTenant("r.tenant_id")} AS primer_cobro');
             expect(fuente, archivo).not.toMatch(/MIN\(COALESCE\(c\.billed_at, c\.created_at\)\) AS primer_cobro/);
         }
+    });
+
+    it("sólo acepta una columna, no SQL arbitrario", () => {
+        expect(() => sqlPrimerPagoDelTenant("r.tenant_id); DROP TABLE Tenants; --")).toThrow();
+        expect(() => sqlFechaDeVentaDelTenant("tenant_id")).toThrow();
+    });
+});
+
+describe("afiliados · la comisión del referido se paga según la fecha de venta", () => {
+    const d = (s: string) => new Date(`${s}T00:00:00Z`);
+
+    it("la fecha de venta es la del acuerdo comercial y, si no hay, la del primer pago", () => {
+        const sql = sqlFechaDeVentaDelTenant("c.tenant_id").replace(/\s+/g, " ");
+        expect(sql).toContain("SELECT d.sold_at FROM TenantCommercialDeals d WHERE d.tenant_id = c.tenant_id");
+        expect(sql).toContain(sqlPrimerPagoDelTenant("c.tenant_id").replace(/\s+/g, " "));
+    });
+
+    it("lo cobrado dentro de los 2 meses desde la venta vence al cumplirse ese plazo", () => {
+        expect(vencimientoComisionReferido(d("2026-10-10"), "2026-10-01")).toEqual(d("2026-12-01"));
+        expect(vencimientoComisionReferido(d("2026-11-15"), "2026-10-01")).toEqual(d("2026-12-01"));
+    });
+
+    it("lo cobrado después de la retención vence con su propio cobro", () => {
+        expect(vencimientoComisionReferido(d("2027-01-05"), "2026-10-01")).toEqual(d("2027-01-05"));
+    });
+
+    it("sin fecha de venta, el propio cobro hace de fecha de venta", () => {
+        expect(vencimientoComisionReferido(d("2026-10-10"), null)).toEqual(d("2026-12-10"));
+        expect(vencimientoComisionReferido(d("2026-10-10"), "no-es-fecha")).toEqual(d("2026-12-10"));
+    });
+
+    it("el devengo del referido usa la fecha de venta y no una retención propia", () => {
+        const fuente = readFileSync("src/services/affiliates.service.ts", "utf8");
+        expect(fuente).toContain('${sqlFechaDeVentaDelTenant("r.tenant_id")} AS fecha_venta');
+        expect(fuente).toContain("vencimientoComisionReferido(billedAt || new Date(), referido.fecha_venta)");
+        expect(fuente).not.toContain("MESES_DE_RETENCION_AFILIADO");
     });
 });
