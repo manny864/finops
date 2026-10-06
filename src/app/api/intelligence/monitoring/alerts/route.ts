@@ -10,7 +10,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantTier, AuthError } from "@/lib/requestAuth";
+import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
+import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
+import { azureErrorResponse } from "@/lib/apiErrors";
+import { cambiarEstadoEnAzure } from "@/services/azureAlertsRules.service";
 import { isMockTenant } from "@/lib/mockData";
 import {
   fetchLiveAlertsData,
@@ -62,9 +65,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing tenantId parameter" }, { status: 400 });
     }
 
+    const body = await request.json().catch(() => ({}));
+
     // 1. Demo/Mock check
     if (isMockTenant(tenantId)) {
-      const body = await request.json();
       return NextResponse.json({
         success: true,
         message: "Operación simulada en tenant de demostración",
@@ -74,27 +78,29 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 2. Real tenant auth
+    // 2. Escribe en la Azure del cliente (hasta el 2026-10-06 respondía "éxito"
+    // sin tocar nada). Mismo orden que governance/auto-block/deploy.
+    const identity = await requireTenantRole(request, tenantId, ["Owner", "Admin"]);
     await requireTenantTier(request, tenantId, "Enterprise");
+    const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
+    if (bloqueo) return bloqueo;
 
-    const body = await request.json();
+    if (body.action !== "TOGGLE_STATE" || typeof body.ruleId !== "string" || typeof body.isEnabled !== "boolean") {
+      return NextResponse.json({ error: "Acción inválida." }, { status: 400 });
+    }
+    await cambiarEstadoEnAzure(tenantId, body.ruleId, body.isEnabled, "alertas", identity.email || "unknown");
+
     return NextResponse.json({
       success: true,
-      message: "Operación recibida para ejecución sobre Azure Monitor",
-      action: body.action || "TOGGLE_STATE",
+      action: "TOGGLE_STATE",
       ruleId: body.ruleId,
+      newState: body.isEnabled,
     });
   } catch (error) {
-    // AuthError lleva su propio status (401/403): propagarlo en vez de
-    // colapsarlo a 500, que hace ver una denegacion de permisos como una
-    // caida del servidor. Mismo patron que sentinel/route.ts.
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    console.error("[API Alerts Management] Error:", error);
-    return NextResponse.json(
-      { error: "Error interno procesando reglas de alerta de Azure Monitor" },
-      { status: 500 }
-    );
+    // Un 4xx de Azure trae el motivo real (permiso que falta, regla borrada).
+    return azureErrorResponse(error, "POST /api/intelligence/monitoring/alerts");
   }
 }

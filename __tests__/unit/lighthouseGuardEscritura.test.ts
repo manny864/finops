@@ -58,6 +58,8 @@ const ESCRIBEN_EN_AZURE: Array<[ruta: string, porque: string]> = [
     ["governance/auto-block/deploy", "PUT y DELETE a policyAssignments por fetch a ARM"],
     ["governance/auto-block/remediate", "escribe la remediación de la política"],
     ["intelligence/commitments/reservations/renew", "PATCH a ARM sobre la reserva"],
+    ["intelligence/monitoring/alerts", "cambiarEstadoEnAzure: PATCH a ARM que activa o desactiva la regla"],
+    ["intelligence/monitoring/action-groups", "cambiarEstadoEnAzure: PATCH a ARM sobre el action group"],
 ];
 
 /**

@@ -12,7 +12,8 @@
  * action group bindings, and generates prioritized FinOps remediation actions.
  */
 
-import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
+import { getAzureCredential, getResourceGraphClient, getSubscriptionsForTenant } from "@/lib/azure";
+import { logAction } from "@/services/remediationService";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import { withArgLimit } from "@/lib/argConcurrency";
 import type {
@@ -667,7 +668,7 @@ export async function fetchLiveAlertsData(tenantId: string): Promise<AlertsPaylo
       const alertType = mapAzureTypeToAlertType(rawType);
       const props = r.properties || {};
 
-      const isEnabled = props.enabled !== false && props.state !== "Disabled";
+      const isEnabled = props.enabled !== false && props.Enabled !== false && props.state !== "Disabled";
       let severity: AlertSeverity = "Sev3";
       const rawSev = String(props.severity ?? "").toLowerCase();
       if (rawSev === "0" || rawSev === "sev0" || rawSev === "critical") severity = "Sev0";
@@ -783,5 +784,88 @@ export async function fetchLiveAlertsData(tenantId: string): Promise<AlertsPaylo
       source: "live",
       lastUpdated: new Date().toISOString(),
     };
+  }
+}
+
+/**
+ * Activa o desactiva en Azure una regla de alerta o un action group.
+ *
+ * Hasta el 2026-10-06 el switch respondía "éxito" sin tocar Azure: la UI lo
+ * movía y al recargar volvía al estado real.
+ *
+ * Contratos verificados el 2026-10-06 en learn.microsoft.com y con un GET a
+ * recursos reales en la misma api-version (las versiones, con
+ * `az provider show`). El permiso es de Monitoring Contributor, que el
+ * onboarding asigna en Enterprise: el mismo tier que exige la ruta.
+ */
+const ESTADO_EN_AZURE: Record<string, { apiVersion: string; cuerpo: (activar: boolean) => unknown }> = {
+  // Learn documenta el PATCH de metricAlerts sólo en esta versión.
+  "microsoft.insights/metricalerts": { apiVersion: "2024-03-01-preview", cuerpo: (a) => ({ properties: { enabled: a } }) },
+  "microsoft.insights/scheduledqueryrules": { apiVersion: "2021-08-01", cuerpo: (a) => ({ properties: { enabled: a } }) },
+  "microsoft.insights/activitylogalerts": { apiVersion: "2020-10-01", cuerpo: (a) => ({ properties: { enabled: a } }) },
+  // Smart detector no usa un booleano: `state` es "Enabled" o "Disabled".
+  "microsoft.alertsmanagement/smartdetectoralertrules": {
+    apiVersion: "2021-04-01",
+    cuerpo: (a) => ({ properties: { state: a ? "Enabled" : "Disabled" } }),
+  },
+  "microsoft.insights/actiongroups": { apiVersion: "2021-09-01", cuerpo: (a) => ({ properties: { enabled: a } }) },
+};
+
+function errorHttp(status: number, mensaje: string): Error {
+  return Object.assign(new Error(mensaje), { status });
+}
+
+export async function cambiarEstadoEnAzure(
+  tenantId: string,
+  resourceId: string,
+  activar: boolean,
+  familia: "alertas" | "actionGroups",
+  userEmail: string
+): Promise<void> {
+  const m = /^\/subscriptions\/([^/]+)\/resourceGroups\/[^/]+\/providers\/([^/]+\/[^/]+)\/[^/]+$/i.exec(resourceId);
+  const tipo = m ? m[2].toLowerCase() : "";
+  if (!m || (tipo === "microsoft.insights/actiongroups") !== (familia === "actionGroups")) {
+    throw errorHttp(400, "El recurso no es de este tipo.");
+  }
+  if (tipo === "microsoft.insights/webtests") {
+    // ponytail: el PATCH de web tests sólo acepta etiquetas y el estado pide un
+    // PUT del recurso entero. Sin un web test donde probarlo, se deriva al
+    // portal antes que reescribir a ciegas el recurso del cliente.
+    throw errorHttp(422, "Los web tests se activan o desactivan desde el portal de Azure.");
+  }
+  const contrato = ESTADO_EN_AZURE[tipo];
+  if (!contrato) throw errorHttp(400, "Ese tipo de regla no se puede activar desde acá.");
+
+  // Con Lighthouse la credencial es la nuestra y alcanza a todos los clientes
+  // delegados: la suscripción del recurso tiene que ser de ESTE tenant.
+  const subs = await getSubscriptionsForTenant(tenantId);
+  if (!subs.some((s) => s.toLowerCase() === m[1].toLowerCase())) {
+    throw errorHttp(404, "El recurso no pertenece a este tenant.");
+  }
+
+  const accion = familia === "alertas" ? "TOGGLE_ALERT_RULE" : "TOGGLE_ACTION_GROUP";
+  try {
+    const credential = await getAzureCredential(tenantId);
+    const tokenData = await credential.getToken("https://management.azure.com/.default");
+    // Los nombres traen espacios y apóstrofes ("Failure Anomalies - appi").
+    const path = resourceId.split("/").map(encodeURIComponent).join("/");
+    const res = await fetch(`https://management.azure.com${path}?api-version=${contrato.apiVersion}`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${tokenData.token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(contrato.cuerpo(activar)),
+    });
+    if (!res.ok) {
+      const details = await res.json().catch(() => null);
+      // Misma forma que deleteResource: azureErrorResponse lee status, code y details.
+      throw Object.assign(new Error(details?.error?.message || `Azure respondió ${res.status}`), {
+        status: res.status,
+        code: details?.error?.code,
+        details,
+      });
+    }
+    await logAction(tenantId, userEmail, accion, resourceId, "SUCCESS");
+  } catch (e) {
+    await logAction(tenantId, userEmail, accion, resourceId, "FAILED");
+    throw e;
   }
 }

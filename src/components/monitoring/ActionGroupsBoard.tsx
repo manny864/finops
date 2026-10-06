@@ -5,6 +5,7 @@ import { ACTION_GROUP_CHANNELS } from "@/types/azureActionGroups.types";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
+import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
@@ -689,9 +690,9 @@ export default function ActionGroupsBoard() {
     total,
   } = usePagination(filteredGroups, 15);
 
-  // Toggle de Estado
-  const handleToggleState = async (ag: ActionGroupResource) => {
-    const newState = ag.state === "Enabled" ? "Disabled" : "Enabled";
+  // Toggle de Estado: el switch se mueve antes (optimista) y vuelve atrás si
+  // Azure no aplicó el cambio, diciendo por qué.
+  const aplicarEstado = async (ag: ActionGroupResource, newState: "Enabled" | "Disabled") => {
     setToggleOverrides((prev) => ({ ...prev, [ag.id]: newState }));
 
     try {
@@ -711,11 +712,18 @@ export default function ActionGroupsBoard() {
       });
       // fetch no lanza ante 401/403/500: hay que revertir el estado optimista
       // explicitamente o la UI queda mostrando un cambio que nunca se aplico.
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    } catch {
+      if (!res.ok) {
+        const j = await res.json().catch(() => null);
+        throw new Error(j?.details || j?.error || `HTTP ${res.status}`);
+      }
+    } catch (e) {
       setToggleOverrides((prev) => ({ ...prev, [ag.id]: ag.state }));
+      toast.error(`${ag.name}: ${e instanceof Error ? e.message : String(e)}`);
     }
   };
+
+  const handleToggleState = (ag: ActionGroupResource) =>
+    aplicarEstado(ag, ag.state === "Enabled" ? "Disabled" : "Enabled");
 
   // Selección múltiple
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -735,12 +743,11 @@ export default function ActionGroupsBoard() {
     });
   };
 
+  // Antes sólo movía los switches en pantalla, sin llamar a la API.
   const handleBulkToggle = (targetState: "Enabled" | "Disabled") => {
-    const overrides: Record<string, "Enabled" | "Disabled"> = {};
-    selectedIds.forEach((id: string) => {
-      overrides[id] = targetState;
-    });
-    setToggleOverrides((prev) => ({ ...prev, ...overrides }));
+    groupsList
+      .filter((ag) => selectedIds.has(ag.id) && ag.state !== targetState)
+      .forEach((ag) => void aplicarEstado(ag, targetState));
     setSelectedIds(new Set());
   };
 

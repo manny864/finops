@@ -19,8 +19,9 @@ import { join, relative } from "path";
 const RAIZ = process.cwd();
 const API = join(RAIZ, "src/app/api");
 
-// Conocidos y anotados: editar y borrar alertas y action groups de Azure
-// Monitor no tienen handler todavía. Arreglar uno es sacarlo de acá.
+// Conocidos y anotados: viven en MonitoringServiceCostBoard, que ninguna página
+// monta desde el 2026-08-21 (las de alertas y action groups usan
+// AlertsManagementPanel y ActionGroupsBoard). Se van con ese archivo.
 const CONOCIDOS = new Set([
     "src/components/dashboard/MonitoringServiceCostBoard.tsx PUT /api/intelligence/monitoring/alerts",
     "src/components/dashboard/MonitoringServiceCostBoard.tsx DELETE /api/intelligence/monitoring/alerts",

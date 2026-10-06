@@ -4,6 +4,7 @@ import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationT
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
+import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
@@ -678,9 +679,9 @@ export default function AlertsManagementPanel() {
     total,
   } = usePagination(filteredAlerts, 15);
 
-  // Toggle de Estado
-  const handleToggleState = async (alert: AlertRuleResource) => {
-    const newState = !alert.isEnabled;
+  // Toggle de Estado: el switch se mueve antes (optimista) y vuelve atrás si
+  // Azure no aplicó el cambio, diciendo por qué.
+  const aplicarEstado = async (alert: AlertRuleResource, newState: boolean) => {
     setToggleOverrides((prev) => ({ ...prev, [alert.id]: newState }));
 
     try {
@@ -699,12 +700,17 @@ export default function AlertsManagementPanel() {
         }),
       });
       // fetch no lanza ante 401/403/500: revertir explicitamente.
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    } catch {
-      // Revert on error
+      if (!res.ok) {
+        const j = await res.json().catch(() => null);
+        throw new Error(j?.details || j?.error || `HTTP ${res.status}`);
+      }
+    } catch (e) {
       setToggleOverrides((prev) => ({ ...prev, [alert.id]: alert.isEnabled }));
+      toast.error(`${alert.name}: ${e instanceof Error ? e.message : String(e)}`);
     }
   };
+
+  const handleToggleState = (alert: AlertRuleResource) => aplicarEstado(alert, !alert.isEnabled);
 
   // Selección múltiple
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -724,12 +730,11 @@ export default function AlertsManagementPanel() {
     });
   };
 
+  // Antes sólo movía los switches en pantalla, sin llamar a la API.
   const handleBulkToggle = (targetState: boolean) => {
-    const overrides: Record<string, boolean> = {};
-    selectedIds.forEach((id: string) => {
-      overrides[id] = targetState;
-    });
-    setToggleOverrides((prev) => ({ ...prev, ...overrides }));
+    rulesList
+      .filter((a) => selectedIds.has(a.id) && a.isEnabled !== targetState)
+      .forEach((a) => void aplicarEstado(a, targetState));
     setSelectedIds(new Set());
   };
 
