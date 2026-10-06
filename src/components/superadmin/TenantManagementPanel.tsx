@@ -298,7 +298,9 @@ export default function TenantManagementPanel() {
             }
 
             const res = await fetch(`/api/superadmin/tenants/${encodeURIComponent(targetTenant.tenantId)}/update-commercial`, {
-                method: "PATCH",
+                // La ruta exporta PUT: con PATCH respondía 405 y no se guardaba
+                // nada (2026-08-23 → 2026-10-06). Lo cuida metodosDeFetch.test.ts.
+                method: "PUT",
                 headers,
                 body: JSON.stringify({
                     salesRepName: targetTenant.salesRepName,
