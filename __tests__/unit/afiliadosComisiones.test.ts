@@ -3,6 +3,7 @@ import {
     normalizarCodigo,
     calcularComision,
     atribuirReferido,
+    atribuirTenantManual,
     fueraDeLaVentana,
     MESES_DE_COMISION,
 } from "@/services/affiliates.service";
@@ -173,5 +174,65 @@ describe("afiliados · edición", () => {
         await expect(actualizarAfiliado("af-1", { name: "   " })).rejects.toThrow(/nombre/i);
         await expect(actualizarAfiliado("af-1", { status: "RARO" as any })).rejects.toThrow(/Estado/i);
         await expect(actualizarAfiliado("", { name: "X" })).rejects.toThrow(/identificador/i);
+    });
+});
+
+describe("afiliados · atribución manual desde superadmin", () => {
+    const AFILIADO = [{ id: "af-1", email: "carlos@partner.com", commission_pct: "15.00" }];
+    const TENANT = [{ 1: 1 }];
+    const CODIGO = [{ referral_code: "carlos_dev" }];
+
+    /** Como `ejecutorFalso`, pero guarda también los parámetros de cada consulta. */
+    function ejecutorConParams(respuestas: any[]) {
+        const llamadas: { sql: string; params: any[] }[] = [];
+        let i = 0;
+        return {
+            llamadas,
+            ejecutor: {
+                query: async (sql: string, params: any[] = []) => {
+                    llamadas.push({ sql: sql.replace(/\s+/g, " ").trim(), params });
+                    return [respuestas[i++] ?? [], []] as any;
+                },
+            } as any,
+        };
+    }
+    const inserto = (llamadas: { sql: string }[]) =>
+        llamadas.some((l) => l.sql.startsWith("INSERT IGNORE INTO AffiliateReferrals"));
+
+    it("atribuye con las reglas del alta y deja quién lo hizo", async () => {
+        const { ejecutor, llamadas } = ejecutorConParams([TENANT, CODIGO, AFILIADO, [], { affectedRows: 1 }]);
+        const r = await atribuirTenantManual("af-1", "tenant-1", "ops@cscloudsolutions.com", ejecutor);
+        expect(r).toEqual({ atribuido: true, affiliateId: "af-1" });
+        const insert = llamadas.find((l) => l.sql.startsWith("INSERT IGNORE INTO AffiliateReferrals"));
+        expect(insert?.params).toEqual(["af-1", "tenant-1", "ops@cscloudsolutions.com"]);
+    });
+
+    it("un tenant que no existe no llega al INSERT", async () => {
+        // Con INSERT IGNORE la FK no daría error y saldría como "ya-atribuido".
+        const { ejecutor, llamadas } = ejecutorConParams([[]]);
+        const r = await atribuirTenantManual("af-1", "no-existe", "ops@cscloudsolutions.com", ejecutor);
+        expect(r).toEqual({ atribuido: false, motivo: "tenant-inexistente" });
+        expect(inserto(llamadas)).toBe(false);
+    });
+
+    it("un afiliado suspendido no se puede atribuir", async () => {
+        // buscarAfiliadoPorCodigo sólo encuentra afiliados ACTIVE.
+        const { ejecutor, llamadas } = ejecutorConParams([TENANT, CODIGO, []]);
+        const r = await atribuirTenantManual("af-1", "tenant-1", "ops@cscloudsolutions.com", ejecutor);
+        expect(r).toEqual({ atribuido: false, motivo: "codigo-desconocido" });
+        expect(inserto(llamadas)).toBe(false);
+    });
+
+    it("rechaza el auto-referido: el mail del afiliado es usuario del tenant", async () => {
+        const { ejecutor, llamadas } = ejecutorConParams([TENANT, CODIGO, AFILIADO, [{ 1: 1 }]]);
+        const r = await atribuirTenantManual("af-1", "tenant-1", "ops@cscloudsolutions.com", ejecutor);
+        expect(r).toEqual({ atribuido: false, motivo: "auto-referido" });
+        expect(inserto(llamadas)).toBe(false);
+    });
+
+    it("si el tenant ya tiene afiliado, dice cuál", async () => {
+        const { ejecutor } = ejecutorConParams([TENANT, CODIGO, AFILIADO, [], { affectedRows: 0 }, [{ name: "Ana Partner" }]]);
+        const r = await atribuirTenantManual("af-1", "tenant-1", "ops@cscloudsolutions.com", ejecutor);
+        expect(r).toEqual({ atribuido: false, motivo: "ya-atribuido", afiliadoActual: "Ana Partner" });
     });
 });

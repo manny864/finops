@@ -20,13 +20,14 @@
 Tudo o que mudou para o usuário de um tenant está no **Manual do Usuário** e é incluído aqui nas seções 3 a 12 (Perspectives e alcance por equipe, Leaderboard e margem bruta, assinaturas de relatórios, ano fiscal e transferência de orçamento, fim de suporte, Shift-Left, Cosmos DB, egress e capacidade de enlaces, Azure Virtual Desktop, Armazenamento, Marketplace, app móvel). O que mudou do lado da operação da plataforma:
 
 - **Programa de Afiliados com painel próprio para o parceiro (17):** o afiliado entra com um link pessoal somente leitura, sem conta em nenhum tenant; a comissão de uma indicação dura **o primeiro ano** de cada cliente (12 meses corridos desde a sua primeira cobrança) e não para sempre.
+- **Atribuir manualmente um cliente a um afiliado (17.2):** para o cliente que um afiliado trouxe e que se cadastrou sem o link. Valem as regras do cadastro, não é retroativa e fica registrado quem a fez.
 - **Rodadas de pagamento (17.6):** as comissões exigíveis de afiliados e comerciais são liquidadas em lotes por moeda, com ordem de pagamento em CSV e confirmação com comprovante.
 - **Comissões comerciais (20):** data da venda e prazo do contrato por tenant, e o calendário de acúmulo do comercial (anual ou mensal) sobre o mesmo livro-razão dos afiliados.
 - **Consumo da plataforma (22):** tokens de IA que a casa absorve e chamadas às APIs do Azure, com a porcentagem de throttling por serviço e por tenant.
 - **Funil de cadastro (21), Unidades de preço (23), Teste de carga (24) e IA — Configuração global (25):** documentados pela primeira vez neste manual.
 - **Anomalias com responsável e acompanhamento (18) e assinaturas fora do limite de um plano (19):** o que o cliente vê e como explicar para ele.
 - **Links que saem da plataforma:** o link do painel do parceiro e os demais links que enviamos por e-mail usam a URL pública configurada (`NEXT_PUBLIC_APP_URL`), não o host com o qual entrou quem os pediu.
-- **Avisos de vencimento de reservas (MEJ-16):** um cron diário novo, `reservation-expiry-alerts` (09:03 UTC), avisa cada tenant 90, 60 e 30 dias antes do vencimento das suas reservas, pelo sino e pelos seus canais de notificação (5.4.4). O que já foi avisado fica registrado em `ReservationExpiryNotices`, então não se repete. É agendado com o `terraform apply` por CI: até que seja aplicado, o job não existe.
+- **Avisos de vencimento de reservas (MEJ-16):** um cron diário novo, `reservation-expiry-alerts` (09:03 UTC), avisa cada tenant 90, 60 e 30 dias antes do vencimento das suas reservas, pelo sino e pelos seus canais de notificação (5.4.4). O que já foi avisado fica registrado em `ReservationExpiryNotices`, então não se repete. Roda desde 06/10, depois do `terraform apply` por CI de 05/10.
 - **O que era só por API agora tem tela:** alcance por usuário (8.2), visões compartilhadas e padrão (3.4), classificação COGS/OpEx (5.2), transferência de orçamento e ano fiscal (5.1.5), e a política da pontuação de maturidade (MEJ-08, 4.4). O Shift-Left tem entrada no menu, e um usuário restrito vê os hubs que lhe cabem em vez de só o Whiteboard.
 - **Telas que não enviavam a sessão:** Leaderboard, Fim de suporte, Capacidade de enlaces, Visões salvas, Assinaturas de relatórios, o histórico de logins do M365, a barra de impersonação e o aviso de exclusão concluída chamavam a API sem o token e, para qualquer tenant real, recebiam 401; no demo funcionavam porque são interceptadas. Agora o enviam, e um teste (`fetchConSesion.test.ts`) impede que volte.
 - **Afiliados com 15 % por padrão (17.1)** e **portal do parceiro no idioma dele (17.5)**: o link não força mais o espanhol e o painel tem seletor de idioma.
@@ -1746,8 +1747,17 @@ Três regras que vale conhecer para responder perguntas:
   reatribuído. Se entrou pelo link de A e depois pelo de B, o cliente é de A.
 - **Não há autoindicação.** Se o e-mail do afiliado for de um usuário do
   cliente, a atribuição é recusada.
-- A atribuição ocorre **no cadastro do cliente**. Um cliente que já existia não
-  é atribuído por visitar um link mais tarde.
+- A atribuição por link ocorre **no cadastro do cliente**. Um cliente que já
+  existia não é atribuído por visitar um link mais tarde: para esse caso existe
+  a atribuição manual.
+
+**Atribuir um cliente manualmente.** Para o cliente que um afiliado trouxe e que
+se cadastrou sem o link, o botão **Atribuir tenant** (pessoa com um +) na linha
+do afiliado abre um seletor de tenants. Valem as mesmas regras do cadastro: o
+afiliado precisa estar ativo, o tenant não pode já ter outro afiliado e não há
+autoindicação. Não é retroativa: a comissão começa a ser gerada na próxima
+cobrança e os 12 meses contam a partir daí. Fica registrado qual superadmin fez
+a atribuição.
 
 ### 17.3 Editar, suspender e excluir
 

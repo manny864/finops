@@ -39,7 +39,8 @@ export interface AfiliadoResuelto {
 
 export type ResultadoAtribucion =
     | { atribuido: true; affiliateId: string }
-    | { atribuido: false; motivo: "sin-codigo" | "codigo-desconocido" | "auto-referido" | "ya-atribuido" };
+    | { atribuido: false; motivo: "sin-codigo" | "codigo-desconocido" | "auto-referido" | "tenant-inexistente" }
+    | { atribuido: false; motivo: "ya-atribuido"; afiliadoActual?: string };
 
 /**
  * El código viaja en una URL tipeada o pegada por una persona. Se normaliza a
@@ -99,7 +100,9 @@ export async function atribuirReferido(
     ejecutor: Ejecutor,
     tenantId: string,
     codigoRaw: unknown,
-    emailActual?: string | null
+    emailActual?: string | null,
+    /** Mail del superadmin si la atribución es manual; null si vino por link. */
+    atribuidoPor: string | null = null
 ): Promise<ResultadoAtribucion> {
     const codigo = normalizarCodigo(codigoRaw);
     if (!codigo) return { atribuido: false, motivo: "sin-codigo" };
@@ -120,11 +123,57 @@ export async function atribuirReferido(
     }
 
     const [res] = await ejecutor.query<any>(
-        `INSERT IGNORE INTO AffiliateReferrals (affiliate_id, tenant_id) VALUES (?, ?)`,
-        [afiliado.id, tenantId]
+        `INSERT IGNORE INTO AffiliateReferrals (affiliate_id, tenant_id, attributed_by) VALUES (?, ?, ?)`,
+        [afiliado.id, tenantId, atribuidoPor]
     );
     if (!res?.affectedRows) return { atribuido: false, motivo: "ya-atribuido" };
     return { atribuido: true, affiliateId: afiliado.id };
+}
+
+/**
+ * Atribución manual desde Superadmin › Afiliados, para el cliente que trajo un
+ * afiliado pero se registró sin el link.
+ *
+ * Pasa por `atribuirReferido` a propósito: las reglas son las del alta
+ * (afiliado ACTIVO, un afiliado por tenant, sin auto-referido) y no una copia
+ * que se desfase con el tiempo.
+ *
+ * No es retroactiva: la comisión se devenga en el próximo cobro de Paddle, y la
+ * ventana de MESES_DE_COMISION arranca ahí, porque se cuenta desde el primer
+ * cobro comisionado (ver `devengarComision`).
+ */
+export async function atribuirTenantManual(
+    affiliateId: string,
+    tenantId: string,
+    atribuidoPor: string,
+    ejecutor: Ejecutor = pool
+): Promise<ResultadoAtribucion> {
+    // Se valida antes de insertar para dar un error claro: con INSERT IGNORE,
+    // la FK contra Tenants no llega como error y saldría como "ya-atribuido".
+    const [tenants] = await ejecutor.query<any[]>(
+        `SELECT 1 FROM Tenants WHERE tenant_id = ? LIMIT 1`,
+        [tenantId]
+    );
+    if (!Array.isArray(tenants) || tenants.length === 0) {
+        return { atribuido: false, motivo: "tenant-inexistente" };
+    }
+
+    const [afiliados] = await ejecutor.query<any[]>(
+        `SELECT referral_code FROM Affiliates WHERE id = ? LIMIT 1`,
+        [affiliateId]
+    );
+    const codigo = Array.isArray(afiliados) ? afiliados[0]?.referral_code : null;
+    const resultado = await atribuirReferido(ejecutor, tenantId, codigo, null, atribuidoPor);
+
+    if (!resultado.atribuido && resultado.motivo === "ya-atribuido") {
+        const [actual] = await ejecutor.query<any[]>(
+            `SELECT a.name FROM AffiliateReferrals r JOIN Affiliates a ON a.id = r.affiliate_id
+              WHERE r.tenant_id = ? LIMIT 1`,
+            [tenantId]
+        );
+        return { ...resultado, afiliadoActual: Array.isArray(actual) ? actual[0]?.name : undefined };
+    }
+    return resultado;
 }
 
 /**

@@ -22,6 +22,7 @@ import {
     actualizarAfiliado,
     eliminarAfiliado,
     actualizarEstadoComisiones,
+    atribuirTenantManual,
     type EstadoComision,
 } from "@/services/affiliates.service";
 import { emitirEnlaceDePanel, revocarEnlaceDePanel } from "@/services/affiliatePortal.service";
@@ -59,8 +60,35 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
-        await requireSuperAdmin(request);
+        const identidad = await requireSuperAdmin(request);
         const body = await request.json().catch(() => ({}));
+
+        if (body?.action === "attributeTenant") {
+            const affiliateId = String(body.affiliateId || "").trim();
+            const tenantId = String(body.tenantId || "").trim();
+            if (!affiliateId || !tenantId) {
+                return NextResponse.json({ error: "affiliateId y tenantId son requeridos." }, { status: 400 });
+            }
+            const r = await atribuirTenantManual(affiliateId, tenantId, identidad.email);
+            if (r.atribuido) return NextResponse.json({ success: true });
+            if (r.motivo === "ya-atribuido") {
+                return NextResponse.json(
+                    { error: `Ese tenant ya está atribuido a ${r.afiliadoActual || "otro afiliado"}.` },
+                    { status: 409 }
+                );
+            }
+            if (r.motivo === "auto-referido") {
+                return NextResponse.json(
+                    { error: "El email del afiliado es usuario de ese tenant: sería un auto-referido." },
+                    { status: 422 }
+                );
+            }
+            if (r.motivo === "tenant-inexistente") {
+                return NextResponse.json({ error: "Ese tenant no existe." }, { status: 404 });
+            }
+            // sin-codigo o codigo-desconocido: el afiliado no existe o no está ACTIVO.
+            return NextResponse.json({ error: "El afiliado no existe o no está activo." }, { status: 404 });
+        }
 
         if (body?.action === "create") {
             const { id } = await crearAfiliado(body);

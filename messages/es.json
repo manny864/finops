@@ -12893,7 +12893,13 @@
     "portalRevoked": "Enlace del panel revocado.",
     "portalLinkFor": "Enlace del panel de {name}",
     "portalLinkOnce": "Se muestra una sola vez: en la base queda sólo su hash. Si lo perdés, emitís otro.",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "attributeTenant": "Atribuir tenant",
+    "attributeTenantFor": "Atribuir un tenant a {name}",
+    "attributeTenantHint": "Para el cliente que trajo este afiliado y se registró sin el link. Rigen las reglas del alta: un afiliado por tenant y sin que el afiliado se refiera a sí mismo. No es retroactiva: la comisión se devenga desde el próximo cobro.",
+    "attributeTenantSelect": "Elegí el tenant",
+    "attributeTenantConfirm": "Atribuir",
+    "tenantAttributed": "Tenant atribuido a {name}."
   },
   "SuperAdminCommissions": {
     "title": "Comisiones",

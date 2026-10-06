@@ -20,13 +20,14 @@
 Everything that changed for a tenant's user is in the **User Manual** and is included here in sections 3 to 12 (Perspectives and team scope, Leaderboard and gross margin, report subscriptions, fiscal year and budget rollover, end of support, Shift-Left, Cosmos DB, egress and link capacity, Azure Virtual Desktop, Storage, Marketplace, mobile app). What changed on the platform-operations side:
 
 - **Affiliate Program with its own partner panel (17):** the affiliate enters with a personal read-only link, without an account in any tenant; a referral's commission lasts **the first year** of each client (12 months counted from their first charge) and not forever.
+- **Attributing a customer to an affiliate manually (17.2):** for a customer an affiliate brought in who signed up without the link. The signup rules apply, it isn't retroactive, and who made it is recorded.
 - **Payout runs (17.6):** the due commissions of affiliates and sales reps are settled in batches per currency, with a CSV payment order and confirmation with a receipt.
 - **Sales commissions (20):** sale date and contract term per tenant, and the sales rep's accrual schedule (annual or monthly) on the same ledger as affiliates.
 - **Platform usage (22):** AI tokens absorbed by the house and calls to Azure APIs, with the throttling percentage per service and per tenant.
 - **Signup funnel (21), Pricing units (23), Load testing (24) and AI — Global configuration (25):** documented for the first time in this manual.
 - **Anomalies with an owner and follow-up (18) and subscriptions beyond a plan's limit (19):** what the client sees and how to explain it.
 - **Links that leave the platform:** the partner-panel link and the other links we email use the configured public URL (`NEXT_PUBLIC_APP_URL`), not the host the requester came in through.
-- **Reservation expiry notices (MEJ-16):** a new daily cron, `reservation-expiry-alerts` (09:03 UTC), notifies each tenant 90, 60 and 30 days before its reservations expire, through the bell and its notification channels (5.4.4). What it has already notified is recorded in `ReservationExpiryNotices`, so it is not repeated. It is scheduled with the CI `terraform apply`: until that is applied, the job does not exist.
+- **Reservation expiry notices (MEJ-16):** a new daily cron, `reservation-expiry-alerts` (09:03 UTC), notifies each tenant 90, 60 and 30 days before its reservations expire, through the bell and its notification channels (5.4.4). What it has already notified is recorded in `ReservationExpiryNotices`, so it is not repeated. It runs since 10/06, after the 10/05 CI `terraform apply`.
 - **What was API-only now has a screen:** per-user scope (8.2), shared and default views (3.4), COGS/OpEx classification (5.2), budget rollover and fiscal year (5.1.5), and the maturity score policy (MEJ-08, 4.4). Shift-Left has a menu entry, and a scoped user sees the hubs that apply to them instead of only the Whiteboard.
 - **Screens that did not send the session:** Leaderboard, End of support, Link capacity, Saved views, Report subscriptions, the M365 sign-in history, the impersonation bar and the deletion-finished notice called the API without the token and, for any real tenant, got a 401; they worked in the demo because it is intercepted. They send it now, and a test (`fetchConSesion.test.ts`) keeps it from coming back.
 - **Affiliates at 15 % by default (17.1)** and **the partner portal in their language (17.5)**: the link no longer forces Spanish and the panel has a language selector.
@@ -1752,8 +1753,17 @@ Three rules worth knowing when answering questions:
   is A's.
 - **No self-referrals.** If the affiliate's email matches a user of the
   customer, the attribution is rejected.
-- Attribution happens **when the customer signs up**. A customer that already
-  existed is not attributed by visiting a link later on.
+- Link attribution happens **when the customer signs up**. A customer that
+  already existed is not attributed by visiting a link later on: manual
+  attribution covers that case.
+
+**Attributing a customer manually.** For a customer an affiliate brought in who
+signed up without the link, the **Attribute tenant** button (a person with a +)
+on the affiliate's row opens a tenant picker. The signup rules apply: the
+affiliate must be active, the tenant can't already have another affiliate, and
+there are no self-referrals. It isn't retroactive: commission starts accruing on
+the next charge and the 12 months are counted from there. The superadmin who
+made the attribution is recorded.
 
 ### 17.3 Editing, suspending and deleting
 

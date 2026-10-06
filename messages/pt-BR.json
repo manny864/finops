@@ -12893,7 +12893,13 @@
     "portalRevoked": "Link do painel revogado.",
     "portalLinkFor": "Link do painel de {name}",
     "portalLinkOnce": "Exibido uma única vez: o banco guarda apenas o hash. Se perder, emita outro.",
-    "close": "Fechar"
+    "close": "Fechar",
+    "attributeTenant": "Atribuir tenant",
+    "attributeTenantFor": "Atribuir um tenant a {name}",
+    "attributeTenantHint": "Para o cliente que este afiliado trouxe e que se cadastrou sem o link. Valem as regras do cadastro: um afiliado por tenant e sem autoindicação. Não é retroativa: a comissão é gerada a partir da próxima cobrança.",
+    "attributeTenantSelect": "Escolha o tenant",
+    "attributeTenantConfirm": "Atribuir",
+    "tenantAttributed": "Tenant atribuído a {name}."
   },
   "SuperAdminCommissions": {
     "title": "Comissões",

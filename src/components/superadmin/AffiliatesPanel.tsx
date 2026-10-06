@@ -17,6 +17,7 @@ import {
     IconTrash,
     IconLayoutDashboard,
     IconLinkOff,
+    IconUserPlus,
 } from "@tabler/icons-react";
 
 type Afiliado = {
@@ -92,6 +93,11 @@ export default function AffiliatesPanel() {
      * que emitir otro. Misma regla que las claves de API.
      */
     const [enlacePanel, setEnlacePanel] = useState<{ nombre: string; url: string } | null>(null);
+    // Atribución manual: el afiliado al que se le asigna un tenant y la lista de
+    // tenants para elegir, que se pide recién la primera vez que se abre.
+    const [atribuyendo, setAtribuyendo] = useState<Afiliado | null>(null);
+    const [tenants, setTenants] = useState<{ tenantId: string; organizationName: string }[]>([]);
+    const [tenantElegido, setTenantElegido] = useState("");
 
     const cabeceras = useCallback(async () => {
         const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -256,6 +262,39 @@ export default function AffiliatesPanel() {
         }
     };
 
+    const abrirAtribucion = async (a: Afiliado) => {
+        setAtribuyendo(a);
+        setTenantElegido("");
+        if (tenants.length > 0) return;
+        try {
+            const res = await fetch("/api/superadmin/tenants", { headers: await cabeceras() });
+            const cuerpo = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(cuerpo.error || `HTTP ${res.status}`);
+            const lista = (cuerpo.tenants || []) as { tenantId: string; organizationName: string }[];
+            setTenants(lista
+                .map(({ tenantId, organizationName }) => ({ tenantId, organizationName: organizationName || tenantId }))
+                .sort((x, y) => x.organizationName.localeCompare(y.organizationName)));
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : String(e));
+        }
+    };
+
+    const atribuir = async () => {
+        if (!atribuyendo || !tenantElegido) return;
+        try {
+            const res = await fetch("/api/superadmin/affiliates", {
+                method: "POST", headers: await cabeceras(),
+                body: JSON.stringify({ action: "attributeTenant", affiliateId: atribuyendo.id, tenantId: tenantElegido }),
+            });
+            if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
+            toast.success(t("tenantAttributed", { name: atribuyendo.name }));
+            setAtribuyendo(null);
+            await cargar();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : String(e));
+        }
+    };
+
     const suspender = async (a: Afiliado) => {
         const nuevo = a.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE";
         try {
@@ -356,6 +395,43 @@ export default function AffiliatesPanel() {
                             <IconCopy className="w-3.5 h-3.5" />
                             {t("copyLink")}
                         </button>
+                    </div>
+                )}
+
+                {atribuyendo && (
+                    <div className="mt-4 p-4 rounded-xl border border-[#0054A6] bg-blue-50/60 dark:bg-blue-950/20 space-y-2">
+                        <p className="text-xs font-bold text-[#0054A6] dark:text-blue-300">
+                            {t("attributeTenantFor", { name: atribuyendo.name })}
+                        </p>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-400">{t("attributeTenantHint")}</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <select
+                                value={tenantElegido}
+                                onChange={(e) => setTenantElegido(e.target.value)}
+                                aria-label={t("attributeTenantSelect")}
+                                className="min-w-0 flex-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-slate-800 dark:text-slate-200"
+                            >
+                                <option value="">{t("attributeTenantSelect")}</option>
+                                {tenants.map((x) => (
+                                    <option key={x.tenantId} value={x.tenantId}>
+                                        {x.organizationName} · {x.tenantId}
+                                    </option>
+                                ))}
+                            </select>
+                            <button
+                                onClick={() => setAtribuyendo(null)}
+                                className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300"
+                            >
+                                {t("cancel")}
+                            </button>
+                            <button
+                                onClick={() => void atribuir()}
+                                disabled={!tenantElegido}
+                                className="rounded-xl border border-[#0054A6] bg-white dark:bg-slate-900 px-4 py-2 text-xs font-bold text-[#0054A6] dark:text-blue-400 disabled:opacity-40"
+                            >
+                                {t("attributeTenantConfirm")}
+                            </button>
+                        </div>
                     </div>
                 )}
 
@@ -500,6 +576,16 @@ export default function AffiliatesPanel() {
                                                     className="p-1.5 rounded-lg border border-amber-300 dark:border-amber-900/60 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
                                                 >
                                                     <IconLinkOff className="w-3.5 h-3.5" />
+                                                </button>
+                                            )}
+                                            {a.status === "ACTIVE" && (
+                                                <button
+                                                    onClick={() => void abrirAtribucion(a)}
+                                                    title={t("attributeTenant")}
+                                                    aria-label={t("attributeTenant")}
+                                                    className="p-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                                >
+                                                    <IconUserPlus className="w-3.5 h-3.5" />
                                                 </button>
                                             )}
                                             <button
