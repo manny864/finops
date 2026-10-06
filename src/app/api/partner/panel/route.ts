@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { errorMessage } from "@/lib/apiErrors";
 import rateLimiter from "@/lib/rateLimiter";
-import { afiliadoPorToken, panelDelAfiliado } from "@/services/affiliatePortal.service";
+import { partnerPorToken, panelDelPartner } from "@/services/affiliatePortal.service";
 
 /**
  * Techo por IP. No es contra la fuerza bruta —un token de 32 bytes no se
@@ -39,15 +39,15 @@ export async function GET(request: NextRequest) {
         const auth = request.headers.get("authorization") || "";
         const token = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : "";
 
-        const afiliado = await afiliadoPorToken(token);
+        const partner = await partnerPorToken(token);
         // Un token inválido y uno de un afiliado suspendido dan LA MISMA
         // respuesta: distinguirlos le confirmaría a un tercero que ese enlace
         // existió.
-        if (!afiliado) {
+        if (!partner) {
             return NextResponse.json({ error: "Enlace inválido o revocado." }, { status: 401 });
         }
 
-        return NextResponse.json({ success: true, panel: await panelDelAfiliado(afiliado) });
+        return NextResponse.json({ success: true, panel: await panelDelPartner(partner) });
     } catch (error) {
         console.error("[partner/panel] GET:", errorMessage(error));
         return NextResponse.json({ error: "No se pudo cargar el panel." }, { status: 500 });

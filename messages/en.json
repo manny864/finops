@@ -16081,7 +16081,7 @@
   },
   "PartnerPanel": {
     "title": "Partner Dashboard",
-    "greeting": "Hi {name}. These are your referrals and your commissions.",
+    "greeting": "Hi, {name}. These are your customers and your commissions.",
     "loading": "Loading your dashboard…",
     "noLink": "The access link is missing.",
     "invalidLink": "This link is not valid or has been revoked.",
@@ -16089,8 +16089,6 @@
     "askForLink": "Request a new link at sales@cscloudsolutions.com.ar.",
     "pending": "Pending payout",
     "paid": "Already paid",
-    "referrals": "Referred customers",
-    "yourRate": "Your commission",
     "firstYearOnly": "First {months} months of each customer",
     "yourLink": "Your referral link",
     "referralsTitle": "Your referred customers",
@@ -16121,6 +16119,22 @@
     "manualOtherLanguages": "Also in:",
     "footnote": "Amounts reflect commissions accrued from charges already recorded. Payouts follow the terms of your partner agreement.",
     "metaTitle": "Partner Dashboard | CSCloudSolutions",
-    "metaDescription": "Your referrals and commissions in the CSCloudSolutions Partner Program."
+    "metaDescription": "Your referrals and commissions in the CSCloudSolutions Partner Program.",
+    "totalEarned": "Total earned",
+    "programReferrals": "Referrals ({pct}%)",
+    "programDirect": "Direct sales ({pct}%)",
+    "directNote": "By contract: annual in one installment, monthly in 12",
+    "directTitle": "Your direct sales",
+    "noDirectSales": "You have no direct sales assigned yet.",
+    "saleDate": "Sale date",
+    "saleDateMissing": "Not recorded",
+    "contract": "Contract",
+    "contractAnnual": "Annual",
+    "contractMonthly": "Monthly",
+    "installments": "Installments",
+    "program": "Program",
+    "programReferralShort": "Referral",
+    "programDirectShort": "Direct",
+    "dueFrom": "Due from"
   }
 }

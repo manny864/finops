@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * Panel del afiliado. Sólo lectura, sin sesión de Entra ID.
+ * Panel del partner: afiliado (referidos), comercial (ventas directas) o las
+ * dos cosas, con la sumatoria de lo ganado. Sólo lectura, sin sesión de Entra ID.
  *
  * EL TOKEN VIAJA EN EL FRAGMENTO (`/partner#k=afp_live_…`) Y NO EN LA QUERY.
  * Esa es la parte que importa: el fragmento no se manda al servidor, así que el
@@ -33,15 +34,27 @@ interface Referido {
     empresa: string; desde: string | null; comisionaHasta: string | null;
     cobros: number; acumulado: string;
 }
+interface VentaDirecta {
+    empresa: string; fechaVenta: string | null; contrato: "annual" | "monthly";
+    cuotas: string; acumulado: string;
+}
 interface Comision {
-    empresa: string; fecha: string | null; base: string; moneda: string;
+    empresa: string; programa: "referido" | "directo"; fecha: string | null;
+    exigibleDesde: string | null; base: string; moneda: string;
     pct: string; monto: string; estado: string;
 }
+interface Montos { pendiente: string; pagado: string; ganado: string }
+interface Totales { moneda: string; referidos: Montos; directo: Montos; total: Montos }
 interface Panel {
-    nombre: string; codigo: string; pct: string; mesesDeComision: number;
-    totales: { pendiente: string; pagado: string; moneda: string | null; referidos: number };
-    referidos: Referido[]; comisiones: Comision[];
+    nombre: string;
+    afiliado: { codigo: string; pct: string } | null;
+    comercial: { pct: string } | null;
+    mesesDeComision: number;
+    totales: Totales[];
+    referidos: Referido[]; ventasDirectas: VentaDirecta[]; comisiones: Comision[];
 }
+
+const CERO: Montos = { pendiente: "0", pagado: "0", ganado: "0" };
 
 /** El token del fragmento, o el que quedó de esta sesión. */
 function tomarToken(): { token: string | null } {
@@ -110,7 +123,14 @@ export default function PageClient() {
         );
     }
 
-    const m = panel.totales.moneda;
+    // Una fila de totales por moneda: no se suman monedas distintas. Sin
+    // comisiones todavía, una en cero para que el panel no quede vacío.
+    const totales: Totales[] = panel.totales.length
+        ? panel.totales
+        : [{ moneda: "USD", referidos: CERO, directo: CERO, total: CERO }];
+    const m = totales[0].moneda;
+    const pctReferido = panel.afiliado ? Number(panel.afiliado.pct) : null;
+    const pctDirecto = panel.comercial ? Number(panel.comercial.pct) : null;
 
     return (
         <Marco>
@@ -121,39 +141,78 @@ export default function PageClient() {
                 </p>
             </header>
 
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                <Dato titulo={t("pending")} valor={plata(panel.totales.pendiente, m)} destacado />
-                <Dato titulo={t("paid")} valor={plata(panel.totales.pagado, m)} />
-                <Dato titulo={t("referrals")} valor={String(panel.totales.referidos)} />
-                <Dato titulo={t("yourRate")} valor={`${Number(panel.pct)}%`} nota={t("firstYearOnly", { months: panel.mesesDeComision })} />
-            </div>
+            {totales.map((tot) => (
+                <div key={tot.moneda} className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <Dato titulo={t("totalEarned")} valor={plata(tot.total.ganado, tot.moneda)} destacado />
+                        <Dato titulo={t("pending")} valor={plata(tot.total.pendiente, tot.moneda)} />
+                        <Dato titulo={t("paid")} valor={plata(tot.total.pagado, tot.moneda)} />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {pctReferido !== null && (
+                            <Dato
+                                titulo={t("programReferrals", { pct: pctReferido })}
+                                valor={plata(tot.referidos.ganado, tot.moneda)}
+                                nota={t("firstYearOnly", { months: panel.mesesDeComision })}
+                            />
+                        )}
+                        {pctDirecto !== null && (
+                            <Dato
+                                titulo={t("programDirect", { pct: pctDirecto })}
+                                valor={plata(tot.directo.ganado, tot.moneda)}
+                                nota={t("directNote")}
+                            />
+                        )}
+                    </div>
+                </div>
+            ))}
 
-            <section className="space-y-2">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">{t("yourLink")}</h2>
-                <code className="block rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-3 py-2 text-sm font-mono break-all text-[#0054A6] dark:text-sky-400">
-                    https://finops.cscloudsolutions.com.ar/signup?ref={panel.codigo}
-                </code>
-            </section>
+            {panel.afiliado && (
+                <section className="space-y-2">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">{t("yourLink")}</h2>
+                    <code className="block rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-3 py-2 text-sm font-mono break-all text-[#0054A6] dark:text-sky-400">
+                        https://finops.cscloudsolutions.com.ar/signup?ref={panel.afiliado.codigo}
+                    </code>
+                </section>
+            )}
 
             <ManualDelPartner locale={locale} />
 
-            <Tabla
-                titulo={t("referralsTitle")}
-                vacio={t("noReferrals")}
-                columnas={[t("company"), t("since"), t("commissionsUntil"), t("charges"), t("accrued")]}
-                filas={panel.referidos.map((r) => [
-                    r.empresa, fecha(r.desde),
-                    r.comisionaHasta ? fecha(r.comisionaHasta) : t("notStarted"),
-                    String(r.cobros), plata(r.acumulado, m),
-                ])}
-            />
+            {panel.afiliado && (
+                <Tabla
+                    titulo={`${t("referralsTitle")} (${pctReferido}%)`}
+                    vacio={t("noReferrals")}
+                    columnas={[t("company"), t("since"), t("commissionsUntil"), t("charges"), t("accrued")]}
+                    filas={panel.referidos.map((r) => [
+                        r.empresa, fecha(r.desde),
+                        r.comisionaHasta ? fecha(r.comisionaHasta) : t("notStarted"),
+                        String(r.cobros), plata(r.acumulado, m),
+                    ])}
+                />
+            )}
+
+            {panel.comercial && (
+                <Tabla
+                    titulo={`${t("directTitle")} (${pctDirecto}%)`}
+                    vacio={t("noDirectSales")}
+                    columnas={[t("company"), t("saleDate"), t("contract"), t("installments"), t("accrued")]}
+                    filas={panel.ventasDirectas.map((v) => [
+                        v.empresa,
+                        v.fechaVenta ? fecha(v.fechaVenta) : t("saleDateMissing"),
+                        v.contrato === "annual" ? t("contractAnnual") : t("contractMonthly"),
+                        v.cuotas, plata(v.acumulado, m),
+                    ])}
+                />
+            )}
 
             <Tabla
                 titulo={t("commissionsTitle")}
                 vacio={t("noCommissions")}
-                columnas={[t("company"), t("date"), t("base"), t("rate"), t("amount"), t("status")]}
+                columnas={[t("company"), t("program"), t("date"), t("dueFrom"), t("base"), t("rate"), t("amount"), t("status")]}
                 filas={panel.comisiones.map((c) => [
-                    c.empresa, fecha(c.fecha), plata(c.base, c.moneda),
+                    c.empresa,
+                    c.programa === "directo" ? t("programDirectShort") : t("programReferralShort"),
+                    fecha(c.fecha), fecha(c.exigibleDesde), plata(c.base, c.moneda),
                     `${Number(c.pct)}%`, plata(c.monto, c.moneda), t(`status_${c.estado}`),
                 ])}
             />

@@ -16081,7 +16081,7 @@
   },
   "PartnerPanel": {
     "title": "Panel del Partner",
-    "greeting": "Hola, {name}. Estos son tus referidos y tus comisiones.",
+    "greeting": "Hola, {name}. Estos son tus clientes y tus comisiones.",
     "loading": "Cargando tu panel…",
     "noLink": "Falta el enlace de acceso.",
     "invalidLink": "Este enlace no es válido o fue revocado.",
@@ -16089,8 +16089,6 @@
     "askForLink": "Pedinos un enlace nuevo a sales@cscloudsolutions.com.ar.",
     "pending": "Pendiente de pago",
     "paid": "Ya pagado",
-    "referrals": "Clientes referidos",
-    "yourRate": "Tu comisión",
     "firstYearOnly": "Primeros {months} meses de cada cliente",
     "yourLink": "Tu enlace de referido",
     "referralsTitle": "Tus clientes referidos",
@@ -16121,6 +16119,22 @@
     "manualOtherLanguages": "También en:",
     "footnote": "Los montos son los devengados según los cobros ya registrados. La liquidación se hace según lo acordado en tu contrato de partner.",
     "metaTitle": "Panel del Partner | CSCloudSolutions",
-    "metaDescription": "Tus referidos y comisiones del Programa de Partners de CSCloudSolutions."
+    "metaDescription": "Tus referidos y comisiones del Programa de Partners de CSCloudSolutions.",
+    "totalEarned": "Ganado en total",
+    "programReferrals": "Referidos ({pct}%)",
+    "programDirect": "Venta directa ({pct}%)",
+    "directNote": "Por contrato: el anual en una cuota, el mensual en 12",
+    "directTitle": "Tus ventas directas",
+    "noDirectSales": "Todavía no tenés ventas directas asignadas.",
+    "saleDate": "Fecha de venta",
+    "saleDateMissing": "Sin registrar",
+    "contract": "Contrato",
+    "contractAnnual": "Anual",
+    "contractMonthly": "Mensual",
+    "installments": "Cuotas",
+    "program": "Programa",
+    "programReferralShort": "Referido",
+    "programDirectShort": "Directo",
+    "dueFrom": "Exigible desde"
   }
 }

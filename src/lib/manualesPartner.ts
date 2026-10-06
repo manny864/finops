@@ -9,7 +9,7 @@
  * Se sirven como archivos estáticos, sin el token del panel: el manual no lleva
  * datos de ningún cliente ni del partner, es el material comercial que se le
  * entrega. Si algún día deja de ser así, hay que pasarlo detrás de
- * `afiliadoPorToken` como `/api/partner/panel`.
+ * `partnerPorToken` como `/api/partner/panel`.
  */
 export const MANUALES_DEL_PARTNER = [
     { lang: "es", etiqueta: "Español", archivo: "MANUAL_PARTNER_ES" },
