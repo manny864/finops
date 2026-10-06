@@ -21,6 +21,7 @@ Everything that changed for a tenant's user is in the **User Manual** and is inc
 
 - **Affiliate Program with its own partner panel (17):** the affiliate enters with a personal read-only link, without an account in any tenant; a referral's commission lasts **the first year** of each client (12 months counted from their first charge) and not forever.
 - **Attributing a customer to an affiliate manually (17.2):** for a customer an affiliate brought in who signed up without the link. The signup rules apply, it isn't retroactive, and who made it is recorded.
+- **Welcome email to the affiliate (17.1):** on creation they receive their name, their referral link and the link to their dashboard.
 - **Payout runs (17.6):** the due commissions of affiliates and sales reps are settled in batches per currency, with a CSV payment order and confirmation with a receipt.
 - **Sales commissions (20):** sale date and contract term per tenant, and the sales rep's accrual schedule (annual or monthly) on the same ledger as affiliates.
 - **Platform usage (22):** AI tokens absorbed by the house and calls to Azure APIs, with the throttling percentage per service and per tenant.
@@ -1731,6 +1732,8 @@ about other affiliates.
    stored.
 5. **Save**.
 
+On saving, the affiliate receives a **welcome email** —from the platform's notification mailbox, in the language your screen is in— with their name, their referral link and the link to their dashboard. That link is also shown **once** on screen: if the email fails, the notice says so; copy it and send it by hand.
+
 If the email or the code already exists, the creation is rejected with a notice:
 both are unique on purpose, so two affiliates cannot claim the same attribution.
 
@@ -1833,7 +1836,7 @@ detail.
 
 ### 17.5 The partner dashboard
 
-The **dashboard** button on the affiliate's row generates their personal link:
+The partner's personal link goes out in the welcome email at creation (17.1). The **dashboard** button on the affiliate's row generates a new one when needed:
 
 ```
 https://finops.cscloudsolutions.com.ar/partner#k=afp_live_...

@@ -21,6 +21,7 @@ Tudo o que mudou para o usuário de um tenant está no **Manual do Usuário** e 
 
 - **Programa de Afiliados com painel próprio para o parceiro (17):** o afiliado entra com um link pessoal somente leitura, sem conta em nenhum tenant; a comissão de uma indicação dura **o primeiro ano** de cada cliente (12 meses corridos desde a sua primeira cobrança) e não para sempre.
 - **Atribuir manualmente um cliente a um afiliado (17.2):** para o cliente que um afiliado trouxe e que se cadastrou sem o link. Valem as regras do cadastro, não é retroativa e fica registrado quem a fez.
+- **E-mail de boas-vindas ao afiliado (17.1):** no cadastro ele recebe o nome, o link de indicação e o link do painel.
 - **Rodadas de pagamento (17.6):** as comissões exigíveis de afiliados e comerciais são liquidadas em lotes por moeda, com ordem de pagamento em CSV e confirmação com comprovante.
 - **Comissões comerciais (20):** data da venda e prazo do contrato por tenant, e o calendário de acúmulo do comercial (anual ou mensal) sobre o mesmo livro-razão dos afiliados.
 - **Consumo da plataforma (22):** tokens de IA que a casa absorve e chamadas às APIs do Azure, com a porcentagem de throttling por serviço e por tenant.
@@ -1725,6 +1726,8 @@ gasto em nuvem dos clientes que trouxe, nem dados de outros afiliados.
    estruturados.
 5. **Salvar**.
 
+Ao salvar, o afiliado recebe um **e-mail de boas-vindas** —da caixa de avisos da plataforma e no idioma em que a sua tela estiver— com o nome, o link de indicação e o link do painel. Esse link também aparece **uma vez** na tela: se o e-mail não for enviado, o aviso informa; copie-o e envie manualmente.
+
 Se o e-mail ou o código já existirem, o cadastro é recusado com um aviso: os
 dois são únicos de propósito, para que dois afiliados não disputem a mesma
 atribuição.
@@ -1823,7 +1826,7 @@ diferentes, esses totais não são comparáveis — verifique o detalhe por comi
 
 ### 17.5 O painel do parceiro
 
-O botão do **painel** na linha do afiliado gera o link pessoal dele:
+O link pessoal do parceiro vai no e-mail de boas-vindas do cadastro (17.1). O botão do **painel** na linha do afiliado gera um novo quando for preciso:
 
 ```
 https://finops.cscloudsolutions.com.ar/partner#k=afp_live_...

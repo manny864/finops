@@ -713,7 +713,7 @@ https://finops.cscloudsolutions.com.ar/signup?ref=TUCODIGO
 
 ### 9.3. Tu panel
 
-Cuando te damos de alta recibís un **enlace personal de sólo lectura** a tu panel. No necesitás usuario ni contraseña: **el enlace es la credencial**.
+Cuando te damos de alta recibís por mail un **enlace personal de sólo lectura** a tu panel. No necesitás usuario ni contraseña: **el enlace es la credencial**.
 
 ```
 https://finops.cscloudsolutions.com.ar/partner#k=…
@@ -762,7 +762,7 @@ Cada comisión pasa por estos estados, y los ves todos en tu panel:
 
 1. **Una llamada de 15 minutos:** vemos si tu red encaja y respondemos lo que falte.
 2. **Firmamos el acuerdo**, con tu porcentaje y las condiciones de liquidación.
-3. **Te damos de alta:** recibís tu enlace de referido y el enlace de tu panel.
+3. **Te damos de alta:** recibís por mail tu enlace de referido y el enlace de tu panel.
 4. **Te pasamos el material comercial** y coordinamos la primera demo cuando la necesites.
 
 No hace falta que sepas Azure ni FinOps. Hace falta que tengas llegada a CTOs, CFOs, directores de tecnología o responsables de infraestructura.

@@ -12870,7 +12870,6 @@
     "copied": "Copiado",
     "linkCopied": "Link de indicação copiado",
     "linkCopyFailed": "Não foi possível copiar o link",
-    "affiliateCreated": "Afiliado cadastrado",
     "selectedCount": "{count} selecionadas",
     "selectAll": "Selecionar todas",
     "selectRow": "Selecionar comissão",
@@ -12899,7 +12898,9 @@
     "attributeTenantHint": "Para o cliente que este afiliado trouxe e que se cadastrou sem o link. Valem as regras do cadastro: um afiliado por tenant e sem autoindicação. Não é retroativa e não reinicia a janela: gera a partir da próxima cobrança, mas os 12 meses contam desde o primeiro pagamento do cliente, então um que já paga há mais de um ano não gera comissão.",
     "attributeTenantSelect": "Escolha o tenant",
     "attributeTenantConfirm": "Atribuir",
-    "tenantAttributed": "Tenant atribuído a {name}."
+    "tenantAttributed": "Tenant atribuído a {name}.",
+    "welcomeSent": "Afiliado cadastrado. Enviamos o e-mail de boas-vindas para {email}.",
+    "welcomeNotSent": "Afiliado cadastrado, mas o e-mail de boas-vindas não foi enviado. Copie o link do painel abaixo e envie junto com o link de indicação."
   },
   "SuperAdminCommissions": {
     "title": "Comissões",

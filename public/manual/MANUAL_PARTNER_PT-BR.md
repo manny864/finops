@@ -705,7 +705,7 @@ https://finops.cscloudsolutions.com.ar/signup?ref=SEUCODIGO
 
 ### 9.3. O seu painel
 
-Quando cadastramos você, recebe um **link pessoal somente leitura** para o seu painel. Não precisa de usuário nem senha: **o link é a credencial**.
+Quando cadastramos você, recebe por e-mail um **link pessoal somente leitura** para o seu painel. Não precisa de usuário nem senha: **o link é a credencial**.
 
 ```
 https://finops.cscloudsolutions.com.ar/partner#k=…
@@ -754,7 +754,7 @@ Cada comissão passa por estes estados, e você os vê todos no seu painel:
 
 1. **Uma ligação de 15 minutos:** vemos se a sua rede encaixa e respondemos o que faltar.
 2. **Assinamos o acordo**, com a sua porcentagem e as condições de liquidação.
-3. **Cadastramos você:** recebe o seu link de indicação e o link do seu painel.
+3. **Cadastramos você:** recebe por e-mail o seu link de indicação e o link do seu painel.
 4. **Passamos o material comercial** e coordenamos a primeira demo quando você precisar.
 
 Não é preciso que você saiba Azure nem FinOps. É preciso que tenha acesso a CTOs, CFOs, diretores de tecnologia ou responsáveis por infraestrutura.

@@ -21,6 +21,7 @@ Todo lo que cambió para el usuario de un tenant está en el **Manual de Usuario
 
 - **Programa de Afiliados con panel propio para el partner (17):** el afiliado entra con un enlace personal de sólo lectura, sin cuenta de ningún tenant; la comisión de un referido dura **el primer año** de cada cliente (12 meses corridos desde su primer cobro) y no para siempre.
 - **Atribuir un cliente a un afiliado a mano (17.2):** para el que trajo un afiliado y se registró sin el link. Rigen las reglas del alta, no es retroactiva y queda registrado quién la hizo.
+- **Mail de bienvenida al afiliado (17.1):** al darlo de alta le llegan su nombre, su link de referido y el enlace a su panel.
 - **Corridas de pago (17.6):** las comisiones exigibles de afiliados y comerciales se liquidan en lotes por moneda, con orden de pago en CSV y confirmación con comprobante.
 - **Comisiones comerciales (20):** fecha de venta y plazo del contrato por tenant, y el calendario de devengo del comercial (anual o mensual) sobre el mismo libro mayor que los afiliados.
 - **Consumo de plataforma (22):** tokens de IA que absorbe la casa y llamadas a las APIs de Azure, con el porcentaje de throttling por servicio y por tenant.
@@ -1728,6 +1729,8 @@ más — ni el gasto cloud de los clientes que trajo, ni datos de otros afiliado
    (transferencia, PayPal, alias). No se guardan datos bancarios estructurados.
 5. **Guardar**.
 
+Al guardarlo, al afiliado le llega un **mail de bienvenida** —desde la casilla de avisos de la plataforma y en el idioma en que tengas la pantalla— con su nombre, su link de referido y el enlace a su panel. Ese enlace se muestra además **una vez** en pantalla: si el mail no sale, el aviso lo dice; copialo y mandáselo a mano.
+
 Si el email o el código ya existen, el alta se rechaza con un aviso: son únicos
 a propósito, para que dos afiliados no se peleen la misma atribución.
 
@@ -1826,7 +1829,7 @@ por comisión.
 
 ### 17.5 El panel del partner
 
-El botón del **tablero** en la fila del afiliado genera su enlace personal:
+El enlace personal del partner sale en el mail de bienvenida del alta (17.1). El botón del **tablero** en la fila del afiliado genera uno nuevo cuando hace falta:
 
 ```
 https://finops.cscloudsolutions.com.ar/partner#k=afp_live_...

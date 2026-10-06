@@ -23,6 +23,7 @@ import {
     eliminarAfiliado,
     actualizarEstadoComisiones,
     atribuirTenantManual,
+    enviarBienvenidaAfiliado,
     type EstadoComision,
 } from "@/services/affiliates.service";
 import { emitirEnlaceDePanel, revocarEnlaceDePanel } from "@/services/affiliatePortal.service";
@@ -58,6 +59,15 @@ export async function GET(request: NextRequest) {
     }
 }
 
+/**
+ * El enlace del panel del partner, SIN idioma en la ruta: el middleware de
+ * next-intl lo elige por el navegador del partner (o su cookie) y redirige, y
+ * el navegador conserva el fragmento en la redirección.
+ */
+function urlDelPanel(base: string, bruto: string): string {
+    return `${base}/partner#k=${bruto}`;
+}
+
 export async function POST(request: NextRequest) {
     try {
         const identidad = await requireSuperAdmin(request);
@@ -91,8 +101,30 @@ export async function POST(request: NextRequest) {
         }
 
         if (body?.action === "create") {
-            const { id } = await crearAfiliado(body);
-            return NextResponse.json({ success: true, id });
+            const creado = await crearAfiliado(body);
+            // Bienvenida (2026-10-06): nombre, link de referido y enlace al
+            // panel, al mail del afiliado. El enlace del panel se emite acá y
+            // vuelve en la respuesta, que lo muestra UNA vez: si el mail no
+            // llega, el operador lo copia en vez de tener que rotarlo.
+            const base = urlPublica(request);
+            const emitido = await emitirEnlaceDePanel(creado.id);
+            const portalUrl = emitido ? urlDelPanel(base, emitido.bruto) : null;
+            const mail = portalUrl
+                ? await enviarBienvenidaAfiliado({
+                    nombre: creado.nombre,
+                    email: creado.email,
+                    linkReferido: `${base}/signup?ref=${encodeURIComponent(creado.codigo)}`,
+                    linkPanel: portalUrl,
+                    locale: typeof body.locale === "string" ? body.locale : undefined,
+                })
+                : { enviado: false, error: "No se pudo emitir el enlace del panel." };
+            return NextResponse.json({
+                success: true,
+                id: creado.id,
+                portalUrl,
+                mailEnviado: mail.enviado,
+                mailError: mail.error,
+            });
         }
 
         if (body?.action === "update") {
@@ -145,7 +177,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({
                 success: true,
                 prefix: emitido.prefijo,
-                url: `${base}/partner#k=${emitido.bruto}`,
+                url: urlDelPanel(base, emitido.bruto),
             });
         }
 

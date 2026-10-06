@@ -705,7 +705,7 @@ https://finops.cscloudsolutions.com.ar/signup?ref=YOURCODE
 
 ### 9.3. Your panel
 
-When we sign you up you receive a **personal read-only link** to your panel. You need no user or password: **the link is the credential**.
+When we sign you up you receive by email a **personal read-only link** to your panel. You need no user or password: **the link is the credential**.
 
 ```
 https://finops.cscloudsolutions.com.ar/partner#k=…
@@ -754,7 +754,7 @@ Each commission goes through these statuses, and you see all of them in your pan
 
 1. **A 15-minute call:** we see whether your network fits and answer whatever is missing.
 2. **We sign the agreement**, with your percentage and the settlement conditions.
-3. **We sign you up:** you receive your referral link and the link to your panel.
+3. **We sign you up:** you receive by email your referral link and the link to your panel.
 4. **We hand you the sales material** and coordinate the first demo when you need it.
 
 You do not need to know Azure or FinOps. You need access to CTOs, CFOs, technology directors or infrastructure managers.

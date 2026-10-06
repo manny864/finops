@@ -2,6 +2,7 @@
  * Helper for sending emails via Microsoft Graph
  * Fire-and-forget pattern - never blocks the main request
  */
+import { escapeHtml } from "@/lib/htmlEscape";
 
 export interface EmailAttachment {
   /** Nombre de archivo mostrado en el mail, ej. "focus-2026-07-19.csv" */
@@ -899,4 +900,91 @@ export function getInviteEmailHtml(inviteUrl: string): string {
       si necesitás más, pedíselo a quien te invitó.
     </p>
   `);
+}
+
+/**
+ * Bienvenida al afiliado recién dado de alta (2026-10-06): su nombre, el link
+ * de referido para compartir y el enlace a su panel. El enlace del panel es la
+ * credencial del partner, por eso el texto pide no compartirlo.
+ */
+export function getAffiliateWelcomeEmail(params: {
+  nombre: string;
+  linkReferido: string;
+  linkPanel: string;
+  locale?: string;
+}): { subject: string; html: string } {
+  const loc = (params.locale || "es").toLowerCase();
+  const idioma = loc.startsWith("en") ? "en" : loc.startsWith("pt") ? "pt" : "es";
+  const T = {
+    es: {
+      subject: "Bienvenido al programa de afiliados de CSCloudSolutions",
+      title: "¡Bienvenido, {nombre}!",
+      intro: "Ya sos parte del programa de afiliados de CSCloudSolutions FinOps. Acá tenés todo lo que necesitás para empezar.",
+      name: "Nombre",
+      refTitle: "Tu link de afiliado",
+      refText: "Compartilo con tus clientes: quien se registre desde este link queda asociado a vos, y cada pago suyo te genera comisión durante sus primeros 12 meses.",
+      panelTitle: "Tu panel",
+      panelText: "Ahí ves tus clientes referidos, tus comisiones y el manual del partner. El enlace es personal y funciona como tu contraseña: no lo compartas.",
+      button: "Entrar a mi panel",
+    },
+    en: {
+      subject: "Welcome to the CSCloudSolutions affiliate program",
+      title: "Welcome, {nombre}!",
+      intro: "You are now part of the CSCloudSolutions FinOps affiliate program. Here is everything you need to get started.",
+      name: "Name",
+      refTitle: "Your affiliate link",
+      refText: "Share it with your customers: anyone who signs up from this link is tied to you, and each of their payments earns you commission during their first 12 months.",
+      panelTitle: "Your dashboard",
+      panelText: "There you will see your referred customers, your commissions and the partner manual. The link is personal and works as your password: do not share it.",
+      button: "Open my dashboard",
+    },
+    pt: {
+      subject: "Bem-vindo ao programa de afiliados da CSCloudSolutions",
+      title: "Bem-vindo, {nombre}!",
+      intro: "Agora você faz parte do programa de afiliados da CSCloudSolutions FinOps. Aqui está tudo o que você precisa para começar.",
+      name: "Nome",
+      refTitle: "Seu link de afiliado",
+      refText: "Compartilhe com seus clientes: quem se cadastrar por este link fica vinculado a você, e cada pagamento dele gera comissão durante os primeiros 12 meses.",
+      panelTitle: "Seu painel",
+      panelText: "Lá você vê seus clientes indicados, suas comissões e o manual do parceiro. O link é pessoal e funciona como sua senha: não o compartilhe.",
+      button: "Abrir meu painel",
+    },
+  }[idioma];
+  const nombre = escapeHtml(params.nombre);
+  const ref = escapeHtml(params.linkReferido);
+  const panel = escapeHtml(params.linkPanel);
+
+  const html = `
+    <html>
+      <head>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1e293b; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #0054A6 0%, #003d7a 100%); color: white; padding: 32px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: white; border: 1px solid #e0e0e0; border-radius: 0 0 8px 8px; padding: 32px; }
+          .link { word-break: break-all; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px; font-family: monospace; font-size: 13px; }
+          .button { display: inline-block; padding: 12px 32px; background-color: #0054A6; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; margin-top: 8px; }
+          .footer { text-align: center; font-size: 12px; color: #666; margin-top: 32px; padding-top: 16px; border-top: 1px solid #e0e0e0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header"><h1>${T.title.replace("{nombre}", nombre)}</h1></div>
+          <div class="content">
+            <p>${T.intro}</p>
+            <p><strong>${T.name}:</strong> ${nombre}</p>
+            <h2>${T.refTitle}</h2>
+            <p>${T.refText}</p>
+            <p class="link"><a href="${ref}">${ref}</a></p>
+            <h2>${T.panelTitle}</h2>
+            <p>${T.panelText}</p>
+            <p><a class="button" href="${panel}">${T.button}</a></p>
+            <p class="link">${panel}</p>
+            <div class="footer">${getNoReplyDisclaimer(idioma)}</div>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+  return { subject: T.subject, html };
 }

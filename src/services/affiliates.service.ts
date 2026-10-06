@@ -24,6 +24,7 @@ import Decimal from "decimal.js";
 import type { Pool, PoolConnection } from "mysql2/promise";
 import pool from "@/modules/storage/db";
 import { errorMessage } from "@/lib/apiErrors";
+import { getAffiliateWelcomeEmail, sendEmailStrict } from "@/lib/emailHelper";
 import { sumarMeses, fechaSql } from "./commissions.service";
 
 /** Acepta un pool o una conexión: la atribución corre dentro de la transacción del onboarding. */
@@ -483,7 +484,7 @@ export async function crearAfiliado(datos: {
     payoutMethod?: string | null;
     payoutReference?: string | null;
     notes?: string | null;
-}): Promise<{ id: string }> {
+}): Promise<{ id: string; nombre: string; email: string; codigo: string }> {
     const codigo = normalizarCodigo(datos.referralCode);
     if (!codigo) throw new Error("El código de referido admite letras, números, guiones y guiones bajos, y arranca con letra o número.");
     const email = String(datos.email || "").trim().toLowerCase();
@@ -502,7 +503,26 @@ export async function crearAfiliado(datos: {
         [id, nombre, email, codigo, pct.toDecimalPlaces(2).toFixed(2),
          datos.payoutMethod || null, datos.payoutReference || null, datos.notes || null]
     );
-    return { id };
+    return { id, nombre, email, codigo };
+}
+
+/**
+ * Manda el mail de bienvenida al afiliado recién creado. No tira: el alta ya
+ * está hecha cuando esto corre, y si el envío falla el operador tiene el enlace
+ * del panel en pantalla para mandarlo a mano.
+ */
+export async function enviarBienvenidaAfiliado(
+    datos: { nombre: string; email: string; linkReferido: string; linkPanel: string; locale?: string },
+    enviar: typeof sendEmailStrict = sendEmailStrict
+): Promise<{ enviado: boolean; error?: string }> {
+    try {
+        const { subject, html } = getAffiliateWelcomeEmail(datos);
+        await enviar(subject, html, datos.email);
+        return { enviado: true };
+    } catch (e) {
+        console.error("[Afiliados] no salió el mail de bienvenida:", errorMessage(e));
+        return { enviado: false, error: errorMessage(e) };
+    }
 }
 
 /**

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { toast } from "sonner";
@@ -73,6 +73,8 @@ const ESTADO_CLASE: Record<string, string> = {
  */
 export default function AffiliatesPanel() {
     const t = useTranslations("SuperAdminAffiliates");
+    // El mail de bienvenida sale en el idioma de la pantalla de quien da el alta.
+    const locale = useLocale();
     const { instance, accounts } = useMsal();
 
     const [afiliados, setAfiliados] = useState<Afiliado[]>([]);
@@ -183,12 +185,21 @@ export default function AffiliatesPanel() {
                 body: JSON.stringify(
                     editandoId
                         ? { action: "update", id: editandoId, ...alta }
-                        : { action: "create", ...alta }
+                        : { action: "create", ...alta, locale }
                 ),
             });
             const cuerpo = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(cuerpo.error || `HTTP ${res.status}`);
-            toast.success(editandoId ? t("affiliateUpdated") : t("affiliateCreated"));
+            if (editandoId) {
+                toast.success(t("affiliateUpdated"));
+            } else {
+                // El enlace del panel vuelve UNA vez en la respuesta del alta: se
+                // muestra igual que cuando se emite con el botón, por si el mail
+                // de bienvenida no llega.
+                if (cuerpo.portalUrl) setEnlacePanel({ nombre: alta.name, url: cuerpo.portalUrl });
+                if (cuerpo.mailEnviado) toast.success(t("welcomeSent", { email: alta.email }));
+                else toast.warning(t("welcomeNotSent"));
+            }
             cerrarFormulario();
             await cargar();
         } catch (e) {

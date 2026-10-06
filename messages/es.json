@@ -12870,7 +12870,6 @@
     "copied": "Copiado",
     "linkCopied": "Link de referido copiado",
     "linkCopyFailed": "No se pudo copiar el link",
-    "affiliateCreated": "Afiliado dado de alta",
     "selectedCount": "{count} seleccionadas",
     "selectAll": "Seleccionar todas",
     "selectRow": "Seleccionar comisión",
@@ -12899,7 +12898,9 @@
     "attributeTenantHint": "Para el cliente que trajo este afiliado y se registró sin el link. Rigen las reglas del alta: un afiliado por tenant y sin que el afiliado se refiera a sí mismo. No es retroactiva y no reinicia la ventana: devenga desde el próximo cobro, pero los 12 meses se cuentan desde el primer pago del cliente, así que uno que ya paga hace más de un año no genera comisión.",
     "attributeTenantSelect": "Elegí el tenant",
     "attributeTenantConfirm": "Atribuir",
-    "tenantAttributed": "Tenant atribuido a {name}."
+    "tenantAttributed": "Tenant atribuido a {name}.",
+    "welcomeSent": "Afiliado dado de alta. Le mandamos el mail de bienvenida a {email}.",
+    "welcomeNotSent": "Afiliado dado de alta, pero el mail de bienvenida no salió. Copiá el enlace del panel de abajo y mandáselo junto con su link de referido."
   },
   "SuperAdminCommissions": {
     "title": "Comisiones",
