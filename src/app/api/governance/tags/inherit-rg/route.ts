@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential } from "@/lib/azure";
 import { AuthError, requireTenantRole, requireTenantTier } from "@/lib/requestAuth";
+import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { isMockTenant } from "@/lib/mockData";
 import { errorMessage, errorStatus } from "@/lib/apiErrors";
 import { saveLocalCachedTags } from "@/services/azureTagGovernance.service";
@@ -42,6 +44,11 @@ export async function POST(req: NextRequest) {
     // Misma feature Business que tags/apply y apply-inheritance: el rol Tag
     // Contributor del SP recién existe desde ese tier.
     await requireTenantTier(req, tenantId, "Business");
+    const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
+    if (bloqueo) return bloqueo;
+    // El RG viene del body y de él salen la consulta a ARG y los PATCH: tiene
+    // que ser de una suscripción de este tenant.
+    await exigirScopesDelTenant(tenantId, [resourceGroupId]);
     const credential = await getAzureCredential(tenantId);
     const client = new ResourceGraphClient(credential);
 

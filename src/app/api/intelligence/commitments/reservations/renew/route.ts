@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential } from "@/lib/azure";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { isMockTenant } from "@/lib/mockData";
 import { setReservationRenew, parseReservationResourceId } from "@/services/reservationService";
 import { redis } from "@/lib/redis";
@@ -48,6 +49,15 @@ export async function PATCH(request: NextRequest) {
         if (isMockTenant(tenantId)) {
             return NextResponse.json({ success: true, data: { renew, provisioningState: "Succeeded" } });
         }
+
+        // Una reserva no vive en una suscripción sino a nivel tenant, y ARM la
+        // resuelve en el directorio del token. Con app registration ese es el
+        // del cliente, así que es suya. Con Lighthouse es el nuestro y nunca la
+        // del cliente: ahí se rechaza. Además impide que orderId o reservationId
+        // armen otra ruta con `..`.
+        await exigirScopesDelTenant(tenantId, [
+            `/providers/Microsoft.Capacity/reservationOrders/${orderId}/reservations/${reservationId}`,
+        ]);
 
         const credential = await getAzureCredential(tenantId);
         const result = await setReservationRenew(credential, orderId, reservationId, renew);

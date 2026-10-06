@@ -38,9 +38,13 @@ import { join } from "path";
  *
  *   1. Las rutas cuya escritura está verificada a mano llaman al guard. Fija lo
  *      auditado para que no se caiga en una refactorización.
- *   2. Una ruta nueva con método mutante que pida credencial de Azure aparece
- *      en la lista de revisión pendiente. No falla —muchas son POST de lectura
- *      con body— pero obliga a clasificarla.
+ *   2. Una ruta nueva con método mutante que pida credencial de Azure, o que
+ *      llame a una función que escribe en Azure, aparece en la lista de
+ *      revisión pendiente. No falla —muchas son POST de lectura con body— pero
+ *      obliga a clasificarla.
+ *   3. Esas mismas rutas exigen que el scope que llega a ARM sea del tenant
+ *      (`exigirScopesDelTenant`): con Lighthouse la credencial alcanza a todos
+ *      los clientes delegados.
  */
 
 const GUARD = "bloqueoPorDelegacionDeLectura";
@@ -60,7 +64,41 @@ const ESCRIBEN_EN_AZURE: Array<[ruta: string, porque: string]> = [
     ["intelligence/commitments/reservations/renew", "PATCH a ARM sobre la reserva"],
     ["intelligence/monitoring/alerts", "cambiarEstadoEnAzure: PATCH a ARM que activa o desactiva la regla"],
     ["intelligence/monitoring/action-groups", "cambiarEstadoEnAzure: PATCH a ARM sobre el action group"],
+    // Las siguientes se encontraron el 2026-10-06 siguiendo cada función que
+    // escribe en Azure hasta sus rutas: unas no estaban clasificadas y otras
+    // figuraban como lectura.
+    ["remediation/downgrade", "downgradeVirtualMachine: resize de la VM"],
+    ["advisor", "deleteResource en la acción delete"],
+    ["automation/kill-switch", "deallocate de todas las VMs del resource group"],
+    ["admin/governance-policies", "PUT y DELETE de policyAssignments en el management group"],
+    ["governance/approvals", "executeApprovedAction: DELETE, PATCH y snapshot al aprobar"],
+    ["governance/tags", "applyTagInheritance: PATCH de etiquetas"],
+    ["governance/tags/inherit-rg", "applyTagInheritance: PATCH de etiquetas a los hijos del RG"],
+    ["governance/tags/apply-inheritance", "applyTagInheritance cuando dryRun es false"],
+    ["intelligence/defender", "setDefenderPlanTier: PUT del plan de Defender"],
 ];
+
+/**
+ * Funciones de servicio que escriben en Azure. Llamar a una es escribir aunque
+ * la ruta no pida la credencial: por ahí se colaron downgrade, defender,
+ * approvals y las tres de etiquetas.
+ */
+const ESCRITORES =
+    /\b(?:deleteResource|downgradeVirtualMachine|deallocateVirtualMachine|startVirtualMachine|restartVirtualMachine|createSubscriptionBudget|deleteSubscriptionBudget|deployFinOpsWorkbook|setReservationRenew|cambiarEstadoEnAzure|executeApprovedAction|applyTagInheritance|setDefenderPlanTier)\(/;
+
+/**
+ * La segunda frontera: el scope que llega a ARM tiene que ser del tenant. Con
+ * Lighthouse la credencial es una sola para todos los clientes delegados, así
+ * que sin esto un Admin de un cliente borraba o apagaba recursos de otro
+ * pasando sus ids en el body.
+ */
+const SCOPE = "exigirScopesDelTenant";
+
+/** Cuando el chequeo de scope vive en el servicio que arma la URL, no en la ruta. */
+const SCOPE_EN_SERVICIO: Record<string, string> = {
+    "intelligence/monitoring/alerts": "src/services/azureAlertsRules.service.ts",
+    "intelligence/monitoring/action-groups": "src/services/azureAlertsRules.service.ts",
+};
 
 /**
  * Verificadas como LECTURA aunque su método sea POST. Se listan para que la
@@ -70,15 +108,9 @@ const VERIFICADAS_COMO_LECTURA = [
     "cleanup/zombies",             // sólo estima costo; el borrado va por /api/remediation
     "cleanup/zombies/networking",  // idem
     "cleanup/ttl",                 // upsertExemption: exención en nuestra base
-    "governance/tags/inherit-rg",  // applyTagInheritance escribe en NUESTRA base, no en Azure
-    "governance/tags",             // lee el inventario de etiquetas
-    "governance/tags/apply-inheritance", // encola; el apply real va por tags/apply-bulk
-    "governance/approvals",        // flujo de aprobación en nuestra base; ejecuta vía /api/remediation
     "governance/ha",               // recomendaciones de alta disponibilidad, sólo lectura
-    "power/schedule",              // upsertPowerSchedule escribe en NUESTRA base
-    "admin/governance-policies",   // consulta definiciones de política
+    "power/schedule",              // upsertPowerSchedule escribe en NUESTRA base (el cron ejecuta)
     "analytics/allocation",        // saveRule: regla de prorrateo en nuestra base
-    "automation/kill-switch",      // marca el switch en nuestra base
     "cost-groups/[name]",          // detalle de grupo, sólo lectura
     "intelligence/azure-ai",       // métricas de IA
     "intelligence/unit-economics", // cálculo sobre datos ya recolectados
@@ -107,6 +139,26 @@ describe("Lighthouse · guard de escritura sobre la Azure del cliente", () => {
         expect(sinGuard, sinGuard.join("\n")).toEqual([]);
     });
 
+    it("las rutas con escritura confirmada exigen que el scope sea del tenant", () => {
+        const sinChequeo: string[] = [];
+        for (const [ruta, porque] of ESCRIBEN_EN_AZURE) {
+            const archivo = SCOPE_EN_SERVICIO[ruta] ?? `src/app/api/${ruta}/route.ts`;
+            if (!readFileSync(archivo, "utf8").includes(`await ${SCOPE}(`)) sinChequeo.push(`${ruta} — ${porque}`);
+        }
+        // El cron de horarios apaga y prende VMs que eligió quien creó el horario.
+        if (!readFileSync("src/services/powerScheduleService.ts", "utf8").includes(`await ${SCOPE}(`)) {
+            sinChequeo.push("cron de power schedules — powerScheduleService");
+        }
+        expect(sinChequeo, sinChequeo.join("\n")).toEqual([]);
+    });
+
+    it("ninguna ruta verificada como lectura llama a una función que escribe en Azure", () => {
+        const escriben = VERIFICADAS_COMO_LECTURA.filter((r) =>
+            ESCRITORES.test(readFileSync(`src/app/api/${r}/route.ts`, "utf8")),
+        );
+        expect(escriben, `Figuran como lectura pero escriben en Azure: ${escriben.join(", ")}`).toEqual([]);
+    });
+
     it("el guard devuelve el código que la UI distingue, y no bloquea a los tenants mock", () => {
         const lib = readFileSync("src/lib/lighthouseAccess.ts", "utf8");
         expect(lib).toContain("ERR_LIGHTHOUSE_READ_ONLY");
@@ -125,7 +177,7 @@ describe("Lighthouse · guard de escritura sobre la Azure del cliente", () => {
         const sinClasificar = rutas("src/app/api")
             .filter((archivo) => {
                 const s = readFileSync(archivo, "utf8");
-                return MUTANTE.test(s) && CREDENCIAL.test(s);
+                return MUTANTE.test(s) && (CREDENCIAL.test(s) || ESCRITORES.test(s));
             })
             .map((a) => a.replace(/^src\/app\/api\//, "").replace(/\/route\.ts$/, ""))
             .filter((r) => !conocidas.has(r));

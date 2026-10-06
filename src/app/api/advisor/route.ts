@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { isMockTenant } from "@/lib/mockData";
 import { getAdvisorExecutiveData, generateMockAdvisorData } from "@/services/azureAdvisor.service";
 import { narrateAdvisorRecommendations } from "@/services/advisorRemediationNarration";
@@ -23,6 +25,13 @@ export async function POST(request: NextRequest) {
             // Eliminar un recurso es destructivo: mismo criterio de rol que
             // /api/remediation (Admin/Owner), no solo membresía al tenant.
             const identity = await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
+            const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
+            if (bloqueo) return bloqueo;
+            // Mismo chequeo que /api/remediation: deleteResource arma la ruta
+            // con estas partes y la credencial alcanza a todos los clientes.
+            await exigirScopesDelTenant(tenantId, [
+                `/subscriptions/${subscriptionId}/resourceGroups/${resourceGroup}/providers/${resourceType}/${resourceName}`,
+            ]);
             await deleteResource(tenantId, identity.email, subscriptionId, resourceGroup, resourceName, resourceType);
             return NextResponse.json({ success: true, message: "Recurso eliminado" });
         }

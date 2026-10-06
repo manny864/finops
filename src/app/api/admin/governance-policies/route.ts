@@ -5,6 +5,8 @@ import { getAzureCredential, listTenantSubscriptions } from "@/lib/azure";
 import { getWithCache } from "@/lib/cache";
 import { redis } from "@/lib/redis";
 import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import pool from "@/modules/storage/db";
 
 async function tenantTier(tenantId: string): Promise<string> {
@@ -148,7 +150,17 @@ export async function POST(request: NextRequest) {
         
         // Target Scope
         const scope = targetMg ? `/providers/Microsoft.Management/managementGroups/${targetMg}` : `/providers/Microsoft.Management/managementGroups/TenantRootGroup`;
-        
+
+        // Escribe en un management group y, al desactivar, en la ruta que traiga
+        // policyId, que puede venir entera. Con Lighthouse un MG se resuelve en
+        // NUESTRO directorio, y un targetMg o policyId con `..` arman otra ruta.
+        const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
+        if (bloqueo) return bloqueo;
+        await exigirScopesDelTenant(tenantId, [
+            scope,
+            String(policyId).startsWith('/') ? String(policyId) : `${scope}/providers/Microsoft.Authorization/policyAssignments/${policyId}`,
+        ]);
+
         if (action === 'Activate' || action === 'Assign') {
             // Assumes policyId is the full resource ID of the policy definition
             const assignmentName = `finops-${Date.now()}`;

@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireTenantRole, requireTenantTier } from "@/lib/requestAuth";
 import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { isMockTenant } from "@/lib/mockData";
 import { getAzureCredential } from "@/lib/azure";
 import { invalidateCache } from "@/lib/cache";
@@ -71,6 +72,10 @@ export async function POST(request: NextRequest) {
     const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
     if (bloqueo) return bloqueo;
     await requireTenantTier(request, tenantId, "Enterprise");
+    // Se valida el scope de la URL. policyAssignmentId sólo viaja en el body y
+    // puede ser una asignación heredada de un management group: la valida ARM
+    // contra el scope.
+    await exigirScopesDelTenant(tenantId, [scopeId]);
 
     const credential = await getAzureCredential(tenantId);
     const token = await credential.getToken(`${ARM}/.default`);

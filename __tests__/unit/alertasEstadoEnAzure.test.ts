@@ -10,9 +10,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const { fetchMock, logMock } = vi.hoisted(() => ({ fetchMock: vi.fn(), logMock: vi.fn(async () => {}) }));
 
+const SUB = "aaaaaaaa-1111-2222-3333-444444444444";
+const OTRA = "bbbbbbbb-1111-2222-3333-444444444444";
+
 vi.mock("@/lib/azure", () => ({
     getAzureCredential: vi.fn(async () => ({ getToken: async () => ({ token: "tok" }) })),
-    getSubscriptionsForTenant: vi.fn(async () => ["SUB-1"]),
+    // La frontera real (exigirScopesDelTenant) corre contra esto.
+    listTenantSubscriptions: vi.fn(async () => [{ subscriptionId: SUB.toUpperCase() }]),
     getResourceGraphClient: vi.fn(),
 }));
 vi.mock("@/lib/azureSubscriptionNames", () => ({ getSubscriptionNameMap: vi.fn(), resolveSubscriptionName: vi.fn() }));
@@ -22,7 +26,7 @@ vi.stubGlobal("fetch", fetchMock);
 
 import { cambiarEstadoEnAzure } from "@/services/azureAlertsRules.service";
 
-const rg = "/subscriptions/sub-1/resourceGroups/rg";
+const rg = `/subscriptions/${SUB}/resourceGroups/rg`;
 const ok = () => fetchMock.mockResolvedValueOnce(new Response("{}", { status: 200 }));
 
 describe("cambiarEstadoEnAzure", () => {
@@ -53,7 +57,7 @@ describe("cambiarEstadoEnAzure", () => {
 
     it("una suscripción de otro tenant no llega a Azure", async () => {
         await expect(
-            cambiarEstadoEnAzure("t1", "/subscriptions/sub-OTRO/resourceGroups/rg/providers/Microsoft.Insights/metricalerts/x", false, "alertas", "a@b.c")
+            cambiarEstadoEnAzure("t1", `/subscriptions/${OTRA}/resourceGroups/rg/providers/Microsoft.Insights/metricalerts/x`, false, "alertas", "a@b.c")
         ).rejects.toMatchObject({ status: 404 });
         expect(fetchMock).not.toHaveBeenCalled();
     });

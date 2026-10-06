@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { deleteResource } from "@/services/remediationService";
 import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { getDeleteRemediationTier, DeleteResourceDomain } from "@/lib/tierLogic";
 import { redis } from "@/lib/redis";
 import { isMockTenant } from "@/lib/mockData";
@@ -67,6 +68,14 @@ export async function POST(request: NextRequest) {
     // no delego escritura" — y el segundo lo arregla el cliente, no nosotros.
     const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
     if (bloqueo) return bloqueo;
+
+    // Lo que se borra tiene que ser de este tenant: con Lighthouse la credencial
+    // alcanza a todos los clientes. Se validan los dos caminos de deleteResource:
+    // el SDK arma la ruta con las partes y el REST usa resourceId si viene.
+    await exigirScopesDelTenant(tenantId, [
+      `/subscriptions/${subscriptionId}/resourceGroups/${resourceGroup}/providers/${resourceType}/${resourceName}`,
+      ...(resourceId ? [resourceId] : []),
+    ]);
 
     await deleteResource(tenantId, email, subscriptionId, resourceGroup, resourceName, resourceType, resourceId);
 

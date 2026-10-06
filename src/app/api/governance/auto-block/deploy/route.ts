@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireTenantRole, requireTenantTier } from "@/lib/requestAuth";
 import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { isMockTenant } from "@/lib/mockData";
 import { getAzureCredential } from "@/lib/azure";
 import { invalidateCache } from "@/lib/cache";
@@ -79,6 +80,9 @@ export async function POST(request: NextRequest) {
     const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
     if (bloqueo) return bloqueo;
     await requireTenantTier(request, tenantId, "Enterprise");
+    // El scope tiene que ser del tenant. Un management group sólo pasa con app
+    // registration: con Lighthouse se resolvería en NUESTRO directorio.
+    await exigirScopesDelTenant(tenantId, [scopeId]);
 
     const shortName = String(definitionId).split("/").pop()!.slice(0, 24);
     const assignmentName = ASSIGNMENT_NAME_RE.test(shortName) ? shortName : `pol-${Date.now().toString(36)}`;
@@ -165,6 +169,9 @@ export async function DELETE(request: NextRequest) {
     const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
     if (bloqueo) return bloqueo;
     await requireTenantTier(request, tenantId, "Enterprise");
+    // assignmentId va pegado al host en la URL: además de exigir que sea del
+    // tenant, esto rechaza lo que no empieza con `/`, que cambiaría el host.
+    await exigirScopesDelTenant(tenantId, [assignmentId]);
 
     const credential = await getAzureCredential(tenantId);
     const token = await credential.getToken(`${ARM}/.default`);

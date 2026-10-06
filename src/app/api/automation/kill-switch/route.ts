@@ -3,6 +3,8 @@ import pool from "@/modules/storage/db";
 import { getAzureCredential } from "@/lib/azure";
 import { ComputeManagementClient } from "@azure/arm-compute";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { errorMessage } from '@/lib/apiErrors';
 
 export async function POST(request: NextRequest) {
@@ -30,6 +32,12 @@ export async function POST(request: NextRequest) {
         if (normalizedTier !== 'Professional' && normalizedTier !== 'Business' && normalizedTier !== 'Enterprise') {
             return NextResponse.json({ error: "Feature bloqueada. Requiere plan Professional o superior." }, { status: 403 });
         }
+
+        // Apaga TODAS las VMs de un RG que viene del body: la delegación tiene
+        // que permitir escribir y el RG tiene que ser de este tenant.
+        const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
+        if (bloqueo) return bloqueo;
+        await exigirScopesDelTenant(tenantId, [`/subscriptions/${subscriptionId}/resourceGroups/${resourceGroupName}`]);
 
         const credential = await getAzureCredential(tenantId);
         const computeClient = new ComputeManagementClient(credential, subscriptionId);

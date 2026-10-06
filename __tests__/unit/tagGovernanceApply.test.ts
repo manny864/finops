@@ -22,6 +22,9 @@ vi.mock("@/lib/azure", () => ({
     getAzureCredential: vi.fn(async () => ({})),
     getSubscriptionsForTenant: vi.fn(async () => []),
 }));
+// Los guards de escritura tienen sus propios tests (scopeDelTenant y lighthouseGuardEscritura).
+vi.mock("@/lib/lighthouseAccess", () => ({ bloqueoPorDelegacionDeLectura: vi.fn(async () => null) }));
+vi.mock("@/lib/scopeDelTenant", () => ({ exigirScopesDelTenant: vi.fn(async () => {}) }));
 vi.mock("@/services/azureTagGovernance.service", () => ({
     scanTagGovernanceLive: vi.fn(),
     getMockTagGovernanceSummary: vi.fn(),

@@ -11,6 +11,8 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantTier, AuthError } from "@/lib/requestAuth";
+import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { getDefenderCost, setDefenderPlanTier } from "@/modules/collectors/azure/defenderCostService";
 import { isMockTenant } from "@/lib/mockData";
 import { getResourceGraphClient } from "@/lib/azure";
@@ -76,6 +78,13 @@ export async function PATCH(request: NextRequest) {
         }
 
         await requireTenantTier(request, tenantId, "Enterprise");
+        const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
+        if (bloqueo) return bloqueo;
+        // Es la ruta exacta que arma setDefenderPlanTier: suscripción de este
+        // tenant y un planName que no la saque de ahí con `..`.
+        await exigirScopesDelTenant(tenantId, [
+            `/subscriptions/${subscriptionId}/providers/Microsoft.Security/pricings/${planName}`,
+        ]);
 
         await setDefenderPlanTier(tenantId, subscriptionId, planName, pricingTier);
         await invalidateCache(`defender:cost:v1:${tenantId}`);

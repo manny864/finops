@@ -5,6 +5,7 @@ import { MonitorClient } from "@azure/arm-monitor";
 import { getResourceGraphClient, getSubscriptionsForTenant } from "@/lib/azure";
 import { AuthError, requireTenantAccess, requireTenantRole } from "@/lib/requestAuth";
 import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { withArgLimit } from "@/lib/argConcurrency";
 import { isMockTenant } from "@/lib/mockData";
 import { getMockPowerManagementPayload } from "@/services/azureVmPowerManagement.service";
@@ -163,6 +164,15 @@ export async function POST(request: NextRequest) {
         // RBAC mínimo: Owner/Admin (gestión del tenant) u Operator (rol operativo).
         const identity = await requireTenantRole(request, tenantId, ['Owner', 'Admin', 'Operator']);
         const email = identity.email || "unknown@tenant.local";
+
+        // Delegacion de solo lectura: 403 explicativo en vez del 403 crudo de
+        // Azure. El GET ya lo tenía, pero el que apaga y prende es este POST.
+        const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
+        if (bloqueo) return bloqueo;
+        // Todas las VMs tienen que ser de este tenant antes de tocar la primera.
+        // Es la misma ruta que lee las métricas de CPU del smart shutdown.
+        await exigirScopesDelTenant(tenantId, vms.map((vm: { subscriptionId: string; resourceGroup: string; resourceName: string }) =>
+            `/subscriptions/${vm.subscriptionId}/resourceGroups/${vm.resourceGroup}/providers/Microsoft.Compute/virtualMachines/${vm.resourceName}`));
 
         // Ejecutar las acciones asíncronamente (sin await individual bloqueante)
         const errors: Array<{ vm: string; error: string }> = [];
