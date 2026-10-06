@@ -713,7 +713,7 @@ https://finops.cscloudsolutions.com.ar/signup?ref=SEUCODIGO
 
 ### 9.3. O seu painel
 
-Quando cadastramos você, recebe por e-mail um **link pessoal somente leitura** para o seu painel. Não precisa de usuário nem senha: **o link é a credencial**.
+Quando cadastramos você, recebe por e-mail um **link pessoal somente leitura** para o seu painel. Não precisa de usuário nem senha: **o link é a credencial**. Se você também fecha vendas como comercial, com qualquer um dos seus dois links vê tudo junto.
 
 ```
 https://finops.cscloudsolutions.com.ar/partner#k=…
@@ -723,9 +723,10 @@ Abre no idioma do seu navegador, e você o troca com o **seletor de idioma** no 
 
 **O que você vê:**
 
-- Quanto você tem **a receber** e quanto **já lhe pagamos**.
+- O que você **ganhou no total**, quanto tem **a receber** e quanto **já lhe pagamos**, e o ganho por programa: **indicações** e **venda direta**, cada um com sua porcentagem.
 - Os seus **clientes indicados**, com a data até a qual cada um comissiona.
-- O detalhe de cada comissão: empresa, data, base, porcentagem, valor e estado.
+- As suas **vendas diretas**, se você fecha vendas como comercial: empresa, data da venda, contrato e parcelas.
+- O detalhe de cada comissão: empresa, programa, data, quando se torna exigível, base, porcentagem, valor e estado.
 - **Este manual**, em espanhol, inglês e português, para baixar em PDF ou em Markdown, pelo botão *Manual do parceiro* do painel.
 
 **O que você NÃO vê** (de propósito): o gasto em nuvem dos clientes que trouxe, os seus identificadores do Azure nem nada de outros parceiros. Só o nome da empresa, as datas e os seus próprios valores.

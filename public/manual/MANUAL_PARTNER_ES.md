@@ -705,7 +705,7 @@ https://finops.cscloudsolutions.com.ar/signup?ref=TUCODIGO
 
 ### 9.3. Tu panel
 
-Cuando te damos de alta recibís por mail un **enlace personal de sólo lectura** a tu panel. No necesitás usuario ni contraseña: **el enlace es la credencial**.
+Cuando te damos de alta recibís por mail un **enlace personal de sólo lectura** a tu panel. No necesitás usuario ni contraseña: **el enlace es la credencial**. Si además cerrás ventas como comercial, con cualquiera de tus dos enlaces ves todo junto.
 
 ```
 https://finops.cscloudsolutions.com.ar/partner#k=…
@@ -715,9 +715,10 @@ Se abre en el idioma de tu navegador, y lo cambiás con el **selector de idioma*
 
 **Qué ves:**
 
-- Cuánto tenés **por cobrar** y cuánto **ya te pagamos**.
+- Lo que **ganaste en total**, cuánto tenés **por cobrar** y cuánto **ya te pagamos**, y lo ganado por programa: **referidos** y **venta directa**, cada uno con su porcentaje.
 - Tus **clientes referidos**, con la fecha hasta la que comisiona cada uno.
-- El detalle de cada comisión: empresa, fecha, base, porcentaje, importe y estado.
+- Tus **ventas directas**, si cerrás ventas como comercial: empresa, fecha de venta, contrato y cuotas.
+- El detalle de cada comisión: empresa, programa, fecha, desde cuándo es exigible, base, porcentaje, importe y estado.
 - **Este manual**, en español, inglés y portugués, para descargar en PDF o en Markdown, desde el botón *Manual del partner* del panel.
 
 **Qué NO ves** (a propósito): el gasto en nube de los clientes que trajiste, sus identificadores de Azure ni nada de otros partners. Sólo el nombre de la empresa, las fechas y tus propios importes.

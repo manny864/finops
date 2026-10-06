@@ -21,10 +21,10 @@ import {
     actualizarAfiliado,
     eliminarAfiliado,
     atribuirTenantManual,
-    enviarBienvenidaAfiliado,
+    enviarBienvenidaPartner,
     type EstadoComision,
 } from "@/services/affiliates.service";
-import { emitirEnlaceDePanel, revocarEnlaceDePanel } from "@/services/affiliatePortal.service";
+import { emitirEnlaceDePanel, revocarEnlaceDePanel, urlDelPanel } from "@/services/affiliatePortal.service";
 import { urlPublica } from "@/lib/urlPublica";
 
 const ESTADOS: EstadoComision[] = ["PENDING", "APPROVED", "PAID", "REVERSED", "CANCELLED"];
@@ -55,15 +55,6 @@ export async function GET(request: NextRequest) {
         console.error("[superadmin/affiliates] GET:", errorMessage(error));
         return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
     }
-}
-
-/**
- * El enlace del panel del partner, SIN idioma en la ruta: el middleware de
- * next-intl lo elige por el navegador del partner (o su cookie) y redirige, y
- * el navegador conserva el fragmento en la redirección.
- */
-function urlDelPanel(base: string, bruto: string): string {
-    return `${base}/partner#k=${bruto}`;
 }
 
 export async function POST(request: NextRequest) {
@@ -108,7 +99,8 @@ export async function POST(request: NextRequest) {
             const emitido = await emitirEnlaceDePanel(creado.id);
             const portalUrl = emitido ? urlDelPanel(base, emitido.bruto) : null;
             const mail = portalUrl
-                ? await enviarBienvenidaAfiliado({
+                ? await enviarBienvenidaPartner({
+                    rol: "afiliado",
                     nombre: creado.nombre,
                     email: creado.email,
                     linkReferido: `${base}/signup?ref=${encodeURIComponent(creado.codigo)}`,

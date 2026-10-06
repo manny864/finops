@@ -48,6 +48,8 @@ async function upsertCommercialDeal(
     tenantId: string,
     fields: {
         salesRepName?: string;
+        /** undefined no toca el vínculo con el comercial; null lo saca. */
+        salesRepId?: string | null;
         salesCommissionPercent?: number;
         soldAt?: string | null;
         contractTerm?: ContractTerm;
@@ -62,17 +64,21 @@ async function upsertCommercialDeal(
     const contractTerm: ContractTerm = fields.contractTerm === "annual" ? "annual" : "monthly";
 
     await pool.query(
-        `INSERT INTO TenantCommercialDeals (id, tenant_id, sales_rep_name, sales_commission_percent, sold_at, contract_term)
-         VALUES (?, ?, ?, ?, ?, ?)
+        `INSERT INTO TenantCommercialDeals (id, tenant_id, sales_rep_name, sales_rep_id, sales_commission_percent, sold_at, contract_term)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
             sales_rep_name = VALUES(sales_rep_name),
+            -- El vínculo con el comercial sólo se toca si vino en el pedido:
+            -- editar el plazo no puede desasignar al comercial de la venta.
+            sales_rep_id = IF(?, VALUES(sales_rep_id), TenantCommercialDeals.sales_rep_id),
             sales_commission_percent = VALUES(sales_commission_percent),
             -- sold_at NO se pisa en el update: la fecha de venta es un hecho
             -- del pasado. Reescribirla al editar el vendedor correria el inicio
             -- del devengamiento y recalcularia comisiones ya liquidadas.
             sold_at = COALESCE(TenantCommercialDeals.sold_at, VALUES(sold_at)),
             contract_term = VALUES(contract_term)`,
-        [crypto.randomUUID(), tenantId, salesRepName, commission, soldAt, contractTerm]
+        [crypto.randomUUID(), tenantId, salesRepName, fields.salesRepId || null, commission, soldAt, contractTerm,
+         fields.salesRepId !== undefined ? 1 : 0]
     );
 }
 
@@ -239,6 +245,7 @@ export async function listAllTenantsForSuperAdmin(isMock = false): Promise<Super
                 COALESCE(t.tier, p.tier, 'Enterprise') as plan_tier,
                 t.trial_ends_at as trial_ends_at,
                 COALESCE(cd.sales_rep_name, 'Directo CSCloudSolutions') as sales_rep_name,
+                cd.sales_rep_id as sales_rep_id,
                 COALESCE(cd.sales_commission_percent, 0.0) as sales_commission_percent,
                 cd.sold_at as sold_at,
                 COALESCE(cd.contract_term, 'monthly') as contract_term,
@@ -284,6 +291,7 @@ export async function listAllTenantsForSuperAdmin(isMock = false): Promise<Super
                     subscriptionStatus,
                     planTier,
                     salesRepName: String(r.sales_rep_name),
+                    salesRepId: r.sales_rep_id || null,
                     salesCommissionPercent: Number(r.sales_commission_percent) || 0,
                     soldAtIso: r.sold_at ? new Date(r.sold_at).toISOString().slice(0, 10) : undefined,
                     contractTerm: (r.contract_term === "annual" ? "annual" : "monthly") as ContractTerm,
@@ -464,16 +472,34 @@ export async function updateCommercialDeal(
     payload: UpdateCommercialDealPayload,
     isMock = false
 ): Promise<{ success: boolean }> {
-    const { tenantId, salesRepName, salesCommissionPercent, soldAt, contractTerm } = payload;
+    const { tenantId, salesRepName, salesRepId, salesCommissionPercent, soldAt, contractTerm } = payload;
 
     if (!tenantId) throw new Error("Falta tenantId");
 
     if (isMock) return { success: true };
 
+    // El vendedor es un comercial de SalesReps (2026-10-06): el nombre y el %
+    // por defecto salen de su ficha, y el vínculo hace que la venta aparezca en
+    // Superadmin › Comisiones y en el panel del comercial. Sin comercial, el
+    // acuerdo queda como venta directa de la casa.
+    let nombre = salesRepName.trim() || "Directo SuperAdmin";
+    let pct = Number(salesCommissionPercent) || 0;
+    if (salesRepId) {
+        const [reps] = await pool.query<any[]>(
+            `SELECT name, commission_pct FROM SalesReps WHERE id = ? LIMIT 1`,
+            [salesRepId]
+        );
+        const rep = Array.isArray(reps) ? reps[0] : null;
+        if (!rep) throw new Error("El comercial no existe.");
+        nombre = rep.name;
+        if (pct <= 0) pct = Number(rep.commission_pct) || 0;
+    }
+
     try {
         await upsertCommercialDeal(tenantId, {
-            salesRepName: salesRepName.trim(),
-            salesCommissionPercent: Number(salesCommissionPercent) || 0,
+            salesRepName: nombre,
+            salesRepId: salesRepId === undefined ? undefined : salesRepId || null,
+            salesCommissionPercent: pct,
             soldAt,
             contractTerm,
         });

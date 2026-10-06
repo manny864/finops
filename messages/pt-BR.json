@@ -12974,7 +12974,21 @@
     "runReferencePrompt": "Comprovante da transferência do lote #{id} (opcional):",
     "nothingToPay": "Não há nada exigível acima do mínimo nessa moeda.",
     "runNotOpen": "Esse lote não está mais aberto.",
-    "saleDate": "Data da venda"
+    "saleDate": "Data da venda",
+    "repWelcomeNotSent": "O comercial foi cadastrado, mas o e-mail de boas-vindas não foi enviado. Copie o link do painel e envie para ele.",
+    "repPortalLinkFor": "Link do painel de {name}",
+    "repPortalLinkOnce": "É mostrado uma única vez: copie agora. Gerar outro invalida este.",
+    "repPortalCopy": "Copiar link",
+    "repPortalCopied": "Link copiado",
+    "repPortalClose": "Fechar",
+    "repPortalCreate": "Emitir o link do painel",
+    "repPortalRotate": "Rotacionar o link do painel ({prefix}…)",
+    "repPortalRevoke": "Revogar o link do painel",
+    "repPortalIssued": "Link do painel emitido",
+    "repPortalRevoked": "Link do painel revogado",
+    "confirmRotateRep": "Gerar um novo link para {name}? O anterior deixa de funcionar.",
+    "confirmRevokeRep": "Revogar o link do painel de {name}? Ele deixará de ver o painel até você emitir outro.",
+    "repAlsoAffiliate": "também afiliado"
   },
   "SuperAdminPlatformUsage": {
     "title": "Consumo da Plataforma",
@@ -13358,7 +13372,10 @@
     "pageOf": "Página {page} de {total}",
     "checkoutUrl": "URL do Checkout Paddle:",
     "impersonateStarting": "Entrando em {tenant}...",
-    "impersonateStartError": "Erro ao iniciar a personificação"
+    "impersonateStartError": "Erro ao iniciar a personificação",
+    "salesRepSelect": "Comercial que fechou a venda",
+    "noSalesRep": "Sem comercial (direto)",
+    "legacySeller": "Cadastrado manualmente: {name}. Escolha o comercial para que a venda gere comissão."
   },
   "SuperAdminUsers": {
     "title": "Gestão de Equipe Interna",

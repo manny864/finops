@@ -24,7 +24,7 @@ import Decimal from "decimal.js";
 import type { Pool, PoolConnection } from "mysql2/promise";
 import pool from "@/modules/storage/db";
 import { errorMessage } from "@/lib/apiErrors";
-import { getAffiliateWelcomeEmail, sendEmailStrict } from "@/lib/emailHelper";
+import { getPartnerWelcomeEmail, sendEmailStrict } from "@/lib/emailHelper";
 import {
     sumarMeses,
     fechaSql,
@@ -504,16 +504,23 @@ export async function crearAfiliado(datos: {
 }
 
 /**
- * Manda el mail de bienvenida al afiliado recién creado. No tira: el alta ya
- * está hecha cuando esto corre, y si el envío falla el operador tiene el enlace
- * del panel en pantalla para mandarlo a mano.
+ * Manda el mail de bienvenida al partner recién creado (afiliado o comercial).
+ * No tira: el alta ya está hecha cuando esto corre, y si el envío falla el
+ * operador tiene el enlace del panel en pantalla para mandarlo a mano.
  */
-export async function enviarBienvenidaAfiliado(
-    datos: { nombre: string; email: string; linkReferido: string; linkPanel: string; locale?: string },
+export async function enviarBienvenidaPartner(
+    datos: {
+        nombre: string;
+        email: string;
+        linkPanel: string;
+        linkReferido?: string | null;
+        rol?: "afiliado" | "comercial";
+        locale?: string;
+    },
     enviar: typeof sendEmailStrict = sendEmailStrict
 ): Promise<{ enviado: boolean; error?: string }> {
     try {
-        const { subject, html } = getAffiliateWelcomeEmail(datos);
+        const { subject, html } = getPartnerWelcomeEmail(datos);
         await enviar(subject, html, datos.email);
         return { enviado: true };
     } catch (e) {

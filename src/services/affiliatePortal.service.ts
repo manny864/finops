@@ -93,6 +93,16 @@ async function revocarEn(tabla: TablaConPanel, id: string): Promise<boolean> {
     return !!res?.affectedRows;
 }
 
+/**
+ * El enlace del panel, SIN idioma en la ruta: el middleware de next-intl lo
+ * elige por el navegador del partner (o su cookie) y redirige, y el navegador
+ * conserva el fragmento en la redirección. `base` es la URL pública, no el
+ * origin del request: este enlace se le manda a una persona de afuera.
+ */
+export function urlDelPanel(base: string, bruto: string): string {
+    return `${base}/partner#k=${bruto}`;
+}
+
 export const emitirEnlaceDePanel = (affiliateId: string) => emitirEn("Affiliates", affiliateId);
 export const revocarEnlaceDePanel = (affiliateId: string) => revocarEn("Affiliates", affiliateId);
 export const emitirEnlaceDePanelComercial = (salesRepId: string) => emitirEn("SalesReps", salesRepId);

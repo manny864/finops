@@ -713,7 +713,7 @@ https://finops.cscloudsolutions.com.ar/signup?ref=YOURCODE
 
 ### 9.3. Your panel
 
-When we sign you up you receive by email a **personal read-only link** to your panel. You need no user or password: **the link is the credential**.
+When we sign you up you receive by email a **personal read-only link** to your panel. You need no user or password: **the link is the credential**. If you also close sales as a sales rep, either of your two links shows everything together.
 
 ```
 https://finops.cscloudsolutions.com.ar/partner#k=…
@@ -723,9 +723,10 @@ It opens in your browser's language, and you can switch it with the **language s
 
 **What you see:**
 
-- How much you have **to collect** and how much we **have already paid you**.
+- What you have **earned in total**, how much you have **to collect** and how much we **have already paid you**, and the earnings per program: **referrals** and **direct sales**, each with its percentage.
 - Your **referred customers**, with the date until which each one earns commission.
-- The detail of each commission: company, date, base, percentage, amount and status.
+- Your **direct sales**, if you close sales as a sales rep: company, sale date, contract and installments.
+- The detail of each commission: company, program, date, when it falls due, base, percentage, amount and status.
 - **This manual**, in Spanish, English and Portuguese, to download as PDF or Markdown, from the *Partner manual* button in the panel.
 
 **What you do NOT see** (on purpose): the cloud spend of the customers you brought in, their Azure identifiers or anything about other partners. Only the company name, the dates and your own amounts.

@@ -903,56 +903,77 @@ export function getInviteEmailHtml(inviteUrl: string): string {
 }
 
 /**
- * Bienvenida al afiliado recién dado de alta (2026-10-06): su nombre, el link
- * de referido para compartir y el enlace a su panel. El enlace del panel es la
- * credencial del partner, por eso el texto pide no compartirlo.
+ * Bienvenida al partner recién dado de alta (2026-10-06): su nombre, el enlace
+ * a su panel y, si es afiliado, el link de referido para compartir. El enlace
+ * del panel es su credencial, por eso el texto pide no compartirlo. El
+ * comercial recibe la misma, sin la parte del link de referido.
  */
-export function getAffiliateWelcomeEmail(params: {
+export function getPartnerWelcomeEmail(params: {
   nombre: string;
-  linkReferido: string;
   linkPanel: string;
+  linkReferido?: string | null;
+  rol?: "afiliado" | "comercial";
   locale?: string;
 }): { subject: string; html: string } {
   const loc = (params.locale || "es").toLowerCase();
   const idioma = loc.startsWith("en") ? "en" : loc.startsWith("pt") ? "pt" : "es";
+  const comercial = params.rol === "comercial";
   const T = {
     es: {
-      subject: "Bienvenido al programa de afiliados de CSCloudSolutions",
+      subject: comercial ? "Tu panel de ventas en CSCloudSolutions" : "Bienvenido al programa de afiliados de CSCloudSolutions",
       title: "¡Bienvenido, {nombre}!",
-      intro: "Ya sos parte del programa de afiliados de CSCloudSolutions FinOps. Acá tenés todo lo que necesitás para empezar.",
+      intro: comercial
+        ? "Ya podés seguir desde tu panel tus ventas directas y las comisiones que te generan."
+        : "Ya sos parte del programa de afiliados de CSCloudSolutions FinOps. Acá tenés todo lo que necesitás para empezar.",
       name: "Nombre",
       refTitle: "Tu link de afiliado",
       refText: "Compartilo con tus clientes: quien se registre desde este link queda asociado a vos, y cada pago suyo te genera comisión durante sus primeros 12 meses.",
       panelTitle: "Tu panel",
-      panelText: "Ahí ves tus clientes referidos, tus comisiones y el manual del partner. El enlace es personal y funciona como tu contraseña: no lo compartas.",
+      panelText: comercial
+        ? "Ahí ves tus ventas directas, tus comisiones y lo que ya cobraste. El enlace es personal y funciona como tu contraseña: no lo compartas."
+        : "Ahí ves tus clientes referidos, tus comisiones y el manual del partner. El enlace es personal y funciona como tu contraseña: no lo compartas.",
       button: "Entrar a mi panel",
     },
     en: {
-      subject: "Welcome to the CSCloudSolutions affiliate program",
+      subject: comercial ? "Your sales dashboard at CSCloudSolutions" : "Welcome to the CSCloudSolutions affiliate program",
       title: "Welcome, {nombre}!",
-      intro: "You are now part of the CSCloudSolutions FinOps affiliate program. Here is everything you need to get started.",
+      intro: comercial
+        ? "You can now follow your direct sales and the commissions they earn you from your dashboard."
+        : "You are now part of the CSCloudSolutions FinOps affiliate program. Here is everything you need to get started.",
       name: "Name",
       refTitle: "Your affiliate link",
       refText: "Share it with your customers: anyone who signs up from this link is tied to you, and each of their payments earns you commission during their first 12 months.",
       panelTitle: "Your dashboard",
-      panelText: "There you will see your referred customers, your commissions and the partner manual. The link is personal and works as your password: do not share it.",
+      panelText: comercial
+        ? "There you will see your direct sales, your commissions and what you have already been paid. The link is personal and works as your password: do not share it."
+        : "There you will see your referred customers, your commissions and the partner manual. The link is personal and works as your password: do not share it.",
       button: "Open my dashboard",
     },
     pt: {
-      subject: "Bem-vindo ao programa de afiliados da CSCloudSolutions",
+      subject: comercial ? "Seu painel de vendas na CSCloudSolutions" : "Bem-vindo ao programa de afiliados da CSCloudSolutions",
       title: "Bem-vindo, {nombre}!",
-      intro: "Agora você faz parte do programa de afiliados da CSCloudSolutions FinOps. Aqui está tudo o que você precisa para começar.",
+      intro: comercial
+        ? "Agora você pode acompanhar pelo seu painel as suas vendas diretas e as comissões que elas geram."
+        : "Agora você faz parte do programa de afiliados da CSCloudSolutions FinOps. Aqui está tudo o que você precisa para começar.",
       name: "Nome",
       refTitle: "Seu link de afiliado",
       refText: "Compartilhe com seus clientes: quem se cadastrar por este link fica vinculado a você, e cada pagamento dele gera comissão durante os primeiros 12 meses.",
       panelTitle: "Seu painel",
-      panelText: "Lá você vê seus clientes indicados, suas comissões e o manual do parceiro. O link é pessoal e funciona como sua senha: não o compartilhe.",
+      panelText: comercial
+        ? "Lá você vê suas vendas diretas, suas comissões e o que já recebeu. O link é pessoal e funciona como sua senha: não o compartilhe."
+        : "Lá você vê seus clientes indicados, suas comissões e o manual do parceiro. O link é pessoal e funciona como sua senha: não o compartilhe.",
       button: "Abrir meu painel",
     },
   }[idioma];
   const nombre = escapeHtml(params.nombre);
-  const ref = escapeHtml(params.linkReferido);
   const panel = escapeHtml(params.linkPanel);
+  const referido = params.linkReferido ? escapeHtml(params.linkReferido) : null;
+  const bloqueReferido = referido
+    ? `
+            <h2>${T.refTitle}</h2>
+            <p>${T.refText}</p>
+            <p class="link"><a href="${referido}">${referido}</a></p>`
+    : "";
 
   const html = `
     <html>
@@ -972,10 +993,7 @@ export function getAffiliateWelcomeEmail(params: {
           <div class="header"><h1>${T.title.replace("{nombre}", nombre)}</h1></div>
           <div class="content">
             <p>${T.intro}</p>
-            <p><strong>${T.name}:</strong> ${nombre}</p>
-            <h2>${T.refTitle}</h2>
-            <p>${T.refText}</p>
-            <p class="link"><a href="${ref}">${ref}</a></p>
+            <p><strong>${T.name}:</strong> ${nombre}</p>${bloqueReferido}
             <h2>${T.panelTitle}</h2>
             <p>${T.panelText}</p>
             <p><a class="button" href="${panel}">${T.button}</a></p>

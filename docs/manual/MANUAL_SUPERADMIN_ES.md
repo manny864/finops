@@ -22,6 +22,7 @@ Todo lo que cambió para el usuario de un tenant está en el **Manual de Usuario
 - **Programa de Afiliados con panel propio para el partner (17):** el afiliado entra con un enlace personal de sólo lectura, sin cuenta de ningún tenant; la comisión de un referido dura **el primer año** de cada cliente (12 meses corridos desde su primer cobro) y no para siempre.
 - **Atribuir un cliente a un afiliado a mano (17.2):** para el que trajo un afiliado y se registró sin el link. Rigen las reglas del alta, no es retroactiva y queda registrado quién la hizo.
 - **Mail de bienvenida al afiliado (17.1):** al darlo de alta le llegan su nombre, su link de referido y el enlace a su panel.
+- **Panel unificado del partner (17.5 y 20):** referidos (15 %) y ventas directas (20 %) de la misma persona en un solo panel, con la sumatoria de lo ganado; el comercial también tiene su enlace, que le llega por mail. Los pagos de los dos programas salen sólo de las corridas de Comisiones, y la fecha de venta del tenant define cuándo se paga (17.4). El vendedor que se elige en Gestión de Tenants y la atribución de Comisiones son el mismo dato (20.2).
 - **Corridas de pago (17.6):** las comisiones exigibles de afiliados y comerciales se liquidan en lotes por moneda, con orden de pago en CSV y confirmación con comprobante.
 - **Comisiones comerciales (20):** fecha de venta y plazo del contrato por tenant, y el calendario de devengo del comercial (anual o mensual) sobre el mismo libro mayor que los afiliados.
 - **Consumo de plataforma (22):** tokens de IA que absorbe la casa y llamadas a las APIs de Azure, con el porcentaje de throttling por servicio y por tenant.
@@ -1848,9 +1849,15 @@ hay un **selector de idioma** arriba a la derecha, que también lo conserva.
 forma de volver a verlo: si lo perdés, generás otro — y eso invalida el
 anterior. Es el mismo trato que las claves de API.
 
-Qué ve el partner ahí: sus totales (por cobrar y ya cobrado), su link de
-referido, sus clientes referidos con la fecha hasta la que comisiona cada uno, y
-el detalle de sus comisiones con el estado de cada una. Desde el mismo panel descarga el
+Qué ve el partner ahí: lo **ganado en total**, lo pendiente y lo cobrado, y lo
+ganado por programa —**referidos**, con el porcentaje del afiliado, y **venta
+directa**, con el del comercial—; su link de referido, si es afiliado; sus
+clientes referidos con la fecha hasta la que comisiona cada uno; sus ventas
+directas con fecha de venta, contrato y cuotas; y el detalle de sus comisiones
+con programa, fecha exigible y estado. La misma persona en los dos programas
+(mismo email como afiliado y como comercial, sección 20) ve todo junto con
+cualquiera de sus enlaces; suspenderla en un programa le saca ese programa del
+panel. Desde el mismo panel descarga el
 **Manual del partner** (PDF o Markdown, en español, inglés y portugués): el material para
 entender la plataforma y venderla.
 
@@ -2019,15 +2026,20 @@ Un **comercial** es quien **cierra la venta** de un tenant. No es lo mismo que u
 
 En la tarjeta **Alta de comercial** completá nombre y apellido, email y el **porcentaje de comisión** (20% es el porcentaje por defecto del acuerdo) y presioná **Crear comercial**. La lista muestra cuántas ventas tiene cada uno.
 
+Al crearlo le llega un **mail de bienvenida con el enlace a su panel**, que además se muestra una vez en pantalla (si el mail no sale, el aviso lo dice: copialo y mandáselo). En la lista, el botón del **tablero** emite o rota ese enlace y el de **enlace cortado** lo revoca. La etiqueta *también afiliado* indica que tiene el mismo email que un afiliado: su panel junta los dos programas (17.5).
+
 ### 20.2 Registrar la venta en el tenant
 
 Una comisión **no se devenga sin tres datos del tenant**, que se ven como columnas en **Gestión de Tenants** (`/superadmin/tenants`):
 
-- **Vendedor** y **Comisión (%)**, editables. Si una venta se cerró con una condición distinta a la general, el porcentaje del acuerdo manda sobre el del comercial.
+- **Vendedor:** se elige de la lista de comerciales, o *Sin comercial (directo)*. Ese vínculo es lo que hace que la venta aparezca acá, en el libro y en el panel del comercial. Un vendedor cargado a mano antes del 2026-10-06 se ve en ámbar y no cobra hasta que se elige el comercial.
+- **Comisión (%):** al elegir el comercial toma su porcentaje, y se puede ajustar: si una venta se cerró con una condición distinta a la general, el porcentaje del acuerdo manda sobre el del comercial. En 0 % se usa el del comercial.
 - **Fecha de venta:** desde dónde se devenga. Para los tenants cargados antes de esta función figura *sin registrar* (en ámbar): **no se inventa una fecha retroactiva**, porque una comisión calculada sobre una fecha adivinada es peor que no calcularla. Una vez registrada **no se corrige desde esta pantalla**: moverla correría el inicio del devengo y recalcularía comisiones ya liquidadas.
 - **Plazo del contrato:** *anual* o *mensual*. Decide qué calendario aplica.
 
 Con eso cargado, en la tarjeta **Atribuir una venta** escribís el **ID del tenant**, elegís al comercial y presionás **Atribuir**. Sin fecha de venta no se devenga nada.
+
+Atribuir acá y elegir el vendedor en Gestión de Tenants son la misma operación desde los dos lados: el acuerdo toma el nombre y el porcentaje del comercial, y se ve igual en las dos pantallas.
 
 ### 20.3 Cuánto y cuándo cobra
 

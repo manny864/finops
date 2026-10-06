@@ -31,6 +31,8 @@ export async function PUT(
             {
                 tenantId,
                 salesRepName: body.salesRepName || "Directo",
+                // Sin la clave, el vínculo con el comercial no se toca.
+                salesRepId: body.salesRepId === undefined ? undefined : String(body.salesRepId || "") || null,
                 salesCommissionPercent: Number(body.salesCommissionPercent) || 0,
                 // `soldAt` NO se acepta por esta ruta a proposito: la fecha de
                 // venta es un hecho del pasado y moverla recalcularia comisiones

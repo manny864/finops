@@ -12974,7 +12974,21 @@
     "runReferencePrompt": "Transfer reference for run #{id} (optional):",
     "nothingToPay": "Nothing is due above the minimum in that currency.",
     "runNotOpen": "That run is no longer open.",
-    "saleDate": "Sale date"
+    "saleDate": "Sale date",
+    "repWelcomeNotSent": "The sales rep was created, but the welcome email failed. Copy the dashboard link and send it to them.",
+    "repPortalLinkFor": "Dashboard link for {name}",
+    "repPortalLinkOnce": "Shown only once: copy it now. Generating another one invalidates this one.",
+    "repPortalCopy": "Copy link",
+    "repPortalCopied": "Link copied",
+    "repPortalClose": "Close",
+    "repPortalCreate": "Issue the dashboard link",
+    "repPortalRotate": "Rotate the dashboard link ({prefix}…)",
+    "repPortalRevoke": "Revoke the dashboard link",
+    "repPortalIssued": "Dashboard link issued",
+    "repPortalRevoked": "Dashboard link revoked",
+    "confirmRotateRep": "Generate a new link for {name}? The previous one stops working.",
+    "confirmRevokeRep": "Revoke {name}'s dashboard link? They will not see their dashboard until you issue another one.",
+    "repAlsoAffiliate": "also an affiliate"
   },
   "SuperAdminPlatformUsage": {
     "title": "Platform Usage",
@@ -13358,7 +13372,10 @@
     "pageOf": "Page {page} of {total}",
     "checkoutUrl": "Paddle Checkout URL:",
     "impersonateStarting": "Entering {tenant}...",
-    "impersonateStartError": "Could not start impersonation"
+    "impersonateStartError": "Could not start impersonation",
+    "salesRepSelect": "Sales rep who closed the sale",
+    "noSalesRep": "No sales rep (direct)",
+    "legacySeller": "Entered by hand: {name}. Pick the sales rep so the sale earns commission."
   },
   "SuperAdminUsers": {
     "title": "Internal Staff Management",

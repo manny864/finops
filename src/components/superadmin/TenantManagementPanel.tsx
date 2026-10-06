@@ -91,6 +91,9 @@ export default function TenantManagementPanel() {
     const [tenants, setTenants] = useState<SuperAdminTenantItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [savingTenantId, setSavingTenantId] = useState<string | null>(null);
+    // Los comerciales de Superadmin › Comisiones: el vendedor de un tenant se
+    // elige de acá, para que la venta se vea igual en las dos pantallas.
+    const [comerciales, setComerciales] = useState<{ id: string; name: string; commissionPct: string }[]>([]);
     const [generatingLinkId, setGeneratingLinkId] = useState<string | null>(null);
     const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -192,6 +195,14 @@ export default function TenantManagementPanel() {
             const items: SuperAdminTenantItem[] = json.tenants || [];
             setTenants(items);
 
+            if (!isMock) {
+                // Best-effort: sin la lista, el selector ofrece sólo "sin comercial".
+                fetch("/api/superadmin/commissions?view=reps", { headers })
+                    .then((r) => (r.ok ? r.json() : null))
+                    .then((j) => setComerciales((j?.reps || []).filter((c: { status?: string }) => c.status !== "SUSPENDED")))
+                    .catch(() => {});
+            }
+
             // Inicializar state de priceIds
             const initialPrices: Record<string, string> = {};
             items.forEach((item) => {
@@ -291,6 +302,9 @@ export default function TenantManagementPanel() {
                 headers,
                 body: JSON.stringify({
                     salesRepName: targetTenant.salesRepName,
+                    // El comercial vinculado: así la venta aparece también en
+                    // Comisiones y en su panel. null = venta sin comercial.
+                    salesRepId: targetTenant.salesRepId ?? null,
                     salesCommissionPercent: targetTenant.salesCommissionPercent,
                     // `soldAt` no se manda: la fecha de venta no se corrige por acá.
                     // El backend la conserva con un COALESCE (ver upsertCommercialDeal).
@@ -931,20 +945,41 @@ export default function TenantManagementPanel() {
                                         {/* Vendedor (Input editable) */}
                                         {columns.find((c) => c.id === "salesRep")?.visible && (
                                             <td className="px-4 py-3 whitespace-nowrap">
-                                                <input
-                                                    type="text"
-                                                    value={tItem.salesRepName}
+                                                <select
+                                                    value={tItem.salesRepId || ""}
+                                                    aria-label={t("salesRepSelect")}
                                                     onChange={(e) => {
-                                                        const val = e.target.value;
+                                                        const id = e.target.value;
+                                                        const rep = comerciales.find((c) => c.id === id);
                                                         setTenants((prev) =>
                                                             prev.map((t) =>
-                                                                t.tenantId === tItem.tenantId ? { ...t, salesRepName: val } : t
+                                                                t.tenantId === tItem.tenantId
+                                                                    ? {
+                                                                        ...t,
+                                                                        salesRepId: id || null,
+                                                                        salesRepName: rep ? rep.name : "Directo SuperAdmin",
+                                                                        // El % por defecto es el del comercial; se puede
+                                                                        // ajustar en la columna de comisión.
+                                                                        salesCommissionPercent: rep ? Number(rep.commissionPct) || 0 : t.salesCommissionPercent,
+                                                                    }
+                                                                    : t
                                                             )
                                                         );
                                                     }}
-                                                    placeholder="Vendedor / Partner"
-                                                    className="w-36 px-2 py-1 text-xs rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
-                                                />
+                                                    className="w-40 px-2 py-1 text-xs rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                                                >
+                                                    <option value="">{t("noSalesRep")}</option>
+                                                    {comerciales.map((c) => (
+                                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                                    ))}
+                                                </select>
+                                                {/* Vendedor cargado a mano antes de vincularlo a un comercial:
+                                                    no cobra comisión hasta que se elija el comercial. */}
+                                                {!tItem.salesRepId && tItem.salesRepName && !/^Directo\b/.test(tItem.salesRepName) && (
+                                                    <span className="block mt-0.5 text-[10px] text-amber-600 dark:text-amber-400">
+                                                        {t("legacySeller", { name: tItem.salesRepName })}
+                                                    </span>
+                                                )}
                                             </td>
                                         )}
 

@@ -210,13 +210,16 @@ describe("superAdminTenants.service", () => {
         expect(String(sql)).toContain("INSERT INTO TenantCommercialDeals");
         // `id` es VARCHAR(36) PK sin default: sin él el INSERT tira error 1364.
         expect(String(sql)).toContain("id");
-        // 6 desde MEJ-14: se sumaron `sold_at` y `contract_term`, que son el
-        // arranque y la modalidad del devengamiento de comisiones.
-        expect(values).toHaveLength(6);
+        // 6 desde MEJ-14 (`sold_at` y `contract_term`, el arranque y la
+        // modalidad del devengamiento) y 8 desde 2026-10-06: `sales_rep_id`, el
+        // vínculo con el comercial, y al final si ese vínculo se toca.
+        expect(values).toHaveLength(8);
         expect(String(values[0])).toMatch(/^[0-9a-f-]{36}$/);
-        expect(values.slice(1, 4)).toEqual(["tenant-live-01", "Mariana Lopez", 14.5]);
-        expect(String(values[4])).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-        expect(values[5]).toBe("monthly");
+        expect(values.slice(1, 5)).toEqual(["tenant-live-01", "Mariana Lopez", null, 14.5]);
+        expect(String(values[5])).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        expect(values[6]).toBe("monthly");
+        // Sin salesRepId en el pedido, el vínculo que ya tenía el acuerdo no se toca.
+        expect(values[7]).toBe(0);
     });
 
     it("createManualTenant registers is_manual_bypass on TenantSubscriptions, not on the deals table", async () => {

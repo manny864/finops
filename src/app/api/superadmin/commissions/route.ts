@@ -12,8 +12,12 @@
  * GET  ?view=run&id=[&format=csv] → una corrida y sus líneas (CSV = orden de pago)
  * GET  ?view=runPreview&currency=&min= → qué entraría en una corrida, sin crearla
  * POST { action: "pay", ids, paidAt?, reference?, notes? }  → marcar pagadas
- * POST { action: "createRep", name, email, commissionPct? } → alta de comercial
- * POST { action: "assignRep", tenantId, salesRepId }        → atribuir una venta
+ * POST { action: "createRep", name, email, commissionPct?, locale? } → alta de comercial,
+ *        con su enlace de panel y el mail de bienvenida
+ * POST { action: "assignRep", tenantId, salesRepId }        → atribuir una venta (se ve también
+ *        en Gestión de Tenants: el acuerdo toma el nombre y el % del comercial)
+ * POST { action: "repPortalLink", id }    → emite (o rota) el enlace del panel del comercial
+ * POST { action: "revokeRepPortal", id }  → lo revoca
  * POST { action: "createRun", currency, minimo?, notes? }   → arma la corrida
  * POST { action: "payRun", id, paidAt?, reference?, referencias? } → la confirma
  * POST { action: "cancelRun", id }                          → la cancela y libera
@@ -34,6 +38,13 @@ import {
     previsualizarCorrida, crearCorrida, detalleCorrida, listarCorridas,
     marcarCorridaPagada, cancelarCorrida,
 } from "@/services/payoutRuns.service";
+import {
+    emitirEnlaceDePanelComercial,
+    revocarEnlaceDePanelComercial,
+    urlDelPanel,
+} from "@/services/affiliatePortal.service";
+import { enviarBienvenidaPartner } from "@/services/affiliates.service";
+import { urlPublica } from "@/lib/urlPublica";
 
 const ESTADOS: EstadoComision[] = ["PENDING", "DUE", "APPROVED", "PAID", "REVERSED", "CANCELLED"];
 const TIPOS: TipoBeneficiario[] = ["affiliate", "sales_rep"];
@@ -94,8 +105,10 @@ export async function GET(request: NextRequest) {
 
         if (view === "reps") {
             const [rows] = await pool.query<any[]>(
-                `SELECT r.id, r.name, r.email, r.commission_pct, r.status, r.created_at,
-                        (SELECT COUNT(*) FROM TenantCommercialDeals d WHERE d.sales_rep_id = r.id) AS ventas
+                `SELECT r.id, r.name, r.email, r.commission_pct, r.status, r.created_at, r.portal_token_prefix,
+                        (SELECT COUNT(*) FROM TenantCommercialDeals d WHERE d.sales_rep_id = r.id) AS ventas,
+                        -- Mismo email que un afiliado: el panel le junta los dos programas.
+                        EXISTS (SELECT 1 FROM Affiliates a WHERE LOWER(a.email) = LOWER(r.email)) AS tambien_afiliado
                    FROM SalesReps r ORDER BY r.created_at DESC`
             );
             return NextResponse.json({
@@ -107,6 +120,8 @@ export async function GET(request: NextRequest) {
                     commissionPct: String(r.commission_pct),
                     status: r.status,
                     ventas: Number(r.ventas || 0),
+                    portalPrefix: r.portal_token_prefix || null,
+                    tambienAfiliado: Boolean(Number(r.tambien_afiliado)),
                     createdAt: r.created_at ? new Date(r.created_at).toISOString() : null,
                 })),
             });
@@ -225,7 +240,23 @@ export async function POST(request: NextRequest) {
                 [id, nombre, email, pct.toDecimalPlaces(2).toFixed(2),
                  body.payoutMethod || null, body.payoutReference || null, body.notes || null]
             );
-            return NextResponse.json({ success: true, id });
+            // Su panel (2026-10-06): el comercial también tiene enlace, y le llega
+            // por mail como al afiliado. Si además es afiliado (mismo email), el
+            // panel le junta los dos programas. Si el mail no sale, el enlace
+            // vuelve en la respuesta y la pantalla lo muestra una vez.
+            const base = urlPublica(request);
+            const emitido = await emitirEnlaceDePanelComercial(id);
+            const portalUrl = emitido ? urlDelPanel(base, emitido.bruto) : null;
+            const mail = portalUrl
+                ? await enviarBienvenidaPartner({
+                    rol: "comercial",
+                    nombre,
+                    email,
+                    linkPanel: portalUrl,
+                    locale: typeof body.locale === "string" ? body.locale : undefined,
+                })
+                : { enviado: false, error: "No se pudo emitir el enlace del panel." };
+            return NextResponse.json({ success: true, id, portalUrl, mailEnviado: mail.enviado, mailError: mail.error });
         }
 
         if (action === "assignRep") {
@@ -234,19 +265,51 @@ export async function POST(request: NextRequest) {
             if (!tenantId || !salesRepId) {
                 return NextResponse.json({ error: "tenantId y salesRepId son requeridos." }, { status: 400 });
             }
-
+            const [reps] = await pool.query<any[]>(
+                `SELECT id, name, commission_pct FROM SalesReps WHERE id = ? LIMIT 1`,
+                [salesRepId]
+            );
+            const rep = Array.isArray(reps) ? reps[0] : null;
+            if (!rep) return NextResponse.json({ error: "El comercial no existe." }, { status: 404 });
+            // Se refleja en Gestión de Tenants (2026-10-06): el acuerdo toma el
+            // nombre y el % del comercial, que es lo que esa pantalla muestra y lo
+            // que usa el devengo. Antes sólo se escribía sales_rep_id, y el
+            // acuerdo seguía diciendo "Directo SuperAdmin" al 0 %.
+            //
             // El acuerdo tiene que existir: ahí viven `sold_at` y `contract_term`,
             // sin los cuales no hay devengamiento posible. Se crea desde la ficha
-            // comercial del tenant, no desde acá.
+            // comercial del tenant (Gestión de Tenants), no desde acá.
             const [res] = await pool.query<any>(
-                `UPDATE TenantCommercialDeals SET sales_rep_id = ? WHERE tenant_id = ?`,
-                [salesRepId, tenantId]
+                `UPDATE TenantCommercialDeals
+                    SET sales_rep_id = ?, sales_rep_name = ?, sales_commission_percent = ?
+                  WHERE tenant_id = ?`,
+                [rep.id, rep.name, String(rep.commission_pct), tenantId]
             );
             if (!res?.affectedRows) {
                 return NextResponse.json(
-                    { error: "Ese tenant todavía no tiene acuerdo comercial cargado (vendedor, fecha de venta y plazo)." },
+                    { error: "Ese tenant todavía no tiene acuerdo comercial: cargalo en Gestión de Tenants (vendedor, fecha de venta y plazo)." },
                     { status: 404 }
                 );
+            }
+            return NextResponse.json({ success: true });
+        }
+        if (action === "repPortalLink") {
+            const id = String(body.id || "").trim();
+            if (!id) return NextResponse.json({ error: "Falta el id del comercial." }, { status: 400 });
+            const emitido = await emitirEnlaceDePanelComercial(id);
+            if (!emitido) return NextResponse.json({ error: "El comercial no existe." }, { status: 404 });
+            // UNA sola vez: lo que queda guardado es el hash, como con el afiliado.
+            return NextResponse.json({
+                success: true,
+                prefix: emitido.prefijo,
+                url: urlDelPanel(urlPublica(request), emitido.bruto),
+            });
+        }
+        if (action === "revokeRepPortal") {
+            const id = String(body.id || "").trim();
+            if (!id) return NextResponse.json({ error: "Falta el id del comercial." }, { status: 400 });
+            if (!(await revocarEnlaceDePanelComercial(id))) {
+                return NextResponse.json({ error: "El comercial no existe." }, { status: 404 });
             }
             return NextResponse.json({ success: true });
         }

@@ -22,6 +22,7 @@ Tudo o que mudou para o usuário de um tenant está no **Manual do Usuário** e 
 - **Programa de Afiliados com painel próprio para o parceiro (17):** o afiliado entra com um link pessoal somente leitura, sem conta em nenhum tenant; a comissão de uma indicação dura **o primeiro ano** de cada cliente (12 meses corridos desde a sua primeira cobrança) e não para sempre.
 - **Atribuir manualmente um cliente a um afiliado (17.2):** para o cliente que um afiliado trouxe e que se cadastrou sem o link. Valem as regras do cadastro, não é retroativa e fica registrado quem a fez.
 - **E-mail de boas-vindas ao afiliado (17.1):** no cadastro ele recebe o nome, o link de indicação e o link do painel.
+- **Painel unificado do parceiro (17.5 e 20):** indicações (15%) e vendas diretas (20%) da mesma pessoa em um só painel, com o total ganho; o comercial também recebe o seu link por e-mail. Os pagamentos dos dois programas saem só das rodadas de Comissões, e a data da venda do tenant define quando se paga (17.4). O vendedor escolhido na Gestão de Tenants e a atribuição de Comissões são o mesmo dado (20.2).
 - **Rodadas de pagamento (17.6):** as comissões exigíveis de afiliados e comerciais são liquidadas em lotes por moeda, com ordem de pagamento em CSV e confirmação com comprovante.
 - **Comissões comerciais (20):** data da venda e prazo do contrato por tenant, e o calendário de acúmulo do comercial (anual ou mensal) sobre o mesmo livro-razão dos afiliados.
 - **Consumo da plataforma (22):** tokens de IA que a casa absorve e chamadas às APIs do Azure, com a porcentagem de throttling por serviço e por tenant.
@@ -1847,9 +1848,14 @@ painel há um **seletor de idioma** no canto superior direito, que também o con
 de novo: se perder, você gera outro — e isso invalida o anterior. Mesmo critério
 das chaves de API.
 
-O que o parceiro vê: seus totais (a receber e já pago), seu link de indicação,
-seus clientes indicados com a data até a qual cada um gera comissão, e o detalhe
-das comissões com o status de cada uma. No mesmo painel baixa o
+O que o parceiro vê: o **total ganho**, o pendente e o recebido, e o ganho por
+programa —**indicações**, com a porcentagem do afiliado, e **venda direta**, com
+a do comercial—; seu link de indicação, se for afiliado; seus clientes indicados
+com a data até a qual cada um gera comissão; suas vendas diretas com data da
+venda, contrato e parcelas; e o detalhe das comissões com programa, data em que
+se torna exigível e status. A mesma pessoa nos dois programas (mesmo e-mail como
+afiliado e como comercial, seção 20) vê tudo junto com qualquer um dos seus
+links; suspendê-la em um programa tira esse programa do painel. No mesmo painel baixa o
 **Manual do parceiro** (PDF ou Markdown, em espanhol, inglês e português): o material para
 entender a plataforma e vendê-la.
 
@@ -2018,15 +2024,20 @@ Um **comercial** é quem **fecha a venda** de um tenant. Não é o mesmo que um 
 
 No cartão **Novo comercial** preencha nome e sobrenome, e-mail e a **porcentagem de comissão** (20% é a porcentagem padrão do acordo) e pressione **Criar comercial**. A lista mostra quantas vendas cada um tem.
 
+Ao criá-lo, ele recebe um **e-mail de boas-vindas com o link do painel**, que também aparece uma vez na tela (se o e-mail não for enviado, o aviso informa: copie e envie para ele). Na lista, o botão do **painel** emite ou rotaciona esse link e o de **link cortado** o revoga. A etiqueta *também afiliado* indica que ele tem o mesmo e-mail de um afiliado: o painel junta os dois programas (17.5).
+
 ### 20.2 Registrar a venda no tenant
 
 Uma comissão **não é acumulada sem três dados do tenant**, que aparecem como colunas em **Gestão de Tenants** (`/superadmin/tenants`):
 
-- **Vendedor** e **Comissão (%)**, editáveis. Se uma venda foi fechada com uma condição diferente da geral, a porcentagem do acordo vale mais do que a do comercial.
+- **Vendedor:** é escolhido da lista de comerciais, ou *Sem comercial (direto)*. Esse vínculo é o que faz a venda aparecer aqui, no livro-razão e no painel do comercial. Um vendedor cadastrado manualmente antes de 06/10/2026 aparece em âmbar e não gera comissão até que o comercial seja escolhido.
+- **Comissão (%):** ao escolher o comercial, assume a porcentagem dele, que pode ser ajustada: se uma venda foi fechada com uma condição diferente da geral, a porcentagem do acordo vale mais do que a do comercial. Com 0% usa-se a do comercial.
 - **Data da venda:** a partir de onde se acumula. Para os tenants carregados antes desta função aparece *sem registro* (em âmbar): **não se inventa uma data retroativa**, porque uma comissão calculada sobre uma data adivinhada é pior do que não calculá-la. Uma vez registrada **não se corrige por esta tela**: movê-la deslocaria o início do acúmulo e recalcularia comissões já liquidadas.
 - **Prazo do contrato:** *anual* ou *mensal*. Decide qual calendário se aplica.
 
 Com isso carregado, no cartão **Atribuir uma venda** digite o **ID do tenant**, escolha o comercial e pressione **Atribuir**. Sem data da venda nada é acumulado.
+
+Atribuir aqui e escolher o vendedor na Gestão de Tenants são a mesma operação pelos dois lados: o acordo assume o nome e a porcentagem do comercial, e aparece igual nas duas telas.
 
 ### 20.3 Quanto e quando recebe
 

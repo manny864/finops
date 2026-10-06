@@ -13,6 +13,8 @@ export interface SuperAdminTenantItem {
     subscriptionStatus: TenantSubscriptionStatus;
     planTier: SaaSPlanTier;
     salesRepName: string;
+    /** El comercial de `SalesReps` vinculado al acuerdo; sin valor si no hay. */
+    salesRepId?: string | null;
     salesCommissionPercent: number;
     /**
      * Fecha formal de venta, `YYYY-MM-DD`. Ausente en los tenants dados de alta
@@ -60,6 +62,12 @@ export interface CreateManualTenantPayload {
 export interface UpdateCommercialDealPayload {
     tenantId: string;
     salesRepName: string;
+    /**
+     * El comercial elegido (2026-10-06). undefined no toca el vínculo; null o
+     * vacío lo saca (venta sin comercial). Con un id, el nombre y el % por
+     * defecto salen del comercial: así se ve igual en Comisiones.
+     */
+    salesRepId?: string | null;
     salesCommissionPercent: number;
     /** Sólo se usa si el tenant todavía no tiene fecha registrada. */
     soldAt?: string | null;

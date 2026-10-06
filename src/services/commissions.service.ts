@@ -116,6 +116,19 @@ interface DealComercial {
  * normal (venta directa, self-service), y un tenant sin `sold_at` es el caso que
  * la migración 20260913-003 dejó a propósito sin inventar una fecha.
  */
+/**
+ * El % que cobra el comercial por un tenant: el del acuerdo, o el suyo si el
+ * acuerdo no tiene uno. `sales_commission_percent` es NOT NULL DEFAULT 0, así
+ * que "no tiene" es 0: con `??` un tenant dado de alta como "Directo
+ * SuperAdmin" (0 %) y asignado después a un comercial le devengaba cero.
+ */
+export function pctDelAcuerdo(pctAcuerdo: unknown, pctComercial: unknown): string {
+    const acuerdo = Number(pctAcuerdo);
+    if (Number.isFinite(acuerdo) && acuerdo > 0) return String(pctAcuerdo);
+    const comercial = Number(pctComercial);
+    return Number.isFinite(comercial) && comercial > 0 ? String(pctComercial) : "20";
+}
+
 async function leerDeal(tenantId: string): Promise<{ deal: DealComercial | null; motivo?: string }> {
     const [rows] = await pool.query<any[]>(
         `SELECT d.sales_rep_id, d.sales_commission_percent, d.sold_at, d.contract_term,
@@ -133,7 +146,7 @@ async function leerDeal(tenantId: string): Promise<{ deal: DealComercial | null;
 
     // El porcentaje del acuerdo manda sobre el del comercial: una venta puede
     // haberse cerrado con una condición distinta a la general.
-    const pct = fila.sales_commission_percent ?? fila.rep_pct ?? 20;
+    const pct = pctDelAcuerdo(fila.sales_commission_percent, fila.rep_pct);
 
     return {
         deal: {

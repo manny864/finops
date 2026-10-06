@@ -12974,7 +12974,21 @@
     "runReferencePrompt": "Comprobante de la transferencia de la corrida #{id} (opcional):",
     "nothingToPay": "No hay nada exigible por encima del piso en esa moneda.",
     "runNotOpen": "Esa corrida ya no está abierta.",
-    "saleDate": "Fecha de venta"
+    "saleDate": "Fecha de venta",
+    "repWelcomeNotSent": "El comercial quedó dado de alta, pero el mail de bienvenida no salió. Copiá el enlace del panel y mandáselo.",
+    "repPortalLinkFor": "Enlace del panel de {name}",
+    "repPortalLinkOnce": "Se muestra una sola vez: copialo ahora. Generar otro invalida este.",
+    "repPortalCopy": "Copiar enlace",
+    "repPortalCopied": "Enlace copiado",
+    "repPortalClose": "Cerrar",
+    "repPortalCreate": "Emitir el enlace del panel",
+    "repPortalRotate": "Rotar el enlace del panel ({prefix}…)",
+    "repPortalRevoke": "Revocar el enlace del panel",
+    "repPortalIssued": "Enlace del panel emitido",
+    "repPortalRevoked": "Enlace del panel revocado",
+    "confirmRotateRep": "¿Generar un enlace nuevo para {name}? El anterior deja de funcionar.",
+    "confirmRevokeRep": "¿Revocar el enlace del panel de {name}? Va a dejar de ver su panel hasta que le emitas otro.",
+    "repAlsoAffiliate": "también afiliado"
   },
   "SuperAdminPlatformUsage": {
     "title": "Consumo de Plataforma",
@@ -13358,7 +13372,10 @@
     "pageOf": "Página {page} de {total}",
     "checkoutUrl": "URL del Checkout Paddle:",
     "impersonateStarting": "Ingresando a {tenant}...",
-    "impersonateStartError": "Error al iniciar impersonación"
+    "impersonateStartError": "Error al iniciar impersonación",
+    "salesRepSelect": "Comercial que cerró la venta",
+    "noSalesRep": "Sin comercial (directo)",
+    "legacySeller": "Cargado a mano: {name}. Elegí el comercial para que cobre la venta."
   },
   "SuperAdminUsers": {
     "title": "Gestión de Staff Interno",

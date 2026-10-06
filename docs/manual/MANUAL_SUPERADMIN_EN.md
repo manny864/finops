@@ -22,6 +22,7 @@ Everything that changed for a tenant's user is in the **User Manual** and is inc
 - **Affiliate Program with its own partner panel (17):** the affiliate enters with a personal read-only link, without an account in any tenant; a referral's commission lasts **the first year** of each client (12 months counted from their first charge) and not forever.
 - **Attributing a customer to an affiliate manually (17.2):** for a customer an affiliate brought in who signed up without the link. The signup rules apply, it isn't retroactive, and who made it is recorded.
 - **Welcome email to the affiliate (17.1):** on creation they receive their name, their referral link and the link to their dashboard.
+- **Unified partner dashboard (17.5 and 20):** referrals (15%) and direct sales (20%) of the same person in one dashboard, with the total earned; sales reps also get their link by email. Payments for both programs come only from the Commissions payout runs, and the tenant's sale date defines when they are paid (17.4). The salesperson picked in Tenant Management and the attribution in Commissions are the same data (20.2).
 - **Payout runs (17.6):** the due commissions of affiliates and sales reps are settled in batches per currency, with a CSV payment order and confirmation with a receipt.
 - **Sales commissions (20):** sale date and contract term per tenant, and the sales rep's accrual schedule (annual or monthly) on the same ledger as affiliates.
 - **Platform usage (22):** AI tokens absorbed by the house and calls to Azure APIs, with the throttling percentage per service and per tenant.
@@ -1856,9 +1857,15 @@ The panel has a **language selector** at the top right, which keeps it too.
 no way to see it again: if you lose it, you issue a new one — and that
 invalidates the previous link. Same deal as API keys.
 
-What the partner sees: their totals (pending and already paid), their referral
-link, their referred customers with the date each one stops earning, and the
-detail of their commissions with each status. From the same panel they download the
+What the partner sees: their **total earned**, what is pending and what has been
+paid, and the earnings per program —**referrals**, at the affiliate's percentage,
+and **direct sales**, at the sales rep's—; their referral link, if they are an
+affiliate; their referred customers with the date each one stops earning; their
+direct sales with sale date, contract and installments; and the detail of their
+commissions with program, due date and status. The same person in both programs
+(same email as affiliate and as sales rep, section 20) sees everything together
+with either of their links; suspending them in one program removes that program
+from the dashboard. From the same panel they download the
 **Partner manual** (PDF or Markdown, in Spanish, English and Portuguese): the material to
 understand the platform and sell it.
 
@@ -2028,15 +2035,20 @@ A **sales rep** is whoever **closes the sale** of a tenant. This is not the same
 
 In the **New sales rep** card fill in first and last name, email and the **commission percentage** (20% is the default of the agreement) and press **Create sales rep**. The list shows how many sales each one has.
 
+On creation they receive a **welcome email with the link to their dashboard**, which is also shown once on screen (if the email fails, the notice says so: copy it and send it). In the list, the **dashboard** button issues or rotates that link and the **broken link** button revokes it. The *also an affiliate* tag means they have the same email as an affiliate: their dashboard combines both programs (17.5).
+
 ### 20.2 Recording the sale on the tenant
 
 A commission **does not accrue without three pieces of data on the tenant**, shown as columns in **Tenant Management** (`/superadmin/tenants`):
 
-- **Salesperson** and **Commission (%)**, editable. If a sale was closed with a condition different from the general one, the agreement's percentage prevails over the sales rep's.
+- **Salesperson:** picked from the list of sales reps, or *No sales rep (direct)*. That link is what makes the sale show up here, in the ledger and in the sales rep's dashboard. A salesperson typed by hand before 2026-10-06 shows in amber and earns nothing until the sales rep is picked.
+- **Commission (%):** picking the sales rep fills in their percentage, which can be adjusted: if a sale was closed with a condition different from the general one, the agreement's percentage prevails over the sales rep's. At 0% the sales rep's is used.
 - **Sale date:** where accrual starts from. For tenants loaded before this feature it shows *not recorded* (in amber): **a retroactive date is not invented**, because a commission calculated on a guessed date is worse than not calculating it. Once recorded it **is not corrected from this screen**: moving it would shift the start of accrual and recalculate commissions already settled.
 - **Contract term:** *annual* or *monthly*. It decides which schedule applies.
 
 With that loaded, in the **Attribute a sale** card type the **tenant ID**, pick the sales rep and press **Attribute**. Without a sale date nothing accrues.
+
+Attributing here and picking the salesperson in Tenant Management are the same operation from both sides: the agreement takes the sales rep's name and percentage, and it shows the same on both screens.
 
 ### 20.3 How much and when they earn
 

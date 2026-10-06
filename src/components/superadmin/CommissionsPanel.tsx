@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { toast } from "sonner";
@@ -13,6 +13,8 @@ import {
     IconDownload,
     IconCheck,
     IconUserDollar,
+    IconLayoutDashboard,
+    IconLinkOff,
 } from "@tabler/icons-react";
 
 /**
@@ -64,6 +66,10 @@ type Comercial = {
     commissionPct: string;
     status: string;
     ventas: number;
+    /** Prefijo del enlace de panel vigente; null si no tiene. */
+    portalPrefix?: string | null;
+    /** Mismo email que un afiliado: su panel junta los dos programas. */
+    tambienAfiliado?: boolean;
 };
 
 const ESTADO_CLASE: Record<string, string> = {
@@ -82,6 +88,10 @@ const BTN_NEUTRAL =
 
 export default function CommissionsPanel() {
     const t = useTranslations("SuperAdminCommissions");
+    // El mail de bienvenida del comercial sale en el idioma de esta pantalla.
+    const locale = useLocale();
+    // El enlace de panel recién emitido, UNA vez: en la base queda sólo su hash.
+    const [enlacePanel, setEnlacePanel] = useState<{ nombre: string; url: string } | null>(null);
     const { instance, accounts } = useMsal();
 
     const [libro, setLibro] = useState<Comision[]>([]);
@@ -189,10 +199,10 @@ export default function CommissionsPanel() {
             if (!res.ok || !json.success) throw new Error(json.error || t("actionError"));
             toast.success(exito);
             await cargar();
-            return true;
+            return json;
         } catch (e) {
             toast.error(errorMessage(e));
-            return false;
+            return null;
         } finally {
             setGuardando(false);
         }
@@ -433,23 +443,92 @@ export default function CommissionsPanel() {
                             className={BTN_PRIMARY}
                             disabled={guardando || !nuevoNombre || !nuevoEmail}
                             onClick={async () => {
-                                const ok = await accionar(
-                                    { action: "createRep", name: nuevoNombre, email: nuevoEmail, commissionPct: nuevoPct },
+                                const nombre = nuevoNombre;
+                                const r = await accionar(
+                                    { action: "createRep", name: nuevoNombre, email: nuevoEmail, commissionPct: nuevoPct, locale },
                                     t("repCreated")
                                 );
-                                if (ok) { setNuevoNombre(""); setNuevoEmail(""); setNuevoPct("20"); }
+                                if (r) {
+                                    setNuevoNombre(""); setNuevoEmail(""); setNuevoPct("20");
+                                    if (r.portalUrl) setEnlacePanel({ nombre, url: r.portalUrl });
+                                    if (!r.mailEnviado) toast.warning(t("repWelcomeNotSent"));
+                                }
                             }}
                         >
                             <IconPlus size={16} stroke={2} /> {t("createRep")}
                         </button>
                     </div>
 
+                    {enlacePanel && (
+                        <div className="mt-4 p-3 rounded-xl border border-[#0054A6] bg-blue-50/60 dark:bg-blue-950/20 space-y-2">
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <p className="text-xs font-bold text-[#0054A6] dark:text-blue-300">
+                                        {t("repPortalLinkFor", { name: enlacePanel.nombre })}
+                                    </p>
+                                    <p className="text-[11px] text-slate-600 dark:text-slate-400">{t("repPortalLinkOnce")}</p>
+                                </div>
+                                <button
+                                    onClick={() => setEnlacePanel(null)}
+                                    className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                                >
+                                    {t("repPortalClose")}
+                                </button>
+                            </div>
+                            <code className="block break-all rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-2 text-[11px] font-mono text-slate-800 dark:text-slate-200">
+                                {enlacePanel.url}
+                            </code>
+                            <button
+                                onClick={() => {
+                                    void navigator.clipboard.writeText(enlacePanel.url).then(() => toast.success(t("repPortalCopied")));
+                                }}
+                                className="text-[11px] font-semibold text-[#0054A6] dark:text-blue-400 hover:underline"
+                            >
+                                {t("repPortalCopy")}
+                            </button>
+                        </div>
+                    )}
+
                     {comerciales.length > 0 && (
                         <ul className="mt-4 space-y-1.5 text-xs">
                             {comerciales.map((c) => (
                                 <li key={c.id} className="flex items-center justify-between gap-2 text-slate-600 dark:text-slate-300">
-                                    <span className="truncate">{c.name} · {c.commissionPct}%</span>
-                                    <span className="shrink-0 text-[11px] text-slate-500">{t("repSales", { count: c.ventas })}</span>
+                                    <span className="truncate">
+                                        {c.name} · {c.commissionPct}%
+                                        {c.tambienAfiliado && (
+                                            <span className="ml-1.5 text-[10px] font-semibold text-[#0054A6] dark:text-blue-400">{t("repAlsoAffiliate")}</span>
+                                        )}
+                                    </span>
+                                    <span className="shrink-0 flex items-center gap-1.5">
+                                        <span className="text-[11px] text-slate-500">{t("repSales", { count: c.ventas })}</span>
+                                        <button
+                                            onClick={async () => {
+                                                if (c.portalPrefix && !window.confirm(t("confirmRotateRep", { name: c.name }))) return;
+                                                const r = await accionar({ action: "repPortalLink", id: c.id }, t("repPortalIssued"));
+                                                if (r?.url) setEnlacePanel({ nombre: c.name, url: r.url });
+                                            }}
+                                            title={c.portalPrefix ? t("repPortalRotate", { prefix: c.portalPrefix }) : t("repPortalCreate")}
+                                            aria-label={c.portalPrefix ? t("repPortalRotate", { prefix: c.portalPrefix }) : t("repPortalCreate")}
+                                            className={`p-1 rounded-md border transition-colors ${c.portalPrefix
+                                                ? "border-[#0054A6] text-[#0054A6] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                                                : "border-slate-300 dark:border-slate-700 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800"}`}
+                                        >
+                                            <IconLayoutDashboard size={13} stroke={1.75} />
+                                        </button>
+                                        {c.portalPrefix && (
+                                            <button
+                                                onClick={async () => {
+                                                    if (!window.confirm(t("confirmRevokeRep", { name: c.name }))) return;
+                                                    await accionar({ action: "revokeRepPortal", id: c.id }, t("repPortalRevoked"));
+                                                }}
+                                                title={t("repPortalRevoke")}
+                                                aria-label={t("repPortalRevoke")}
+                                                className="p-1 rounded-md border border-amber-300 dark:border-amber-900/60 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
+                                            >
+                                                <IconLinkOff size={13} stroke={1.75} />
+                                            </button>
+                                        )}
+                                    </span>
                                 </li>
                             ))}
                         </ul>

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { getAffiliateWelcomeEmail } from "@/lib/emailHelper";
-import { enviarBienvenidaAfiliado } from "@/services/affiliates.service";
+import { getPartnerWelcomeEmail } from "@/lib/emailHelper";
+import { enviarBienvenidaPartner } from "@/services/affiliates.service";
 
 /**
  * Mail de bienvenida al afiliado: lo que se fija acá es que lleve los tres
@@ -17,7 +17,7 @@ const DATOS = {
 
 describe("afiliados · mail de bienvenida", () => {
     it("lleva el nombre, el link de referido y el enlace al panel", () => {
-        const { subject, html } = getAffiliateWelcomeEmail({ ...DATOS, locale: "es" });
+        const { subject, html } = getPartnerWelcomeEmail({ ...DATOS, locale: "es" });
         expect(subject).toBe("Bienvenido al programa de afiliados de CSCloudSolutions");
         expect(html).toContain("Ana Partner");
         expect(html).toContain(`href="${DATOS.linkReferido}"`);
@@ -26,20 +26,20 @@ describe("afiliados · mail de bienvenida", () => {
     });
 
     it("sale en el idioma pedido, y en castellano si no se reconoce", () => {
-        expect(getAffiliateWelcomeEmail({ ...DATOS, locale: "en" }).subject).toBe("Welcome to the CSCloudSolutions affiliate program");
-        expect(getAffiliateWelcomeEmail({ ...DATOS, locale: "pt-BR" }).subject).toBe("Bem-vindo ao programa de afiliados da CSCloudSolutions");
-        expect(getAffiliateWelcomeEmail({ ...DATOS, locale: "fr" }).subject).toBe("Bienvenido al programa de afiliados de CSCloudSolutions");
+        expect(getPartnerWelcomeEmail({ ...DATOS, locale: "en" }).subject).toBe("Welcome to the CSCloudSolutions affiliate program");
+        expect(getPartnerWelcomeEmail({ ...DATOS, locale: "pt-BR" }).subject).toBe("Bem-vindo ao programa de afiliados da CSCloudSolutions");
+        expect(getPartnerWelcomeEmail({ ...DATOS, locale: "fr" }).subject).toBe("Bienvenido al programa de afiliados de CSCloudSolutions");
     });
 
     it("escapa el nombre: lo carga un operador y termina en HTML", () => {
-        const { html } = getAffiliateWelcomeEmail({ ...DATOS, nombre: '<img src=x onerror="alert(1)">' });
+        const { html } = getPartnerWelcomeEmail({ ...DATOS, nombre: '<img src=x onerror="alert(1)">' });
         expect(html).not.toContain("<img src=x");
         expect(html).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
     });
 
     it("manda al mail del afiliado y avisa que salió", async () => {
         const enviar = vi.fn().mockResolvedValue(undefined);
-        const r = await enviarBienvenidaAfiliado({ ...DATOS, locale: "es" }, enviar);
+        const r = await enviarBienvenidaPartner({ ...DATOS, locale: "es" }, enviar);
         expect(r).toEqual({ enviado: true });
         expect(enviar).toHaveBeenCalledTimes(1);
         const [subject, html, destinatario] = enviar.mock.calls[0];
@@ -50,7 +50,18 @@ describe("afiliados · mail de bienvenida", () => {
 
     it("si el envío falla no tira: el alta ya está hecha", async () => {
         const enviar = vi.fn().mockRejectedValue(new Error("Graph 401"));
-        const r = await enviarBienvenidaAfiliado(DATOS, enviar);
+        const r = await enviarBienvenidaPartner(DATOS, enviar);
         expect(r).toEqual({ enviado: false, error: "Graph 401" });
+    });
+
+    it("al comercial le llega su panel, sin la parte del link de referido", () => {
+        const { subject, html } = getPartnerWelcomeEmail({
+            rol: "comercial", nombre: "Juan Ventas", linkPanel: DATOS.linkPanel, locale: "es",
+        });
+        expect(subject).toBe("Tu panel de ventas en CSCloudSolutions");
+        expect(html).toContain("tus ventas directas");
+        expect(html).toContain(`href="${DATOS.linkPanel}"`);
+        expect(html).not.toContain("Tu link de afiliado");
+        expect(html).not.toContain("signup?ref=");
     });
 });
