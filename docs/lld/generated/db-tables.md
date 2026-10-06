@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **133** tablas. Migraciones aplicables: **109**.
+Total: **144** tablas. Migraciones aplicables: **143**.
 
 `schema.sql` es el baseline de referencia y **no se ejecuta**; `migrations/` es la
 fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.md`).
@@ -11,6 +11,9 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 |---|---|---|
 | `AcademyProgress` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `ActionLogs` | sí | `20260628-001-core-bootstrap.sql` |
+| `AffiliateCommissions` | — | `20260907-001-affiliates-program.sql` |
+| `AffiliateReferrals` | — | `20260907-001-affiliates-program.sql` |
+| `Affiliates` | — | `20260907-001-affiliates-program.sql` |
 | `AiCache` | sí | `20260628-001-core-bootstrap.sql` |
 | `AICostSnapshots` | — | `20260726-002-ai-cost-snapshots.sql` |
 | `AlertRules` | — | `20260628-001-core-bootstrap.sql` |
@@ -22,6 +25,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `AuthAuditLogs` | — | `20260822-003-auth-audit-webauthn.sql` |
 | `AuthTokens` | — | `20260725-004-local-auth.sql` |
 | `AwsAccounts` | — | `20260629-007-aws-accounts.sql` |
+| `AzureApiUsageHourly` | — | `20260914-003-uso-api-azure-historico.sql` |
 | `AzureContentSafetySnapshots` | — | `20260812-006-ai-content-safety-snapshots.sql` |
 | `AzureDatabricksSnapshots` | — | `20260812-008-databricks-snapshots.sql` |
 | `AzureDocumentIntelligenceSnapshots` | — | `20260812-003-ai-document-intelligence-snapshots.sql` |
@@ -35,7 +39,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `Budgets` | sí | `20260628-001-core-bootstrap.sql` |
 | `BusinessMetrics` | — | `20260701-002-business-metrics.sql` |
 | `BusinessMetricsConfig` | — | `20260701-002-business-metrics.sql` |
-| `con` | — | `20260901-001-system-announcements.sql` |
+| `Commissions` | — | `20260913-006-comisiones-unificadas.sql` |
 | `CopilotUsage` | — | `20260715-001-create-copilot-usage.sql` |
 | `cost_snapshots` | sí | `20260728-003-sincronizar-esquema-vps.sql` |
 | `CostCategorySnapshots` | — | `20260704-003-cost-category-snapshots.sql` |
@@ -49,8 +53,6 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `DailySnapshots` | — | `20260702-001-daily-snapshots.sql` |
 | `DataPipelineEvents` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `DataResidencyChanges` | — | `20260728-003-sincronizar-esquema-vps.sql` |
-| `de` | — | `20260705-001-tenants-markup-percentage.sql` |
-| `entero` | — | `20260829-001-tenant-excluded-subscriptions.sql` |
 | `ExecutiveReportHistory` | — | `20260823-003-consolidated-platform-schema.sql` |
 | `ExecutiveReportJobs` | — | `20260810-001-executive-report-jobs.sql` |
 | `ExpiringCredentials` | — | `20260728-003-sincronizar-esquema-vps.sql` |
@@ -60,7 +62,8 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `GlobalSettings` | sí | `20260628-001-core-bootstrap.sql` |
 | `HaExemptions` | — | `20260822-001-governance-ha-credentials-approvals.sql` |
 | `HARecommendations` | — | `20260728-003-sincronizar-esquema-vps.sql` |
-| `IF` | — | `20260821-001-tenant-unit-metrics.sql` |
+| `IacBudgetGates` | — | `20260922-002-budget-gates.sql` |
+| `IacCostEstimations` | — | `20260922-001-shift-left-estimaciones.sql` |
 | `LegalAcceptances` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `LoadTestRuns` | — | `20260714-001-create-load-test-alerts.sql` |
 | `LocalResourceTagsCache` | — | `20260821-003-zombie-exemptions-tag-cache.sql` |
@@ -72,11 +75,9 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `MaturityAssessments` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `MCPApiKeys` | — | `20260629-005-mcp-keys.sql` |
 | `MfaChallenges` | — | `20260629-008-create-mfa-challenges.sql` |
-| `no` | — | `20260730-001-platform-ai-usage.sql` |
 | `NotificationChannels` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `NotificationLog` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `Notifications` | — | `20260714-004-create-notifications.sql` |
-| `omitted` | — | `20260701-001-actionlogs-resource-type-details.sql` |
 | `OnboardingProgress` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `OpenDataCommitmentEligibility` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `OpenDataPricingUnits` | — | `20260728-003-sincronizar-esquema-vps.sql` |
@@ -84,6 +85,10 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `OpenDataResourceTypes` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `OpenDataServices` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `OpenDataSyncState` | — | `20260728-003-sincronizar-esquema-vps.sql` |
+| `PayoutRuns` | — | `20260928-002-payout-runs.sql` |
+| `PerspectiveGroupClassification` | — | `20260927-002-perspective-cogs.sql` |
+| `PerspectiveRules` | — | `20260925-001-perspectives.sql` |
+| `Perspectives` | — | `20260925-001-perspectives.sql` |
 | `PlatformAiUsage` | — | `20260730-001-platform-ai-usage.sql` |
 | `PlatformGlobalAiConfig` | — | `20260823-003-consolidated-platform-schema.sql` |
 | `PlatformIncidents` | — | `20260728-003-sincronizar-esquema-vps.sql` |
@@ -95,9 +100,13 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `RecommendationActions` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `RecommendationsCache` | sí | `20260628-001-core-bootstrap.sql` |
 | `RemediationRequests` | — | `20260728-003-sincronizar-esquema-vps.sql` |
+| `ReportSubscriptions` | — | `20260927-003-report-subscriptions.sql` |
+| `ReservationExpiryNotices` | — | `20261004-002-avisos-vencimiento-reservas.sql` |
 | `SaaSComponentHealth` | — | `20260823-003-consolidated-platform-schema.sql` |
 | `SaaSCronJobs` | — | `20260823-001-storage-retention-cleanup.sql` |
 | `SaaSLoadTestHistory` | — | `20260823-003-consolidated-platform-schema.sql` |
+| `SalesReps` | — | `20260913-006-comisiones-unificadas.sql` |
+| `SavedViews` | — | `20260927-001-saved-views.sql` |
 | `SavingsHistory` | sí | `20260628-001-core-bootstrap.sql` |
 | `SignupEvents` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `SqlDbRecommendations` | — | `20260728-003-sincronizar-esquema-vps.sql` |
@@ -111,6 +120,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `SystemCronRuns` | — | `20260803-001-system-cron-runs.sql` |
 | `TaggingPolicies` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `tenant_health` | sí | `20260628-001-core-bootstrap.sql` |
+| `TenantAddons` | — | `20260913-004-addon-aviso-vencimiento.sql` |
 | `TenantAiSettings` | — | `20260823-003-consolidated-platform-schema.sql` |
 | `TenantCommercialDeals` | — | `20260823-003-consolidated-platform-schema.sql` |
 | `TenantDelegations` | — | `20260728-003-sincronizar-esquema-vps.sql` |
@@ -138,6 +148,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `UserCurrencyPreference` | — | `20260629-004-multicurrency.sql` |
 | `UserDashboardPins` | — | `20260629-002-user-dashboard-pins.sql` |
 | `Users` | sí | `20260628-001-core-bootstrap.sql` |
+| `UserScopes` | — | `20260926-001-user-scopes.sql` |
 | `UserWebAuthnCredentials` | — | `20260822-003-auth-audit-webauthn.sql` |
 | `VmssRecommendations` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `WhatIfScenarios` | — | `20260629-006-whatif-scenarios.sql` |
@@ -254,3 +265,37 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 - `migrations/20260902-002-anomaly-assignment.sql`
 - `migrations/20260903-001-notifications-user-dimension.sql`
 - `migrations/20260903-002-marketplace-fulfillment-fields.sql`
+- `migrations/20260904-001-tenant-access-model.sql`
+- `migrations/20260907-001-affiliates-program.sql`
+- `migrations/20260908-001-notifications-i18n-keys.sql`
+- `migrations/20260909-001-system-alerts-i18n-keys.sql`
+- `migrations/20260909-002-fk-tenant-huerfanas.sql`
+- `migrations/20260913-001-entra-mfa-columnas-divergentes.sql`
+- `migrations/20260913-002-maturity-score-policy.sql`
+- `migrations/20260913-003-venta-fecha-y-plazo.sql`
+- `migrations/20260913-004-addon-aviso-vencimiento.sql`
+- `migrations/20260913-005-cancelacion-programada.sql`
+- `migrations/20260913-006-comisiones-unificadas.sql`
+- `migrations/20260914-001-anomalias-resolucion.sql`
+- `migrations/20260914-002-alerta-recursos-ociosos.sql`
+- `migrations/20260914-003-uso-api-azure-historico.sql`
+- `migrations/20260914-004-alcance-reglas-alerta.sql`
+- `migrations/20260914-005-reconciliar-checksum-20260829-001.sql`
+- `migrations/20260922-001-shift-left-estimaciones.sql`
+- `migrations/20260922-002-budget-gates.sql`
+- `migrations/20260923-001-costsnapshots-list-cost.sql`
+- `migrations/20260925-001-perspectives.sql`
+- `migrations/20260926-001-user-scopes.sql`
+- `migrations/20260926-002-fiscal-year-rollover.sql`
+- `migrations/20260927-001-saved-views.sql`
+- `migrations/20260927-002-perspective-cogs.sql`
+- `migrations/20260927-003-report-subscriptions.sql`
+- `migrations/20260927-004-revenue-metric.sql`
+- `migrations/20260928-001-affiliate-portal-token.sql`
+- `migrations/20260928-002-payout-runs.sql`
+- `migrations/20260928-003-afiliados-fecha-de-exigibilidad.sql`
+- `migrations/20261004-001-afiliados-pct-por-defecto-15.sql`
+- `migrations/20261004-002-avisos-vencimiento-reservas.sql`
+- `migrations/20261006-001-afiliados-atribucion-manual.sql`
+- `migrations/20261006-002-comerciales-enlace-de-panel.sql`
+- `migrations/20261006-003-vincular-vendedores-a-comerciales.sql`

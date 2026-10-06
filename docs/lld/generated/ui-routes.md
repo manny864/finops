@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **229** páginas, bajo `src/app/[locale]/`.
+Total: **241** páginas, bajo `src/app/[locale]/`.
 Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 
 ## `(raíz)` (1)
@@ -60,22 +60,25 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 
 - `/demo`
 
-## `governance` (12)
+## `governance` (15)
 
 - `/governance/advisor`
+- `/governance/alerts`
 - `/governance/approvals`
 - `/governance/auto-block`
 - `/governance/credentials`
 - `/governance/ha`
 - `/governance/high-availability`
+- `/governance/lifecycle`
 - `/governance/policies`
 - `/governance/power`
 - `/governance/power-schedules`
 - `/governance/reporting`
 - `/governance/score`
+- `/governance/shift-left`
 - `/governance/tags`
 
-## `intelligence` (140)
+## `intelligence` (144)
 
 - `/intelligence/ai-analytics`
 - `/intelligence/aks`
@@ -122,10 +125,10 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/intelligence/budgets`
 - `/intelligence/chargeback`
 - `/intelligence/commitment-simulator`
-- `/intelligence/commitments`
 - `/intelligence/compute-efficiency`
 - `/intelligence/computo`
 - `/intelligence/computo/arhos`
+- `/intelligence/computo/avd`
 - `/intelligence/computo/avm`
 - `/intelligence/computo/azure-batch`
 - `/intelligence/computo/capp`
@@ -161,6 +164,7 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/intelligence/integration-services/event-hubs`
 - `/intelligence/integration-services/logic-apps`
 - `/intelligence/integration-services/service-bus`
+- `/intelligence/leaderboard`
 - `/intelligence/licenses`
 - `/intelligence/log-analytics`
 - `/intelligence/macc`
@@ -182,13 +186,16 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/intelligence/optimizacion-y-ahorro/saving-plan`
 - `/intelligence/optimization`
 - `/intelligence/optimization-index`
+- `/intelligence/perspectives`
 - `/intelligence/rates`
 - `/intelligence/redes`
 - `/intelligence/redes/acceso-a-internet`
 - `/intelligence/redes/analisis-de-red`
 - `/intelligence/redes/balanceo-y-publicacion`
+- `/intelligence/redes/capacidad`
 - `/intelligence/redes/conectividad-hibrida`
 - `/intelligence/redes/ddos-protection`
+- `/intelligence/redes/egress`
 - `/intelligence/redes/hibridcon`
 - `/intelligence/redes/internet`
 - `/intelligence/redes/loadbalancer`
@@ -230,8 +237,9 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 
 - `/login`
 
-## `marketplace` (1)
+## `marketplace` (2)
 
+- `/marketplace`
 - `/marketplace/azure/landing`
 
 ## `mobile` (4)
@@ -258,6 +266,10 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/overview/users-licenses`
 - `/overview/whiteboard`
 
+## `partner` (1)
+
+- `/partner`
+
 ## `remediation` (1)
 
 - `/remediation/approvals`
@@ -275,10 +287,13 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 
 - `/status`
 
-## `superadmin` (11)
+## `superadmin` (14)
 
+- `/superadmin/affiliates`
 - `/superadmin/ai-global-config`
 - `/superadmin/announcements`
+- `/superadmin/comisiones`
+- `/superadmin/consumo`
 - `/superadmin/funnel`
 - `/superadmin/health`
 - `/superadmin/load-test`
