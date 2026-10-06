@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { AuthError, requireTenantAccess, requireTenantRole, requireTenantTier } from "@/lib/requestAuth";
+import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { isMockTenant } from "@/lib/mockData";
 import { errorMessage, errorStatus } from "@/lib/apiErrors";
 import {
@@ -80,6 +82,11 @@ export async function POST(req: NextRequest) {
     // sin este guard un Professional recibiría un AuthorizationFailed opaco de
     // Azure en lugar de un mensaje claro de tier.
     await requireTenantTier(req, tenantId, "Business");
+    const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
+    if (bloqueo) return bloqueo;
+    // applyTagInheritance pega cada resourceId al host de ARM: tienen que ser
+    // de este tenant y empezar con `/`.
+    await exigirScopesDelTenant(tenantId, body.resourceIds);
 
     // El PATCH real contra ARM. Antes esta ruta SÓLO hacía saveLocalCachedTags:
     // devolvía success y la UI decía "etiquetas aplicadas", pero el recurso en

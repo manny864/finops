@@ -3,6 +3,7 @@ import { createSubscriptionBudget } from "@/services/budgetService";
 import { getAzureCredential } from "@/lib/azure";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { requireDecimalStrict } from "@/lib/moneyDecimal";
 
 export async function POST(request: NextRequest) {
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest) {
         // escribible, asi que Azure lo rechazaria con un 403 crudo.
         const bloqueo = await bloqueoPorDelegacionDeLectura(bodyTenantId);
         if (bloqueo) return bloqueo;
+        await exigirScopesDelTenant(bodyTenantId, [subscriptionId]);
 
         const tenantId = bodyTenantId;
 

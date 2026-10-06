@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { getAzureCredential } from "@/lib/azure";
 import { deleteSubscriptionBudget } from "@/services/budgetService";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
@@ -23,6 +24,7 @@ export async function POST(request: NextRequest) {
     // escribible, asi que Azure lo rechazaria con un 403 crudo.
     const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
     if (bloqueo) return bloqueo;
+    await exigirScopesDelTenant(tenantId, [subscriptionId]);
 
     const credential = await getAzureCredential(tenantId);
     await deleteSubscriptionBudget(credential, subscriptionId, budgetName);

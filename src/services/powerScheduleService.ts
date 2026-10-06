@@ -1,6 +1,7 @@
 import pool from "@/modules/storage/db";
 import { deallocateVirtualMachine, startVirtualMachine, restartVirtualMachine } from "@/services/remediationService";
 import { getAzureCredential } from "@/lib/azure";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { MonitorClient } from "@azure/arm-monitor";
 import { effectiveOffsetMinutes, parseOffsetMinutes as parseOffset } from "@/lib/timezone";
 import { errorMessage } from '@/lib/apiErrors';
@@ -293,6 +294,13 @@ export async function executeDueSchedules(
     const actionType: PowerScheduleAction = s.action_type || "shutdown";
 
     try {
+      // La VM la eligió quien creó el horario y el cron la ejecuta con la
+      // credencial del tenant, que con Lighthouse alcanza a todos los clientes.
+      // Se valida al ejecutar y no al guardar: así cubre las filas que ya existen.
+      await exigirScopesDelTenant(s.tenant_id, [
+        `/subscriptions/${s.subscription_id}/resourceGroups/${s.resource_group}/providers/Microsoft.Compute/virtualMachines/${s.vm_name}`,
+      ]);
+
       if (actionType === "shutdown" && s.smart_shutdown_enabled) {
         const belowThreshold = await isVmCpuBelowThreshold(
           s.tenant_id,

@@ -107,8 +107,11 @@ function dbInventory() {
   const createRe = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?`?([A-Za-z0-9_]+)`?/gi;
   const collect = (sql) => {
     const found = new Set();
+    // Sin comentarios: una migración que explica "el CREATE TABLE muere con..."
+    // inventaba una tabla `muere`.
+    const codigo = sql.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--.*$/gm, '');
     let m;
-    while ((m = createRe.exec(sql)) !== null) found.add(m[1]);
+    while ((m = createRe.exec(codigo)) !== null) found.add(m[1]);
     createRe.lastIndex = 0;
     return found;
   };

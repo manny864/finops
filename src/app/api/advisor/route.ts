@@ -1,42 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import { getAdvisorExecutiveData, generateMockAdvisorData } from "@/services/azureAdvisor.service";
 import { narrateAdvisorRecommendations } from "@/services/advisorRemediationNarration";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { redis } from "@/lib/redis";
-import { deleteResource } from "@/services/remediationService";
 import pool from "@/modules/storage/db";
-
-export async function POST(request: NextRequest) {
-    try {
-        const body = await request.json();
-        const { tenantId, action, resourceGroup, resourceName, resourceType, subscriptionId } = body;
-
-        if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
-
-        if (isMockTenant(tenantId)) {
-            return NextResponse.json({ success: true, message: "Acción simulada exitosamente (Demo)" });
-        }
-
-        if (action === 'delete') {
-            // Eliminar un recurso es destructivo: mismo criterio de rol que
-            // /api/remediation (Admin/Owner), no solo membresía al tenant.
-            const identity = await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
-            await deleteResource(tenantId, identity.email, subscriptionId, resourceGroup, resourceName, resourceType);
-            return NextResponse.json({ success: true, message: "Recurso eliminado" });
-        }
-
-        await requireTenantAccess(request, tenantId);
-        
-        return NextResponse.json({ error: "Acción no soportada por el orquestador." }, { status: 400 });
-    } catch (error: unknown) {
-        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
-        console.error("Action Center Error:", error);
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-    }
-}
-
 
 export async function GET(request: NextRequest) {
   try {

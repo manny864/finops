@@ -3,6 +3,7 @@ import { ResourceManagementClient } from "@azure/arm-resources";
 import { getAzureCredential } from "@/lib/azure";
 import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,6 +25,8 @@ export async function POST(request: NextRequest) {
     // tier era client-only (Sidebar/FeatureGuard) — un Admin de un tenant
     // Professional podía pegarle directo a esta ruta y saltearlo.
     await requireTenantTier(request, tenantId, "Business");
+    // El scope viene del body: tiene que ser de una suscripción de este tenant.
+    await exigirScopesDelTenant(tenantId, [resourceId]);
 
     const credential = await getAzureCredential(tenantId);
     

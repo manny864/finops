@@ -3,8 +3,7 @@ import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { hasAccess } from "@/lib/tierLogic";
 import { getAzureCredential, listTenantSubscriptions } from "@/lib/azure";
 import { getWithCache } from "@/lib/cache";
-import { redis } from "@/lib/redis";
-import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
 
 async function tenantTier(tenantId: string): Promise<string> {
@@ -122,112 +121,5 @@ export async function GET(request: NextRequest) {
         }
         console.error('governance-policies error:', error);
         return NextResponse.json({ error: "Fallo al obtener estado de políticas" }, { status: 500 });
-    }
-}
-
-export async function POST(request: NextRequest) {
-    try {
-        const body = await request.json();
-        const { tenantId, policyId, displayName, action, targetMg, parameters, nonComplianceMessages, identity, location } = body;
-
-        if (!tenantId || !policyId || !action) {
-            return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
-        }
-
-        await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
-
-        if (isMockTenant(tenantId)) {
-            // Simular delay de inyección de políticas ARM
-            await new Promise(r => setTimeout(r, 1000));
-            return NextResponse.json({ success: true, message: `Política ${action === 'Activate' ? 'Activada' : 'Desactivada'} exitosamente (Mock)` });
-        }
-
-        // Implementation for Real Azure Policy Assignment via ARM SDK
-        const credential = await getAzureCredential(tenantId);
-        const token = await credential.getToken("https://management.azure.com/.default");
-        
-        // Target Scope
-        const scope = targetMg ? `/providers/Microsoft.Management/managementGroups/${targetMg}` : `/providers/Microsoft.Management/managementGroups/TenantRootGroup`;
-        
-        if (action === 'Activate' || action === 'Assign') {
-            // Assumes policyId is the full resource ID of the policy definition
-            const assignmentName = `finops-${Date.now()}`;
-            const putUrl = `https://management.azure.com${scope}/providers/Microsoft.Authorization/policyAssignments/${assignmentName}?api-version=2024-04-01`;
-            
-            const payload: any = {
-                properties: {
-                    displayName: displayName || `Asignación de Política: ${policyId.split('/').pop()}`,
-                    policyDefinitionId: policyId,
-                    enforcementMode: 'Default',
-                }
-            };
-
-            if (parameters && Object.keys(parameters).length > 0) {
-                payload.properties.parameters = {};
-                for (const [key, val] of Object.entries(parameters)) {
-                    payload.properties.parameters[key] = { value: val };
-                }
-            }
-
-            if (nonComplianceMessages && nonComplianceMessages.length > 0) {
-                payload.properties.nonComplianceMessages = nonComplianceMessages.map((msg: string) => ({ message: msg }));
-            }
-
-            if (identity) {
-                payload.identity = { type: "SystemAssigned" };
-                payload.location = location || "eastus";
-            }
-            
-            const putRes = await fetch(putUrl, {
-                method: 'PUT',
-                headers: { 
-                    'Authorization': `Bearer ${token.token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
-
-            if (!putRes.ok) {
-                const errTxt = await putRes.text();
-                console.error(`Azure policy assign ${putRes.status} for tenant ${tenantId}:`, errTxt);
-                throw new Error(`Azure API error ${putRes.status}`);
-            }
-            
-            // Invalidate cache
-            if (redis) {
-                await redis.del(`governance-policies:v2:${tenantId}`);
-            }
-            
-            return NextResponse.json({ success: true, message: `Política asignada exitosamente en el entorno.` });
-        } else if (action === 'Deactivate' || action === 'Delete') {
-            // Delete assignment
-            // If policyId is a full resource path, use it directly. Otherwise construct it.
-            const delUrl = policyId.startsWith('/') 
-                ? `https://management.azure.com${policyId}?api-version=2024-04-01`
-                : `https://management.azure.com${scope}/providers/Microsoft.Authorization/policyAssignments/${policyId}?api-version=2024-04-01`;
-            const delRes = await fetch(delUrl, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token.token}` }
-            });
-            if (!delRes.ok) {
-                const errTxt = await delRes.text();
-                console.error(`Azure policy delete ${delRes.status} for tenant ${tenantId}:`, errTxt);
-                throw new Error(`Azure API error ${delRes.status}`);
-            }
-            
-            if (redis) {
-                await redis.del(`governance-policies:v2:${tenantId}`);
-            }
-            
-            return NextResponse.json({ success: true, message: `Asignación de política removida en el entorno.` });
-        } else {
-            return NextResponse.json({ error: "Acción no reconocida" }, { status: 400 });
-        }
-    } catch (error) {
-        if (error instanceof AuthError) {
-            return NextResponse.json({ error: error.message }, { status: error.status });
-        }
-        console.error('governance-policies POST error:', error);
-        return NextResponse.json({ error: "Fallo al aplicar la política" }, { status: 500 });
     }
 }

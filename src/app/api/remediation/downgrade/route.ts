@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { downgradeVirtualMachine } from "@/services/remediationService";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { azureErrorResponse } from "@/lib/apiErrors";
 
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -23,6 +25,12 @@ export async function POST(request: NextRequest) {
     }
 
     const identity = await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
+
+    // Redimensionar es escribir en Azure: mismo guard de delegación que el
+    // resto, y la VM tiene que ser de una suscripción de este tenant.
+    const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
+    if (bloqueo) return bloqueo;
+    await exigirScopesDelTenant(tenantId, [subscriptionId]);
 
     // El endpoint conserva el nombre por compatibilidad; el resize de ARM es el
     // mismo en las dos direcciones y solo cambia lo que se audita.

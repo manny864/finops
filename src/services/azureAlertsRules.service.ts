@@ -12,7 +12,8 @@
  * action group bindings, and generates prioritized FinOps remediation actions.
  */
 
-import { getAzureCredential, getResourceGraphClient, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { logAction } from "@/services/remediationService";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import { withArgLimit } from "@/lib/argConcurrency";
@@ -838,10 +839,7 @@ export async function cambiarEstadoEnAzure(
 
   // Con Lighthouse la credencial es la nuestra y alcanza a todos los clientes
   // delegados: la suscripción del recurso tiene que ser de ESTE tenant.
-  const subs = await getSubscriptionsForTenant(tenantId);
-  if (!subs.some((s) => s.toLowerCase() === m[1].toLowerCase())) {
-    throw errorHttp(404, "El recurso no pertenece a este tenant.");
-  }
+  await exigirScopesDelTenant(tenantId, [resourceId]);
 
   const accion = familia === "alertas" ? "TOGGLE_ALERT_RULE" : "TOGGLE_ACTION_GROUP";
   try {

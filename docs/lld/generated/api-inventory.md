@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **445** rutas.
+Total: **474** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -20,7 +20,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/admin/billing-markup` | GET, POST | requireTenantAccess | — | sí |
 | `/api/admin/billing/cancel-subscription` | POST | requireTenantRole | — | sí |
 | `/api/admin/billing/customer-portal` | GET, POST | requireTenantRole | — | sí |
-| `/api/admin/check-sp-roles` | GET | requireTenantAccess, requireRequestIdentity | — | — |
+| `/api/admin/check-sp-roles` | GET | requireTenantAccess, requireRequestIdentity | — | sí |
 | `/api/admin/compliance/request-soc2` | POST | requireTenantRole | — | — |
 | `/api/admin/config/account-status` | GET | requireTenantAccess | — | sí |
 | `/api/admin/config/account-status/subscriptions/[subscriptionId]` | POST, DELETE | requireTenantRole | — | sí |
@@ -34,17 +34,15 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/admin/config/integrations/test-webhook` | POST | requireTenantRole, requireTenantAccess | — | sí |
 | `/api/admin/config/markup` | GET, PUT | requireTenantRole | — | sí |
 | `/api/admin/config/markup/rules` | POST, PUT, PATCH, DELETE | requireTenantRole | — | sí |
-| `/api/admin/config/markup/simulate` | GET, POST | — | — | — |
 | `/api/admin/config/users` | GET, POST, PUT, DELETE | requireSuperAdmin, requireTenantAccess | — | sí |
 | `/api/admin/config/users/entra-sync` | GET | requireTenantRole, requireRequestIdentity | — | — |
 | `/api/admin/config/webhook` | GET, POST | requireTenantAccess | — | — |
 | `/api/admin/configuration/markup` | — | — | — | — |
-| `/api/admin/configuration/markup/simulate` | — | — | — | — |
 | `/api/admin/data-residency` | GET, PUT | requireTenantRole, requireTenantAccess | — | — |
 | `/api/admin/data-residency/lock` | POST | requireSuperAdmin | — | — |
 | `/api/admin/data-residency/unlock` | POST | requireSuperAdmin | — | — |
 | `/api/admin/focus-export/schedule` | GET, PATCH | requireTenantRole, requireTenantTier | Enterprise | — |
-| `/api/admin/governance-policies` | GET, POST | requireTenantRole, requireTenantAccess | — | sí |
+| `/api/admin/governance-policies` | GET | requireTenantAccess | — | sí |
 | `/api/admin/integrations/mcp-keys` | — | — | — | — |
 | `/api/admin/load-test/run` | POST | requireSuperAdmin | — | — |
 | `/api/admin/load-test/runs` | GET | requireSuperAdmin | — | — |
@@ -54,7 +52,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/admin/notifications/channels` | GET, POST, PATCH | requireTenantRole, requireTenantAccess | — | — |
 | `/api/admin/notifications/channels/[id]` | PUT, DELETE | requireTenantRole | — | — |
 | `/api/admin/notifications/channels/[id]/test` | POST | requireTenantRole | — | — |
-| `/api/admin/onboarding` | POST | requireTenantAccess | — | — |
+| `/api/admin/onboarding` | POST | requireTenantAccess | — | sí |
 | `/api/admin/payments` | GET, POST | requireSuperAdmin | — | — |
 | `/api/admin/pricing-units` | GET, POST | requireSuperAdmin | — | — |
 | `/api/admin/public-api-keys` | GET, POST | requireTenantRole, requireTenantTier | Business | sí |
@@ -73,20 +71,22 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/admin/tenants/delete` | POST, DELETE | requireSuperAdmin | — | — |
 | `/api/admin/tenants/logo` | POST, DELETE | requireTenantRole | — | — |
 | `/api/admin/tenants/paddle-checkout-link` | POST | requireSuperAdmin | — | — |
+| `/api/admin/user-scopes` | GET, POST, DELETE | requireTenantRole, requireTenantTier | Enterprise | sí |
 | `/api/admin/users/search-entra` | GET | requireTenantRole | — | sí |
 | `/api/admin/users/sync-group` | GET, POST | requireTenantRole | — | sí |
 | `/api/admin/workbooks` | POST | requireTenantRole, requireRequestIdentity | — | — |
-| `/api/advisor` | GET, POST | requireTenantRole, requireTenantAccess | — | sí |
+| `/api/advisor` | GET | requireTenantAccess | — | sí |
 | `/api/advisor/suppress` | POST, DELETE | requireTenantRole | — | — |
 | `/api/advisor/suppressions` | GET | requireTenantAccess | — | — |
 | `/api/analytics/allocation` | GET, POST, DELETE | requireTenantRole, requireTenantAccess | — | sí |
 | `/api/analytics/anomalies` | GET, PATCH | requireTenantAccess | — | sí |
 | `/api/analytics/macc` | GET, POST | requireTenantAccess | — | sí |
 | `/api/analytics/scorecard` | GET | requireTenantAccess | — | sí |
-| `/api/analytics/self-service-alerts` | GET, POST, DELETE | requireTenantRole, requireTenantAccess | — | sí |
-| `/api/analytics/self-service-alerts/test` | POST | requireTenantAccess | — | sí |
+| `/api/analytics/self-service-alerts` | GET, POST, PUT, DELETE | requireTenantRole, requireTenantAccess | — | sí |
+| `/api/analytics/self-service-alerts/scope-options` | GET | requireTenantAccess | — | sí |
+| `/api/analytics/self-service-alerts/test` | POST | requireTenantRole, requireTenantAccess | — | sí |
 | `/api/analytics/simulator` | GET, POST | requireTenantAccess | — | sí |
-| `/api/analytics/tenant-health` | GET | requireTenantTier, requireTenantAccess | Business | sí |
+| `/api/analytics/tenant-health` | GET | requireTenantTier, requireTenantAccess | Enterprise | sí |
 | `/api/announcements/active` | GET | requireTenantAccess | — | sí |
 | `/api/announcements/dismiss` | POST | requireTenantAccess | — | sí |
 | `/api/audit/full` | GET | requireTenantAccess | — | — |
@@ -95,11 +95,13 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/auth/sso/logout` | POST | — | — | — |
 | `/api/auth/sso/me` | GET | — | — | — |
 | `/api/auth/sso/start` | GET | — | — | — |
-| `/api/automation/kill-switch` | POST | requireTenantAccess | — | — |
 | `/api/billing` | GET, POST | requireTenantRole | — | — |
+| `/api/billing/addons/active` | GET | requireTenantAccess | — | — |
 | `/api/billing/addons/capacity` | GET, POST | requireTenantRole | — | — |
 | `/api/billing/addons/tenant` | POST | requireTenantAccess | — | — |
 | `/api/billing/invoices` | GET | requireTenantRole | — | — |
+| `/api/billing/invoices/[id]/pdf` | GET | requireTenantRole | — | sí |
+| `/api/billing/marketplace` | GET, POST | requireTenantRole, requireTenantTier | — | sí |
 | `/api/billing/plan` | GET | requireTenantRole | — | — |
 | `/api/billing/portal` | GET | requireTenantRole | — | — |
 | `/api/billing/subscription` | PATCH, DELETE | requireTenantRole | — | — |
@@ -122,18 +124,23 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/cleanup/ttl/unlabeled` | GET | requireTenantAccess | — | sí |
 | `/api/cleanup/zombies` | GET, POST | requireTenantRole, requireTenantAccess | — | sí |
 | `/api/cleanup/zombies/networking` | GET, POST | requireTenantRole, requireTenantTier, requireTenantAccess | Professional | sí |
+| `/api/commitments/breakeven` | POST | — | — | — |
+| `/api/commitments/exchange-quota` | GET | requireTenantAccess | — | — |
 | `/api/consumption` | GET | requireTenantAccess | — | — |
 | `/api/copilot-m365/ask` | POST | requireTenantAccess | — | sí |
 | `/api/copilot-m365/config` | GET, POST, DELETE | requireTenantRole, requireTenantTier | Enterprise | sí |
 | `/api/cost-groups` | GET, POST | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/cost-groups/[name]` | GET, PATCH, DELETE | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/cost-groups/[name]/resource-groups` | GET, POST, DELETE | requireTenantRole, requireTenantTier, requireTenantAccess | Business | sí |
+| `/api/cron/addon-expiry` | GET | requireTenantTier | — | — |
 | `/api/cron/anomaly-detection` | GET | _CRON_SECRET_ | — | — |
+| `/api/cron/azure-api-usage-rollup` | GET | _CRON_SECRET_ | — | — |
 | `/api/cron/cost-exports-sync` | GET | _CRON_SECRET_ | — | sí |
 | `/api/cron/cost-sync-staleness-check` | GET | _CRON_SECRET_ | — | — |
 | `/api/cron/credential-expiry-alerts` | GET | _CRON_SECRET_ | — | — |
 | `/api/cron/focus-export-daily` | GET | _CRON_SECRET_ | — | — |
 | `/api/cron/historical-gap-backfill` | GET, POST | _CRON_SECRET_ | — | — |
+| `/api/cron/idle-resources-alerts` | GET | _CRON_SECRET_ | — | — |
 | `/api/cron/invalidate-ai-cache` | POST | requireSuperAdmin | — | — |
 | `/api/cron/open-data` | GET, POST | _CRON_SECRET_ | — | — |
 | `/api/cron/partner-link-retry` | GET | _CRON_SECRET_ | — | — |
@@ -149,11 +156,13 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/cron/prewarm-security-finops` | GET, POST | _CRON_SECRET_ | — | — |
 | `/api/cron/prewarm-sql-finops` | GET, POST | _CRON_SECRET_ | — | — |
 | `/api/cron/prewarm-storage-finops` | GET, POST | _CRON_SECRET_ | — | — |
+| `/api/cron/report-subscriptions` | GET | _CRON_SECRET_ | — | — |
+| `/api/cron/reservation-expiry-alerts` | GET | _CRON_SECRET_ | — | sí |
 | `/api/cron/status-snapshot` | GET | _CRON_SECRET_ | — | — |
 | `/api/cron/storage-retention-cleanup` | GET, POST | _CRON_SECRET_ | — | — |
 | `/api/cron/subscription-expiry` | GET | _CRON_SECRET_ | — | — |
 | `/api/cron/support-attachments-cleanup` | GET | _CRON_SECRET_ | — | — |
-| `/api/cron/sync` | GET, POST | _CRON_SECRET_ | — | — |
+| `/api/cron/sync` | GET, POST | requireTenantRole | — | — |
 | `/api/cron/sync-aml` | POST | _CRON_SECRET_ | — | — |
 | `/api/cron/sync-azure-ai` | GET | _CRON_SECRET_ | — | — |
 | `/api/cron/sync-azure-search` | POST | _CRON_SECRET_ | — | — |
@@ -179,9 +188,12 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/governance/credentials/rotate` | POST | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/governance/expiring-credentials` | GET, POST, PATCH, DELETE | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/governance/ha` | GET, POST | requireTenantRole, requireTenantTier | Business | sí |
+| `/api/governance/lifecycle` | GET | requireTenantAccess | — | sí |
 | `/api/governance/policies` | GET, POST, PUT, DELETE | requireTenantAccess | — | sí |
 | `/api/governance/power-management` | GET | requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/governance/reporting` | GET | requireTenantTier | Enterprise | sí |
+| `/api/governance/shift-left` | GET | requireTenantTier, requireTenantAccess | Business | sí |
+| `/api/governance/shift-left/gates` | PUT | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/governance/tags` | GET, POST | requireTenantRole, requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/governance/tags/apply-inheritance` | POST | requireTenantRole, requireTenantTier | Business | — |
 | `/api/governance/tags/inherit-rg` | POST | requireTenantRole, requireTenantTier, requireTenantAccess | Business | sí |
@@ -220,14 +232,15 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/commitments/reservations/renew` | PATCH | requireTenantRole | — | sí |
 | `/api/intelligence/commitments/reservations/utilization` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/compute-cost-per-core` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/compute/avd` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/compute/service-cost` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/compute/workloads` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/container-apps` | GET | requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/intelligence/container-apps/details` | GET | requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/intelligence/copilot` | POST | requireTenantTier, requireRequestIdentity | Professional | sí |
-| `/api/intelligence/copilot/quota` | GET | requireRequestIdentity | — | sí |
+| `/api/intelligence/copilot/quota` | GET | requireTenantAccess, requireRequestIdentity | — | sí |
 | `/api/intelligence/cosmos-db` | GET | requireTenantTier, requireTenantAccess | Business | sí |
-| `/api/intelligence/cost-by-category` | GET | requireTenantAccess | — | — |
+| `/api/intelligence/cost-by-category` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/cost-centers` | GET, PUT, DELETE | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/intelligence/cost-centers/resources` | GET | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/intelligence/cost-projection` | GET | requireTenantAccess | — | sí |
@@ -246,10 +259,9 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/databases/sql-family` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/databases/sql-metrics` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/ddos-protection` | GET | requireTenantAccess | — | sí |
-| `/api/intelligence/defender` | GET, PATCH | requireTenantTier | Business | sí |
-| `/api/intelligence/defender/details` | GET | requireTenantTier | Business | sí |
-| `/api/intelligence/entra-id` | GET | requireTenantTier, requireTenantAccess | Business | sí |
-| `/api/intelligence/executive-report/data` | — | — | — | — |
+| `/api/intelligence/defender` | GET, PATCH | requireTenantTier | Enterprise | sí |
+| `/api/intelligence/defender/details` | GET | requireTenantTier | Enterprise | sí |
+| `/api/intelligence/entra-id` | GET | requireTenantTier, requireTenantAccess | Enterprise | sí |
 | `/api/intelligence/executive-report/export-pdf` | — | — | — | — |
 | `/api/intelligence/executive-report/history` | — | — | — | — |
 | `/api/intelligence/executive-report/history/[id]` | — | — | — | — |
@@ -261,7 +273,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/forecast/by-service` | GET | requireTenantAccess | — | — |
 | `/api/intelligence/history` | GET, POST | requireTenantAccess, requireRequestIdentity | — | sí |
 | `/api/intelligence/hybrid-benefit` | GET | requireTenantAccess | — | sí |
-| `/api/intelligence/integration-services/[service]` | GET | requireTenantTier | Business | sí |
+| `/api/intelligence/integration-services/[service]` | GET | requireTenantTier | Enterprise | sí |
 | `/api/intelligence/integration-services/adf` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/integration-services/apim` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/integration-services/event-grid` | GET | requireTenantAccess | — | sí |
@@ -269,23 +281,26 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/integration-services/logic-apps` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/integration-services/service-bus` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/kpis/coin` | GET, POST | requireTenantTier, requireTenantAccess | Professional | — |
+| `/api/intelligence/leaderboard` | GET, PUT | requireTenantRole, requireTenantTier | Enterprise | sí |
 | `/api/intelligence/licenses` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/log-analytics` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/macc` | GET | requireSuperAdmin, requireTenantAccess | — | sí |
 | `/api/intelligence/maturity` | GET, POST | requireTenantAccess | — | sí |
 | `/api/intelligence/microsoft-fabric` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/misc-services` | GET | requireTenantAccess | — | sí |
-| `/api/intelligence/monitoring/action-groups` | GET, POST | requireTenantTier | Business | sí |
-| `/api/intelligence/monitoring/alerts` | GET, POST | requireTenantTier | Business | sí |
+| `/api/intelligence/monitoring/action-groups` | GET, POST | requireTenantRole, requireTenantTier | Enterprise | sí |
+| `/api/intelligence/monitoring/alerts` | GET, POST | requireTenantRole, requireTenantTier | Enterprise | sí |
 | `/api/intelligence/monitoring/azure-monitor` | GET | requireTenantAccess | — | sí |
-| `/api/intelligence/monitoring/network-watcher` | GET | requireTenantTier | Business | sí |
+| `/api/intelligence/monitoring/network-watcher` | GET | requireTenantTier | Enterprise | sí |
 | `/api/intelligence/monitoring/sentinel` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/monitoring/service-cost` | GET | requireTenantAccess | — | sí |
-| `/api/intelligence/monitoring/workbooks` | GET | requireTenantTier | Business | sí |
+| `/api/intelligence/monitoring/workbooks` | GET | requireTenantTier | Enterprise | sí |
 | `/api/intelligence/network` | GET | requireTenantAccess, requireRequestIdentity | — | sí |
 | `/api/intelligence/network-perimeter` | — | — | — | — |
 | `/api/intelligence/network/analytics` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/network/basic` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/network/capacity` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/network/egress` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/network/hybrid` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/network/internet` | — | — | — | — |
 | `/api/intelligence/network/internet-access` | GET | requireTenantAccess | — | sí |
@@ -293,18 +308,20 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/network/loadbalancer` | — | — | — | — |
 | `/api/intelligence/network/service-cost` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/network/service-cost-v2` | GET | requireTenantAccess | — | sí |
+| `/api/intelligence/perspectives` | GET, POST, PUT, DELETE | requireTenantRole, requireTenantAccess | — | sí |
+| `/api/intelligence/perspectives/breakdown` | GET, POST | requireTenantAccess | — | — |
 | `/api/intelligence/rates` | GET | requireTenantAccess | — | — |
 | `/api/intelligence/rightsizing` | GET | requireTenantRole | — | — |
 | `/api/intelligence/rightsizing/exemptions` | GET, POST, DELETE | requireTenantRole | — | — |
 | `/api/intelligence/scorecard` | GET | requireTenantAccess | — | sí |
-| `/api/intelligence/security/entra-id` | GET | requireTenantTier | Business | sí |
-| `/api/intelligence/security/key-vault` | GET | requireTenantTier | Business | sí |
+| `/api/intelligence/security/entra-id` | GET | requireTenantTier | Enterprise | sí |
+| `/api/intelligence/security/key-vault` | GET | requireTenantTier | Enterprise | sí |
 | `/api/intelligence/security/service-cost` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/seguridad/sentinel` | — | — | — | — |
 | `/api/intelligence/sentinel` | — | — | — | — |
-| `/api/intelligence/simulator` | GET, POST | requireTenantTier, requireTenantAccess | Business | sí |
-| `/api/intelligence/simulator/compare` | POST | requireTenantRole, requireTenantTier | Business | sí |
-| `/api/intelligence/simulator/scenarios` | GET, POST | requireTenantRole, requireTenantTier | Business | sí |
+| `/api/intelligence/simulator` | GET, POST | requireTenantTier, requireTenantAccess | Enterprise | sí |
+| `/api/intelligence/simulator/compare` | POST | requireTenantRole, requireTenantTier | Enterprise | sí |
+| `/api/intelligence/simulator/scenarios` | GET, POST | requireTenantRole, requireTenantTier | Enterprise | sí |
 | `/api/intelligence/simulator/scenarios/[id]` | DELETE | requireTenantRole | — | — |
 | `/api/intelligence/storage-efficiency` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/storage-efficiency/history` | GET | requireTenantAccess | — | sí |
@@ -313,12 +330,13 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/storage/managed-disks` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/storage/service-cost` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/sustainability` | GET | requireTenantAccess | — | sí |
-| `/api/intelligence/tenant-health` | GET | requireTenantTier | Business | sí |
+| `/api/intelligence/tenant-health` | GET | requireTenantTier | Enterprise | sí |
 | `/api/intelligence/top-expenses` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/top-spend` | — | — | — | — |
 | `/api/intelligence/unit-economics` | GET, POST | requireTenantRole, requireTenantAccess | — | sí |
 | `/api/intelligence/upload` | POST | requireRequestIdentity | — | — |
-| `/api/intelligence/waf` | GET | requireTenantTier | Business | sí |
+| `/api/intelligence/views` | GET, POST, DELETE | requireTenantRole, requireTenantAccess | — | — |
+| `/api/intelligence/waf` | GET | requireTenantTier | Enterprise | sí |
 | `/api/intelligence/whiteboard` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/zero-cost` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/zombies` | GET | requireTenantAccess | — | sí |
@@ -332,6 +350,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/m365/user-activity` | GET | requireTenantAccess | — | sí |
 | `/api/m365/user-activity/signin-history` | GET | requireTenantAccess | — | sí |
 | `/api/mcp` | GET, POST | — | — | — |
+| `/api/me/scope` | GET | requireTenantAccess | — | sí |
 | `/api/mfa/audit` | GET | requireRequestIdentity | — | sí |
 | `/api/mfa/challenge` | POST | requireRequestIdentity | — | — |
 | `/api/mfa/disable` | POST | requireRequestIdentity | — | — |
@@ -346,12 +365,17 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/onboard` | POST | requireRequestIdentity | — | — |
 | `/api/onboard/complete` | POST | requireRequestIdentity | — | — |
 | `/api/onboard/lighthouse` | GET, POST | requireTenantRole | — | sí |
+| `/api/onboard/lighthouse/[id]` | DELETE | requireTenantRole | — | sí |
+| `/api/onboard/lighthouse/verify` | POST | requireTenantRole | — | sí |
 | `/api/onboarding/finish` | POST | requireRequestIdentity | — | — |
 | `/api/onboarding/progress` | GET, PUT | requireRequestIdentity | — | — |
 | `/api/open-data` | GET, POST | requireSuperAdmin | — | — |
 | `/api/overview/whiteboard` | GET | requireTenantAccess | — | sí |
+| `/api/partner/panel` | GET | — | — | — |
 | `/api/power` | GET, POST | requireTenantRole, requireTenantAccess | — | sí |
 | `/api/power/schedule` | GET, POST, DELETE | requireTenantRole, requireTenantTier | Business | sí |
+| `/api/pricing/modules` | GET | — | — | — |
+| `/api/pricing/plans` | GET | — | — | — |
 | `/api/profile` | GET, PATCH | requireRequestIdentity | — | — |
 | `/api/profile/avatar` | GET, POST, DELETE | requireRequestIdentity | — | — |
 | `/api/recommendations` | GET | requireTenantAccess | — | — |
@@ -364,7 +388,6 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/reports/billing/invoice/pdf` | GET | requireTenantAccess | — | sí |
 | `/api/reports/billing/map-customer` | POST | requireTenantAccess | — | sí |
 | `/api/reports/executive/active-job` | GET | requireTenantAccess | — | sí |
-| `/api/reports/executive/data` | GET | requireTenantAccess | — | sí |
 | `/api/reports/executive/export-pdf` | POST | requireTenantAccess | — | sí |
 | `/api/reports/executive/job-status` | GET | requireTenantAccess | — | sí |
 | `/api/reports/executive/latest` | GET | requireTenantAccess | — | sí |
@@ -375,6 +398,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/reports/history/[id]/download` | GET | requireTenantAccess | — | sí |
 | `/api/reports/history/[id]/rehydrate` | GET | requireTenantAccess | — | sí |
 | `/api/reports/history/download` | POST | requireTenantAccess | — | sí |
+| `/api/reports/subscriptions` | GET, POST, DELETE | requireTenantRole, requireTenantAccess | — | — |
 | `/api/resourcegroups` | GET, POST | requireTenantAccess | — | — |
 | `/api/resources/costs-by-tag` | GET | requireTenantTier | Professional | sí |
 | `/api/resources/created-by` | GET | requireTenantTier | Professional | sí |
@@ -385,19 +409,22 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/rightsizing/sqldb` | GET | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/rightsizing/storage` | GET | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/rightsizing/vmss` | GET | requireTenantRole, requireTenantTier | Business | sí |
+| `/api/search` | GET | requireTenantAccess | — | sí |
 | `/api/status` | GET | — | — | — |
 | `/api/status/incidents` | GET, POST | requireSuperAdmin | — | — |
 | `/api/status/incidents/[id]` | PATCH | requireSuperAdmin | — | — |
 | `/api/subscriptions` | GET | requireTenantAccess | — | — |
 | `/api/super-admin/announcements` | GET, POST | requireSuperAdmin | — | — |
 | `/api/super-admin/announcements/[id]` | PATCH, DELETE | requireSuperAdmin | — | — |
+| `/api/superadmin/affiliates` | GET, POST | requireSuperAdmin | — | — |
 | `/api/superadmin/ai-global-config` | GET, PATCH | requireSuperAdmin | — | — |
 | `/api/superadmin/ai-global-config/delete-key` | POST | requireSuperAdmin | — | — |
 | `/api/superadmin/ai-global-config/test` | POST | requireSuperAdmin | — | — |
+| `/api/superadmin/commissions` | GET, POST | requireSuperAdmin | — | — |
 | `/api/superadmin/funnel` | GET | requireSuperAdmin | — | — |
 | `/api/superadmin/impersonate/start` | POST | requireSuperAdmin | — | — |
-| `/api/superadmin/impersonate/status` | GET | — | — | — |
-| `/api/superadmin/impersonate/stop` | POST | — | — | — |
+| `/api/superadmin/impersonate/status` | GET | requireSuperAdmin | — | — |
+| `/api/superadmin/impersonate/stop` | POST | requireSuperAdmin | — | — |
 | `/api/superadmin/load-test/alerts` | GET | requireSuperAdmin | — | — |
 | `/api/superadmin/load-test/alerts/[id]/ack` | POST | requireSuperAdmin | — | — |
 | `/api/superadmin/load-test/alerts/[id]/resolve` | POST | requireSuperAdmin | — | — |
@@ -411,6 +438,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/superadmin/partner-center/configure-mpn` | POST | requireSuperAdmin | — | — |
 | `/api/superadmin/partner-center/relink` | POST | requireSuperAdmin | — | — |
 | `/api/superadmin/partner-center/status` | GET | requireSuperAdmin | — | — |
+| `/api/superadmin/platform-usage` | GET | requireSuperAdmin | — | sí |
 | `/api/superadmin/pricing-units` | GET, POST | requireSuperAdmin | — | — |
 | `/api/superadmin/pricing-units/reseed` | POST | requireSuperAdmin | — | — |
 | `/api/superadmin/pricing-units/test` | POST | requireSuperAdmin | — | — |
@@ -452,6 +480,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/v1/openapi.json` | GET | — | — | — |
 | `/api/v1/recommendations` | GET | — | — | — |
 | `/api/v1/resources` | GET | — | — | — |
+| `/api/v1/shift-left/estimate` | POST | — | — | — |
 | `/api/webhooks/marketplace/azure` | POST | — | — | — |
 | `/api/webhooks/marketplace/azure/activate` | POST | — | — | — |
 | `/api/webhooks/paddle` | POST | — | — | — |
@@ -462,9 +491,7 @@ Requieren justificación explícita. Son públicas por diseño (pre-login, webho
 firmados, API pública con su propia autenticación por API key, health checks) o
 son un hallazgo. Contrastar contra `docs/lld/03-seguridad-y-rbac.md`.
 
-- `/api/admin/config/markup/simulate`
 - `/api/admin/configuration/markup`
-- `/api/admin/configuration/markup/simulate`
 - `/api/admin/integrations/mcp-keys`
 - `/api/auth/sso/callback`
 - `/api/auth/sso/logout`
@@ -472,11 +499,11 @@ son un hallazgo. Contrastar contra `docs/lld/03-seguridad-y-rbac.md`.
 - `/api/auth/sso/start`
 - `/api/cleanup/networking-zombies`
 - `/api/cleanup/orphan-backups`
+- `/api/commitments/breakeven`
 - `/api/exports/powerbi-feed`
 - `/api/governance/advisor`
 - `/api/health`
 - `/api/intelligence/azure-monitor`
-- `/api/intelligence/executive-report/data`
 - `/api/intelligence/executive-report/export-pdf`
 - `/api/intelligence/executive-report/history`
 - `/api/intelligence/executive-report/history/[id]`
@@ -491,9 +518,10 @@ son un hallazgo. Contrastar contra `docs/lld/03-seguridad-y-rbac.md`.
 - `/api/leads/demo`
 - `/api/loadtest/probe`
 - `/api/mcp`
+- `/api/partner/panel`
+- `/api/pricing/modules`
+- `/api/pricing/plans`
 - `/api/status`
-- `/api/superadmin/impersonate/status`
-- `/api/superadmin/impersonate/stop`
 - `/api/templates/powerbi`
 - `/api/templates/powerbi/[id]`
 - `/api/tenant-logo/[tenantId]`
@@ -507,6 +535,7 @@ son un hallazgo. Contrastar contra `docs/lld/03-seguridad-y-rbac.md`.
 - `/api/v1/openapi.json`
 - `/api/v1/recommendations`
 - `/api/v1/resources`
+- `/api/v1/shift-left/estimate`
 - `/api/webhooks/marketplace/azure`
 - `/api/webhooks/marketplace/azure/activate`
 - `/api/webhooks/paddle`

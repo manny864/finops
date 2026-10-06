@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireTenantRole, requireTenantTier } from "@/lib/requestAuth";
+import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { getAzureCredential } from "@/lib/azure";
 import { applyTagInheritance, ApplyOp } from "@/services/tagInheritanceService";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
@@ -41,7 +43,11 @@ export async function POST(request: NextRequest) {
         // desde Business. El dry-run no muta Azure, así que no se gatea.
         if (!dryRun) {
             await requireTenantTier(request, tenantId, "Business");
+            const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
+            if (bloqueo) return bloqueo;
         }
+        // Las ops vienen del body y cada resourceId se pega al host de ARM.
+        await exigirScopesDelTenant(tenantId, ops.map((op) => op.resourceId));
 
         let credential;
         try {

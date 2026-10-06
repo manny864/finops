@@ -13,6 +13,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
+import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { isMockTenant } from "@/lib/mockData";
 import { getAzureCredential } from "@/lib/azure";
 import { getSubscriptionNameMap } from "@/lib/azureSubscriptionNames";
@@ -139,6 +141,18 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Aprobación: ejecutar en ARM y persistir el resultado real ──
+    // Rechazar no toca Azure; aprobar sí, así que los guards van recién acá.
+    const bloqueo = await bloqueoPorDelegacionDeLectura(tenantId);
+    if (bloqueo) return bloqueo;
+    // El resourceId lo cargó quien pidió el cambio (remediation/workflow acepta
+    // cualquiera): tiene que ser de este tenant. Se validan las dos formas en
+    // que executeApprovedAction arma la ruta, el id entero y las partes
+    // (snapshot previo y apagado).
+    await exigirScopesDelTenant(tenantId, [
+      item.resourceId,
+      `/subscriptions/${item.subscriptionId}/resourceGroups/${item.resourceGroup}/providers/${item.resourceType}/${item.resourceName}`,
+    ]);
+
     const armResult = await executeApprovedAction(tenantId, item, {
       createBackupSnapshot: Boolean(createBackupSnapshot),
     });

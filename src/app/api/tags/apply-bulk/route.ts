@@ -3,6 +3,7 @@ import { ResourceManagementClient } from "@azure/arm-resources";
 import { getAzureCredential } from "@/lib/azure";
 import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { isMockTenant, markMockResourcesAsTagged } from "@/lib/mockData";
 
 // RBAC: Requires Admin/Owner role (same as single-resource tagging)
@@ -45,8 +46,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Todos los recursos tienen que ser de este tenant antes de etiquetar el primero.
+    await exigirScopesDelTenant(tenantId, resourceIds);
+
     const results: Array<{ resourceId: string; success: boolean; error?: string }> = [];
-    
+
     // Process each resource — try all, collect failures
     for (const resourceId of resourceIds) {
       try {
