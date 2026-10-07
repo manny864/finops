@@ -1,6 +1,5 @@
 import { MonitorClient } from "@azure/arm-monitor";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import { errorMessage } from '@/lib/apiErrors';
 
 // Precios públicos aproximados de Azure OpenAI / Foundry (USD por 1K tokens).
@@ -77,7 +76,7 @@ export async function getHistoricalAIUsage(tenantId: string, days: number = 30, 
     const subs = await getSubscriptionsForTenant(tenantId, credential).catch(() => []);
     if (subs.length === 0) return [];
 
-    const argClient = new ResourceGraphClient(credential);
+    const argClient = await getResourceGraphClient(tenantId, credential);
     const query = `
         Resources
         | where type =~ 'microsoft.cognitiveservices/accounts' or type =~ 'microsoft.ai.*'

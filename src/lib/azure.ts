@@ -1,5 +1,5 @@
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { ClientSecretCredential } from "@azure/identity";
+import { ResourceGraphClient, type ResourceGraphModels } from "@azure/arm-resourcegraph";
+import { ClientSecretCredential, type TokenCredential } from "@azure/identity";
 import { ComputeManagementClient } from "@azure/arm-compute";
 import { NetworkManagementClient } from "@azure/arm-network";
 import { CostManagementClient } from "@azure/arm-costmanagement";
@@ -465,16 +465,88 @@ export async function getNetworkClient(tenantId: string, subscriptionId: string)
   return new NetworkManagementClient(credential, subscriptionId);
 }
 
+type ConsultaArg = ResourceGraphModels.QueryRequest;
+// El SDK instalado (4.2.1, Track 1) declara además sobrecargas con callback, que nadie usa.
+type OpcionesArg = Parameters<ResourceGraphClient["resources"]>[1];
+
 /**
- * Cliente de Resource Graph instrumentado.
+ * El scope de una consulta de Resource Graph, recortado al tenant.
+ *
+ * Learn (Resource Graph, "Query scope"): sin `subscriptions` ni
+ * `managementGroups` la consulta abarca todo lo que ve la credencial, "and
+ * includes Azure Lighthouse delegated resources". Con Lighthouse la credencial
+ * es una sola, la nuestra, delegada sobre todos los clientes; con app
+ * registration puede alcanzar suscripciones de otros directorios. Así que toda
+ * consulta sale con las suscripciones que ARM atribuye al tenant, o con la
+ * intersección si el llamador pidió algunas.
+ *
+ * - `managementGroups: [tenantId]`, el MG raíz del propio tenant, pasa intacto:
+ *   con app registration es su directorio, y con Lighthouse ese MG no está en
+ *   el nuestro, así que ARG falla en vez de devolver de más. Cualquier otro MG
+ *   se descarta (Learn: no se puede mandar junto con `subscriptions`).
+ * - null si no queda ninguna: con `subscriptions: []` ARG responde error.
+ * - La lista va ordenada porque el `$skipToken` vale "together with the same
+ *   query and scopes". Learn no documenta un máximo de suscripciones por
+ *   request, y partirla en lotes rompería `summarize` y la paginación.
+ */
+async function acotarAlTenant(tenantId: string, query: ConsultaArg): Promise<ConsultaArg | null> {
+  const { managementGroups, subscriptions: pedidas, ...resto } = query;
+  const propio = tenantId.trim().toLowerCase();
+  if (managementGroups?.length && managementGroups.every((mg) => String(mg).trim().toLowerCase() === propio)) {
+    return query;
+  }
+
+  // Import dinámico: scopeDelTenant importa de este módulo.
+  const { subsDelTenant } = await import("@/lib/scopeDelTenant");
+  const delTenant = await subsDelTenant(tenantId);
+  const candidatas = pedidas?.length ? pedidas.map((s) => String(s).trim().toLowerCase()) : [...delTenant];
+  const subscriptions = [...new Set(candidatas.filter((s) => delTenant.has(s)))].sort();
+  return subscriptions.length > 0 ? { ...resto, subscriptions } : null;
+}
+
+/** Ver `acotarAlTenant`. Sólo la fábrica lo construye: lo cuida aislamientoResourceGraph.test.ts. */
+class ResourceGraphDelTenant extends ResourceGraphClient {
+  constructor(credential: TokenCredential, private readonly tenantId: string) {
+    super(credential);
+  }
+
+  override async resources(query: ConsultaArg, options?: OpcionesArg): Promise<ResourceGraphModels.ResourcesResponse> {
+    const acotada = await acotarAlTenant(this.tenantId, query);
+    if (acotada) return super.resources(acotada, options);
+    const tabla = query.options?.resultFormat === "table";
+    // Sin `_response` porque no hubo request HTTP; ningún llamador lo lee.
+    return {
+      totalRecords: 0,
+      count: 0,
+      resultTruncated: "false",
+      data: tabla ? { columns: [], rows: [] } : [],
+    } as ResourceGraphModels.ResourcesResponse;
+  }
+
+  /** Tiene el mismo scope implícito que `resources` y nadie lo usa: acotarlo igual antes de habilitarlo. */
+  override resourcesHistory(): never {
+    throw new Error("resourcesHistory no está acotado al tenant: ver acotarAlTenant en lib/azure.ts.");
+  }
+}
+
+/**
+ * Cliente de Resource Graph instrumentado y acotado al tenant.
  *
  * El policy de cuota se engancha acá y no en cada call site porque esta factory
  * ya es el punto único: la usan 130 lugares. Cada respuesta de ARG trae
- * `x-ms-user-quota-remaining`, que antes se descartaba.
+ * `x-ms-user-quota-remaining`, que antes se descartaba. Por lo mismo el scope
+ * se fija acá y no en cada consulta (ver `acotarAlTenant`).
+ *
+ * Ojo: el SDK instalado (4.2.1, Track 1) no expone `pipeline`, así que
+ * `attachQuotaTracking` no engancha nada y la cuota de ARG no se mide (visto
+ * el 2026-10-06).
+ *
+ * `credential` es la que el llamador ya tenga, para no pedir otro token:
+ * `getAzureCredential` arma una por llamada. El scope sale igual de `tenantId`.
  */
-export async function getResourceGraphClient(tenantId: string) {
-  const credential = await getAzureCredential(tenantId);
-  return attachQuotaTracking(new ResourceGraphClient(credential), tenantId, 'RESOURCE_GRAPH');
+export async function getResourceGraphClient(tenantId: string, credential?: TokenCredential) {
+  const cred = credential ?? (await getAzureCredential(tenantId));
+  return attachQuotaTracking(new ResourceGraphDelTenant(cred, tenantId), tenantId, 'RESOURCE_GRAPH');
 }
 
 /**

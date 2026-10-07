@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAzureCredential } from "@/lib/azure";
+import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
 import { AuthError, requireTenantRole, requireTenantTier } from "@/lib/requestAuth";
 import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
 import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
@@ -7,7 +7,6 @@ import { isMockTenant } from "@/lib/mockData";
 import { errorMessage, errorStatus } from "@/lib/apiErrors";
 import { saveLocalCachedTags } from "@/services/azureTagGovernance.service";
 import { applyTagInheritance, type ApplyOp } from "@/services/tagInheritanceService";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +49,7 @@ export async function POST(req: NextRequest) {
     // que ser de una suscripción de este tenant.
     await exigirScopesDelTenant(tenantId, [resourceGroupId]);
     const credential = await getAzureCredential(tenantId);
-    const client = new ResourceGraphClient(credential);
+    const client = await getResourceGraphClient(tenantId, credential);
 
     // Parse subscription and RG name from ID
     // ID format: /subscriptions/{subId}/resourceGroups/{rgName}

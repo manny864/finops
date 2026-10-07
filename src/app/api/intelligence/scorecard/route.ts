@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAzureCredential } from "@/lib/azure";
+import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import pool from "@/modules/storage/db";
 import { errorMessage } from '@/lib/apiErrors';
 import { alcanceDeLaRuta } from "@/services/perspectivesData.service";
@@ -32,7 +31,7 @@ export async function GET(request: NextRequest) {
             let argClient;
             try {
                 credential = await getAzureCredential(tenantId);
-                argClient = new ResourceGraphClient(credential);
+                argClient = await getResourceGraphClient(tenantId, credential);
             } catch (e) {
                 console.warn(`[Scorecard] Sin credenciales para ${tenantId}:`, errorMessage(e));
                 return [];

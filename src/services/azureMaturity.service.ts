@@ -3,10 +3,9 @@
  * Focus: 6 FinOps Foundation domains (Visibility, Rate Opt, Usage Opt, Governance, Automation, Culture).
  */
 
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { AdvisorManagementClient } from "@azure/arm-advisor";
 import { ConsumptionManagementClient } from "@azure/arm-consumption";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 import type {
   MaturityDimension,
@@ -345,7 +344,7 @@ export async function getLiveMaturityData(tenantId: string): Promise<MaturityPay
     // 2. Consulta ARG para cumplimiento de Tags
     let tagCoveragePct = 50;
     try {
-      const argClient = new ResourceGraphClient(credential);
+      const argClient = await getResourceGraphClient(tenantId, credential);
       const tagQuery = `
         resources
         | summarize

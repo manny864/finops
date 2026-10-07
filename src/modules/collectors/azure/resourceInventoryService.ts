@@ -1,6 +1,5 @@
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import { resolveCostColumn, isCostUsdUnsupportedError, degradeCostColumn, type CostColumn } from "@/lib/azureCostColumn";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import { withRetry, mapWithConcurrency } from "./billing/billingHelpers";
@@ -28,7 +27,7 @@ export interface InventoryResourceRow {
 async function runResourceGraphQuery(tenantId: string, subs: string[], query: string, top?: number, skip?: number): Promise<any[]> {
     if (subs.length === 0) return [];
     const credential = await getAzureCredential(tenantId);
-    const client = new ResourceGraphClient(credential);
+    const client = await getResourceGraphClient(tenantId, credential);
     const rows: any[] = [];
     let skipToken: string | undefined;
     do {

@@ -1,5 +1,4 @@
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import {
     calculateEmissions,
     calculateDiskEmissions,
@@ -53,7 +52,7 @@ async function computeCarbonFootprint(tenantId: string, subscriptionId: string):
         };
     }
 
-    const client = new ResourceGraphClient(credential);
+    const client = await getResourceGraphClient(tenantId, credential);
     let vms: any[] = [];
     let disks: any[] = [];
     let storageAccts: any[] = [];

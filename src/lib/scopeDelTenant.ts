@@ -1,11 +1,12 @@
 /**
- * Frontera entre clientes para lo que se escribe en Azure.
+ * Frontera entre clientes para lo que se lee o se escribe en Azure.
  *
  * Con Lighthouse la credencial es una sola, la nuestra, delegada sobre las
  * suscripciones de TODOS los clientes (`getLighthouseCredential`). ARM no sabe
- * qué tenant de la plataforma hace el pedido: si el body trae el id de un
- * recurso de otro cliente, ARM lo ejecuta. Este chequeo es lo único que lo
- * impide, y por eso va antes de cada escritura cuyo scope viene del llamador.
+ * qué tenant de la plataforma hace el pedido: si el request trae el id de un
+ * recurso de otro cliente, ARM lo ejecuta o lo devuelve. Este chequeo es lo
+ * único que lo impide, y por eso va antes de cada llamada cuyo scope viene del
+ * llamador, sea escritura o lectura.
  *
  * Vive fuera de `azure.ts` para que los tests puedan simular
  * `listTenantSubscriptions`: una llamada interna del mismo módulo no se mockea.
@@ -44,6 +45,48 @@ function destinoDelScope(scope: unknown): string | null {
 }
 
 /**
+ * Las suscripciones del tenant según ARM, 60 s en memoria.
+ *
+ * Desde que las lecturas pasan por acá, el chequeo corre en rutas calientes:
+ * un tablero dispara varias en paralelo con la misma suscripción, y cada
+ * consulta de Resource Graph se acota con esta lista (`getResourceGraphClient`
+ * en lib/azure.ts). Sin memoria,
+ * cada una pagaba un `GET /subscriptions` a ARM (0,35 a 0,9 s medidos el
+ * 2026-10-06) y, con app registration, además un token nuevo, porque
+ * `getAzureCredential` arma una credencial por llamada. Las concurrentes
+ * comparten la misma promesa.
+ *
+ * No se reusa `getAllSubscriptionsForTenant`, que también cachea 60 s, porque
+ * si ARM falla devuelve lo que hay en base, y eso no sirve de autoridad. Acá
+ * un fallo no se recuerda: el pedido siguiente vuelve a preguntarle a ARM.
+ * Una lista vacía tampoco, por el mismo motivo que allá: suele ser un 429 o
+ * un permiso que todavía no propagó, y negaría todo durante un minuto.
+ */
+const SUBS_TTL_MS = 60_000;
+const subsPorTenant = new Map<string, { subs: Promise<Set<string>>; expira: number }>();
+
+export function subsDelTenant(tenantId: string): Promise<Set<string>> {
+  const vigente = subsPorTenant.get(tenantId);
+  if (vigente && Date.now() < vigente.expira) return vigente.subs;
+
+  const entrada = {
+    subs: listTenantSubscriptions(tenantId).then((l) => new Set(l.map((s) => s.subscriptionId.toLowerCase()))),
+    expira: Date.now() + SUBS_TTL_MS,
+  };
+  const olvidar = () => {
+    if (subsPorTenant.get(tenantId) === entrada) subsPorTenant.delete(tenantId);
+  };
+  entrada.subs.then((s) => s.size === 0 && olvidar(), olvidar);
+  subsPorTenant.set(tenantId, entrada);
+  return entrada.subs;
+}
+
+/** Para los tests, que simulan distintas listas para el mismo tenant. */
+export function olvidarSubsDelTenant(): void {
+  subsPorTenant.clear();
+}
+
+/**
  * Exige que cada scope sea del tenant. Si alguno no lo es, lanza un AuthError
  * 404 (no 403) para no confirmar que el recurso de otro cliente existe. Las
  * rutas ya responden un AuthError con su status, así que el 404 llega sin tocar
@@ -52,8 +95,8 @@ function destinoDelScope(scope: unknown): string | null {
  * - Suscripción: tiene que estar en lo que ARM atribuye al directorio del
  *   tenant (`listTenantSubscriptions`). No se usa `getSubscriptionsForTenant`
  *   porque, si ARM no contesta, cae a `TenantDelegations`, que el propio tenant
- *   carga sin verificar, y una escritura no se autoriza con un dato que aportó
- *   quien la pide. Si ARM falla, no se escribe.
+ *   carga sin verificar, y un acceso no se autoriza con un dato que aportó
+ *   quien lo pide. Si ARM falla, no se lee ni se escribe.
  * - Nivel tenant: ARM lo resuelve en el directorio del TOKEN (Learn,
  *   Reservation - List All: "in the current tenant"). Con app registration ese
  *   directorio es el del cliente. Con Lighthouse es el nuestro, porque
@@ -71,13 +114,42 @@ export async function exigirScopesDelTenant(tenantId: string, scopes: unknown[])
     propio = (await getAccessModel(tenantId)) !== "lighthouse";
   }
   if (propio && subs.length > 0) {
-    const delTenant = new Set(
-      (await listTenantSubscriptions(tenantId)).map((s) => s.subscriptionId.toLowerCase())
-    );
+    const delTenant = await subsDelTenant(tenantId);
     propio = subs.every((s) => delTenant.has(s));
   }
   if (!propio) {
-    console.warn(`[scope] ${tenantId} pidió escribir fuera de su tenant:`, JSON.stringify(scopes).slice(0, 500));
+    console.warn(`[scope] ${tenantId} pidió un scope fuera de su tenant:`, JSON.stringify(scopes).slice(0, 500));
     throw new AuthError("El recurso no existe o no pertenece a este tenant.", 404);
   }
+}
+
+/**
+ * Para las lecturas que reciben UNA suscripción opcional (`?subscriptionId=`).
+ * Vacía o "All" significa "todas las del tenant": esas rutas arman la lista
+ * ellas mismas, así que no hay nada que validar. Existe para no repetir esa
+ * condición en treinta rutas, donde un error de tipeo abre la frontera.
+ */
+export async function exigirSuscripcionDelTenant(tenantId: string, subscriptionId: string | null | undefined): Promise<void> {
+  if (subscriptionId && subscriptionId.toLowerCase() !== "all") {
+    await exigirScopesDelTenant(tenantId, [subscriptionId]);
+  }
+}
+
+/**
+ * Para las lecturas que reciben VARIAS suscripciones: devuelve las del tenant
+ * y descarta el resto en silencio, así un filtro viejo de la UI no rompe la
+ * pantalla. Si no queda ninguna responde 404, igual que una sola ajena: varios
+ * llamadores toman la lista vacía como "sin filtro", y una consulta de Resource
+ * Graph sin suscripciones abarca todo lo que ve la credencial, que con
+ * Lighthouse son todos los clientes.
+ */
+export async function soloSuscripcionesDelTenant(tenantId: string, subscriptionIds: string[]): Promise<string[]> {
+  if (isMockTenant(tenantId)) return subscriptionIds;
+  const delTenant = await subsDelTenant(tenantId);
+  const propias = subscriptionIds.filter((s) => GUID.test(s) && delTenant.has(s.toLowerCase()));
+  if (propias.length === 0) {
+    console.warn(`[scope] ${tenantId} pidió suscripciones fuera de su tenant:`, JSON.stringify(subscriptionIds).slice(0, 500));
+    throw new AuthError("El recurso no existe o no pertenece a este tenant.", 404);
+  }
+  return propias;
 }

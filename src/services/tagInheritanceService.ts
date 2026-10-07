@@ -11,7 +11,7 @@
  */
 
 import { TokenCredential } from "@azure/identity";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
+import { getResourceGraphClient } from "@/lib/azure";
 import { errorMessage } from '@/lib/apiErrors';
 
 export interface MissingTagsRow {
@@ -87,11 +87,12 @@ export function describeArmError(status: number, rawBody: string): string {
  * Opcionalmente se filtran las tag keys (si no, todas las del RG se consideran).
  */
 export async function analyzeMissingTags(
+    tenantId: string,
     credential: TokenCredential,
     subscriptionId: string,
     options: { tagKeys?: string[]; limit?: number } = {}
 ): Promise<MissingTagsRow[]> {
-    const client = new ResourceGraphClient(credential);
+    const client = await getResourceGraphClient(tenantId, credential);
     const limit = options.limit || 500;
 
     const subFilter = subscriptionId && subscriptionId !== "All"

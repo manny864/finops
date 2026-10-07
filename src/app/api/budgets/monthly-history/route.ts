@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getBudgetCostCenterMonthlyHistory } from "@/services/budgetService";
 import { isMockTenant } from "@/lib/mockData";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 /**
@@ -31,6 +32,7 @@ export async function GET(request: NextRequest) {
         if (isMockTenant(tenantId)) {
             return NextResponse.json({ success: true, mock: true, monthlyHistory: [] });
         }
+        await exigirSuscripcionDelTenant(tenantId, subscriptionId);
 
         const monthlyHistory = await getBudgetCostCenterMonthlyHistory(tenantId, subscriptionId, costCenter, months);
 

@@ -4,8 +4,7 @@
  * and orphan pipeline purge.
  */
 
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 import type {
   AdfResourceItem,
@@ -281,7 +280,7 @@ export async function fetchAdfData(tenantId: string): Promise<AdfPayload> {
     };
   }
 
-  const client = new ResourceGraphClient(credentials);
+  const client = await getResourceGraphClient(tenantId, credentials);
 
   const query = `
     resources

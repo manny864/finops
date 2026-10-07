@@ -38,9 +38,7 @@ describe('getCachedCarbonFootprint', () => {
         vi.doMock('@/lib/azure', () => ({
             getAzureCredential: async () => ({ fake: true }),
             getSubscriptionsForTenant: async () => ['sub-a'],
-        }));
-        vi.doMock('@azure/arm-resourcegraph', () => ({
-            ResourceGraphClient: class {
+            getResourceGraphClient: async () => ({
                 async resources({ query }: { query: string }) {
                     if (query.includes('virtualMachines')) return { data: [] };
                     if (query.includes('Unattached')) {
@@ -49,7 +47,7 @@ describe('getCachedCarbonFootprint', () => {
                     if (query.includes('storageAccounts')) return { data: [] };
                     return { data: [] };
                 }
-            },
+            }),
         }));
         const { getCachedCarbonFootprint } = await import('@/lib/carbonFootprint');
 

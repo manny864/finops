@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential } from "@/lib/azure";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getReservationUtilizationTrend } from "@/services/reservationService";
 
@@ -27,6 +28,12 @@ export async function GET(request: NextRequest) {
         if (isMockTenant(tenantId)) {
             return NextResponse.json({ success: true, data: getMockDataForRoute("reservation_utilization", tenantId) });
         }
+        // Misma frontera que el PATCH de renew: la reserva es de nivel tenant,
+        // así que con Lighthouse se resolvería en nuestro directorio, y orderId
+        // o reservationId con `..` armarían otra ruta de ARM.
+        await exigirScopesDelTenant(tenantId, [
+            `/providers/Microsoft.Capacity/reservationOrders/${orderId}/reservations/${reservationId}`,
+        ]);
 
         const credential = await getAzureCredential(tenantId);
         const data = await getReservationUtilizationTrend(credential, orderId, reservationId, tenantId);

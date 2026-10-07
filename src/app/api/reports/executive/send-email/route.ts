@@ -6,6 +6,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { AuthError, requireTenantAccess } from '@/lib/requestAuth';
+import { exigirSuscripcionDelTenant } from '@/lib/scopeDelTenant';
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 import pool, { initializeDatabase } from '@/modules/storage/db';
 import { isMockTenant } from '@/lib/mockData';
@@ -43,6 +44,8 @@ export async function POST(request: NextRequest) {
         if (!isMockTenant(tenantId)) {
             await initializeDatabase();
             await requireTenantAccess(request, tenantId);
+            // Fuera de TENANT_ALL el scopeId llega como suscripción a Azure.
+            if (scope !== 'TENANT_ALL') await exigirSuscripcionDelTenant(tenantId, scopeId);
             const [tRows] = await pool.query<any[]>('SELECT name FROM Tenants WHERE tenant_id = ? LIMIT 1', [tenantId]);
             tenantName = tRows[0]?.name || tenantId;
         }

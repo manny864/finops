@@ -15,17 +15,15 @@ vi.mock("@/lib/requestAuth", () => ({
     },
 }));
 vi.mock("@/lib/mockData", () => ({ isMockTenant: (t: string) => t === "demo_tenant" }));
-vi.mock("@/lib/azure", () => ({ getAzureCredential: vi.fn(async () => ({})) }));
+vi.mock("@/lib/azure", () => ({
+    getAzureCredential: vi.fn(async () => ({})),
+    getResourceGraphClient: vi.fn(async () => ({ resources: argMock })),
+}));
 // Los guards de escritura tienen sus propios tests (scopeDelTenant y lighthouseGuardEscritura).
 vi.mock("@/lib/lighthouseAccess", () => ({ bloqueoPorDelegacionDeLectura: vi.fn(async () => null) }));
 vi.mock("@/lib/scopeDelTenant", () => ({ exigirScopesDelTenant: vi.fn(async () => {}) }));
 vi.mock("@/services/azureTagGovernance.service", () => ({ saveLocalCachedTags: saveCacheMock }));
 vi.mock("@/services/tagInheritanceService", () => ({ applyTagInheritance: applyMock }));
-vi.mock("@azure/arm-resourcegraph", () => ({
-    ResourceGraphClient: class {
-        resources = argMock;
-    },
-}));
 
 import { POST } from "@/app/api/governance/tags/inherit-rg/route";
 

@@ -3,8 +3,7 @@
  * Focus: Inventory, telemetry aggregation, unit economics, and FinOps optimization recommendations.
  */
 
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import type {
   VisionVideoResource,
   VisionVideoSummary,
@@ -349,7 +348,7 @@ export async function getLiveVisionVideoData(
       };
     }
 
-    const argClient = new ResourceGraphClient(credential);
+    const argClient = await getResourceGraphClient(tenantId, credential);
     const response = await argClient.resources({ query, subscriptions: subs });
     const rawResults = (response.data as any[]) || [];
 

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import { runGraphAudits } from "@/services/auditService";
 import { getMonthlyCostEstimate } from "@/services/pricingService";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { withArgLimit } from "@/lib/argConcurrency";
 import { getExemptionsForTenant } from "@/modules/storage/recommendationExemptions";
@@ -32,7 +32,7 @@ export interface AuditFullResponse {
 async function computeAuditPayload(tenantId: string, subscriptionId: string | null): Promise<AuditPayload> {
     // 2. Obtener Cliente Autenticado
     const credential = await getAzureCredential(tenantId);
-    const resourceGraphClient = new ResourceGraphClient(credential);
+    const resourceGraphClient = await getResourceGraphClient(tenantId, credential);
 
     // 3. Orquestar Servicios de Auditoría
     const graphResults = await runGraphAudits(resourceGraphClient, credential, tenantId, subscriptionId || undefined);
@@ -241,6 +241,8 @@ export async function GET(request: NextRequest) {
     }
 
     await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+    // Antes del cache: lo cacheado antes de este chequeo puede ser de otro tenant.
+    await exigirSuscripcionDelTenant(tenantId, subscriptionId);
 
     // Cache Redis SWR: evita relanzar las ~47 queries de ARG en cada refresh.
     const cacheKey = `audit:full:v1:${tenantId}:${(subscriptionId || 'all').toLowerCase()}`;

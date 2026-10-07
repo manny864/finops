@@ -29,7 +29,7 @@ async function fetchRetailPrice(sku: string, location: string, isReservation: bo
     return 0;
 }
 
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
+import { getResourceGraphClient } from "@/lib/azure";
 import { getRetailPricing } from "./pricingService";
 import { errorMessage } from '@/lib/apiErrors';
 
@@ -53,9 +53,9 @@ export interface RateRecommendation {
     savings3Y: number;
 }
 
-export async function calculateReservationSavings(credential: TokenCredential, subscriptionId: string): Promise<RateRecommendation[]> {
+export async function calculateReservationSavings(tenantId: string, credential: TokenCredential, subscriptionId: string): Promise<RateRecommendation[]> {
     try {
-        const client = new ResourceGraphClient(credential);
+        const client = await getResourceGraphClient(tenantId, credential);
         // Expand the query to include other reservation-capable resources
         const query = `
             Resources

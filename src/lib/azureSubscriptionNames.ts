@@ -1,6 +1,5 @@
 import { errorMessage } from '@/lib/apiErrors';
-import { listTenantSubscriptions } from '@/lib/azure';
-import { ResourceGraphClient } from '@azure/arm-resourcegraph';
+import { listTenantSubscriptions, getResourceGraphClient } from '@/lib/azure';
 import { withArgLimit } from '@/lib/argConcurrency';
 
 // CostSnapshots sólo guarda subscription_id (GUID) — para mostrar el nombre
@@ -25,7 +24,7 @@ export async function getSubscriptionNameMap(tenantId: string, credential: any):
 
     // 2. Complemento / Fallback directo desde Azure Resource Graph
     try {
-        const client = new ResourceGraphClient(credential);
+        const client = await getResourceGraphClient(tenantId, credential);
         const argRes = await withArgLimit(() =>
             client.resources({
                 query: "ResourceContainers | where type =~ 'microsoft.resources/subscriptions' | project subscriptionId, name"

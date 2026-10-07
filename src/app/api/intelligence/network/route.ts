@@ -3,6 +3,7 @@ import { getAzureCredential } from "@/lib/azure";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { getNetworkEgressCosts } from "@/services/networkCostService";
 import { requireRequestIdentity, requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { findCostColumnIndex } from "@/lib/azureCostColumn";
 import { errorMessage } from '@/lib/apiErrors';
@@ -20,6 +21,7 @@ export async function GET(request: NextRequest) {
 
         const tenantId = request.headers.get("x-tenant-id") ?? identity.tenantId;
         await requireTenantAccess(request, tenantId);
+        await exigirScopesDelTenant(tenantId, [subscriptionId]);
 
         // Tenant demo: se sirve el payload de ejemplo en vez de consultar Azure,
         // que para el tenant de demostración no tiene credencial ni datos.

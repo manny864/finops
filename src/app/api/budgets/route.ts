@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { getBudgetConsumption, calculateBudgetProjection, getDiscoveredCostCenterTags } from "@/services/budgetService";
 // RBAC: GET requiere pertenencia al tenant (read). POST (crear/actualizar budget)
 // requiere rol Admin/Owner — es un control de gobernanza financiera.
@@ -27,6 +28,7 @@ export async function GET(request: NextRequest) {
         }
 
         await requireTenantAccess(request, tenantId);
+        await exigirSuscripcionDelTenant(tenantId, subscriptionId);
 
         const [rows]: any = await pool.query(
             "SELECT * FROM Budgets WHERE tenant_id = ?",

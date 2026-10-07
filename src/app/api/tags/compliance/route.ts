@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { GLOBAL_MANDATORY_TAGS } from "@/lib/tagConfig";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
@@ -50,12 +51,13 @@ export async function GET(req: NextRequest) {
         if (isMockTenant(tenantId)) {
             return NextResponse.json(getMockDataForRoute("tags_compliance", tenantId));
         }
+        await exigirSuscripcionDelTenant(tenantId, subscriptionId);
 
         const cacheKey = `tags_compliance_v2_${tenantId}_${subscriptionId || 'all'}`;
 
         const fetcher = async () => {
             const credential = await getAzureCredential(tenantId);
-            const client = new ResourceGraphClient(credential);
+            const client = await getResourceGraphClient(tenantId, credential);
 
             let subs: string[] = [];
             if (subscriptionId && subscriptionId.toLowerCase() !== 'all') {

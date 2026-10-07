@@ -4,6 +4,7 @@ import { urlPublica } from "@/lib/urlPublica";
 import pool from "@/modules/storage/db";
 import { sendWebhookAlert } from "@/lib/notifications";
 import { AuthError, requireTenantAccess, requireTenantRole } from "@/lib/requestAuth";
+import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { computeStats, runAnomalyDetection, persistAndNotifyAnomalies, ANOMALY_STATUSES, zScore } from "@/services/anomalyDetectionService";
 import { errorMessage } from '@/lib/apiErrors';
 
@@ -20,6 +21,7 @@ export async function GET(request: NextRequest) {
 
         // Auth antes de cualquier branch (incl. mock), consistente con el resto de rutas.
         await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+        await exigirSuscripcionDelTenant(tenantId, subscriptionId);
 
         // ── MOCK ──────────────────────────────────────────────────────────────
         if (isMockTenant(tenantId)) {

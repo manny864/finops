@@ -1,5 +1,5 @@
 import { getAzureCredential, getSubscriptionsForTenant } from "../lib/azure";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
+import { getResourceGraphClient } from "@/lib/azure";
 import { kqlCatalog } from "../modules/core/kqlCatalog";
 import { withArgLimit } from "../lib/argConcurrency";
 
@@ -23,7 +23,7 @@ export type TtlResourceType = typeof TTL_RESOURCE_TYPES[number];
 
 export async function findExpiredResources(tenantId: string) {
     const credential = await getAzureCredential(tenantId);
-    const client = new ResourceGraphClient(credential);
+    const client = await getResourceGraphClient(tenantId, credential);
 
     const query = kqlCatalog.expiredTtlResources;
     if (!query) throw new Error("Query no encontrada en KQL Catalog");
@@ -107,7 +107,7 @@ export async function findExpiredResources(tenantId: string) {
  */
 export async function getUnlabeledResources(tenantId: string, resourceType: TtlResourceType) {
     const credential = await getAzureCredential(tenantId);
-    const client = new ResourceGraphClient(credential);
+    const client = await getResourceGraphClient(tenantId, credential);
 
     const query = `Resources | where type =~ '${resourceType}' | where isempty(tags['ExpireOn']) and isempty(tags['TTL']) | project id, name, type, resourceGroup, subscriptionId, tags`;
 

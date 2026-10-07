@@ -23,6 +23,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { redis } from "@/lib/redis";
 import pool from "@/modules/storage/db";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
@@ -207,6 +208,7 @@ export async function GET(request: NextRequest) {
         if (isMockTenant(tenantId)) {
             return NextResponse.json(getMockDataForRoute("cost-projection", tenantId));
         }
+        await exigirSuscripcionDelTenant(tenantId, subscriptionId);
 
         // MEJ-34: alcance transversal de Perspective, resuelto UNA vez.
         const permiso: Permiso | null = identidad.alcance ?? null;
@@ -367,6 +369,7 @@ export async function GET(request: NextRequest) {
             scopeApplied: recorte !== null,
         });
     } catch (error) {
+        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("API GET /intelligence/cost-projection error:", error);
         return NextResponse.json({ error: "Fallo al calcular gastos y proyección" }, { status: 500 });
     }

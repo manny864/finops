@@ -5,11 +5,9 @@ let rgCall = 0;
 vi.mock("@/lib/azure", () => ({
     getAzureCredential: vi.fn().mockResolvedValue({ getToken: vi.fn().mockResolvedValue({ token: "tok" }) }),
     getSubscriptionsForTenant: vi.fn().mockResolvedValue(["sub-1"]),
-}));
-vi.mock("@azure/arm-resourcegraph", () => ({
-    ResourceGraphClient: class {
-        resources() { return Promise.resolve({ data: rgData[rgCall++] ?? [] }); }
-    },
+    getResourceGraphClient: async () => ({
+        resources: () => Promise.resolve({ data: rgData[rgCall++] ?? [] }),
+    }),
 }));
 
 import { getGovernanceReport } from "@/services/governanceReportingService";

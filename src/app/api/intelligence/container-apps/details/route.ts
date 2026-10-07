@@ -18,7 +18,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantAccess, requireTenantTier } from "@/lib/requestAuth";
+import { AuthError, requireTenantAccess, requireTenantTier } from "@/lib/requestAuth";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { isMockTenant } from "@/lib/mockData";
 import { getAzureCredential } from "@/lib/azure";
 
@@ -154,6 +155,7 @@ export async function GET(request: NextRequest) {
 
     if (!isMockTenant(tenantId)) {
       await requireTenantTier(request, tenantId, "Business");
+      await exigirScopesDelTenant(tenantId, [subscriptionId]);
     } else {
       await requireTenantAccess(request, tenantId);
     }
@@ -320,6 +322,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(detail);
   } catch (error) {
+    if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error("[Container App Details] Error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Internal server error" },

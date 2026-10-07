@@ -18,7 +18,11 @@ const TENANT = '81ebe027-e6af-4e09-bc73-58c9012c6408';
 vi.mock('@/lib/azure', () => ({
     getAzureCredential: async () => ({ fake: true }),
     getSubscriptionsForTenant: async () => ['sub-a'],
+    getResourceGraphClient: async () => ({ resources: (q: { query: string }) => argResources(q) }),
 }));
+
+// Lo que responde Resource Graph en cada test (ver mockResourceGraph).
+let argResources: (q: { query: string }) => Promise<{ data: any[] }>;
 
 vi.mock('@/lib/azureSubscriptionNames', () => ({
     getSubscriptionNameMap: async () => new Map([['sub-a', 'Sub A']]),
@@ -42,29 +46,25 @@ const RESOURCES = [
 const COSTS: Record<string, number> = { '/sub/r-a': 1, '/sub/r-b': 50, '/sub/r-c': 999 };
 
 function mockResourceGraph(resources: typeof RESOURCES) {
-    vi.doMock('@azure/arm-resourcegraph', () => ({
-        ResourceGraphClient: class {
-            async resources({ query }: { query: string }) {
-                if (query.includes('summarize c = count()')) {
-                    return { data: [{ c: resources.length }] };
-                }
-                if (query.includes('| project id, subscriptionId')) {
-                    return { data: resources.map(r => ({ id: r.id, subscriptionId: r.subscriptionId })) };
-                }
-                if (query.includes('where id in (')) {
-                    const m = query.match(/where id in \(([^)]*)\)/);
-                    const ids = new Set((m?.[1] || '').split(',').map(s => s.replace(/'/g, '')));
-                    return { data: resources.filter(r => ids.has(r.id)) };
-                }
-                if (query.includes('order by name asc')) {
-                    const sorted = [...resources].sort((a, b) => a.name.localeCompare(b.name));
-                    return { data: sorted };
-                }
-                // summarize by resourceGroup/subscriptionId, tags CostCenter, etc.
-                return { data: [] };
-            }
-        },
-    }));
+    argResources = async ({ query }) => {
+        if (query.includes('summarize c = count()')) {
+            return { data: [{ c: resources.length }] };
+        }
+        if (query.includes('| project id, subscriptionId')) {
+            return { data: resources.map(r => ({ id: r.id, subscriptionId: r.subscriptionId })) };
+        }
+        if (query.includes('where id in (')) {
+            const m = query.match(/where id in \(([^)]*)\)/);
+            const ids = new Set((m?.[1] || '').split(',').map(s => s.replace(/'/g, '')));
+            return { data: resources.filter(r => ids.has(r.id)) };
+        }
+        if (query.includes('order by name asc')) {
+            const sorted = [...resources].sort((a, b) => a.name.localeCompare(b.name));
+            return { data: sorted };
+        }
+        // summarize by resourceGroup/subscriptionId, tags CostCenter, etc.
+        return { data: [] };
+    };
 }
 
 function mockCostManagement(costs: Record<string, number>) {

@@ -3,8 +3,7 @@
  * Focus: SKU arbitrage (Dev/Test -> Developer tier), Premium unit rightsizing, throughput/capacity optimization, and response cache acceleration.
  */
 
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 import type {
   ApimResourceItem,
@@ -395,7 +394,7 @@ export async function getLiveApimData(tenantId: string): Promise<ApimPayload> {
     };
   }
 
-  const argClient = new ResourceGraphClient(credential);
+  const argClient = await getResourceGraphClient(tenantId, credential);
   const kql = `
     resources
     | where type =~ "microsoft.apimanagement/service"

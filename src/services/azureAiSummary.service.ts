@@ -21,7 +21,7 @@
 import { Decimal } from "decimal.js";
 import { isMockTenant } from "@/lib/mockData";
 import { getCachedCapabilities, cacheCapabilities } from "@/lib/aiServiceCache";
-import { getAzureCredential } from "@/lib/azure";
+import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
 import { selectLatestAzureAiSnapshots } from "@/lib/azureAiCost";
 import { syncAzureSearchSnapshots, getAzureSearchResources, getAzureSearchRealCost } from "@/modules/collectors/azure/azureSearchCollector";
 import { syncDocIntelSnapshots, getDocIntelResources, getDocIntelRealCost } from "@/modules/collectors/azure/docIntelCollector";
@@ -635,14 +635,12 @@ async function fetchFoundryCapability(tenantId: string): Promise<CachedCapabilit
         const credential = await getAzureCredential(tenantId).catch(() => null);
         if (credential) {
           // Query Resource Graph for Foundry resources, then get cost for each
-          const { ResourceGraphClient } = await import("@azure/arm-resourcegraph");
-          const rgClient = new ResourceGraphClient(credential);
+          const rgClient = await getResourceGraphClient(tenantId, credential);
           const queryResult = await rgClient.resources({
             query: `resources
 | where type =~ "Microsoft.CognitiveServices/accounts"
 | where kind in~ ("OpenAI", "AIServices")
 | project id, name, location, resourceGroup`,
-            subscriptions: [],
           });
           const foundryResources = (queryResult.data as Array<{ id: string; name: string; location: string; resourceGroup: string }>) || [];
           let totalCost = 0;

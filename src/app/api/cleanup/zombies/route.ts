@@ -7,11 +7,11 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import { runGraphAudits } from "@/services/auditService";
 import { getMonthlyCostEstimate } from "@/services/pricingService";
 import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
+import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { getWithStaleWhileRevalidate, invalidateCache } from "@/lib/cache";
 import { isMockTenant } from "@/lib/mockData";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
@@ -57,7 +57,7 @@ async function queryResourceGraphWithRetry(
 async function scanLiveZombiesFromARG(tenantId: string, subscriptionId?: string | null): Promise<any[]> {
   try {
     const credential = await getAzureCredential(tenantId);
-    const resourceGraphClient = new ResourceGraphClient(credential);
+    const resourceGraphClient = await getResourceGraphClient(tenantId, credential);
 
     let subs: string[] = [];
     if (subscriptionId && subscriptionId.toLowerCase() !== "all") {
@@ -276,6 +276,7 @@ export async function GET(request: NextRequest) {
     }
 
     await requireTenantAccess(request, tenantId);
+    await exigirSuscripcionDelTenant(tenantId, subscriptionId);
 
     const cacheKey = `cleanup:zombies:v5:${tenantId}:${subscriptionId || "all"}`;
     const rawItems = await getWithStaleWhileRevalidate(

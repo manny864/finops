@@ -4,8 +4,7 @@
  * Auto-inflate optimization, and orphan Event Hubs purge.
  */
 
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 import type {
   EventHubsResourceItem,
@@ -363,7 +362,7 @@ export async function fetchEventHubsData(tenantId: string): Promise<EventHubsPay
     };
   }
 
-  const client = new ResourceGraphClient(credentials);
+  const client = await getResourceGraphClient(tenantId, credentials);
 
   const query = `
     resources

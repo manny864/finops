@@ -1,7 +1,6 @@
 import { MonitorClient } from "@azure/arm-monitor";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import { getSubscriptionMeterUsage } from "@/modules/collectors/azure/foundryCollector";
 import pool from "@/modules/storage/db";
 import { errorMessage } from '@/lib/apiErrors';
@@ -48,7 +47,7 @@ export async function getAzureSearchResources(tenantId: string): Promise<SearchR
     const credential = await getAzureCredential(tenantId);
     const subs = await getSubscriptionsForTenant(tenantId, credential).catch(() => []);
 
-    const argClient = new ResourceGraphClient(credential);
+    const argClient = await getResourceGraphClient(tenantId, credential);
     const requestOptions = subs.length > 0 ? { query, subscriptions: subs } : { query };
     const response = await argClient.resources(requestOptions);
     const rows = (response.data as any[]) || [];

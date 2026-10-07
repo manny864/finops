@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { getAzureCredential } from "@/lib/azure";
+import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
@@ -23,7 +22,7 @@ export async function GET(request: NextRequest) {
             let client;
             try {
                 credential = await getAzureCredential(tenantId);
-                client = new ResourceGraphClient(credential);
+                client = await getResourceGraphClient(tenantId, credential);
             } catch (e) {
                 console.warn(`[ZeroCost] Sin credenciales para ${tenantId}:`, errorMessage(e));
                 return [];

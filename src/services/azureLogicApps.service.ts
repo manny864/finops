@@ -1,7 +1,6 @@
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { CostManagementClient } from "@azure/arm-costmanagement";
 import { MonitorClient } from "@azure/arm-monitor";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 import type {
   LogicAppResourceItem,
@@ -676,7 +675,7 @@ export async function getLiveLogicAppsData(tenantId: string): Promise<LogicAppsP
       };
     }
 
-    const argClient = new ResourceGraphClient(credential);
+    const argClient = await getResourceGraphClient(tenantId, credential);
     let rawResults: any[] = [];
     try {
       const response = await argClient.resources({ query, subscriptions: subs });

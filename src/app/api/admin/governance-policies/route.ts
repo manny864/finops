@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { hasAccess } from "@/lib/tierLogic";
-import { getAzureCredential, listTenantSubscriptions } from "@/lib/azure";
+import { getAzureCredential, getResourceGraphClient, listTenantSubscriptions } from "@/lib/azure";
 import { getWithCache } from "@/lib/cache";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import pool from "@/modules/storage/db";
@@ -52,12 +52,14 @@ export async function GET(request: NextRequest) {
                     subMap[sub.subscriptionId] = String(sub.displayName || sub.subscriptionId);
                 }
 
-                // 3. Fetch Policy Assignments via Azure Resource Graph (cross-scope) joined with policy definitions to resolve displayName
+                // 3. Fetch Policy Assignments via Azure Resource Graph (cross-scope) joined with policy definitions to resolve displayName.
+                // Scope: el MG raíz del tenant. Las asignaciones también viven en los MG, y un
+                // scope de suscripciones las dejaría afuera. Si ARG falla, sin asignaciones, como antes.
                 let assignments = [];
-                const argRes = await fetch('https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2021-03-01', {
-                    method: 'POST',
-                    headers: { ...headers, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
+                const argClient = await getResourceGraphClient(tenantId, credential);
+                const argData: any = await argClient
+                    .resources({
+                        managementGroups: [tenantId],
                         query: `
                             policyresources
                             | where type == 'microsoft.authorization/policyassignments'
@@ -68,12 +70,14 @@ export async function GET(request: NextRequest) {
                                 | project defId = tolower(id), defDisplayName = tostring(properties.displayName), defDescription = tostring(properties.description)
                             ) on defId
                             | project id, name, properties, defDisplayName, defDescription, defId
-                        `.trim()
+                        `.trim(),
                     })
-                });
+                    .catch((e) => {
+                        console.warn('governance-policies: Resource Graph falló:', e?.message ?? e);
+                        return null;
+                    });
 
-                if (argRes.ok) {
-                    const argData = await argRes.json();
+                if (argData) {
                     assignments = argData.data?.map((a: any) => {
                         const isGuid = (s: any) => typeof s === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
                         // Prefer assignment displayName, then linked definition displayName, then last segment of defId, then 'Política sin nombre'

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getResourceGraphClient, getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { errorMessage } from '@/lib/apiErrors';
 
@@ -15,6 +16,7 @@ export async function GET(request: NextRequest) {
     }
 
     await requireTenantAccess(request, tenantId);
+    await exigirSuscripcionDelTenant(tenantId, subscriptionId);
 
     const cacheKey = `recommendations:v1:${tenantId}:${subscriptionId || 'all'}`;
     const { unattachedDisks, unusedIps } = await getWithStaleWhileRevalidate(cacheKey, async () => {

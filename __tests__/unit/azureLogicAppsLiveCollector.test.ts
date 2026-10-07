@@ -12,12 +12,7 @@ const { getAzureCredential, getSubscriptionsForTenant, resourcesMock, monitorLis
 vi.mock("@/lib/azure", () => ({
   getAzureCredential,
   getSubscriptionsForTenant,
-}));
-
-vi.mock("@azure/arm-resourcegraph", () => ({
-  ResourceGraphClient: class {
-    resources = resourcesMock;
-  },
+  getResourceGraphClient: async () => ({ resources: resourcesMock }),
 }));
 
 vi.mock("@azure/arm-monitor", () => ({

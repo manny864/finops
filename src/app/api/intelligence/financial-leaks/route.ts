@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isMockTenant } from "@/lib/mockData";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { AzureZombieHuntingService } from "@/services/azureZombieHunting.service";
 import type { FinancialLeaksApiResponse } from "@/types/financialLeaks.types";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<FinancialL
 
         // 2. Real Tenant Access Validation
         await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+        await exigirSuscripcionDelTenant(tenantId, subscriptionId);
 
         // 3. Query Live Azure Resource Graph
         const summary = await AzureZombieHuntingService.getFinancialLeaksSummary(

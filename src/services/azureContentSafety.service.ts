@@ -3,8 +3,7 @@
  * Focus: Text and image moderation, blocklists, unit economics, and FinOps optimization recommendations.
  */
 
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import type {
   ContentSafetyResource,
   ContentSafetySummary,
@@ -317,7 +316,7 @@ export async function getLiveContentSafetyData(
       };
     }
 
-    const argClient = new ResourceGraphClient(credential);
+    const argClient = await getResourceGraphClient(tenantId, credential);
     const response = await argClient.resources({ query, subscriptions: subs });
     const rawResults = (response.data as any[]) || [];
 

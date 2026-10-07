@@ -33,9 +33,7 @@ vi.mock("@/lib/azure", () => ({
         if (!azureOk.value) throw new Error("sin azure");
         return {};
     }),
-}));
-vi.mock("@azure/arm-resourcegraph", () => ({
-    ResourceGraphClient: class { resources = kqlMock; },
+    getResourceGraphClient: vi.fn(async () => ({ resources: kqlMock })),
 }));
 vi.mock("@/modules/collectors/azure/advisorCollector", () => ({ collectAdvisorData: vi.fn(async () => ({})) }));
 vi.mock("@/lib/advisorI18n", () => ({ translateAdvisorText: (s: string) => s }));

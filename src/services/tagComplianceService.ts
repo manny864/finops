@@ -1,4 +1,4 @@
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { GLOBAL_MANDATORY_TAGS } from "@/lib/tagConfig";
 import { isMockTenant } from "@/lib/mockData";
@@ -46,7 +46,7 @@ export async function getRealTagCompliance(tenantId: string, subscriptionId: str
     }
 
     const credential = await getAzureCredential(tenantId);
-    const client = new ResourceGraphClient(credential);
+    const client = await getResourceGraphClient(tenantId, credential);
 
     let subs: string[] = [];
     if (subscriptionId && subscriptionId.toLowerCase() !== "all") {

@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { verifyApiKey, requireScope } from "@/lib/publicApiAuth";
 import rateLimiter from "@/lib/rateLimiter";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import { errorMessage } from '@/lib/apiErrors';
 
 export async function GET(request: NextRequest) {
@@ -78,7 +77,7 @@ export async function GET(request: NextRequest) {
       const credential = await getAzureCredential(authResult.tenantId);
       const subs = await getSubscriptionsForTenant(authResult.tenantId, credential);
       if (subs.length > 0) {
-        const client = new ResourceGraphClient(credential);
+        const client = await getResourceGraphClient(authResult.tenantId, credential);
         const result = await client.resources({
           subscriptions: subs,
           query: `Resources | project id, name, type, subscriptionId, resourceGroup, location, tags | order by name asc | skip ${offset} | take ${limit}`,

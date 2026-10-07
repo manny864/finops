@@ -11,6 +11,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, requireTenantTier, AuthError } from "@/lib/requestAuth";
+import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { getCosmosDbCost } from "@/modules/collectors/azure/cosmosDbCostService";
 import { isMockTenant } from "@/lib/mockData";
 import { getResourceGraphClient } from "@/lib/azure";
@@ -33,6 +34,9 @@ export async function GET(request: NextRequest) {
         }
 
         let targetSubscriptionId = searchParams.get("subscriptionId") || "";
+        // La lista de abajo no alcanza para validarlo: si ARG falla queda vacía
+        // y el pedido pasaba tal cual.
+        await exigirSuscripcionDelTenant(tenantId, targetSubscriptionId);
         let availableSubscriptions: string[] = [];
 
         if (!isMockTenant(tenantId)) {

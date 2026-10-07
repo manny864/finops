@@ -1,6 +1,5 @@
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 
 export async function getAiServiceRealCost(
@@ -133,7 +132,7 @@ export async function getSpeechLanguageResources(tenantId: string) {
       | project id, name, resourceGroup, location, sku = sku.name
     `;
 
-    const argClient = new ResourceGraphClient(credential);
+    const argClient = await getResourceGraphClient(tenantId, credential);
     const response = await argClient.resources({ query, subscriptions: subs });
     return (response.data as any[]) || [];
   } catch (err) {
@@ -199,7 +198,7 @@ export async function getVisionVideoResources(tenantId: string) {
       | project id, name, resourceGroup, location, sku = sku.name
     `;
 
-    const argClient = new ResourceGraphClient(credential);
+    const argClient = await getResourceGraphClient(tenantId, credential);
     const response = await argClient.resources({ query, subscriptions: subs });
     return (response.data as any[]) || [];
   } catch (err) {
@@ -262,7 +261,7 @@ export async function getContentSafetyResources(tenantId: string) {
       | project id, name, resourceGroup, location, sku = sku.name
     `;
 
-    const argClient = new ResourceGraphClient(credential);
+    const argClient = await getResourceGraphClient(tenantId, credential);
     const response = await argClient.resources({ query, subscriptions: subs });
     return (response.data as any[]) || [];
   } catch (err) {
@@ -325,7 +324,7 @@ export async function getAMLResources(tenantId: string) {
       | project id, name, resourceGroup, location
     `;
 
-    const argClient = new ResourceGraphClient(credential);
+    const argClient = await getResourceGraphClient(tenantId, credential);
     const response = await argClient.resources({ query, subscriptions: subs });
     return (response.data as any[]) || [];
   } catch (err) {
@@ -387,7 +386,7 @@ export async function getDatabricksResources(tenantId: string) {
       | project id, name, resourceGroup, location, sku = sku.name
     `;
 
-    const argClient = new ResourceGraphClient(credential);
+    const argClient = await getResourceGraphClient(tenantId, credential);
     const response = await argClient.resources({ query, subscriptions: subs });
     return (response.data as any[]) || [];
   } catch (err) {

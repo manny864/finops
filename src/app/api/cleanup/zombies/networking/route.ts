@@ -7,10 +7,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
+import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { isMockTenant } from "@/lib/mockData";
-import { getAzureCredential } from "@/lib/azure";
+import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
 import { runGraphAudits } from "@/services/auditService";
 import { getMonthlyCostEstimate } from "@/services/pricingService";
 import { getWithStaleWhileRevalidate, invalidateCache } from "@/lib/cache";
@@ -52,7 +52,7 @@ async function fetchLiveNetworkingZombies(
   privateEndpoints: PrivateEndpointDetailItem[];
 }> {
   const credential = await getAzureCredential(tenantId);
-  const resourceGraphClient = new ResourceGraphClient(credential);
+  const resourceGraphClient = await getResourceGraphClient(tenantId, credential);
 
   const [graphResults, subNameMap] = await Promise.all([
     runGraphAudits(resourceGraphClient, credential, tenantId, subscriptionId),
@@ -351,6 +351,7 @@ export async function GET(request: NextRequest) {
     }
 
     const subscriptionId = searchParams.get("subscriptionId") || undefined;
+    await exigirSuscripcionDelTenant(tenantId, subscriptionId);
     const cacheKey = `cleanup:zombies-networking:v3:${tenantId}:${subscriptionId || "all"}`;
 
     const rawData = await getWithStaleWhileRevalidate(
@@ -417,6 +418,7 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (err: unknown) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status });
     console.error("[zombies/networking] error:", errorMessage(err));
     return NextResponse.json({ error: errorMessage(err) || "Internal server error" }, { status: 500 });
   }

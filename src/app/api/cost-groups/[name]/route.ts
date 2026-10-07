@@ -9,8 +9,7 @@
  * filtradas por el tag CostCenter = name.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { getAzureCredential } from "@/lib/azure";
+import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
 import { requireTenantTier, requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { isMockTenant, getMockCostGroupDetail } from "@/lib/mockData";
 import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector";
@@ -344,7 +343,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
         try {
             credential = await getAzureCredential(tenantId);
-            argClient = new ResourceGraphClient(credential);
+            argClient = await getResourceGraphClient(tenantId, credential);
 
             const resResp = await argClient.resources({
                 query: `Resources | where ${kqlTagFilter} | project name, type, location, resourceGroup, subscriptionId | limit 200`,

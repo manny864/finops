@@ -10,9 +10,8 @@
 // del cron.
 import { NextRequest, NextResponse } from "next/server";
 import { MonitorClient } from "@azure/arm-monitor";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import { getYesterdaysAIUsage } from "@/modules/collectors/azure/aiUsageCollector";
 import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
@@ -88,7 +87,7 @@ export async function GET(request: NextRequest) {
         // 3) Descubrimiento de cuentas Cognitive Services / Foundry vía ARG.
         const accounts: any[] = [];
         try {
-            const argClient = new ResourceGraphClient(credential);
+            const argClient = await getResourceGraphClient(tenantId, credential);
             // Mismo KQL que en aiUsageCollector.ts — busca:
             // 1. microsoft.cognitiveservices/accounts (Azure OpenAI, Azure AI Services)
             // 2. microsoft.ai/* (tipos Foundry-specific potenciales)

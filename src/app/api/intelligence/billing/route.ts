@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
+import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { isMockTenant } from "@/lib/mockData";
 import { getCachedCarbonFootprint } from "@/lib/carbonFootprint";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
@@ -30,6 +31,7 @@ export async function GET(request: NextRequest) {
         // 100% inventado y no toca la base ni Azure.
         if (!isMock) {
             await requireTenantAccess(request, tenantId);
+            await exigirSuscripcionDelTenant(tenantId, subscriptionId);
         }
 
         // El inventario ARM + Cost Management de un tenant grande tarda más que

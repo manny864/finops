@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
         }
 
         await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+        await exigirScopesDelTenant(tenantId, [subscriptionId]);
 
         const credential = await getAzureCredential(tenantId);
         const client = new ResourceManagementClient(credential, subscriptionId);
