@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, requireTenantRole } from "@/lib/requestAuth";
 import { errorMessage } from "@/lib/apiErrors";
+import { respuestaAudienciaNoDelegada } from "@/lib/lighthouseAccess";
 import pool from "@/modules/storage/db";
 import { graphToken } from "@/modules/collectors/azure/m365UsersService";
 import { buildEntraUserSearchUrl } from "@/services/tenantUsers.service";
@@ -96,6 +97,8 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: true, users });
     } catch (e: unknown) {
         if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+        const lighthouse = respuestaAudienciaNoDelegada(e);
+        if (lighthouse) return lighthouse;
         const msg = errorMessage(e);
         console.error("[API users/search-entra]", msg);
         return NextResponse.json({ error: msg || "No se pudo consultar Entra ID." }, { status: 502 });

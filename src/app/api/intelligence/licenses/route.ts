@@ -4,6 +4,7 @@ import { requireTenantAccess, AuthError } from '@/lib/requestAuth';
 import { isMockTenant, getMockDataForRoute } from '@/lib/mockData';
 import { getWithStaleWhileRevalidate } from '@/lib/cache';
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
+import { AudienciaNoDelegadaError, respuestaAudienciaNoDelegada } from '@/lib/lighthouseAccess';
 
 export async function GET(request: NextRequest) {
     try {
@@ -30,6 +31,8 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: true, data });
     } catch (error) {
         if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
+        const lighthouse = respuestaAudienciaNoDelegada(error);
+        if (lighthouse) return lighthouse;
         console.error("License API error:", error);
         return NextResponse.json({ success: false, error: errorMessage(error) || 'Error del servidor' }, { status: 500 });
     }
@@ -49,6 +52,9 @@ async function fetchLicenses(tenantId: string) {
             needsConsent: false,
         };
     } catch (error) {
+        // Con Lighthouse no es un permiso que falte: el banner de consentimiento
+        // de Graph mandaría al cliente a dar uno que no resuelve nada.
+        if (error instanceof AudienciaNoDelegadaError) throw error;
         console.warn("License optimization query failed for tenant:", tenantId, errorMessage(error));
         const errMsg = errorMessage(error) || 'Permisos insuficientes en Microsoft Graph.';
         graphError = errMsg;

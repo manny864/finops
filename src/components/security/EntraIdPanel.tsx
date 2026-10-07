@@ -5,6 +5,7 @@ import { EDS_SKU_MONTHLY_USD, INACTIVE_USER_DAYS } from "@/types/azureEntraId.ty
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
+import { useAvisoLighthouse } from "@/hooks/useAvisoLighthouse";
 import { useSearchParams } from "next/navigation";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
@@ -88,7 +89,13 @@ const TYPE_LABELS: Record<EntraResourceType, string> = {
 
 // `t` entra por parametro: buildFetcher no es un componente ni un hook y no
 // puede llamar a useTranslations.
-function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[], isMock: boolean, t: (k: string) => string) {
+function buildFetcher(
+  instance: IPublicClientApplication,
+  accounts: AccountInfo[],
+  isMock: boolean,
+  t: (k: string) => string,
+  aviso: (json: { errorCode?: unknown }) => string | null,
+) {
   return async (url: string) => {
     const headers: Record<string, string> = {};
     if (!isMock && accounts.length > 0) {
@@ -102,7 +109,7 @@ function buildFetcher(instance: IPublicClientApplication, accounts: AccountInfo[
     const res = await fetch(url, { headers });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || t("loadError"));
+      throw new Error(aviso(err) || err.error || t("loadError"));
     }
     return res.json();
   };
@@ -356,7 +363,8 @@ export default function EntraIdPanel() {
     );
   }, [tenantId, searchParams]);
 
-  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock, t), [instance, accounts, isMock, t]);
+  const aviso = useAvisoLighthouse();
+  const fetcher = useMemo(() => buildFetcher(instance, accounts, isMock, t, aviso), [instance, accounts, isMock, t, aviso]);
 
   const apiUrl = `/api/intelligence/security/entra-id?tenantId=${encodeURIComponent(tenantId)}`;
   const { data, error, isValidating, mutate } = useSWR<EntraIdPayload>(apiUrl, fetcher, {

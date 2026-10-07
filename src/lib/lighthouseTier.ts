@@ -34,6 +34,8 @@ export const LIGHTHOUSE_ERRORS = {
     SIN_TENANT: "ERR_LIGHTHOUSE_NO_TENANT",
     SIN_PRINCIPAL: "ERR_LIGHTHOUSE_NO_PRINCIPAL",
     AUTO_DELEGACION: "ERR_LIGHTHOUSE_SELF_DELEGATION",
+    /** La credencial de Lighthouse no emite tokens para esa audiencia (Graph, plano de datos). */
+    NO_DELEGADO: "ERR_LIGHTHOUSE_NOT_DELEGATED",
 } as const;
 
 /** Mensaje unico, para que la API y la UI digan lo mismo. */

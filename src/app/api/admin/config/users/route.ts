@@ -4,6 +4,7 @@ import { AuthError, requireSuperAdmin, requireTenantAccess, hasSystemRole } from
 import { getUserLimit } from "@/lib/tierLogic";
 import { SUPERADMIN_BOOTSTRAP_TENANT_ID, isSuperAdminBootstrapEmail } from "@/lib/superAdminBootstrap";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
+import { AudienciaNoDelegadaError } from "@/lib/lighthouseAccess";
 import { graphGetAll, graphToken } from "@/modules/collectors/azure/m365UsersService";
 import {
     buildTenantUsersSummary,
@@ -25,7 +26,7 @@ import type { TenantUsersPayload } from "@/types/tenantUsers.types";
  * columna queda como estaba y los usuarios sin dato se muestran como
  * "desconocido", no como "sin 2FA".
  */
-async function refreshMfaCache(tenantId: string): Promise<{ updated: number; error?: string }> {
+async function refreshMfaCache(tenantId: string): Promise<{ updated: number; error?: string; errorCode?: string }> {
     try {
         const token = await graphToken(tenantId);
         const details = await graphGetAll(
@@ -48,7 +49,7 @@ async function refreshMfaCache(tenantId: string): Promise<{ updated: number; err
         }
         return { updated };
     } catch (e) {
-        return { updated: 0, error: errorMessage(e) };
+        return { updated: 0, error: errorMessage(e), errorCode: e instanceof AudienciaNoDelegadaError ? e.code : undefined };
     }
 }
 
@@ -109,9 +110,13 @@ export async function GET(request: NextRequest) {
         // El refresco de 2FA va después del guard y sólo si se pide: escribe en
         // la base y pega contra Graph.
         let mfaWarning: string | undefined;
+        let mfaWarningCode: string | undefined;
         if (searchParams.get('refreshMfa') === 'true' && !isMockTenant(tenantId)) {
             const r = await refreshMfaCache(tenantId);
-            if (r.error) mfaWarning = r.error;
+            if (r.error) {
+                mfaWarning = r.error;
+                mfaWarningCode = r.errorCode;
+            }
         }
 
         let tier = 'Professional';
@@ -162,7 +167,7 @@ export async function GET(request: NextRequest) {
             }
 
             const users = (rows as RawUserRow[]).map(mapTenantUser);
-            const payload: TenantUsersPayload & { warning?: string; users: unknown } = {
+            const payload: TenantUsersPayload & { warning?: string; warningCode?: string; users: unknown } = {
                 summary: buildTenantUsersSummary(users),
                 userLimit: Number.isFinite(limit) ? limit : null,
                 isSuperAdmin,
@@ -170,6 +175,7 @@ export async function GET(request: NextRequest) {
                 mock: isMockTenant(tenantId) || undefined,
                 lastUpdated: new Date().toISOString(),
                 warning: mfaWarning,
+                warningCode: mfaWarningCode,
                 // `users` en crudo se mantiene por compatibilidad: otras pantallas
                 // (selector de destinatarios de reportes, auditoría) ya consumen
                 // este endpoint con la forma vieja.

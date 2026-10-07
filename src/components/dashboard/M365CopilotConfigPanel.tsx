@@ -23,6 +23,7 @@ import useSWR from "swr";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import InfoTooltip from "@/components/InfoTooltip";
 import { errorMessage } from '@/lib/apiErrors';
+import { useAvisoLighthouse } from '@/hooks/useAvisoLighthouse';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -171,6 +172,7 @@ function AdaptiveCardPreview({ card }: { card: AskResponse["adaptiveCard"] }) {
 export default function M365CopilotConfigPanel() {
     const t = useTranslations("CopilotM365");
     const tMock = useTranslations("Mock");
+    const aviso = useAvisoLighthouse();
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
 
@@ -242,7 +244,7 @@ export default function M365CopilotConfigPanel() {
             });
             const json = await res.json().catch(() => ({}));
             if (!res.ok) {
-                throw new Error(json.error || t("graphActionError"));
+                throw new Error(aviso(json) || json.error || t("graphActionError"));
             }
             await mutate();
         } catch (err: any) {

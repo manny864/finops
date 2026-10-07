@@ -8760,7 +8760,8 @@
       "ERR_LIGHTHOUSE_TIER": "El onboarding por Azure Lighthouse está disponible sólo en el plan Enterprise. En Professional y Business el alta se hace con el script de onboarding.",
       "ERR_LIGHTHOUSE_NO_TENANT": "Falta configurar el directorio administrador de la plataforma. Escalá a infraestructura.",
       "ERR_LIGHTHOUSE_NO_PRINCIPAL": "Falta configurar el grupo que recibe el acceso delegado. Sin eso la plantilla se despliega bien y no otorga acceso a nadie, así que se bloquea antes. Escalá a infraestructura.",
-      "ERR_LIGHTHOUSE_SELF_DELEGATION": "Azure no permite delegar una suscripción al directorio al que ya pertenece. El tenant administrado ({tenant}) no puede ser el nuestro: Lighthouse existe para que el directorio del cliente delegue en el nuestro."
+      "ERR_LIGHTHOUSE_SELF_DELEGATION": "Azure no permite delegar una suscripción al directorio al que ya pertenece. El tenant administrado ({tenant}) no puede ser el nuestro: Lighthouse existe para que el directorio del cliente delegue en el nuestro.",
+      "ERR_LIGHTHOUSE_NOT_DELEGATED": "No disponible con Azure Lighthouse. La delegación da acceso a la administración de tus suscripciones de Azure, no a tu directorio (usuarios, licencias, Microsoft 365) ni a los datos dentro de tus servicios. Para usar esta función, el tenant tiene que conectarse con el script de onboarding."
     },
     "noAuthAccount": "No hay cuenta autenticada",
     "delegationTitle": "Delegación Lighthouse"

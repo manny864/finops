@@ -42,6 +42,7 @@ import type {
     TenantUsersPayload,
 } from "@/types/tenantUsers.types";
 import { MODULE_PRESETS } from "@/types/tenantUsers.types";
+import { useAvisoLighthouse } from "@/hooks/useAvisoLighthouse";
 
 /**
  * Usuarios y Permisos.
@@ -113,6 +114,7 @@ function initials(name: string): string {
 
 export default function UsersPanel() {
     const t = useTranslations("AdminUsers");
+    const aviso = useAvisoLighthouse();
     const { selectedTenant, userRole, systemRole } = useTenant();
     const { instance, accounts } = useMsal();
 
@@ -204,14 +206,14 @@ export default function UsersPanel() {
                 const json = await res.json();
                 if (!res.ok) throw new Error(json.error);
                 setPayload(json as TenantUsersPayload);
-                if (json.warning) toast.warning(String(json.warning));
+                if (json.warning) toast.warning(aviso({ errorCode: json.warningCode }) || String(json.warning));
             } catch (e) {
                 toast.error(errorMessage(e) || t("errorConnection"));
             } finally {
                 setLoading(false);
             }
         },
-        [canFetch, authHeaders, tenantId, t]
+        [canFetch, authHeaders, tenantId, t, aviso]
     );
 
     useEffect(() => {
@@ -236,7 +238,7 @@ export default function UsersPanel() {
                 );
                 const json = await res.json();
                 if (res.ok) setSuggestions(json.users || []);
-                else toast.error(json.error || t("errorSyncingEntra"));
+                else toast.error(aviso(json) || json.error || t("errorSyncingEntra"));
             } catch {
                 // Búsqueda fallida: el administrador puede seguir pegando el OID a mano.
             } finally {
@@ -246,7 +248,7 @@ export default function UsersPanel() {
         return () => {
             if (searchTimer.current) clearTimeout(searchTimer.current);
         };
-    }, [query, tenantId, authHeaders, t]);
+    }, [query, tenantId, authHeaders, t, aviso]);
 
     const applyPreset = (key: string) => {
         setPresetKey(key);
@@ -391,7 +393,7 @@ export default function UsersPanel() {
                 headers,
             });
             const json = await res.json();
-            if (!res.ok) throw new Error(json.error);
+            if (!res.ok) throw new Error(aviso(json) || json.error);
             setEntraGroups(json.groups || []);
         } catch (e) {
             toast.error(errorMessage(e) || t("errorSyncingEntra"));
@@ -444,7 +446,7 @@ export default function UsersPanel() {
                 body: JSON.stringify({ tenantId, groupId, role: roleToDb(role), allowedModules: newModules }),
             });
             const json = await res.json();
-            if (!res.ok) throw new Error(json.error);
+            if (!res.ok) throw new Error(aviso(json) || json.error);
             toast.success(
                 json.skipped > 0
                     ? t("groupSyncPartial", { provisioned: json.provisioned, skipped: json.skipped })

@@ -53,6 +53,7 @@ import ResizableTh from "@/components/ResizableTh";
 import MockBanner from "@/components/MockBanner";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { errorMessage } from '@/lib/apiErrors';
+import { useAvisoLighthouse } from '@/hooks/useAvisoLighthouse';
 
 const BLUE = { deep: "#0078D4", cobalt: "#2563EB", cyan: "#0284C7", sky: "#38BDF8", ice: "#93C5FD", slate: "#94A3B8" };
 
@@ -60,11 +61,12 @@ function useAuthedSWR<T = any>(path: string) {
   const t = useTranslations("M365Users");
     const { instance, accounts } = useMsal();
     const { selectedTenant } = useTenant();
+    const aviso = useAvisoLighthouse();
     const ready = selectedTenant && selectedTenant.id !== "default" && (accounts.length > 0 || isMockTenant(selectedTenant.id));
     const fetcher = async (url: string) => {
         const idToken = accounts.length ? await getFreshIdToken(instance, accounts[0], ["User.Read"]) : "";
         const res = await fetch(url, { headers: { Authorization: `Bearer ${idToken}`, "x-tenant-id": selectedTenant?.id ?? "" } });
-        if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.details || j.error || t("genericError")); }
+        if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(aviso(j) || j.details || j.error || t("genericError")); }
         return res.json();
     };
     return useSWR<T>(ready ? `${path}?tenantId=${selectedTenant!.id}` : null, fetcher, { revalidateOnFocus: false });
@@ -901,6 +903,7 @@ function LicenseOptimizationTab() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<{ message: string; needsConsent?: boolean } | null>(null);
     const [graphError, setGraphError] = useState<{ message: string; needsConsent?: boolean } | null>(null);
+    const aviso = useAvisoLighthouse();
 
     // AHUB filters
     const [ahubTypeFilter, setAhubTypeFilter] = useState("all");
@@ -939,7 +942,7 @@ function LicenseOptimizationTab() {
                     setData(json.data);
                     if (json.data.graphError) setGraphError({ message: json.data.graphError, needsConsent: json.data.needsConsent });
                 } else {
-                    setError({ message: json.error || "Error desconocido", needsConsent: json.needsConsent });
+                    setError({ message: aviso(json) || json.error || "Error desconocido", needsConsent: json.needsConsent });
                 }
             } catch (e) { if (!cancelled) setError({ message: errorMessage(e) || t("networkError") }); }
             if (!cancelled) setLoading(false);

@@ -31,6 +31,7 @@ import { getSecret, isKeyVaultEnabled } from "@/lib/secrets/keyvault";
 import { errorMessage } from "@/lib/apiErrors";
 import { NextResponse } from "next/server";
 import { isMockTenant } from "@/lib/mockData";
+import { LIGHTHOUSE_ERRORS } from "@/lib/lighthouseTier";
 
 export type AccessModel = "app_registration" | "lighthouse";
 
@@ -111,7 +112,7 @@ const AUDIENCIAS_DELEGADAS = new Set([
 ]);
 
 export class AudienciaNoDelegadaError extends Error {
-    readonly code = "ERR_LIGHTHOUSE_NOT_DELEGATED";
+    readonly code = LIGHTHOUSE_ERRORS.NO_DELEGADO;
     constructor(readonly audiencia: string) {
         const host = /^https?:\/\/([^/]+)/i.exec(audiencia)?.[1] ?? audiencia;
         super(

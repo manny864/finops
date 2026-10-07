@@ -192,4 +192,14 @@ describe("audiencias de la credencial lighthouse", () => {
         expect(body.error).toMatch(/^No disponible con Azure Lighthouse/);
         expect(respuestaAudienciaNoDelegada(new Error("otra cosa"))).toBeNull();
     });
+
+    it("el aviso traducido nombra a Lighthouse en los tres idiomas", () => {
+        // `useAvisoLighthouse` traduce el código; `ErrorBlock` de M365UsersBoard
+        // reconoce el aviso por la palabra y así no lo confunde con un permiso
+        // de Graph faltante. Sin ella, la pantalla volvería a pedir consentimiento.
+        for (const loc of ["es", "en", "pt-BR"]) {
+            const m = JSON.parse(readFileSync(join(RAIZ, "messages", `${loc}.json`), "utf8"));
+            expect(m.Lighthouse.errores.ERR_LIGHTHOUSE_NOT_DELEGATED, loc).toMatch(/Azure Lighthouse/);
+        }
+    });
 });

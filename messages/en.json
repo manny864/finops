@@ -8760,7 +8760,8 @@
       "ERR_LIGHTHOUSE_TIER": "Azure Lighthouse onboarding is available on the Enterprise plan only. On Professional and Business, onboarding is done with the onboarding script.",
       "ERR_LIGHTHOUSE_NO_TENANT": "The platform's managing directory is not configured. Escalate to infrastructure.",
       "ERR_LIGHTHOUSE_NO_PRINCIPAL": "The group that receives delegated access is not configured. Without it the template deploys successfully and grants access to nobody, so it is blocked beforehand. Escalate to infrastructure.",
-      "ERR_LIGHTHOUSE_SELF_DELEGATION": "Azure does not allow delegating a subscription to the directory it already belongs to. The managed tenant ({tenant}) cannot be ours: Lighthouse exists so the customer's directory delegates to ours."
+      "ERR_LIGHTHOUSE_SELF_DELEGATION": "Azure does not allow delegating a subscription to the directory it already belongs to. The managed tenant ({tenant}) cannot be ours: Lighthouse exists so the customer's directory delegates to ours.",
+      "ERR_LIGHTHOUSE_NOT_DELEGATED": "Not available with Azure Lighthouse. The delegation grants access to manage your Azure subscriptions, not to your directory (users, licenses, Microsoft 365) or to the data inside your services. To use this feature, the tenant has to connect with the onboarding script."
     },
     "noAuthAccount": "No authenticated account",
     "delegationTitle": "Lighthouse Delegation"

@@ -3,6 +3,7 @@ import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAu
 import { initializeDatabase } from "@/modules/storage/db";
 import { isMockTenant } from "@/lib/mockData";
 import { errorMessage } from '@/lib/apiErrors';
+import { respuestaAudienciaNoDelegada } from '@/lib/lighthouseAccess';
 import {
     getSettings,
     provisionConnection,
@@ -266,6 +267,8 @@ export async function POST(request: NextRequest) {
         });
     } catch (error: unknown) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+        const lighthouse = respuestaAudienciaNoDelegada(error);
+        if (lighthouse) return lighthouse;
         if (error instanceof GraphPermissionError) {
             return NextResponse.json({
                 error: error.message,
@@ -301,6 +304,8 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ success: true, message: "Conexión revocada y eliminada." });
     } catch (error: unknown) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+        const lighthouse = respuestaAudienciaNoDelegada(error);
+        if (lighthouse) return lighthouse;
         if (error instanceof GraphPermissionError) {
             return NextResponse.json({
                 error: error.message,

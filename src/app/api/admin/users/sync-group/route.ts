@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthError, hasSystemRole, requireTenantRole } from "@/lib/requestAuth";
 import { errorMessage } from "@/lib/apiErrors";
+import { respuestaAudienciaNoDelegada } from "@/lib/lighthouseAccess";
 import pool from "@/modules/storage/db";
 import { graphGetAll, graphToken } from "@/modules/collectors/azure/m365UsersService";
 import { getUserLimit } from "@/lib/tierLogic";
@@ -66,6 +67,8 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: true, groups: mapped });
     } catch (e: unknown) {
         if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+        const lighthouse = respuestaAudienciaNoDelegada(e);
+        if (lighthouse) return lighthouse;
         const msg = errorMessage(e);
         console.error("[API users/sync-group GET]", msg);
         return NextResponse.json({ error: msg || "No se pudieron leer los grupos de Entra ID." }, { status: 502 });
@@ -175,6 +178,8 @@ export async function POST(request: NextRequest) {
         });
     } catch (e: unknown) {
         if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+        const lighthouse = respuestaAudienciaNoDelegada(e);
+        if (lighthouse) return lighthouse;
         const msg = errorMessage(e);
         console.error("[API users/sync-group POST]", msg);
         return NextResponse.json({ error: msg || "No se pudo sincronizar el grupo." }, { status: 502 });
