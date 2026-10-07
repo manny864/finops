@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { getAzureCredential } from "@/lib/azure";
+import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
 import { getCostForecast } from "@/modules/collectors/azure/billingService";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
@@ -574,7 +574,7 @@ export async function GET(request: NextRequest) {
         const ensamblar = async () => {
             let argClient: ResourceGraphClient | null = null;
             try {
-                argClient = new ResourceGraphClient(await getAzureCredential(tenantId));
+                argClient = await getResourceGraphClient(tenantId);
             } catch (credErr) {
                 console.warn("[whiteboard] Azure credential resolution failed:", credErr);
             }

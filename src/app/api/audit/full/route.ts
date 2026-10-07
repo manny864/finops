@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import { runGraphAudits } from "@/services/auditService";
 import { getMonthlyCostEstimate } from "@/services/pricingService";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
@@ -33,7 +32,7 @@ export interface AuditFullResponse {
 async function computeAuditPayload(tenantId: string, subscriptionId: string | null): Promise<AuditPayload> {
     // 2. Obtener Cliente Autenticado
     const credential = await getAzureCredential(tenantId);
-    const resourceGraphClient = new ResourceGraphClient(credential);
+    const resourceGraphClient = await getResourceGraphClient(tenantId, credential);
 
     // 3. Orquestar Servicios de Auditoría
     const graphResults = await runGraphAudits(resourceGraphClient, credential, tenantId, subscriptionId || undefined);

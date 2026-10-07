@@ -3,8 +3,7 @@
  * Focus: Event Grid Domains vs Topics, Premium SKU arbitrage to Basic, orphan topics purge, and throughput optimization.
  */
 
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 import type {
   EventGridResourceItem,
@@ -336,7 +335,7 @@ export async function getLiveEventGridData(tenantId: string): Promise<EventGridP
     };
   }
 
-  const argClient = new ResourceGraphClient(credential);
+  const argClient = await getResourceGraphClient(tenantId, credential);
   const kql = `
     resources
     | where type =~ "microsoft.eventgrid/domains" or type =~ "microsoft.eventgrid/topics"

@@ -3,8 +3,7 @@
  * Focus: Workspaces, Compute Instances, Training Clusters, Online Endpoints, Spot optimization and idle leak elimination.
  */
 
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import type {
   AmlComputeResource,
   AmlSummaryMetrics,
@@ -335,7 +334,7 @@ export async function getLiveAmlData(tenantId: string): Promise<AmlPayload> {
       };
     }
 
-    const argClient = new ResourceGraphClient(credential);
+    const argClient = await getResourceGraphClient(tenantId, credential);
     const response = await argClient.resources({ query, subscriptions: subs });
     const rawResults = (response.data as any[]) || [];
 

@@ -5,8 +5,7 @@ import { getManagingTenantId } from "@/lib/lighthouseAccess";
 import { tierPuedeUsarLighthouse, LIGHTHOUSE_TIER_ERROR, LIGHTHOUSE_ERRORS } from "@/lib/lighthouseTier";
 import pool from "@/modules/storage/db";
 import { errorMessage } from '@/lib/apiErrors';
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import {
     LIGHTHOUSE_DELEGATIONS_KQL,
     buildLighthouseSummary,
@@ -37,7 +36,7 @@ async function fetchArgDelegations(tenantId: string): Promise<{ items: Lighthous
         const subIds = await getSubscriptionsForTenant(tenantId);
         if (!subIds || subIds.length === 0) return { error: "El Service Principal no alcanza ninguna suscripción." };
 
-        const client = new ResourceGraphClient(credential);
+        const client = await getResourceGraphClient(tenantId, credential);
         const res = await client.resources({ subscriptions: subIds, query: LIGHTHOUSE_DELEGATIONS_KQL });
         const rows = (res.data as RawArgDelegationRow[]) || [];
         return { items: rows.map((r) => mapArgDelegation(r)) };

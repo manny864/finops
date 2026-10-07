@@ -1,7 +1,6 @@
 import { MonitorClient } from "@azure/arm-monitor";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 
 export interface DocIntelResource {
@@ -26,7 +25,7 @@ export async function getDocIntelResources(tenantId: string): Promise<DocIntelRe
     const subs = await getSubscriptionsForTenant(tenantId, credential);
     if (subs.length === 0) return results;
 
-    const argClient = new ResourceGraphClient(credential);
+    const argClient = await getResourceGraphClient(tenantId, credential);
     const response = await argClient.resources({ query, subscriptions: subs });
     const rows = (response.data as any[]) || [];
 

@@ -7,11 +7,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { isMockTenant } from "@/lib/mockData";
-import { getAzureCredential } from "@/lib/azure";
+import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
 import { runGraphAudits } from "@/services/auditService";
 import { getMonthlyCostEstimate } from "@/services/pricingService";
 import { getWithStaleWhileRevalidate, invalidateCache } from "@/lib/cache";
@@ -53,7 +52,7 @@ async function fetchLiveNetworkingZombies(
   privateEndpoints: PrivateEndpointDetailItem[];
 }> {
   const credential = await getAzureCredential(tenantId);
-  const resourceGraphClient = new ResourceGraphClient(credential);
+  const resourceGraphClient = await getResourceGraphClient(tenantId, credential);
 
   const [graphResults, subNameMap] = await Promise.all([
     runGraphAudits(resourceGraphClient, credential, tenantId, subscriptionId),

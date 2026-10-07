@@ -48,7 +48,9 @@ function destinoDelScope(scope: unknown): string | null {
  * Las suscripciones del tenant según ARM, 60 s en memoria.
  *
  * Desde que las lecturas pasan por acá, el chequeo corre en rutas calientes:
- * un tablero dispara varias en paralelo con la misma suscripción. Sin memoria,
+ * un tablero dispara varias en paralelo con la misma suscripción, y cada
+ * consulta de Resource Graph se acota con esta lista (`getResourceGraphClient`
+ * en lib/azure.ts). Sin memoria,
  * cada una pagaba un `GET /subscriptions` a ARM (0,35 a 0,9 s medidos el
  * 2026-10-06) y, con app registration, además un token nuevo, porque
  * `getAzureCredential` arma una credencial por llamada. Las concurrentes
@@ -63,7 +65,7 @@ function destinoDelScope(scope: unknown): string | null {
 const SUBS_TTL_MS = 60_000;
 const subsPorTenant = new Map<string, { subs: Promise<Set<string>>; expira: number }>();
 
-function subsDelTenant(tenantId: string): Promise<Set<string>> {
+export function subsDelTenant(tenantId: string): Promise<Set<string>> {
   const vigente = subsPorTenant.get(tenantId);
   if (vigente && Date.now() < vigente.expira) return vigente.subs;
 

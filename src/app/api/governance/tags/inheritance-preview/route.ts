@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
             }, { status: 400 });
         }
 
-        const rows = await analyzeMissingTags(credential, subscriptionId, { tagKeys, limit });
+        const rows = await analyzeMissingTags(tenantId, credential, subscriptionId, { tagKeys, limit });
 
         return NextResponse.json({
             success: true,

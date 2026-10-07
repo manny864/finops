@@ -3,8 +3,7 @@
  * Focus: Workspaces, DBUs, All-Purpose vs Jobs compute, VM infrastructure and auto-termination optimization.
  */
 
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import type {
   DatabricksWorkspaceResource,
   DatabricksClusterItem,
@@ -370,7 +369,7 @@ export async function getLiveDatabricksData(tenantId: string): Promise<Databrick
       };
     }
 
-    const argClient = new ResourceGraphClient(credential);
+    const argClient = await getResourceGraphClient(tenantId, credential);
     const response = await argClient.resources({ query, subscriptions: subs });
     const rawResults = (response.data as any[]) || [];
 

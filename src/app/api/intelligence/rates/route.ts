@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
 
             let recommendations: RateRecommendation[] = [];
             try {
-                recommendations = await calculateReservationSavings(credential, subscriptionId);
+                recommendations = await calculateReservationSavings(tenantId, credential, subscriptionId);
             } catch (err) {
                 const msg = errorMessage(err) || "";
                 if (/AuthorizationFailed|Forbidden|403/i.test(msg)) {

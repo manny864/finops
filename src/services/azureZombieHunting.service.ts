@@ -1,6 +1,5 @@
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { isMockTenant } from "@/lib/mockData";
 import { withArgLimit } from "@/lib/argConcurrency";
 import { getMonthlyCostEstimate } from "@/services/pricingService";
@@ -278,7 +277,7 @@ export class AzureZombieHuntingService {
             return { totalMonthlyLeakUSD: 0, totalAffectedResources: 0, breakdownByCategory: [], resources: [] };
         }
 
-        const client = new ResourceGraphClient(credential);
+        const client = await getResourceGraphClient(tenantId, credential);
 
         let subs: string[] = [];
         if (subscriptionId && subscriptionId.toLowerCase() !== "all") {

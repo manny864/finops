@@ -1,6 +1,5 @@
 import { CostManagementClient } from "@azure/arm-costmanagement";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 
 /**
@@ -26,7 +25,7 @@ async function getFoundryResources(tenantId: string, credential: any, subs: stri
   `;
 
   try {
-    const argClient = new ResourceGraphClient(credential);
+    const argClient = await getResourceGraphClient(tenantId, credential);
     const response = await argClient.resources({ query, subscriptions: subs });
     const rows = (response.data as any[]) || [];
     console.log(`[foundryCollector] Found ${rows.length} Foundry resources`);
@@ -377,7 +376,7 @@ export async function getAzureFoundryDeployments(tenantId: string): Promise<Azur
 
     // 1. Query Azure Resource Graph for deployments
     try {
-      const argClient = new ResourceGraphClient(credential);
+      const argClient = await getResourceGraphClient(tenantId, credential);
       const query = `
         resources
         | where type =~ "microsoft.cognitiveservices/accounts/deployments"

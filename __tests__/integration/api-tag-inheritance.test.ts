@@ -95,6 +95,7 @@ describe("GET /api/governance/tags/inheritance-preview", () => {
 
         expect(data.success).toBe(true);
         expect(mocks.mockAnalyzeMissingTags).toHaveBeenCalledWith(
+            "t-123",
             {},
             "sub-456",
             expect.any(Object)
@@ -135,6 +136,7 @@ describe("GET /api/governance/tags/inheritance-preview", () => {
         const res = await getPreview(req);
 
         expect(mocks.mockAnalyzeMissingTags).toHaveBeenCalledWith(
+            "t-123",
             {},
             "All",
             expect.objectContaining({

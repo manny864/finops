@@ -8,7 +8,7 @@
  * de las tres consultas muta nada.
  */
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import { errorMessage } from '@/lib/apiErrors';
 
 async function rg(client: ResourceGraphClient, query: string, subscriptions: string[]): Promise<any[]> {
@@ -140,7 +140,7 @@ async function getPolicyCompliance(credential: any, subs: string[]): Promise<Gov
 export async function getGovernanceReport(tenantId: string): Promise<GovernanceReport> {
     const credential = await getAzureCredential(tenantId);
     const subs = await getSubscriptionsForTenant(tenantId, credential);
-    const client = new ResourceGraphClient(credential);
+    const client = await getResourceGraphClient(tenantId, credential);
 
     // --- Inventario de recursos ---
     const byTypeRows = await rg(client, "Resources | summarize count_ = count() by type | order by count_ desc | limit 15", subs);

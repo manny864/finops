@@ -15,8 +15,7 @@
 
 import { Decimal } from "decimal.js";
 import { isMockTenant, getAiSearchMockPayload } from "@/lib/mockData";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import { MonitorClient } from "@azure/arm-monitor";
 import { CostManagementClient } from "@azure/arm-costmanagement";
 import { getAzureSearchRealCost } from "@/modules/collectors/azure/azureSearchCollector";
@@ -100,7 +99,7 @@ async function fetchLiveSearchServices(tenantId: string): Promise<AiSearchServic
     }
 
     // Query Azure Resource Graph for search services
-    const argClient = new ResourceGraphClient(credential);
+    const argClient = await getResourceGraphClient(tenantId, credential);
     const query = `
       resources
       | where type =~ "microsoft.search/searchservices"

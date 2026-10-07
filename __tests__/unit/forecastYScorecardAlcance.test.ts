@@ -27,9 +27,9 @@ vi.mock("@/lib/cache", () => ({ getWithStaleWhileRevalidate: cacheMock }));
 vi.mock("@/lib/redis", () => ({ redis: { get: vi.fn(async () => null), set: vi.fn(), del: vi.fn() } }));
 // El scorecard corta apenas falla la credencial, así que Azure responde y
 // devuelve vacío: lo que se mide es la consulta de costo que viene después.
-vi.mock("@/lib/azure", () => ({ getAzureCredential: vi.fn(async () => ({})) }));
-vi.mock("@azure/arm-resourcegraph", () => ({
-    ResourceGraphClient: class { resources = async () => ({ data: [] }); },
+vi.mock("@/lib/azure", () => ({
+    getAzureCredential: vi.fn(async () => ({})),
+    getResourceGraphClient: vi.fn(async () => ({ resources: async () => ({ data: [] }) })),
 }));
 
 // El GET de forecast lee Azure en vivo, no CostSnapshots: el que se acota es

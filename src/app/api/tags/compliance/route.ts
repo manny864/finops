@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { GLOBAL_MANDATORY_TAGS } from "@/lib/tagConfig";
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
 
         const fetcher = async () => {
             const credential = await getAzureCredential(tenantId);
-            const client = new ResourceGraphClient(credential);
+            const client = await getResourceGraphClient(tenantId, credential);
 
             let subs: string[] = [];
             if (subscriptionId && subscriptionId.toLowerCase() !== 'all') {

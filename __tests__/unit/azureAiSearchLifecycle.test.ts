@@ -14,12 +14,7 @@ vi.mock("@/modules/storage/db", () => ({
 vi.mock("@/lib/azure", () => ({
   getAzureCredential,
   getSubscriptionsForTenant,
-}));
-
-vi.mock("@azure/arm-resourcegraph", () => ({
-  ResourceGraphClient: class {
-    resources = resources;
-  },
+  getResourceGraphClient: async () => ({ resources }),
 }));
 
 import { getAiSearchPayload } from "@/services/azureAiSearch.service";

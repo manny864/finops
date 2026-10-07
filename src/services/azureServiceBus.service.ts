@@ -3,8 +3,7 @@
  * Focus: SKU arbitrage (Premium MU rightsizing -> Standard tier), orphan queues/topics purge, and retention optimization.
  */
 
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 import type {
   ServiceBusNamespaceResource,
@@ -417,7 +416,7 @@ export async function getLiveServiceBusData(tenantId: string): Promise<ServiceBu
     };
   }
 
-  const argClient = new ResourceGraphClient(credential);
+  const argClient = await getResourceGraphClient(tenantId, credential);
   const kql = `
     resources
     | where type =~ "microsoft.servicebus/namespaces"

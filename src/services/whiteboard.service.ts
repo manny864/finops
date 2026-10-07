@@ -1,5 +1,5 @@
 import { ResourceGraphClient } from "@azure/arm-resourcegraph";
-import { getAzureCredential, getAllSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getAllSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector";
 import { translateAdvisorText } from "@/lib/advisorI18n";
 import { parseAzureNumber } from "@/lib/advisorModel";
@@ -157,7 +157,7 @@ export async function getWhiteboardExecutiveData(
 
   let argClient: ResourceGraphClient | null = null;
   try {
-    argClient = new ResourceGraphClient(await getAzureCredential(tenantId));
+    argClient = await getResourceGraphClient(tenantId);
   } catch (err) {
     console.warn("[whiteboard.service] Azure credential resolution failed:", err);
   }

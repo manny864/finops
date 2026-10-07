@@ -3,9 +3,8 @@
  * Gestión global de inventario, distribución por tipo, creadores y costos por etiqueta.
  */
 
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import { resolveCostColumn, isCostUsdUnsupportedError, degradeCostColumn, type CostColumn } from "@/lib/azureCostColumn";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import { formatResourceType } from "@/lib/resourceTypeLabels";
@@ -327,7 +326,7 @@ async function runResourceGraphQuery(
 ): Promise<any[]> {
     if (subs.length === 0) return [];
     const credential = await getAzureCredential(tenantId);
-    const client = new ResourceGraphClient(credential);
+    const client = await getResourceGraphClient(tenantId, credential);
     const rows: any[] = [];
     let skipToken: string | undefined;
     do {

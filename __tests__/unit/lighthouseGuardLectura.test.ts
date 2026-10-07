@@ -21,8 +21,8 @@ import { join } from "path";
  *
  * Lo que este test NO cubre: las consultas a Resource Graph sin `subscriptions`,
  * que con Lighthouse abarcan a todos los clientes aunque nadie mande nada
- * (Learn, Resource Graph, "Query scope"). Es otro arreglo, en la fábrica del
- * cliente de ARG, y no un chequeo por ruta.
+ * (Learn, Resource Graph, "Query scope"). Eso se arregla en la fábrica del
+ * cliente de ARG, no por ruta: lo cuida aislamientoResourceGraph.test.ts.
  */
 
 /** Lectura con scope del request, verificada leyendo la ruta y lo que llama. */

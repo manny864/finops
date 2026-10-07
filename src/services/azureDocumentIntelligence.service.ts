@@ -1,8 +1,7 @@
 import { CostManagementClient } from "@azure/arm-costmanagement";
 import { MonitorClient } from "@azure/arm-monitor";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
 import { Decimal } from "decimal.js";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import {
   buildDocIntelligenceRemediations,
   calculateDocIntelligencePotentialSavings,
@@ -105,7 +104,7 @@ async function fetchLiveInventory(tenantId: string): Promise<LiveInventoryResult
                 skuName=tostring(sku.name), endpoint=tostring(properties.endpoint),
                 publicNetworkAccess, privateEndpointCount
     `;
-    const client = new ResourceGraphClient(credential);
+    const client = await getResourceGraphClient(tenantId, credential);
     const response = await client.resources({ query, subscriptions });
     return { rows: ((response.data as InventoryRow[]) || []), failed: false };
   } catch (error) {

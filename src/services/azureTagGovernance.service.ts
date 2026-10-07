@@ -1,5 +1,5 @@
 import { TokenCredential } from "@azure/identity";
-import { ResourceGraphClient } from "@azure/arm-resourcegraph";
+import { getResourceGraphClient } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import { errorMessage } from "@/lib/apiErrors";
@@ -137,7 +137,7 @@ export async function scanTagGovernanceLive(
   subscriptions: string[],
   tenantId: string
 ): Promise<TagGovernanceSummaryMetrics> {
-  const client = new ResourceGraphClient(credential);
+  const client = await getResourceGraphClient(tenantId, credential);
   const localCache = await getLocalCachedTags(tenantId);
 
   // 1. KQL para Recursos

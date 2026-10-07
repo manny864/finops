@@ -9,12 +9,7 @@ const { getAzureCredential, getSubscriptionsForTenant, resources } = vi.hoisted(
 vi.mock("@/lib/azure", () => ({
   getAzureCredential,
   getSubscriptionsForTenant,
-}));
-
-vi.mock("@azure/arm-resourcegraph", () => ({
-  ResourceGraphClient: class {
-    resources = resources;
-  },
+  getResourceGraphClient: async () => ({ resources }),
 }));
 
 vi.mock("@/modules/storage/db", () => ({
