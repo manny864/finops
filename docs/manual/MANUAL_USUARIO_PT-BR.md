@@ -574,6 +574,8 @@ Análise de rede, conectividade, balanceamento e acesso à internet. Oito abas:
 
 Três abas: **Dashboard** (KPIs de M365 e Entra ID), **Atividade de Usuários** (tabela filtrável) e **Otimização de Licenças** (recursos sem Hybrid Benefit via Resource Graph e métricas por SKU via Microsoft Graph).
 
+> ℹ️ **Com Azure Lighthouse estas abas não mostram dados.** O Lighthouse delega a administração das suas assinaturas, não o seu diretório, então a plataforma não consegue ler usuários, licenças nem atividade do Microsoft 365: no lugar dos dados você verá o aviso *No disponible con Azure Lighthouse* (não disponível com Azure Lighthouse; por enquanto o aviso aparece em espanhol). O mesmo vale para a aba **Entra ID** de Segurança (5.13), para a busca e a sincronização de usuários do Entra ID (8.2) e para o Copilot M365 (8.7). Para usá-las, o tenant precisa se conectar com o script de onboarding (1.3).
+
 ### 5.10. Azure AI (`/intelligence/azure-ai`, Enterprise)
 
 Plataforma de inteligência artificial do Azure: busca vetorial, processamento de documentos, transcrição, visão, moderação, MLOps e analítica distribuída. Nove abas: **Visão Geral**, **Azure Foundry**, **AI Search**, **Document Intelligence**, **Speech & Language**, **Vision & Video**, **Content Safety**, **Machine Learning** e **Databricks**.
@@ -592,7 +594,7 @@ Em **Log Analytics Workspace** você controla custo mensal, retenção e ingest�
 
 ### 5.13. Segurança (`/intelligence/seguridad`, Enterprise)
 
-Visibilidade e controle de custos nos serviços de segurança. Seis abas: **Defender for Cloud** (planos de proteção por recurso: Servers, Containers, SQL, Storage), **Microsoft Sentinel** (ingestão de logs e compromissos de capacidade), **Key Vault**, **Entra ID** (licenciamento P1/P2 e identidades de carga de trabalho), **WAF** e **DDoS Protection**. Um cron de pré-aquecimento acelera o carregamento.
+Visibilidade e controle de custos nos serviços de segurança. Seis abas: **Defender for Cloud** (planos de proteção por recurso: Servers, Containers, SQL, Storage), **Microsoft Sentinel** (ingestão de logs e compromissos de capacidade), **Key Vault**, **Entra ID** (licenciamento P1/P2 e identidades de carga de trabalho), **WAF** e **DDoS Protection**. Um cron de pré-aquecimento acelera o carregamento. Com Azure Lighthouse, a aba Entra ID mostra o mesmo aviso (ver 5.9).
 
 ### 5.14. Analítica Avançada (`/intelligence/analitica-avanzada`, Enterprise)
 

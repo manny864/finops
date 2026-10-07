@@ -1624,10 +1624,19 @@ sólo aparece en el plan **Enterprise**.
 | El cliente no quiere ejecutar scripts en su entorno | Necesitás leer secretos de su Key Vault o blobs de su storage |
 | El cliente quiere poder revocar el acceso cuando quiera | El cliente maneja el gasto por management group |
 | No querés administrar un secreto por cliente | El cliente sólo tiene una suscripción y ya corrió el script |
+| | El cliente necesita los módulos de identidad: Microsoft 365, licencias o Entra ID |
 
 Lighthouse delega **sólo plano de control**. No hay acceso al plano de datos del
 cliente, y sus management groups no se delegan — la delegación es por
 suscripción.
+
+**Tampoco se delega el directorio del cliente.** Usuarios y Licencias, la
+pestaña Entra ID de Seguridad, la búsqueda y la sincronización de usuarios de
+Entra ID y Copilot M365 muestran *No disponible con Azure Lighthouse* en vez de
+datos. La plataforma no le pide a Azure tokens de Microsoft Graph con la
+identidad de Lighthouse —los emitiría **nuestro** directorio y leerían a nuestros
+usuarios, no a los del cliente—, así que ese Service Principal no necesita
+permisos de API, y no hay que dárselos.
 
 ### 16.2 El procedimiento
 

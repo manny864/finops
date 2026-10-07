@@ -1620,10 +1620,19 @@ Access → Lighthouse Onboarding**, and only appears on the **Enterprise** plan.
 | The customer won't run scripts in their environment | You need to read secrets from their Key Vault or blobs from their storage |
 | The customer wants to be able to revoke access at any time | The customer manages spend by management group |
 | You'd rather not maintain one secret per customer | The customer has a single subscription and already ran the script |
+| | The customer needs the identity modules: Microsoft 365, licenses or Entra ID |
 
 Lighthouse delegates the **control plane only**. There is no access to the
 customer's data plane, and their management groups are not delegated —
 delegation is per subscription.
+
+**The customer's directory is not delegated either.** Users & Licenses, the
+Entra ID tab in Security, searching and syncing users from Entra ID, and Copilot
+M365 show the notice *No disponible con Azure Lighthouse* (not available with
+Azure Lighthouse) instead of data. The platform does not request Microsoft Graph
+tokens with the Lighthouse identity —**our** directory would issue them, and
+they would read our users, not the customer's—, so that Service Principal needs
+no API permissions, and should not be given any.
 
 ### 16.2 The procedure
 

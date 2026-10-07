@@ -840,8 +840,9 @@ delegó. Es la diferencia entre "el cliente nos da una identidad en su casa" y
 Esa distinción tiene consecuencias que no se ven en un diagrama de cajas:
 
 - **No hay plano de datos.** Lighthouse delega plano de control. Nada de leer
-  secretos del Key Vault del cliente, ni blobs de su storage. Cualquier
-  capacidad que dependa de eso simplemente no existe para un tenant delegado.
+  secretos del Key Vault del cliente, ni blobs de su storage, ni su directorio
+  (Microsoft Graph). Cualquier capacidad que dependa de eso simplemente no
+  existe para un tenant delegado — y la credencial lo hace cumplir (18.1).
 - **Los management groups no se delegan.** La delegación es por suscripción, así
   que el scope agregado de Cost Management —el más barato— no está disponible.
   Todo consumo tiene que consultarse suscripción por suscripción.
@@ -1099,3 +1100,59 @@ atribución de primer toque (`uq_referral_tenant`), una comisión por cobro
 que importa: la pasarela reintrega webhooks ante cualquier respuesta que no sea
 2xx, y una comisión duplicada es dinero pagado dos veces. Un chequeo previo en
 la aplicación es una condición de carrera; un índice único no lo es.
+
+---
+
+## 18. Addendum 2026-10-06 — Lo que Lighthouse delega es una lista cerrada, y la hace cumplir la credencial
+
+### 18.1 Una identidad que actúa por muchos clientes se acota en la identidad misma
+
+Con Lighthouse, `getAzureCredential(tenantId)` devuelve la credencial de
+**nuestro** Service Principal (15.1). Contra ARM es exactamente lo que hace andar
+la delegación: ARM resuelve el token hacia las suscripciones que el cliente
+delegó. Contra cualquier otra audiencia el resultado no es "sin acceso": un
+token de Microsoft Graph emitido por nuestro directorio lee **nuestro**
+directorio. Con permisos de Graph en esa identidad, las pantallas de identidad
+—usuarios, licencias, actividad de Microsoft 365, Entra ID— le mostrarían al
+cliente nuestros usuarios como si fueran suyos, y la búsqueda de usuarios de
+Entra ID permitiría enumerarlos.
+
+La decisión: la credencial de Lighthouse **sólo emite tokens para las audiencias
+que Lighthouse delega**, y rechaza las demás **antes** de pedirle el token a
+Entra ID. No es una convención que cada servicio tenga que recordar: es una
+propiedad de la credencial, por la que pasa toda consulta de un tenant delegado.
+
+| Audiencia | Con Lighthouse | Por qué |
+|---|---|---|
+| `https://management.azure.com` (ARM) | Sí | Es lo que Lighthouse delega |
+| `https://api.loganalytics.io` (Log Analytics) | Sí | Learn lista como soportada la consulta a workspaces del cliente |
+| `https://graph.microsoft.com` (directorio) | **No** | Microsoft Graph no pasa por ARM |
+| Plano de datos (Key Vault, storage, Cognitive Services...) | **No** | Son requests a la instancia, no a ARM |
+
+```mermaid
+flowchart LR
+    APP["Plataforma FinOps<br/>getAzureCredential(tenant Lighthouse)"] --> CRED["Credencial Lighthouse<br/>(nuestro directorio)"]
+    CRED -->|"ARM · Log Analytics"| ENTRA["Entra ID emite el token"]
+    ENTRA --> ARM["ARM → suscripciones delegadas"]
+    CRED -.->|"Graph · plano de datos"| RECH["Rechazo antes de pedir el token<br/>409 ERR_LIGHTHOUSE_NOT_DELEGATED"]
+```
+
+> **El principio:** cuando una identidad actúa en nombre de muchos clientes, lo
+> que puede hacer tiene que estar acotado en la identidad, no en cada llamador.
+> Un servicio nuevo que pida Graph con `getAzureCredential` falla cerrado y con
+> un motivo legible, en vez de abrir una fuga.
+
+### 18.2 Lo que el modelo de acceso no permite no es un error ni un cero
+
+Antes del corte, un tenant Lighthouse veía en Microsoft 365 un pedido de
+"permisos y licenciamiento" —un consentimiento que no arregla nada, porque el
+directorio no se delega— y en Entra ID un tablero en cero con el sello "Live
+Microsoft Graph", indistinguible de un directorio vacío. Las rutas de identidad
+responden ahora **409** con el motivo (*No disponible con Azure Lighthouse*), y
+la pantalla lo dice en vez de mostrar datos.
+
+La verificación del 2026-10-06 contra Entra ID confirmó que **no era
+explotable**: el Service Principal de Lighthouse no tiene permisos de aplicación
+de Graph, ni roles de directorio, ni pertenece a grupos asignables a roles. El
+corte no depende de eso: si mañana esa identidad recibe un permiso de Graph por
+otro motivo, la plataforma igual no lo usa para un tenant delegado.

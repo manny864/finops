@@ -125,7 +125,7 @@ Una organización que **ya usa Azure** y cuya factura mensual justifica mirarla 
 
 | Paso | Qué pasa | Quién lo hace |
 |---|---|---|
-| **1. Conectar** | El cliente corre un **script** (que genera la propia plataforma) y crea una **identidad de lectura** (un *Service Principal*) con los roles que corresponden a su plan. Alternativa Enterprise: **Azure Lighthouse**, sin credenciales. | El cliente, con nuestra ayuda |
+| **1. Conectar** | El cliente corre un **script** (que genera la propia plataforma) y crea una **identidad de lectura** (un *Service Principal*) con los roles que corresponden a su plan. Alternativa Enterprise: **Azure Lighthouse**, sin credenciales, pero sin los módulos de identidad (Microsoft 365 y Entra ID). | El cliente, con nuestra ayuda |
 | **2. Leer** | La plataforma trae **costos**, **inventario de recursos**, **métricas**, **recomendaciones de Azure Advisor** y datos de identidad (credenciales por vencer, licencias), de forma programada. | La plataforma, sola |
 | **3. Analizar** | Motores propios detectan desperdicio, anomalías, falta de etiquetas, compromisos mal usados, versiones por retirarse, etc., y la IA los explica. | La plataforma, sola |
 | **4. Actuar** | Cada hallazgo trae su **remediación**: scripts para copiar y pegar y, según el plan, **ejecución directa con aprobación** y auditoría. | El cliente decide; la plataforma ejecuta |

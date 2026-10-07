@@ -256,6 +256,7 @@ existe en ese directorio.
 | Secretos | Uno por tenant, en Key Vault | Uno solo, compartido |
 | Baja | Rotar o borrar el secreto | El cliente revoca desde su portal |
 | Plano de datos | Sí (Key Vault, storage del cliente) | **No** |
+| Directorio del cliente (Microsoft Graph) | Sí, con los permisos de Graph que concede el script | **No** — usuarios, licencias, M365 y Entra ID muestran *No disponible con Azure Lighthouse* |
 | Management groups | Visibles | **No** — la delegación es por suscripción |
 | Tier | Todos | **Enterprise** |
 
@@ -270,6 +271,14 @@ existe en ese directorio.
 > scope de MG tiene que ir por suscripción — el mecanismo
 > `isMgScopeKnownUnusable()` de `billingHelpers` ya lo hace automáticamente para
 > estos tenants.
+
+> **Tampoco delega el directorio del cliente, y la credencial lo hace cumplir.**
+> Un token de Microsoft Graph sacado de `getLighthouseCredential()` lo emite
+> **nuestro** directorio y leería a **nuestros** usuarios. Por eso esa credencial
+> sólo emite tokens de ARM (`management.azure.com`) y Log Analytics
+> (`api.loganalytics.io`), y rechaza cualquier otra audiencia **antes** de pedir
+> el token, con `AudienciaNoDelegadaError`. Las rutas de identidad lo devuelven
+> como **409** `ERR_LIGHTHOUSE_NOT_DELEGATED` con el motivo. Detalle en el LLD §39.
 
 > **Una plantilla sirve para todas las suscripciones.** Es un
 > `subscriptionDeploymentTemplate` con `name: [guid(subscription().id)]`,
@@ -291,7 +300,7 @@ secreto **sólo** en Key Vault):
 | Variable | Qué es |
 |---|---|
 | `AZURE_LIGHTHOUSE_TENANT_ID` | Nuestro directorio, el que recibe el acceso delegado. Es **otro** que `AZURE_TENANT_ID` a propósito: si cayera a ese fallback, delegar una suscripción de ese mismo directorio sería auto-delegación y Azure la rechaza. |
-| `AZURE_LIGHTHOUSE_CLIENT_ID` | App ID del Service Principal nuestro que accede a lo delegado. |
+| `AZURE_LIGHTHOUSE_CLIENT_ID` | App ID del Service Principal nuestro que accede a lo delegado. **No necesita permisos de API**: la plataforma sólo le pide tokens de ARM y Log Analytics, y rechaza cualquier otro. |
 | `AZURE_LIGHTHOUSE_PRINCIPAL_ID` | Object ID del grupo de seguridad que figura como principal en las autorizaciones de la plantilla. Sin esto la ruta devuelve **503**: antes rellenaba GUIDs inventados y la delegación se desplegaba en verde sin otorgar acceso a nadie. |
 | `AZURE_LIGHTHOUSE_PRINCIPAL_NAME` | Nombre que el portal del cliente muestra al aprobar la delegación. |
 | `infra-lighthouse-client-secret` | **Secreto de Key Vault**, no variable de entorno. Abre las suscripciones de *todos* los clientes delegados, bastante más que la credencial por tenant del modelo viejo. |
@@ -430,6 +439,24 @@ segundo.
 ---
 
 ## 📈 Recent Major Updates
+
+### 2026-10-06 — Lighthouse no emite tokens de Graph, y las pantallas de identidad dicen por qué
+
+Detalle técnico en `docs/lld/00-lld-completo.md` §39, arquitectónico en
+`docs/hld/00-hld-completo.md` §18.
+
+- **La credencial de Lighthouse sólo emite tokens de ARM y Log Analytics.** Es de
+  **nuestro** directorio: un token de Graph sacado de ella leería nuestros
+  usuarios, licencias y service principals, y las pantallas de identidad se los
+  mostrarían al cliente. El corte va en `getLighthouseCredential()`, así que
+  cubre a todos los llamadores de `getAzureCredential()`, incluidos los futuros.
+  Verificado contra Entra ID: hoy **no era explotable**, porque ese SP no tiene
+  permisos de Graph.
+- **Las pantallas de identidad dicen "No disponible con Azure Lighthouse".**
+  `m365/overview`, `m365/user-activity` y `intelligence/security/entra-id`
+  responden 409 con el motivo. Antes, Microsoft 365 pedía un consentimiento de
+  Graph que no arreglaba nada, y Entra ID mostraba ceros como si el directorio
+  estuviera vacío.
 
 ### 2026-09-07 — Programa de afiliados, y la prosa fuera de los payloads
 

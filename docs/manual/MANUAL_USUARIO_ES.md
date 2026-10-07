@@ -574,6 +574,8 @@ Análisis de red, conectividad, balanceo y acceso a internet. Ocho pestañas:
 
 Tres pestañas: **Dashboard** (KPIs de M365 y Entra ID), **Actividad de Usuarios** (tabla filtrable) y **Optimización de Licencias** (recursos sin Hybrid Benefit vía Resource Graph y métricas por SKU vía Microsoft Graph).
 
+> ℹ️ **Con Azure Lighthouse estas pestañas no muestran datos.** Lighthouse delega la administración de tus suscripciones, no tu directorio, así que la plataforma no puede leer usuarios, licencias ni actividad de Microsoft 365: en lugar de datos vas a ver *No disponible con Azure Lighthouse*. Lo mismo pasa con la pestaña **Entra ID** de Seguridad (5.13), con la búsqueda y la sincronización de usuarios de Entra ID (8.2) y con Copilot M365 (8.7). Para usarlas, el tenant tiene que conectarse con el script de onboarding (1.3).
+
 ### 5.10. Azure AI (`/intelligence/azure-ai`, Enterprise)
 
 Plataforma de inteligencia artificial de Azure: búsqueda vectorial, procesamiento de documentos, transcripción, visión, moderación, MLOps y analítica distribuida. Nueve pestañas: **Resumen**, **Azure Foundry**, **AI Search**, **Document Intelligence**, **Speech & Language**, **Vision & Video**, **Content Safety**, **Machine Learning** y **Databricks**.
@@ -592,7 +594,7 @@ En **Log Analytics Workspace** controlás costo mensual, retención e ingesta es
 
 ### 5.13. Seguridad (`/intelligence/seguridad`, Enterprise)
 
-Visibilidad y control de costos en los servicios de seguridad. Seis pestañas: **Defender for Cloud** (planes de protección por recurso: Servers, Containers, SQL, Storage), **Microsoft Sentinel** (ingesta de logs y compromisos de capacidad), **Key Vault**, **Entra ID** (licenciamiento P1/P2 e identidades de carga de trabajo), **WAF** y **DDoS Protection**. Un cron de precalentamiento acelera la carga.
+Visibilidad y control de costos en los servicios de seguridad. Seis pestañas: **Defender for Cloud** (planes de protección por recurso: Servers, Containers, SQL, Storage), **Microsoft Sentinel** (ingesta de logs y compromisos de capacidad), **Key Vault**, **Entra ID** (licenciamiento P1/P2 e identidades de carga de trabajo), **WAF** y **DDoS Protection**. Un cron de precalentamiento acelera la carga. Con Azure Lighthouse, la pestaña Entra ID muestra *No disponible con Azure Lighthouse* (ver 5.9).
 
 ### 5.14. Analítica Avanzada (`/intelligence/analitica-avanzada`, Enterprise)
 

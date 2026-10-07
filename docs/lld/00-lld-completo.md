@@ -2420,6 +2420,10 @@ export function clearLighthouseCredentialCache(): void;
 export function olvidarTenantsLighthouse(): void;
 ```
 
+> Desde el 2026-10-06 la credencial sólo emite tokens de ARM y Log Analytics, y
+> el módulo exporta además `AudienciaNoDelegadaError` y
+> `respuestaAudienciaNoDelegada` (39).
+
 Decisiones de diseño que el tipo no muestra:
 
 - **`getAccessModel()` es fail-safe hacia el modelo viejo.** Ante error de base
@@ -3138,3 +3142,91 @@ sin atribuir se devuelve para que la UI la muestre antes de confirmar.
 - `__tests__/unit/consumoPresupuestoClavesDinamicas.test.ts` y
   `skuDetailFichaPorSku.test.ts` — las claves construidas en runtime, que
   `i18nKeyIntegrity` no puede ver.
+
+---
+
+## 39. Addendum 2026-10-06 — Audiencias de la credencial Lighthouse
+
+Con Lighthouse la credencial es de **nuestro** directorio (36.1): un token de
+Microsoft Graph sacado de ella lee nuestro directorio, no el del cliente. El
+corte va en la credencial, por donde pasan los ~226 llamadores de
+`getAzureCredential()`. Contexto arquitectónico en el HLD §18.
+
+### 39.1 Contrato
+
+**`src/lib/lighthouseAccess.ts`** — se suma a lo de 36.1:
+
+```ts
+export class AudienciaNoDelegadaError extends Error {
+  readonly code: "ERR_LIGHTHOUSE_NOT_DELEGATED";
+  readonly audiencia: string; // el scope rechazado, p. ej. "https://graph.microsoft.com/.default"
+}
+export function respuestaAudienciaNoDelegada(e: unknown): NextResponse | null;
+```
+
+`getLighthouseCredential()` conserva la firma (`Promise<ClientSecretCredential>`)
+y devuelve una subclase interna, `CredencialLighthouse`, cuyo `getToken` valida
+**cada** scope pedido contra `AUDIENCIAS_DELEGADAS` antes de llamar a
+`super.getToken`:
+
+| Scope pedido | Resultado |
+|---|---|
+| `https://management.azure.com/.default` | Token, como siempre |
+| `https://api.loganalytics.io/.default` | Token (`avdUsageService`, consultas a `WVDConnections`) |
+| Cualquier otro, o un array que mezcle uno permitido con uno que no | `AudienciaNoDelegadaError`, sin llamar a MSAL |
+
+Decisiones que el tipo no muestra:
+
+- **Subclase y no wrapper.** Muchos llamadores tipan `ClientSecretCredential`
+  (`getSubscriptionsForTenant`, `getSubscriptionNameMap`...): una subclase
+  conserva el tipo sin tocar ninguno. `ClientSecretCredential` sólo expone
+  `getToken`, así que no queda otro camino para emitir un token.
+- **No rompe lo que andaba.** Los SDK ARM instalados piden todos
+  `https://management.azure.com/.default`: `${endpoint}/.default` en los
+  generados con `core-client`, el default del adapter de `ms-rest-js` en
+  `arm-resourcegraph`, y `arm-monitor` lo fija explícito. Ningún llamador
+  sobreescribe `credentialScopes` ni `baseUri`.
+- **El error no lleva `status` numérico** a propósito: varios servicios tratan
+  un 403 de Graph como "capacidad ausente" y lo absorben (por ejemplo, el
+  reintento sin `signInActivity` de `getUsersDetail`). Esto no es eso.
+
+### 39.2 Rutas que cambian de respuesta
+
+`respuestaAudienciaNoDelegada(e)` devuelve
+`409 { error, errorCode: "ERR_LIGHTHOUSE_NOT_DELEGATED" }`, o `null` si el error
+es otro. La usan las rutas que escondían el error detrás de un 500 genérico:
+
+| Método | Ruta | Antes, para un tenant Lighthouse | Ahora |
+|---|---|---|---|
+| `GET` | `/api/m365/overview` | 403 `MISSING_GRAPH_PERMISSIONS` | 409 con el motivo |
+| `GET` | `/api/m365/user-activity` | 403 `MISSING_GRAPH_PERMISSIONS` | 409 con el motivo |
+| `GET` | `/api/intelligence/security/entra-id` | 200 con ceros | 409 con el motivo |
+
+`fetchLiveEntraIdData()` relanza `AudienciaNoDelegadaError` en sus dos `catch`:
+los ceros de `emptyPayload` se leerían como un directorio sin usuarios, y
+`EntraIdPanel` no renderiza `unavailableCapabilities`.
+
+Las demás rutas que piden Graph con `getAzureCredential()` ya devolvían
+`errorMessage(e)` y muestran el motivo sin cambios: `intelligence/licenses` (en
+`graphError`), `admin/users/search-entra` y `admin/users/sync-group` (502),
+`admin/config/users?refreshMfa=true` (en `warning`), `copilot-m365/config`
+(500), `intelligence/entra-id` y `admin/check-sp-roles` (500).
+`governance/expiring-credentials` no pasa por acá: pide su token con las
+credenciales del cliente y contra el tenant del cliente.
+
+En la UI, `ErrorBlock` de `M365UsersBoard` ya no clasifica un mensaje que
+menciona Lighthouse como "faltan permisos de Graph": pedirle al cliente un
+consentimiento que no arregla nada era el comportamiento anterior.
+
+### 39.3 Verificación
+
+- `__tests__/unit/lighthouseAccess.test.ts` — desde `getAzureCredential()` con un
+  tenant `lighthouse`: Graph, un array mixto y Cognitive Services rechazan sin
+  llegar a `ClientSecretCredential.prototype.getToken`; ARM y Log Analytics sí
+  llegan; la ruta mapea a 409. Validado con mutante: con
+  `new ClientSecretCredential(...)` en lugar de la subclase, el test se pone rojo.
+- Contra Entra ID (2026-10-06, sólo lectura): el SP de Lighthouse no pide
+  permisos (`az ad app permission list`), no tiene `appRoleAssignments`, ni
+  roles de directorio, y su único grupo no es asignable a roles. Con control
+  positivo: la misma consulta devuelve los 8 principals que sí tienen app roles
+  de Graph en ese directorio.

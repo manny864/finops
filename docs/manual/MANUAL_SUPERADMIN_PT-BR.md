@@ -1618,10 +1618,19 @@ Lighthouse** e só aparece no plano **Enterprise**.
 | O cliente não quer executar scripts no ambiente dele | Você precisa ler segredos do Key Vault dele ou blobs do storage dele |
 | O cliente quer poder revogar o acesso quando quiser | O cliente controla o gasto por management group |
 | Você não quer administrar um segredo por cliente | O cliente tem só uma assinatura e já rodou o script |
+| | O cliente precisa dos módulos de identidade: Microsoft 365, licenças ou Entra ID |
 
 O Lighthouse delega **apenas o plano de controle**. Não há acesso ao plano de
 dados do cliente, e os management groups dele não são delegados — a delegação é
 por assinatura.
+
+**O diretório do cliente também não é delegado.** Usuários e Licenças, a aba
+Entra ID de Segurança, a busca e a sincronização de usuários do Entra ID e o
+Copilot M365 mostram o aviso *No disponible con Azure Lighthouse* (não disponível
+com Azure Lighthouse) no lugar dos dados. A plataforma não pede ao Azure tokens
+do Microsoft Graph com a identidade do Lighthouse —quem os emitiria é o **nosso**
+diretório, e eles leriam os nossos usuários, não os do cliente—, então esse
+Service Principal não precisa de permissões de API, e não se deve concedê-las.
 
 ### 16.2 O procedimento
 

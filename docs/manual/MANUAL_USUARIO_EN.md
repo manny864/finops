@@ -574,6 +574,8 @@ Network analysis, connectivity, balancing and internet access. Eight tabs:
 
 Three tabs: **Dashboard** (M365 and Entra ID KPIs), **User Activity** (filterable table) and **License Optimization** (resources without Hybrid Benefit via Resource Graph and per-SKU metrics via Microsoft Graph).
 
+> ℹ️ **With Azure Lighthouse these tabs show no data.** Lighthouse delegates the management of your subscriptions, not your directory, so the platform cannot read users, licenses or Microsoft 365 activity: instead of data you will see the notice *No disponible con Azure Lighthouse* (not available with Azure Lighthouse; the notice is currently shown in Spanish). The same applies to the **Entra ID** tab in Security (5.13), to searching and syncing users from Entra ID (8.2) and to Copilot M365 (8.7). To use them, the tenant has to connect with the onboarding script (1.3).
+
 ### 5.10. Azure AI (`/intelligence/azure-ai`, Enterprise)
 
 Azure's artificial-intelligence platform: vector search, document processing, transcription, vision, moderation, MLOps and distributed analytics. Nine tabs: **Overview**, **Azure Foundry**, **AI Search**, **Document Intelligence**, **Speech & Language**, **Vision & Video**, **Content Safety**, **Machine Learning** and **Databricks**.
@@ -592,7 +594,7 @@ In **Log Analytics Workspace** you control monthly cost, retention and estimated
 
 ### 5.13. Security (`/intelligence/seguridad`, Enterprise)
 
-Visibility and cost control of the security services. Six tabs: **Defender for Cloud** (per-resource protection plans: Servers, Containers, SQL, Storage), **Microsoft Sentinel** (log ingestion and capacity commitments), **Key Vault**, **Entra ID** (P1/P2 licensing and workload identities), **WAF** and **DDoS Protection**. A pre-warm cron speeds up loading.
+Visibility and cost control of the security services. Six tabs: **Defender for Cloud** (per-resource protection plans: Servers, Containers, SQL, Storage), **Microsoft Sentinel** (log ingestion and capacity commitments), **Key Vault**, **Entra ID** (P1/P2 licensing and workload identities), **WAF** and **DDoS Protection**. A pre-warm cron speeds up loading. With Azure Lighthouse, the Entra ID tab shows the same notice (see 5.9).
 
 ### 5.14. Advanced Analytics (`/intelligence/analitica-avanzada`, Enterprise)
 
