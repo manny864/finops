@@ -19,6 +19,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
+import { respuestaAudienciaNoDelegada } from "@/lib/lighthouseAccess";
 import {
   fetchLiveEntraIdData,
   getMockEntraIdPayload,
@@ -45,6 +46,8 @@ export async function GET(request: NextRequest) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
+    const lighthouse = respuestaAudienciaNoDelegada(error);
+    if (lighthouse) return lighthouse;
     console.error("[API Entra ID Governance] Error:", error);
     return NextResponse.json(
       { error: "Error interno procesando Microsoft Entra ID" },

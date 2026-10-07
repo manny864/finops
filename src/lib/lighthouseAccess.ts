@@ -19,12 +19,13 @@
  *
  * QUE NO DA LIGHTHOUSE
  * Solo plano de CONTROL. No hay acceso al plano de datos del cliente: ni
- * secretos de su Key Vault, ni blobs de su storage. Y los management groups del
- * cliente no son visibles --la delegacion es por suscripcion--, asi que todo lo
- * que consulte por scope de MG tiene que ir por suscripcion.
+ * secretos de su Key Vault, ni blobs de su storage. Tampoco a su directorio:
+ * Microsoft Graph no pasa por ARM. Y los management groups del cliente no son
+ * visibles --la delegacion es por suscripcion--, asi que todo lo que consulte
+ * por scope de MG tiene que ir por suscripcion.
  */
 
-import { ClientSecretCredential } from "@azure/identity";
+import { ClientSecretCredential, type GetTokenOptions } from "@azure/identity";
 import pool from "@/modules/storage/db";
 import { getSecret, isKeyVaultEnabled } from "@/lib/secrets/keyvault";
 import { errorMessage } from "@/lib/apiErrors";
@@ -90,6 +91,58 @@ export function olvidarTenantsLighthouse(): void {
 }
 
 /**
+ * Las audiencias que Lighthouse delega. Cualquier otra se rechaza ANTES de
+ * pedir el token.
+ *
+ * El token de esta credencial lo emite NUESTRO directorio. Contra ARM eso es lo
+ * que hace andar la delegacion. Contra otra audiencia no da "sin acceso", da
+ * algo peor: un token de Microsoft Graph lee usuarios, licencias y service
+ * principals de NUESTRO directorio, y la pantalla de identidad se los muestra
+ * al cliente como si fueran suyos.
+ *
+ * Learn, "Cross-tenant management experiences": Lighthouse soporta los requests
+ * que atiende Azure Resource Manager (https://management.azure.com) y no los del
+ * plano de datos. Lista como soportada la consulta a workspaces de Log Analytics
+ * de los clientes, que es lo que hace `avdUsageService`.
+ */
+const AUDIENCIAS_DELEGADAS = new Set([
+    "https://management.azure.com/.default",
+    "https://api.loganalytics.io/.default",
+]);
+
+export class AudienciaNoDelegadaError extends Error {
+    readonly code = "ERR_LIGHTHOUSE_NOT_DELEGATED";
+    constructor(readonly audiencia: string) {
+        const host = /^https?:\/\/([^/]+)/i.exec(audiencia)?.[1] ?? audiencia;
+        super(
+            `No disponible con Azure Lighthouse: la delegación cubre Azure Resource Manager y Log Analytics, no ` +
+            (host === "graph.microsoft.com" ? "el directorio del cliente (usuarios, licencias y Microsoft 365)" : host) +
+            `. Para estos datos el tenant tiene que conectarse con un app registration en su propio directorio.`,
+        );
+        this.name = "AudienciaNoDelegadaError";
+    }
+}
+
+class CredencialLighthouse extends ClientSecretCredential {
+    override async getToken(scopes: string | string[], options?: GetTokenOptions) {
+        for (const s of typeof scopes === "string" ? [scopes] : scopes) {
+            if (!AUDIENCIAS_DELEGADAS.has(s.toLowerCase())) throw new AudienciaNoDelegadaError(s);
+        }
+        return super.getToken(scopes, options);
+    }
+}
+
+/**
+ * Para las rutas que esconden sus errores detras de un 500 generico. Esto no es
+ * una falla: es algo que el modelo de acceso del tenant no permite, y la
+ * pantalla tiene que decirlo en vez de mostrar "Internal server error" o ceros.
+ */
+export function respuestaAudienciaNoDelegada(e: unknown): NextResponse | null {
+    if (!(e instanceof AudienciaNoDelegadaError)) return null;
+    return NextResponse.json({ error: e.message, errorCode: e.code }, { status: 409 });
+}
+
+/**
  * Credencial de NUESTRO service principal, cacheada.
  *
  * Se cachea porque es una sola para todos los tenants delegados y
@@ -128,7 +181,7 @@ export async function getLighthouseCredential(): Promise<ClientSecretCredential>
         );
     }
 
-    const cred = new ClientSecretCredential(tenantId, clientId, clientSecret);
+    const cred = new CredencialLighthouse(tenantId, clientId, clientSecret);
     credencialCache = { cred, expira: Date.now() + CACHE_MS };
     return cred;
 }

@@ -22,6 +22,7 @@ import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
 import { getSubscriptionNameMap } from "@/lib/azureSubscriptionNames";
 import { withArgLimit } from "@/lib/argConcurrency";
 import { errorMessage } from "@/lib/apiErrors";
+import { AudienciaNoDelegadaError } from "@/lib/lighthouseAccess";
 import { graphGetAll, graphToken } from "@/modules/collectors/azure/m365UsersService";
 import { resolveSkuName, resolveSkuPrice } from "@/lib/m365SkuCatalog";
 import {
@@ -585,6 +586,9 @@ export async function fetchLiveEntraIdData(tenantId: string): Promise<EntraIdPay
     try {
       token = await graphToken(tenantId);
     } catch (error) {
+      // Con Lighthouse no falta una capacidad: falta el directorio entero, y
+      // los ceros de `emptyPayload` se leerían como un tenant sin usuarios.
+      if (error instanceof AudienciaNoDelegadaError) throw error;
       console.warn("[azureEntraId.service] Graph no disponible:", errorMessage(error));
       return emptyPayload(availableSubscriptions, ["MicrosoftGraph"]);
     }
@@ -809,6 +813,7 @@ export async function fetchLiveEntraIdData(tenantId: string): Promise<EntraIdPay
       unavailableCapabilities: unavailable,
     };
   } catch (error) {
+    if (error instanceof AudienciaNoDelegadaError) throw error;
     console.error("[azureEntraId.service] fetchLiveEntraIdData:", errorMessage(error));
     return emptyPayload([], unavailable);
   }

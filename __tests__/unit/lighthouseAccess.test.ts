@@ -1,5 +1,6 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { ClientSecretCredential } from "@azure/identity";
 import { readFileSync } from "fs";
 import { join } from "path";
 
@@ -13,7 +14,10 @@ import {
     olvidarTenantsLighthouse,
     getLighthouseCredential,
     clearLighthouseCredentialCache,
+    AudienciaNoDelegadaError,
+    respuestaAudienciaNoDelegada,
 } from "@/lib/lighthouseAccess";
+import { getAzureCredential } from "@/lib/azure";
 
 const RAIZ = join(__dirname, "..", "..");
 const sinComentarios = (ruta: string) =>
@@ -140,5 +144,52 @@ describe("tenant gestionado vs administrador", () => {
         // `definitionName` es "CSCloudSolutions FinOps Delegation": ponerlo en la
         // columna del cliente es peor que mostrar el GUID.
         expect(svc).not.toMatch(/managedTenantName:[^\n]*definitionName/);
+    });
+});
+
+/**
+ * La credencial de Lighthouse es de NUESTRO directorio. Un token de Microsoft
+ * Graph sacado de ella no lee el directorio del cliente: lee el nuestro, y las
+ * pantallas de identidad se lo mostrarían al cliente como propio.
+ */
+describe("audiencias de la credencial lighthouse", () => {
+    const GRAPH = "https://graph.microsoft.com/.default";
+
+    beforeEach(() => {
+        process.env.AZURE_LIGHTHOUSE_TENANT_ID = "00000000-0000-0000-0000-00000000000a";
+        process.env.AZURE_LIGHTHOUSE_CLIENT_ID = "00000000-0000-0000-0000-00000000000b";
+        process.env.AZURE_LIGHTHOUSE_CLIENT_SECRET = "secreto";
+    });
+    afterEach(() => vi.restoreAllMocks());
+
+    it("un tenant lighthouse no saca tokens de Graph ni de otro plano de datos", async () => {
+        queryMock.mockResolvedValue([[{ access_model: "lighthouse" }]]);
+        const emitir = vi.spyOn(ClientSecretCredential.prototype, "getToken");
+        const cred = await getAzureCredential("cliente-lighthouse");
+
+        await expect(cred.getToken(GRAPH)).rejects.toBeInstanceOf(AudienciaNoDelegadaError);
+        await expect(cred.getToken(["https://management.azure.com/.default", GRAPH])).rejects.toThrow(/Lighthouse/);
+        await expect(cred.getToken("https://cognitiveservices.azure.com/.default")).rejects.toBeInstanceOf(AudienciaNoDelegadaError);
+        expect(emitir, "el rechazo tiene que ser antes de pedirle el token a Entra").not.toHaveBeenCalled();
+    });
+
+    it("ARM y Log Analytics, que Lighthouse sí delega, siguen pasando", async () => {
+        const emitir = vi
+            .spyOn(ClientSecretCredential.prototype, "getToken")
+            .mockResolvedValue({ token: "t", expiresOnTimestamp: Date.now() + 3_600_000 });
+        const cred = await getLighthouseCredential();
+
+        await cred.getToken("https://management.azure.com/.default");
+        await cred.getToken(["https://api.loganalytics.io/.default"]);
+        expect(emitir).toHaveBeenCalledTimes(2);
+    });
+
+    it("las rutas lo devuelven como 409 con el motivo, no como 500 genérico", async () => {
+        const res = respuestaAudienciaNoDelegada(new AudienciaNoDelegadaError(GRAPH));
+        expect(res?.status).toBe(409);
+        const body = await res!.json();
+        expect(body.errorCode).toBe("ERR_LIGHTHOUSE_NOT_DELEGATED");
+        expect(body.error).toMatch(/^No disponible con Azure Lighthouse/);
+        expect(respuestaAudienciaNoDelegada(new Error("otra cosa"))).toBeNull();
     });
 });

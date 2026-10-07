@@ -143,7 +143,9 @@ function LoadingBlock() {
 
 function ErrorBlock({ message }: { message: string }) {
     const t = useTranslations("M365Users");
-    const missing = /MISSING_GRAPH_PERMISSIONS|graph|403/i.test(message);
+    // Con Lighthouse no faltan permisos que el cliente pueda dar: su directorio
+    // no se delega. Pedirle consentimiento de Graph sería mandarlo a la nada.
+    const missing = !/Lighthouse/i.test(message) && /MISSING_GRAPH_PERMISSIONS|graph|403/i.test(message);
     return (
         <div className="bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 p-4 rounded-lg border border-amber-200 dark:border-amber-900/50">
             <h3 className="font-bold flex items-center gap-2"><IconAlertTriangle className="w-4 h-4 text-[#0078D4]" stroke={1.5} /> {missing ? t("graph_permissions_title") : t("genericError")}</h3>
