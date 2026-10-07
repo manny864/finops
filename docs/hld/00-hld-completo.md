@@ -1144,12 +1144,13 @@ flowchart LR
 
 ### 18.2 Lo que el modelo de acceso no permite no es un error ni un cero
 
-Antes del corte, un tenant Lighthouse veía en Microsoft 365 un pedido de
-"permisos y licenciamiento" —un consentimiento que no arregla nada, porque el
-directorio no se delega— y en Entra ID un tablero en cero con el sello "Live
-Microsoft Graph", indistinguible de un directorio vacío. Las rutas de identidad
-responden ahora **409** con el motivo (*No disponible con Azure Lighthouse*), y
-la pantalla lo dice en vez de mostrar datos.
+Antes del corte, un tenant Lighthouse veía en Microsoft 365, Licencias, la
+búsqueda de usuarios y Copilot M365 un pedido de consentimiento de Graph —que no
+arregla nada, porque el directorio no se delega— y en Entra ID un tablero en
+cero con el sello "Live Microsoft Graph", indistinguible de un directorio vacío.
+Las rutas de identidad responden ahora **409** con un código, y la pantalla dice
+*No disponible con Azure Lighthouse* en el idioma del usuario en vez de mostrar
+datos. El texto no viaja en el payload, por el mismo motivo que en 17.1.
 
 La verificación del 2026-10-06 contra Entra ID confirmó que **no era
 explotable**: el Service Principal de Lighthouse no tiene permisos de aplicación

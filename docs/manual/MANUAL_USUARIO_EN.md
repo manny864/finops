@@ -574,7 +574,7 @@ Network analysis, connectivity, balancing and internet access. Eight tabs:
 
 Three tabs: **Dashboard** (M365 and Entra ID KPIs), **User Activity** (filterable table) and **License Optimization** (resources without Hybrid Benefit via Resource Graph and per-SKU metrics via Microsoft Graph).
 
-> ℹ️ **With Azure Lighthouse these tabs show no data.** Lighthouse delegates the management of your subscriptions, not your directory, so the platform cannot read users, licenses or Microsoft 365 activity: instead of data you will see the notice *No disponible con Azure Lighthouse* (not available with Azure Lighthouse; the notice is currently shown in Spanish). The same applies to the **Entra ID** tab in Security (5.13), to searching and syncing users from Entra ID (8.2) and to Copilot M365 (8.7). To use them, the tenant has to connect with the onboarding script (1.3).
+> ℹ️ **With Azure Lighthouse these tabs show no data.** Lighthouse delegates the management of your subscriptions, not your directory, so the platform cannot read users, licenses or Microsoft 365 activity: instead of data you will see the notice *Not available with Azure Lighthouse*. The same applies to the **Entra ID** tab in Security (5.13), to searching and syncing users from Entra ID (8.2) and to Copilot M365 (8.7). To use them, the tenant has to connect with the onboarding script (1.3).
 
 ### 5.10. Azure AI (`/intelligence/azure-ai`, Enterprise)
 

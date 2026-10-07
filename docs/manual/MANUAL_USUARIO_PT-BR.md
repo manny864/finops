@@ -574,7 +574,7 @@ Análise de rede, conectividade, balanceamento e acesso à internet. Oito abas:
 
 Três abas: **Dashboard** (KPIs de M365 e Entra ID), **Atividade de Usuários** (tabela filtrável) e **Otimização de Licenças** (recursos sem Hybrid Benefit via Resource Graph e métricas por SKU via Microsoft Graph).
 
-> ℹ️ **Com Azure Lighthouse estas abas não mostram dados.** O Lighthouse delega a administração das suas assinaturas, não o seu diretório, então a plataforma não consegue ler usuários, licenças nem atividade do Microsoft 365: no lugar dos dados você verá o aviso *No disponible con Azure Lighthouse* (não disponível com Azure Lighthouse; por enquanto o aviso aparece em espanhol). O mesmo vale para a aba **Entra ID** de Segurança (5.13), para a busca e a sincronização de usuários do Entra ID (8.2) e para o Copilot M365 (8.7). Para usá-las, o tenant precisa se conectar com o script de onboarding (1.3).
+> ℹ️ **Com Azure Lighthouse estas abas não mostram dados.** O Lighthouse delega a administração das suas assinaturas, não o seu diretório, então a plataforma não consegue ler usuários, licenças nem atividade do Microsoft 365: no lugar dos dados você verá o aviso *Não disponível com Azure Lighthouse*. O mesmo vale para a aba **Entra ID** de Segurança (5.13), para a busca e a sincronização de usuários do Entra ID (8.2) e para o Copilot M365 (8.7). Para usá-las, o tenant precisa se conectar com o script de onboarding (1.3).
 
 ### 5.10. Azure AI (`/intelligence/azure-ai`, Enterprise)
 

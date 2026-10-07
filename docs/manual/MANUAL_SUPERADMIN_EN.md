@@ -1628,8 +1628,7 @@ delegation is per subscription.
 
 **The customer's directory is not delegated either.** Users & Licenses, the
 Entra ID tab in Security, searching and syncing users from Entra ID, and Copilot
-M365 show the notice *No disponible con Azure Lighthouse* (not available with
-Azure Lighthouse) instead of data. The platform does not request Microsoft Graph
+M365 show the notice *Not available with Azure Lighthouse* instead of data. The platform does not request Microsoft Graph
 tokens with the Lighthouse identity —**our** directory would issue them, and
 they would read our users, not the customer's—, so that Service Principal needs
 no API permissions, and should not be given any.

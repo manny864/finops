@@ -1626,8 +1626,8 @@ por assinatura.
 
 **O diretório do cliente também não é delegado.** Usuários e Licenças, a aba
 Entra ID de Segurança, a busca e a sincronização de usuários do Entra ID e o
-Copilot M365 mostram o aviso *No disponible con Azure Lighthouse* (não disponível
-com Azure Lighthouse) no lugar dos dados. A plataforma não pede ao Azure tokens
+Copilot M365 mostram o aviso *Não disponível com Azure Lighthouse* no lugar dos
+dados. A plataforma não pede ao Azure tokens
 do Microsoft Graph com a identidade do Lighthouse —quem os emitiria é o **nosso**
 diretório, e eles leriam os nossos usuários, não os do cliente—, então esse
 Service Principal não precisa de permissões de API, e não se deve concedê-las.

@@ -278,7 +278,8 @@ existe en ese directorio.
 > sólo emite tokens de ARM (`management.azure.com`) y Log Analytics
 > (`api.loganalytics.io`), y rechaza cualquier otra audiencia **antes** de pedir
 > el token, con `AudienciaNoDelegadaError`. Las rutas de identidad lo devuelven
-> como **409** `ERR_LIGHTHOUSE_NOT_DELEGATED` con el motivo. Detalle en el LLD §39.
+> como **409** `ERR_LIGHTHOUSE_NOT_DELEGATED`, y la pantalla lo traduce
+> (`useAvisoLighthouse`). Detalle en el LLD §39.
 
 > **Una plantilla sirve para todas las suscripciones.** Es un
 > `subscriptionDeploymentTemplate` con `name: [guid(subscription().id)]`,
@@ -452,11 +453,13 @@ Detalle técnico en `docs/lld/00-lld-completo.md` §39, arquitectónico en
   cubre a todos los llamadores de `getAzureCredential()`, incluidos los futuros.
   Verificado contra Entra ID: hoy **no era explotable**, porque ese SP no tiene
   permisos de Graph.
-- **Las pantallas de identidad dicen "No disponible con Azure Lighthouse".**
-  `m365/overview`, `m365/user-activity` y `intelligence/security/entra-id`
-  responden 409 con el motivo. Antes, Microsoft 365 pedía un consentimiento de
-  Graph que no arreglaba nada, y Entra ID mostraba ceros como si el directorio
-  estuviera vacío.
+- **Las pantallas de identidad dicen "No disponible con Azure Lighthouse", en el
+  idioma del usuario.** Las rutas de M365, licencias, Entra ID, búsqueda y grupos
+  de Entra ID y Copilot M365 responden 409 con
+  `errorCode: ERR_LIGHTHOUSE_NOT_DELEGATED`, y cada pantalla lo traduce con
+  `useAvisoLighthouse`. Antes, Microsoft 365, Licencias, la búsqueda de usuarios
+  y Copilot M365 pedían un consentimiento de Graph que no arreglaba nada, y
+  Entra ID mostraba ceros como si el directorio estuviera vacío.
 
 ### 2026-09-07 — Programa de afiliados, y la prosa fuera de los payloads
 

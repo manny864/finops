@@ -3194,37 +3194,74 @@ Decisiones que el tipo no muestra:
 
 `respuestaAudienciaNoDelegada(e)` devuelve
 `409 { error, errorCode: "ERR_LIGHTHOUSE_NOT_DELEGATED" }`, o `null` si el error
-es otro. La usan las rutas que escondían el error detrás de un 500 genérico:
+es otro. El código es `LIGHTHOUSE_ERRORS.NO_DELEGADO` de `lighthouseTier.ts`, que
+el cliente puede importar; `error` es el respaldo en español.
 
-| Método | Ruta | Antes, para un tenant Lighthouse | Ahora |
+| Método | Ruta | Antes de `38c6c73`, para un tenant Lighthouse | Ahora |
 |---|---|---|---|
-| `GET` | `/api/m365/overview` | 403 `MISSING_GRAPH_PERMISSIONS` | 409 con el motivo |
-| `GET` | `/api/m365/user-activity` | 403 `MISSING_GRAPH_PERMISSIONS` | 409 con el motivo |
-| `GET` | `/api/intelligence/security/entra-id` | 200 con ceros | 409 con el motivo |
+| `GET` | `/api/m365/overview` | 403 `MISSING_GRAPH_PERMISSIONS` | 409 |
+| `GET` | `/api/m365/user-activity` | 403 `MISSING_GRAPH_PERMISSIONS` | 409 |
+| `GET` | `/api/intelligence/security/entra-id` | 200 con ceros | 409 |
+| `GET` | `/api/intelligence/licenses` | 200 con `graphError`, que la pestaña tapaba con el cartel fijo de consentimiento | 409 |
+| `GET` | `/api/admin/users/search-entra` | 403 "el Service Principal no tiene permiso para leer el directorio" | 409 |
+| `GET`, `POST` | `/api/admin/users/sync-group` | 502 con el 403 de Graph adentro | 409 |
+| `POST`, `DELETE` | `/api/copilot-m365/config` | 403 `GRAPH_PERMISSION_MISSING` | 409 |
+| `GET` | `/api/admin/config/users?refreshMfa=true` | 200 con el 403 de Graph en `warning` | 200 con `warning` y `warningCode` |
 
-`fetchLiveEntraIdData()` relanza `AudienciaNoDelegadaError` en sus dos `catch`:
-los ceros de `emptyPayload` se leerían como un directorio sin usuarios, y
-`EntraIdPanel` no renderiza `unavailableCapabilities`.
+`fetchLiveEntraIdData()` y `fetchLicenses()` relanzan `AudienciaNoDelegadaError`
+en vez de degradar. En Entra ID, los ceros de `emptyPayload` se leerían como un
+directorio sin usuarios, y `EntraIdPanel` no renderiza `unavailableCapabilities`.
+En Licencias, la pestaña pinta un cartel fijo de "permisos y licenciamiento" ante
+**cualquier** `graphError`, sin leer su texto: le pedía al cliente un
+consentimiento de Graph que no resuelve nada.
 
-Las demás rutas que piden Graph con `getAzureCredential()` ya devolvían
-`errorMessage(e)` y muestran el motivo sin cambios: `intelligence/licenses` (en
-`graphError`), `admin/users/search-entra` y `admin/users/sync-group` (502),
-`admin/config/users?refreshMfa=true` (en `warning`), `copilot-m365/config`
-(500), `intelligence/entra-id` y `admin/check-sp-roles` (500).
-`governance/expiring-credentials` no pasa por acá: pide su token con las
-credenciales del cliente y contra el tenant del cliente.
+Quedan con el texto de respaldo `intelligence/entra-id` y `admin/check-sp-roles`
+(500), que no tienen pantalla que se los muestre a un tenant Lighthouse.
+`governance/expiring-credentials` y `admin/config/users/entra-sync` no pasan por
+acá: piden su token con las credenciales del cliente y contra el tenant del
+cliente, nunca contra nuestro directorio.
 
-En la UI, `ErrorBlock` de `M365UsersBoard` ya no clasifica un mensaje que
-menciona Lighthouse como "faltan permisos de Graph": pedirle al cliente un
-consentimiento que no arregla nada era el comportamiento anterior.
+### 39.3 Traducción en el cliente
 
-### 39.3 Verificación
+Mismo patrón que los demás `ERR_LIGHTHOUSE_*` (HLD §17.1): el servidor manda el
+código y la pantalla elige el texto.
+
+```ts
+// src/hooks/useAvisoLighthouse.ts
+export function useAvisoLighthouse(): (json: { errorCode?: unknown } | null | undefined) => string | null;
+```
+
+Devuelve `Lighthouse.errores.ERR_LIGHTHOUSE_NOT_DELEGATED` traducido si
+`json.errorCode` es el de Lighthouse, o `null` para que la pantalla siga con su
+manejo de siempre. Es estable entre renders (`useCallback` sobre `t`), así que
+puede ir en las dependencias de un efecto. Lo usan:
+
+| Pantalla | Dónde |
+|---|---|
+| `M365UsersBoard` | Fetcher de Dashboard y Actividad de Usuarios; `setError` de Optimización de Licencias |
+| `EntraIdPanel` | Parámetro de `buildFetcher`, que no es un hook y no puede llamar a `useTranslations` |
+| `UsersPanel` | Búsqueda en Entra ID, búsqueda y alta de grupos, y el `warningCode` del refresco de 2FA |
+| `M365CopilotConfigPanel` | Acciones sobre Graph (aprovisionar, reindexar, revocar) |
+
+El texto no habla sólo del directorio: el mismo código cubre el plano de datos
+(Cognitive Services, Key Vault...), así que dice que la delegación no alcanza "a
+tu directorio (usuarios, licencias, Microsoft 365) ni a los datos dentro de tus
+servicios".
+
+`ErrorBlock` de `M365UsersBoard` reconoce el aviso porque nombra a Lighthouse, y
+así no lo confunde con un permiso de Graph faltante: el texto traducido tiene que
+decir "Azure Lighthouse" en los tres idiomas.
+
+### 39.4 Verificación
 
 - `__tests__/unit/lighthouseAccess.test.ts` — desde `getAzureCredential()` con un
   tenant `lighthouse`: Graph, un array mixto y Cognitive Services rechazan sin
   llegar a `ClientSecretCredential.prototype.getToken`; ARM y Log Analytics sí
-  llegan; la ruta mapea a 409. Validado con mutante: con
-  `new ClientSecretCredential(...)` en lugar de la subclase, el test se pone rojo.
+  llegan; la ruta mapea a 409; y el aviso traducido nombra a Azure Lighthouse en
+  `es`, `en` y `pt-BR`. Validado con mutante: con `new ClientSecretCredential(...)`
+  en lugar de la subclase, el test se pone rojo.
+- `i18nKeyIntegrity` y `i18nSinEspanol` cubren la clave nueva: existe en los tres
+  diccionarios y no quedó español en `en.json` ni en `pt-BR.json`.
 - Contra Entra ID (2026-10-06, sólo lectura): el SP de Lighthouse no pide
   permisos (`az ad app permission list`), no tiene `appRoleAssignments`, ni
   roles de directorio, y su único grupo no es asignable a roles. Con control
