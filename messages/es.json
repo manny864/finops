@@ -458,7 +458,7 @@
         },
         "support-reply-draft": {
           "label": "Borradores de respuesta de soporte con IA",
-          "description": "A pedido del operador, redacta un borrador citando secciones del manual de usuario y lo guarda como nota interna editable del ticket. Nunca se envía solo. La paga la plataforma y no consume cuota del tenant; respeta la IA apagada del tenant."
+          "description": "A pedido del operador, redacta un borrador citando secciones de los manuales y lo guarda como nota interna editable del ticket. Nunca se envía solo. La paga la plataforma y no consume cuota del tenant; respeta la IA apagada del tenant."
         },
         "billing-upload-assessment": {
           "label": "Análisis con IA de la carga de CSV",
@@ -13354,6 +13354,14 @@
     "kpiMttr": "Tiempo medio de resolución",
     "kpiMttrHint": "Promedio sobre tickets ya resueltos",
     "kpiMttrHelp": "Horas promedio entre creación y resolución. Sólo cuenta tickets resueltos: incluir los abiertos daría un número que baja cuando entra trabajo nuevo.",
+    "kpiFirstResponse": "Primera respuesta ({days} d)",
+    "kpiFirstResponseHint": "{count} tickets creados",
+    "kpiFirstResponseHelp": "Tiempo promedio entre la creación del ticket y la primera respuesta pública del equipo, en los tickets creados en la ventana. Las notas internas no cuentan.",
+    "kpiSlaBreaches": "SLA incumplido ({days} d)",
+    "kpiSlaBreachesHelp": "Tickets creados en la ventana que se respondieron después del vencimiento del SLA de primera respuesta, o que ya vencieron y siguen sin respuesta.",
+    "kpiAiDraftsUsed": "Borradores con IA usados ({days} d)",
+    "kpiAiDraftsUsedHint": "{used} de {generated} borradores",
+    "kpiAiDraftsUsedHelp": "Porcentaje de los borradores de «Sugerir respuesta» generados en la ventana que el equipo envió como respuesta pública con «Usar como respuesta», con o sin cambios.",
     "allTenants": "Todas las organizaciones",
     "allPriorities": "Todas las prioridades",
     "allAgents": "Todos los agentes",
@@ -13387,7 +13395,8 @@
     "col_created": "Fecha de creación",
     "col_created_help": "Cuándo abrió el ticket el cliente.",
     "col_actions": "Acciones rápidas",
-    "col_actions_help": "Atender abre la conversación; Tomar te asigna el ticket; Resolver lo cierra como resuelto."
+    "col_actions_help": "Atender abre la conversación; Tomar te asigna el ticket; Resolver lo cierra como resuelto.",
+    "aiTriageDismissed": "Sugerencia descartada."
   },
   "SuperAdminTenants": {
     "title": "Gestión de Tenants (SuperAdmin)",
@@ -13615,7 +13624,31 @@
     "col_sla": "SLA restante",
     "col_sla_help": "Tiempo que queda del SLA de primera respuesta. Deja de contar cuando el equipo responde.",
     "col_actions": "Acciones",
-    "col_actions_help": "Abre la conversación completa del ticket."
+    "col_actions_help": "Abre la conversación completa del ticket.",
+    "aiProductionImpact": "Impacto productivo",
+    "aiProductionImpactHelp": "La IA detectó que el problema afecta un entorno productivo del cliente.",
+    "aiTriageTitle": "Sugerencia de triaje con IA",
+    "aiTriageConfidence": "Confianza: {value}%",
+    "aiTriageAccept": "Aceptar",
+    "aiTriageAcceptHelp": "Aplica al ticket la prioridad, la categoría y el módulo sugeridos. El vencimiento del SLA no cambia.",
+    "aiTriageDismiss": "Descartar",
+    "aiSuggestReply": "Sugerir respuesta",
+    "aiSuggesting": "Generando borrador…",
+    "aiSuggestReplyHelp": "Genera con IA un borrador basado en los manuales y lo guarda como nota interna. No se envía al cliente.",
+    "aiDraftSaved": "Borrador guardado como nota interna.",
+    "aiDraftTag": "Borrador con IA",
+    "aiUseAsReply": "Usar como respuesta",
+    "aiReason_global_disabled": "Las funciones de IA están desactivadas en la plataforma.",
+    "aiReason_feature_disabled": "Los borradores con IA están desactivados en la plataforma.",
+    "aiReason_tenant_disabled": "La IA está desactivada para la organización de este ticket.",
+    "aiReason_tier": "El plan de esta organización no incluye esta función de IA.",
+    "aiReason_quota": "Se alcanzó el cupo mensual de esta función de IA.",
+    "aiReason_rate_limited": "Demasiadas solicitudes seguidas. Probá de nuevo en un minuto.",
+    "aiReason_not_configured": "No hay un proveedor de IA configurado.",
+    "aiReason_error": "No se pudo generar el borrador. Probá más tarde.",
+    "aiReason_validation": "El borrador generado no pasó la verificación automática (citas) y no se guardó.",
+    "aiReason_data_sharing": "Esta organización no comparte nombres de recursos ni tags con la IA, y el texto del ticket podría incluirlos.",
+    "aiReason_no_sources": "Los manuales no tienen información para responder este ticket."
   },
   "Sustainability": {
     "greenFinops": "Green FinOps (Sostenibilidad)",

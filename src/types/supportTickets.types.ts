@@ -165,7 +165,7 @@ export interface SupportWindowKpis {
     aiDraftsUsed: number;
 }
 
-/** Por qué "Sugerir respuesta" no generó un borrador. Se traducen en SuperAdminSupport.aiReason_*. */
+/** Por qué "Sugerir respuesta" no generó un borrador. Se traducen en Support.aiReason_*. */
 export const SUPPORT_AI_UNAVAILABLE_REASONS = [
     "global_disabled",
     "feature_disabled",

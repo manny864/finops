@@ -458,7 +458,7 @@
         },
         "support-reply-draft": {
           "label": "Rascunhos de resposta de suporte com IA",
-          "description": "A pedido do operador, redige um rascunho citando seções do manual do usuário e o salva como nota interna editável do ticket. Nunca é enviado sozinho. É paga pela plataforma e não consome a cota do tenant; respeita a IA desativada do tenant."
+          "description": "A pedido do operador, redige um rascunho citando seções dos manuais e o salva como nota interna editável do ticket. Nunca é enviado sozinho. É paga pela plataforma e não consome a cota do tenant; respeita a IA desativada do tenant."
         },
         "billing-upload-assessment": {
           "label": "Análise com IA do envio de CSV",
@@ -13354,6 +13354,14 @@
     "kpiMttr": "Tempo médio de resolução",
     "kpiMttrHint": "Média sobre tickets já resolvidos",
     "kpiMttrHelp": "Horas médias entre criação e resolução. Só conta tickets resolvidos: incluir os abertos daria um número que cai quando entra trabalho novo.",
+    "kpiFirstResponse": "Primeira resposta ({days} d)",
+    "kpiFirstResponseHint": "{count} tickets criados",
+    "kpiFirstResponseHelp": "Tempo médio entre a criação do ticket e a primeira resposta pública da equipe, nos tickets criados na janela. Notas internas não contam.",
+    "kpiSlaBreaches": "SLA descumprido ({days} d)",
+    "kpiSlaBreachesHelp": "Tickets criados na janela que foram respondidos depois do vencimento do SLA de primeira resposta, ou que já venceram e continuam sem resposta.",
+    "kpiAiDraftsUsed": "Rascunhos com IA usados ({days} d)",
+    "kpiAiDraftsUsedHint": "{used} de {generated} rascunhos",
+    "kpiAiDraftsUsedHelp": "Porcentagem dos rascunhos de “Sugerir resposta” gerados na janela que a equipe enviou como resposta pública com “Usar como resposta”, editados ou não.",
     "allTenants": "Todas as organizações",
     "allPriorities": "Todas as prioridades",
     "allAgents": "Todos os agentes",
@@ -13387,7 +13395,8 @@
     "col_created": "Data de criação",
     "col_created_help": "Quando o cliente abriu o ticket.",
     "col_actions": "Ações rápidas",
-    "col_actions_help": "Atender abre a conversa; Assumir atribui o ticket a você; Resolver o encerra como resolvido."
+    "col_actions_help": "Atender abre a conversa; Assumir atribui o ticket a você; Resolver o encerra como resolvido.",
+    "aiTriageDismissed": "Sugestão descartada."
   },
   "SuperAdminTenants": {
     "title": "Gestão de Tenants (SuperAdmin)",
@@ -13615,7 +13624,31 @@
     "col_sla": "SLA restante",
     "col_sla_help": "Tempo restante do SLA de primeira resposta. Para de contar quando a equipe responde.",
     "col_actions": "Ações",
-    "col_actions_help": "Abre a conversa completa do ticket."
+    "col_actions_help": "Abre a conversa completa do ticket.",
+    "aiProductionImpact": "Impacto em produção",
+    "aiProductionImpactHelp": "A IA detectou que o problema afeta um ambiente de produção do cliente.",
+    "aiTriageTitle": "Sugestão de triagem com IA",
+    "aiTriageConfidence": "Confiança: {value}%",
+    "aiTriageAccept": "Aceitar",
+    "aiTriageAcceptHelp": "Aplica ao ticket a prioridade, a categoria e o módulo sugeridos. O prazo do SLA não muda.",
+    "aiTriageDismiss": "Descartar",
+    "aiSuggestReply": "Sugerir resposta",
+    "aiSuggesting": "Gerando rascunho…",
+    "aiSuggestReplyHelp": "Gera com IA um rascunho baseado nos manuais e o salva como nota interna. Não é enviado ao cliente.",
+    "aiDraftSaved": "Rascunho salvo como nota interna.",
+    "aiDraftTag": "Rascunho com IA",
+    "aiUseAsReply": "Usar como resposta",
+    "aiReason_global_disabled": "As funções de IA estão desativadas na plataforma.",
+    "aiReason_feature_disabled": "Os rascunhos com IA estão desativados na plataforma.",
+    "aiReason_tenant_disabled": "A IA está desativada para a organização deste ticket.",
+    "aiReason_tier": "O plano desta organização não inclui esta função de IA.",
+    "aiReason_quota": "O limite mensal desta função de IA foi atingido.",
+    "aiReason_rate_limited": "Muitas solicitações seguidas. Tente novamente em um minuto.",
+    "aiReason_not_configured": "Nenhum provedor de IA está configurado.",
+    "aiReason_error": "Não foi possível gerar o rascunho. Tente mais tarde.",
+    "aiReason_validation": "O rascunho gerado não passou na verificação automática (citações) e não foi salvo.",
+    "aiReason_data_sharing": "Esta organização não compartilha nomes de recursos nem tags com a IA, e o texto do ticket pode incluí-los.",
+    "aiReason_no_sources": "Os manuais não têm informações para responder a este ticket."
   },
   "Sustainability": {
     "greenFinops": "Green FinOps (Sustentabilidade)",

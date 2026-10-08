@@ -10,14 +10,33 @@ import {
     IconPaperclip,
     IconPhoto,
     IconSend,
+    IconSparkles,
     IconTrash,
     IconUserCheck,
     IconX,
     IconZoomIn,
 } from "@tabler/icons-react";
-import type { SupportTicketItem, TicketMessageItem, TicketPriority, TicketStatus } from "@/types/supportTickets.types";
+import type {
+    SupportAiUnavailableReason,
+    SupportReplyDraftResult,
+    SupportTicketItem,
+    TicketMessageItem,
+    TicketPriority,
+    TicketStatus,
+} from "@/types/supportTickets.types";
 import { ATTACHMENT_EXTENSIONS, formatBytes, isPreviewableImage, isValidAttachment } from "@/services/supportTickets.service";
-import { InternalNoteTag, PRIORITY_I18N, PriorityPill, SlaBadge, STATUS_I18N, StatusBadge, formatDateTime } from "./supportUi";
+import {
+    CATEGORY_I18N,
+    InternalNoteTag,
+    PRIORITY_I18N,
+    PriorityPill,
+    ProductionImpactBadge,
+    SlaBadge,
+    STATUS_I18N,
+    StatusBadge,
+    formatDateTime,
+    hasProductionImpact,
+} from "./supportUi";
 
 /**
  * Drawer de conversación de un ticket. Uno solo para las dos vistas: la de
@@ -36,8 +55,11 @@ const AGENT_STATUSES: TicketStatus[] = ["OPEN", "IN_PROGRESS", "WAITING_USER", "
 const AGENT_PRIORITIES: TicketPriority[] = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
 
 export interface DrawerActions {
-    /** Envía un mensaje. Devuelve el id del mensaje creado para colgarle adjuntos. */
-    sendMessage: (text: string, isInternalNote: boolean) => Promise<number | null>;
+    /**
+     * Envía un mensaje. Devuelve el id del mensaje creado para colgarle adjuntos.
+     * `aiDraftId`: el texto salió de un borrador de IA ("Usar como respuesta").
+     */
+    sendMessage: (text: string, isInternalNote: boolean, aiDraftId?: string) => Promise<number | null>;
     uploadAttachment: (file: File, messageId: number | null) => Promise<boolean>;
     downloadAttachment: (attachmentId: string, fileName: string) => Promise<void>;
     /**
@@ -49,6 +71,10 @@ export interface DrawerActions {
     changeStatus?: (status: TicketStatus) => Promise<void>;
     changePriority?: (priority: TicketPriority) => Promise<void>;
     assignToMe?: () => Promise<void>;
+    /** Sólo equipo (IA, Fase 3a): aceptar aplica lo sugerido al ticket; descartar sólo lo registra. */
+    decideAiTriage?: (decision: "accept" | "dismiss") => Promise<void>;
+    /** Sólo equipo (IA, Fase 3b): pide un borrador, que queda como nota interna del ticket. */
+    suggestReply?: () => Promise<SupportReplyDraftResult>;
     refresh: () => Promise<void>;
 }
 
@@ -71,15 +97,23 @@ export default function TicketConversationDrawer({
     actions: DrawerActions;
 }) {
     const t = useTranslations("Support");
+    // "Generado con IA · verificá los datos": la misma etiqueta que la explicación de anomalías.
+    const tAi = useTranslations("Anomalies");
     const [text, setText] = useState("");
     const [asInternalNote, setAsInternalNote] = useState(false);
     const [files, setFiles] = useState<File[]>([]);
     const [sending, setSending] = useState(false);
     const [zoomed, setZoomed] = useState<{ url: string; name: string } | null>(null);
+    /** Borrador de IA cargado en el compositor con "Usar como respuesta". */
+    const [draftId, setDraftId] = useState<string | undefined>();
+    const [suggesting, setSuggesting] = useState(false);
+    const [aiReason, setAiReason] = useState<SupportAiUnavailableReason | null>(null);
+    const [deciding, setDeciding] = useState(false);
     const bodyRef = useRef<HTMLDivElement>(null);
     const textRef = useRef<HTMLTextAreaElement>(null);
 
     const isClosed = ticket.status === "CLOSED";
+    const triage = mode === "agent" && ticket.aiTriage?.status === "pending" ? ticket.aiTriage : null;
 
     // El hilo se lee de arriba hacia abajo: al abrir y al recibir mensajes
     // nuevos hay que quedar al final, no al principio.
@@ -127,15 +161,51 @@ export default function TicketConversationDrawer({
         if (!body || sending) return;
         setSending(true);
         try {
-            const messageId = await actions.sendMessage(body, asInternalNote);
+            const messageId = await actions.sendMessage(body, asInternalNote, draftId);
             for (const f of files) await actions.uploadAttachment(f, messageId);
             setText("");
             setFiles([]);
             setAsInternalNote(false);
+            setDraftId(undefined);
             await actions.refresh();
         } finally {
             setSending(false);
         }
+    };
+
+    const decideTriage = async (decision: "accept" | "dismiss") => {
+        if (!actions.decideAiTriage || deciding) return;
+        setDeciding(true);
+        try {
+            await actions.decideAiTriage(decision);
+        } finally {
+            setDeciding(false);
+        }
+    };
+
+    const suggestReply = async () => {
+        if (!actions.suggestReply || suggesting) return;
+        setSuggesting(true);
+        setAiReason(null);
+        try {
+            const result = await actions.suggestReply();
+            if (result.aiAvailable) {
+                toast.success(t("aiDraftSaved"));
+                await actions.refresh();
+            } else {
+                setAiReason(result.reason);
+            }
+        } finally {
+            setSuggesting(false);
+        }
+    };
+
+    /** Pasa el borrador al compositor como respuesta pública: el operador lo revisa y lo envía. */
+    const loadDraft = (message: TicketMessageItem) => {
+        setText(message.messageText);
+        setAsInternalNote(false);
+        setDraftId(message.aiDraftId);
+        textRef.current?.focus();
     };
 
     return (
@@ -167,6 +237,9 @@ export default function TicketConversationDrawer({
                             <span className="text-[11px] font-semibold px-2 py-[3px] rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                                 {ticket.relatedModule}
                             </span>
+                        )}
+                        {mode === "agent" && hasProductionImpact(ticket) && (
+                            <ProductionImpactBadge label={t("aiProductionImpact")} title={t("aiProductionImpactHelp")} />
                         )}
                     </div>
 
@@ -205,6 +278,55 @@ export default function TicketConversationDrawer({
                             </button>
                         </div>
                     )}
+
+                    {/* Triaje con IA (Fase 3a): sugerencia interna que el equipo acepta o descarta. */}
+                    {triage && (
+                        <div className="mt-3 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20 p-2.5">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <span className="text-[11px] font-bold uppercase tracking-wide text-[#0078D4] dark:text-blue-400 flex items-center gap-1">
+                                    <IconSparkles size={14} stroke={1.5} />
+                                    {t("aiTriageTitle")}
+                                </span>
+                                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                                    {t("aiTriageConfidence", { value: Math.round(triage.confidence * 100) })}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                <PriorityPill priority={triage.suggestedPriority} label={t(PRIORITY_I18N[triage.suggestedPriority] as never)} />
+                                <span className="text-[11px] font-semibold px-2 py-[3px] rounded-md bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                    {t(CATEGORY_I18N[triage.suggestedCategory] as never)}
+                                </span>
+                                {triage.suggestedModule && (
+                                    <span className="text-[11px] font-semibold px-2 py-[3px] rounded-md bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                        {t(`module_${triage.suggestedModule}` as never)}
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-[12px] text-slate-700 dark:text-slate-300 mt-2">{triage.rationale}</p>
+                            <div className="flex items-center justify-between gap-2 mt-2 flex-wrap">
+                                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                                    {tAi("aiGeneratedLabel")}
+                                </span>
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        onClick={() => decideTriage("accept")}
+                                        disabled={deciding}
+                                        title={t("aiTriageAcceptHelp")}
+                                        className="text-xs font-semibold rounded-lg border border-[#0078D4] bg-[#0078D4] text-white hover:bg-[#0060AA] px-2.5 py-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {t("aiTriageAccept")}
+                                    </button>
+                                    <button
+                                        onClick={() => decideTriage("dismiss")}
+                                        disabled={deciding}
+                                        className="text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 px-2.5 py-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {t("aiTriageDismiss")}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Cuerpo del hilo */}
@@ -227,6 +349,16 @@ export default function TicketConversationDrawer({
                                 onPreview={actions.previewAttachment}
                                 onZoom={(url, name) => setZoomed({ url, name })}
                                 internalLabel={t("internalNote")}
+                                aiDraft={
+                                    m.aiDraftId
+                                        ? {
+                                            tag: t("aiDraftTag"),
+                                            generatedLabel: tAi("aiGeneratedLabel"),
+                                            useLabel: t("aiUseAsReply"),
+                                            onUse: mode === "agent" && !isClosed ? () => loadDraft(m) : undefined,
+                                        }
+                                        : undefined
+                                }
                             />
                         ))
                     )}
@@ -280,7 +412,22 @@ export default function TicketConversationDrawer({
                                         <IconLock size={12} stroke={2} className="inline mr-1" />
                                         {t("internalNote")}
                                     </button>
+                                    {actions.suggestReply && (
+                                        <button
+                                            onClick={suggestReply}
+                                            disabled={suggesting}
+                                            title={t("aiSuggestReplyHelp")}
+                                            className="ml-auto text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-[#0078D4] text-[#0078D4] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/30 flex items-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {suggesting ? <IconLoader2 size={12} className="animate-spin" /> : <IconSparkles size={12} stroke={2} />}
+                                            {suggesting ? t("aiSuggesting") : t("aiSuggestReply")}
+                                        </button>
+                                    )}
                                 </div>
+                            )}
+
+                            {mode === "agent" && aiReason && (
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">{t(`aiReason_${aiReason}` as never)}</p>
                             )}
 
                             {asInternalNote && (
@@ -314,10 +461,20 @@ export default function TicketConversationDrawer({
                                 </div>
                             )}
 
+                            {draftId && (
+                                <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                                    <IconSparkles size={12} stroke={2} />
+                                    {tAi("aiGeneratedLabel")}
+                                </p>
+                            )}
+
                             <textarea
                                 ref={textRef}
                                 value={text}
-                                onChange={(e) => setText(e.target.value)}
+                                onChange={(e) => {
+                                    setText(e.target.value);
+                                    if (!e.target.value.trim()) setDraftId(undefined);
+                                }}
                                 placeholder={asInternalNote ? t("internalNotePlaceholder") : t("replyPlaceholder")}
                                 rows={2}
                                 maxLength={10000}
@@ -370,12 +527,15 @@ function MessageBubble({
     onPreview,
     onZoom,
     internalLabel,
+    aiDraft,
 }: {
     message: TicketMessageItem;
     onDownload: (id: string, fileName: string) => Promise<void>;
     onPreview: (id: string) => Promise<string | null>;
     onZoom: (url: string, name: string) => void;
     internalLabel: string;
+    /** La nota es un borrador de "Sugerir respuesta". Sin `onUse` no se puede pasar al compositor. */
+    aiDraft?: { tag: string; generatedLabel: string; useLabel: string; onUse?: () => void };
 }) {
     const isSupport = message.senderRole === "SUPPORT_AGENT";
     const isSystem = message.senderRole === "SYSTEM";
@@ -392,11 +552,31 @@ function MessageBubble({
         <div className={`max-w-[85%] rounded-xl border p-3 ${tone}`}>
             <div className="text-[11px] font-semibold mb-1 flex items-center gap-1.5 flex-wrap opacity-80">
                 {message.isInternalNote && <InternalNoteTag label={internalLabel} />}
+                {aiDraft && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-[#0078D4] dark:text-blue-400">
+                        <IconSparkles size={12} stroke={2} />
+                        {aiDraft.tag}
+                    </span>
+                )}
                 {isSupport && !message.isInternalNote && <IconMessages size={12} stroke={1.5} className="text-[#0078D4]" />}
                 {message.senderName}
                 <span className="font-normal">· {formatDateTime(message.createdAt)}</span>
             </div>
             <div className="text-[13px] whitespace-pre-wrap break-words">{message.messageText}</div>
+
+            {aiDraft && (
+                <div className="mt-2 flex items-center justify-between gap-2 flex-wrap">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">{aiDraft.generatedLabel}</span>
+                    {aiDraft.onUse && (
+                        <button
+                            onClick={aiDraft.onUse}
+                            className="text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-[#0078D4] text-[#0078D4] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/30 cursor-pointer"
+                        >
+                            {aiDraft.useLabel}
+                        </button>
+                    )}
+                </div>
+            )}
 
             {message.attachments && message.attachments.length > 0 && (
                 <div className="mt-2 flex flex-col gap-1">

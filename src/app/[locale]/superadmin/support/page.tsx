@@ -9,9 +9,11 @@ import {
     IconAlertCircle,
     IconCheck,
     IconClockCheck,
+    IconClockExclamation,
     IconInbox,
     IconLifebuoy,
     IconLoader2,
+    IconMessageReply,
     IconSearch,
     IconSparkles,
     IconUserCheck,
@@ -28,13 +30,17 @@ import {
     KpiCard,
     PRIORITY_I18N,
     PriorityPill,
+    ProductionImpactBadge,
     SlaBadge,
     STATUS_I18N,
     StatusBadge,
     formatDateTime,
+    hasProductionImpact,
 } from "@/components/support/supportUi";
+import { categoryToDb, priorityToDb } from "@/services/supportTickets.service";
 import type {
     GlobalSupportPayload,
+    SupportReplyDraftResult,
     SupportTicketItem,
     TicketAttachmentItem,
     TicketMessageItem,
@@ -142,7 +148,8 @@ export default function SuperAdminSupportPage() {
                 const res = await fetch(`/api/support/tickets/${ticket.id}?tenantId=${encodeURIComponent(ticket.tenantId)}`, { headers });
                 const json = await res.json();
                 if (!res.ok) throw new Error(json.error);
-                setSelected({ ...json.ticket, tenantDisplayName: ticket.tenantDisplayName });
+                // El detalle no trae el triaje con IA: se conserva el de la cola.
+                setSelected({ ...json.ticket, tenantDisplayName: ticket.tenantDisplayName, aiTriage: ticket.aiTriage });
                 setMessages(json.messages || []);
                 setOrphanAttachments(json.attachments || []);
             } catch (e) {
@@ -236,13 +243,13 @@ export default function SuperAdminSupportPage() {
     };
 
     const drawerActions: DrawerActions = {
-        sendMessage: async (text, isInternalNote) => {
+        sendMessage: async (text, isInternalNote, aiDraftId) => {
             if (!selected) return null;
             const headers = await authHeaders();
             const res = await fetch(`/api/support/tickets/${selected.id}`, {
                 method: "POST",
                 headers: { ...headers, "Content-Type": "application/json" },
-                body: JSON.stringify({ tenantId: selected.tenantId, message: text, isInternalNote }),
+                body: JSON.stringify({ tenantId: selected.tenantId, message: text, isInternalNote, ...(aiDraftId ? { aiDraftId } : {}) }),
             });
             const json = await res.json();
             if (!res.ok) {
@@ -298,6 +305,54 @@ export default function SuperAdminSupportPage() {
             if (!selected) return;
             await assign(selected, selected.assignedAdminEmail === myEmail);
             setSelected({ ...selected, assignedAdminEmail: selected.assignedAdminEmail === myEmail ? undefined : myEmail });
+        },
+        decideAiTriage: async (decision) => {
+            const suggestion = selected?.aiTriage;
+            if (!selected || !suggestion) return;
+            let next = selected;
+            if (decision === "accept") {
+                // Mismo PATCH que un cambio manual: nunca toca el vencimiento del SLA.
+                const ok = await patchTicket(selected, {
+                    priority: priorityToDb(suggestion.suggestedPriority),
+                    category: categoryToDb(suggestion.suggestedCategory),
+                    ...(suggestion.suggestedModule ? { relatedModule: suggestion.suggestedModule } : {}),
+                });
+                if (!ok) return;
+                next = {
+                    ...selected,
+                    priority: suggestion.suggestedPriority,
+                    category: suggestion.suggestedCategory,
+                    relatedModule: suggestion.suggestedModule ?? selected.relatedModule,
+                };
+                setSelected(next);
+            }
+            try {
+                const headers = await authHeaders();
+                const res = await fetch(`/api/admin/support/tickets/${selected.id}/ai-triage`, {
+                    method: "POST",
+                    headers: { ...headers, "Content-Type": "application/json" },
+                    body: JSON.stringify({ decision }),
+                });
+                if (!res.ok) throw new Error((await res.json()).error);
+                if (decision === "dismiss") toast.success(t("aiTriageDismissed"));
+                setSelected({ ...next, aiTriage: { ...suggestion, status: decision === "accept" ? "accepted" : "dismissed" } });
+                await loadQueue();
+            } catch (e) {
+                toast.error(errorMessage(e) || t("errorGeneric"));
+            }
+        },
+        suggestReply: async (): Promise<SupportReplyDraftResult> => {
+            if (!selected) return { aiAvailable: false, reason: "error" };
+            try {
+                const headers = await authHeaders();
+                const res = await fetch(`/api/admin/support/tickets/${selected.id}/ai-draft`, { method: "POST", headers });
+                const json = await res.json();
+                if (!res.ok) throw new Error(json.error);
+                return json as SupportReplyDraftResult;
+            } catch (e) {
+                console.error("[support] no se pudo pedir el borrador con IA:", errorMessage(e));
+                return { aiAvailable: false, reason: "error" };
+            }
         },
         refresh: async () => {
             if (selected) await openThread(selected);
@@ -383,6 +438,39 @@ export default function SuperAdminSupportPage() {
                     tooltip={<InfoTooltip content={t("kpiMttrHelp")} />}
                 />
             </div>
+
+            {/* KPIs de la ventana (primera respuesta, SLA y uso de los borradores con IA) */}
+            {payload?.kpis && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+                    <KpiCard
+                        icon={IconMessageReply}
+                        label={t("kpiFirstResponse", { days: payload.kpis.windowDays })}
+                        value={payload.kpis.avgFirstResponseHours !== null ? `${payload.kpis.avgFirstResponseHours} h` : "—"}
+                        tone="#0078D4"
+                        hint={t("kpiFirstResponseHint", { count: payload.kpis.ticketsCreated })}
+                        tooltip={<InfoTooltip content={t("kpiFirstResponseHelp")} />}
+                    />
+                    <KpiCard
+                        icon={IconClockExclamation}
+                        label={t("kpiSlaBreaches", { days: payload.kpis.windowDays })}
+                        value={payload.kpis.slaBreaches}
+                        tone="#2563EB"
+                        tooltip={<InfoTooltip content={t("kpiSlaBreachesHelp")} />}
+                    />
+                    <KpiCard
+                        icon={IconSparkles}
+                        label={t("kpiAiDraftsUsed", { days: payload.kpis.windowDays })}
+                        value={
+                            payload.kpis.aiDraftsGenerated > 0
+                                ? `${Math.round((payload.kpis.aiDraftsUsed / payload.kpis.aiDraftsGenerated) * 100)}%`
+                                : "—"
+                        }
+                        tone="#0284C7"
+                        hint={t("kpiAiDraftsUsedHint", { used: payload.kpis.aiDraftsUsed, generated: payload.kpis.aiDraftsGenerated })}
+                        tooltip={<InfoTooltip content={t("kpiAiDraftsUsedHelp")} />}
+                    />
+                </div>
+            )}
 
             {/* Filtros */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 mb-5 flex flex-col gap-3">
@@ -482,7 +570,10 @@ export default function SuperAdminSupportPage() {
                                 </thead>
                                 <tbody>
                                     {pg.paged.map((tk) => (
-                                        <tr key={tk.id} className="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                                        <tr
+                                            key={tk.id}
+                                            className={`border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 ${hasProductionImpact(tk) ? "bg-rose-50/60 dark:bg-rose-950/20" : ""}`}
+                                        >
                                             {cols.isVisible("number") && (
                                                 <td className={TD}>
                                                     <span className="font-mono font-bold text-[#0078D4]">{tk.ticketNumber}</span>
@@ -506,6 +597,11 @@ export default function SuperAdminSupportPage() {
                                                     <div className={`${CELL} text-[11px] text-slate-500`} title={tk.creatorEmail}>
                                                         {tk.creatorEmail}
                                                     </div>
+                                                    {hasProductionImpact(tk) && (
+                                                        <div className="mt-1">
+                                                            <ProductionImpactBadge label={ts("aiProductionImpact")} title={ts("aiProductionImpactHelp")} />
+                                                        </div>
+                                                    )}
                                                 </td>
                                             )}
                                             {cols.isVisible("category") && <td className={TD}>{ts(CATEGORY_I18N[tk.category] as never)}</td>}
