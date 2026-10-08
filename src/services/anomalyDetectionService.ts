@@ -234,9 +234,9 @@ export async function getAnomalyTopContributors(
  * medidor en la ruta de sync por API; la clasificación está en
  * anomalyRootCause.service.
  *
- * Best-effort, igual que getAnomalyTopContributors. Sólo el sync por API escribe
- * `CostMeterSnapshots`: un tenant que ingiere sólo por export queda con
- * INSUFFICIENT_DETAIL.
+ * Best-effort, igual que getAnomalyTopContributors. `CostMeterSnapshots` lo
+ * escriben el sync por API y la ingesta de exports; un export sin columna de
+ * medidor deja INSUFFICIENT_DETAIL.
  */
 export async function getAnomalyRootCauseFacts(
     tenantId: string,
