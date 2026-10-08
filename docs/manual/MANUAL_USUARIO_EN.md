@@ -34,8 +34,8 @@
 - **FinOps Copilot with a continuous conversation** across pages and a **New conversation** button (9).
 - **Mobile app (PWA)** with Summary, Alerts, Approvals, Support and Profile (11.12).
 - **Anomalies with an owner and follow-up** (14) and **subscriptions beyond your plan's limit** (15).
-- **Anomalies: what changed, and an AI explanation.** In **Anomaly Detection** (Enterprise), **View Root Cause** shows which meter in the service went up and whether it was usage, price or something new, with the steps to check. AI can put it into words (14.4).
-- **CSV files that aren't in FOCUS format:** **every** row is now processed. AI only identifies the columns, and the platform reads the amounts (5.1.7).
+- **Anomalies: what changed, and an AI explanation.** In **Anomaly Detection** (Enterprise), **View Root Cause** shows which meter in the service went up and whether it was usage, price or something new, with the steps to check. AI can put it into words. The detail comes from the Azure sync and also from cost exports (14.4).
+- **CSV files that aren't in FOCUS format:** **every** row is now processed. AI only identifies the columns, and the platform reads the amounts. The upload's AI report comes in your language and in the file's currency, and if AI isn't available you see a summary by service (5.1.7).
 
 **August 2026 updates**
 
@@ -396,6 +396,8 @@ If the file is already in FOCUS format, it loads directly. If not, AI looks at t
 - **The mapping is remembered.** If you upload a file with the same columns again, AI isn't used and no quota is spent.
 - **Monthly quota for the organization:** 150 new formats on Business. It's unlimited on Enterprise or with your own AI key (BYOK).
 - **If AI isn't available** (turned off, out of quota, or too many requests in a row), the file isn't loaded and the screen tells you why. Uploading it in FOCUS format avoids AI.
+
+**The AI report.** After reading the file, AI writes a report in the screen's language and in the currency the file states; if the file doesn't state one, the report doesn't assume it. It has its own monthly quota: 150 reports on Business, unlimited on Enterprise or with BYOK. If AI is turned off, out of quota, or getting too many requests in a row, you see the **File summary** instead of the report: the cost per service and category calculated by the platform, along with the reason.
 
 ### 5.2. Team leaderboard (`/intelligence/leaderboard`, Enterprise)
 
@@ -1462,6 +1464,14 @@ That last one isn't the same as "dismissed": it's feedback we use to tune detect
 
 Changes are visible to your whole team, so two people don't work the same item unknowingly.
 
+The status is changed in **Advanced Analytics → Anomaly Detection** (Enterprise, 5.14), with each card's buttons: **Investigate** on a New one, **Mark Resolved** or **False positive** while it's open, and **Reopen** once it's closed. Owner, Admin and Colaborador use them; a Reader sees the status and the owner, without the buttons. If the change can't be saved, the card goes back to its previous status and the screen says so.
+
+The panel's indicators come from those statuses:
+
+- **Open Anomalies:** the New ones plus those Investigating.
+- **Unresolved Impact:** how much the open ones spent above what was expected.
+- **Resolved** and **Mean Time to Action:** only the Resolved ones. The time runs from detection to closing; false positives don't count, because closing them didn't correct any spend.
+
 ### 14.3 The alert
 
 If the anomaly has an owner, the notification **goes to that person**. If it doesn't, it goes to the whole team — an unowned deviation still needs someone to see it.
@@ -1478,7 +1488,7 @@ In **Advanced Analytics → Anomaly Detection** (Enterprise, 5.14), each anomaly
 | **Higher cost** | The cost went up, but there are no quantities to tell usage from price |
 | **No meter detail** | There's no detail for that service: the platform says so instead of guessing |
 
-The detail is at service level: it adds up all regions and resource groups. If your organization loads costs only through exports, you'll see **No meter detail**, because that detail currently arrives only with the API sync.
+The detail is at service level: it adds up all regions and resource groups. It arrives with the API sync and with cost exports that include the meter column (`MeterName`, or `SkuMeter` / `x_SkuMeterName` in FOCUS). If your organization loads costs with an export that lacks that column, you'll see **No meter detail**.
 
 Below it, **What to check** lists the next steps. They come from the facts, not from AI:
 

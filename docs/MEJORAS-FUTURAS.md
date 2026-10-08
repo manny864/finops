@@ -57,7 +57,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-39](#mej-39--fin-de-soporte-eoleos-de-la-plataforma-azure) | Fin de soporte (EOL/EOS) con el costo de lo afectado — **fase 1 hecha**: catálogo curado de AKS + PostgreSQL + MySQL Flexible, semáforo y costo mensual; fase 2 (licencias en la nube) sin empezar | Gobernanza / Riesgo | Alto | Medio | Parcial |
 | [MEJ-40](#mej-40--esr-y-riesgo-de-la-cartera-de-compromisos) | Concentración de vencimientos + ESR; se desbloqueó poblando `ListCost` de verdad | Compromisos | Alto | Medio | Hecha |
 | [MEJ-41](#mej-41--whiteboard-selector-de-rango-temporal-30d90d-y-persistencia-en-base-de-datos) | Whiteboard: selector temporal (30D/90D) y persistencia/consulta de costos históricos en BD | Whiteboard / Resumen Ejecutivo | Alto | Medio | Hecha |
-| [MEJ-42](#mej-42--capacidades-de-ia-fase-1-hecha-y-lo-encontrado-de-paso) | Capacidades de IA (propuesta 2026-10-07): fase 1 hecha; quedan Managed Identity, legal y fases 2 a 4, más cinco huecos encontrados de paso | IA | Alto | Alto | En curso |
+| [MEJ-42](#mej-42--capacidades-de-ia-fase-1-hecha-y-lo-encontrado-de-paso) | Capacidades de IA (propuesta 2026-10-07): fase 1 hecha y los cinco huecos de paso corregidos; quedan Managed Identity, el aviso legal, las fases 2 a 4 y tres huecos nuevos | IA | Alto | Alto | En curso |
 
 ---
 
@@ -4735,42 +4735,49 @@ Esto garantiza que la Pizarra Ejecutiva responda en menos de 50 ms sin depender 
 
 ## MEJ-42 — Capacidades de IA: fase 1 hecha y lo encontrado de paso
 
-**Módulo:** IA · **Impacto:** Alto · **Esfuerzo:** Alto · **Estado:** En curso (fase 1 hecha el 2026-10-07)
+**Módulo:** IA · **Impacto:** Alto · **Esfuerzo:** Alto · **Estado:** En curso (fase 1 hecha el 2026-10-07; puntos 1 a 5 corregidos el 2026-10-08)
 
 El análisis, el plan por PRs, lo implementado y lo que queda están en
 [`propuesta-capacidades-ia-2026-10-07.md`](propuesta-capacidades-ia-2026-10-07.md), secciones 6.9 y 10.
-Esta entrada no lo repite: guarda sólo lo que apareció de paso y quedó sin corregir, porque no era parte
-de la fase.
+Esta entrada no lo repite: guarda sólo lo que apareció de paso, porque no era parte de la fase.
 
 **Hecho**, en la rama `feat/ia-fase1-anomalias`: la sugerencia de etiquetas endurecida (`41dbe9e`), los
 hechos de causa raíz por medidor (`b11beda`), la explicación con IA bajo el gate único (`c98e3ea`) y el
 mapeo de columnas de CSV con IA (`7ebbb71`). Los hechos y la explicación se montaron primero en
-`AnomalyDashboard.tsx`, que no se ve (punto 4); `16276bc` los pasó al panel que sí se ve.
+`AnomalyDashboard.tsx`, que no se ve (punto 4); `16276bc` los pasó al panel que sí se ve. Después, en la
+misma rama: interruptor por feature (`37009a1`), telemetría por feature (`e1b963b`), los puntos 1 a 5 de
+abajo y los subencargados (`24fa317`).
 
-### Encontrado de paso
+### Encontrado de paso y corregido
 
-1. **`/api/intelligence/upload` no valida el plan.** Toma el tenant del token y limita los uploads por
-   usuario, pero el Business+ lo impone sólo la página (`src/lib/routeTiers.ts`). El mapeo con IA exige
-   Business por el gate; un CSV que ya está en formato FOCUS, en cambio, se carga por API desde cualquier
-   plan.
-2. **`getAssessment` no pasa por el gate.** Corre en cada upload, después del mapeo, con DLP y caché de
-   24 h, pero sin interruptor maestro, sin `Tenants.ai_enabled` y sin cupo. Su prompt está en español y
-   pide las cifras en USD, sea cual sea el idioma o la moneda del tenant. Sumado al punto 1, un tenant de
-   cualquier plan puede disparar esa llamada.
-3. **Sin detalle por medidor para los tenants que cargan sólo por exports.** El ingestor
-   (`costExportIngestionService.ts`) no lee el medidor ni la cantidad, y `CostMeterSnapshots` sólo lo
-   llena el sync diario. Sus anomalías muestran "Sin detalle por medidor". Se corrige leyendo esas columnas
-   del export y agregando por medidor, como hace el sync.
-4. **El triaje de MEJ-33 no se ve.** El responsable y los estados `New`, `Investigating`, `Resolved` y
-   `False Positive` (`PATCH /api/intelligence/anomalies`) están en `AnomalyDashboard.tsx`, que ninguna
-   página renderiza desde `9d6b323`.
-   - La pantalla real, `AnomalyDetectionPanel`, no muestra el responsable y tiene su propio triaje
-     (`PATCH /api/analytics/anomalies`): `Open`, `Postponed`, `Dismissed` y `Completed`, en la misma
-     columna `Anomalies.status`.
-   - Los manuales describen la UI que no se ve: usuario §14.1-14.2 y la fila de §5.14, superadmin
-     §18.1-18.2.
-   - Corregirlo exige elegir un vocabulario y migrar los estados guardados.
-5. **La pantalla de anomalías es Enterprise, pero el resto arranca en Professional.** El cron detecta y
-   notifica desde Professional, y el gate admite la explicación con IA desde Professional (cupo 50), pero
-   `routeTiers` deja la pantalla, con sus hechos y su botón, sólo para Enterprise. Abrirla es cambiar una
-   línea; decidirlo es de producto.
+1. **`/api/intelligence/upload` no validaba el plan** — corregido en `8390af8`. La ruta exige Business en
+   el servidor con `assertTenantTier`, el corte por plan de `requireTenantTier` sin el corte por alcance
+   (MEJ-38), que les cerraría la carga a los usuarios acotados.
+2. **`getAssessment` no pasaba por el gate** — corregido en `7200145`. El reporte de la carga es la feature
+   `billing-upload-assessment` (Business, encendida por defecto, 4000 tokens de salida). Si el gate niega,
+   la carga devuelve el resumen por servicio calculado sin IA y el motivo. El reporte sale en el idioma de
+   la UI y en la moneda del archivo; si el archivo no la indica, no la inventa.
+3. **Sin detalle por medidor para los tenants que cargan sólo por exports** — corregido en `cf440f9`. La
+   ingesta de exports escribe `CostMeterSnapshots` con la misma clave y el mismo upsert que el sync por API.
+4. **El triaje no se guardaba** — corregido en `9da7e97`. El panel que se ve mandaba `Open`, `Postponed`,
+   `Dismissed` y `Completed` a una columna `ENUM('New','Investigating','Resolved','False Positive')`; con
+   `sql_mode` estricto esas escrituras fallaban siempre y el error se tragaba, así que no hubo datos que
+   migrar. Queda un solo endpoint de triaje (`PATCH /api/intelligence/anomalies`) y un solo vocabulario
+   (`ANOMALY_STATES`), y el panel muestra el responsable.
+5. **El gate admitía la explicación con IA desde Professional** — corregido en `331f936`. Pide Enterprise,
+   como la pantalla y el pricing, que desde Professional venden sólo las alertas.
+
+### Encontrado de paso y sin corregir
+
+6. **Los exports FOCUS guardan mal el servicio y la suscripción.** En `costExportIngestionService.ts`,
+   `srvIdx` toma el primer encabezado que contiene `service`, y en FOCUS `ServiceCategory` va antes que
+   `ServiceName`: el servicio guardado es la categoría ("Compute", "Databases"). `subIdx` busca
+   `subscriptionid` y FOCUS trae `SubAccountId`, así que la suscripción queda en `'default'`. Corregirlo
+   cambia la clave única de las filas ya guardadas de `CostSnapshots` y `CostMeterSnapshots`: la próxima
+   ingesta duplicaría el mes reexpuesto. Hace falta borrar las filas FOCUS del tenant antes de reingerir.
+7. **`ai-report`, `assessment` y `executive-report` llaman a `getAssessment` sin plan ni cupo.** Respetan
+   el interruptor global y el del tenant y tienen rate limit, pero no tier ni cupo mensual, y piden el
+   reporte en español y en USD.
+8. **La página de subencargados y el documento descargable no coinciden en Microsoft Graph.** La página
+   lo ubica en Estados Unidos y la Unión Europea; el generador (`scripts/generate-trust-center-docs.js`),
+   sólo en Estados Unidos. Lo decide legal.

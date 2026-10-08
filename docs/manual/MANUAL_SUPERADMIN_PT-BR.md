@@ -28,7 +28,7 @@ Tudo o que mudou para o usuário de um tenant está no **Manual do Usuário** e 
 - **Consumo da plataforma (22):** tokens de IA que a casa absorve e chamadas às APIs do Azure, com a porcentagem de throttling por serviço e por tenant.
 - **Funil de cadastro (21), Unidades de preço (23), Teste de carga (24) e IA — Configuração global (25):** documentados pela primeira vez neste manual.
 - **Anomalias com responsável e acompanhamento (18) e assinaturas fora do limite de um plano (19):** o que o cliente vê e como explicar para ele.
-- **Anomalias que dizem o que mudou, explicação com IA e mapeamento de CSV com IA (5.1.7, 18.4, 22.1 e 25):** o que o cliente vê, a cota mensal de cada recurso e quais interruptores o desligam.
+- **Anomalias que dizem o que mudou, explicação com IA e mapeamento de CSV com IA (5.1.7, 18.4, 22.1 e 25):** o que o cliente vê, a cota mensal de cada recurso e quais interruptores o desligam. Agora cada recurso de IA tem o seu próprio interruptor (25); a explicação de anomalias exige Enterprise; o relatório do envio de CSV mostra um resumo sem IA quando a IA não está disponível, e os exports também trazem o detalhe por medidor (18.4).
 - **Links que saem da plataforma:** o link do painel do parceiro e os demais links que enviamos por e-mail usam a URL pública configurada (`NEXT_PUBLIC_APP_URL`), não o host com o qual entrou quem os pediu.
 - **Avisos de vencimento de reservas (MEJ-16):** um cron diário novo, `reservation-expiry-alerts` (09:03 UTC), avisa cada tenant 90, 60 e 30 dias antes do vencimento das suas reservas, pelo sino e pelos seus canais de notificação (5.4.4). O que já foi avisado fica registrado em `ReservationExpiryNotices`, então não se repete. Roda desde 06/10, depois do `terraform apply` por CI de 05/10.
 - **O que era só por API agora tem tela:** alcance por usuário (8.2), visões compartilhadas e padrão (3.4), classificação COGS/OpEx (5.2), transferência de orçamento e ano fiscal (5.1.5), e a política da pontuação de maturidade (MEJ-08, 4.4). O Shift-Left tem entrada no menu, e um usuário restrito vê os hubs que lhe cabem em vez de só o Whiteboard.
@@ -442,6 +442,8 @@ Se o arquivo já está no formato FOCUS, ele é carregado direto. Se não, a IA 
 - **O mapeamento fica guardado.** Se você subir de novo um arquivo com as mesmas colunas, a IA não é usada e não se consome cota.
 - **Cota mensal da organização:** 150 formatos novos no Business. É ilimitada no Enterprise ou com a sua própria chave de IA (BYOK).
 - **Se a IA não estiver disponível** (desativada, sem cota ou com pedidos demais em sequência), o arquivo não é carregado e a tela diz por quê. Subir no formato FOCUS evita a IA.
+
+**O relatório com IA.** Depois de ler o arquivo, a IA redige um relatório no idioma da tela e na moeda que o arquivo indica; se o arquivo não indica a moeda, o relatório não a supõe. Ele tem a sua própria cota mensal: 150 relatórios no Business, sem limite no Enterprise ou com BYOK. Se a IA estiver desativada, sem cota ou com pedidos demais em sequência, em vez do relatório você vê o **Resumo do arquivo**: o custo por serviço e categoria calculado pela plataforma, com o motivo.
 
 ### 5.2. Leaderboard de times (`/intelligence/leaderboard`, Enterprise)
 
@@ -1958,6 +1960,14 @@ Esse último não é o mesmo que "descartada": serve de retorno para afinar a de
 
 As mudanças são vistas por toda a equipe, então duas pessoas não trabalham no mesmo item sem saber.
 
+O estado é alterado em **Analítica Avançada → Detecção de Anomalias** (Enterprise, 5.14), com os botões de cada cartão: **Investigar** numa Nova, **Marcar como Resolvida** ou **Falso positivo** enquanto está aberta, e **Reabrir** quando já foi fechada. Owner, Admin e Colaborador os usam; o Reader vê o estado e o responsável, sem os botões. Se a mudança não puder ser salva, o cartão volta ao estado anterior e a tela avisa.
+
+Os indicadores do painel saem desses estados:
+
+- **Anomalias Abertas:** as Novas e as que estão Em investigação.
+- **Impacto Não Resolvido:** quanto as abertas gastaram acima do esperado.
+- **Resolvidas** e **Tempo Médio de Ação:** só as Resolvidas. O tempo vai da detecção ao fechamento; os falsos positivos não contam, porque fechá-los não corrigiu nenhum gasto.
+
 ### 18.3 O aviso
 
 Se a anomalia tem responsável, a notificação **chega a essa pessoa**. Se não tem, chega a toda a equipe — um desvio sem dono ainda precisa ser visto por alguém.
@@ -1974,7 +1984,7 @@ Em **Analítica Avançada → Detecção de Anomalias** (Enterprise, 5.14), o bo
 | **Custo maior** | O custo subiu, mas não há quantidades para saber se foi por consumo ou por preço |
 | **Sem detalhe por medidor** | Não há detalhe desse serviço: a plataforma diz isso em vez de adivinhar |
 
-O detalhe é no nível do serviço: soma todas as regiões e grupos de recursos. Se o tenant carrega os custos só por exports, ele vai ver **Sem detalhe por medidor**, porque hoje esse detalhe chega apenas com a sincronização por API.
+O detalhe é no nível do serviço: soma todas as regiões e grupos de recursos. Ele chega com a sincronização por API e com os exports de custos que trazem a coluna do medidor (`MeterName`, ou `SkuMeter` / `x_SkuMeterName` no FOCUS). Se o tenant carrega os custos com um export sem essa coluna, ele vai ver **Sem detalhe por medidor**.
 
 Abaixo, **O que verificar** lista os próximos passos. Eles saem dos fatos, não da IA:
 
@@ -1995,7 +2005,7 @@ Com **Ajudou** ou **Não ajudou**, o cliente nos diz se a explicação foi útil
 
 No Enterprise as explicações não têm cota mensal. Se não estiver disponível (IA desativada ou na demo), a tela diz ao cliente por quê.
 
-> **Para o suporte:** cada explicação gerada aparece em **Consumo da Plataforma** (22.1) como o recurso `anomaly-explanation`. O interruptor mestre (25) ou o interruptor de IA do próprio tenant a desligam; os fatos e os passos continuam visíveis. O recurso aceita a partir do Professional, com a cota de 22.1, mas a tela de anomalias hoje é só do Enterprise: um cliente Professional ou Business não a vê.
+> **Para o suporte:** cada explicação gerada aparece em **Consumo da Plataforma** (22.1) como o recurso `anomaly-explanation`. O interruptor mestre, o do recurso (ambos em 25) ou o interruptor de IA do próprio tenant a desligam; os fatos e os passos continuam visíveis. Exige Enterprise, como a tela, e não tem cota mensal.
 
 ---
 
@@ -2155,7 +2165,17 @@ O detalhe é visto **por tenant** (chamadas, tokens de entrada e de saída) e **
 
 Se o custo dispara por um incidente com o provedor, o **interruptor mestre** de IA (25) desliga a IA para todos os tenants.
 
-**Cota mensal por recurso.** A explicação de anomalias (`anomaly-explanation`, 18.4) e o mapeamento de colunas de CSV (`billing-csv-column-mapping`, 5.1.7) têm uma cota por tenant e por mês calendário (UTC). Ela conta as chamadas desse recurso com `source = platform`: 50 no Professional e 150 no Business. Enterprise e os tenants com BYOK não têm cota, embora cada usuário continue com um limite de pedidos por minuto. Quando a cota acaba, o cliente vê o motivo na tela e o recurso volta no dia 1. Hoje nenhuma tela do Professional consome essa cota: o mapeamento de CSV começa no Business e a tela de anomalias é do Enterprise.
+**Cota mensal por recurso.** Cada recurso de IA tem a sua própria cota por tenant e por mês calendário (UTC). Ela conta as chamadas desse recurso com `source = platform`: 50 no Professional e 150 no Business. Enterprise e os tenants com BYOK não têm cota, embora cada usuário continue com um limite de pedidos por minuto. Quando a cota acaba, o cliente vê o motivo na tela e o recurso volta no dia 1.
+
+| Recurso | A partir de | Sem IA |
+|---|---|---|
+| `billing-csv-column-mapping`, mapeamento de colunas de CSV (5.1.7) | Business | O CSV que não é FOCUS não é carregado |
+| `billing-upload-assessment`, relatório do envio de CSV (5.1.7) | Business | Aparece o resumo por serviço calculado pela plataforma |
+| `anomaly-explanation`, explicação de anomalias (18.4) | Enterprise, sem cota | Aparecem os fatos e os passos, sem o texto da IA |
+
+Hoje nenhum recurso começa no Professional, então essa cota não é usada.
+
+**Telemetria.** Cada pedido a um recurso de IA deixa uma linha JSON `evt: "ai_feature"` nos logs da aplicação (Log Analytics, tabela `ContainerAppConsoleLogs_CL`), com o recurso, a etapa (`gate`, `model` ou `output`), o resultado e, na chamada ao modelo, a latência. Serve para ver por que um recurso é negado, quanto o provedor demora ou quantas respostas são descartadas por não cumprirem o formato.
 
 ### 22.2 Chamadas às APIs do Azure
 
@@ -2202,9 +2222,10 @@ O **histórico** guarda as rodadas anteriores para comparar antes e depois de um
 
 **Rota:** `/superadmin/ai-global-config` · **Menu:** Administração → IA — Configuração Global
 
-O provedor e a key de IA usados **como respaldo** para qualquer tenant que não configurou a sua própria (BYOK por tenant, em *Configuração → IA*). Alimenta o **FinOps Copilot**, os **relatórios executivos com IA**, a **explicação de anomalias** (18.4) e o **mapeamento de colunas de CSV** (5.1.7). Só o SuperAdmin a vê.
+O provedor e a key de IA usados **como respaldo** para qualquer tenant que não configurou a sua própria (BYOK por tenant, em *Configuração → IA*). Alimenta o **FinOps Copilot**, os **relatórios executivos com IA**, a **explicação de anomalias** (18.4) e o **mapeamento de colunas** e o **relatório** do envio de CSV (5.1.7). Só o SuperAdmin a vê.
 
 - **Interruptor mestre** *«Ativar recursos de IA (plataforma)»*: se desligado, a IA fica desabilitada para **todos** os tenants, independentemente do interruptor de cada um. Pensado para incidentes com o provedor ou custos fora de controle.
+- **Funções de IA (interruptor por função):** desativa um único recurso para todos os tenants sem afetar o resto: a explicação de anomalias, o mapeamento de colunas de CSV ou a análise com IA do envio de CSV. Os três começam ativados. O interruptor mestre tem prioridade. Com um recurso desativado, a tela continua com a versão sem IA e mostra o motivo ao cliente. O Copilot e os relatórios executivos não têm interruptor próprio: o mestre ou o do tenant os desligam.
 - **Provedor:** Google Gemini (Flash, grátis no free tier), OpenAI (GPT-4o), **Azure IA** (Azure OpenAI), Anthropic (Claude) ou DeepSeek. A configuração é **separada por plano**: *Planos não Enterprise* (o respaldo para Professional e Business) e *Planos Enterprise* (o provedor exclusivo desse plano). Com Azure IA são necessários a **API Key**, o **Endpoint URL** e o **Deployment** (modelo).
 - **API Key:** guarda-se **cifrada**. **Testar conexão** faz uma chamada real ao provedor salvo. **Excluir API Key** deixa **sem IA** os tenants que não têm a sua até que você carregue uma nova.
 - **Valores padrão para tenants novos:** a **sensibilidade de detecção de anomalias** (*Baixa*, *Média*, *Alta* ou *Estrita*, com Z-score 1.0) e **quais dados são compartilhados** com o provedor (nomes de recursos e grupos de recursos, e tags). São atribuídos ao cadastrar cada tenant; depois cada tenant os ajusta na sua própria configuração de IA.

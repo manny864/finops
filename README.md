@@ -441,36 +441,53 @@ segundo.
 
 ## 📈 Recent Major Updates
 
-### 2026-10-07 — IA fase 1: la anomalía dice qué cambió, y la IA sólo lo redacta
+### 2026-10-07/08 — IA fase 1: la anomalía dice qué cambió, y la IA sólo lo redacta
 
 Detalle técnico en `docs/lld/00-lld-completo.md` §40, arquitectónico en
 `docs/hld/00-hld-completo.md` §19. Lo construido y en qué se apartó de la
-propuesta, en `docs/propuesta-capacidades-ia-2026-10-07.md` §10.
+propuesta, en `docs/propuesta-capacidades-ia-2026-10-07.md` §10. Lo encontrado
+de paso, en MEJ-42 (`docs/MEJORAS-FUTURAS.md`).
 
 - **Cada anomalía dice qué cambió dentro del servicio.** El código compara el
   día contra los 30 anteriores, medidor por medidor, y clasifica: medidor nuevo,
   más consumo, costo unitario más alto o más costo sin cantidades. Lo muestra sin
   IA en "Qué cambió" y "Qué revisar", dentro del panel **Ver Causa Raíz** de
   Detección de Anomalías, que es Enterprise. El detalle sale de
-  `CostMeterSnapshots`, que sólo escribe el sync por API: un tenant que sólo
-  carga exports ve "Sin detalle por medidor".
+  `CostMeterSnapshots`, que escriben el sync por API y la ingesta de exports con
+  columna de medidor (`MeterName`; `SkuMeter` o `x_SkuMeterName` en FOCUS).
 - **"Explicar con IA".** El modelo redacta sobre esos hechos, a pedido. Cita
   cada hecho por id, no ve montos y todo número del texto tiene que estar en los
   hechos; si no valida, no se muestra. Se guarda por anomalía, idioma y hash en
-  `AnomalyExplanations`, con feedback. El gate lo admite desde Professional, pero
-  hoy la pantalla es sólo Enterprise.
-- **Gate único de IA (`checkAiFeature`).** Kill switch global,
+  `AnomalyExplanations`, con feedback. Es Enterprise, en el gate y en la pantalla.
+- **Gate único de IA (`checkAiFeature`).** Kill switch global, interruptor por
+  feature (Superadmin → IA — Configuración Global; `GlobalSettings` `ai_feature:<id>`),
   `Tenants.ai_enabled`, tier, rate limit y cuota mensual por feature
-  (Professional 50, Business 150; Enterprise y BYOK sin límite). El Copilot
-  conserva el suyo.
+  (Professional 50, Business 150; Enterprise y BYOK sin límite). Cada decisión y
+  cada llamada al modelo dejan una línea `evt: "ai_feature"` en los logs del
+  contenedor (`ContainerAppConsoleLogs_CL`). El Copilot conserva su control: atiende
+  la demo pública, cuyos tenants no tienen fila en `Tenants`.
 - **CSV que no es FOCUS: la IA mapea columnas y el código convierte todas las
   filas.** Antes el modelo procesaba las primeras 50 filas y reescribía los
   montos, sin aviso. El mapeo se cachea por tenant y encabezados. Si la IA no
   está disponible, el upload responde 403, 422 o 429 con el motivo.
+- **El reporte de la carga pasa por el gate.** Es la feature
+  `billing-upload-assessment` (Business, cuota propia). Sale en el idioma de la
+  UI y en la moneda del archivo, sin inventarla si el archivo no la trae. Sin IA,
+  la carga muestra el resumen por servicio y categoría calculado sin IA, con el
+  motivo. `/api/intelligence/upload` exige Business en el servidor.
+- **El triaje de anomalías se guarda.** El panel mandaba estados que la columna
+  no acepta y el error se tragaba. Ahora usa los de la base (Nueva, En
+  investigación, Resuelta, Falso positivo) contra `PATCH /api/intelligence/anomalies`
+  (Owner, Admin o Colaborador; el Reader no ve los botones). El MTTR y
+  "Resueltas" no cuentan los falsos positivos.
 - **La sugerencia de etiquetas ya no se presenta como IA.** Es una heurística
   por convención de nombres: el botón dice "Sugerir por convención de nombres"
   y la respuesta ya no inventa una confianza. El endpoint exige `tenantId` y
   acceso al tenant.
+- **Subencargados.** `/legal/subprocessors` y el whitepaper dicen que la
+  inferencia de IA corre en Azure (Azure OpenAI). Cloudflare, la región, Redis y
+  el perímetro salen de `messages`, así que ya no se pierden al regenerar los
+  PDFs del trust center.
 - **Migraciones** `20261007-001` (`Anomalies.root_cause_facts`) y `20261007-002`
   (`AnomalyExplanations`). Las aplica el job de migración del deploy.
 

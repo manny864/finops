@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Fecha** | 2026-10-07 |
-| **Estado** | **Implementada en parte** (rama `feat/ia-fase1-anomalias`, 2026-10-07): gate único (0.1), hardening de `tags/suggest` (0.4), hechos de causa raíz (1a), explicación de anomalías (1b) y mapeo de CSV (6.4). Pendientes: Managed Identity y Terraform (0.2 y 0.3), subprocesadores (0.5) y las fases 2 a 4. Qué se hizo y en qué se apartó de este documento: [sección 10](#10-implementación-qué-se-hizo-y-en-qué-se-apartó). |
+| **Estado** | **Implementada en parte** (rama `feat/ia-fase1-anomalias`, 2026-10-07 y 2026-10-08): gate único con interruptor por feature y telemetría (0.1 y 6.8), hardening de `tags/suggest` (0.4), subencargados (0.5; legal decide si exige el aviso de 30 días), hechos de causa raíz (1a), explicación de anomalías (1b), mapeo de CSV (6.4) y el reporte de la carga bajo el gate. Pendientes: Managed Identity y Terraform (0.2 y 0.3) y las fases 2 a 4. Qué se hizo y en qué se apartó de este documento: [sección 10](#10-implementación-qué-se-hizo-y-en-qué-se-apartó). |
 | **Base analizada** | `main` @ `057287c9` |
 | **Origen** | Propuesta generada con Gemini (texto completo en el [Anexo A](#anexo-a-texto-original-de-la-propuesta)), verificada contra el código, la IaC (Terraform) y la documentación oficial de Microsoft. |
 | **Alcance** | Viabilidad de los cuatro módulos propuestos y de la infraestructura asociada; plan de implementación por fases. |
@@ -905,27 +905,42 @@ Rama `feat/ia-fase1-anomalias`, sobre `main` @ `ac55fe5`, con un commit por piez
 | `c98e3ea` | Gate único y explicación con IA | 0.1 y 1b | 1 (parte) y 4 |
 | `7ebbb71` | Mapeo de CSV por columnas | 6.4 | 5 |
 | `16276bc` | Hechos y explicación en el panel que se ve | 1a y 1b | 3 y 4 |
+| `37009a1` | Interruptor por feature | 0.1 | 1 (parte) |
+| `331f936` | La explicación pide Enterprise, como la pantalla | 1b | 4 |
+| `e1b963b` | Telemetría por feature | 6.8 | 1 (parte) |
+| `9da7e97` | Triaje de anomalías unificado | — (MEJ-42) | — |
+| `8390af8` | La carga de CSV valida el plan en el servidor | — (MEJ-42) | — |
+| `7200145` | El reporte de la carga pasa por el gate | — (MEJ-42) | — |
+| `cf440f9` | Detalle por medidor desde los exports | 1a (MEJ-42) | — |
+| `24fa317` | Subencargados | 0.5 | 1 (parte) |
 
-Las secciones 0.1, 0.4, 1a, 1b y 6.4 conservan el diseño original. Donde difieren de lo construido, manda esta sección.
+Las secciones 0.1, 0.4, 0.5, 1a, 1b, 6.4 y 6.8 conservan el diseño original. Donde difieren de lo construido, manda esta sección.
 
 ### 10.1 Gate único (0.1)
 
 - **Firma real:** `checkAiFeature(tenantId, feature, userKey)`.
   - No recibe la request: la ruta ya validó el acceso con `requireTenantAccess`, y el gate sólo decide si se puede gastar IA. `userKey` arma la clave del rate limit.
   - No existe `checkAiFeatureForTenant`, porque todavía no hay jobs que lo necesiten.
-- **Orden de los controles:** kill switch global, `Tenants.ai_enabled` (un tenant sin fila también se niega), tier, rate limit por minuto y cuota mensual.
+- **Orden de los controles:** kill switch global, interruptor de la feature, `Tenants.ai_enabled` (un tenant sin fila también se niega), tier, rate limit por minuto y cuota mensual.
+- **Interruptor por feature:** el superadmin apaga una función puntual para todos los tenants desde Configuración de IA Global → "Funciones de IA". Se guarda en `GlobalSettings` como `ai_feature:<feature>`; sin valor guardado manda `defaultEnabled` de `AI_FEATURES`, para que las features con precondiciones de negocio (6.9) arranquen apagadas. Niega con `feature_disabled`.
 - **Tier:** sale de la fila de `Tenants`. No hay pase para SuperAdmin ni add-ons, porque ninguna de estas funciones tiene add-on.
 - **Cuotas:** las mismas del Copilot (Professional 50, Business 150, Enterprise sin límite), contadas **por feature** en `PlatformAiUsage` con `source = 'platform'` y por mes calendario UTC. BYOK no consume cuota.
-- **Features:** sólo dos, y las demás se agregan con su fase.
-  - `anomaly-explanation`: Professional, 10 por minuto, 600 tokens de salida.
+- **Features:** tres, y las demás se agregan con su fase.
+  - `anomaly-explanation`: Enterprise, como la pantalla y el pricing (`331f936`); 10 por minuto, 600 tokens de salida.
   - `billing-csv-column-mapping`: Business, 5 por minuto, 800 tokens de salida.
-- El Copilot conserva su gate.
+  - `billing-upload-assessment`: el reporte que sigue a la carga de CSV (10.5). Business, 5 por minuto, 4000 tokens de salida, encendida por defecto porque ya corría en cada carga.
+- **Telemetría (6.8):** líneas JSON `evt=ai_feature` en stdout, que llegan a Log Analytics (`ContainerAppConsoleLogs_CL`). Se registra la decisión del gate, la latencia y el error de la llamada al modelo (`timeAiCall`) y cada salida descartada por la validación. No son spans: la app no tiene exporter de OpenTelemetry, y si se suma cambia sólo `aiTelemetry.ts`.
+- **El Copilot conserva su gate.** Migrarlo debilitaría lo que ya tiene:
+  - Atiende el demo público, cuyos tenants no tienen fila en `Tenants`; el gate los niega.
+  - Cuenta el cupo en `CopilotUsage` **antes** de llamar al modelo, o sea por intento. El gate cuenta en `PlatformAiUsage`, que se escribe al terminar la respuesta: un stream cortado a mitad de camino no consumiría cupo.
+  - Pasar a contar en otra tabla reinicia el cupo del mes en curso, y el cliente depende de `aiDisabled` y `quotaExceeded`.
+  - El interruptor global ya lo apaga.
 
 ### 10.2 1a: hechos de causa raíz
 
 - **Grano: servicio y medidor**, desde `CostMeterSnapshots` (ver la corrección en [4.2](#42-copilot-finops-y-explicación-de-anomalías)).
   - Para cada contribuyente se miran los medidores de su servicio, sumando regiones y resource groups, porque la tabla no tiene resource group. La UI lo aclara.
-  - Los tenants que sólo cargan exports reciben `INSUFFICIENT_DETAIL`, porque sólo el sync por API escribe `CostMeterSnapshots`.
+  - Desde `cf440f9` la ingesta de exports también escribe `CostMeterSnapshots`, con la misma clave y el mismo upsert que el sync por API. Lee el medidor (`SkuMeter` o `x_SkuMeterName` en FOCUS, `MeterName` en legacy), la cantidad, la unidad, la categoría y la región. Un export sin columna de medidor no escribe detalle y sus anomalías reciben `INSUFFICIENT_DETAIL`.
 - **Tipos de hecho:**
   - `NEW_METER`: el medidor no tuvo costo en la ventana base.
   - `USAGE_INCREASE` y `PRICE_INCREASE`: se elige con la descomposición precio-volumen `delta = (q1 − q0)·u0 + q1·(u1 − u0)`, y gana el efecto mayor.
@@ -966,7 +981,7 @@ Las secciones 0.1, 0.4, 1a, 1b y 6.4 conservan el diseño original. Donde difier
 - **La tabla no tiene `tenant_id`.** El tenant se alcanza por `Anomalies`, que es desde donde cascadea el borrado.
 - **Modo demo:** devuelve `aiAvailable: false` con motivo `demo`. Nunca muestra un texto fijo como si fuera de la IA.
 - **UI:** botón "Explicar con IA" (carga lazy), etiqueta "Generado con IA · verificá los datos" y botones de feedback, en el mismo panel y sólo si hay hechos.
-  - El gate admite Professional, pero la página es Enterprise, así que hoy no se usa el cupo de Professional ni el de Business. Abrirla a más planes es cambiar una línea de `routeTiers`, y es una decisión de producto.
+  - El gate pide Enterprise, igual que la página (`331f936`). Abrirla a más planes es cambiar `routeTiers` y el `minTier` de la feature, y es una decisión de producto.
 
 ### 10.4 Mapeo de CSV por columnas (6.4)
 
@@ -982,13 +997,27 @@ Las secciones 0.1, 0.4, 1a, 1b y 6.4 conservan el diseño original. Donde difier
 - **Tier:** Business, igual que la página de upload.
 - **Se reemplazó** `normalizeBillingCsv` de `aiProvider.ts`, que enviaba sólo 50 filas y dejaba que el modelo reescribiera los montos.
 
-### 10.5 Pendiente
+### 10.5 Correcciones de lo encontrado de paso (MEJ-42)
+
+- **Triaje (`9da7e97`).** El panel que se ve mandaba su propio vocabulario (`Open`, `Postponed`, `Dismissed`, `Completed`) a una columna `ENUM('New','Investigating','Resolved','False Positive')`. Con `sql_mode` estricto esas escrituras fallaban siempre y el error se tragaba, así que no hubo datos que migrar.
+  - Queda un solo endpoint, `PATCH /api/intelligence/anomalies` (Admin, Owner o Colaborador), y un solo vocabulario, `ANOMALY_STATES`: Nueva, En investigación, Resuelta y Falso positivo.
+  - El PATCH fija `resolved_at` al cerrar y lo borra al reabrir. El panel muestra el responsable y oculta el triaje al Reader.
+- **Plan de la carga (`8390af8`).** `/api/intelligence/upload` exige Business en el servidor con `assertTenantTier`. No usa `requireTenantTier` entero porque su corte por alcance (MEJ-38) les cerraría la carga a los usuarios acotados.
+- **Reporte de la carga (`7200145`).** `getAssessment` pasa por el gate como `billing-upload-assessment`.
+  - Si el gate niega, la carga no falla: devuelve el resumen por servicio y categoría calculado sin IA, con el motivo traducido.
+  - El reporte sale en el idioma de la UI y rotula la moneda del archivo (`BillingCurrency` o `billingCurrencyCode`); si el archivo no la indica, no la inventa. Idioma y moneda van en la clave de caché.
+  - `/api/intelligence/assessment` respeta el interruptor global y el del tenant.
+- **Medidores desde los exports (`cf440f9`):** ver 10.2.
+- **Subencargados (0.5, `24fa317`).** La lista y el whitepaper declaran que la inferencia de IA de la plataforma corre en Azure (Azure OpenAI y Azure AI services). Gemini sigue como opcional.
+  - Los textos de Cloudflare, región, Redis y perímetro, que estaban editados a mano en los `.md` y se perdían al regenerar, ahora salen de `messages` y se ven también en `/legal/subprocessors` y `/legal/security`.
+  - Falta que legal decida si la aclaración exige el aviso de 30 días (decisión abierta 5 de la sección 8). El borrador de [`aviso-cambio-subencargado-2026.md`](aviso-cambio-subencargado-2026.md) cubre sólo el cambio de ubicación.
+
+### 10.6 Pendiente
 
 - **PR 2:** Managed Identity y módulo Terraform `ai_services`. La IA de plataforma sigue con key.
-- **0.5:** subprocesadores y aviso de 30 días, que depende de legal.
+- **0.5:** la decisión de legal sobre el aviso de 30 días a clientes. Si lo exige, va antes de habilitar las funciones a clientes.
 - **PRs 6 a 9:** fases 2 (tags), 3 (soporte) y 4 (Document Intelligence).
-- Kill switch por feature, spans de OTEL y migración del Copilot al gate.
-- Lo encontrado de paso y no corregido está en MEJ-42 ([`MEJORAS-FUTURAS.md`](MEJORAS-FUTURAS.md)).
+- Lo encontrado de paso y no corregido está en MEJ-42 ([`MEJORAS-FUTURAS.md`](MEJORAS-FUTURAS.md)): el servicio y la suscripción de los exports FOCUS, y `getAssessment` sin plan ni cupo en `ai-report`, `assessment` y `executive-report`.
 
 ---
 

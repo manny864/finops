@@ -79,7 +79,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/advisor/suppress` | POST, DELETE | requireTenantRole | — | — |
 | `/api/advisor/suppressions` | GET | requireTenantAccess | — | — |
 | `/api/analytics/allocation` | GET, POST, DELETE | requireTenantRole, requireTenantAccess | — | sí |
-| `/api/analytics/anomalies` | GET, PATCH | requireTenantAccess | — | sí |
+| `/api/analytics/anomalies` | GET | requireTenantAccess | — | sí |
 | `/api/analytics/macc` | GET, POST | requireTenantAccess | — | sí |
 | `/api/analytics/scorecard` | GET | requireTenantAccess | — | sí |
 | `/api/analytics/self-service-alerts` | GET, POST, PUT, DELETE | requireTenantRole, requireTenantAccess | — | sí |

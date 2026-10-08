@@ -3274,30 +3274,39 @@ Primera parte de la propuesta de IA
 ([`docs/propuesta-capacidades-ia-2026-10-07.md`](../propuesta-capacidades-ia-2026-10-07.md)):
 lo construido y en qué se apartó del diseño está en su sección 10. Contexto
 arquitectónico en el HLD §19. Rama `feat/ia-fase1-anomalias`: `41dbe9e` (tags),
-`b11beda` (hechos), `c98e3ea` (gate y explicación) y `7ebbb71` (CSV).
+`b11beda` (hechos), `c98e3ea` (gate y explicación), `7ebbb71` (CSV), `16276bc`
+(el bloque en el panel que se ve), `37009a1` (interruptor por feature), `331f936`
+(explicación Enterprise), `e1b963b` (telemetría) y las correcciones de MEJ-42
+(40.9): `9da7e97`, `8390af8`, `7200145`, `cf440f9` y `24fa317`.
 
 ### 40.1 Gate único — `src/lib/aiFeatureGate.ts`
 
 ```ts
-export type AiFeature = "anomaly-explanation" | "billing-csv-column-mapping";
-export type AiGateDenyReason = "global_disabled" | "tenant_disabled" | "tier" | "quota" | "rate_limited";
+export type AiFeature = "anomaly-explanation" | "billing-csv-column-mapping" | "billing-upload-assessment";
+export type AiGateDenyReason = "global_disabled" | "feature_disabled" | "tenant_disabled" | "tier" | "quota" | "rate_limited";
 export type AiGateResult = { allowed: true } | { allowed: false; reason: AiGateDenyReason };
-export const AI_FEATURES: Record<AiFeature, AiFeatureConfig>;
+export const AI_FEATURES: Record<AiFeature, AiFeatureConfig>; // defaultEnabled, minTier, monthlyQuota, perMinute, maxOutputTokens
+export const isAiFeature: (value: string) => value is AiFeature;
 export async function checkAiFeature(tenantId: string, feature: AiFeature, userKey: string): Promise<AiGateResult>;
 ```
 
-| Feature | Tier mínimo | Rate limit | `maxOutputTokens` | Cuota mensual de plataforma |
+| Feature | Encendida por defecto | Tier mínimo | Rate limit | `maxOutputTokens` |
 |---|---|---|---|---|
-| `anomaly-explanation` | Professional | 10 por minuto | 600 | Professional 50, Business 150, Enterprise sin límite |
-| `billing-csv-column-mapping` | Business | 5 por minuto | 800 | Igual |
+| `anomaly-explanation` | Sí | Enterprise | 10 por minuto | 600 |
+| `billing-csv-column-mapping` | Sí | Business | 5 por minuto | 800 |
+| `billing-upload-assessment` | Sí | Business | 5 por minuto | 4000 |
+
+La cuota mensual de plataforma es la misma para las tres (`QUOTA`): Professional
+50, Business 150 y Enterprise sin límite, contada por feature.
 
 El primer control que niega corta:
 
 1. `isAiGloballyEnabled()`, si no `global_disabled`.
-2. `Tenants.ai_enabled`, si no `tenant_disabled`. Un tenant sin fila también se niega.
-3. `hasAccess(normalizeTier(tier), minTier)`, si no `tier`. Un tier desconocido no abre.
-4. `rateLimiter.checkByKeyDistributed("ai:{feature}:{tenantId}:{userKey}", perMinute, 60_000)`, si no `rate_limited`.
-5. `COUNT(*)` de `PlatformAiUsage` por `tenant_id`, `feature` y `source = 'platform'` desde el día 1 del mes UTC, si llega a la cuota `quota`.
+2. `getAiFeatureSwitch(feature) ?? defaultEnabled`, si no `feature_disabled`.
+3. `Tenants.ai_enabled`, si no `tenant_disabled`. Un tenant sin fila también se niega.
+4. `hasAccess(normalizeTier(tier), minTier)`, si no `tier`. Un tier desconocido no abre.
+5. `rateLimiter.checkByKeyDistributed("ai:{feature}:{tenantId}:{userKey}", perMinute, 60_000)`, si no `rate_limited`.
+6. `COUNT(*)` de `PlatformAiUsage` por `tenant_id`, `feature` y `source = 'platform'` desde el día 1 del mes UTC, si llega a la cuota `quota`.
 
 Decisiones que el tipo no muestra:
 
@@ -3309,8 +3318,42 @@ Decisiones que el tipo no muestra:
   cuota, pero sí rate limit.
 - **El rate limit va antes que la cuota**: una ráfaga corta en Redis sin llegar
   al `COUNT(*)`.
-- Las cuotas son las del Copilot, contadas por feature. El Copilot conserva
-  `copilotConfig.ts`.
+- Las cuotas son las del Copilot, contadas por feature.
+- **El Copilot no pasa por el gate** y conserva `copilotConfig.ts`. Atiende la
+  demo pública, cuyos tenants no tienen fila en `Tenants` (el gate los negaría
+  con `tenant_disabled`). Su cuota cuenta en `CopilotUsage` el intento antes de
+  llamar al modelo; la del gate cuenta en `PlatformAiUsage` al terminar, así que
+  un stream abortado escaparía del cupo. Migrarlo además pondría en cero los
+  contadores del mes. El kill switch global ya lo apaga.
+
+**Interruptor por feature.** `getAiFeatureSwitch(feature: string): Promise<boolean | null>`
+(`aiService.ts`) lee `GlobalSettings` con la clave `ai_feature:<feature>`;
+`null` es "sin valor guardado". `superAdminAiConfig.service.ts` devuelve
+`featureSwitches: Record<AiFeature, boolean>` recorriendo `AI_FEATURES` y guarda
+sólo claves que pasan `isAiFeature` con valor booleano. Los rótulos del panel
+son `AdminAiConfigGlobal.featureSwitches.features.<feature>.{label,description}`;
+`aiFeatureGate.test` exige que existan en los tres idiomas para cada feature.
+
+**Telemetría** — `src/lib/aiTelemetry.ts`:
+
+```ts
+export type AiTelemetryEvent =
+  | { stage: "gate"; outcome: "allowed" | AiGateDenyReason }
+  | { stage: "model"; outcome: "ok" | "error"; ms: number }
+  | { stage: "output"; outcome: "rejected" };
+export function logAiEvent(feature: string, event: AiTelemetryEvent): void; // console.info(JSON.stringify({ evt: "ai_feature", feature, ...event }))
+export async function timeAiCall<T>(feature: string, call: () => Promise<T>): Promise<T>; // registra y propaga el error
+```
+
+- `gate`: `checkAiFeature`, una vez por decisión.
+- `model`: `timeAiCall`, alrededor de la llamada al modelo en
+  `anomalyExplanation.service`, `billingCsvMapping.service` y `getAssessment`
+  (sólo si recibe `feature`).
+- `output: rejected`: la explicación que no validó y el mapeo inválido.
+
+Son líneas en stdout porque la app no tiene exporter de OpenTelemetry y la
+consola del contenedor ya llega a Log Analytics (`ContainerAppConsoleLogs_CL`).
+Si se suma un exporter, cambia sólo este archivo.
 
 ### 40.2 Hechos de causa raíz
 
@@ -3355,8 +3398,8 @@ primeros contribuyentes:
 
 Si fallan, devuelve `[]` y la anomalía se guarda igual. El grano es servicio y
 medidor porque `CostSnapshots` no tiene medidor en el sync (lo escribe por
-servicio y resource group) y `CostMeterSnapshots` no tiene resource group. Sólo
-el sync por API escribe `CostMeterSnapshots`.
+servicio y resource group) y `CostMeterSnapshots` no tiene resource group.
+`CostMeterSnapshots` lo escriben el sync por API y la ingesta de exports (40.9).
 
 **Clasificación** de cada medidor. `días` son los días con dato, `baseline =
 base_cost / días`, `q0 = base_qty / días`, `q1` es la cantidad del día y `u =
@@ -3398,7 +3441,7 @@ repetir:
   clasificación.
 - `GET /api/analytics/anomalies`, la ruta de la pantalla, lee
   `root_cause_facts` y `assigned_to`; `assembleLiveAnomalies` los entrega como
-  `CostAnomalyItem.rootCauseFacts` y `hasOwner` (caché `anomalies:v3`). En demo,
+  `CostAnomalyItem.rootCauseFacts` y `hasOwner` (caché `anomalies:v4`). En demo,
   `getMockAnomalyPayload` arma los hechos con `demoRootCauseFacts` desde los
   contribuyentes que dibuja el panel.
 - `AnomalyRootCause.tsx` los muestra en el drawer **Ver Causa Raíz** de
@@ -3476,7 +3519,9 @@ Cómo se valida `number`:
 |---|---|---|
 | `GET` | `/api/intelligence/anomalies/[id]/explanation?tenantId=&locale=` | 200 `{ success, aiAvailable: true, explanation, factsHash, feedback }` o 200 `{ success, aiAvailable: false, reason }`. 400 sin `tenantId` o con id inválido; 404 si la anomalía no es del tenant |
 | `POST` | `/api/intelligence/anomalies/[id]/explanation` | Body `{ tenantId, locale, factsHash, feedback: "up" \| "down" }`. 200 `{ success }`; 400 si el payload no valida (`factsHash` son 64 caracteres hexadecimales); 404 si no hay una explicación con `source = 'ai'` que coincida |
-| `POST` | `/api/intelligence/upload` | `CsvMappingError` responde 422 (`invalid_mapping`), 429 (`quota` o `rate_limited`) o 403 (el resto), con `{ error, reason }` |
+| `POST` | `/api/intelligence/upload` | Body `{ data, locale? }`. Tenant y usuario salen del token. `assertTenantTier(…, "Business")` responde 403 antes del rate limit (`upload:{tenant}:{email}`, 5 cada 5 minutos, 429). 400 sin `data`, 413 con más de 10.000 filas. Gate `billing-upload-assessment` denegado: 200 `{ success, assessment: null, aiUnavailable, summary, currency, mappedEntries }`; permitido: 200 `{ success, assessment, mappedEntries }`. `CsvMappingError` responde 422 (`invalid_mapping`), 429 (`quota` o `rate_limited`) o 403 (el resto), con `{ error, reason }`. Un rechazo del proveedor (401, 403, 404 o 429) da 502 |
+| `POST` | `/api/intelligence/assessment` | Body `{ tenantId, metrics }`. 400 sin datos; 403 `{ aiDisabled: true }` con la IA apagada en la plataforma (antes de autenticar) o en el tenant; rate limit `ai:assessment:{tenant}:{email}`, 5 cada 5 minutos. No pasa por el gate: sin tier ni cuota (40.9) |
+| `PATCH` | `/api/intelligence/anomalies` | Body `{ tenantId, anomalyId, status }`, con `status` en `ANOMALY_STATUSES`. 400 sin datos o con un estado inválido, antes de autenticar; `requireTenantRole` Admin, Owner o Colaborador; 404 si el id no es del tenant. 200 `{ success, anomalyId, status, changedBy }` |
 | `POST` | `/api/governance/tags/suggest` | 400 sin `tenantId`, con JSON inválido o sin `resourceName`; `AuthError` con su status. Ya no devuelve `confidence` ni `reasoning`: devuelve `method: "heuristic"` |
 
 - Las dos rutas de explicación usan `requireTenantAccess(…, { allowSuperAdmin:
@@ -3572,8 +3617,19 @@ repetir un dato que la fila padre ya tiene.
 ### 40.7 i18n
 
 - **Claves dinámicas nuevas**, cubiertas por `i18nClavesDinamicas`:
-  `Anomalies.factType_*`, `Anomalies.action_*`, `Anomalies.aiReason_*` e
-  `IntelligenceUpload.mappingError_*`.
+  `Anomalies.factType_*`, `Anomalies.action_*`, `Anomalies.aiReason_*`,
+  `IntelligenceUpload.mappingError_*` e `IntelligenceUpload.aiUnavailable_*`.
+  Las tres familias de motivos incluyen `feature_disabled`.
+- **Interruptor por feature:** `AdminAiConfigGlobal.featureSwitches.{heading,description}`
+  y `.features.<feature>.{label,description}` para cada feature de `AI_FEATURES`.
+- **Resumen de la carga sin IA:** `IntelligenceUpload.summaryTitle`,
+  `colService`, `colCategory`, `colBilled` y `colEffective`.
+- **Triaje:** `AnomalyPanel.startInvestigating`, `markFalsePositive` y
+  `triageError`; `kpiResolvedLabel` pasa a "Resueltas". Se borraron `tabOpen`,
+  `tabSnoozed`, `tabDismissed`, `tabResolved`, `snooze`, `dismiss`,
+  `reopenAnomaly` y `state.*`, el vocabulario que la base no tenía.
+- **Legal:** `LegalSubprocessors.procCloudflarePurpose` y `locGlobalEdge`;
+  `LegalSecurity.infraRegion`, `infraCache` e `infraEdge`.
 - **Tags:** `aiTagsInferred`, `aiAutocomplete`, `aiInferring` y `aiSuggestError`
   ya no dicen "IA" en ningún idioma. El botón ahora es "Sugerir por convención
   de nombres".
@@ -3582,14 +3638,134 @@ repetir un dato que la fila padre ya tiene.
 
 | Test | Cubre |
 |---|---|
-| `__tests__/unit/aiFeatureGate.test.ts` | Orden de los controles, tenant sin fila, tier desconocido, Business para CSV, clave del rate limit, cuota contada sólo con `source = 'platform'` y sin consulta para BYOK y Enterprise |
+| `__tests__/unit/aiFeatureGate.test.ts` | Orden de los controles con el interruptor por feature antes del tenant, default sin valor guardado, tenant sin fila, tier desconocido, Enterprise para la explicación y Business para CSV, clave del rate limit, cuota contada sólo con `source = 'platform'` y sin consulta para BYOK y Enterprise, telemetría de cada decisión y rótulos del interruptor en los tres idiomas |
+| `__tests__/unit/aiTelemetry.test.ts` | `timeAiCall` registra la latencia y devuelve el resultado, o registra el error y lo propaga |
+| `__tests__/unit/superAdminAiConfigService.test.ts` | Interruptores: default de cada feature sin valor guardado y guardado sólo de features conocidas |
 | `__tests__/unit/anomalyRootCause.test.ts` | Los cinco tipos, descarte de medidores que bajaron, un servicio en dos resource groups, sin días de base, acciones, parámetros del SQL, `[]` si la base falla y la demo con la clasificación de producción |
 | `__tests__/unit/anomalyExplanation.test.ts` | Contexto sin montos; cada validador; cifras con coma y punto y nombres con dígitos; sin hechos, gate denegado, caché, rechazo guardado, DLP, `not_configured`, error sin guardar y guardado fallido; feedback filtrado por tenant; idioma |
 | `__tests__/unit/anomalyExplanationRoute.test.ts` | 400 antes de autenticar, `AuthError`, 404 para otro tenant, denegado como 200 con motivo, feedback con el usuario autenticado y 404 sin explicación de IA |
-| `__tests__/unit/billingCsvMapping.test.ts` | Formatos de montos, separador por archivo, fechas, validación del mapeo, todas las filas, atajo FOCUS, caché antes del gate e independiente del orden de columnas, caché ilegible, gate denegado, mapeo inválido sin cachear y caché que no se puede escribir |
-| `__tests__/unit/billingCsvUploadRoute.test.ts` | El upload pasa tenant y usuario del token |
+| `__tests__/unit/anomalyStatusPatch.test.ts` | Estado y responsable persistidos, `resolved_at` al cerrar y borrado al reabrir, caché invalidada sólo si guardó, tenant en el `WHERE`, los cuatro estados, rol exigido, 404 y 400 |
+| `__tests__/unit/billingCsvMapping.test.ts` | Formatos de montos, separador por archivo, fechas, validación del mapeo, todas las filas, atajo FOCUS, caché antes del gate e independiente del orden de columnas, caché ilegible, gate denegado, mapeo inválido sin cachear, caché que no se puede escribir y moneda del archivo (`csvCurrency`) |
+| `__tests__/unit/billingCsvUploadRoute.test.ts` | Tenant y usuario del token, análisis por el gate en el idioma de la UI y la moneda del archivo, resumen y motivo sin llamar al modelo, y 403 por plan sin gastar cupo ni IA |
+| `__tests__/unit/assessmentLocaleCurrency.test.ts` | `getAssessment` sin opciones como antes; con feature, idioma de la UI y moneda del archivo; sin moneda no la inventa; idioma desconocido cae en español; idioma y moneda separan la caché |
+| `__tests__/unit/assessmentRouteSwitches.test.ts` | `/api/intelligence/assessment` no llama al modelo con la IA apagada en la plataforma o en el tenant |
+| `__tests__/unit/costExportMedidores.test.ts` | Detalle por medidor desde exports FOCUS y legacy, sin columna de medidor no escribe, y las particiones de una corrida se suman |
 | `__tests__/unit/tagsSuggestRoute.test.ts` | `tenantId` obligatorio, sin bypass por `?mock=true`, `AuthError`, 400 por JSON, sin confianza inventada y tenant demo |
 | `__tests__/unit/i18nClavesDinamicas.test.ts` | Las claves dinámicas nuevas existen en `es`, `en` y `pt-BR` |
 
-Con las suites que importan `aiProvider` y las de i18n: 634 tests en 13 archivos
-en verde, `tsc` limpio y sin warnings nuevos de ESLint.
+Suite completa (`npx vitest run`, sin `.env.development`, como en CI): 4064
+tests en verde y 36 omitidos, en 411 archivos; `tsc` limpio y sin warnings
+nuevos de ESLint. `interceptacionDeFetch.test` contaba la interceptación de la
+explicación como redundante: leía `'/api/intelligence/anomalies/'` como la ruta
+del listado, que tiene mock propio. `TenantProvider` la reconoce ahora con una
+regex sobre `/anomalies/{id}/explanation`.
+
+### 40.9 Correcciones de MEJ-42
+
+Los números son los puntos de MEJ-42 en `MEJORAS-FUTURAS.md`.
+
+**Triaje (punto 4, `9da7e97`).** El panel mandaba `Open`, `Postponed`,
+`Dismissed` y `Completed` a la columna `ENUM('New','Investigating','Resolved','False Positive')`;
+con `sql_mode` estricto fallaba siempre y el error se tragaba, así que no hay
+datos que migrar.
+
+```ts
+// src/types/azureAnomalyDetection.types.ts — única fuente del vocabulario
+export const ANOMALY_STATES = ["New", "Investigating", "Resolved", "False Positive"] as const;
+export type AnomalyState = (typeof ANOMALY_STATES)[number];
+export function isOpenAnomalyState(s: string): boolean; // New o Investigating
+```
+
+- `anomalyDetectionService` reexporta `ANOMALY_STATUSES` y `AnomalyStatus` como
+  alias. Se borró el `PATCH` de `/api/analytics/anomalies`; queda el de 40.4.
+- El `PATCH` hace `UPDATE Anomalies SET status, status_changed_by,
+  status_changed_at = NOW(), resolved_at = IF(cierra, NOW(), NULL) WHERE id = ?
+  AND tenant_id = ?`, donde cierra es `Resolved` o `False Positive`, y después
+  `invalidateCache(liveAnomaliesCacheKey(tenantId))`. La caché del panel pasó a
+  `anomalies:v4` para no servir el vocabulario viejo.
+- `buildAnomalySummary`: abiertas son New + Investigating; `unresolvedImpactUSD`
+  suma los deltas positivos de las abiertas; `completedCount` y el MTTR cuentan
+  sólo `Resolved`.
+- `AnomalyDetectionPanel.tsx`: `canTriage = isMock || userRole !== "Reader"`.
+  New ofrece Investigar, Falso positivo y Marcar resuelta; Investigating, los
+  dos últimos; una cerrada, Reabrir (vuelve a New). El cambio es optimista: si
+  el `PATCH` falla, la tarjeta vuelve a su estado y muestra `triageError`. Un
+  estado desconocido se muestra como New. Cada tarjeta muestra el responsable
+  (`assignedTo`, MEJ-33) o "Sin asignar".
+- `realConsumptionService` contaba `status = 'open'`, que no existe; ahora
+  `status IN ('New', 'Investigating')`.
+
+**Plan del upload (punto 1, `8390af8`).**
+
+```ts
+// src/lib/requestAuth.ts
+export async function assertTenantTier(identity: RequestIdentity, tenantId: string,
+  minTier: string, pathname: string): Promise<void>; // lanza AuthError 403
+```
+
+Es el corte por plan de `requireTenantTier`, que ahora lo llama: el SuperAdmin
+pasa y un add-on que cubre la ruta habilita. No aplica el corte por alcance de
+MEJ-38, que les cerraría la carga a los usuarios acotados.
+
+**Reporte de la carga (punto 2, `7200145`).**
+
+```ts
+// src/modules/core/aiProvider.ts
+export interface AssessmentOptions { feature?: string; maxOutputTokens?: number; locale?: string; currency?: string | null }
+export async function getAssessment(metricsData: any, tenantId: string, opts?: AssessmentOptions): Promise<string>;
+// src/services/billingCsvMapping.service.ts
+export function csvCurrency(rows: Record<string, unknown>[]): string | null;
+```
+
+- Sin opciones se comporta como antes: español, USD y uso registrado como
+  `assessment`.
+- `locale` elige el idioma del reporte (`es`, `en` o `pt-BR`; otro cae en
+  español). `currency` `null` le pide al modelo que no asuma moneda; sin
+  `currency`, USD.
+- La clave de `AiCache` es `sha256("{tenantId}:{idioma}:{moneda}:{datos}")`: un
+  reporte no se sirve en otro idioma ni en otra moneda.
+- Con `feature`, la llamada se mide con `timeAiCall` y el uso se registra con
+  esa feature, que es lo que cuenta la cuota del gate.
+- `csvCurrency` mira la primera fila: la primera columna que coincide con
+  `/^(billing_?)?currency(_?code)?$/i` y trae un código de 3 letras.
+- La página, con `aiUnavailable`, muestra `aiUnavailable_{reason}` y la tabla
+  `summaryTitle` con servicio, categoría, costo facturado y costo efectivo.
+
+**Detalle por medidor desde exports (punto 3, `cf440f9`).** La ingesta busca
+estas columnas por nombre exacto, sin distinguir mayúsculas:
+
+| Dato | Columnas |
+|---|---|
+| Medidor | `SkuMeter`, `x_SkuMeterName` (FOCUS) o `MeterName` (legacy) |
+| Categoría | `x_SkuMeterCategory` o `MeterCategory` |
+| Cantidad | `ConsumedQuantity` o `Quantity` |
+| Unidad | `ConsumedUnit` o `UnitOfMeasure` |
+| Región | `ResourceLocation` o `RegionId` |
+
+- Suma por suscripción, día, servicio, medidor y región. Como en
+  `CostSnapshots`, las particiones de una corrida se suman y la corrida
+  siguiente pisa el total del día.
+- Escribe con `insertCostMeterSnapshotRow`: la misma clave única y el mismo
+  upsert que el sync por API. El medidor también va en `MeterSubCategory`, el
+  costo con 4 decimales y la cantidad con 6.
+- Un export sin columna de medidor no escribe detalle, y la causa raíz queda en
+  `INSUFFICIENT_DETAIL`.
+
+**Explicación Enterprise (punto 5, `331f936`):** `minTier` de
+`anomaly-explanation` (40.1).
+
+**Subencargados (`24fa317`).** La lista y el whitepaper dicen que la inferencia
+de IA de la plataforma corre en Azure (Azure OpenAI). Cloudflare (CDN, DDoS y
+WAF; edge global con origen en Estados Unidos), la región (West US 2), la caché
+(Azure Managed Redis) y el perímetro estaban editados a mano en los `.md` y se
+perdían al regenerar. Ahora salen de `messages` (`LegalSubprocessors.*` y
+`LegalSecurity.*`): `scripts/generate-trust-center-docs.js` los escribe y
+`/legal/subprocessors` y `/legal/security` los muestran. Los PDFs de
+`docs/trust-center/` y `public/trust-center/` están regenerados. Si la aclaración
+exige el aviso de 30 días a clientes lo decide legal; el borrador de
+`docs/aviso-cambio-subencargado-2026.md` cubre sólo el cambio de ubicación.
+
+**Sin corregir:** los servicios y suscripciones de los exports FOCUS (punto 6;
+la corrección necesita borrar las filas FOCUS del tenant antes de reingerir),
+`ai-report`, `assessment` y `executive-report` sin plan ni cupo (punto 7) y la
+ubicación de Microsoft Graph (punto 8, decisión de legal).

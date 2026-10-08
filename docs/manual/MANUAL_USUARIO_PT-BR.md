@@ -34,8 +34,8 @@
 - **FinOps Copilot com conversa contínua** entre páginas e botão **Nova conversa** (9).
 - **App móvel (PWA)** com Resumo, Alertas, Aprovações, Suporte e Perfil (11.12).
 - **Anomalias com responsável e acompanhamento** (14) e **assinaturas fora do limite do seu plano** (15).
-- **Anomalias: o que mudou e explicação com IA.** Em **Detecção de Anomalias** (Enterprise), **Ver Causa Raiz** mostra qual medidor do serviço subiu e se foi por consumo, por preço ou por algo novo, com os passos a verificar. A IA pode contar isso em palavras (14.4).
-- **CSV que não está no formato FOCUS:** agora **todas** as linhas são processadas. A IA só identifica as colunas e a plataforma lê os valores (5.1.7).
+- **Anomalias: o que mudou e explicação com IA.** Em **Detecção de Anomalias** (Enterprise), **Ver Causa Raiz** mostra qual medidor do serviço subiu e se foi por consumo, por preço ou por algo novo, com os passos a verificar. A IA pode contar isso em palavras. O detalhe chega pela sincronização com o Azure e também pelos exports de custos (14.4).
+- **CSV que não está no formato FOCUS:** agora **todas** as linhas são processadas. A IA só identifica as colunas e a plataforma lê os valores. O relatório com IA do envio sai no seu idioma e na moeda do arquivo, e se a IA não estiver disponível você vê um resumo por serviço (5.1.7).
 
 **Novidades de agosto 2026**
 
@@ -396,6 +396,8 @@ Se o arquivo já está no formato FOCUS, ele é carregado direto. Se não, a IA 
 - **O mapeamento fica guardado.** Se você subir de novo um arquivo com as mesmas colunas, a IA não é usada e não se consome cota.
 - **Cota mensal da organização:** 150 formatos novos no Business. É ilimitada no Enterprise ou com a sua própria chave de IA (BYOK).
 - **Se a IA não estiver disponível** (desativada, sem cota ou com pedidos demais em sequência), o arquivo não é carregado e a tela diz por quê. Subir no formato FOCUS evita a IA.
+
+**O relatório com IA.** Depois de ler o arquivo, a IA redige um relatório no idioma da tela e na moeda que o arquivo indica; se o arquivo não indica a moeda, o relatório não a supõe. Ele tem a sua própria cota mensal: 150 relatórios no Business, sem limite no Enterprise ou com BYOK. Se a IA estiver desativada, sem cota ou com pedidos demais em sequência, em vez do relatório você vê o **Resumo do arquivo**: o custo por serviço e categoria calculado pela plataforma, com o motivo.
 
 ### 5.2. Leaderboard de times (`/intelligence/leaderboard`, Enterprise)
 
@@ -1462,6 +1464,14 @@ Esse último não é o mesmo que "descartada": serve de retorno para afinar a de
 
 As mudanças são vistas por toda a equipe, então duas pessoas não trabalham no mesmo item sem saber.
 
+O estado é alterado em **Analítica Avançada → Detecção de Anomalias** (Enterprise, 5.14), com os botões de cada cartão: **Investigar** numa Nova, **Marcar como Resolvida** ou **Falso positivo** enquanto está aberta, e **Reabrir** quando já foi fechada. Owner, Admin e Colaborador os usam; o Reader vê o estado e o responsável, sem os botões. Se a mudança não puder ser salva, o cartão volta ao estado anterior e a tela avisa.
+
+Os indicadores do painel saem desses estados:
+
+- **Anomalias Abertas:** as Novas e as que estão Em investigação.
+- **Impacto Não Resolvido:** quanto as abertas gastaram acima do esperado.
+- **Resolvidas** e **Tempo Médio de Ação:** só as Resolvidas. O tempo vai da detecção ao fechamento; os falsos positivos não contam, porque fechá-los não corrigiu nenhum gasto.
+
 ### 14.3 O aviso
 
 Se a anomalia tem responsável, a notificação **chega a essa pessoa**. Se não tem, chega a toda a equipe — um desvio sem dono ainda precisa ser visto por alguém.
@@ -1478,7 +1488,7 @@ Em **Analítica Avançada → Detecção de Anomalias** (Enterprise, 5.14), o bo
 | **Custo maior** | O custo subiu, mas não há quantidades para saber se foi por consumo ou por preço |
 | **Sem detalhe por medidor** | Não há detalhe desse serviço: a plataforma diz isso em vez de adivinhar |
 
-O detalhe é no nível do serviço: soma todas as regiões e grupos de recursos. Se a sua organização carrega os custos só por exports, você vai ver **Sem detalhe por medidor**, porque hoje esse detalhe chega apenas com a sincronização por API.
+O detalhe é no nível do serviço: soma todas as regiões e grupos de recursos. Ele chega com a sincronização por API e com os exports de custos que trazem a coluna do medidor (`MeterName`, ou `SkuMeter` / `x_SkuMeterName` no FOCUS). Se a sua organização carrega os custos com um export sem essa coluna, você vai ver **Sem detalhe por medidor**.
 
 Abaixo, **O que verificar** lista os próximos passos. Eles saem dos fatos, não da IA:
 

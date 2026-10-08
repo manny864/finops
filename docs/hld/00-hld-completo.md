@@ -206,8 +206,8 @@ mindmap
 * **AI Cost Analytics (Enterprise):** Vista de costo por modelo y tendencia de tokens para **Microsoft Foundry / Azure OpenAI**, priorizando tokens desde Azure Monitor (`ProcessedPromptTokens`, `GeneratedTokens`, `ProcessedInferenceTokens`) y fallback a costo agregado desde Cost Management cuando no hay desglose de tokens.
 * **RBAC mínimo para AI Cost Analytics:** no introduce roles nuevos; reutiliza `Reader`, `Cost Management Reader`, `Monitoring Reader` y `Billing Reader` bajo principio de menor privilegio.
 * **Explicación de anomalías:** el código calcula qué cambió dentro del servicio que empujó el desvío (medidor nuevo, más consumo, más precio), sin IA. La IA lo redacta a pedido, citando sólo esos hechos, y la salida se valida antes de mostrarse. Se ve en Detección de Anomalías, que hoy es Enterprise (§19).
-* **Mapeo de CSV con IA (Business+):** la IA infiere qué columna corresponde a cada campo FOCUS y el código convierte todas las filas (§19).
-* **Gate único de IA:** kill switch global, `Tenants.ai_enabled`, tier, rate limit y cuota mensual por feature para las funciones de IA nuevas. El Copilot conserva el suyo (§19).
+* **Mapeo de CSV con IA (Business+):** la IA infiere qué columna corresponde a cada campo FOCUS y el código convierte todas las filas. El reporte de la carga pasa por el mismo gate y, sin IA, muestra el resumen por servicio (§19).
+* **Gate único de IA:** kill switch global, interruptor por feature, `Tenants.ai_enabled`, tier, rate limit y cuota mensual por feature para las funciones de IA nuevas, con telemetría por feature en Log Analytics. El Copilot conserva el suyo (§19).
 
 ### 3.5 Módulo Integration Services (iPaaS)
 
@@ -1176,14 +1176,28 @@ Copilot tiene su gate en `copilotConfig.ts`, pero la normalización de CSV llama
 al modelo sin mirar el kill switch, `Tenants.ai_enabled` ni una cuota.
 
 Las funciones nuevas pasan por `checkAiFeature` (`src/lib/aiFeatureGate.ts`), que
-aplica cinco controles en orden: kill switch global, `Tenants.ai_enabled`, tier,
-rate limit por usuario y por minuto, y cuota mensual **por feature**. La cuota
-cuenta en `PlatformAiUsage` sólo lo que paga la plataforma, así que BYOK no la
-consume. Un denegado no es un error: la pantalla sigue con la versión
-determinista y dice por qué no hay IA.
+aplica seis controles en orden: kill switch global, interruptor de la feature,
+`Tenants.ai_enabled`, tier, rate limit por usuario y por minuto, y cuota mensual
+**por feature**. La cuota cuenta en `PlatformAiUsage` sólo lo que paga la
+plataforma, así que BYOK no la consume. Un denegado no es un error: la pantalla
+sigue con la versión determinista y dice por qué no hay IA.
+
+El interruptor por feature lo maneja el superadmin en la Configuración de IA
+Global y se guarda en `GlobalSettings`. Sin valor guardado manda el
+`defaultEnabled` de la feature, para que una función con precondiciones de
+negocio pueda arrancar apagada.
+
+Cada decisión del gate, cada llamada al modelo (con su latencia) y cada salida
+descartada por los validadores dejan una línea JSON `evt: "ai_feature"` en
+stdout, que ya llega a Log Analytics. No hay exporter de OpenTelemetry; si se
+suma, cambia un solo archivo.
 
 El gate no autentica. La ruta ya validó el acceso con `requireTenantAccess`, y el
-gate sólo decide si se puede gastar. El Copilot conserva el suyo por ahora.
+gate sólo decide si se puede gastar. El Copilot conserva el suyo: atiende la demo
+pública, cuyos tenants no tienen fila en `Tenants` y el gate los negaría, y su
+cuota cuenta intentos antes de llamar al modelo, mientras que la del gate cuenta
+respuestas terminadas. Migrarlo además pondría en cero los contadores del mes.
+El kill switch global ya lo apaga.
 
 ### 19.2 Anomalías: primero los hechos, después el texto
 
@@ -1194,14 +1208,14 @@ Al guardar la anomalía, el código compara el día contra los 30 anteriores, me
 por medidor, y clasifica: medidor nuevo, más consumo, más precio unitario (con la
 descomposición precio-volumen) o más costo sin cantidades para separar uno de
 otro. Esos hechos y las acciones que se derivan de ellos se muestran sin IA, en
-el panel de causa raíz de Detección de Anomalías. Esa pantalla hoy es
-**Enterprise**, aunque el cron calcula los hechos desde Professional.
+el panel de causa raíz de Detección de Anomalías. Esa pantalla y la explicación
+con IA son **Enterprise**, aunque el cron calcula los hechos desde Professional.
 
 La propuesta suponía que `CostSnapshots` traía recurso y medidor, y no es así: el
 sync lo escribe por servicio y resource group. El detalle por medidor está en
-`CostMeterSnapshots`, que no tiene resource group y sólo escribe el sync por API.
-Un tenant que sólo carga exports ve "sin detalle" en lugar de una causa
-inventada.
+`CostMeterSnapshots`, que no tiene resource group. Lo escriben el sync por API y
+la ingesta de exports, cuando el archivo trae la columna del medidor. Si no hay
+detalle, la pantalla dice "sin detalle" en lugar de inventar una causa.
 
 ```mermaid
 flowchart LR
@@ -1252,6 +1266,13 @@ del gate: el mismo formato no vuelve a enviar datos ni a consumir cuota. Si no
 hay IA disponible, el upload falla con el motivo en lugar de cargar datos a
 medias. Los archivos FOCUS siguen sin pasar por la IA.
 
+El reporte que se redacta después de la carga (`getAssessment`) también pasa por
+el gate, como la feature `billing-upload-assessment`. Si se niega, la carga
+devuelve el resumen por servicio que ya calculó el código, con el motivo. El
+reporte sale en el idioma de la pantalla y rotula la moneda del archivo, sin
+inventarla si el archivo no la trae. La API de carga exige Business en el
+servidor, no sólo en la navegación.
+
 ### 19.4 Lo que no es IA no se llama IA
 
 El botón "Autocompletar con IA" de Gobernanza de Etiquetas era una heurística sobre la
@@ -1260,12 +1281,27 @@ por convención de nombres**, la respuesta declara `method: "heuristic"` y la
 confianza inventada desapareció. De paso, el endpoint exige `tenantId` y acceso
 al tenant: se quitaron el bypass `?mock=true` y la caída al tenant `"default"`.
 
-### 19.5 Lo que queda
+### 19.5 Lo que se corrigió de paso (MEJ-42)
+
+- **El triaje de anomalías no se guardaba.** El panel mandaba un vocabulario que
+  la columna `ENUM` de la base rechazaba, y el error se tragaba. Ahora hay un solo
+  endpoint de triaje con el vocabulario de la base, que exige Admin, Owner o
+  Colaborador y fija la fecha de cierre de la que sale el tiempo medio de acción.
+- **La carga de CSV** valida el plan en el servidor y su reporte pasa por el gate
+  (19.3).
+- **Los exports** escriben el detalle por medidor (19.2).
+- **Los subencargados** declaran que la inferencia de IA corre en Azure (Azure
+  OpenAI y Azure AI services), y Cloudflare figura en la lista.
+
+### 19.6 Lo que queda
 
 - La IA de plataforma sigue con key: faltan Managed Identity y el módulo
   Terraform `ai_services`.
-- Actualizar los subprocesadores, que depende de legal, antes de habilitar las
-  funciones a clientes.
-- `getAssessment`, que corre después del upload, todavía no pasa por el gate, y la
-  API de upload no valida el tier (MEJ-42).
+- Legal decide si la aclaración de subencargados exige el aviso de 30 días; si lo
+  exige, va antes de habilitar las funciones a clientes. El borrador actual
+  (`docs/aviso-cambio-subencargado-2026.md`) cubre sólo el cambio de ubicación.
+- Los otros que llaman a `getAssessment` (reporte con IA, assessment y reporte
+  ejecutivo) siguen sin tier ni cuota, en español y USD.
+- En la ingesta FOCUS, la columna de servicio puede tomar `ServiceCategory` y la
+  de suscripción no reconoce `SubAccountId`. Corregirlo exige limpiar datos.
 - Las fases 2 a 4 de la propuesta: tags, soporte y Document Intelligence.
