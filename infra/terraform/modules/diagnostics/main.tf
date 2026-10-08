@@ -1,5 +1,6 @@
-# Diagnostic settings reutilizable: manda todos los logs y métricas de un
-# recurso al Log Analytics del stamp.
+# Diagnostic settings reutilizable: manda los logs (todos, salvo que se pida
+# otro grupo: ver log_category_group) y las métricas de un recurso al Log
+# Analytics del stamp.
 #
 # El caso que justifica esto es el Key Vault: sin diagnostic settings NO hay
 # registro de quién leyó qué secreto. Es la primera pregunta de cualquier
@@ -15,7 +16,7 @@ resource "azurerm_monitor_diagnostic_setting" "this" {
   dynamic "enabled_log" {
     for_each = contains(keys(var.metrics_only_targets), each.key) ? [] : [1]
     content {
-      category_group = "allLogs"
+      category_group = var.log_category_group
     }
   }
 

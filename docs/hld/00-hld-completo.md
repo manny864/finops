@@ -74,6 +74,7 @@ graph TB
                 PE_REDIS["Private Endpoint: Managed Redis"]
                 PE_KV["Private Endpoint: Key Vault"]
                 PE_STORAGE["Private Endpoint: Storage Account"]
+                PE_AI["Private Endpoint: Azure AI Services (opcional)"]
             end
 
             subgraph "Database Subnet (10.0.3.0/24)"
@@ -85,6 +86,7 @@ graph TB
         REDIS[("Azure Managed Redis (Balanced B3, HA)")]
         STORAGE["Azure Storage Account (Blobs, Reports, Exports)"]
         OBS["Azure Monitor / Log Analytics / App Insights"]
+        AOAI["Azure AI Services en westus3 (opcional: gpt-5.4-mini, Data Zone US)"]
     end
 
     subgraph "APIs Nativas Azure (Tenants de Clientes)"
@@ -120,6 +122,7 @@ graph TB
     WEB -->|"Checkout & Billing"| PADDLE
     WEB -->|"SAML Auth"| WORKOS
     WEB -->|"AI Telemetry & Copilot"| GEMINI
+    WEB -->|"IA de plataforma (Entra ID, Private Endpoint)"| AOAI
     WEB -->|"User Auth & Tokens"| ENTRA
 
     WEB -.->|"Metrics & Traces"| OBS
@@ -1167,7 +1170,8 @@ Primera parte de la propuesta de capacidades de IA
 ([`docs/propuesta-capacidades-ia-2026-10-07.md`](../propuesta-capacidades-ia-2026-10-07.md),
 sección 10). La regla de fondo: cifras, causas y acciones salen de lógica
 determinista; el modelo sólo pone en palabras lo que el código ya verificó, o
-elige entre opciones cerradas. El detalle técnico está en el LLD §40.
+elige entre opciones cerradas. El detalle técnico está en el LLD §40 y, para la
+IA de plataforma sin keys (19.6), en el §41.
 
 ### 19.1 Un solo lugar decide si se gasta IA
 
@@ -1293,10 +1297,41 @@ al tenant: se quitaron el bypass `?mock=true` y la caída al tenant `"default"`.
 - **Los subencargados** declaran que la inferencia de IA corre en Azure (Azure
   OpenAI y Azure AI services), y Cloudflare figura en la lista.
 
-### 19.6 Lo que queda
+### 19.6 La IA de plataforma sin keys
 
-- La IA de plataforma sigue con key: faltan Managed Identity y el módulo
-  Terraform `ai_services`.
+La IA que paga la plataforma puede correr en una cuenta de Azure AI Services
+propia del stamp, con la identidad administrada de la app como credencial: no
+hay keys que rotar ni guardar. Queda apagado detrás de `ai_services_enabled`
+hasta el rollout.
+
+- **Red.** La cuenta no tiene acceso público. La app la alcanza por un private
+  endpoint en la VNet del stamp, con tres zonas DNS privadas (`cognitiveservices`,
+  `openai` y `services.ai`). Si falta una, ese nombre resuelve a la IP pública y
+  la llamada falla con 403, la misma falla silenciosa que tuvo Redis.
+- **Región.** La cuenta va en West US 3 porque West US 2 no ofrece modelos de
+  Azure OpenAI; el private endpoint queda en West US 2. Con Data Zone Standard la
+  inferencia no sale de Estados Unidos. El centro de confianza dice hoy
+  «despliegue único en West US 2»: hay que actualizarlo al prender la cuenta.
+- **Identidad.** La misma identidad user-assigned que lee Key Vault, con el rol
+  *Cognitive Services OpenAI User* sobre la cuenta. Puede pedir inferencias, pero
+  no administrar la cuenta ni leer sus keys.
+- **Alcance.** Sólo la IA de plataforma con Azure OpenAI. BYOK y los otros
+  proveedores siguen con su key. Sin identidad, en desarrollo local, la app usa
+  la key como antes.
+- **Transición en dos pasos.** Primero la cuenta convive con la key: la app pasa
+  a Entra ID sólo con `ai_services_entra_auth`, y volver atrás es apagar ese flag
+  sin borrar la cuenta. Después se apagan las keys de la cuenta.
+- **Costo.** Unos US$9 por mes fijos (private endpoint y zonas DNS) más el
+  consumo del modelo. Tiene un presupuesto propio de US$50 por mes con avisos al
+  50, 75, 90 y 100 %.
+
+### 19.7 Lo que queda
+
+- El rollout de 19.6: confirmar la cuota del modelo en West US 3, actualizar el
+  centro de confianza, aplicar con la app todavía en la key, verificar el DNS
+  privado desde el contenedor y recién después pasar la app a Entra ID y apagar
+  las keys. Con Entra ID todos los planes usan el mismo modelo mini; si
+  Enterprise necesita uno mayor, hace falta un segundo deployment.
 - Legal decide si la aclaración de subencargados exige el aviso de 30 días; si lo
   exige, va antes de habilitar las funciones a clientes. El borrador actual
   (`docs/aviso-cambio-subencargado-2026.md`) cubre sólo el cambio de ubicación.

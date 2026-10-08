@@ -3769,3 +3769,155 @@ exige el aviso de 30 días a clientes lo decide legal; el borrador de
 la corrección necesita borrar las filas FOCUS del tenant antes de reingerir),
 `ai-report`, `assessment` y `executive-report` sin plan ni cupo (punto 7) y la
 ubicación de Microsoft Graph (punto 8, decisión de legal).
+
+## 41. Addendum 2026-10-08 — IA de plataforma con Managed Identity y módulo `ai_services`
+
+PR 2 de la propuesta de IA
+([`docs/propuesta-capacidades-ia-2026-10-07.md`](../propuesta-capacidades-ia-2026-10-07.md),
+10.6). Contexto arquitectónico en el HLD §19.6. Rama
+`feat/ia-fase0-managed-identity`, encima de `feat/ia-fase1-anomalias`: `6ce10b1`
+(credencial), `3e6ef4e` (app) y `9d1a148` (Terraform). Sin los flags de
+Terraform no cambia nada en prod.
+
+### 41.1 Credencial — `src/lib/azureAiCredential.ts`
+
+| Export | Qué hace |
+|---|---|
+| `hasAiManagedIdentity(): boolean` | `true` si existe `AZURE_KEYVAULT_MI_CLIENT_ID`. Fuera de Azure (local) es `false` |
+| `cognitiveServicesTokenProvider(): () => Promise<string>` | `getBearerTokenProvider(new ManagedIdentityCredential({ clientId: AZURE_KEYVAULT_MI_CLIENT_ID }), "https://cognitiveservices.azure.com/.default")`, creado una vez por proceso |
+
+Es `ManagedIdentityCredential` directo y no `DefaultAzureCredential`: el proceso
+tiene `AZURE_CLIENT_ID` del app registration multitenant y la cadena lo tomaría
+primero, igual que en `src/lib/secrets/keyvault.ts`.
+
+### 41.2 Resolución — `getAIConfig` y `resolveAzureAiModel`
+
+`usesPlatformEntraAuth(provider, apiKey)`, privada de `src/services/aiService.ts`:
+
+```ts
+provider === 'azure_openai' && hasAiManagedIdentity()
+  && (!apiKey || AZURE_OPENAI_AUTH.trim().toLowerCase() === 'entra')
+```
+
+Se evalúa al final de la resolución de plataforma (Enterprise o no). BYOK
+retorna antes y nunca llega. Si da `true`, `getAIConfig` devuelve:
+
+```ts
+{
+  provider: 'azure_openai',
+  apiKey: '',
+  azureOpenAIEndpoint: '',
+  azureOpenAIResourceName: process.env.AZURE_OPENAI_RESOURCE_NAME || effectiveResourceName,
+  azureOpenAIDeployment: process.env.AZURE_OPENAI_DEPLOYMENT || effectiveDeployment,
+  authMode: 'entra',
+  source: 'platform',
+}
+```
+
+- **`resolveAzureAiModel`** (`src/modules/core/aiProvider.ts`), con
+  `authMode: 'entra'`, arma `createAzure({ resourceName, tokenProvider })` antes
+  que cualquier otra rama (endpoint, Anthropic o Foundry). La URL sale del
+  nombre del recurso (`<recurso>.openai.azure.com`), que resuelve al private
+  endpoint. Sin nombre lanza `Azure OpenAI con Managed Identity no configurado:
+  falta AZURE_OPENAI_RESOURCE_NAME…`.
+- **`AIProviderFactory.getGeminiModel` y `generateFinOpsReport`** aceptan
+  `apiKey` vacía con `authMode === 'entra'`.
+- **El uso** se sigue registrando en `PlatformAiUsage` con `source = 'platform'`:
+  el gate (cuota) y el panel de consumo no cambian.
+- **Probar conexión** (*IA — Configuración global*): sin key escrita pasa por
+  `getAIConfig` y prueba Entra; con una key escrita prueba esa key
+  (`overrideConfig`).
+
+| Entorno | Proveedor y key de plataforma | `AZURE_OPENAI_AUTH` | Credencial |
+|---|---|---|---|
+| Sin `AZURE_KEYVAULT_MI_CLIENT_ID` (local) | cualquiera | cualquiera | Key, como antes |
+| Azure | `azure_openai` con key | sin valor | Key, como antes (paso 2 del rollout) |
+| Azure | `azure_openai` con key | `entra` | Entra |
+| Azure | `azure_openai` sin key | cualquiera | Entra |
+| Cualquiera | BYOK u otro proveedor | cualquiera | Key |
+
+**Limitaciones conocidas:**
+
+- **Un solo modelo.** `AZURE_OPENAI_DEPLOYMENT` gana sobre `ai_deployment` y
+  `enterprise_ai_deployment`: con Entra todos los planes usan `gpt-5.4-mini`.
+- **Sin respaldo en tiempo de ejecución.** Si el token o la llamada fallan, no
+  se reintenta con key. La vuelta atrás es `ai_services_entra_auth = false`.
+- **Proveedor.** Entra aplica sólo si el proveedor guardado en
+  *IA — Configuración global* es Azure IA (`azure_openai`), en cada plan.
+- **BYOK `azure_openai` sin endpoint.** Ya caía en `AZURE_OPENAI_RESOURCE_NAME`.
+  Con el rollout ese nombre es la cuenta de la plataforma, donde la key del
+  tenant no sirve.
+
+### 41.3 Terraform — `infra/terraform/modules/ai_services`
+
+`modules/stamp` lo instancia con `count = var.ai_services_enabled ? 1 : 0`.
+
+| Recurso | Configuración |
+|---|---|
+| `azurerm_cognitive_account.this` | `kind = "AIServices"`, `S0`, `custom_subdomain_name = name` (sin subdominio no hay Entra ID ni private endpoint), `public_network_access_enabled = false`, `local_auth_enabled = var.local_auth_enabled` (default `true`, paso 1), identidad SystemAssigned (Checkov `CKV_AZURE_238`) |
+| `azurerm_cognitive_deployment.chat` | Nombre igual al modelo, `gpt-5.4-mini` (`@ai-sdk/azure` decide por el id si es un modelo de razonamiento); versión `2026-03-17` fijada con `OnceCurrentVersionExpired`; `DataZoneStandard`, capacidad 100 (miles de tokens por minuto) |
+| `azurerm_private_endpoint.this` | `<name_base>-ai-pe` en la región del stamp y la subnet de private endpoints, subrecurso `account`, con las tres zonas |
+| `azurerm_role_assignment.app` | *Cognitive Services OpenAI User* para la identidad user-assigned de la app |
+| `module.diagnostics` | `log_category_group = "audit"`: sólo la auditoría de acceso; `allLogs` sumaría una fila por llamada al modelo |
+| `module.budget` | `<name_base>-ai`, US$50 (`monthly_budget_amount`), filtrado por el `ResourceId` de la cuenta; arranca el día 1 del mes del primer apply (`time_static`) |
+
+Outputs: `resource_name` (el subdominio) y `deployment_name`.
+
+**Cambios en otros módulos:**
+
+- **`modules/stamp`.**
+  - Variables `ai_services_enabled` (`false`), `ai_services_location` (`null`, o
+    sea la del stamp) y `ai_services_entra_auth` (`true`).
+  - El nombre de la cuenta lleva su propia región:
+    `<prefix>-<project>-<env>-<región>-ai`.
+  - `local.ai_services_env` (`AZURE_OPENAI_RESOURCE_NAME`,
+    `AZURE_OPENAI_DEPLOYMENT` y `AZURE_OPENAI_AUTH=entra`) existe sólo con los
+    dos flags en `true`. Se mergea después de `extra_env_vars`, para que un valor
+    heredado del `.env` no apunte a otra cuenta.
+- **`modules/private_dns`.** Con `ai_services_enabled` suma
+  `privatelink.cognitiveservices.azure.com`, `privatelink.openai.azure.com` y
+  `privatelink.services.ai.azure.com`, con los outputs
+  `cognitiveservices_zone_id`, `openai_zone_id` y `aiservices_zone_id`.
+- **`modules/diagnostics`.** Variable `log_category_group` (default `allLogs`).
+- **`modules/budget`.** Variable `resource_ids`: filtro por `ResourceId`; vacía
+  cuenta todo el resource group.
+- **`environments/prod`.** Los tres campos opcionales en el objeto de `stamps`.
+  `terraform.tfvars.example` trae el ejemplo comentado para `us` (`westus3`,
+  `ai_services_entra_auth = false`).
+- **`.github/workflows/terraform.yml`.** Checkov omite `CKV2_AZURE_22` (sin
+  customer-managed key, mismo motivo que `CKV2_AZURE_1`) y `CKV_AZURE_236` (keys
+  habilitadas, que sale en el paso 5).
+
+### 41.4 Rollout
+
+Lo corre el operador con `terraform.yml`. Nada está aplicado.
+
+1. Confirmar la cuota Data Zone de `gpt-5.4-mini` en West US 3 (no está
+   publicada). Actualizar el centro de confianza, que dice «despliegue único en
+   West US 2» (`LegalSecurity.infraRegion`), con la opinión de legal.
+2. Apply con `ai_services_enabled = true`, `ai_services_location = "westus3"` y
+   `ai_services_entra_auth = false`. Crea la infraestructura; la app sigue con la
+   key.
+3. Desde el contenedor, `<cuenta>.openai.azure.com` tiene que resolver a
+   `10.50.10.x`. Si resuelve a la IP pública falta una zona y la llamada va a
+   fallar con 403.
+4. Apply con `ai_services_entra_auth = true`, con Azure IA como proveedor de
+   plataforma en *IA — Configuración global*. Volver a `false` es la vuelta
+   atrás.
+5. `local_auth_enabled = false`, sacar `CKV_AZURE_236` del `skip_check` y borrar
+   la key de Azure IA del panel.
+
+El modelo se retira el 2027-09-21; el drift check de los lunes lo va a mostrar.
+
+### 41.5 Verificación
+
+| Test | Cubre |
+|---|---|
+| `__tests__/unit/azureAiCredential.test.ts` | Identidad del stamp con el scope de Cognitive Services, creada una sola vez; sin `AZURE_KEYVAULT_MI_CLIENT_ID` no hay identidad |
+| `__tests__/unit/aiPlatformEntraAuth.test.ts` | Sin key y con identidad usa Entra con el recurso y el deployment del entorno; con key y sin flag sigue con la key; con `AZURE_OPENAI_AUTH=entra` usa Entra y, sin recurso en el entorno, cae al de `GlobalSettings`; sin identidad el flag no cambia nada y sin key falla como antes; BYOK y los otros proveedores nunca usan la identidad; Entra sin recurso falla diciendo qué falta; el reporte ejecutivo funciona con Entra y registra el uso de plataforma |
+
+Suite completa (`npx vitest run`, sin `.env.development`): 4073 tests en verde y
+39 omitidos, en 413 archivos; `tsc` limpio y sin warnings de ESLint en los
+archivos tocados. `terraform fmt -check -recursive` y `terraform validate`
+(`environments/prod` con `init -backend=false`) en verde. No se corrió `plan`
+ni `apply`.

@@ -5,6 +5,7 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import pool, { insertPlatformAiUsage } from '@/modules/storage/db';
 import { RowDataPacket } from 'mysql2';
 import { tryDecryptSecret } from '@/lib/secretCrypto';
+import { hasAiManagedIdentity } from '@/lib/azureAiCredential';
 
 /**
  * Interruptor maestro de plataforma (Configuración de IA Global →
@@ -62,6 +63,19 @@ function getEnvKeyForProvider(provider: string): string {
         return process.env.MOONSHOT_API_KEY || process.env.KIMI_API_KEY || '';
     }
     return '';
+}
+
+/**
+ * IA de plataforma con la identidad administrada del stamp (Entra ID) en vez
+ * de key. Sólo Azure OpenAI de plataforma: BYOK nunca llega acá.
+ *
+ * Sin identidad (desarrollo local) sigue la key. Con identidad, Entra si no
+ * hay key o si AZURE_OPENAI_AUTH=entra: es el paso 1 de la transición, con la
+ * key de fallback (sacar la variable vuelve a usarla).
+ */
+function usesPlatformEntraAuth(provider: string, apiKey: string): boolean {
+    if (provider !== 'azure_openai' || !hasAiManagedIdentity()) return false;
+    return !apiKey || (process.env.AZURE_OPENAI_AUTH || '').trim().toLowerCase() === 'entra';
 }
 
 export async function getAIConfig(tenantId?: string, forceEnterpriseTier?: boolean) {
@@ -166,6 +180,21 @@ export async function getAIConfig(tenantId?: string, forceEnterpriseTier?: boole
             || process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-5.1';
     }
 
+    // El recurso y el deployment del entorno ganan: los pone Terraform
+    // (ai_services) y es la cuenta donde la identidad tiene el rol. La key y el
+    // endpoint de GlobalSettings no se usan con Entra.
+    if (usesPlatformEntraAuth(effectiveProvider, effectiveApiKey)) {
+        return {
+            provider: effectiveProvider,
+            apiKey: '',
+            azureOpenAIEndpoint: '',
+            azureOpenAIResourceName: process.env.AZURE_OPENAI_RESOURCE_NAME || effectiveResourceName,
+            azureOpenAIDeployment: process.env.AZURE_OPENAI_DEPLOYMENT || effectiveDeployment,
+            authMode: 'entra' as const,
+            source: 'platform' as const,
+        };
+    }
+
     return {
         provider: effectiveProvider,
         apiKey: effectiveApiKey,
@@ -179,7 +208,7 @@ export async function getAIConfig(tenantId?: string, forceEnterpriseTier?: boole
 export async function generateFinOpsReport(tenantId: string, metricsData: any, locale: string = 'es') {
     const config = await getAIConfig(tenantId);
     
-    if (!config.apiKey) {
+    if (!config.apiKey && config.authMode !== 'entra') {
         throw new Error("AI API Key not configured. Please contact the Super Admin.");
     }
 

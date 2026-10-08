@@ -19,6 +19,17 @@ variable "name_base" {
   type = string
 }
 
+variable "log_category_group" {
+  description = <<-DESC
+    Grupo de categorías de log de los targets. "audit" deja sólo la
+    auditoría de acceso. Lo usa Azure AI: con "allLogs" sumaría
+    RequestResponse y Trace, una fila por cada llamada al modelo; el uso por
+    llamada ya lo registra la app y el consumo está en las métricas.
+  DESC
+  type        = string
+  default     = "allLogs"
+}
+
 variable "workspace_id" {
   type = string
 }

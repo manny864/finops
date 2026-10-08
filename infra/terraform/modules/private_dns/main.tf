@@ -17,7 +17,19 @@ locals {
     # privada y la app muere con "connect ETIMEDOUT" contra el cache.
     # Verificado 2026-07-28: customDnsConfigs del endpoint pide
     # cscs-finops-prod-westus2-redis.westus2.redis.azure.net -> 10.50.10.4.
-    var.redis_enabled ? { redis = "privatelink.redis.azure.net" } : {}
+    var.redis_enabled ? { redis = "privatelink.redis.azure.net" } : {},
+    # Azure AI Services (modules/ai_services): la cuenta responde en los tres
+    # dominios (<sub>.cognitiveservices.azure.com, <sub>.openai.azure.com y
+    # <sub>.services.ai.azure.com) y su private endpoint registra un A record
+    # en cada zona. Si falta una, ese hostname resuelve a la IP pública y, con
+    # el acceso público apagado, la llamada falla con 403 — el mismo síntoma
+    # silencioso que la zona equivocada de Redis.
+    # https://learn.microsoft.com/en-us/azure/private-link/private-endpoint-dns
+    var.ai_services_enabled ? {
+      cognitiveservices = "privatelink.cognitiveservices.azure.com"
+      openai            = "privatelink.openai.azure.com"
+      aiservices        = "privatelink.services.ai.azure.com"
+    } : {}
   )
 }
 

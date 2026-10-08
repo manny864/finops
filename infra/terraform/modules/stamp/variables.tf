@@ -342,6 +342,30 @@ variable "custom_domain_certificate_name" {
   default     = ""
 }
 
+# --- IA de plataforma (modules/ai_services) ---
+variable "ai_services_enabled" {
+  description = "Cuenta de Azure AI Services del stamp, con private endpoint y la identidad de la app como credencial."
+  type        = bool
+  default     = false
+}
+
+variable "ai_services_location" {
+  description = "Región de la cuenta de IA; null = la del stamp. West US 2 no ofrece modelos de Azure OpenAI: el stamp us usa westus3."
+  type        = string
+  default     = null
+}
+
+variable "ai_services_entra_auth" {
+  description = <<-DESC
+    true: la app pasa a la cuenta nueva con Entra ID (AZURE_OPENAI_RESOURCE_NAME,
+    AZURE_OPENAI_DEPLOYMENT y AZURE_OPENAI_AUTH=entra). false: sólo la
+    infraestructura; la app sigue con la key, como hoy. Sirve para verificar
+    DNS y RBAC antes de pasar el tráfico, y de rollback sin borrar la cuenta.
+  DESC
+  type        = bool
+  default     = true
+}
+
 variable "tags" {
   type = map(string)
 }

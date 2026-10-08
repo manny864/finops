@@ -11,6 +11,18 @@ resource "azurerm_consumption_budget_resource_group" "this" {
     start_date = var.start_date
   }
 
+  # Presupuesto de recursos puntuales dentro del RG (la cuenta de IA): sin
+  # filtro cuenta todo el resource group.
+  dynamic "filter" {
+    for_each = length(var.resource_ids) > 0 ? [1] : []
+    content {
+      dimension {
+        name   = "ResourceId"
+        values = var.resource_ids
+      }
+    }
+  }
+
   dynamic "notification" {
     for_each = toset([50, 75, 90, 100])
     content {

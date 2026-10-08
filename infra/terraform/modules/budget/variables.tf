@@ -19,3 +19,9 @@ variable "start_date" {
 variable "alert_email" {
   type = string
 }
+
+variable "resource_ids" {
+  description = "Si no está vacío, el presupuesto cuenta sólo estos recursos del RG. Ids en minúscula, como los devuelve Cost Management."
+  type        = list(string)
+  default     = []
+}

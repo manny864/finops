@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Fecha** | 2026-10-07 |
-| **Estado** | **Implementada en parte** (rama `feat/ia-fase1-anomalias`, 2026-10-07 y 2026-10-08): gate único con interruptor por feature y telemetría (0.1 y 6.8), hardening de `tags/suggest` (0.4), subencargados (0.5; legal decide si exige el aviso de 30 días), hechos de causa raíz (1a), explicación de anomalías (1b), mapeo de CSV (6.4) y el reporte de la carga bajo el gate. Pendientes: Managed Identity y Terraform (0.2 y 0.3) y las fases 2 a 4. Qué se hizo y en qué se apartó de este documento: [sección 10](#10-implementación-qué-se-hizo-y-en-qué-se-apartó). |
+| **Estado** | **Implementada en parte** (ramas `feat/ia-fase1-anomalias` y `feat/ia-fase0-managed-identity`, 2026-10-07 y 2026-10-08): gate único con interruptor por feature y telemetría (0.1 y 6.8), Managed Identity y módulo Terraform `ai_services`, apagados hasta el rollout (0.2 y 0.3), hardening de `tags/suggest` (0.4), subencargados (0.5; legal decide si exige el aviso de 30 días), hechos de causa raíz (1a), explicación de anomalías (1b), mapeo de CSV (6.4) y el reporte de la carga bajo el gate. Pendientes: el rollout de 0.2 y 0.3 y las fases 2 a 4. Qué se hizo y en qué se apartó de este documento: [sección 10](#10-implementación-qué-se-hizo-y-en-qué-se-apartó). |
 | **Base analizada** | `main` @ `057287c9` |
 | **Origen** | Propuesta generada con Gemini (texto completo en el [Anexo A](#anexo-a-texto-original-de-la-propuesta)), verificada contra el código, la IaC (Terraform) y la documentación oficial de Microsoft. |
 | **Alcance** | Viabilidad de los cuatro módulos propuestos y de la infraestructura asociada; plan de implementación por fases. |
@@ -843,10 +843,13 @@ Con el deployment por defecto actual (`gpt-5.1`), el costo por llamada sería va
 ## 8. Decisiones abiertas
 
 1. **Modelo y tipo de deployment.** ¿Global Standard (más barato y con más modelos), Data Zone Standard US o Standard regional, según los compromisos de residencia? ¿Qué modelos "mini" hay disponibles en `westus2` con ese tipo?
+   - **Decidido en la implementación:** Data Zone Standard (US), para que la inferencia no salga de Estados Unidos, con `gpt-5.4-mini` (versión `2026-03-17`) y 100 mil tokens por minuto. Falta confirmar la cuota de ese modelo en West US 3 (ver [10.6](#106-managed-identity-y-terraform-02-y-03)).
 2. **Región de la cuenta de IA.** ¿`westus2`, como el resto (Private Endpoint local), u otra región con más capacidad o modelos?
+   - **Decidido en la implementación:** `westus3`, porque West US 2 no ofrece modelos de Azure OpenAI. El Private Endpoint queda en la VNet de West US 2.
 3. **Tier de la explicación de anomalías.** Recomendación: hechos deterministas para todos los tiers y narración desde Professional, sin límite para BYOK, como el Copilot. Falta definir si la cuota es propia o compartida con el Copilot.
    - **Decidido en la implementación:** cuota propia por feature, con los mismos números del Copilot (ver [10.1](#101-gate-único-01)).
 4. **Migración a Managed Identity.** ¿Se desactivan las keys (`local_auth_enabled = false`) en el mismo PR o en un segundo paso, después de validar en prod? Recomendación: dos pasos.
+   - **Decidido en la implementación:** dos pasos. El primero deja las keys de la cuenta habilitadas como respaldo y el segundo las apaga (ver [10.6](#106-managed-identity-y-terraform-02-y-03)).
 5. **Subprocesadores.** ¿Legal considera que explicitar la inferencia en Azure es un cambio que requiere el aviso de 30 días?
 6. **Opt-out.** ¿Alcanza con `Tenants.ai_enabled` o hace falta un opt-out por feature?
 7. **Soporte.** ¿Qué umbral de volumen justifica la fase 3?
@@ -896,7 +899,7 @@ Con el deployment por defecto actual (`gpt-5.1`), el costo por llamada sería va
 
 ## 10. Implementación: qué se hizo y en qué se apartó
 
-Rama `feat/ia-fase1-anomalias`, sobre `main` @ `ac55fe5`, con un commit por pieza. El detalle técnico está en el [LLD §40](lld/00-lld-completo.md) y el de arquitectura en el [HLD §19](hld/00-hld-completo.md).
+Rama `feat/ia-fase1-anomalias`, sobre `main` @ `ac55fe5`, con un commit por pieza. El PR 2 (Managed Identity y Terraform) está en `feat/ia-fase0-managed-identity`, encima de esa rama ([10.6](#106-managed-identity-y-terraform-02-y-03)). El detalle técnico está en el [LLD §40](lld/00-lld-completo.md) y el de arquitectura en el [HLD §19](hld/00-hld-completo.md).
 
 | Commit | Pieza | Sección | PR del plan |
 |---|---|---|---|
@@ -913,8 +916,11 @@ Rama `feat/ia-fase1-anomalias`, sobre `main` @ `ac55fe5`, con un commit por piez
 | `7200145` | El reporte de la carga pasa por el gate | — (MEJ-42) | — |
 | `cf440f9` | Detalle por medidor desde los exports | 1a (MEJ-42) | — |
 | `24fa317` | Subencargados | 0.5 | 1 (parte) |
+| `6ce10b1` | Token de Entra ID con la identidad del stamp | 0.2 | 2 |
+| `3e6ef4e` | IA de plataforma con Managed Identity | 0.2 | 2 |
+| `9d1a148` | Módulo Terraform `ai_services` | 0.3 | 2 |
 
-Las secciones 0.1, 0.4, 0.5, 1a, 1b, 6.4 y 6.8 conservan el diseño original. Donde difieren de lo construido, manda esta sección.
+Las secciones 0.1 a 0.5, 1a, 1b, 6.4 y 6.8 conservan el diseño original. Donde difieren de lo construido, manda esta sección.
 
 ### 10.1 Gate único (0.1)
 
@@ -1012,9 +1018,39 @@ Las secciones 0.1, 0.4, 0.5, 1a, 1b, 6.4 y 6.8 conservan el diseño original. Do
   - Los textos de Cloudflare, región, Redis y perímetro, que estaban editados a mano en los `.md` y se perdían al regenerar, ahora salen de `messages` y se ven también en `/legal/subprocessors` y `/legal/security`.
   - Falta que legal decida si la aclaración exige el aviso de 30 días (decisión abierta 5 de la sección 8). El borrador de [`aviso-cambio-subencargado-2026.md`](aviso-cambio-subencargado-2026.md) cubre sólo el cambio de ubicación.
 
-### 10.6 Pendiente
+### 10.6 Managed Identity y Terraform (0.2 y 0.3)
 
-- **PR 2:** Managed Identity y módulo Terraform `ai_services`. La IA de plataforma sigue con key.
+Rama `feat/ia-fase0-managed-identity`. Queda todo apagado: sin el flag de Terraform la app sigue con la key, como hoy. El detalle está en el [LLD §41](lld/00-lld-completo.md) y la arquitectura en el [HLD §19.6](hld/00-hld-completo.md).
+
+- **App (`6ce10b1`, `3e6ef4e`).** La IA de plataforma con Azure OpenAI pide un token de Entra ID con la identidad del stamp, la misma que lee Key Vault (`AZURE_KEYVAULT_MI_CLIENT_ID`).
+  - Pasa a Entra si no hay key o si `AZURE_OPENAI_AUTH=entra`. Sin identidad, en desarrollo local, sigue con la key.
+  - El recurso y el deployment salen de las variables que pone Terraform. La key, el endpoint y el deployment de *IA — Configuración global* no se usan.
+  - BYOK y los otros proveedores no cambian.
+- **Terraform (`9d1a148`).** Módulo `ai_services` por stamp, detrás de `ai_services_enabled` (default `false`):
+  - Cuenta de Azure AI Services sin acceso público, con private endpoint en la VNet del stamp y las tres zonas DNS privadas.
+  - Deployment `gpt-5.4-mini` (`2026-03-17`), Data Zone Standard, 100 mil tokens por minuto.
+  - Rol *Cognitive Services OpenAI User* para la identidad de la app, logs de auditoría a Log Analytics y presupuesto propio de US$50 por mes.
+- **En qué se apartó del boceto:**
+  - **Región.** La cuenta va en West US 3 porque West US 2 no ofrece modelos de Azure OpenAI. El private endpoint queda en West US 2, ya que Private Link admite el endpoint en otra región que el recurso. El nombre de la cuenta lleva su región, no la del stamp.
+  - **Dónde se decide.** La decisión de usar Entra está en `getAIConfig` (`usesPlatformEntraAuth`) y `resolveAzureAiModel` sólo arma el cliente con token.
+  - **Un flag más, `ai_services_entra_auth`.** Permite crear la infraestructura sin pasar la app, y la vuelta atrás no borra la cuenta.
+  - **El deployment se llama como el modelo.** `@ai-sdk/azure` decide por el nombre si es un modelo de razonamiento.
+  - **Sin respaldo en tiempo de ejecución.** Si Entra falla, la llamada falla. La vuelta atrás es `ai_services_entra_auth = false`.
+  - **Un solo modelo.** Con Entra todos los planes usan el mismo deployment; la configuración Enterprise del panel no aplica.
+- **Rollout.** Lo corre el operador con `terraform.yml` y todavía no está aplicado:
+  1. Confirmar la cuota Data Zone de `gpt-5.4-mini` en West US 3. Actualizar el centro de confianza, que hoy dice «despliegue único en West US 2», y pedir la opinión de legal.
+  2. Aplicar con `ai_services_enabled = true`, `ai_services_location = "westus3"` y `ai_services_entra_auth = false`. Crea la infraestructura y la app sigue con la key.
+  3. Verificar desde el contenedor que `<cuenta>.openai.azure.com` resuelve a una IP privada (`10.50.10.x`). Si resuelve a la pública, la llamada falla con 403.
+  4. Aplicar con `ai_services_entra_auth = true`, con Azure IA como proveedor de plataforma en *IA — Configuración global*: la app pasa a la cuenta nueva. Volver a `false` es la vuelta atrás.
+  5. Paso 2 de 0.2: `local_auth_enabled = false` en el módulo, sacar `CKV_AZURE_236` del `skip_check` de Checkov y borrar la key de Azure IA del panel.
+- **Riesgos:**
+  - La cuota Data Zone de ese modelo en West US 3 no está publicada.
+  - Una zona DNS faltante da un 403 sin más pistas.
+  - El modelo se retira el 2027-09-21; el drift check de los lunes lo va a mostrar.
+
+### 10.7 Pendiente
+
+- **Rollout de 0.2 y 0.3** (10.6). Lo corre el operador. Si Enterprise necesita un modelo mayor que el mini, hace falta un segundo deployment.
 - **0.5:** la decisión de legal sobre el aviso de 30 días a clientes. Si lo exige, va antes de habilitar las funciones a clientes.
 - **PRs 6 a 9:** fases 2 (tags), 3 (soporte) y 4 (Document Intelligence).
 - Lo encontrado de paso y no corregido está en MEJ-42 ([`MEJORAS-FUTURAS.md`](MEJORAS-FUTURAS.md)): el servicio y la suscripción de los exports FOCUS, y `getAssessment` sin plan ni cupo en `ai-report`, `assessment` y `executive-report`.
