@@ -3,6 +3,7 @@ import { getResourceGraphClient } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import { errorMessage } from "@/lib/apiErrors";
+import { findInvalidTagValues, parseAllowedValues, type TagValueAlias } from "@/lib/tagValueNormalizer";
 import {
   TagPolicyRule,
   ResourceTagAuditItem,
@@ -78,6 +79,62 @@ export function evaluateResourceMissingTags(
 }
 
 /**
+ * Políticas efectivas del tenant: las que definió en TaggingPolicies o, si no
+ * definió ninguna (o la tabla no se puede leer), las de la casa. Definir una
+ * sola reemplaza a todas las por defecto.
+ */
+export async function getTenantTagPolicies(tenantId: string): Promise<TagPolicyRule[]> {
+  try {
+    const [rows] = await pool.query(
+      `SELECT id, policy_name, is_required, allowed_values
+         FROM TaggingPolicies WHERE tenant_id = ? ORDER BY id`,
+      [tenantId]
+    );
+    const filas = Array.isArray(rows)
+      ? (rows as Array<{ id: number; policy_name: string; is_required: number | null; allowed_values: unknown }>)
+      : [];
+    if (filas.length === 0) return DEFAULT_MANDATORY_TAG_POLICIES;
+    return filas.map((r) => ({
+      id: `tenant-policy-${r.id}`,
+      tagName: r.policy_name,
+      isRequired: Number(r.is_required ?? 1) === 1,
+      allowedValues: parseAllowedValues(r.allowed_values) ?? undefined,
+      descriptionKey: DEFAULT_MANDATORY_TAG_POLICIES.find(
+        (d) => d.tagName.toLowerCase() === r.policy_name.toLowerCase()
+      )?.descriptionKey,
+    }));
+  } catch (err) {
+    console.warn("[azureTagGovernance] Error leyendo TaggingPolicies, se usan las por defecto:", errorMessage(err));
+    return DEFAULT_MANDATORY_TAG_POLICIES;
+  }
+}
+
+/**
+ * Alias de valores (TagValueAliases) indexados por nombre de tag en minúsculas:
+ * primero los del tenant y después los globales, así los del tenant ganan.
+ */
+export async function getTagValueAliases(tenantId: string): Promise<Map<string, TagValueAlias[]>> {
+  const porTag = new Map<string, TagValueAlias[]>();
+  try {
+    const [rows] = await pool.query(
+      `SELECT tag_name, alias, canonical_value FROM TagValueAliases
+        WHERE tenant_id = ? OR tenant_id IS NULL
+        ORDER BY (tenant_id IS NULL), id`,
+      [tenantId]
+    );
+    for (const r of (Array.isArray(rows) ? rows : []) as Array<{ tag_name: string; alias: string; canonical_value: string }>) {
+      const k = r.tag_name.toLowerCase();
+      const lista = porTag.get(k) || [];
+      lista.push({ alias: r.alias, canonicalValue: r.canonical_value });
+      porTag.set(k, lista);
+    }
+  } catch (err) {
+    console.warn("[azureTagGovernance] Error leyendo TagValueAliases:", errorMessage(err));
+  }
+  return porTag;
+}
+
+/**
  * Lee la caché local de tags optimistas desde MySQL
  */
 export async function getLocalCachedTags(tenantId: string): Promise<Map<string, Record<string, string>>> {
@@ -138,7 +195,11 @@ export async function scanTagGovernanceLive(
   tenantId: string
 ): Promise<TagGovernanceSummaryMetrics> {
   const client = await getResourceGraphClient(tenantId, credential);
-  const localCache = await getLocalCachedTags(tenantId);
+  const [localCache, policies, aliases] = await Promise.all([
+    getLocalCachedTags(tenantId),
+    getTenantTagPolicies(tenantId),
+    getTagValueAliases(tenantId),
+  ]);
 
   // 1. KQL para Recursos
   const resourcesKql = `
@@ -180,6 +241,7 @@ export async function scanTagGovernanceLive(
   // Procesar Recursos
   const processedResources: ResourceTagAuditItem[] = [];
   let nonCompliantResCount = 0;
+  let invalidValueResCount = 0;
   const missingTagFreqMap: Record<string, number> = {};
 
   if (Array.isArray(resResult.data)) {
@@ -191,8 +253,10 @@ export async function scanTagGovernanceLive(
       const rawTags: Record<string, string> =
         cachedTags || (raw.tags && typeof raw.tags === "object" ? raw.tags : {});
 
-      const missing = evaluateResourceMissingTags(rawTags, DEFAULT_MANDATORY_TAG_POLICIES);
-      const isCompliant = missing.length === 0;
+      const missing = evaluateResourceMissingTags(rawTags, policies);
+      const invalid = findInvalidTagValues(rawTags, policies, aliases);
+      const isCompliant = missing.length === 0 && invalid.length === 0;
+      if (invalid.length > 0) invalidValueResCount++;
 
       if (!isCompliant) {
         nonCompliantResCount++;
@@ -213,6 +277,7 @@ export async function scanTagGovernanceLive(
         complianceStatus: isCompliant ? "COMPLIANT" : "NON_COMPLIANT",
         currentTags: rawTags,
         missingTags: missing,
+        invalidTags: invalid,
       });
     }
   }
@@ -220,6 +285,7 @@ export async function scanTagGovernanceLive(
   // Procesar Resource Groups
   const processedRgs: ResourceGroupTagAuditItem[] = [];
   let nonCompliantRgsCount = 0;
+  let invalidValueRgsCount = 0;
 
   if (Array.isArray(rgsResult.data)) {
     for (const raw of rgsResult.data) {
@@ -231,8 +297,10 @@ export async function scanTagGovernanceLive(
       const rawTags: Record<string, string> =
         cachedTags || (raw.tags && typeof raw.tags === "object" ? raw.tags : {});
 
-      const missing = evaluateResourceMissingTags(rawTags, DEFAULT_MANDATORY_TAG_POLICIES);
-      const isCompliant = missing.length === 0;
+      const missing = evaluateResourceMissingTags(rawTags, policies);
+      const invalid = findInvalidTagValues(rawTags, policies, aliases);
+      const isCompliant = missing.length === 0 && invalid.length === 0;
+      if (invalid.length > 0) invalidValueRgsCount++;
 
       if (!isCompliant) {
         nonCompliantRgsCount++;
@@ -253,6 +321,7 @@ export async function scanTagGovernanceLive(
         complianceStatus: isCompliant ? "COMPLIANT" : "NON_COMPLIANT",
         currentTags: rawTags,
         missingTags: missing,
+        invalidTags: invalid,
         childResourcesCount: childCount,
       });
     }
@@ -278,10 +347,12 @@ export async function scanTagGovernanceLive(
     overallCompliancePercentage: overallPercentage,
     nonCompliantResourcesCount: nonCompliantResCount,
     nonCompliantResourceGroupsCount: nonCompliantRgsCount,
+    invalidValueResourcesCount: invalidValueResCount,
+    invalidValueResourceGroupsCount: invalidValueRgsCount,
     totalScannedResources: totalScanned,
     totalScannedResourceGroups: totalRgs,
     mostFrequentMissingTag: mostFreq,
-    mandatoryPolicies: DEFAULT_MANDATORY_TAG_POLICIES,
+    mandatoryPolicies: policies,
     resources: processedResources,
     resourceGroups: processedRgs,
   };
@@ -345,6 +416,19 @@ export function suggestTagsForResource(
   };
 }
 
+/** Un puñado de los alias globales de 20261008-012, para que la demo sugiera como el escaneo real. */
+const MOCK_TAG_VALUE_ALIASES = new Map<string, TagValueAlias[]>([
+  ["environment", [
+    { alias: "production", canonicalValue: "prod" },
+    { alias: "development", canonicalValue: "dev" },
+    { alias: "staging", canonicalValue: "stg" },
+  ]],
+  ["role", [
+    { alias: "web", canonicalValue: "frontend" },
+    { alias: "db", canonicalValue: "database" },
+  ]],
+]);
+
 /**
  * Dataset Mock Determinista para Tenants Demo
  */
@@ -374,7 +458,7 @@ export function getMockTagGovernanceSummary(tenantId: string = "demo-tenant"): T
       location: "westus2",
       complianceStatus: "NON_COMPLIANT",
       currentTags: {
-        Environment: "dev",
+        Environment: "Development",
         Department: "DataTeam",
       },
       missingTags: ["Role", "CostCenter"],
@@ -505,17 +589,105 @@ export function getMockTagGovernanceSummary(tenantId: string = "demo-tenant"): T
       currentTags: {},
       missingTags: ["Environment", "Role", "CostCenter", "Department"],
     },
+    // Valores no permitidos: los resuelve el normalizador (alias, forma o tipeo)
+    // salvo "k8s-cluster" y "pruebas", que quedan para la IA o una corrección manual.
+    {
+      id: "/subscriptions/ec03e8ce-ceee-4638-b303-64ae431d5b1e/resourceGroups/rg-cscs-core-prod/providers/Microsoft.Web/sites/app-checkout-prod",
+      resourceName: "app-checkout-prod",
+      resourceType: "Microsoft.Web/sites",
+      resourceTypeDisplay: "SITES",
+      subscriptionId: "ec03e8ce-ceee-4638-b303-64ae431d5b1e",
+      subscriptionName: "CSCS-LandingZone",
+      resourceGroup: "rg-cscs-core-prod",
+      location: "eastus",
+      complianceStatus: "NON_COMPLIANT",
+      currentTags: { Environment: "Production", Role: "web", CostCenter: "CorePlatform", Department: "Engineering" },
+      missingTags: [],
+    },
+    {
+      id: "/subscriptions/ec03e8ce-ceee-4638-b303-64ae431d5b1e/resourceGroups/rg-cscs-core-prod/providers/Microsoft.Sql/servers/sql-orders-prod",
+      resourceName: "sql-orders-prod",
+      resourceType: "Microsoft.Sql/servers",
+      resourceTypeDisplay: "SERVERS",
+      subscriptionId: "ec03e8ce-ceee-4638-b303-64ae431d5b1e",
+      subscriptionName: "CSCS-LandingZone",
+      resourceGroup: "rg-cscs-core-prod",
+      location: "eastus",
+      complianceStatus: "NON_COMPLIANT",
+      currentTags: { environment: "PROD", Role: "Data Base", CostCenter: "CorePlatform", Department: "DataPlatform" },
+      missingTags: [],
+    },
+    {
+      id: "/subscriptions/ec03e8ce-ceee-4638-b303-64ae431d5b1e/resourceGroups/rg-cscs-core-prod/providers/Microsoft.ContainerService/managedClusters/aks-platform-prod",
+      resourceName: "aks-platform-prod",
+      resourceType: "Microsoft.ContainerService/managedClusters",
+      resourceTypeDisplay: "MANAGEDCLUSTERS",
+      subscriptionId: "ec03e8ce-ceee-4638-b303-64ae431d5b1e",
+      subscriptionName: "CSCS-LandingZone",
+      resourceGroup: "rg-cscs-core-prod",
+      location: "eastus",
+      complianceStatus: "NON_COMPLIANT",
+      currentTags: { Environment: "prod", Role: "k8s-cluster", CostCenter: "CorePlatform", Department: "CloudOps" },
+      missingTags: [],
+    },
+    {
+      id: "/subscriptions/ec03e8ce-ceee-4638-b303-64ae431d5b1e/resourceGroups/rg-backups-dr/providers/Microsoft.Storage/storageAccounts/stfinopsexports",
+      resourceName: "stfinopsexports",
+      resourceType: "Microsoft.Storage/storageAccounts",
+      resourceTypeDisplay: "STORAGEACCOUNTS",
+      subscriptionId: "ec03e8ce-ceee-4638-b303-64ae431d5b1e",
+      subscriptionName: "CSCS-LandingZone",
+      resourceGroup: "rg-backups-dr",
+      location: "eastus2",
+      complianceStatus: "NON_COMPLIANT",
+      currentTags: { Environment: "prod", Role: "storge", CostCenter: "FinOps", Department: "SecurityOps" },
+      missingTags: [],
+    },
+    {
+      id: "/subscriptions/ec03e8ce-ceee-4638-b303-64ae431d5b1e/resourceGroups/rg-data-analytics-dev/providers/Microsoft.Web/sites/func-etl-analytics-dev",
+      resourceName: "func-etl-analytics-dev",
+      resourceType: "Microsoft.Web/sites",
+      resourceTypeDisplay: "SITES",
+      subscriptionId: "ec03e8ce-ceee-4638-b303-64ae431d5b1e",
+      subscriptionName: "CSCS-LandingZone",
+      resourceGroup: "rg-data-analytics-dev",
+      location: "westus2",
+      complianceStatus: "NON_COMPLIANT",
+      currentTags: { Environment: "Development", Role: "worker", Department: "DataTeam" },
+      missingTags: ["CostCenter"],
+    },
+    {
+      id: "/subscriptions/ec03e8ce-ceee-4638-b303-64ae431d5b1e/resourceGroups/rg-legacy-sandbox/providers/Microsoft.Compute/virtualMachines/vm-jumpbox-legacy",
+      resourceName: "vm-jumpbox-legacy",
+      resourceType: "Microsoft.Compute/virtualMachines",
+      resourceTypeDisplay: "VIRTUALMACHINES",
+      subscriptionId: "ec03e8ce-ceee-4638-b303-64ae431d5b1e",
+      subscriptionName: "CSCS-LandingZone",
+      resourceGroup: "rg-legacy-sandbox",
+      location: "centralus",
+      complianceStatus: "NON_COMPLIANT",
+      currentTags: { Environment: "pruebas", Role: "network" },
+      missingTags: ["CostCenter", "Department"],
+    },
   ];
+
+  // Mismo cálculo que el escaneo real para los valores no permitidos.
+  const conValores = <T extends ResourceTagAuditItem | ResourceGroupTagAuditItem>(item: T): T => {
+    const invalidTags = findInvalidTagValues(item.currentTags, DEFAULT_MANDATORY_TAG_POLICIES, MOCK_TAG_VALUE_ALIASES);
+    return { ...item, invalidTags, complianceStatus: invalidTags.length > 0 ? "NON_COMPLIANT" : item.complianceStatus };
+  };
 
   return {
     overallCompliancePercentage: 83.0,
     nonCompliantResourcesCount: 127,
     nonCompliantResourceGroupsCount: 10,
+    invalidValueResourcesCount: 38,
+    invalidValueResourceGroupsCount: 3,
     totalScannedResources: 748,
     totalScannedResourceGroups: 42,
     mostFrequentMissingTag: "CostCenter & Role",
     mandatoryPolicies: DEFAULT_MANDATORY_TAG_POLICIES,
-    resources: mockResources,
-    resourceGroups: mockRgs,
+    resources: mockResources.map(conValores),
+    resourceGroups: mockRgs.map(conValores),
   };
 }
