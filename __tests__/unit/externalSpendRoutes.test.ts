@@ -207,6 +207,15 @@ describe("GET /api/intelligence/external-spend/[id]/file", () => {
         m.svc.getDocumentFile.mockRejectedValue(new ExternalSpendError("not_found"));
         expect((await fileGET(get("/5/file?tenantId=t1"), ctx("5"))).status).toBe(404);
     });
+
+    it("503 si el storage no responde: es transitorio, no que el original ya no esté", async () => {
+        const log = vi.spyOn(console, "error").mockImplementation(() => {});
+        m.svc.getDocumentFile.mockRejectedValue(new Error("getaddrinfo ENOTFOUND cuenta.blob.core.windows.net"));
+        const res = await fileGET(get("/5/file?tenantId=t1"), ctx("5"));
+        expect(res.status).toBe(503);
+        expect((await res.json()).error).toBe("No se pudo leer el original. Probá de nuevo en unos minutos.");
+        log.mockRestore();
+    });
 });
 
 describe("compromisos", () => {

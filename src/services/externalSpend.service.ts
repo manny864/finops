@@ -465,7 +465,14 @@ async function fail(doc: ProcessingRow, message: string): Promise<ExternalSpendS
 }
 
 async function submit(doc: ProcessingRow, modelId: string): Promise<ExternalSpendStatus> {
-    const bytes = doc.stored_name ? await readExternalSpendFile(doc.stored_name) : null;
+    let bytes: Buffer | null;
+    try {
+        bytes = doc.stored_name ? await readExternalSpendFile(doc.stored_name) : null;
+    } catch (e) {
+        // Storage caído o sin permisos: no es que falte el archivo. Lo reintenta el cron, hasta un día.
+        console.warn(`[externalSpend] no se pudo leer el original del documento ${doc.id}:`, errorMessage(e));
+        return doc.stale ? fail(doc, "No se pudo leer el archivo original en 24 horas.") : doc.status;
+    }
     if (!bytes) return fail(doc, "No se encontró el archivo original.");
     try {
         const location = await timeAiCall(FEATURE, () => submitAnalyze(modelId, bytes));
@@ -646,11 +653,15 @@ export async function approveDocument(tenantId: string, id: number, reviewer: st
     if (res.affectedRows !== 1) throw new ExternalSpendError("invalid_state");
 }
 
-/** También deshace una aprobación: el documento sale de los reportes. */
+/**
+ * También deshace la aprobación de una factura: sale de los reportes. Un
+ * contrato aprobado no: su compromiso seguiría avisando y, si se vuelve a
+ * subir el PDF, quedarían dos. Se deshace borrando el compromiso.
+ */
 export async function rejectDocument(tenantId: string, id: number, reviewer: string): Promise<void> {
     const [res] = await pool.query<ResultSetHeader>(
         `UPDATE ExternalSpendDocuments SET status = 'rejected', reviewed_by = ?, reviewed_at = NOW()
-         WHERE id = ? AND tenant_id = ? AND status IN ('needs_review', 'approved')`,
+         WHERE id = ? AND tenant_id = ? AND (status = 'needs_review' OR (status = 'approved' AND doc_type = 'invoice'))`,
         [reviewer, id, tenantId],
     );
     if (res.affectedRows !== 1) throw await notFoundOrState(tenantId, id);

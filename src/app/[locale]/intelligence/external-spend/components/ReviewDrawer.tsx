@@ -111,6 +111,8 @@ export default function ReviewDrawer({ doc, canWrite, busy, onClose, onSave, onA
 
     const isInvoice = doc.docType === "invoice";
     const editable = canWrite && doc.status === "needs_review";
+    // Un contrato aprobado no se rechaza: se deshace borrando su compromiso.
+    const rejectable = editable || (canWrite && doc.status === "approved" && isInvoice);
     const dirty = JSON.stringify(header) !== JSON.stringify(initialHeader) || JSON.stringify(lines) !== JSON.stringify(initialLines);
     const fieldConfidence = doc.extraction?.fieldConfidence ?? {};
     const terms = doc.extraction?.contract;
@@ -379,7 +381,7 @@ export default function ReviewDrawer({ doc, canWrite, busy, onClose, onSave, onA
                     )}
                 </div>
 
-                {canWrite && (doc.status === "needs_review" || doc.status === "approved") && (
+                {rejectable && (
                     <div className="p-4 border-t border-slate-200 dark:border-slate-800 shrink-0 flex items-center justify-end gap-2 flex-wrap">
                         <button className={`${secondaryButton} text-red-700 dark:text-red-400`} onClick={reject} disabled={busy}>
                             <XCircle className="w-4 h-4" />

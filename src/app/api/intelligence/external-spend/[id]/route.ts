@@ -54,7 +54,8 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
 
 /**
  * `{ tenantId, action: "approve" | "reject" }`. Aprobar una factura la suma a
- * los reportes de gasto externo; rechazar también deshace una aprobación.
+ * los reportes de gasto externo; rechazar también deshace la aprobación de una
+ * factura (la de un contrato no: 409, se borra su compromiso).
  */
 export async function POST(request: NextRequest, { params }: Ctx) {
     try {

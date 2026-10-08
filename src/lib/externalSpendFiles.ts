@@ -16,7 +16,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import crypto from "crypto";
-import { isBlobStorageEnabled, uploadBlob, downloadBlobOrNull, deleteBlob } from "@/lib/azureBlobStorage";
+import { isBlobStorageEnabled, uploadBlob, downloadBlob, deleteBlob } from "@/lib/azureBlobStorage";
 import { EXTERNAL_SPEND_MAX_BYTES } from "@/types/externalSpend.types";
 
 export const EXTERNAL_SPEND_RETENTION_DAYS = 365;
@@ -61,14 +61,21 @@ export async function saveExternalSpendFile(bytes: Buffer, ext: string): Promise
     return storedName;
 }
 
+/**
+ * null si el original no existe (nombre inválido, borrado por la retención).
+ * Un error transitorio del storage (red, DNS, permisos) se relanza: confundirlo
+ * con "no existe" haría fallar para siempre un documento que sólo había que
+ * reintentar.
+ */
 export async function readExternalSpendFile(storedName: string): Promise<Buffer | null> {
     // El nombre viene de la base, pero igual se valida: nunca sale del container ni del directorio.
     if (!STORED_NAME_RE.test(storedName)) return null;
-    if (isBlobStorageEnabled()) return downloadBlobOrNull(EXTERNAL_SPEND_CONTAINER, storedName, "readExternalSpendFile");
+    if (isBlobStorageEnabled()) return downloadBlob(EXTERNAL_SPEND_CONTAINER, storedName);
     try {
         return await fs.readFile(path.join(uploadDir(), storedName));
-    } catch {
-        return null;
+    } catch (e) {
+        if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
+        throw e;
     }
 }
 

@@ -11,7 +11,8 @@
  *   de guardar nada;
  * - aprobar fija el USD con la tasa de la fecha de la factura y nunca aprueba
  *   con bloqueantes ni dos veces la misma factura;
- * - un contrato se aprueba junto con su compromiso o no se aprueba.
+ * - un contrato se aprueba junto con su compromiso o no se aprueba, y
+ *   aprobado ya no se rechaza (su compromiso seguiría avisando).
  */
 import crypto from "crypto";
 import { vi, describe, it, expect, beforeEach } from "vitest";
@@ -50,7 +51,9 @@ vi.mock("@/lib/externalSpendFiles", async (importActual) => ({
 }));
 vi.mock("@/lib/fx", async (importActual) => ({ ...(await importActual<typeof import("@/lib/fx")>()), getRateOn: m.rateOn }));
 
-import { approveDocument, createCommitment, processDocument, processPendingDocuments, uploadDocument } from "@/services/externalSpend.service";
+import {
+    approveDocument, createCommitment, processDocument, processPendingDocuments, rejectDocument, uploadDocument,
+} from "@/services/externalSpend.service";
 
 const BASE = "https://di.example.com/documentintelligence/documentModels";
 const opFor = (model: string) => `${BASE}/${model}/analyzeResults/r-${model}?api-version=2024-11-30`;
@@ -208,6 +211,16 @@ describe("processDocument (el poller)", () => {
         await expect(processDocument(1)).resolves.toBe("failed");
         expect(doc.error_message).toBe("No se encontró el archivo original.");
         expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("si el storage no responde, no es que falte el original: lo reintenta el cron, hasta que pasa un día", async () => {
+        m.read.mockRejectedValue(new Error("getaddrinfo ENOTFOUND cuenta.blob.core.windows.net"));
+        await expect(processDocument(1)).resolves.toBe("uploaded");
+        expect(transitions).toEqual([]);
+        expect(fetchMock).not.toHaveBeenCalled();
+        doc.stale = 1;
+        await expect(processDocument(1)).resolves.toBe("failed");
+        expect(doc.error_message).toBe("No se pudo leer el archivo original en 24 horas.");
     });
 
     it("el cron sigue con el resto si un documento falla", async () => {
@@ -398,5 +411,45 @@ describe("createCommitment", () => {
         await expect(createCommitment("t1", "ana@contoso.com", input)).rejects.toMatchObject({ reason: "invalid_state" });
         expect(inserted()).toBe(false);
         expect(m.rollback).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe("rejectDocument", () => {
+    let row: { status: string; doc_type: string } | null;
+
+    beforeEach(() => {
+        row = { status: "needs_review", doc_type: "invoice" };
+        extra = (sql) => {
+            if (sql.includes("SET status = 'rejected'")) {
+                // El WHERE es la regla: pendiente de revisión, o una factura aprobada.
+                expect(sql).toContain("(status = 'needs_review' OR (status = 'approved' AND doc_type = 'invoice'))");
+                const matches = !!row && (row.status === "needs_review" || (row.status === "approved" && row.doc_type === "invoice"));
+                if (matches) row!.status = "rejected";
+                return [{ affectedRows: matches ? 1 : 0 }];
+            }
+            if (sql.startsWith("SELECT 1 FROM ExternalSpendDocuments")) return [row ? [{ 1: 1 }] : []];
+            throw new Error(`SQL no esperado: ${sql}`);
+        };
+    });
+
+    it.each([
+        ["invoice", "needs_review"],
+        ["contract", "needs_review"],
+        ["invoice", "approved"],
+    ])("un documento %s en %s se rechaza (la factura aprobada sale de los reportes)", async (docType, status) => {
+        row = { status, doc_type: docType };
+        await rejectDocument("t1", 5, "rev@x.com");
+        expect(row.status).toBe("rejected");
+    });
+
+    it("un contrato aprobado no: su compromiso seguiría avisando y, si se vuelve a subir, quedarían dos", async () => {
+        row = { status: "approved", doc_type: "contract" };
+        await expect(rejectDocument("t1", 5, "rev@x.com")).rejects.toMatchObject({ reason: "invalid_state", status: 409 });
+        expect(row.status).toBe("approved");
+    });
+
+    it("de otro tenant o inexistente: not_found", async () => {
+        row = null;
+        await expect(rejectDocument("t1", 5, "rev@x.com")).rejects.toMatchObject({ reason: "not_found", status: 404 });
     });
 });
