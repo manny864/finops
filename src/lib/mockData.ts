@@ -1216,14 +1216,14 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                 'App Service': 'rg-prod-web',
                 'Cosmos DB': 'rg-data-platform',
             };
-            // Estados del ciclo de vida de la anomalía (Open/Postponed/Dismissed/Completed)
+            // Los cuatro estados de triaje (el vocabulario de `Anomalies.status`)
             // repartidos de forma determinística para que las pestañas del dashboard
             // (Detección de Anomalías) muestren datos en todas las categorías.
-            const STATUS_CYCLE = ['Open', 'Postponed', 'Dismissed', 'Completed', 'Completed', 'Open'] as const;
+            const STATUS_CYCLE = ['New', 'Investigating', 'False Positive', 'Resolved', 'Resolved', 'New'] as const;
             const anomalies = spikes.map((s, i) => {
                 const status = STATUS_CYCLE[i % STATUS_CYCLE.length];
                 const detectedAt = new Date(`${s.date}T06:00:00.000Z`);
-                const resolvedAt = status !== 'Open'
+                const resolvedAt = status === 'Resolved' || status === 'False Positive'
                     ? new Date(detectedAt.getTime() + (4 + rand(i + 200) * 36) * 60 * 60 * 1000)
                     : null;
                 const primaryService = services[i % services.length];

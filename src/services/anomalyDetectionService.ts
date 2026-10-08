@@ -21,6 +21,7 @@ import { resolveAnomalyOwner, type AssignmentVia } from "@/services/anomalyOwner
 import { buildRootCauseFacts, MAX_CONTRIBUTORS, type MeterRow } from "@/services/anomalyRootCause.service";
 import type { RowDataPacket } from "mysql2";
 import { ROOT_CAUSE_BASELINE_DAYS, type RootCauseFact } from "@/types/anomalyRootCause.types";
+import { ANOMALY_STATES, type AnomalyState } from "@/types/azureAnomalyDetection.types";
 import { recordDailySnapshotAsync } from "@/services/snapshotService";
 import { getHistoricalDailyCosts, AZURE_COST_HISTORY_MAX_MONTHS } from "@/modules/collectors/azure/billingService";
 import { tenantUsesAzure } from "@/lib/tenantProviderContext";
@@ -406,9 +407,10 @@ export async function runAnomalyDetection(tenantId: string, subscriptionId = "Al
 
 /** Los estados de triaje de una anomalía. Es el vocabulario de la BASE
  *  (`Anomalies.status`), que es el correcto para un detector: "False Positive"
- *  es feedback sobre el Z-Score, algo que un "Dismissed" genérico no distingue. */
-export const ANOMALY_STATUSES = ["New", "Investigating", "Resolved", "False Positive"] as const;
-export type AnomalyStatus = (typeof ANOMALY_STATUSES)[number];
+ *  es feedback sobre el Z-Score, algo que un "Dismissed" genérico no distingue.
+ *  Se define en los tipos porque la pantalla también lo usa. */
+export const ANOMALY_STATUSES = ANOMALY_STATES;
+export type AnomalyStatus = AnomalyState;
 
 export interface AnomalyWithContributors extends DetectedAnomaly {
     top_contributors: AnomalyContributor[];

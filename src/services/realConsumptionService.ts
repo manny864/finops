@@ -1048,7 +1048,7 @@ export async function getRealConsumptionOverview(
         // 2. Real anomalies from Anomalies table
         try {
             const [anomalyRows] = await queryConn.execute<any[]>(
-                `SELECT COUNT(*) as cnt FROM Anomalies WHERE tenant_id = ? AND status = 'open' AND date >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)`,
+                `SELECT COUNT(*) as cnt FROM Anomalies WHERE tenant_id = ? AND status IN ('New', 'Investigating') AND date >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)`,
                 [tenantId]
             );
             dbAnomalyCount = Number(anomalyRows[0]?.cnt || 0);

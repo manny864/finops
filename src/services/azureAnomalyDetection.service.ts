@@ -8,10 +8,13 @@
 
 import { Decimal } from "decimal.js";
 import {
+  ANOMALY_STATES,
+  isOpenAnomalyState,
   type AnomalyConfidenceDataPoint,
   type AnomalyDetectionSummary,
   type AnomalyPayload,
   type AnomalyRootCauseItem,
+  type AnomalyState,
   type CostAnomalyItem,
 } from "@/types/azureAnomalyDetection.types";
 import type { RootCauseFact } from "@/types/anomalyRootCause.types";
@@ -85,11 +88,12 @@ export function buildAnomalySummary(
   const values = dailyCosts.map((d) => d.amount).filter((v) => v > 0);
   const { mean, stdDev, upperLimit3Sigma } = computeZScoreStats(values);
 
-  const openList = anomalies.filter((a) => a.state === "OPEN");
-  const postponedList = anomalies.filter((a) => a.state === "SNOOZED");
-  const completedList = anomalies.filter((a) => a.state === "RESOLVED");
+  const openList = anomalies.filter((a) => isOpenAnomalyState(a.state));
+  // MTTR sólo sobre las resueltas: un falso positivo se cierra sin haberse
+  // resuelto nada, y mezclarlo acortaría el tiempo de respuesta real.
+  const completedList = anomalies.filter((a) => a.state === "Resolved");
 
-  const unresolvedImpactUSD = [...openList, ...postponedList].reduce(
+  const unresolvedImpactUSD = openList.reduce(
     (sum, a) => sum + Math.max(0, a.deltaUSD),
     0
   );
@@ -199,7 +203,7 @@ export function getMockAnomalyPayload(tenantId: string): AnomalyPayload {
       deltaUSD: 86.18,
       zScore: 3.32,
       severity: "CRITICAL",
-      state: "OPEN",
+      state: "New",
       titleService: "Foundry Models / Azure OpenAI",
       rootCauses: rootCausesSpike,
       rootCauseFacts: hechosDemo(rootCausesSpike, 27.43),
@@ -230,11 +234,12 @@ export function getMockAnomalyPayload(tenantId: string): AnomalyPayload {
       deltaUSD: 71.9,
       zScore: 3.12,
       severity: "HIGH",
-      state: "RESOLVED",
+      state: "Resolved",
       titleService: "Azure Databricks Cluster",
       rootCauses: rootCausesDatabricks,
       rootCauseFacts: hechosDemo(rootCausesDatabricks, 26.5),
-      hasOwner: true,
+      assignedTo: "data-platform@contoso.com",
+      assignedDetail: "Data Platform",
       resolvedAtDate: new Date(new Date(pastDate).getTime() + 18 * 3600 * 1000).toISOString(),
       resolvedBy: "admin@cscloudsolutions.com",
       resolutionNotes: "Cluster auto-termination policy aplicada correctamente a 20 minutos de inactividad.",
@@ -335,6 +340,7 @@ export function assembleLiveAnomalies(input: {
     top_contributors?: ContribuyenteGuardado[] | string;
     root_cause_facts?: RootCauseFact[] | string | null;
     assigned_to?: string | null;
+    assigned_detail?: string | null;
     detected_at?: string;
     resolved_at?: string;
     resolution_notes?: string;
@@ -343,17 +349,12 @@ export function assembleLiveAnomalies(input: {
   const anomalies: CostAnomalyItem[] = (input.dbAnomalies || []).map((row) => {
     const rootCauses = columnaJson(row.top_contributors).map(comoRootCause);
 
-    const stateMap: Record<string, CostAnomalyItem["state"]> = {
-      open: "OPEN",
-      new: "OPEN",
-      postponed: "SNOOZED",
-      snoozed: "SNOOZED",
-      dismissed: "DISMISSED",
-      completed: "RESOLVED",
-      resolved: "RESOLVED",
-    };
-
-    const state = stateMap[String(row.status || "").toLowerCase()] || "OPEN";
+    // La columna es un ENUM con este mismo vocabulario; lo de afuera es un
+    // dato que no debería existir, y se muestra como nueva para que alguien
+    // lo mire en vez de esconderlo.
+    const state: AnomalyState = (ANOMALY_STATES as readonly string[]).includes(row.status)
+      ? (row.status as AnomalyState)
+      : "New";
     const actual = Number(row.amount) || 0;
     const expected = Number(row.expected_amount) || 0;
     const zScore = Number(row.z_score) || 0;
@@ -373,7 +374,8 @@ export function assembleLiveAnomalies(input: {
       titleService: dominant,
       rootCauses,
       rootCauseFacts: columnaJson(row.root_cause_facts),
-      hasOwner: !!row.assigned_to,
+      assignedTo: row.assigned_to || undefined,
+      assignedDetail: row.assigned_detail || undefined,
       resolvedAtDate: row.resolved_at || undefined,
       resolutionNotes: row.resolution_notes || undefined,
     };

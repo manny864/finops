@@ -5,7 +5,16 @@
 
 import type { RootCauseFact } from "@/types/anomalyRootCause.types";
 
-export type AnomalyState = "OPEN" | "SNOOZED" | "DISMISSED" | "RESOLVED";
+/**
+ * El vocabulario de `Anomalies.status` (MEJ-33), que la pantalla usa tal cual.
+ * La pantalla tenía otro (`Open`/`Postponed`/`Dismissed`/`Completed`) que la
+ * columna ENUM rechazaba: el triaje se veía en pantalla y no se guardaba nunca.
+ */
+export const ANOMALY_STATES = ["New", "Investigating", "Resolved", "False Positive"] as const;
+export type AnomalyState = (typeof ANOMALY_STATES)[number];
+
+/** Abierta = nadie la cerró todavía, la haya tomado alguien o no. */
+export const isOpenAnomalyState = (s: AnomalyState) => s === "New" || s === "Investigating";
 
 export type AnomalySeverity = "CRITICAL" | "HIGH" | "MEDIUM";
 
@@ -35,9 +44,10 @@ export interface CostAnomalyItem {
   rootCauses: AnomalyRootCauseItem[];
   /** Detalle por medidor de `Anomalies.root_cause_facts`; lo único que puede citar la IA. */
   rootCauseFacts?: RootCauseFact[];
-  /** `Anomalies.assigned_to` no es null. Sin responsable se sugiere asignarlo. */
-  hasOwner?: boolean;
-  snoozedUntilDate?: string;
+  /** `Anomalies.assigned_to`: el responsable que derivó la gobernanza del cliente (MEJ-33). */
+  assignedTo?: string;
+  /** Por dónde se lo encontró: el Cost Group o la etiqueta Owner del RG. */
+  assignedDetail?: string;
   resolutionNotes?: string;
   resolvedAtDate?: string;
   resolvedBy?: string;
@@ -78,10 +88,3 @@ export interface AnomalyPayload {
   source: "live" | "mock";
   lastUpdated: string;
 }
-
-export const ANOMALY_STATUS_LABELS: Record<AnomalyState, string> = {
-  OPEN: "Abierta",
-  SNOOZED: "Pospuesta",
-  DISMISSED: "Descartada",
-  RESOLVED: "Completada",
-};
