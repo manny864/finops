@@ -3,8 +3,8 @@ import { getResourceGraphClient } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import { errorMessage } from "@/lib/apiErrors";
-import { findInvalidTagValues, parseAllowedValues, type TagValueAlias } from "@/lib/tagValueNormalizer";
-import { missingTagsOf } from "@/lib/tagNonConformities";
+import { findInvalidTagValues, normalizeTagValue, parseAllowedValues, type TagValueAlias } from "@/lib/tagValueNormalizer";
+import { missingTagsOf, tagValueOf } from "@/lib/tagNonConformities";
 import {
   TagPolicyRule,
   ResourceTagAuditItem,
@@ -341,66 +341,146 @@ export async function scanTagGovernanceLive(
   };
 }
 
+/** En qué se basa una sugerencia por convención de nombres. */
+export type NamingBasis = "name" | "type" | "resource_group" | "role";
+
 /**
- * Sugiere etiquetas de forma inteligente según nombre, tipo y grupo de recursos
+ * Confianza de cada base. No está calibrada contra datos: ordena la evidencia
+ * (el nombre del recurso dice más que el de su grupo, y Department sale de un
+ * Role que ya es una inferencia). Sin indicios no se sugiere nada.
  */
-export function suggestTagsForResource(
+export const NAMING_CONFIDENCE: Record<NamingBasis, number> = {
+  name: 0.8,
+  type: 0.7,
+  resource_group: 0.6,
+  role: 0.5,
+};
+
+/**
+ * Infiere Environment, Role, CostCenter y Department por convención de nombres,
+ * sólo donde hay indicios en el nombre, el tipo o el grupo de recursos. Los
+ * valores son los de las políticas por defecto; suggestTagValues los lleva al
+ * vocabulario del tenant.
+ */
+export function inferTagsFromNaming(
   resourceName: string,
   resourceType: string,
   resourceGroup: string
-): Record<string, string> {
-  const nameLower = (resourceName || "").toLowerCase();
-  const rgLower = (resourceGroup || "").toLowerCase();
-  const typeLower = (resourceType || "").toLowerCase();
+): Record<string, { value: string; basis: NamingBasis }> {
+  const name = (resourceName || "").toLowerCase();
+  const rg = (resourceGroup || "").toLowerCase();
+  const type = (resourceType || "").toLowerCase();
+  const out: Record<string, { value: string; basis: NamingBasis }> = {};
+  const enName = (...w: string[]) => w.some((x) => name.includes(x));
+  const enRg = (...w: string[]) => w.some((x) => rg.includes(x));
+  const enType = (...w: string[]) => w.some((x) => type.includes(x));
 
-  // Inferencia de Environment
-  let env = "prod";
-  if (nameLower.includes("dev") || rgLower.includes("dev")) env = "dev";
-  else if (nameLower.includes("stg") || nameLower.includes("stage") || rgLower.includes("stg")) env = "stg";
-  else if (nameLower.includes("qa") || nameLower.includes("test") || rgLower.includes("qa")) env = "qa";
-  else if (nameLower.includes("sbx") || nameLower.includes("sandbox") || rgLower.includes("sandbox")) env = "sandbox";
-
-  // Inferencia de Role
-  let role = "worker";
-  if (nameLower.includes("sql") || nameLower.includes("db") || nameLower.includes("mysql") || typeLower.includes("database")) {
-    role = "database";
-  } else if (nameLower.includes("api") || nameLower.includes("gateway") || typeLower.includes("apimanagement")) {
-    role = "api";
-  } else if (nameLower.includes("front") || nameLower.includes("ui") || nameLower.includes("web") || typeLower.includes("sites")) {
-    role = "frontend";
-  } else if (nameLower.includes("backup") || nameLower.includes("vault") || typeLower.includes("recoveryservices")) {
-    role = "backup";
-  } else if (nameLower.includes("disk") || typeLower.includes("disks")) {
-    role = "database-disk";
-  } else if (nameLower.includes("vnet") || nameLower.includes("nsg") || nameLower.includes("pip") || typeLower.includes("network")) {
-    role = "network";
-  } else if (nameLower.includes("storage") || typeLower.includes("storageaccounts")) {
-    role = "storage";
+  // Mismo orden de prioridad que antes; "prod" ya no es el default, necesita indicio.
+  const env: Array<[string, string[], string[]]> = [
+    ["dev", ["dev"], ["dev"]],
+    ["stg", ["stg", "stage"], ["stg"]],
+    ["qa", ["qa", "test"], ["qa"]],
+    ["sandbox", ["sbx", "sandbox"], ["sandbox"]],
+    ["prod", ["prod", "prd"], ["prod", "prd"]],
+  ];
+  for (const [value, porNombre, porRg] of env) {
+    if (enName(...porNombre)) out.Environment = { value, basis: "name" };
+    else if (enRg(...porRg)) out.Environment = { value, basis: "resource_group" };
+    if (out.Environment) break;
   }
 
-  // Inferencia de CostCenter
-  let costCenter = "Engineering";
-  if (rgLower.includes("finops") || nameLower.includes("finops")) costCenter = "FinOps";
-  else if (rgLower.includes("core") || nameLower.includes("core")) costCenter = "CorePlatform";
-  else if (rgLower.includes("sec") || nameLower.includes("security")) costCenter = "SecurityOps";
-  else if (rgLower.includes("data") || nameLower.includes("data")) costCenter = "DataTeam";
+  const roles: Array<[string, string[], string[]]> = [
+    ["database", ["sql", "db", "mysql"], ["database"]],
+    ["api", ["api", "gateway"], ["apimanagement"]],
+    ["frontend", ["front", "ui", "web"], ["sites"]],
+    ["backup", ["backup", "vault"], ["recoveryservices"]],
+    // Antes "database-disk", que no es un valor permitido de Role.
+    ["storage", ["disk"], ["disks"]],
+    ["network", ["vnet", "nsg", "pip"], ["network"]],
+    ["storage", ["storage"], ["storageaccounts"]],
+  ];
+  for (const [value, porNombre, porTipo] of roles) {
+    if (enName(...porNombre)) out.Role = { value, basis: "name" };
+    else if (enType(...porTipo)) out.Role = { value, basis: "type" };
+    if (out.Role) break;
+  }
 
-  // Inferencia de Department
-  let department = "CloudOps";
-  if (role === "database" || role === "database-disk") department = "DataPlatform";
-  else if (role === "frontend" || role === "api") department = "Engineering";
-  else if (role === "network" || role === "backup") department = "SecurityOps";
+  const costCenters: Array<[string, string[], string[]]> = [
+    ["FinOps", ["finops"], ["finops"]],
+    ["CorePlatform", ["core"], ["core"]],
+    ["SecurityOps", ["sec"], ["security"]],
+    ["DataTeam", ["data"], ["data"]],
+  ];
+  for (const [value, porRg, porNombre] of costCenters) {
+    if (enRg(...porRg)) out.CostCenter = { value, basis: "resource_group" };
+    else if (enName(...porNombre)) out.CostCenter = { value, basis: "name" };
+    if (out.CostCenter) break;
+  }
 
-  return {
-    Environment: env,
-    Role: role,
-    CostCenter: costCenter,
-    Department: department,
+  const department: Record<string, string> = {
+    database: "DataPlatform",
+    frontend: "Engineering",
+    api: "Engineering",
+    network: "SecurityOps",
+    backup: "SecurityOps",
   };
+  if (out.Role && department[out.Role.value]) out.Department = { value: department[out.Role.value], basis: "role" };
+
+  return out;
+}
+
+export interface TagValueSuggestion {
+  value: string;
+  /** exact/alias/fuzzy: el valor actual llevado al permitido. naming: inferido por convención de nombres. */
+  method: "exact" | "alias" | "fuzzy" | "naming";
+  basis?: NamingBasis;
+  confidence: number;
+}
+
+/**
+ * Sugerencias para un recurso dentro del vocabulario de las políticas del
+ * tenant. Un valor actual permitido (o de una etiqueta libre) no se toca; uno
+ * no permitido se normaliza; lo que falta se infiere por convención de nombres,
+ * y si eso no cae en un valor permitido, no se sugiere.
+ */
+export function suggestTagValues(
+  resource: { resourceName: string; resourceType: string; resourceGroup: string; currentTags?: Record<string, string> },
+  policies: readonly TagPolicyRule[],
+  aliasesByTag: ReadonlyMap<string, TagValueAlias[]> = new Map()
+): Record<string, TagValueSuggestion> {
+  const inferred = inferTagsFromNaming(resource.resourceName, resource.resourceType, resource.resourceGroup);
+  const tags = [...Object.keys(inferred), ...policies.map((p) => p.tagName)].filter(
+    (t, i, all) => all.findIndex((x) => x.toLowerCase() === t.toLowerCase()) === i
+  );
+  const out: Record<string, TagValueSuggestion> = {};
+  for (const tag of tags) {
+    const allowed = policies.find((p) => p.tagName.toLowerCase() === tag.toLowerCase())?.allowedValues;
+    const aliases = aliasesByTag.get(tag.toLowerCase()) || [];
+    const current = tagValueOf(resource.currentTags, tag);
+    if (current !== null) {
+      if (!allowed?.length || allowed.includes(current)) continue;
+      const n = normalizeTagValue(current, allowed, aliases);
+      if (n.normalized && n.method) {
+        out[tag] = { value: n.normalized, method: n.method, confidence: n.confidence };
+        continue;
+      }
+    }
+    const guess = inferred[tag];
+    if (!guess) continue;
+    const n = allowed?.length ? normalizeTagValue(guess.value, allowed, aliases) : null;
+    if (n && !n.normalized) continue;
+    out[tag] = {
+      value: n?.normalized ?? guess.value,
+      method: "naming",
+      basis: guess.basis,
+      confidence: Math.round(NAMING_CONFIDENCE[guess.basis] * (n?.confidence ?? 1) * 100) / 100,
+    };
+  }
+  return out;
 }
 
 /** Un puñado de los alias globales de 20261008-012, para que la demo sugiera como el escaneo real. */
-const MOCK_TAG_VALUE_ALIASES = new Map<string, TagValueAlias[]>([
+export const MOCK_TAG_VALUE_ALIASES = new Map<string, TagValueAlias[]>([
   ["environment", [
     { alias: "production", canonicalValue: "prod" },
     { alias: "development", canonicalValue: "dev" },

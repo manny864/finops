@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   evaluateResourceMissingTags,
-  suggestTagsForResource,
+  inferTagsFromNaming,
+  suggestTagValues,
   formatResourceTypeDisplay,
   getMockTagGovernanceSummary,
   DEFAULT_MANDATORY_TAG_POLICIES,
@@ -50,24 +51,56 @@ describe("Azure Tag Governance Service", () => {
     expect(missingEmpty).not.toContain("Department");
   });
 
-  it("suggestTagsForResource infers sensible tags based on naming heuristics", () => {
-    // Inferencia de DB de producción
-    const dbSug = suggestTagsForResource("vm-prod-mysql-01", "Microsoft.Compute/virtualMachines", "rg-cscs-prod");
-    expect(dbSug.Environment).toBe("prod");
-    expect(dbSug.Role).toBe("database");
-    expect(dbSug.Department).toBe("DataPlatform");
+  it("inferTagsFromNaming sugiere sólo con indicios y dice en qué se basa", () => {
+    expect(inferTagsFromNaming("vm-prod-mysql-01", "Microsoft.Compute/virtualMachines", "rg-cscs-prod")).toEqual({
+      Environment: { value: "prod", basis: "name" },
+      Role: { value: "database", basis: "name" },
+      Department: { value: "DataPlatform", basis: "role" },
+    });
+    expect(inferTagsFromNaming("api-gateway-dev", "Microsoft.ApiManagement/service", "rg-dev-sandbox")).toEqual({
+      Environment: { value: "dev", basis: "name" },
+      Role: { value: "api", basis: "name" },
+      Department: { value: "Engineering", basis: "role" },
+    });
+    expect(inferTagsFromNaming("rsv-backup-vault", "Microsoft.RecoveryServices/vaults", "rg-finops-core")).toEqual({
+      Role: { value: "backup", basis: "name" },
+      CostCenter: { value: "FinOps", basis: "resource_group" },
+      Department: { value: "SecurityOps", basis: "role" },
+    });
+    // Un disco es "storage", un valor permitido (antes "database-disk", que no lo era).
+    expect(inferTagsFromNaming("osdisk-01", "Microsoft.Compute/disks", "rg-x").Role).toEqual({ value: "storage", basis: "name" });
+    expect(inferTagsFromNaming("x-01", "Microsoft.Network/virtualNetworks", "rg-x").Role).toEqual({ value: "network", basis: "type" });
+    // Sin indicios no hay "prod", "worker", "Engineering" ni "CloudOps" por defecto.
+    expect(inferTagsFromNaming("vm-01", "Microsoft.Compute/virtualMachines", "rg-x")).toEqual({});
+  });
 
-    // Inferencia de API de desarrollo
-    const apiSug = suggestTagsForResource("api-gateway-dev", "Microsoft.ApiManagement/service", "rg-dev-sandbox");
-    expect(apiSug.Environment).toBe("dev");
-    expect(apiSug.Role).toBe("api");
-    expect(apiSug.Department).toBe("Engineering");
+  it("suggestTagValues normaliza el valor actual, respeta los válidos e infiere los faltantes", () => {
+    const aliases = new Map([["environment", [{ alias: "production", canonicalValue: "prod" }]]]);
+    const r = { resourceName: "vm-web-dev-01", resourceType: "Microsoft.Compute/virtualMachines", resourceGroup: "rg-x" };
+    expect(
+      suggestTagValues({ ...r, currentTags: { environment: "Production", Role: "api", CostCenter: "Finance" } }, DEFAULT_MANDATORY_TAG_POLICIES, aliases)
+    ).toEqual({
+      Environment: { value: "prod", method: "alias", confidence: 0.95 },
+      Department: { value: "Engineering", method: "naming", basis: "role", confidence: 0.5 },
+    });
+    expect(suggestTagValues(r, DEFAULT_MANDATORY_TAG_POLICIES).Environment).toEqual({
+      value: "dev",
+      method: "naming",
+      basis: "name",
+      confidence: 0.8,
+    });
+  });
 
-    // Inferencia de Vault de Backup con RG FinOps
-    const backupSug = suggestTagsForResource("rsv-backup-vault", "Microsoft.RecoveryServices/vaults", "rg-finops-core");
-    expect(backupSug.Role).toBe("backup");
-    expect(backupSug.CostCenter).toBe("FinOps");
-    expect(backupSug.Department).toBe("SecurityOps");
+  it("suggestTagValues sugiere dentro del vocabulario del tenant y nunca fuera", () => {
+    const r = { resourceName: "app-dev-01", resourceType: "", resourceGroup: "rg-x" };
+    const pol = (allowedValues: string[]) => [{ id: "p", tagName: "Environment", isRequired: true, allowedValues }];
+    expect(suggestTagValues(r, pol(["DEV", "PROD"])).Environment).toEqual({
+      value: "DEV",
+      method: "naming",
+      basis: "name",
+      confidence: 0.8,
+    });
+    expect(suggestTagValues(r, pol(["Production", "Development"]))).not.toHaveProperty("Environment");
   });
 
   it("getMockTagGovernanceSummary returns a comprehensive, consistent summary for demo tenants", () => {

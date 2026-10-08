@@ -452,6 +452,10 @@
           "label": "Mapeo de columnas de CSV con IA",
           "description": "Propone a qué columna FOCUS corresponde cada columna de un CSV de facturación que no viene en formato FOCUS. Business en adelante."
         },
+        "tag-value-normalization": {
+          "label": "Normalización de valores de etiquetas con IA",
+          "description": "En Tag Governance, propone el valor de una etiqueta que las reglas no pudieron resolver, siempre entre los valores permitidos o los que el tenant ya usa. Professional en adelante."
+        },
         "document-intelligence": {
           "label": "Lectura de facturas y contratos con IA",
           "description": "Lee con Document Intelligence las facturas y los contratos de proveedores externos que sube el cliente, para revisarlos y reportarlos como gasto externo. Business en adelante. Cada documento consume páginas analizadas de Azure."
@@ -7084,6 +7088,8 @@
     "col_childCount": "Recursos Contenidos",
     "col_actions": "Acciones",
     "aiTagsInferred": "Etiquetas sugeridas según la convención de nombres",
+    "suggestFromPolicies": "Etiquetas sugeridas según tus políticas y la convención de nombres",
+    "suggestNoEvidence": "El nombre, el tipo y el grupo de recursos no dan indicios para sugerir etiquetas",
     "aiSuggestError": "Error al sugerir etiquetas",
     "inheritedFromRg": "Valores heredados del Resource Group correctamente",
     "tagsApplied": "Etiquetas aplicadas en Azure",

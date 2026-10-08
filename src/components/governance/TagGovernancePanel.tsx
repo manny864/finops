@@ -290,18 +290,27 @@ export default function TagGovernancePanel() {
           resourceName: editingItem.name,
           resourceType: editingItem.resourceType || "Microsoft.Resources/resourceGroups",
           resourceGroup: editingItem.resourceGroup || "",
+          currentTags: editingItem.currentTags,
         }),
       });
       const json = await res.json();
       if (json.success && json.suggestedTags) {
+        // Sin sugerencia queda lo que había: no se completa con valores por defecto.
+        const details = Object.entries((json.details || {}) as Record<string, { value: string; confidence: number }>);
+        if (details.length === 0) {
+          toast.info(t("suggestNoEvidence"));
+          return;
+        }
         setTagForm((prev) => ({
           ...prev,
-          Environment: json.suggestedTags.Environment || prev.Environment || "prod",
-          Role: json.suggestedTags.Role || prev.Role || "worker",
-          CostCenter: json.suggestedTags.CostCenter || prev.CostCenter || "Engineering",
-          Department: json.suggestedTags.Department || prev.Department || "CloudOps",
+          Environment: json.suggestedTags.Environment || prev.Environment,
+          Role: json.suggestedTags.Role || prev.Role,
+          CostCenter: json.suggestedTags.CostCenter || prev.CostCenter,
+          Department: json.suggestedTags.Department || prev.Department,
         }));
-        toast.success(t("aiTagsInferred"));
+        toast.success(t("suggestFromPolicies"), {
+          description: details.map(([tag, d]) => `${tag}: ${d.value} (${Math.round(d.confidence * 100)}%)`).join(" · "),
+        });
       }
     } catch (err) {
       toast.error(t("aiSuggestError"));
