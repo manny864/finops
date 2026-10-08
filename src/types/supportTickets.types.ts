@@ -19,6 +19,15 @@ export type TicketCategory =
 
 export type TicketPriority = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
 
+export const TICKET_CATEGORIES = [
+    "CONSULTA",
+    "FACTURACION_AZURE",
+    "CONEXION_TENANT",
+    "INCIDENCIA_TECNICA",
+    "SOLICITUD_FEATURE",
+] as const satisfies readonly TicketCategory[];
+export const TICKET_PRIORITIES = ["CRITICAL", "HIGH", "MEDIUM", "LOW"] as const satisfies readonly TicketPriority[];
+
 export type TicketStatus = "OPEN" | "IN_PROGRESS" | "WAITING_USER" | "RESOLVED" | "CLOSED";
 
 export type TicketSenderRole = "USER" | "SUPPORT_AGENT" | "SYSTEM";
@@ -46,6 +55,21 @@ export interface TicketMessageItem {
     createdAt: string;
 }
 
+/**
+ * Sugerencia de triaje con IA (Fase 3a). Sólo la ve el equipo de soporte y
+ * nunca cambia el ticket sola: aceptarla pasa por el PATCH del ticket.
+ */
+export interface SupportTicketAiTriage {
+    suggestedPriority: TicketPriority;
+    suggestedCategory: TicketCategory;
+    suggestedModule: TicketRelatedModule | null;
+    productionImpact: boolean;
+    rationale: string;
+    /** 0 a 1. */
+    confidence: number;
+    status: "pending" | "accepted" | "dismissed";
+}
+
 export interface SupportTicketItem {
     id: string;
     ticketNumber: string;
@@ -69,6 +93,8 @@ export interface SupportTicketItem {
     lastMessageSnippet?: string;
     messagesCount: number;
     messages?: TicketMessageItem[];
+    /** Sólo en la cola de superadmin. */
+    aiTriage?: SupportTicketAiTriage;
 }
 
 export interface UserSupportSummaryMetrics {

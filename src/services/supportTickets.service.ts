@@ -16,7 +16,11 @@
 
 import {
     SLA_BREACH_RISK_MINUTES,
+    TICKET_CATEGORIES,
+    TICKET_PRIORITIES,
+    TICKET_RELATED_MODULES,
     type GlobalSupportSummaryMetrics,
+    type SupportTicketAiTriage,
     type SupportTicketItem,
     type TicketAttachmentItem,
     type TicketCategory,
@@ -294,6 +298,34 @@ export function mapTicket(
  */
 export function stripInternalNotes(messages: TicketMessageItem[]): TicketMessageItem[] {
     return messages.filter((m) => !m.isInternalNote);
+}
+
+/** Columnas `ai_*` del LEFT JOIN de la cola global con `SupportTicketAiTriage`. */
+export interface RawAiTriageRow {
+    ai_suggested_priority?: unknown;
+    ai_suggested_category?: unknown;
+    ai_suggested_module?: unknown;
+    ai_production_impact?: unknown;
+    ai_rationale?: unknown;
+    ai_confidence?: unknown;
+    ai_accepted_at?: unknown;
+    ai_dismissed_at?: unknown;
+}
+
+/** Triaje con IA del ticket (Fase 3a). `undefined` si no hay o si la fila no se puede leer. */
+export function mapAiTriage(row: RawAiTriageRow): SupportTicketAiTriage | undefined {
+    const priority = TICKET_PRIORITIES.find((p) => p === row.ai_suggested_priority);
+    const category = TICKET_CATEGORIES.find((c) => c === row.ai_suggested_category);
+    if (!priority || !category) return undefined;
+    return {
+        suggestedPriority: priority,
+        suggestedCategory: category,
+        suggestedModule: TICKET_RELATED_MODULES.find((m) => m === row.ai_suggested_module) ?? null,
+        productionImpact: Boolean(Number(row.ai_production_impact || 0)),
+        rationale: String(row.ai_rationale || ""),
+        confidence: Number(row.ai_confidence || 0),
+        status: row.ai_accepted_at ? "accepted" : row.ai_dismissed_at ? "dismissed" : "pending",
+    };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

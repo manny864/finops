@@ -6,9 +6,11 @@ import { getSupportConfig, SUPPORT_TICKET_PRIORITIES } from "@/lib/supportConfig
 import {
     buildGlobalSupportSummary,
     buildStatusCounts,
+    mapAiTriage,
     mapTicket,
     resolutionHours,
     statusToDb,
+    type RawAiTriageRow,
     type RawTicketRow,
 } from "@/services/supportTickets.service";
 import type { GlobalSupportPayload, TicketStatus } from "@/types/supportTickets.types";
@@ -43,11 +45,16 @@ export async function GET(request: NextRequest) {
                     t.sla_deadline, t.first_responded_at, t.resolved_at,
                     t.assigned_admin_email, t.related_module,
                     ten.company_name AS tenant_name, ten.tier AS tenant_tier,
+                    tr.suggested_priority AS ai_suggested_priority, tr.suggested_category AS ai_suggested_category,
+                    tr.suggested_module AS ai_suggested_module, tr.production_impact AS ai_production_impact,
+                    tr.rationale AS ai_rationale, tr.confidence AS ai_confidence,
+                    tr.accepted_at AS ai_accepted_at, tr.dismissed_at AS ai_dismissed_at,
                     (SELECT COUNT(*) FROM SupportTicketMessages m WHERE m.ticket_id = t.id) AS message_count,
                     (SELECT m2.body FROM SupportTicketMessages m2
                       WHERE m2.ticket_id = t.id ORDER BY m2.created_at DESC LIMIT 1) AS last_message_snippet
              FROM SupportTickets t
              JOIN Tenants ten ON ten.tenant_id = t.tenant_id
+             LEFT JOIN SupportTicketAiTriage tr ON tr.ticket_id = t.id
              ${where.length ? "WHERE " + where.join(" AND ") : ""}
              ORDER BY FIELD(t.status, 'open', 'in_progress', 'waiting_customer', 'resolved', 'closed'),
                       FIELD(t.priority, 'urgent', 'high', 'medium', 'low'),
@@ -57,12 +64,13 @@ export async function GET(request: NextRequest) {
         );
 
         const now = new Date();
-        const raw = rows as (RawTicketRow & { tenant_tier?: string })[];
+        const raw = rows as (RawTicketRow & RawAiTriageRow & { tenant_tier?: string })[];
         // El SLA es por tier del tenant dueño del ticket, no un valor global:
         // Professional tiene 24 h y Enterprise 4 h, y la cola los mezcla.
-        const tickets = raw.map((r) =>
-            mapTicket(r, { slaHours: getSupportConfig(String(r.tenant_tier || "")).firstResponseSlaHours, now })
-        );
+        const tickets = raw.map((r) => ({
+            ...mapTicket(r, { slaHours: getSupportConfig(String(r.tenant_tier || "")).firstResponseSlaHours, now }),
+            aiTriage: mapAiTriage(r),
+        }));
         const durations = raw.map(resolutionHours).filter((h): h is number => h !== null);
 
         // Los contadores de las pills son globales, no del filtro aplicado: si

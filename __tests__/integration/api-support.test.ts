@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 import { GET as listGET, POST as createPOST } from "@/app/api/support/tickets/route";
 import { GET as detailGET, POST as replyPOST, PATCH as ticketPATCH } from "@/app/api/support/tickets/[id]/route";
 import { GET as adminGET, PATCH as adminPATCH } from "@/app/api/admin/support/tickets/route";
+import { POST as aiTriagePOST } from "@/app/api/admin/support/tickets/[id]/ai-triage/route";
 
 const mocks = vi.hoisted(() => {
     class MockAuthError extends Error {
@@ -19,9 +20,19 @@ const mocks = vi.hoisted(() => {
         mockRequireTenantAccess: vi.fn(),
         mockRequireSuperAdmin: vi.fn(),
         mockHasSystemRole: vi.fn(),
+        mockAfter: vi.fn(),
+        mockTriage: vi.fn(),
         MockAuthError,
     };
 });
+
+// `after()` real exige el contexto de un request de Next; acá se captura la tarea.
+vi.mock("next/server", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("next/server")>()),
+    after: mocks.mockAfter,
+}));
+
+vi.mock("@/services/supportTicketTriage.service", () => ({ triageTicket: mocks.mockTriage }));
 
 vi.mock("@/modules/storage/db", () => ({
     default: { query: mocks.mockPoolQuery, getConnection: mocks.mockGetConnection },
@@ -144,6 +155,36 @@ describe("Support Tickets API", () => {
             expect(json.ticketId).toBe(42);
             expect(conn.commit).toHaveBeenCalled();
             expect(conn.release).toHaveBeenCalled();
+
+            // Triaje con IA: se programa después del commit y corre fuera de la respuesta.
+            expect(mocks.mockAfter).toHaveBeenCalledTimes(1);
+            expect(conn.commit.mock.invocationCallOrder[0]).toBeLessThan(mocks.mockAfter.mock.invocationCallOrder[0]);
+            expect(mocks.mockTriage).not.toHaveBeenCalled();
+            await mocks.mockAfter.mock.calls[0][0]();
+            expect(mocks.mockTriage).toHaveBeenCalledWith(
+                expect.objectContaining({ ticketId: 42, tenantId: TENANT, creatorEmail: "user@cliente.com", subject: "Problema con costos" })
+            );
+        });
+
+        it("si no se puede programar el triaje, el ticket se crea igual", async () => {
+            mocks.mockPoolQuery.mockResolvedValueOnce([[{ tier: "Enterprise" }], []]);
+            const conn = {
+                beginTransaction: vi.fn(),
+                query: vi.fn().mockResolvedValueOnce([{ insertId: 43 }, []]).mockResolvedValueOnce([{}, []]),
+                commit: vi.fn(),
+                rollback: vi.fn(),
+                release: vi.fn(),
+            };
+            mocks.mockGetConnection.mockResolvedValue(conn);
+            mocks.mockAfter.mockImplementationOnce(() => {
+                throw new Error("`after` was called outside a request scope");
+            });
+            const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+            const res = await createPOST(jsonReq("http://localhost:3000/api/support/tickets", "POST", validBody));
+            expect(res.status).toBe(201);
+            expect(conn.rollback).not.toHaveBeenCalled();
+            expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("ticket 43"));
+            errorSpy.mockRestore();
         });
     });
 
@@ -229,6 +270,50 @@ describe("Support Tickets API", () => {
             );
             expect(res.status).toBe(200);
         });
+
+        it("blocks tenant users from changing category or module", async () => {
+            mocks.mockPoolQuery.mockResolvedValueOnce([[{ id: 7, status: "open" }], []]);
+            const res = await ticketPATCH(
+                jsonReq("http://localhost:3000/api/support/tickets/7", "PATCH", { tenantId: TENANT, category: "billing" }),
+                params
+            );
+            expect(res.status).toBe(403);
+        });
+
+        it("el equipo aplica prioridad, categoría y módulo en un solo PATCH (aceptar el triaje con IA)", async () => {
+            mocks.mockRequireTenantAccess.mockResolvedValue({ ...userIdentity, email: "soporte@cscloudsolutions.com.ar", isCorporateDomain: true });
+            mocks.mockHasSystemRole.mockResolvedValue(true);
+            mocks.mockPoolQuery
+                .mockResolvedValueOnce([[{ id: 7, status: "open" }], []])
+                .mockResolvedValueOnce([{}, []]);
+            const res = await ticketPATCH(
+                jsonReq("http://localhost:3000/api/support/tickets/7", "PATCH", {
+                    tenantId: TENANT,
+                    priority: "high",
+                    category: "technical",
+                    relatedModule: "Alerts",
+                }),
+                params
+            );
+            expect(res.status).toBe(200);
+            const [sql, args] = mocks.mockPoolQuery.mock.calls[1];
+            expect(sql).toContain("priority = ?, category = ?, related_module = ?");
+            expect(args).toEqual(["high", "technical", "Alerts", 7, TENANT]);
+            expect(sql).not.toContain("sla_deadline");
+        });
+
+        it("rechaza una categoría o un módulo desconocidos", async () => {
+            mocks.mockRequireTenantAccess.mockResolvedValue({ ...userIdentity, email: "soporte@cscloudsolutions.com.ar", isCorporateDomain: true });
+            mocks.mockHasSystemRole.mockResolvedValue(true);
+            for (const body of [{ category: "CONSULTA" }, { relatedModule: "Billing" }]) {
+                mocks.mockPoolQuery.mockResolvedValueOnce([[{ id: 7, status: "open" }], []]);
+                const res = await ticketPATCH(
+                    jsonReq("http://localhost:3000/api/support/tickets/7", "PATCH", { tenantId: TENANT, ...body }),
+                    params
+                );
+                expect(res.status).toBe(400);
+            }
+        });
     });
 
     describe("GET /api/admin/support/tickets", () => {
@@ -256,6 +341,33 @@ describe("Support Tickets API", () => {
             expect(json.summary.avgResolutionTimeHours).toBe(0);
             // Los contadores de las pills son globales y en el enum del dominio.
             expect(json.statusCounts).toEqual({ OPEN: 1, IN_PROGRESS: 0, WAITING_USER: 0, RESOLVED: 0, CLOSED: 0 });
+            expect(json.summary.tickets[0].aiTriage).toBeUndefined();
+        });
+
+        it("incluye la sugerencia de triaje con IA de cada ticket", async () => {
+            mocks.mockRequireSuperAdmin.mockResolvedValue({});
+            mocks.mockPoolQuery
+                .mockResolvedValueOnce([
+                    [{
+                        id: 1, tenant_id: TENANT, subject: "x", status: "open", priority: "low", tenant_tier: "Enterprise",
+                        created_at: "2026-08-22T10:00:00.000Z",
+                        ai_suggested_priority: "CRITICAL", ai_suggested_category: "INCIDENCIA_TECNICA", ai_suggested_module: null,
+                        ai_production_impact: 1, ai_rationale: "Producción caída.", ai_confidence: "0.90",
+                    }],
+                    [],
+                ])
+                .mockResolvedValueOnce([[{ status: "open", c: 1 }], []]);
+            const res = await adminGET(makeReq("http://localhost:3000/api/admin/support/tickets"));
+            const json = await res.json();
+            expect(String(mocks.mockPoolQuery.mock.calls[0][0])).toContain("LEFT JOIN SupportTicketAiTriage");
+            // La sugerencia no pisa la prioridad del ticket: viaja aparte.
+            expect(json.summary.tickets[0].priority).toBe("LOW");
+            expect(json.summary.tickets[0].aiTriage).toMatchObject({
+                suggestedPriority: "CRITICAL",
+                productionImpact: true,
+                confidence: 0.9,
+                status: "pending",
+            });
         });
 
         it("PATCH asigna el ticket al que lo pide, no a un email arbitrario del body", async () => {
@@ -267,6 +379,47 @@ describe("Support Tickets API", () => {
             const json = await res.json();
             expect(res.status).toBe(200);
             expect(json.assignedAdminEmail).toBe("agente@cscloudsolutions.com.ar");
+        });
+    });
+
+    describe("POST /api/admin/support/tickets/[id]/ai-triage", () => {
+        const params = { params: Promise.resolve({ id: "7" }) };
+        const decide = (decision: unknown) =>
+            aiTriagePOST(jsonReq("http://localhost:3000/api/admin/support/tickets/7/ai-triage", "POST", { decision }), params);
+
+        it("returns 403 for non-superadmins", async () => {
+            mocks.mockRequireSuperAdmin.mockRejectedValue(new mocks.MockAuthError("denegado", 403));
+            const res = await decide("accept");
+            expect(res.status).toBe(403);
+            expect(mocks.mockPoolQuery).not.toHaveBeenCalled();
+        });
+
+        it("rechaza una decisión desconocida", async () => {
+            mocks.mockRequireSuperAdmin.mockResolvedValue({ email: "agente@cscloudsolutions.com.ar" });
+            const res = await decide("apply");
+            expect(res.status).toBe(400);
+        });
+
+        it("sella quién aceptó, sólo si la sugerencia sigue pendiente, y no toca el ticket", async () => {
+            mocks.mockRequireSuperAdmin.mockResolvedValue({ email: "agente@cscloudsolutions.com.ar" });
+            mocks.mockPoolQuery.mockResolvedValueOnce([{ affectedRows: 1 }, []]);
+            const res = await decide("accept");
+            const json = await res.json();
+            expect(res.status).toBe(200);
+            expect(json.status).toBe("accepted");
+            const [sql, args] = mocks.mockPoolQuery.mock.calls[0];
+            expect(sql).toContain("UPDATE SupportTicketAiTriage");
+            expect(sql).toContain("accepted_by = ?");
+            expect(sql).toContain("accepted_at IS NULL AND dismissed_at IS NULL");
+            expect(args).toEqual(["agente@cscloudsolutions.com.ar", 7]);
+            expect(mocks.mockPoolQuery).toHaveBeenCalledTimes(1);
+        });
+
+        it("devuelve 409 si no hay sugerencia pendiente (ya decidida o inexistente)", async () => {
+            mocks.mockRequireSuperAdmin.mockResolvedValue({ email: "agente@cscloudsolutions.com.ar" });
+            mocks.mockPoolQuery.mockResolvedValueOnce([{ affectedRows: 0 }, []]);
+            const res = await decide("dismiss");
+            expect(res.status).toBe(409);
         });
     });
 });

@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import pool from "@/modules/storage/db";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
-import { serverError } from "@/lib/apiErrors";
+import { errorMessage, serverError } from "@/lib/apiErrors";
 import rateLimiter from "@/lib/rateLimiter";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import {
@@ -17,7 +17,13 @@ import {
     priorityToDb,
     type RawTicketRow,
 } from "@/services/supportTickets.service";
-import { TICKET_RELATED_MODULES, type UserSupportPayload } from "@/types/supportTickets.types";
+import { triageTicket } from "@/services/supportTicketTriage.service";
+import {
+    TICKET_CATEGORIES,
+    TICKET_PRIORITIES,
+    TICKET_RELATED_MODULES,
+    type UserSupportPayload,
+} from "@/types/supportTickets.types";
 
 // RBAC: cualquier usuario del tenant puede ver y crear tickets de soporte
 // (feature disponible desde el tier Professional). La cuota mensual de creación
@@ -26,9 +32,6 @@ import { TICKET_RELATED_MODULES, type UserSupportPayload } from "@/types/support
 // El guard va ANTES del check de mock a propósito: la rama mock lee `Tenants`
 // para resolver el tier, así que un llamador anónimo con ?tenantId=demo-x
 // alcanzaría estado real. Ver DOC-01 en docs/security/audit-2026-08-21.md.
-
-const CATEGORIES = ["CONSULTA", "FACTURACION_AZURE", "CONEXION_TENANT", "INCIDENCIA_TECNICA", "SOLICITUD_FEATURE"] as const;
-const PRIORITIES = ["CRITICAL", "HIGH", "MEDIUM", "LOW"] as const;
 
 export async function GET(request: NextRequest) {
     try {
@@ -125,8 +128,8 @@ export async function POST(request: NextRequest) {
 
         const subject = typeof body.subject === "string" ? body.subject.trim() : "";
         // Acepta el contrato del dominio (MAYÚSCULAS) y traduce al ENUM de MySQL.
-        const category = CATEGORIES.includes(body.category) ? body.category : "CONSULTA";
-        const priority = PRIORITIES.includes(body.priority) ? body.priority : "MEDIUM";
+        const category = TICKET_CATEGORIES.includes(body.category) ? body.category : "CONSULTA";
+        const priority = TICKET_PRIORITIES.includes(body.priority) ? body.priority : "MEDIUM";
         const relatedModule = TICKET_RELATED_MODULES.includes(body.relatedModule) ? body.relatedModule : null;
         // `messageText` es el nombre del contrato; `message` se sigue aceptando
         // para no romper a un cliente viejo que todavía esté en caché.
@@ -199,6 +202,15 @@ export async function POST(request: NextRequest) {
                 [ticketId, identity.email, authorName, message]
             );
             await conn.commit();
+            // Fase 3a: el triaje con IA corre después de responder. Es
+            // best-effort: no demora ni puede romper la creación del ticket.
+            try {
+                after(() =>
+                    triageTicket({ ticketId, tenantId, creatorEmail: identity.email, subject, message, category, priority, relatedModule })
+                );
+            } catch (e) {
+                console.error(`[support] no se pudo programar el triaje del ticket ${ticketId}: ${errorMessage(e)}`);
+            }
             return NextResponse.json(
                 { success: true, ticketId, ticketNumber: `TICK-${ticketId}`, slaDeadlineIso: slaDeadline },
                 { status: 201 }
