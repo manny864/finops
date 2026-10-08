@@ -440,6 +440,20 @@
       "toggleLabel": "Enable AI features (platform)",
       "toggleDescription": "Master switch: if turned off, AI is disabled for ALL tenants (Copilot and AI Executive Report), regardless of their own per-tenant toggle. Intended for provider incidents or costs spiraling out of control."
     },
+    "featureSwitches": {
+      "heading": "AI features (per-feature switch)",
+      "description": "Turns off one AI feature for all tenants without touching the rest. The master switch takes precedence: if it is off, every feature is off. With a feature off, the screen keeps working with the non-AI version and shows the reason.",
+      "features": {
+        "anomaly-explanation": {
+          "label": "AI anomaly explanation",
+          "description": "Writes, from the computed facts, why the cost changed in the \"View Root Cause\" panel. Professional and above."
+        },
+        "billing-csv-column-mapping": {
+          "label": "AI CSV column mapping",
+          "description": "Suggests which FOCUS column matches each column of a billing CSV that is not in FOCUS format. Business and above."
+        }
+      }
+    },
     "standard": {
       "sectionTitle": "AI Provider - Non-Enterprise Plans",
       "sectionDescription": "Configure the fallback provider for Professional and Business customers. If you choose Azure IA, you need API Key, Endpoint URL, and Deployment (model) — same as Enterprise."
@@ -2474,6 +2488,7 @@
     "aiFeedbackDown": "Not helpful",
     "aiFeedbackThanks": "Thanks for your feedback",
     "aiReason_global_disabled": "AI features are turned off for the platform.",
+    "aiReason_feature_disabled": "AI explanation is turned off for the platform.",
     "aiReason_tenant_disabled": "AI features are turned off for this organization. An administrator can turn them on in AI Settings.",
     "aiReason_tier": "AI explanations are not included in your plan.",
     "aiReason_quota": "Your plan's monthly quota of AI explanations has been reached. With your own AI key (BYOK) there is no quota.",
@@ -7658,6 +7673,7 @@
     "criticalParseError": "Critical error processing the file locally.",
     "sessionNotReady": "Wait for the session to finish loading before analyzing.",
     "mappingError_global_disabled": "This CSV is not in FOCUS format and mapping its columns requires AI, which is disabled on the platform.",
+    "mappingError_feature_disabled": "This CSV is not in FOCUS format and mapping its columns requires AI, but AI column mapping is turned off on the platform.",
     "mappingError_tenant_disabled": "This CSV is not in FOCUS format and mapping its columns requires AI, which is disabled for your organization.",
     "mappingError_tier": "Mapping a non-FOCUS CSV with AI requires the Business plan or higher.",
     "mappingError_quota": "The monthly quota of AI CSV mappings is used up. Upload the file in FOCUS format or wait until next month.",

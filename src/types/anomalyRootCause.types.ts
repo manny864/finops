@@ -77,9 +77,10 @@ export interface AnomalyExplanation {
     causes: { factId: string; text: string }[];
 }
 
-// Por qué no hay explicación con IA. Los cinco primeros los decide el gate.
+// Por qué no hay explicación con IA. Los seis primeros los decide el gate.
 export const EXPLANATION_UNAVAILABLE_REASONS = [
     "global_disabled",
+    "feature_disabled",
     "tenant_disabled",
     "tier",
     "quota",

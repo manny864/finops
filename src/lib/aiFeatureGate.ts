@@ -2,23 +2,36 @@ import type { RowDataPacket } from "mysql2";
 import pool from "@/modules/storage/db";
 import rateLimiter from "@/lib/rateLimiter";
 import { hasAccess, normalizeTier } from "@/lib/tierLogic";
-import { isAiGloballyEnabled } from "@/services/aiService";
+import { getAiFeatureSwitch, isAiGloballyEnabled } from "@/services/aiService";
 
 /**
  * Gate único de las funciones de IA de la propuesta (Fase 0.1): interruptor
- * global, interruptor del tenant, tier, rate limit y cuota mensual en un solo
- * lugar. El Copilot conserva el suyo (`copilotConfig.ts`).
+ * global, interruptor de la feature, interruptor del tenant, tier, rate limit
+ * y cuota mensual en un solo lugar. El Copilot conserva el suyo
+ * (`copilotConfig.ts`).
  *
  * Un denegado no es un error: la ruta sigue con la versión determinista y
  * devuelve el motivo.
  */
 export type AiFeature = "anomaly-explanation" | "billing-csv-column-mapping";
 
-export type AiGateDenyReason = "global_disabled" | "tenant_disabled" | "tier" | "quota" | "rate_limited";
+export type AiGateDenyReason =
+    | "global_disabled"
+    | "feature_disabled"
+    | "tenant_disabled"
+    | "tier"
+    | "quota"
+    | "rate_limited";
 
 export type AiGateResult = { allowed: true } | { allowed: false; reason: AiGateDenyReason };
 
 interface AiFeatureConfig {
+    /**
+     * Estado mientras el superadmin no toque el interruptor de la feature. Las
+     * que todavía tienen precondiciones de negocio (sección 6.9 de la
+     * propuesta) arrancan apagadas.
+     */
+    defaultEnabled: boolean;
     minTier: string;
     /** Llamadas por mes que paga la plataforma; null = sin límite. BYOK no consume cuota. */
     monthlyQuota: Record<string, number | null>;
@@ -30,10 +43,24 @@ interface AiFeatureConfig {
 const QUOTA = { Professional: 50, Business: 150, Enterprise: null };
 
 export const AI_FEATURES: Record<AiFeature, AiFeatureConfig> = {
-    "anomaly-explanation": { minTier: "Professional", monthlyQuota: QUOTA, perMinute: 10, maxOutputTokens: 600 },
+    "anomaly-explanation": {
+        defaultEnabled: true,
+        minTier: "Professional",
+        monthlyQuota: QUOTA,
+        perMinute: 10,
+        maxOutputTokens: 600,
+    },
     // Business, como la página de upload (routeTiers).
-    "billing-csv-column-mapping": { minTier: "Business", monthlyQuota: QUOTA, perMinute: 5, maxOutputTokens: 800 },
+    "billing-csv-column-mapping": {
+        defaultEnabled: true,
+        minTier: "Business",
+        monthlyQuota: QUOTA,
+        perMinute: 5,
+        maxOutputTokens: 800,
+    },
 };
+
+export const isAiFeature = (value: string): value is AiFeature => Object.hasOwn(AI_FEATURES, value);
 
 const deny = (reason: AiGateDenyReason): AiGateResult => ({ allowed: false, reason });
 
@@ -46,6 +73,8 @@ export async function checkAiFeature(tenantId: string, feature: AiFeature, userK
     if (!(await isAiGloballyEnabled())) return deny("global_disabled");
 
     const cfg = AI_FEATURES[feature];
+    if (!((await getAiFeatureSwitch(feature)) ?? cfg.defaultEnabled)) return deny("feature_disabled");
+
     const [rows] = await pool.query<RowDataPacket[]>(
         "SELECT tier, ai_enabled, ai_provider, ai_api_key FROM Tenants WHERE tenant_id = ? LIMIT 1",
         [tenantId]

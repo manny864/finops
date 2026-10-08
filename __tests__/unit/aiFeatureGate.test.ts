@@ -1,16 +1,17 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { queryMock, globalMock, rlMock } = vi.hoisted(() => ({
+const { queryMock, globalMock, switchMock, rlMock } = vi.hoisted(() => ({
     queryMock: vi.fn(),
     globalMock: vi.fn(),
+    switchMock: vi.fn(),
     rlMock: vi.fn(),
 }));
 vi.mock("@/modules/storage/db", () => ({ default: { query: queryMock } }));
-vi.mock("@/services/aiService", () => ({ isAiGloballyEnabled: globalMock }));
+vi.mock("@/services/aiService", () => ({ isAiGloballyEnabled: globalMock, getAiFeatureSwitch: switchMock }));
 vi.mock("@/lib/rateLimiter", () => ({ default: { checkByKeyDistributed: rlMock } }));
 
-import { checkAiFeature } from "@/lib/aiFeatureGate";
+import { AI_FEATURES, checkAiFeature } from "@/lib/aiFeatureGate";
 
 const PRO = { tier: "Professional", ai_enabled: 1, ai_provider: "system", ai_api_key: null };
 const tenant = (row: object | null) => queryMock.mockResolvedValueOnce([row ? [row] : []]);
@@ -21,6 +22,8 @@ beforeEach(() => {
     queryMock.mockReset();
     globalMock.mockReset();
     globalMock.mockResolvedValue(true);
+    switchMock.mockReset();
+    switchMock.mockResolvedValue(null);
     rlMock.mockReset();
     rlMock.mockResolvedValue({ allowed: true, resetAt: new Date() });
 });
@@ -30,6 +33,26 @@ describe("checkAiFeature", () => {
         globalMock.mockResolvedValue(false);
         expect(await check()).toEqual({ allowed: false, reason: "global_disabled" });
         expect(queryMock).not.toHaveBeenCalled();
+    });
+
+    it("el interruptor de la feature corta antes de leer el tenant", async () => {
+        switchMock.mockResolvedValue(false);
+        expect(await check()).toEqual({ allowed: false, reason: "feature_disabled" });
+        expect(switchMock).toHaveBeenCalledWith("anomaly-explanation");
+        expect(queryMock).not.toHaveBeenCalled();
+    });
+
+    it("sin interruptor guardado manda el default de la feature", async () => {
+        const cfg = AI_FEATURES["anomaly-explanation"];
+        cfg.defaultEnabled = false;
+        try {
+            expect(await check()).toEqual({ allowed: false, reason: "feature_disabled" });
+            switchMock.mockResolvedValue(true);
+            tenant({ ...PRO, tier: "Enterprise" });
+            expect(await check()).toEqual({ allowed: true });
+        } finally {
+            cfg.defaultEnabled = true;
+        }
     });
 
     it("IA apagada en el tenant, o tenant sin fila: tenant_disabled", async () => {

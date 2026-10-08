@@ -5,6 +5,8 @@
 import pool, { initializeDatabase, insertPlatformAiUsage } from "@/modules/storage/db";
 import { encryptSecret } from "@/lib/secretCrypto";
 import { AIProviderFactory, invalidateAIConfigCache, extractAiErrorMessage } from "@/modules/core/aiProvider";
+import { AI_FEATURES, isAiFeature, type AiFeature } from "@/lib/aiFeatureGate";
+import { AI_FEATURE_SETTING_PREFIX } from "@/services/aiService";
 import { generateText } from "ai";
 import {
     PlatformGlobalAiSettings,
@@ -28,7 +30,18 @@ const GLOBAL_KEYS = [
     "ai_anomaly_sensitivity",
     "ai_share_resource_names",
     "ai_share_tags",
+    ...Object.keys(AI_FEATURES).map((feature) => AI_FEATURE_SETTING_PREFIX + feature),
 ];
+
+// Mismo criterio que el gate: lo que no sea "true"/"false" toma el default de la feature.
+function resolveFeatureSwitches(map: Record<string, string>): Record<AiFeature, boolean> {
+    return Object.fromEntries(
+        (Object.keys(AI_FEATURES) as AiFeature[]).map((feature) => {
+            const value = map[AI_FEATURE_SETTING_PREFIX + feature];
+            return [feature, value === "true" ? true : value === "false" ? false : AI_FEATURES[feature].defaultEnabled];
+        })
+    ) as Record<AiFeature, boolean>;
+}
 
 const MOCK_SETTINGS: PlatformGlobalAiSettings = {
     isPlatformMasterAiEnabled: true,
@@ -49,6 +62,7 @@ const MOCK_SETTINGS: PlatformGlobalAiSettings = {
     defaultAnomalySensitivity: "MEDIUM",
     defaultShareResourceNames: true,
     defaultShareTags: true,
+    featureSwitches: resolveFeatureSwitches({}),
     updatedAtIso: new Date().toISOString(),
 };
 
@@ -114,6 +128,7 @@ export async function getPlatformGlobalAiSettings(isMock = false): Promise<Platf
             defaultAnomalySensitivity: sensitivity,
             defaultShareResourceNames: map.ai_share_resource_names !== "false",
             defaultShareTags: map.ai_share_tags !== "false",
+            featureSwitches: resolveFeatureSwitches(map),
             updatedAtIso: new Date().toISOString(),
         };
     } catch {
@@ -175,6 +190,12 @@ export async function savePlatformGlobalAiSettings(
     }
     await upsertGlobalSetting("ai_share_resource_names", payload?.defaultShareResourceNames !== false ? "true" : "false");
     await upsertGlobalSetting("ai_share_tags", payload?.defaultShareTags !== false ? "true" : "false");
+
+    for (const [feature, enabled] of Object.entries(payload?.featureSwitches ?? {})) {
+        if (isAiFeature(feature) && typeof enabled === "boolean") {
+            await upsertGlobalSetting(AI_FEATURE_SETTING_PREFIX + feature, String(enabled));
+        }
+    }
 
     invalidateAIConfigCache();
     return { success: true };

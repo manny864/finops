@@ -5,6 +5,7 @@
  */
 export const CSV_MAPPING_ERROR_REASONS = [
     "global_disabled",
+    "feature_disabled",
     "tenant_disabled",
     "tier",
     "quota",

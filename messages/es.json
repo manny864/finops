@@ -440,6 +440,20 @@
       "toggleLabel": "Habilitar funciones de IA (plataforma)",
       "toggleDescription": "Interruptor maestro: si se apaga, la IA queda inhabilitada para TODOS los tenants (Copilot y Reporte Ejecutivo con IA), sin importar su propio toggle per-tenant. Pensado para incidentes con el proveedor o costos fuera de control."
     },
+    "featureSwitches": {
+      "heading": "Funciones de IA (interruptor por función)",
+      "description": "Apaga una función de IA para todos los tenants sin tocar el resto. El interruptor maestro tiene prioridad: si está apagado, todas quedan apagadas. Con una función apagada, la pantalla sigue andando con la versión sin IA y muestra el motivo.",
+      "features": {
+        "anomaly-explanation": {
+          "label": "Explicación de anomalías con IA",
+          "description": "Redacta, a partir de los hechos calculados, por qué cambió el costo en el panel \"Ver Causa Raíz\". Professional en adelante."
+        },
+        "billing-csv-column-mapping": {
+          "label": "Mapeo de columnas de CSV con IA",
+          "description": "Propone a qué columna FOCUS corresponde cada columna de un CSV de facturación que no viene en formato FOCUS. Business en adelante."
+        }
+      }
+    },
     "standard": {
       "sectionTitle": "Proveedor IA - Planes no Enterprise",
       "sectionDescription": "Configura el proveedor de fallback para clientes Professional y Business. Si elegís Azure IA, necesitás API Key, Endpoint URL y Deployment (modelo), igual que en Enterprise."
@@ -2474,6 +2488,7 @@
     "aiFeedbackDown": "No me sirvió",
     "aiFeedbackThanks": "Gracias por tu opinión",
     "aiReason_global_disabled": "Las funciones de IA están desactivadas en la plataforma.",
+    "aiReason_feature_disabled": "La explicación con IA está desactivada en la plataforma.",
     "aiReason_tenant_disabled": "Las funciones de IA están desactivadas para esta organización. Un administrador puede activarlas en Configuración de IA.",
     "aiReason_tier": "La explicación con IA no está incluida en tu plan.",
     "aiReason_quota": "Se alcanzó el cupo mensual de explicaciones con IA de tu plan. Con tu propia clave de IA (BYOK) no hay cupo.",
@@ -7658,6 +7673,7 @@
     "criticalParseError": "Error crítico al procesar el archivo localmente.",
     "sessionNotReady": "Esperá a que termine de iniciar la sesión antes de analizar.",
     "mappingError_global_disabled": "Este CSV no está en formato FOCUS y mapear sus columnas requiere IA, que está desactivada en la plataforma.",
+    "mappingError_feature_disabled": "Este CSV no está en formato FOCUS y mapear sus columnas requiere IA, pero el mapeo con IA está desactivado en la plataforma.",
     "mappingError_tenant_disabled": "Este CSV no está en formato FOCUS y mapear sus columnas requiere IA, que está desactivada para tu organización.",
     "mappingError_tier": "Mapear con IA un CSV que no está en formato FOCUS requiere el plan Business o superior.",
     "mappingError_quota": "Se agotó la cuota mensual de mapeos de CSV con IA. Subí el archivo en formato FOCUS o esperá al mes que viene.",

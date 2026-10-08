@@ -19,6 +19,22 @@ export async function isAiGloballyEnabled(): Promise<boolean> {
     return rows[0]?.setting_value !== 'false';
 }
 
+/** Clave en GlobalSettings del interruptor de una feature (setting_key es VARCHAR(50)). */
+export const AI_FEATURE_SETTING_PREFIX = 'ai_feature:';
+
+/**
+ * Interruptor por feature (Configuración de IA Global → "Funciones de IA").
+ * null = nunca se guardó: el gate usa el default de la feature.
+ */
+export async function getAiFeatureSwitch(feature: string): Promise<boolean | null> {
+    const [rows] = await pool.query<RowDataPacket[]>(
+        `SELECT setting_value FROM GlobalSettings WHERE setting_key = ? LIMIT 1`,
+        [AI_FEATURE_SETTING_PREFIX + feature]
+    );
+    const value = rows[0]?.setting_value;
+    return value === 'true' ? true : value === 'false' ? false : null;
+}
+
 function getEnvKeyForProvider(provider: string): string {
     const p = (provider || '').toLowerCase();
     if (p === 'azure_openai' || p === 'azure_ai') {

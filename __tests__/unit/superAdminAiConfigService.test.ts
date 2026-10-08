@@ -103,4 +103,53 @@ describe("superAdminAiConfig.service", () => {
         expect(result.success).toBe(true);
         expect(result.reply).toContain("OK");
     });
+
+    describe("interruptores por feature", () => {
+        const settingsRows = (rows: Array<[string, string]>) =>
+            mocks.mockPoolQuery.mockImplementation(async (sql: string) =>
+                sql.includes("SELECT setting_key")
+                    ? [rows.map(([setting_key, setting_value]) => ({ setting_key, setting_value }))]
+                    : [{}]
+            );
+
+        it("sin valor guardado devuelve el default de cada feature", async () => {
+            settingsRows([]);
+            const settings = await getPlatformGlobalAiSettings(false);
+            expect(settings.featureSwitches).toEqual({
+                "anomaly-explanation": true,
+                "billing-csv-column-mapping": true,
+            });
+            const [, params] = mocks.mockPoolQuery.mock.calls.find(([sql]) => sql.includes("SELECT setting_key"))!;
+            expect(params).toContain("ai_feature:anomaly-explanation");
+        });
+
+        it("un 'false' guardado apaga sólo esa feature", async () => {
+            settingsRows([["ai_feature:anomaly-explanation", "false"]]);
+            const settings = await getPlatformGlobalAiSettings(false);
+            expect(settings.featureSwitches["anomaly-explanation"]).toBe(false);
+            expect(settings.featureSwitches["billing-csv-column-mapping"]).toBe(true);
+        });
+
+        it("guarda las features conocidas e ignora las desconocidas", async () => {
+            settingsRows([]);
+            await savePlatformGlobalAiSettings(
+                {
+                    isPlatformMasterAiEnabled: true,
+                    nonEnterpriseConfig: { provider: "azure_openai", deploymentModelName: "gpt-4o-mini" },
+                    enterpriseConfig: { provider: "azure_openai", deploymentModelName: "gpt-5.1" },
+                    defaultAnomalySensitivity: "MEDIUM",
+                    defaultShareResourceNames: true,
+                    defaultShareTags: true,
+                    featureSwitches: { "anomaly-explanation": false, "no-existe": true } as never,
+                },
+                "superadmin@cscloudsolutions.com",
+                false
+            );
+            const upserts = mocks.mockPoolQuery.mock.calls
+                .filter(([sql]) => sql.includes("INSERT INTO GlobalSettings"))
+                .map(([, params]) => params);
+            expect(upserts).toContainEqual(["ai_feature:anomaly-explanation", "false"]);
+            expect(upserts.some(([key]) => key === "ai_feature:no-existe")).toBe(false);
+        });
+    });
 });
