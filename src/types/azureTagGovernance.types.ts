@@ -1,10 +1,27 @@
+import type { TagNormalizationResult } from "@/lib/tagValueNormalizer";
+
 export interface TagPolicyRule {
   id: string;
   tagName: string;
   isRequired: boolean;
+  /** Sin valores (o vacío) = valor libre: sólo se exige presencia. */
   allowedValues?: string[];
-  /** Clave i18n de la descripcion; la politica sirve a los tres idiomas. */
-  descriptionKey: string;
+  /**
+   * Clave i18n de la descripcion; la politica sirve a los tres idiomas. Las
+   * políticas propias del tenant la toman de la por defecto del mismo nombre.
+   */
+  descriptionKey?: string;
+}
+
+/** Un tag presente cuyo valor no está entre los permitidos de su política. */
+export interface InvalidTagValue {
+  /** Nombre de la política ("Environment"). */
+  tagName: string;
+  /** Clave tal como está escrita en el recurso ("environment"): la que se corrige. */
+  tagKey: string;
+  value: string;
+  /** Canónico sugerido por el normalizador determinista (sin IA). */
+  suggestion: TagNormalizationResult;
 }
 
 export interface ResourceTagAuditItem {
@@ -19,6 +36,8 @@ export interface ResourceTagAuditItem {
   complianceStatus: "COMPLIANT" | "NON_COMPLIANT";
   currentTags: Record<string, string>;
   missingTags: string[];
+  /** Valores no permitidos: distinto de faltante (el tag está, pero mal escrito o fuera de la lista). */
+  invalidTags?: InvalidTagValue[];
 }
 
 export interface ResourceGroupTagAuditItem {
@@ -30,6 +49,7 @@ export interface ResourceGroupTagAuditItem {
   complianceStatus: "COMPLIANT" | "NON_COMPLIANT";
   currentTags: Record<string, string>;
   missingTags: string[];
+  invalidTags?: InvalidTagValue[];
   childResourcesCount: number;
 }
 
@@ -37,6 +57,9 @@ export interface TagGovernanceSummaryMetrics {
   overallCompliancePercentage: number;
   nonCompliantResourcesCount: number;
   nonCompliantResourceGroupsCount: number;
+  /** Recursos con al menos un valor no permitido (también cuentan como no conformes). */
+  invalidValueResourcesCount?: number;
+  invalidValueResourceGroupsCount?: number;
   totalScannedResources: number;
   totalScannedResourceGroups: number;
   mostFrequentMissingTag: string;
