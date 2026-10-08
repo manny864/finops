@@ -1,7 +1,11 @@
 # Plan: ampliar Shift-Left FinOps (PR Cost Estimator, MEJ-20)
 
-> **Estado: preparado el 2026-10-08, NO ejecutado.** Documento para retomar
-> después; no se tocó código.
+> **Estado: preparado el 2026-10-08.** Documento para retomar después. Este
+> plan no se ejecutó, salvo dos brechas que se cerraron el mismo día por
+> separado: la **1** (el scope `write:shift-left` ya se otorga desde la pantalla
+> de API Keys) y la **9** (el plan es **Enterprise**, decisión de Manuel; la API
+> de claves, Shift-Left, el menú y los manuales quedaron alineados con
+> `routeTiers.ts`).
 >
 > **Lo verificado y lo que no.** Todo lo que se dice del repo se leyó el
 > 2026-10-08 (archivos citados). Los contratos de Azure —nombres de
@@ -37,7 +41,7 @@ Ordenadas por cuánto frenan que el cliente le saque valor.
 
 | # | Brecha | Evidencia | Efecto |
 |---|---|---|---|
-| 1 | **El scope `write:shift-left` no se puede otorgar desde la pantalla de API Keys.** | `PublicApiScope` (`src/types/publicApiKey.types.ts`) y la lista de `ApiKeysPanel.tsx:60-65` tienen seis scopes y ninguno es ése. El alta (`api/admin/public-api-keys/route.ts:57`) acepta cualquier arreglo sin validarlo | El manual (11.10) y el texto de la pantalla vacía dicen que se otorga "al generar la key", pero la interfaz no lo ofrece. Hoy sólo se puede por llamada directa a la API. Sin esto nadie puede empezar |
+| 1 | ✅ *Cerrada.* **El scope `write:shift-left` no se podía otorgar desde la pantalla de API Keys.** | `PublicApiScope` (`src/types/publicApiKey.types.ts`) y la lista de `ApiKeysPanel.tsx:60-65` tienen seis scopes y ninguno es ése. El alta (`api/admin/public-api-keys/route.ts:57`) acepta cualquier arreglo sin validarlo | El manual (11.10) y el texto de la pantalla vacía dicen que se otorga "al generar la key", pero la interfaz no lo ofrece. Hoy sólo se puede por llamada directa a la API. Sin esto nadie puede empezar |
 | 2 | **La Action no se puede usar tal como está.** | El ejemplo hace `uses: ./integrations/github-action`: la carpeta vive en este repo y no hay un repo ni un Marketplace de donde referenciarla | El cliente tiene que copiar la carpeta a su repositorio y mantenerla a mano |
 | 3 | **Cobertura de cuatro tipos.** | `CATALOGO` en el estimador | Un PR que crea una base de datos, un AKS o un App Service muestra delta 0 para eso. El comentario avisa "no se pudieron tarifar", pero un número bajo se lee como "esto es barato" |
 | 4 | **Precios de lista.** | El README de la Action y el manual | No refleja reservas, savings plans, Hybrid Benefit ni descuentos de contrato |
@@ -45,7 +49,7 @@ Ordenadas por cuánto frenan que el cliente le saque valor.
 | 6 | **El gate compara con un umbral fijo por repo**, no con el presupuesto disponible. | `IacBudgetGates` (tenant, repo, USD) | No dice "este PR consume el 40% del presupuesto que queda del centro de costos" |
 | 7 | **Valores desconocidos al planear.** | El estimador lee `change.after`; Terraform marca en `after_unknown` lo que se resuelve en el apply | Un SKU calculado o venido de otro recurso llega vacío y el recurso queda `sin-sku`. Verificar con planes reales |
 | 8 | **El plan viaja entero.** | La Action manda `plan` completo; el servidor guarda sólo `lineas` (`route.ts:158`) | Un plan puede contener valores sensibles y datos del tenant, y no hace falta mandarlos: el estimador usa sólo tipo, dirección, acciones, `location` y el SKU. Relaciona con el principio de minimización de `docs/plan-despliegue-europa-gdpr-2026-10-07.md` |
-| 9 | **Desfase de tier.** | `routeTiers.ts:122` marca `/admin/api-keys` como Enterprise; la API de claves, el manual y el módulo dicen Business | Verificar cuál es el real: si es Enterprise, un cliente Business no podría crear la clave que el módulo exige |
+| 9 | ✅ *Cerrada: Enterprise.* **Desfase de tier.** | `routeTiers.ts:122` marca `/admin/api-keys` como Enterprise; la API de claves, el manual y el módulo dicen Business | Verificar cuál es el real: si es Enterprise, un cliente Business no podría crear la clave que el módulo exige |
 | 10 | **Lo que se cobra por uso no se puede estimar.** | Storage por GB usados, egress, transacciones, tokens | Hoy se mezcla con "no soportado". Hace falta distinguirlo |
 
 ## 3. Principios
@@ -64,11 +68,10 @@ Ordenadas por cuánto frenan que el cliente le saque valor.
 
 ### Fase 0 — Desbloqueo (pequeña, hacerla primero)
 
-- Sumar `write:shift-left` a `PublicApiScope` y a la lista del panel, con una
-  descripción que explique que es de escritura y a propósito aparte.
-- Validar los scopes del alta contra una lista cerrada en el servidor, para que
-  un valor inventado no quede guardado.
-- Resolver la brecha 9 (tier) y alinear manual, README y texto de la pantalla.
+- ~~Sumar `write:shift-left` a `PublicApiScope` y al panel, y validar los scopes
+  del alta contra una lista cerrada.~~ Hecho (`PUBLIC_API_SCOPES`, con un test que
+  falla si una ruta exige un scope que no se puede otorgar).
+- ~~Resolver la brecha 9 (tier).~~ Hecho: Enterprise.
 - Decidir cómo se distribuye la Action (brecha 2): repo público propio
   (`uses: org/finops-pr-cost-estimator@v1`) o instrucciones de copia. La primera
   es la que escala.
@@ -168,7 +171,7 @@ comentario cómo cambió la estimación respecto del push anterior.
 ## 7. Decisiones abiertas
 
 1. ¿Distribución de la Action: repo público o copia manual?
-2. ¿Qué tier es el correcto para crear las claves (brecha 9)?
+2. ~~¿Qué tier es el correcto para crear las claves?~~ Resuelta: Enterprise.
 3. ¿Qué tipos de recurso entran primero? Depende del ranking de gasto real.
 4. ¿Descuento por tenant manual (A) o derivado (B)?
 5. ¿Azure DevOps entra antes que Bicep?

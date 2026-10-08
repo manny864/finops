@@ -29,7 +29,7 @@ export async function DELETE(
             return NextResponse.json({ success: true, message: "Key revocada", mock: true });
         }
 
-        await requireTenantTier(request, tenantId, "Business");
+        await requireTenantTier(request, tenantId, "Enterprise");
         await requireTenantRole(request, tenantId, ["Admin", "ADMIN", "Owner"]);
 
         const ok = await revokePublicApiKey(tenantId, keyId);
@@ -65,7 +65,7 @@ export async function PUT(
             return NextResponse.json({ success: true, mock: true });
         }
 
-        await requireTenantTier(request, tenantId, "Business");
+        await requireTenantTier(request, tenantId, "Enterprise");
         await requireTenantRole(request, tenantId, ["Admin", "ADMIN", "Owner"]);
 
         const body = await request.json().catch(() => ({}));

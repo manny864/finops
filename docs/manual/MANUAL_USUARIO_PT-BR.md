@@ -981,7 +981,7 @@ Cruza o inventário do seu tenant contra o calendário de aposentadorias do Azur
 
 Esta tela não é mostrada a usuários com alcance atribuído: é o inventário de toda a plataforma, não a parcela de um time.
 
-### 7.10. Shift-Left FinOps (`/governance/shift-left`, Business+)
+### 7.10. Shift-Left FinOps (`/governance/shift-left`, Enterprise)
 
 **O custo se decide quando alguém escreve o `.tf`, não quando chega a fatura.** O Shift-Left leva o impacto econômico de uma mudança de infraestrutura para a revisão do **Pull Request**, que é onde ainda é barato corrigi-lo. Funciona sobre Terraform. No menu, fica em **Governança → Shift-Left (PRs)**.
 
@@ -1430,7 +1430,7 @@ Você pode fazer upgrade para um plano pago a qualquer momento em **Faturamento*
 - **Redis de produção:** Azure Managed Redis com HA habilitada.
 - **Edge/CDN:** usamos Cloudflare na frente da origem no Azure.
 
-### 11.10. Shift-Left FinOps: API e GitHub Action (Business+)
+### 11.10. Shift-Left FinOps: API e GitHub Action (Enterprise)
 
 O que faz e como ler o resultado: veja 7.10. Aqui, a parte técnica.
 

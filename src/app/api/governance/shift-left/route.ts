@@ -4,7 +4,7 @@
  *
  * Lee lo que fue dejando POST /api/v1/shift-left/estimate desde CI.
  *
- * Tier Business, igual que las API Keys públicas (`admin/public-api-keys`): sin
+ * Tier Enterprise, igual que las API Keys públicas (`admin/public-api-keys`): sin
  * una clave no hay forma de que exista una sola fila acá, así que gatearlo más
  * abajo mostraría una pantalla vacía sin explicación.
  */
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
         if (isMockTenant(tenantId)) return datosDemo();
 
         await requireTenantAccess(request, tenantId);
-        await requireTenantTier(request, tenantId, "Business");
+        await requireTenantTier(request, tenantId, "Enterprise");
 
         const [filas] = await pool.query<any[]>(
             `SELECT id, repository, pr_number, author, commit_sha,

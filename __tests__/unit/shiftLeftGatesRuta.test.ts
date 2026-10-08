@@ -80,7 +80,7 @@ describe("PUT /api/governance/shift-left/gates", () => {
     });
 
     it("el tier se chequea aunque el rol alcance", async () => {
-        requireTenantTier.mockRejectedValue(new AuthErrorMock("Esta función requiere el plan Business o superior.", 403));
+        requireTenantTier.mockRejectedValue(new AuthErrorMock("Esta función requiere el plan Enterprise.", 403));
         const r = await PUT(pedido({ tenantId: "t1", repository: "acme/infra", threshold_usd: 10 }));
         expect(r.status).toBe(403);
         expect(queryMock).not.toHaveBeenCalled();

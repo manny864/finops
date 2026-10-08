@@ -982,7 +982,7 @@ It crosses your tenant's inventory against Azure's retirement calendar. Today it
 
 This screen is not shown to users with an assigned scope: it is the inventory of the whole platform, not one team's slice.
 
-### 7.10. Shift-Left FinOps (`/governance/shift-left`, Business+)
+### 7.10. Shift-Left FinOps (`/governance/shift-left`, Enterprise)
 
 **Cost is decided when someone writes the `.tf`, not when the invoice arrives.** Shift-Left brings the economic impact of an infrastructure change into the **Pull Request** review, which is where it is still cheap to correct. It works on Terraform. In the menu it is under **Governance → Shift-Left (PRs)**.
 
@@ -1430,7 +1430,7 @@ You can upgrade to a paid plan at any time from **Billing** — the trial immedi
 - **Production Redis:** Azure Managed Redis with HA enabled.
 - **Edge/CDN:** Cloudflare is used in front of the Azure origin.
 
-### 11.10. Shift-Left FinOps: API and GitHub Action (Business+)
+### 11.10. Shift-Left FinOps: API and GitHub Action (Enterprise)
 
 What it does and how to read the result: see 7.10. Here, the technical part.
 

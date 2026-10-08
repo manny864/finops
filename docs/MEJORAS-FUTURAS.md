@@ -2114,7 +2114,7 @@ Los tres criterios, con Terraform. Migraciones `20260922-001-shift-left-estimaci
 (historial, append-only) y `20260922-002-budget-gates.sql` (umbral por repo);
 endpoint `POST /api/v1/shift-left/estimate` con el scope nuevo `write:shift-left`;
 GitHub Action composite en `integrations/github-action`; panel
-`/governance/shift-left` (tier Business) con el historial y el editor de umbrales,
+`/governance/shift-left` (tier Enterprise) con el historial y el editor de umbrales,
 que escribe por `PUT /api/governance/shift-left/gates` (rol Admin/Owner).
 
 **Precedencia de los umbrales:** el `threshold-usd` del workflow gana sobre el de

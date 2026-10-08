@@ -1,6 +1,6 @@
 /**
  * Admin endpoint para crear y listar API keys públicas REST v1.
- * Auth: requireTenantTier('Business') + requireTenantRole(['Admin','Owner'])
+ * Auth: requireTenantTier('Enterprise') + requireTenantRole(['Admin','Owner'])
  *
  * El texto plano de la key se devuelve UNA SOLA VEZ en el POST de creación.
  * Para tenants demo, el check `isMockTenant` se evalúa primero sin requerir OAuth.
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Tenants reales: validación obligatoria RBAC
-        await requireTenantTier(request, tenantId, "Business");
+        await requireTenantTier(request, tenantId, "Enterprise");
         await requireTenantRole(request, tenantId, ["Admin", "ADMIN", "Owner", "FinOps Manager", "Reader"]);
 
         const keys = await listPublicApiKeys(tenantId);
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Tenants reales: validación de rol de administración
-        await requireTenantTier(request, tenantId, "Business");
+        await requireTenantTier(request, tenantId, "Enterprise");
         const identity = await requireTenantRole(request, tenantId, ["Admin", "ADMIN", "Owner"]);
 
         const result = await createPublicApiKey(

@@ -11,6 +11,8 @@ vi.mock("@/lib/requestAuth", () => ({
 vi.mock("@/modules/storage/db", () => ({ default: { query: vi.fn() } }));
 
 import { PUBLIC_API_SCOPES } from "@/types/publicApiKey.types";
+import { ROUTE_TIERS } from "@/lib/routeTiers";
+import { requireTenantTier } from "@/lib/requestAuth";
 import { POST } from "@/app/api/admin/public-api-keys/route";
 
 function archivos(dir: string): string[] {
@@ -20,10 +22,10 @@ function archivos(dir: string): string[] {
     });
 }
 
-const alta = (scopes: unknown) =>
+const alta = (scopes: unknown, tenantId = "demo-tenant") =>
     new Request("https://x/api/admin/public-api-keys", {
         method: "POST",
-        body: JSON.stringify({ tenantId: "demo-tenant", name: "ci", scopes }),
+        body: JSON.stringify({ tenantId, name: "ci", scopes }),
         headers: { "Content-Type": "application/json" },
     }) as any;
 
@@ -51,5 +53,13 @@ describe("scopes de las API Keys públicas", () => {
         const r = await POST(alta(["read:cost", "write:todo"]));
         expect(r.status).toBe(400);
         expect((await r.json()).error).toContain("write:todo");
+    });
+
+    // La pantalla decía Enterprise y la API Business: un cliente Business veía la
+    // sección y no podía crear la clave. El plan lo define routeTiers.
+    it("crear una clave exige el mismo plan que declara la pantalla", async () => {
+        await POST(alta(["read:cost"], "tenant-real"));
+        expect(requireTenantTier).toHaveBeenCalledWith(expect.anything(), "tenant-real", ROUTE_TIERS["/admin/api-keys"]);
+        expect(ROUTE_TIERS["/admin/api-keys"]).toBe("Enterprise");
     });
 });

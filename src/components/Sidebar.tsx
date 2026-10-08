@@ -158,7 +158,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 { href: '/governance/reporting', label: t('governance_reporting'), icon: ShieldCheck, requiredTier: 'Enterprise' },
                 { href: '/governance/ha', label: t('ha_recommendations'), icon: ShieldCheck, requiredTier: 'Business' },
                 { href: '/governance/lifecycle', label: t('lifecycle_eol'), icon: CalendarClock, requiredTier: 'Business' },
-                { href: '/governance/shift-left', label: t('shift_left'), icon: IconGitPullRequest as any, requiredTier: 'Business' },
+                { href: '/governance/shift-left', label: t('shift_left'), icon: IconGitPullRequest as any, requiredTier: 'Enterprise' },
                 { href: '/governance/credentials', label: t('expiring_credentials'), icon: KeyRound, requiredTier: 'Business' },
                 { href: '/governance/approvals', label: t('approvals'), icon: CheckCircle, requiredTier: 'Business' }
             ]

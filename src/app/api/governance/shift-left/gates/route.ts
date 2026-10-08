@@ -11,7 +11,7 @@
  * pintar la misma tabla.
  *
  * Rol Admin/Owner: configurar cuánto puede gastar un repo es gobernanza, no
- * lectura. Tier Business, igual que el resto del módulo.
+ * lectura. Tier Enterprise, igual que el resto del módulo.
  */
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
@@ -60,7 +60,7 @@ export async function PUT(request: NextRequest) {
             return NextResponse.json({ ok: true, mock: true, threshold_usd: borrar ? null : umbral });
         }
 
-        await requireTenantTier(request, tenantId, "Business");
+        await requireTenantTier(request, tenantId, "Enterprise");
         await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
 
         if (borrar) {
