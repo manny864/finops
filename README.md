@@ -396,9 +396,11 @@ Dentro de un stamp:
 | Blob Storage | Adjuntos de soporte, logos de tenant y backups (el filesystem del contenedor es efímero) |
 | Log Analytics + Application Insights | Con diagnostic settings de Key Vault, MySQL, Redis y Blob |
 | Budget + alertas | Presupuesto mensual por resource group con aviso por email |
+| Azure AI Services (opcional) | IA de plataforma sin keys: `gpt-5.4-mini` Data Zone en West US 3, por private endpoint y con la identidad de la app. Apagada hasta el rollout (`ai_services_enabled`, ver [`infra/README.md`](infra/README.md)) |
 
 La identidad de la app es una **user-assigned managed identity**: se usa para el
-`AcrPull` de la imagen y para leer Key Vault. Ver la advertencia de nombres en
+`AcrPull` de la imagen, para leer Key Vault y, con la cuenta de IA prendida,
+para pedir inferencias a Azure OpenAI. Ver la advertencia de nombres en
 `infra/terraform/modules/stamp/main.tf` — la variable es
 `AZURE_KEYVAULT_MI_CLIENT_ID`, **nunca** `AZURE_CLIENT_ID` (esa ya tiene dueño:
 es el app registration con el que se piden tokens contra el tenant del cliente).
@@ -436,10 +438,38 @@ segundo.
   documentados in-situ en `infra/terraform/modules/custom_domain/main.tf`
   (IDs desalineados entre recursos, y `container_app_environment_certificate_id`
   de sólo-escritura, que sin `ignore_changes` quiere recrear un binding vivo).
+- **West US 2 no ofrece modelos de Azure OpenAI.** La cuenta de IA del stamp
+  `us` va en West US 3 (`ai_services_location`), con el private endpoint en la
+  VNet de West US 2.
+- **El private endpoint de Azure AI necesita tres zonas DNS**
+  (`cognitiveservices`, `openai` y `services.ai`). Con una de menos, ese nombre
+  resuelve a la IP pública y, sin acceso público, la llamada falla con 403.
 
 ---
 
 ## 📈 Recent Major Updates
+
+### 2026-10-08 — IA de plataforma sin keys: Managed Identity y módulo `ai_services`
+
+Detalle técnico en `docs/lld/00-lld-completo.md` §41, arquitectónico en
+`docs/hld/00-hld-completo.md` §19.6 y rollout en la propuesta de IA, sección
+10.6. Queda todo apagado: sin los flags de Terraform no cambia nada.
+
+- **App.** La IA de plataforma con Azure OpenAI pide un token de Entra ID con la
+  identidad del stamp (`src/lib/azureAiCredential.ts`). Pasa a Entra si no hay
+  key o si `AZURE_OPENAI_AUTH=entra`; en desarrollo local, sin
+  `AZURE_KEYVAULT_MI_CLIENT_ID`, sigue con la key. BYOK y los otros proveedores
+  no cambian.
+- **Terraform.** Módulo `infra/terraform/modules/ai_services` detrás de
+  `ai_services_enabled`: cuenta sin acceso público, private endpoint con tres
+  zonas DNS, deployment `gpt-5.4-mini` Data Zone, rol *Cognitive Services
+  OpenAI User* para la identidad de la app, logs de auditoría y presupuesto de
+  US$50.
+- **Variables de entorno nuevas** (las pone Terraform con
+  `ai_services_entra_auth`): `AZURE_OPENAI_RESOURCE_NAME`,
+  `AZURE_OPENAI_DEPLOYMENT` y `AZURE_OPENAI_AUTH=entra`.
+- **Checkov:** se omiten `CKV2_AZURE_22` y `CKV_AZURE_236`; el segundo sale
+  cuando se apaguen las keys.
 
 ### 2026-10-07/08 — IA fase 1: la anomalía dice qué cambió, y la IA sólo lo redacta
 

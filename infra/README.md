@@ -108,4 +108,26 @@ igual para saber qué apagar cuando el crédito termine.
 | `defender_enabled` | `false` | Defender for Cloud. Alcance **suscripción** |
 | `frontdoor_enabled` | `false` | Sólo útil con 2+ stamps |
 | `zone_redundant` | `true` | **No se puede cambiar después de crear el entorno** |
+| `stamps.<clave>.ai_services_enabled` | `false` | Cuenta de Azure AI Services del stamp (`modules/ai_services`): private endpoint, `gpt-5.4-mini` Data Zone y la identidad de la app como credencial. Unos US$9/mes fijos más el consumo, con presupuesto propio de US$50. Ver *IA de plataforma* abajo |
+| `stamps.<clave>.ai_services_location` | `null` (la del stamp) | Región de la cuenta de IA. West US 2 no ofrece modelos de Azure OpenAI: `us` usa `westus3` |
+| `stamps.<clave>.ai_services_entra_auth` | `true` | Pasa la app a la cuenta nueva con Entra ID. En `false` crea sólo la infraestructura y la app sigue con la key |
 | `keyvault_private_endpoint_enabled` | `false` | Private endpoint del vault **y** cierre del acceso público. Rompe el plan/apply desde runners de GitHub — leer `docs/keyvault-network-hardening.md` antes de activarlo |
+
+## IA de plataforma (`ai_services`)
+
+La cuenta se prende por stamp y en pasos. El detalle está en el LLD §41 y en la
+propuesta de IA, sección 10.6.
+
+1. Confirmar la cuota Data Zone de `gpt-5.4-mini` en West US 3 y actualizar el
+   centro de confianza, que hoy dice «despliegue único en West US 2».
+2. Apply con `ai_services_enabled = true`, `ai_services_location = "westus3"` y
+   `ai_services_entra_auth = false`: crea la infraestructura y la app sigue con
+   la key.
+3. Desde el contenedor, `<cuenta>.openai.azure.com` tiene que resolver a
+   `10.50.10.x`. Si resuelve a la IP pública falta una zona DNS y la llamada
+   falla con 403.
+4. Apply con `ai_services_entra_auth = true`, con Azure IA como proveedor de
+   plataforma en *IA — Configuración global*. Volver a `false` es la vuelta
+   atrás, sin borrar la cuenta.
+5. `local_auth_enabled = false` en `modules/ai_services`, sacar `CKV_AZURE_236`
+   del `skip_check` de `terraform.yml` y borrar la key de Azure IA del panel.

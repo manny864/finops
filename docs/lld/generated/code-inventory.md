@@ -94,6 +94,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/powerScheduleService.ts` | 347 | `PowerScheduleAction`, `PowerScheduleInput`, `PowerScheduleRow`, `upsertPowerSchedule`, `listPowerSchedules`, `deletePowerSchedule`, … |
 | `src/services/azureMaccTracking.service.ts` | 339 | `computeMaccStatus`, `generateMaccPacingTrend`, `simulateMaccRenegotiation`, `getMockMaccPayload`, `assembleLiveMaccTracking` |
 | `src/services/tenantNotifications.service.ts` | 331 | `getTenantNotifications`, `markNotificationAsRead`, `deleteNotification` |
+| `src/services/aiService.ts` | 327 | `isAiGloballyEnabled`, `AI_FEATURE_SETTING_PREFIX`, `getAiFeatureSwitch`, `getAIConfig`, `generateFinOpsReport` |
 | `src/services/perspectives.service.ts` | 323 | `TipoRegla`, `ReglaPerspectiva`, `FilaDeCosto`, `MotivoSinGrupo`, `GrupoDelReparto`, `RepartoPerspectiva`, … |
 | `src/services/publicApiKey.service.ts` | 320 | `hashPublicApiKey`, `generatePublicApiKeyToken`, `maskPublicApiKey`, `listPublicApiKeys`, `createPublicApiKey`, `revokePublicApiKey`, … |
 | `src/services/superAdminPartnerCenter.service.ts` | 317 | `getPartnerCenterStatus`, `relinkPartner`, `configurePartnerMpn` |
@@ -105,7 +106,6 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/saasBilling.service.ts` | 303 | `getTenantBillingDetails`, `getCustomerPortalUrl`, `cancelTenantSubscription` |
 | `src/services/azureDataLakeGen2.service.ts` | 301 | `ADLS_RATES`, `detectDataLakeRedundancy`, `detectDataLakeEnvironment`, `buildDataLakeRemediations`, `computeDataLakeKpis`, `aggregateDataLakeStorage`, … |
 | `src/services/m365UserActivity.service.ts` | 301 | `getEnrichedUserActivity`, `getUserSignInHistory` |
-| `src/services/aiService.ts` | 298 | `isAiGloballyEnabled`, `AI_FEATURE_SETTING_PREFIX`, `getAiFeatureSwitch`, `getAIConfig`, `generateFinOpsReport` |
 | `src/services/anomalyExplanation.service.ts` | 298 | `ExplanationLocale`, `normalizeExplanationLocale`, `ExplainableAnomaly`, `ExplanationContext`, `buildExplanationContext`, `explanationFactsHash`, … |
 | `src/services/azureWhatIfSimulator.service.ts` | 297 | `simulateScenario`, `getMockWhatIfPayload`, `assembleLiveWhatIf` |
 | `src/services/azureSustainability.service.ts` | 293 | `AzureSustainabilityService` |
@@ -183,7 +183,7 @@ Integración con SDKs de Azure (`collectors/`), motores agnósticos (`core/`) y 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
 | `src/modules/collectors/azure/avdService.ts` | 701 | `AvdSessionHost`, `AvdApplicationGroup`, `AvdWorkspace`, `AvdHostPool`, `AvdStorageResource`, `AvdInventory`, … |
-| `src/modules/core/aiProvider.ts` | 637 | `invalidateAIConfigCache`, `redactForDataSharing`, `getDataSharingPrefs`, `redactForTenant`, `redactSerializedForTenant`, `aiQueue`, … |
+| `src/modules/core/aiProvider.ts` | 659 | `invalidateAIConfigCache`, `redactForDataSharing`, `getDataSharingPrefs`, `redactForTenant`, `redactSerializedForTenant`, `aiQueue`, … |
 | `src/modules/collectors/azure/foundryCollector.ts` | 578 | `getFoundryResourceCost`, `FoundryMeterUsage`, `FoundryModelAgg`, `parseFoundryMeter`, `normalizeFoundryModelName`, `aggregateFoundryMeters`, … |
 | `src/modules/collectors/azure/containerAppsCostService.ts` | 479 | `ContainerAppCostRow`, `ContainerRegistryCostRow`, `ContainerEnvironmentCostRow`, `ContainerAppsCostResult`, `getContainerAppsCost` |
 | `src/modules/collectors/azure/aiServiceCollectors.ts` | 439 | `getAiServiceRealCost`, `getSpeechLanguageResources`, `syncSpeechLanguageSnapshots`, `getVisionVideoResources`, `syncVisionVideoSnapshots`, `getContentSafetyResources`, … |
