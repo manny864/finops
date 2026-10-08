@@ -14,7 +14,8 @@ import { useTranslations } from "next-intl";
 import ResizableTh from "@/components/ResizableTh";
 import InfoTooltip from "@/components/InfoTooltip";
 import Pagination from "@/components/Pagination";
-import { GLOBAL_MANDATORY_TAGS, TAG_SUGGESTED_VALUES } from "@/lib/tagConfig";
+import TagNonConformingValues, { type AppliedTagChange } from "@/components/governance/TagNonConformingValues";
+import { withTags } from "@/lib/tagNonConformities";
 import {
   IconShieldCheck,
   IconTagOff,
@@ -60,6 +61,8 @@ const fetcher = async ([url, token]: [string, string]) => {
   return res.json();
 };
 
+const NO_POLICIES: TagPolicyRule[] = [];
+
 export default function TagGovernancePanel() {
   const t = useTranslations("GovernanceTags");
   const { selectedTenant } = useTenant();
@@ -100,6 +103,11 @@ export default function TagGovernancePanel() {
     fetcher,
     { revalidateOnFocus: false, dedupingInterval: 30000 }
   );
+
+  // Políticas efectivas del tenant (las de la casa si no definió ninguna): las
+  // mismas con las que el servidor auditó, así la tarjeta y la actualización
+  // optimista no divergen del escaneo.
+  const policies = data?.mandatoryPolicies ?? NO_POLICIES;
 
   // Estados locales optimistas de datos
   const [localResources, setLocalResources] = useState<ResourceTagAuditItem[]>([]);
@@ -290,18 +298,27 @@ export default function TagGovernancePanel() {
           resourceName: editingItem.name,
           resourceType: editingItem.resourceType || "Microsoft.Resources/resourceGroups",
           resourceGroup: editingItem.resourceGroup || "",
+          currentTags: editingItem.currentTags,
         }),
       });
       const json = await res.json();
       if (json.success && json.suggestedTags) {
+        // Sin sugerencia queda lo que había: no se completa con valores por defecto.
+        const details = Object.entries((json.details || {}) as Record<string, { value: string; confidence: number }>);
+        if (details.length === 0) {
+          toast.info(t("suggestNoEvidence"));
+          return;
+        }
         setTagForm((prev) => ({
           ...prev,
-          Environment: json.suggestedTags.Environment || prev.Environment || "prod",
-          Role: json.suggestedTags.Role || prev.Role || "worker",
-          CostCenter: json.suggestedTags.CostCenter || prev.CostCenter || "Engineering",
-          Department: json.suggestedTags.Department || prev.Department || "CloudOps",
+          Environment: json.suggestedTags.Environment || prev.Environment,
+          Role: json.suggestedTags.Role || prev.Role,
+          CostCenter: json.suggestedTags.CostCenter || prev.CostCenter,
+          Department: json.suggestedTags.Department || prev.Department,
         }));
-        toast.success(t("aiTagsInferred"));
+        toast.success(t("suggestFromPolicies"), {
+          description: details.map(([tag, d]) => `${tag}: ${d.value} (${Math.round(d.confidence * 100)}%)`).join(" · "),
+        });
       }
     } catch (err) {
       toast.error(t("aiSuggestError"));
@@ -330,6 +347,37 @@ export default function TagGovernancePanel() {
     toast.success(t("inheritedFromRg"));
   };
 
+  // Environment y Role siguen la política del tenant: con valores permitidos se
+  // elige de la lista (y un valor actual fuera de ella se muestra marcado, para
+  // verlo y cambiarlo); sin lista, texto libre.
+  const policyValueField = (
+    tag: "Environment" | "Role",
+    emptyLabel: string,
+    placeholder: string,
+    labels: Record<string, string> = {}
+  ) => {
+    const allowed = policies.find((p) => p.tagName.toLowerCase() === tag.toLowerCase())?.allowedValues;
+    const value = tagForm[tag];
+    const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+      setTagForm({ ...tagForm, [tag]: e.target.value });
+    const className =
+      "w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0054A6]";
+    if (!allowed?.length) {
+      return <input type="text" placeholder={placeholder} value={value} onChange={onChange} className={className} />;
+    }
+    return (
+      <select value={value} onChange={onChange} className={className}>
+        <option value="">{emptyLabel}</option>
+        {value && !allowed.includes(value) && <option value={value}>{t("notAllowedOption", { value })}</option>}
+        {allowed.map((v) => (
+          <option key={v} value={v}>
+            {labels[v] ?? v}
+          </option>
+        ))}
+      </select>
+    );
+  };
+
   // Guardar Etiquetas con Actualización Optimista
   const handleSaveTags = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -347,38 +395,11 @@ export default function TagGovernancePanel() {
       }
     }
 
-    // Actualización Optimista en Estado Local
-    const mandatoryList = ["Environment", "Role", "CostCenter", "Department"];
-    const missing = mandatoryList.filter((m) => !consolidatedTags[m] || consolidatedTags[m].trim() === "");
-    const isCompliant = missing.length === 0;
-
-    if (editingItem.type === "resource") {
-      setLocalResources((prev) =>
-        prev.map((r) =>
-          r.id.toLowerCase() === editingItem.id.toLowerCase()
-            ? {
-                ...r,
-                currentTags: consolidatedTags,
-                missingTags: missing,
-                complianceStatus: isCompliant ? "COMPLIANT" : "NON_COMPLIANT",
-              }
-            : r
-        )
-      );
-    } else {
-      setLocalRgs((prev) =>
-        prev.map((rg) =>
-          rg.id.toLowerCase() === editingItem.id.toLowerCase()
-            ? {
-                ...rg,
-                currentTags: consolidatedTags,
-                missingTags: missing,
-                complianceStatus: isCompliant ? "COMPLIANT" : "NON_COMPLIANT",
-              }
-            : rg
-        )
-      );
-    }
+    // Actualización optimista con las políticas del tenant: faltantes y valores no permitidos.
+    const update = <T extends ResourceTagAuditItem | ResourceGroupTagAuditItem>(item: T): T =>
+      item.id.toLowerCase() === editingItem.id.toLowerCase() ? withTags(item, consolidatedTags, policies) : item;
+    if (editingItem.type === "resource") setLocalResources((prev) => prev.map(update));
+    else setLocalRgs((prev) => prev.map(update));
 
     setIsSavingTags(true);
     try {
@@ -418,6 +439,19 @@ export default function TagGovernancePanel() {
     } finally {
       setIsSavingTags(false);
     }
+  };
+
+  // Correcciones de "Valores no conformes": se reflejan ya en las tablas, sin
+  // revalidar, porque Resource Graph tarda en ver las etiquetas nuevas.
+  const handleTagsApplied = (changes: AppliedTagChange[]) => {
+    const byId = new Map<string, Record<string, string>>();
+    for (const c of changes) byId.set(c.id.toLowerCase(), { ...byId.get(c.id.toLowerCase()), ...c.tags });
+    const update = <T extends ResourceTagAuditItem | ResourceGroupTagAuditItem>(item: T): T => {
+      const tags = byId.get(item.id.toLowerCase());
+      return tags ? withTags(item, { ...item.currentTags, ...tags }, policies) : item;
+    };
+    setLocalResources((prev) => prev.map(update));
+    setLocalRgs((prev) => prev.map(update));
   };
 
   // Cerrar el modal apaga siempre la sobrescritura: dejarla encendida de una
@@ -559,6 +593,7 @@ export default function TagGovernancePanel() {
       t("csvColRegion"),
       t("csvColComplianceStatus"),
       t("csvColMissingTags"),
+      t("csvColInvalidValues"),
       t("csvColCurrentTags"),
     ];
     const rows = filteredResources.map((r) => [
@@ -569,6 +604,7 @@ export default function TagGovernancePanel() {
       csvEscape(r.location),
       csvEscape(r.complianceStatus),
       csvEscape(r.missingTags.join("; ")),
+      csvEscape((r.invalidTags ?? []).map((inv) => `${inv.tagName}=${inv.value}`).join("; ")),
       csvEscape(Object.entries(r.currentTags).map(([k, v]) => `${k}=${v}`).join("; ")),
     ]);
 
@@ -586,6 +622,38 @@ export default function TagGovernancePanel() {
   const getResColWidth = (id: string) => resColumns.find((c) => c.id === id)?.width;
   const isRgColVisible = (id: string) => rgColumns.find((c) => c.id === id)?.visible ?? true;
   const getRgColWidth = (id: string) => rgColumns.find((c) => c.id === id)?.width;
+  // La columna de faltantes también muestra los valores no permitidos.
+  const colLabel = (id: string) => (id === "missingTags" ? t("col_missingOrInvalidTags") : t(`col_${id}`));
+
+  // Faltantes en gris; valores no permitidos en ámbar, con el canónico sugerido si lo hay.
+  const renderTagIssues = (item: ResourceTagAuditItem | ResourceGroupTagAuditItem) =>
+    item.missingTags.length === 0 && !item.invalidTags?.length ? (
+      <span className="text-[11px] text-slate-400">{t("allPresent")}</span>
+    ) : (
+      <div className="flex flex-wrap gap-1">
+        {item.missingTags.map((tag) => (
+          <span
+            key={tag}
+            className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+          >
+            {tag.toUpperCase()}
+          </span>
+        ))}
+        {(item.invalidTags ?? []).map((inv) => (
+          <span
+            key={`invalid-${inv.tagName}`}
+            title={
+              inv.suggestion.normalized
+                ? t("invalidValueTipSuggested", { value: inv.suggestion.normalized })
+                : t("invalidValueTip")
+            }
+            className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
+          >
+            {inv.tagName.toUpperCase()}: {inv.value}
+          </span>
+        ))}
+      </div>
+    );
 
   const summary = data || {
     overallCompliancePercentage: 83.0,
@@ -609,7 +677,7 @@ export default function TagGovernancePanel() {
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
                 {t("kpiGlobalCompliance")}
               </span>
-              <InfoTooltip content={t("kpiGlobalComplianceTip")} />
+              <InfoTooltip content={t("kpiGlobalComplianceTipValues")} />
             </div>
             <div className="text-2xl font-bold text-[#0078D4] dark:text-blue-400 font-['Montserrat']">
               {summary.overallCompliancePercentage.toFixed(1)}%
@@ -625,7 +693,7 @@ export default function TagGovernancePanel() {
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
                 {t("kpiNonCompliantResources")}
               </span>
-              <InfoTooltip content={t("kpiNonCompliantResourcesTip")} />
+              <InfoTooltip content={t("kpiNonCompliantResourcesTipValues")} />
             </div>
             <div className="text-2xl font-bold text-[#2563EB] dark:text-blue-300 font-['Montserrat']">
               {summary.nonCompliantResourcesCount}
@@ -688,29 +756,40 @@ export default function TagGovernancePanel() {
         </div>
 
         {/*
-          * Las tarjetas salen de `tagConfig`, la misma lista que audita el
-          * cumplimiento y que llena el modal de remediacion de financial-leaks.
-          * Eran cuatro bloques de JSX escritos a mano, asi que lo que esta
-          * pantalla anunciaba como obligatorio y lo que el detector realmente
-          * exigia podian divergir --y divergian--.
+          * Las tarjetas salen de las políticas efectivas del tenant, las mismas
+          * con las que el servidor auditó (las de la casa si no definió
+          * ninguna). Antes salían de `tagConfig`, así que un tenant con
+          * políticas propias veía unas y lo auditaban con otras.
           */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {GLOBAL_MANDATORY_TAGS.map((tag) => (
+          {policies.map((p) => (
             <div
-              key={tag}
+              key={p.id}
               className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between"
             >
               <div>
-                <div className="text-xs font-bold text-[#1B2A41] dark:text-white">{tag}</div>
-                <div className="text-[11px] text-slate-500">{(TAG_SUGGESTED_VALUES[tag] || []).join(", ")}</div>
+                <div className="text-xs font-bold text-[#1B2A41] dark:text-white">{p.tagName}</div>
+                <div className="text-[11px] text-slate-500">
+                  {p.allowedValues?.length ? p.allowedValues.join(", ") : t("policyFreeValue")}
+                </div>
               </div>
               <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 dark:bg-blue-950/40 text-[#0078D4] border border-blue-200 dark:border-blue-800">
-                {t("required")}
+                {p.isRequired ? t("required") : t("optionalBadge")}
               </span>
             </div>
           ))}
         </div>
       </div>
+
+      <TagNonConformingValues
+        tenantId={tenantId}
+        token={token}
+        isDemo={isDemo}
+        policies={policies}
+        resources={localResources}
+        resourceGroups={localRgs}
+        onTagsApplied={handleTagsApplied}
+      />
 
       {/* Sección 2: Tabla "Auditoría de Etiquetas de Recursos" (Estándar CMP - Ancho 100%, Redimensionable & macOS Scroll) */}
       <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs space-y-4">
@@ -762,7 +841,7 @@ export default function TagGovernancePanel() {
                             onChange={() => handleToggleResColumn(col.id)}
                             className="rounded text-[#0054A6] focus:ring-[#0054A6]"
                           />
-                          <span>{t(`col_${col.id}`)}</span>
+                          <span>{colLabel(col.id)}</span>
                         </label>
                       ))}
                     </div>
@@ -885,7 +964,7 @@ export default function TagGovernancePanel() {
                 )}
                 {isResColVisible("missingTags") && (
                   <ResizableTh minWidth={150} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    {t("col_missingTags")}
+                    {colLabel("missingTags")}
                   </ResizableTh>
                 )}
                 {isResColVisible("actions") && (
@@ -951,22 +1030,7 @@ export default function TagGovernancePanel() {
                     )}
 
                     {isResColVisible("missingTags") && (
-                      <td className="py-3 px-4">
-                        {res.missingTags.length === 0 ? (
-                          <span className="text-[11px] text-slate-400">{t("allPresent")}</span>
-                        ) : (
-                          <div className="flex flex-wrap gap-1">
-                            {res.missingTags.map((t) => (
-                              <span
-                                key={t}
-                                className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-                              >
-                                {t.toUpperCase()}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </td>
+                      <td className="py-3 px-4">{renderTagIssues(res)}</td>
                     )}
 
                     {isResColVisible("actions") && (
@@ -1043,7 +1107,7 @@ export default function TagGovernancePanel() {
                             onChange={() => handleToggleRgColumn(col.id)}
                             className="rounded text-[#0054A6] focus:ring-[#0054A6]"
                           />
-                          <span>{t(`col_${col.id}`)}</span>
+                          <span>{colLabel(col.id)}</span>
                         </label>
                       ))}
                     </div>
@@ -1125,7 +1189,7 @@ export default function TagGovernancePanel() {
                 )}
                 {isRgColVisible("missingTags") && (
                   <ResizableTh minWidth={150} className="py-3 px-4 font-bold text-[#1B2A41] dark:text-slate-200">
-                    {t("col_missingTags")}
+                    {colLabel("missingTags")}
                   </ResizableTh>
                 )}
                 {isRgColVisible("childCount") && (
@@ -1188,22 +1252,7 @@ export default function TagGovernancePanel() {
                     )}
 
                     {isRgColVisible("missingTags") && (
-                      <td className="py-3 px-4">
-                        {rg.missingTags.length === 0 ? (
-                          <span className="text-[11px] text-slate-400">{t("allPresent")}</span>
-                        ) : (
-                          <div className="flex flex-wrap gap-1">
-                            {rg.missingTags.map((t) => (
-                              <span
-                                key={t}
-                                className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-                              >
-                                {t.toUpperCase()}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </td>
+                      <td className="py-3 px-4">{renderTagIssues(rg)}</td>
                     )}
 
                     {isRgColVisible("childCount") && (
@@ -1300,31 +1349,20 @@ export default function TagGovernancePanel() {
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Environment <span className="text-rose-500">*</span>
                   </label>
-                  <select
-                    value={tagForm.Environment}
-                    onChange={(e) => setTagForm({ ...tagForm, Environment: e.target.value })}
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0054A6]"
-                  >
-                    <option value="">{t("selectEnvironment")}</option>
-                    <option value="prod">{t("envProd")}</option>
-                    <option value="stg">{t("envStg")}</option>
-                    <option value="dev">{t("envDev")}</option>
-                    <option value="qa">{t("envQa")}</option>
-                    <option value="sandbox">{t("envSandbox")}</option>
-                  </select>
+                  {policyValueField("Environment", t("selectEnvironment"), t("environmentPlaceholder"), {
+                    prod: t("envProd"),
+                    stg: t("envStg"),
+                    dev: t("envDev"),
+                    qa: t("envQa"),
+                    sandbox: t("envSandbox"),
+                  })}
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Role <span className="text-rose-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    placeholder={t("rolePlaceholder")}
-                    value={tagForm.Role}
-                    onChange={(e) => setTagForm({ ...tagForm, Role: e.target.value })}
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0054A6]"
-                  />
+                  {policyValueField("Role", t("selectRole"), t("rolePlaceholder"))}
                 </div>
 
                 <div>
@@ -1469,53 +1507,23 @@ export default function TagGovernancePanel() {
             </div>
 
             <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-              <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#1B2A41] dark:text-white">Environment</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-[#0078D4] border border-blue-200">
-                    {t("mandatoryBadge")}
-                  </span>
+              {policies.map((p) => (
+                <div
+                  key={p.id}
+                  className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 space-y-1"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#1B2A41] dark:text-white">{p.tagName}</span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-[#0078D4] border border-blue-200">
+                      {p.isRequired ? t("mandatoryBadge") : t("optionalBadge")}
+                    </span>
+                  </div>
+                  {p.descriptionKey && <div className="text-[11px] text-slate-500">{t(p.descriptionKey)}</div>}
+                  <div className="text-[11px] text-slate-500">
+                    {p.allowedValues?.length ? p.allowedValues.join(", ") : t("policyFreeValue")}
+                  </div>
                 </div>
-                <div className="text-[11px] text-slate-500">
-                  {t("policyEnvironmentDesc")}
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#1B2A41] dark:text-white">Role</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-[#0078D4] border border-blue-200">
-                    {t("mandatoryBadge")}
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-500">
-                  {t("policyRoleDesc")}
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#1B2A41] dark:text-white">CostCenter</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-[#0078D4] border border-blue-200">
-                    {t("mandatoryBadge")}
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-500">
-                  {t("policyCostCenterDesc")}
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#1B2A41] dark:text-white">Department</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-[#0078D4] border border-blue-200">
-                    {t("mandatoryBadge")}
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-500">
-                  {t("policyDepartmentDesc")}
-                </div>
-              </div>
+              ))}
             </div>
 
             <div className="flex items-center justify-end pt-3 border-t border-slate-100 dark:border-slate-800">

@@ -3,6 +3,8 @@ import { getResourceGraphClient } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import { errorMessage } from "@/lib/apiErrors";
+import { findInvalidTagValues, normalizeTagValue, parseAllowedValues, type TagValueAlias } from "@/lib/tagValueNormalizer";
+import { missingTagsOf, tagValueOf } from "@/lib/tagNonConformities";
 import {
   TagPolicyRule,
   ResourceTagAuditItem,
@@ -16,7 +18,7 @@ export const DEFAULT_MANDATORY_TAG_POLICIES: TagPolicyRule[] = [
     tagName: "Environment",
     isRequired: true,
     allowedValues: ["prod", "stg", "dev", "qa", "sandbox"],
-    descriptionKey: "policyEnvironmentDesc",
+    descriptionKey: "policyEnvironmentPurpose",
   },
   {
     id: "policy-role",
@@ -56,25 +58,63 @@ export function evaluateResourceMissingTags(
   currentTags: Record<string, string>,
   policies: TagPolicyRule[] = DEFAULT_MANDATORY_TAG_POLICIES
 ): string[] {
-  const normalizedCurrentKeys = Object.keys(currentTags || {}).map((k) => k.toLowerCase());
-  const missing: string[] = [];
+  return missingTagsOf(currentTags, policies);
+}
 
-  for (const pol of policies) {
-    if (!pol.isRequired) continue;
-    const polKeyLower = pol.tagName.toLowerCase();
-    const foundIdx = normalizedCurrentKeys.indexOf(polKeyLower);
-    if (foundIdx === -1) {
-      missing.push(pol.tagName);
-    } else {
-      const origKey = Object.keys(currentTags)[foundIdx];
-      const val = currentTags[origKey];
-      if (!val || val.trim() === "") {
-        missing.push(pol.tagName);
-      }
-    }
+/**
+ * Políticas efectivas del tenant: las que definió en TaggingPolicies o, si no
+ * definió ninguna (o la tabla no se puede leer), las de la casa. Definir una
+ * sola reemplaza a todas las por defecto.
+ */
+export async function getTenantTagPolicies(tenantId: string): Promise<TagPolicyRule[]> {
+  try {
+    const [rows] = await pool.query(
+      `SELECT id, policy_name, is_required, allowed_values
+         FROM TaggingPolicies WHERE tenant_id = ? ORDER BY id`,
+      [tenantId]
+    );
+    const filas = Array.isArray(rows)
+      ? (rows as Array<{ id: number; policy_name: string; is_required: number | null; allowed_values: unknown }>)
+      : [];
+    if (filas.length === 0) return DEFAULT_MANDATORY_TAG_POLICIES;
+    return filas.map((r) => ({
+      id: `tenant-policy-${r.id}`,
+      tagName: r.policy_name,
+      isRequired: Number(r.is_required ?? 1) === 1,
+      allowedValues: parseAllowedValues(r.allowed_values) ?? undefined,
+      descriptionKey: DEFAULT_MANDATORY_TAG_POLICIES.find(
+        (d) => d.tagName.toLowerCase() === r.policy_name.toLowerCase()
+      )?.descriptionKey,
+    }));
+  } catch (err) {
+    console.warn("[azureTagGovernance] Error leyendo TaggingPolicies, se usan las por defecto:", errorMessage(err));
+    return DEFAULT_MANDATORY_TAG_POLICIES;
   }
+}
 
-  return missing;
+/**
+ * Alias de valores (TagValueAliases) indexados por nombre de tag en minúsculas:
+ * primero los del tenant y después los globales, así los del tenant ganan.
+ */
+export async function getTagValueAliases(tenantId: string): Promise<Map<string, TagValueAlias[]>> {
+  const porTag = new Map<string, TagValueAlias[]>();
+  try {
+    const [rows] = await pool.query(
+      `SELECT tag_name, alias, canonical_value FROM TagValueAliases
+        WHERE tenant_id = ? OR tenant_id IS NULL
+        ORDER BY (tenant_id IS NULL), id`,
+      [tenantId]
+    );
+    for (const r of (Array.isArray(rows) ? rows : []) as Array<{ tag_name: string; alias: string; canonical_value: string }>) {
+      const k = r.tag_name.toLowerCase();
+      const lista = porTag.get(k) || [];
+      lista.push({ alias: r.alias, canonicalValue: r.canonical_value });
+      porTag.set(k, lista);
+    }
+  } catch (err) {
+    console.warn("[azureTagGovernance] Error leyendo TagValueAliases:", errorMessage(err));
+  }
+  return porTag;
 }
 
 /**
@@ -109,6 +149,66 @@ export async function getLocalCachedTags(tenantId: string): Promise<Map<string, 
 }
 
 /**
+ * Superpone la caché local a los tags de Azure: la caché gana en sus claves (sin
+ * distinguir mayúsculas) y el resto sale de Azure. Reemplazar el set entero
+ * escondía tags reales detrás de filas parciales, como las de cleanup/ttl
+ * ({ExpireOn, TTL}) o backup-orphans ({PurgeStatus, RequestedAt}). Costo
+ * aceptado: una clave que se saca en el modal se sigue viendo mientras Resource
+ * Graph la devuelva (el modal aplica con Merge, que no borra en Azure).
+ */
+export function overlayCachedTags(
+  azureTags: unknown,
+  cachedTags?: Record<string, string>
+): Record<string, string> {
+  const tags: Record<string, string> =
+    azureTags && typeof azureTags === "object" ? { ...(azureTags as Record<string, string>) } : {};
+  if (!cachedTags) return tags;
+  const pisadas = new Set(Object.keys(cachedTags).map((k) => k.toLowerCase()));
+  for (const k of Object.keys(tags)) if (pisadas.has(k.toLowerCase())) delete tags[k];
+  return Object.assign(tags, cachedTags);
+}
+
+/**
+ * Después de escribir en Azure, lleva los tags aplicados a las filas de caché
+ * que ya existían, para que el escaneo no siga mostrando el valor viejo. No crea
+ * filas (sin fila, el escaneo ya lee Azure) y si falla sólo avisa: Azure ya
+ * aceptó el cambio.
+ */
+export async function mergeLocalCachedTags(
+  tenantId: string,
+  changes: Array<{ resourceId: string; tags: Record<string, string> }>
+): Promise<void> {
+  if (changes.length === 0) return;
+  const aplicados = new Map<string, Record<string, string>>();
+  for (const c of changes) {
+    const k = c.resourceId.toLowerCase();
+    aplicados.set(k, overlayCachedTags(aplicados.get(k), c.tags));
+  }
+  try {
+    const [rows] = await pool.query(
+      `SELECT id, resource_id, tags_json FROM LocalResourceTagsCache
+        WHERE tenant_id = ? AND resource_id IN (?)`,
+      [tenantId, changes.map((c) => c.resourceId)]
+    );
+    for (const row of (Array.isArray(rows) ? rows : []) as Array<{ id: string; resource_id: string; tags_json: unknown }>) {
+      const tags = aplicados.get(row.resource_id.toLowerCase());
+      if (!tags) continue;
+      try {
+        const actuales = typeof row.tags_json === "string" ? JSON.parse(row.tags_json) : row.tags_json;
+        await pool.query(
+          `UPDATE LocalResourceTagsCache SET tags_json = ?, updated_at = NOW() WHERE id = ? AND tenant_id = ?`,
+          [JSON.stringify(overlayCachedTags(actuales, tags)), row.id, tenantId]
+        );
+      } catch (err) {
+        console.warn("[azureTagGovernance] Error actualizando LocalResourceTagsCache:", errorMessage(err));
+      }
+    }
+  } catch (err) {
+    console.warn("[azureTagGovernance] Error leyendo LocalResourceTagsCache:", errorMessage(err));
+  }
+}
+
+/**
  * Guarda o actualiza etiquetas optimistas en LocalResourceTagsCache
  */
 export async function saveLocalCachedTags(
@@ -138,7 +238,11 @@ export async function scanTagGovernanceLive(
   tenantId: string
 ): Promise<TagGovernanceSummaryMetrics> {
   const client = await getResourceGraphClient(tenantId, credential);
-  const localCache = await getLocalCachedTags(tenantId);
+  const [localCache, policies, aliases] = await Promise.all([
+    getLocalCachedTags(tenantId),
+    getTenantTagPolicies(tenantId),
+    getTagValueAliases(tenantId),
+  ]);
 
   // 1. KQL para Recursos
   const resourcesKql = `
@@ -180,6 +284,7 @@ export async function scanTagGovernanceLive(
   // Procesar Recursos
   const processedResources: ResourceTagAuditItem[] = [];
   let nonCompliantResCount = 0;
+  let invalidValueResCount = 0;
   const missingTagFreqMap: Record<string, number> = {};
 
   if (Array.isArray(resResult.data)) {
@@ -187,12 +292,12 @@ export async function scanTagGovernanceLive(
       const subId = raw.subscriptionId || "";
       const subName = resolveSubscriptionName(subId, subMap);
       const resId = raw.id || "";
-      const cachedTags = localCache.get(resId.toLowerCase());
-      const rawTags: Record<string, string> =
-        cachedTags || (raw.tags && typeof raw.tags === "object" ? raw.tags : {});
+      const rawTags = overlayCachedTags(raw.tags, localCache.get(resId.toLowerCase()));
 
-      const missing = evaluateResourceMissingTags(rawTags, DEFAULT_MANDATORY_TAG_POLICIES);
-      const isCompliant = missing.length === 0;
+      const missing = evaluateResourceMissingTags(rawTags, policies);
+      const invalid = findInvalidTagValues(rawTags, policies, aliases);
+      const isCompliant = missing.length === 0 && invalid.length === 0;
+      if (invalid.length > 0) invalidValueResCount++;
 
       if (!isCompliant) {
         nonCompliantResCount++;
@@ -213,6 +318,7 @@ export async function scanTagGovernanceLive(
         complianceStatus: isCompliant ? "COMPLIANT" : "NON_COMPLIANT",
         currentTags: rawTags,
         missingTags: missing,
+        invalidTags: invalid,
       });
     }
   }
@@ -220,6 +326,7 @@ export async function scanTagGovernanceLive(
   // Procesar Resource Groups
   const processedRgs: ResourceGroupTagAuditItem[] = [];
   let nonCompliantRgsCount = 0;
+  let invalidValueRgsCount = 0;
 
   if (Array.isArray(rgsResult.data)) {
     for (const raw of rgsResult.data) {
@@ -227,12 +334,12 @@ export async function scanTagGovernanceLive(
       const subName = resolveSubscriptionName(subId, subMap);
       const rgId = raw.id || "";
       const rgName = raw.name || rgId.split("/").pop() || "rg";
-      const cachedTags = localCache.get(rgId.toLowerCase());
-      const rawTags: Record<string, string> =
-        cachedTags || (raw.tags && typeof raw.tags === "object" ? raw.tags : {});
+      const rawTags = overlayCachedTags(raw.tags, localCache.get(rgId.toLowerCase()));
 
-      const missing = evaluateResourceMissingTags(rawTags, DEFAULT_MANDATORY_TAG_POLICIES);
-      const isCompliant = missing.length === 0;
+      const missing = evaluateResourceMissingTags(rawTags, policies);
+      const invalid = findInvalidTagValues(rawTags, policies, aliases);
+      const isCompliant = missing.length === 0 && invalid.length === 0;
+      if (invalid.length > 0) invalidValueRgsCount++;
 
       if (!isCompliant) {
         nonCompliantRgsCount++;
@@ -253,6 +360,7 @@ export async function scanTagGovernanceLive(
         complianceStatus: isCompliant ? "COMPLIANT" : "NON_COMPLIANT",
         currentTags: rawTags,
         missingTags: missing,
+        invalidTags: invalid,
         childResourcesCount: childCount,
       });
     }
@@ -278,72 +386,167 @@ export async function scanTagGovernanceLive(
     overallCompliancePercentage: overallPercentage,
     nonCompliantResourcesCount: nonCompliantResCount,
     nonCompliantResourceGroupsCount: nonCompliantRgsCount,
+    invalidValueResourcesCount: invalidValueResCount,
+    invalidValueResourceGroupsCount: invalidValueRgsCount,
     totalScannedResources: totalScanned,
     totalScannedResourceGroups: totalRgs,
     mostFrequentMissingTag: mostFreq,
-    mandatoryPolicies: DEFAULT_MANDATORY_TAG_POLICIES,
+    mandatoryPolicies: policies,
     resources: processedResources,
     resourceGroups: processedRgs,
   };
 }
 
+/** En qué se basa una sugerencia por convención de nombres. */
+export type NamingBasis = "name" | "type" | "resource_group" | "role";
+
 /**
- * Sugiere etiquetas de forma inteligente según nombre, tipo y grupo de recursos
+ * Confianza de cada base. No está calibrada contra datos: ordena la evidencia
+ * (el nombre del recurso dice más que el de su grupo, y Department sale de un
+ * Role que ya es una inferencia). Sin indicios no se sugiere nada.
  */
-export function suggestTagsForResource(
+export const NAMING_CONFIDENCE: Record<NamingBasis, number> = {
+  name: 0.8,
+  type: 0.7,
+  resource_group: 0.6,
+  role: 0.5,
+};
+
+/**
+ * Infiere Environment, Role, CostCenter y Department por convención de nombres,
+ * sólo donde hay indicios en el nombre, el tipo o el grupo de recursos. Los
+ * valores son los de las políticas por defecto; suggestTagValues los lleva al
+ * vocabulario del tenant.
+ */
+export function inferTagsFromNaming(
   resourceName: string,
   resourceType: string,
   resourceGroup: string
-): Record<string, string> {
-  const nameLower = (resourceName || "").toLowerCase();
-  const rgLower = (resourceGroup || "").toLowerCase();
-  const typeLower = (resourceType || "").toLowerCase();
+): Record<string, { value: string; basis: NamingBasis }> {
+  const name = (resourceName || "").toLowerCase();
+  const rg = (resourceGroup || "").toLowerCase();
+  const type = (resourceType || "").toLowerCase();
+  const out: Record<string, { value: string; basis: NamingBasis }> = {};
+  const enName = (...w: string[]) => w.some((x) => name.includes(x));
+  const enRg = (...w: string[]) => w.some((x) => rg.includes(x));
+  const enType = (...w: string[]) => w.some((x) => type.includes(x));
 
-  // Inferencia de Environment
-  let env = "prod";
-  if (nameLower.includes("dev") || rgLower.includes("dev")) env = "dev";
-  else if (nameLower.includes("stg") || nameLower.includes("stage") || rgLower.includes("stg")) env = "stg";
-  else if (nameLower.includes("qa") || nameLower.includes("test") || rgLower.includes("qa")) env = "qa";
-  else if (nameLower.includes("sbx") || nameLower.includes("sandbox") || rgLower.includes("sandbox")) env = "sandbox";
-
-  // Inferencia de Role
-  let role = "worker";
-  if (nameLower.includes("sql") || nameLower.includes("db") || nameLower.includes("mysql") || typeLower.includes("database")) {
-    role = "database";
-  } else if (nameLower.includes("api") || nameLower.includes("gateway") || typeLower.includes("apimanagement")) {
-    role = "api";
-  } else if (nameLower.includes("front") || nameLower.includes("ui") || nameLower.includes("web") || typeLower.includes("sites")) {
-    role = "frontend";
-  } else if (nameLower.includes("backup") || nameLower.includes("vault") || typeLower.includes("recoveryservices")) {
-    role = "backup";
-  } else if (nameLower.includes("disk") || typeLower.includes("disks")) {
-    role = "database-disk";
-  } else if (nameLower.includes("vnet") || nameLower.includes("nsg") || nameLower.includes("pip") || typeLower.includes("network")) {
-    role = "network";
-  } else if (nameLower.includes("storage") || typeLower.includes("storageaccounts")) {
-    role = "storage";
+  // Mismo orden de prioridad que antes; "prod" ya no es el default, necesita indicio.
+  const env: Array<[string, string[], string[]]> = [
+    ["dev", ["dev"], ["dev"]],
+    ["stg", ["stg", "stage"], ["stg"]],
+    ["qa", ["qa", "test"], ["qa"]],
+    ["sandbox", ["sbx", "sandbox"], ["sandbox"]],
+    ["prod", ["prod", "prd"], ["prod", "prd"]],
+  ];
+  for (const [value, porNombre, porRg] of env) {
+    if (enName(...porNombre)) out.Environment = { value, basis: "name" };
+    else if (enRg(...porRg)) out.Environment = { value, basis: "resource_group" };
+    if (out.Environment) break;
   }
 
-  // Inferencia de CostCenter
-  let costCenter = "Engineering";
-  if (rgLower.includes("finops") || nameLower.includes("finops")) costCenter = "FinOps";
-  else if (rgLower.includes("core") || nameLower.includes("core")) costCenter = "CorePlatform";
-  else if (rgLower.includes("sec") || nameLower.includes("security")) costCenter = "SecurityOps";
-  else if (rgLower.includes("data") || nameLower.includes("data")) costCenter = "DataTeam";
+  const roles: Array<[string, string[], string[]]> = [
+    ["database", ["sql", "db", "mysql"], ["database"]],
+    ["api", ["api", "gateway"], ["apimanagement"]],
+    ["frontend", ["front", "ui", "web"], ["sites"]],
+    ["backup", ["backup", "vault"], ["recoveryservices"]],
+    // Antes "database-disk", que no es un valor permitido de Role.
+    ["storage", ["disk"], ["disks"]],
+    ["network", ["vnet", "nsg", "pip"], ["network"]],
+    ["storage", ["storage"], ["storageaccounts"]],
+  ];
+  for (const [value, porNombre, porTipo] of roles) {
+    if (enName(...porNombre)) out.Role = { value, basis: "name" };
+    else if (enType(...porTipo)) out.Role = { value, basis: "type" };
+    if (out.Role) break;
+  }
 
-  // Inferencia de Department
-  let department = "CloudOps";
-  if (role === "database" || role === "database-disk") department = "DataPlatform";
-  else if (role === "frontend" || role === "api") department = "Engineering";
-  else if (role === "network" || role === "backup") department = "SecurityOps";
+  const costCenters: Array<[string, string[], string[]]> = [
+    ["FinOps", ["finops"], ["finops"]],
+    ["CorePlatform", ["core"], ["core"]],
+    ["SecurityOps", ["sec"], ["security"]],
+    ["DataTeam", ["data"], ["data"]],
+  ];
+  for (const [value, porRg, porNombre] of costCenters) {
+    if (enRg(...porRg)) out.CostCenter = { value, basis: "resource_group" };
+    else if (enName(...porNombre)) out.CostCenter = { value, basis: "name" };
+    if (out.CostCenter) break;
+  }
 
-  return {
-    Environment: env,
-    Role: role,
-    CostCenter: costCenter,
-    Department: department,
+  const department: Record<string, string> = {
+    database: "DataPlatform",
+    frontend: "Engineering",
+    api: "Engineering",
+    network: "SecurityOps",
+    backup: "SecurityOps",
   };
+  if (out.Role && department[out.Role.value]) out.Department = { value: department[out.Role.value], basis: "role" };
+
+  return out;
 }
+
+export interface TagValueSuggestion {
+  value: string;
+  /** exact/alias/fuzzy: el valor actual llevado al permitido. naming: inferido por convención de nombres. */
+  method: "exact" | "alias" | "fuzzy" | "naming";
+  basis?: NamingBasis;
+  confidence: number;
+}
+
+/**
+ * Sugerencias para un recurso dentro del vocabulario de las políticas del
+ * tenant. Un valor actual permitido (o de una etiqueta libre) no se toca; uno
+ * no permitido se normaliza; lo que falta se infiere por convención de nombres,
+ * y si eso no cae en un valor permitido, no se sugiere.
+ */
+export function suggestTagValues(
+  resource: { resourceName: string; resourceType: string; resourceGroup: string; currentTags?: Record<string, string> },
+  policies: readonly TagPolicyRule[],
+  aliasesByTag: ReadonlyMap<string, TagValueAlias[]> = new Map()
+): Record<string, TagValueSuggestion> {
+  const inferred = inferTagsFromNaming(resource.resourceName, resource.resourceType, resource.resourceGroup);
+  const tags = [...Object.keys(inferred), ...policies.map((p) => p.tagName)].filter(
+    (t, i, all) => all.findIndex((x) => x.toLowerCase() === t.toLowerCase()) === i
+  );
+  const out: Record<string, TagValueSuggestion> = {};
+  for (const tag of tags) {
+    const allowed = policies.find((p) => p.tagName.toLowerCase() === tag.toLowerCase())?.allowedValues;
+    const aliases = aliasesByTag.get(tag.toLowerCase()) || [];
+    const current = tagValueOf(resource.currentTags, tag);
+    if (current !== null) {
+      if (!allowed?.length || allowed.includes(current)) continue;
+      const n = normalizeTagValue(current, allowed, aliases);
+      if (n.normalized && n.method) {
+        out[tag] = { value: n.normalized, method: n.method, confidence: n.confidence };
+        continue;
+      }
+    }
+    const guess = inferred[tag];
+    if (!guess) continue;
+    const n = allowed?.length ? normalizeTagValue(guess.value, allowed, aliases) : null;
+    if (n && !n.normalized) continue;
+    out[tag] = {
+      value: n?.normalized ?? guess.value,
+      method: "naming",
+      basis: guess.basis,
+      confidence: Math.round(NAMING_CONFIDENCE[guess.basis] * (n?.confidence ?? 1) * 100) / 100,
+    };
+  }
+  return out;
+}
+
+/** Un puñado de los alias globales de 20261008-012, para que la demo sugiera como el escaneo real. */
+export const MOCK_TAG_VALUE_ALIASES = new Map<string, TagValueAlias[]>([
+  ["environment", [
+    { alias: "production", canonicalValue: "prod" },
+    { alias: "development", canonicalValue: "dev" },
+    { alias: "staging", canonicalValue: "stg" },
+  ]],
+  ["role", [
+    { alias: "web", canonicalValue: "frontend" },
+    { alias: "db", canonicalValue: "database" },
+  ]],
+]);
 
 /**
  * Dataset Mock Determinista para Tenants Demo
@@ -374,7 +577,7 @@ export function getMockTagGovernanceSummary(tenantId: string = "demo-tenant"): T
       location: "westus2",
       complianceStatus: "NON_COMPLIANT",
       currentTags: {
-        Environment: "dev",
+        Environment: "Development",
         Department: "DataTeam",
       },
       missingTags: ["Role", "CostCenter"],
@@ -505,17 +708,105 @@ export function getMockTagGovernanceSummary(tenantId: string = "demo-tenant"): T
       currentTags: {},
       missingTags: ["Environment", "Role", "CostCenter", "Department"],
     },
+    // Valores no permitidos: los resuelve el normalizador (alias, forma o tipeo)
+    // salvo "k8s-cluster" y "pruebas", que quedan para la IA o una corrección manual.
+    {
+      id: "/subscriptions/ec03e8ce-ceee-4638-b303-64ae431d5b1e/resourceGroups/rg-cscs-core-prod/providers/Microsoft.Web/sites/app-checkout-prod",
+      resourceName: "app-checkout-prod",
+      resourceType: "Microsoft.Web/sites",
+      resourceTypeDisplay: "SITES",
+      subscriptionId: "ec03e8ce-ceee-4638-b303-64ae431d5b1e",
+      subscriptionName: "CSCS-LandingZone",
+      resourceGroup: "rg-cscs-core-prod",
+      location: "eastus",
+      complianceStatus: "NON_COMPLIANT",
+      currentTags: { Environment: "Production", Role: "web", CostCenter: "CorePlatform", Department: "Engineering" },
+      missingTags: [],
+    },
+    {
+      id: "/subscriptions/ec03e8ce-ceee-4638-b303-64ae431d5b1e/resourceGroups/rg-cscs-core-prod/providers/Microsoft.Sql/servers/sql-orders-prod",
+      resourceName: "sql-orders-prod",
+      resourceType: "Microsoft.Sql/servers",
+      resourceTypeDisplay: "SERVERS",
+      subscriptionId: "ec03e8ce-ceee-4638-b303-64ae431d5b1e",
+      subscriptionName: "CSCS-LandingZone",
+      resourceGroup: "rg-cscs-core-prod",
+      location: "eastus",
+      complianceStatus: "NON_COMPLIANT",
+      currentTags: { environment: "PROD", Role: "Data Base", CostCenter: "CorePlatform", Department: "DataPlatform" },
+      missingTags: [],
+    },
+    {
+      id: "/subscriptions/ec03e8ce-ceee-4638-b303-64ae431d5b1e/resourceGroups/rg-cscs-core-prod/providers/Microsoft.ContainerService/managedClusters/aks-platform-prod",
+      resourceName: "aks-platform-prod",
+      resourceType: "Microsoft.ContainerService/managedClusters",
+      resourceTypeDisplay: "MANAGEDCLUSTERS",
+      subscriptionId: "ec03e8ce-ceee-4638-b303-64ae431d5b1e",
+      subscriptionName: "CSCS-LandingZone",
+      resourceGroup: "rg-cscs-core-prod",
+      location: "eastus",
+      complianceStatus: "NON_COMPLIANT",
+      currentTags: { Environment: "prod", Role: "k8s-cluster", CostCenter: "CorePlatform", Department: "CloudOps" },
+      missingTags: [],
+    },
+    {
+      id: "/subscriptions/ec03e8ce-ceee-4638-b303-64ae431d5b1e/resourceGroups/rg-backups-dr/providers/Microsoft.Storage/storageAccounts/stfinopsexports",
+      resourceName: "stfinopsexports",
+      resourceType: "Microsoft.Storage/storageAccounts",
+      resourceTypeDisplay: "STORAGEACCOUNTS",
+      subscriptionId: "ec03e8ce-ceee-4638-b303-64ae431d5b1e",
+      subscriptionName: "CSCS-LandingZone",
+      resourceGroup: "rg-backups-dr",
+      location: "eastus2",
+      complianceStatus: "NON_COMPLIANT",
+      currentTags: { Environment: "prod", Role: "storge", CostCenter: "FinOps", Department: "SecurityOps" },
+      missingTags: [],
+    },
+    {
+      id: "/subscriptions/ec03e8ce-ceee-4638-b303-64ae431d5b1e/resourceGroups/rg-data-analytics-dev/providers/Microsoft.Web/sites/func-etl-analytics-dev",
+      resourceName: "func-etl-analytics-dev",
+      resourceType: "Microsoft.Web/sites",
+      resourceTypeDisplay: "SITES",
+      subscriptionId: "ec03e8ce-ceee-4638-b303-64ae431d5b1e",
+      subscriptionName: "CSCS-LandingZone",
+      resourceGroup: "rg-data-analytics-dev",
+      location: "westus2",
+      complianceStatus: "NON_COMPLIANT",
+      currentTags: { Environment: "Development", Role: "worker", Department: "DataTeam" },
+      missingTags: ["CostCenter"],
+    },
+    {
+      id: "/subscriptions/ec03e8ce-ceee-4638-b303-64ae431d5b1e/resourceGroups/rg-legacy-sandbox/providers/Microsoft.Compute/virtualMachines/vm-jumpbox-legacy",
+      resourceName: "vm-jumpbox-legacy",
+      resourceType: "Microsoft.Compute/virtualMachines",
+      resourceTypeDisplay: "VIRTUALMACHINES",
+      subscriptionId: "ec03e8ce-ceee-4638-b303-64ae431d5b1e",
+      subscriptionName: "CSCS-LandingZone",
+      resourceGroup: "rg-legacy-sandbox",
+      location: "centralus",
+      complianceStatus: "NON_COMPLIANT",
+      currentTags: { Environment: "pruebas", Role: "network" },
+      missingTags: ["CostCenter", "Department"],
+    },
   ];
+
+  // Mismo cálculo que el escaneo real para los valores no permitidos.
+  const conValores = <T extends ResourceTagAuditItem | ResourceGroupTagAuditItem>(item: T): T => {
+    const invalidTags = findInvalidTagValues(item.currentTags, DEFAULT_MANDATORY_TAG_POLICIES, MOCK_TAG_VALUE_ALIASES);
+    return { ...item, invalidTags, complianceStatus: invalidTags.length > 0 ? "NON_COMPLIANT" : item.complianceStatus };
+  };
 
   return {
     overallCompliancePercentage: 83.0,
     nonCompliantResourcesCount: 127,
     nonCompliantResourceGroupsCount: 10,
+    invalidValueResourcesCount: 38,
+    invalidValueResourceGroupsCount: 3,
     totalScannedResources: 748,
     totalScannedResourceGroups: 42,
     mostFrequentMissingTag: "CostCenter & Role",
     mandatoryPolicies: DEFAULT_MANDATORY_TAG_POLICIES,
-    resources: mockResources,
-    resourceGroups: mockRgs,
+    resources: mockResources.map(conValores),
+    resourceGroups: mockRgs.map(conValores),
   };
 }

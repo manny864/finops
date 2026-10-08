@@ -9,7 +9,7 @@ naturales a revisar primero cuando algo del dominio no cierra.
 
 Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI directamente.
 
-164 archivos.
+166 archivos.
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
@@ -28,6 +28,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureAdvisor.service.ts` | 837 | `generateMockAdvisorData`, `deduplicateAndProcessRecommendations`, `getAdvisorExecutiveData` |
 | `src/services/coinIndexService.ts` | 837 | `getCoinIndexSummary` |
 | `src/services/azureEntraId.service.ts` | 821 | `daysSince`, `deriveActivityStatus`, `normalizeEdsSku`, `isDevOrTestScope`, `licenseUnitPrice`, `isAuditedEntraSku`, … |
+| `src/services/azureTagGovernance.service.ts` | 813 | `DEFAULT_MANDATORY_TAG_POLICIES`, `formatResourceTypeDisplay`, `evaluateResourceMissingTags`, `getTenantTagPolicies`, `getTagValueAliases`, `getLocalCachedTags`, … |
 | `src/services/azureActionGroups.service.ts` | 811 | `ACTION_TYPE_COLORS`, `redactReceiverUri`, `deriveActionType`, `calculateActionGroupsSummary`, `generateActionGroupsRecommendations`, `getMockActionGroupsPayload`, … |
 | `src/services/azureLoadBalancing.service.ts` | 783 | `getAzureLoadBalancing`, `getMockLoadBalancingData` |
 | `src/services/azureInternetAccess.service.ts` | 758 | `getAzureInternetAccess`, `getMockInternetAccessData` |
@@ -60,7 +61,6 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureVmPowerManagement.service.ts` | 543 | `RawScheduleRow`, `toDbAction`, `fromDbAction`, `fromDbStatus`, `parseDaysOfWeek`, `serializeDaysOfWeek`, … |
 | `src/services/anomalyDetectionService.ts` | 530 | `DETECTION_WINDOW_DAYS`, `SENSITIVITY_Z_SCORE`, `DailyCost`, `DetectedAnomaly`, `AnomalyContributor`, `computeStats`, … |
 | `src/services/azureGovernanceReporting.service.ts` | 528 | `toResourceTypeLabel`, `normalizePrincipalType`, `isOrphanedPrincipal`, `isPrivilegedRole`, `calcPercentage`, `buildResourceTypeBreakdown`, … |
-| `src/services/azureTagGovernance.service.ts` | 522 | `DEFAULT_MANDATORY_TAG_POLICIES`, `formatResourceTypeDisplay`, `evaluateResourceMissingTags`, `getLocalCachedTags`, `saveLocalCachedTags`, `scanTagGovernanceLive`, … |
 | `src/services/azureZombieHunting.service.ts` | 502 | `AzureZombieHuntingService` |
 | `src/services/costExportIngestionService.ts` | 502 | `IngestionResult`, `splitCsvLine`, `parseExportTags`, `importeDeColumna`, `agruparPorEjecucion`, `ingestCostExportsForTenant` |
 | `src/services/azureAppInsights.service.ts` | 496 | `APP_INSIGHTS_RATE_PER_GB`, `TELEMETRY_TYPE_COLORS`, `calculateAppInsightsSummary`, `generateAppInsightsRecommendations`, `generateMockAppInsightsData`, `fetchAppInsightsData`, … |
@@ -101,6 +101,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/superAdminPartnerCenter.service.ts` | 317 | `getPartnerCenterStatus`, `relinkPartner`, `configurePartnerMpn` |
 | `src/services/payoutRuns.service.ts` | 315 | `EstadoCorrida`, `LineaDeCorrida`, `Corrida`, `referenciaDeLinea`, `previsualizarCorrida`, `crearCorrida`, … |
 | `src/services/loadTesting.service.ts` | 314 | `getLoadTestHistory`, `getSystemPerformanceAlerts`, `executeLoadTest`, `acknowledgePerformanceAlert`, `resolvePerformanceAlert` |
+| `src/services/tagValueAiSuggestion.service.ts` | 314 | `TAG_AI_BATCH_SIZE`, `policyForAi`, `TagAiBatch`, `buildAiBatch`, `validateAiItems`, `suggestTagValuesWithAi`, … |
 | `src/services/superAdminFunnel.service.ts` | 311 | `getSignupFunnelAnalytics` |
 | `src/services/paddlePrices.service.ts` | 307 | `PlanPrices`, `PlanPricesResult`, `ModulePrices`, `ModulePricesResult`, `parsePaddleUnitPrice`, `clearPaddlePriceCache`, … |
 | `src/services/azureOrphanBackups.service.ts` | 305 | `calculateBackupMonthlyCost`, `computeOrphanBackupsMetrics`, `getMockOrphanBackupsSummary`, `scanLiveOrphanBackups` |
@@ -144,8 +145,8 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/tenantPartnerMarkup.service.ts` | 173 | `SIMULATION_BASE_COST`, `getMarkupSettings`, `saveMarkupSettings`, `listOverrideRules`, `getActiveOverrides`, `createOverrideRule`, … |
 | `src/services/networkEgress.service.ts` | 172 | `CategoriaEgress`, `FlujoEgress`, `MapaEgress`, `CLASIFICACION`, `SE_COBRA_POR_GB`, `getMapaEgress` |
 | `src/services/lighthouseVerification.service.ts` | 169 | `verificarDelegacion` |
+| `src/services/snapshotService.ts` | 168 | `SNAPSHOT_RETENTION_DAYS`, `SNAPSHOT_DOMAINS`, `SnapshotDomain`, `SnapshotPoint`, `recordDailySnapshot`, `recordDailySnapshotAsync`, … |
 | `src/services/globalSearch.service.ts` | 167 | `SearchResultKind`, `SearchResult`, `GlobalSearchResponse`, `searchTenantContent` |
-| `src/services/snapshotService.ts` | 167 | `SNAPSHOT_RETENTION_DAYS`, `SNAPSHOT_DOMAINS`, `SnapshotDomain`, `SnapshotPoint`, `recordDailySnapshot`, `recordDailySnapshotAsync`, … |
 | `src/services/credentialExpiryService.ts` | 159 | `CredItem`, `severityFor`, `getGraphTokenForTenant`, `fetchAllApplications`, `extractExpiringCreds`, `getExpiringCredentials`, … |
 | `src/services/tenantSso.service.ts` | 158 | `isValidDomain`, `normalizeDomain`, `isValidWorkosOrgId`, `isValidWorkosConnectionId`, `toIdpProvider`, `toJitRole`, … |
 | `src/services/supportTicketTriage.service.ts` | 156 | `TriageInput`, `TriageSuggestion`, `normalizeTriage`, `triageTicket` |
@@ -158,6 +159,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/advisorRemediationNarration.ts` | 129 | `narrateAdvisorRecommendations` |
 | `src/services/auditService.ts` | 126 | `runGraphAudits`, `runMonitorAudits`, `runM365Audits` |
 | `src/services/reportSubscriptions.service.ts` | 124 | `Frecuencia`, `Suscripcion`, `FechaLocal`, `enZona`, `diasDelMes`, `diaEfectivoDelMes`, … |
+| `src/services/tagNormalization.service.ts` | 120 | `TagSuggestionSource`, `TagNormalizationDecisionInput`, `TagNormalizationKpis`, `KPI_PERIOD_DAYS`, `recordTagNormalizationDecision`, `getTagNormalizationKpis`, … |
 | `src/services/savingsRate.service.ts` | 113 | `TasaEfectivaAhorro`, `AgregadoAhorro`, `tasaEfectivaDeAhorro`, `tasaDeAhorroDelTenant` |
 | `src/services/carbonService.ts` | 111 | `regionIntensity`, `calculateEmissions`, `calculateDiskEmissions`, `calculateStorageEmissions`, `emissionsEquivalencies`, `MigrationRecommendation`, … |
 | `src/services/reservationExpiryAlerts.service.ts` | 108 | `ESCALONES`, `Escalon`, `AvisoDeVencimiento`, `diasHastaVencer`, `escalonPara`, `avisosDeVencimiento`, … |

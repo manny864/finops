@@ -177,6 +177,15 @@ export const getMockSnapshotHistory = (
                     untaggedResources: Math.max(0, Math.round((40 + mult) * (1 - 0.5 * progress))),
                 };
                 break;
+            case 'tag_compliance':
+                // Sin escalar por tier: termina cerca del resumen de la demo
+                // (getMockTagGovernanceSummary: 83 %, 127 y 38).
+                payload = {
+                    compliancePct: round2(Math.min(100, 64 + 19 * progress + 1.5 * n)),
+                    nonCompliantResources: Math.max(0, Math.round(260 * (1 - 0.51 * progress) * (1 + 0.03 * n))),
+                    invalidValueResources: Math.max(0, Math.round(110 * (1 - 0.65 * progress) * (1 + 0.05 * n))),
+                };
+                break;
             case 'sustainability':
                 payload = {
                     co2Kg: round2((90 * mult / 10) * (1 - 0.2 * progress) * (1 + 0.04 * n)),

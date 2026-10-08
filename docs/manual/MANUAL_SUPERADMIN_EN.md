@@ -29,6 +29,7 @@ Everything that changed for a tenant's user is in the **User Manual** and is inc
 - **Signup funnel (21), Pricing units (23), Load testing (24) and AI — Global configuration (25):** documented for the first time in this manual.
 - **Anomalies with an owner and follow-up (18) and subscriptions beyond a plan's limit (19):** what the client sees and how to explain it.
 - **Anomalies that say what changed, AI explanation and AI CSV mapping (5.1.7, 18.4, 22.1 and 25):** what the client sees, each feature's monthly quota and which switches turn it off. Each AI feature now has its own switch (25); the anomaly explanation requires Enterprise; the CSV upload report shows a summary without AI when AI isn't available, and exports also bring meter detail (18.4).
+- **Non-compliant tag values (7.1.1, 22.1 and 25):** what the client sees, the feature's quota, the first one with a quota that starts at Professional, and its switch, which starts on. Environment and Role now have allowed values, so a client's compliance % can drop on deploy day without anything changing in Azure: if they ask, that's why.
 - **Links that leave the platform:** the partner-panel link and the other links we email use the configured public URL (`NEXT_PUBLIC_APP_URL`), not the host the requester came in through.
 - **Reservation expiry notices (MEJ-16):** a new daily cron, `reservation-expiry-alerts` (09:03 UTC), notifies each tenant 90, 60 and 30 days before its reservations expire, through the bell and its notification channels (5.4.4). What it has already notified is recorded in `ReservationExpiryNotices`, so it is not repeated. It runs since 10/06, after the 10/05 CI `terraform apply`.
 - **What was API-only now has a screen:** per-user scope (8.2), shared and default views (3.4), COGS/OpEx classification (5.2), budget rollover and fiscal year (5.1.5), and the maturity score policy (MEJ-08, 4.4). Shift-Left has a menu entry, and a scoped user sees the hubs that apply to them instead of only the Whiteboard.
@@ -238,7 +239,7 @@ A **search bar** at the top of the sidebar lets you find pages by name without b
 
 ### 3.1. "History" button — time evolution of any metric
 
-On Dashboard, Commitment Discounts, Rightsizing, Anomalies, Budgets, and High Availability you'll find a **History** button in the top right corner. When opened:
+On Dashboard, Commitment Discounts, Rightsizing, Anomalies, Budgets, High Availability, and Tag Governance you'll find a **History** button in the top right corner. When opened:
 
 1. Choose a date range (up to **1 year back**).
 2. See the daily evolution of that page's metrics as a **line chart** and **table**.
@@ -775,15 +776,56 @@ Comprehensive audit, suggestion, and metadata propagation panel in Azure.
 
 **Key capabilities:**
 - **Dual Compliance Audit:** Dedicated views to audit both **Individual Resources** and **Resource Groups (RGs)**.
-- **4 Mandatory Policies:** Real-time compliance tracking for the 4 core FinOps tags:
-  - `Environment` (prod, staging, dev, qa, test, sandbox)
-  - `Role` (architectural or operational role)
-  - `CostCenter` (accounting cost centre)
-  - `Department` (owning business unit)
-- **Suggestions from naming conventions (1-click):** The **Suggest from naming conventions** button fills in the missing tags of the edit form from the resource's name, resource group and type. For example, `dev` in the name suggests `Environment = dev`. It's a fixed rule, not AI: review the suggestion, which isn't applied until you save.
+- **Tagging policies:** if your organization hasn't defined its own, the 4 core FinOps tags are evaluated. Environment and Role also have a list of allowed values (7.1.1):
+  - `Environment`: `prod`, `stg`, `dev`, `qa` or `sandbox`.
+  - `Role` (what the resource does): `database`, `api`, `frontend`, `backup`, `orchestrator`, `network`, `storage` or `worker`.
+  - `CostCenter` (accounting cost centre): free value.
+  - `Department` (owning business unit): free value.
+- **Suggestions from naming conventions (1-click):** The **Suggest from naming conventions** button fills in the missing tags of the edit form from the resource's name, resource group and type. For example, `dev` in the name suggests `Environment = dev`. It only suggests allowed values and, if the name, type and group give no clues, it suggests nothing. It's a fixed rule, not AI: review the suggestion, which isn't applied until you save.
 - **Bulk RG Tag Inheritance (Safe Merge):** Propagate tags from the parent Resource Group to child resources without overwriting or deleting pre-existing tags.
-- **Optimistic Editing & Local Cache:** In-line editing with immediate persistence in local cache and asynchronous background sync to Azure Resource Manager.
+- **Tag editing:** **Edit Tags** writes a resource's tags to Azure, without removing the others, and the screen shows them right away, without waiting for Azure to report them. Environment and Role are picked from the list of allowed values; if the policy has no list, you type them freely. If the resource has a value that isn't on the list, it shows up as **{value} (not allowed)**, so you can see it and change it.
 - **CMP Table Standard & Customization:** Resizable column headers (`col-resize`, 100px - 600px), column visibility popover in `z-[100]`, and automatic tenant persistence in `localStorage`.
+
+#### 7.1.1. Non-Compliant Values
+
+A tag can be present and still be useless: `Production`, `PRD` and `prod` are the same environment, but a report grouped by Environment counts them as three. This section finds those values, suggests the right one and, once you confirm, fixes it in Azure.
+
+**Allowed values.** Each policy can have a list of allowed values. If it does, the value has to be written exactly as on the list: `Prod` or `production` don't comply for Environment. Without a list, the policy is **Free value** and only requires the tag to be present. The **Active Global Tagging Policies** cards and **Manage Policies** show each policy's list, or **Free value**, and **OPTIONAL** if the policy isn't mandatory. You can see them on screen but not edit them: for now, an Admin or Owner changes them through the API (`/api/governance/policies`). If your organization defines a single policy of its own, it replaces the 4 defaults, so it's best to define all of them.
+
+**The compliance % may drop.** As of this version, a value outside the list counts as non-compliant, just like a missing tag. If your resources use `production` or `Prod`, **Global Tag Compliance** drops even though nothing changed in Azure. It's not a bug: those are the values this section helps you fix. In the audit, the **Missing or Disallowed** column shows disallowed values in amber, with the suggested value on hover, and the CSV adds a **Disallowed Values** column.
+
+**The table.** It groups by tag and value: **Tag**, **Current value**, how many **Resources** use it (hover to see their names), **Fix to**, **Suggestion** and **Actions**.
+
+**Suggestions and confidence.** Fixed rules are tried first, without AI. The **Suggestion** column says which one found the value and with what confidence:
+
+- **Format** (100%): the same value written differently, like `Prod` or `PROD` for `prod`, or `Front-End` for `frontend`. The comparison ignores case, accents, spaces and hyphens.
+- **Alias** (95%): a known synonym. `production`, `produccion` or `prd` map to `prod`; `staging` or `preprod`, to `stg`; `web`, to `frontend`; `k8s`, to `orchestrator`. Your organization's aliases count first, then the platform's.
+- **Similar:** a typo in a value of 5 letters or more, like `prodution`. It allows one letter of difference up to 7 letters and two from 8 on, and the confidence drops with each one. If two values are equally close, it suggests neither.
+- **AI:** for what the rules didn't solve, **Suggest with AI** asks the AI about that tag's unresolved values. For each one it picks a value from the list or answers that it doesn't know (**The AI did not know**). It never makes up a value. The suggestion shows up as **AI** with its confidence, and is applied like the others.
+
+**Apply.** **Fix to** starts at the suggestion, and you can pick another value from the list. **Apply** opens **Confirm changes in Azure**, with the change and the affected resources. **Confirm and apply** writes the tag to those resources in Azure, without touching their other tags. The row goes away once Azure accepts the change; if some resources fail, the screen says how many.
+
+**Save as an alias.** The confirmation offers *Save “x” → “y” as an alias for your organization, so it gets fixed automatically next time*. If you check it, that value is suggested by rule, without AI, on any resource in your organization. The alias belongs to your organization only. It isn't offered when the difference is just formatting, because that's already solved automatically.
+
+**Dismiss.** Hides the value until the next scan. If there was a suggestion, it counts as rejected. It's not a permanent exception: if the value is still in Azure, it comes back on the next scan.
+
+**Missing Free-Value Tags.** Mandatory tags without a list (by default, CostCenter and Department) have no value to fix: they're missing. This part shows up when there are resources without the tag.
+
+- **Inherit from group (N)** sets on each resource the value its resource group has. It goes first because it doesn't guess anything.
+- **Propose with AI (N)** is for resources that can't inherit. The AI proposes one value per resource, looking at its name, type and group, and only among the values your organization already uses for that tag. You review each row (**Proposed value**, **Confidence**), change the value if needed and check **Approve**.
+- **Apply approved (N)** writes to Azure only what you approved. A proposal is never applied on its own.
+
+**Who can do what.** Everyone sees the section and can ask the AI for suggestions, which only propose. Applying, inheriting, applying approved values and dismissing are done by an **Admin** or **Owner**, because they change tags in Azure or count in the indicators. Applying, inheriting and applying approved values also require the **Business** plan, like the rest of tag remediation: on Professional you see the suggestions but can't apply them. If a button is disabled, hovering over it tells you why.
+
+**Indicators.** At the top right of the section, two lines summarize the last 90 days: how many resources were fixed and what share was **by rule**, **with AI** and **manually** (without a suggestion, or with a value other than the suggested one), and **Suggestion acceptance**: how many suggestions were applied as is, out of those applied or dismissed. The **History** button (3.1) shows the daily trend of compliance, of non-compliant resources and of resources with disallowed values. The day's snapshot is taken when all subscriptions are scanned, not when you filter one.
+
+**AI quota.** 50 requests per month for your organization on Professional and 150 on Business; Enterprise has no quota. Each **Suggest with AI** or **Propose with AI** that reaches the AI counts as one. If the platform already has the answer for that same batch, it doesn't count. With your own AI key (BYOK) there's no quota.
+
+**If the AI isn't available** (turned off on the platform or for your organization, out of quota, too many requests in a row, or because your organization doesn't share tags or resource names with the AI), the button shows the reason. The rules and manual fixing keep working the same.
+
+**What the AI sees.** One tag per request, and up to 50 values or resources. To fix values: the unresolved values, the list of allowed values and, if your organization shares resource names, some names and types of the resources using them. To propose missing values: each resource's name, type and group, its tags from the other policies and the values you already use. Never the rest of your tags, which may contain names or emails. What gets shared is set in **AI Configuration → What Data Is Shared**.
+
+**In the demo** you see sample non-compliant values and missing tags, with rule and AI suggestions. The AI isn't actually called, and applying only changes the sample data.
 
 ### 7.2. Governance Reporting (`/governance/reporting`, Enterprise+)
 
@@ -2253,8 +2295,9 @@ If the cost spikes because of an incident with the provider, the AI **master swi
 | `support-ticket-triage`, support ticket triage (8.1) | Professional, no quota | The ticket is handled without a suggestion |
 | `support-reply-draft`, support reply drafts (8.1) | Professional, no quota | The team replies by hand |
 | `document-intelligence`, invoice and contract reading (5.1.8) | Business, per document | No documents are analyzed; what was already uploaded can be reviewed and commitments added by hand |
+| `tag-value-normalization`, tag value normalization (7.1.1) | Professional | Rule suggestions are still shown and values are fixed by hand; the AI buttons show the reason |
 
-The two support features are used by the team, not the client: they have no quota and their usage is recorded under the tenant that owns the ticket. No feature with a quota starts at Professional, so that quota still goes unused.
+The two support features are used by the team, not the client: they have no quota and their usage is recorded under the tenant that owns the ticket. Tag value normalization is the first feature with a quota that starts at Professional. Each **Suggest with AI** or **Propose with AI** that reaches the model counts; if an answer was already stored for the same batch, it doesn't.
 
 **Document Intelligence counts documents.** Its quota is 150 analyzed documents per month on Business and 500 on Enterprise. There's no exemption for Enterprise or BYOK: the analysis always runs on the platform's Document Intelligence account and the house pays for it. Each document leaves a row with the provider `azure_document_intelligence` and the model that read it (`prebuilt-invoice`, `prebuilt-contract` or `prebuilt-layout`). That row's *input tokens* are the analyzed **pages**, up to 20 per document. The row is written when the analysis finishes, so a document that fails doesn't use quota; for the same reason, a burst of uploads can go over the quota by a few documents, and the limit of 5 per minute per user keeps that small. The `external-spend-poll` cron, every 5 minutes, finishes the analyses that didn't complete during the upload, deletes expired originals and sends the commitment renewal alerts: if it stops, all three stop.
 
@@ -2305,12 +2348,12 @@ The **history** keeps the previous runs so you can compare before and after a ch
 
 **Route:** `/superadmin/ai-global-config` · **Menu:** Administration → AI — Global Configuration
 
-The AI provider and key used **as a fallback** for any tenant that has not configured its own (per-tenant BYOK, in *Configuration → AI*). It feeds the **FinOps Copilot**, the **AI-powered executive reports**, the **anomaly explanation** (18.4), the CSV upload's **column mapping** and **report** (5.1.7), and the support **triage** and **drafts** (8.1). Only the SuperAdmin sees it.
+The AI provider and key used **as a fallback** for any tenant that has not configured its own (per-tenant BYOK, in *Configuration → AI*). It feeds the **FinOps Copilot**, the **AI-powered executive reports**, the **anomaly explanation** (18.4), the CSV upload's **column mapping** and **report** (5.1.7), the **tag value normalization** (7.1.1), and the support **triage** and **drafts** (8.1). Only the SuperAdmin sees it.
 
 Invoice and contract reading in *External spend* (5.1.8) doesn't use this provider or this key: it goes to the platform's Document Intelligence account, with its managed identity. The infrastructure creates that account (`document_intelligence_enabled`); without it, the client sees that analysis isn't configured even if the switch is on.
 
 - **Master switch** *"Enable AI features (platform)"*: if turned off, AI is disabled for **all** tenants, regardless of their own switch. It is meant for incidents with the provider or runaway costs.
-- **AI features (per-feature switch):** turns off a single feature for all tenants without touching the rest: the anomaly explanation, the CSV column mapping, the AI analysis of CSV uploads, the support ticket triage, the support reply drafts or AI invoice and contract reading. The first three start on; the two support ones start off until the ticket volume is measured (8.1); the invoice and contract one starts off until demand and price are validated (5.1.8). The master switch takes precedence. With a feature off, the screen keeps the non-AI version and shows the client the reason (in support, the operator). The Copilot and the executive reports have no switch of their own: the master switch or the tenant's switch turns them off.
+- **AI features (per-feature switch):** turns off a single feature for all tenants without touching the rest: the anomaly explanation, the CSV column mapping, the AI analysis of CSV uploads, the tag value normalization, the support ticket triage, the support reply drafts or AI invoice and contract reading. The first four start on; the tag one, because the rules call no model and the AI only runs when a user asks for it (7.1.1); the two support ones start off until the ticket volume is measured (8.1); the invoice and contract one starts off until demand and price are validated (5.1.8). The master switch takes precedence. With a feature off, the screen keeps the non-AI version and shows the client the reason (in support, the operator). The Copilot and the executive reports have no switch of their own: the master switch or the tenant's switch turns them off.
 - **Provider:** Google Gemini (Flash, free on the free tier), OpenAI (GPT-4o), **Azure AI** (Azure OpenAI), Anthropic (Claude) or DeepSeek. The configuration is **split by plan**: *Non-Enterprise plans* (the fallback for Professional and Business) and *Enterprise plans* (the exclusive provider for that plan). With Azure AI you need the **API Key**, the **Endpoint URL** and the **Deployment** (model).
 - **API Key:** stored **encrypted**. **Test connection** makes a real call to the saved provider. **Delete API Key** leaves tenants without their own key **without AI** until you load a new one.
 - **Azure AI with managed identity:** when the infrastructure turns on the platform's own AI account, the app connects to Azure AI with its identity, without a key. It applies only if the provider is **Azure AI**. In that mode, the Azure AI **API Key**, **Endpoint URL** and **Deployment** you enter here are not used, every plan uses the same model and deleting the key leaves no one without AI. **Test connection** with no key typed tests the connection with the identity; with a key typed, it tests that key. The other providers keep using their key.

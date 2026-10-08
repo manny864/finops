@@ -112,6 +112,7 @@ const VERIFICADAS_COMO_LECTURA = [
     "intelligence/azure-ai",       // métricas de IA
     "intelligence/unit-economics", // cálculo sobre datos ya recolectados
     "onboard/lighthouse",          // registra la delegación en nuestra base
+    "governance/tags/normalization/ai", // escanea y pide sugerencias a la IA; aplicar va por tags/apply-bulk
 ];
 
 function rutas(dir: string, out: string[] = []): string[] {

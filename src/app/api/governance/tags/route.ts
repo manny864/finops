@@ -11,6 +11,7 @@ import {
   saveLocalCachedTags,
 } from "@/services/azureTagGovernance.service";
 import { applyTagInheritance } from "@/services/tagInheritanceService";
+import { recordDailySnapshotAsync } from "@/services/snapshotService";
 import { TagUpdatePayload } from "@/types/azureTagGovernance.types";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +42,15 @@ export async function GET(req: NextRequest) {
     }
 
     const liveData = await scanTagGovernanceLive(credential, subs, tenantId);
+    // Evolución del cumplimiento (KPI de la normalización). Sólo el escaneo del
+    // tenant completo: el historial no filtra por suscripción y mezclaría alcances.
+    if (subs.length > 0 && !(subscriptionId && subscriptionId !== "All")) {
+      recordDailySnapshotAsync(tenantId, "tag_compliance", {
+        compliancePct: liveData.overallCompliancePercentage,
+        nonCompliantResources: liveData.nonCompliantResourcesCount,
+        invalidValueResources: liveData.invalidValueResourcesCount ?? 0,
+      });
+    }
     return NextResponse.json(liveData);
   } catch (err: any) {
     if (err instanceof AuthError) {

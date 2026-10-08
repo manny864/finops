@@ -456,6 +456,43 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-10-08 — Normalización de valores de etiquetas (fase 2), encendida
+
+Detalle técnico en `docs/lld/00-lld-completo.md` §44, arquitectónico en
+`docs/hld/00-hld-completo.md` §19.9 y decisiones en la propuesta de IA, sección
+10.9. Arranca encendida en *IA — Configuración global*: las reglas no llaman a
+ningún modelo y la IA corre sólo cuando alguien la pide.
+
+- **Pantalla.** *Valores No Conformes* en Gobernanza de Etiquetas
+  (`/governance/tags`, Professional). Las políticas pueden tener valores
+  permitidos, y Environment y Role los traen por defecto. El escaneo separa un
+  valor no permitido de una etiqueta faltante.
+- **La regla corrige, la IA elige, una persona aplica.** Un normalizador
+  determinista sugiere el permitido por formato, alias o parecido. Lo que no
+  resuelve se le pide a la IA, que sólo elige entre los permitidos (o, para
+  CostCenter y Department, entre los valores que el tenant ya usa) o contesta
+  que no sabe. Un Admin u Owner confirma y el cambio va a Azure por
+  `/api/tags/apply-bulk`, o por `/api/governance/tags/apply-inheritance` al
+  heredar del grupo (Business). La corrección puede quedar como alias de la
+  organización.
+- **KPIs.** Recursos corregidos por regla, con IA y a mano, tasa de aceptación
+  de las sugerencias e historial diario del % de cumplimiento.
+- **Cuota:** la estándar: 50 llamadas al modelo por mes en Professional y 150
+  en Business; Enterprise y BYOK sin cupo.
+- **El % de cumplimiento puede bajar el día del deploy.** Un valor fuera de la
+  lista ahora incumple: `Prod` o `production` en Environment ya no alcanzan.
+  Antes de desplegar, medir cuántos valores quedan afuera y avisar a los
+  clientes más afectados (propuesta, 10.9).
+- **Caché local de tags.** `LocalResourceTagsCache` se superpone a los tags de
+  Azure en vez de reemplazarlos, y lo que ARM acepta se lleva a la fila si
+  existe.
+- **Migraciones nuevas:** `20261008-010-tagging-policies-snake-case.sql`,
+  `20261008-011-tagging-policies-allowed-values.sql`,
+  `20261008-012-tag-value-aliases.sql` y
+  `20261008-013-tag-normalization-decisions.sql`. Van antes que el código, como
+  ya hace el pipeline: `010` renombra columnas de `TaggingPolicies` y borra
+  duplicados, así que conviene respaldar la tabla antes.
+
 ### 2026-10-08 — Document Intelligence: gasto externo, apagado hasta validar demanda y precio
 
 Detalle técnico en `docs/lld/00-lld-completo.md` §43, arquitectónico en

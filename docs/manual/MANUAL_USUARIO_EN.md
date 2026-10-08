@@ -36,6 +36,7 @@
 - **Anomalies with an owner and follow-up** (14) and **subscriptions beyond your plan's limit** (15).
 - **Anomalies: what changed, and an AI explanation.** In **Anomaly Detection** (Enterprise), **View Root Cause** shows which meter in the service went up and whether it was usage, price or something new, with the steps to check. AI can put it into words. The detail comes from the Azure sync and also from cost exports (14.4).
 - **CSV files that aren't in FOCUS format:** **every** row is now processed. AI only identifies the columns, and the platform reads the amounts. The upload's AI report comes in your language and in the file's currency, and if AI isn't available you see a summary by service (5.1.7).
+- **Tags with non-compliant values.** In **Tag Governance**, Environment and Role have a list of allowed values. **Non-Compliant Values** finds the ones that don't match it, like `Production` or `PRD`, and suggests the right one: first by rule and, for what the rules don't resolve, with AI. You confirm it and it gets fixed in Azure. That's why the compliance % can drop without anything changing in Azure (7.1.1).
 
 **August 2026 updates**
 
@@ -191,7 +192,7 @@ A **search bar** at the top of the sidebar lets you find pages by name without b
 
 ### 3.1. "History" button — time evolution of any metric
 
-On Dashboard, Commitment Discounts, Rightsizing, Anomalies, Budgets, and High Availability you'll find a **History** button in the top right corner. When opened:
+On Dashboard, Commitment Discounts, Rightsizing, Anomalies, Budgets, High Availability, and Tag Governance you'll find a **History** button in the top right corner. When opened:
 
 1. Choose a date range (up to **1 year back**).
 2. See the daily evolution of that page's metrics as a **line chart** and **table**.
@@ -730,15 +731,56 @@ Comprehensive audit, suggestion, and metadata propagation panel in Azure.
 
 **Key capabilities:**
 - **Dual Compliance Audit:** Dedicated views to audit both **Individual Resources** and **Resource Groups (RGs)**.
-- **4 Mandatory Policies:** Real-time compliance tracking for the 4 core FinOps tags:
-  - `Environment` (prod, staging, dev, qa, test, sandbox)
-  - `Role` (architectural or operational role)
-  - `CostCenter` (accounting cost centre)
-  - `Department` (owning business unit)
-- **Suggestions from naming conventions (1-click):** The **Suggest from naming conventions** button fills in the missing tags of the edit form from the resource's name, resource group and type. For example, `dev` in the name suggests `Environment = dev`. It's a fixed rule, not AI: review the suggestion, which isn't applied until you save.
+- **Tagging policies:** if your organization hasn't defined its own, the 4 core FinOps tags are evaluated. Environment and Role also have a list of allowed values (7.1.1):
+  - `Environment`: `prod`, `stg`, `dev`, `qa` or `sandbox`.
+  - `Role` (what the resource does): `database`, `api`, `frontend`, `backup`, `orchestrator`, `network`, `storage` or `worker`.
+  - `CostCenter` (accounting cost centre): free value.
+  - `Department` (owning business unit): free value.
+- **Suggestions from naming conventions (1-click):** The **Suggest from naming conventions** button fills in the missing tags of the edit form from the resource's name, resource group and type. For example, `dev` in the name suggests `Environment = dev`. It only suggests allowed values and, if the name, type and group give no clues, it suggests nothing. It's a fixed rule, not AI: review the suggestion, which isn't applied until you save.
 - **Bulk RG Tag Inheritance (Safe Merge):** Propagate tags from the parent Resource Group to child resources without overwriting or deleting pre-existing tags.
-- **Optimistic Editing & Local Cache:** In-line editing with immediate persistence in local cache and asynchronous background sync to Azure Resource Manager.
+- **Tag editing:** **Edit Tags** writes a resource's tags to Azure, without removing the others, and the screen shows them right away, without waiting for Azure to report them. Environment and Role are picked from the list of allowed values; if the policy has no list, you type them freely. If the resource has a value that isn't on the list, it shows up as **{value} (not allowed)**, so you can see it and change it.
 - **CMP Table Standard & Customization:** Resizable column headers (`col-resize`, 100px - 600px), column visibility popover in `z-[100]`, and automatic tenant persistence in `localStorage`.
+
+#### 7.1.1. Non-Compliant Values
+
+A tag can be present and still be useless: `Production`, `PRD` and `prod` are the same environment, but a report grouped by Environment counts them as three. This section finds those values, suggests the right one and, once you confirm, fixes it in Azure.
+
+**Allowed values.** Each policy can have a list of allowed values. If it does, the value has to be written exactly as on the list: `Prod` or `production` don't comply for Environment. Without a list, the policy is **Free value** and only requires the tag to be present. The **Active Global Tagging Policies** cards and **Manage Policies** show each policy's list, or **Free value**, and **OPTIONAL** if the policy isn't mandatory. You can see them on screen but not edit them: for now, an Admin or Owner changes them through the API (`/api/governance/policies`). If your organization defines a single policy of its own, it replaces the 4 defaults, so it's best to define all of them.
+
+**The compliance % may drop.** As of this version, a value outside the list counts as non-compliant, just like a missing tag. If your resources use `production` or `Prod`, **Global Tag Compliance** drops even though nothing changed in Azure. It's not a bug: those are the values this section helps you fix. In the audit, the **Missing or Disallowed** column shows disallowed values in amber, with the suggested value on hover, and the CSV adds a **Disallowed Values** column.
+
+**The table.** It groups by tag and value: **Tag**, **Current value**, how many **Resources** use it (hover to see their names), **Fix to**, **Suggestion** and **Actions**.
+
+**Suggestions and confidence.** Fixed rules are tried first, without AI. The **Suggestion** column says which one found the value and with what confidence:
+
+- **Format** (100%): the same value written differently, like `Prod` or `PROD` for `prod`, or `Front-End` for `frontend`. The comparison ignores case, accents, spaces and hyphens.
+- **Alias** (95%): a known synonym. `production`, `produccion` or `prd` map to `prod`; `staging` or `preprod`, to `stg`; `web`, to `frontend`; `k8s`, to `orchestrator`. Your organization's aliases count first, then the platform's.
+- **Similar:** a typo in a value of 5 letters or more, like `prodution`. It allows one letter of difference up to 7 letters and two from 8 on, and the confidence drops with each one. If two values are equally close, it suggests neither.
+- **AI:** for what the rules didn't solve, **Suggest with AI** asks the AI about that tag's unresolved values. For each one it picks a value from the list or answers that it doesn't know (**The AI did not know**). It never makes up a value. The suggestion shows up as **AI** with its confidence, and is applied like the others.
+
+**Apply.** **Fix to** starts at the suggestion, and you can pick another value from the list. **Apply** opens **Confirm changes in Azure**, with the change and the affected resources. **Confirm and apply** writes the tag to those resources in Azure, without touching their other tags. The row goes away once Azure accepts the change; if some resources fail, the screen says how many.
+
+**Save as an alias.** The confirmation offers *Save “x” → “y” as an alias for your organization, so it gets fixed automatically next time*. If you check it, that value is suggested by rule, without AI, on any resource in your organization. The alias belongs to your organization only. It isn't offered when the difference is just formatting, because that's already solved automatically.
+
+**Dismiss.** Hides the value until the next scan. If there was a suggestion, it counts as rejected. It's not a permanent exception: if the value is still in Azure, it comes back on the next scan.
+
+**Missing Free-Value Tags.** Mandatory tags without a list (by default, CostCenter and Department) have no value to fix: they're missing. This part shows up when there are resources without the tag.
+
+- **Inherit from group (N)** sets on each resource the value its resource group has. It goes first because it doesn't guess anything.
+- **Propose with AI (N)** is for resources that can't inherit. The AI proposes one value per resource, looking at its name, type and group, and only among the values your organization already uses for that tag. You review each row (**Proposed value**, **Confidence**), change the value if needed and check **Approve**.
+- **Apply approved (N)** writes to Azure only what you approved. A proposal is never applied on its own.
+
+**Who can do what.** Everyone sees the section and can ask the AI for suggestions, which only propose. Applying, inheriting, applying approved values and dismissing are done by an **Admin** or **Owner**, because they change tags in Azure or count in the indicators. Applying, inheriting and applying approved values also require the **Business** plan, like the rest of tag remediation: on Professional you see the suggestions but can't apply them. If a button is disabled, hovering over it tells you why.
+
+**Indicators.** At the top right of the section, two lines summarize the last 90 days: how many resources were fixed and what share was **by rule**, **with AI** and **manually** (without a suggestion, or with a value other than the suggested one), and **Suggestion acceptance**: how many suggestions were applied as is, out of those applied or dismissed. The **History** button (3.1) shows the daily trend of compliance, of non-compliant resources and of resources with disallowed values. The day's snapshot is taken when all subscriptions are scanned, not when you filter one.
+
+**AI quota.** 50 requests per month for your organization on Professional and 150 on Business; Enterprise has no quota. Each **Suggest with AI** or **Propose with AI** that reaches the AI counts as one. If the platform already has the answer for that same batch, it doesn't count. With your own AI key (BYOK) there's no quota.
+
+**If the AI isn't available** (turned off on the platform or for your organization, out of quota, too many requests in a row, or because your organization doesn't share tags or resource names with the AI), the button shows the reason. The rules and manual fixing keep working the same.
+
+**What the AI sees.** One tag per request, and up to 50 values or resources. To fix values: the unresolved values, the list of allowed values and, if your organization shares resource names, some names and types of the resources using them. To propose missing values: each resource's name, type and group, its tags from the other policies and the values you already use. Never the rest of your tags, which may contain names or emails. What gets shared is set in **AI Configuration → What Data Is Shared**.
+
+**In the demo** you see sample non-compliant values and missing tags, with rule and AI suggestions. The AI isn't actually called, and applying only changes the sample data.
 
 ### 7.2. Governance Reporting (`/governance/reporting`, Enterprise+)
 

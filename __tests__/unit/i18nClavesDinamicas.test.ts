@@ -34,6 +34,7 @@ import {
     EXTERNAL_SPEND_STATUSES,
     VALIDATION_ISSUE_CODES,
 } from "@/types/externalSpend.types";
+import { TAG_AI_UNAVAILABLE_REASONS } from "@/types/azureTagGovernance.types";
 import { REDIS_RULE_I18N } from "@/types/redisCache";
 import { MONGO_RULE_I18N } from "@/types/azureMongoDb";
 import { MYSQL_RULE_I18N } from "@/types/azureMySQL";
@@ -848,6 +849,11 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
                 ...COMMITMENT_TYPES.map((k) => `type_${k}`),
                 ...EXTERNAL_SPEND_DOC_TYPES.map((k) => `docType_${k}`),
             ],
+        },
+        {
+            que: "motivos por los que no hay sugerencias con IA de valores de etiquetas (TAG_AI_UNAVAILABLE_REASONS)",
+            ns: "TagNormalization",
+            claves: TAG_AI_UNAVAILABLE_REASONS.map((k) => `aiReason_${k}`),
         },
     ];
 
@@ -1753,6 +1759,7 @@ const TABLEROS_LIMPIOS = [
     "src/components/dashboard/WhiteboardTopServicesWidget.tsx",
     "src/components/dashboard/ZeroCostInventory.tsx",
     "src/components/dashboard/widgetRegistry.tsx",
+    "src/components/governance/TagNonConformingValues.tsx",
 ];
 
 const ACENTOS = /[áéíóúñ¿¡]/i;

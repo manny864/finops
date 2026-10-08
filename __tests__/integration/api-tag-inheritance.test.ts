@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => {
         mockGetAzureCredential: vi.fn(),
         mockAnalyzeMissingTags: vi.fn(),
         mockApplyTagInheritance: vi.fn(),
+        mockMergeLocalCachedTags: vi.fn(async () => {}),
     };
 });
 
@@ -44,6 +45,9 @@ vi.mock("@/lib/scopeDelTenant", () => ({
 vi.mock("@/services/tagInheritanceService", () => ({
     analyzeMissingTags: mocks.mockAnalyzeMissingTags,
     applyTagInheritance: mocks.mockApplyTagInheritance,
+}));
+vi.mock("@/services/azureTagGovernance.service", () => ({
+    mergeLocalCachedTags: mocks.mockMergeLocalCachedTags,
 }));
 
 function makeReq(url: string, init?: RequestInit) {
@@ -356,5 +360,66 @@ describe("POST /api/governance/tags/apply-inheritance", () => {
             "t-123",
             expect.arrayContaining(["Admin", "Owner"])
         );
+    });
+
+    it("demo: simula la herencia sin pedir rol ni tocar Azure", async () => {
+        const ops = [
+            { resourceId: "res-1", tagsToMerge: { CostCenter: "CorePlatform" } },
+            { resourceId: "res-2", tagsToMerge: { CostCenter: "CorePlatform" } },
+        ];
+
+        const req = makeReq("http://localhost:3000/api/governance/tags/apply-inheritance", {
+            method: "POST",
+            body: JSON.stringify({ tenantId: "demo-tenant", ops }),
+            headers: { "Content-Type": "application/json" },
+        });
+
+        const data = await (await postApply(req)).json();
+
+        expect(data).toMatchObject({ success: true, mock: true, applied: 2, failed: 0 });
+        expect(data.results).toEqual([
+            { resourceId: "res-1", success: true },
+            { resourceId: "res-2", success: true },
+        ]);
+        expect(mocks.mockRequireTenantRole).not.toHaveBeenCalled();
+        expect(mocks.mockApplyTagInheritance).not.toHaveBeenCalled();
+        expect(mocks.mockMergeLocalCachedTags).not.toHaveBeenCalled();
+    });
+
+    // Una fila de LocalResourceTagsCache previa taparía en el escaneo lo que Azure ya aceptó.
+    it("lleva a la caché local sólo las ops que Azure aceptó", async () => {
+        mocks.mockApplyTagInheritance.mockResolvedValue([
+            { resourceId: "res-1", success: true },
+            { resourceId: "res-2", success: false, error: "HTTP 403: AuthorizationFailed" },
+        ]);
+        const ops = [
+            { resourceId: "res-1", tagsToMerge: { CostCenter: "CorePlatform" } },
+            { resourceId: "res-2", tagsToMerge: { CostCenter: "Data" } },
+        ];
+
+        const req = makeReq("http://localhost:3000/api/governance/tags/apply-inheritance", {
+            method: "POST",
+            body: JSON.stringify({ tenantId: "t-123", ops }),
+            headers: { "Content-Type": "application/json" },
+        });
+        const data = await (await postApply(req)).json();
+
+        expect(mocks.mockMergeLocalCachedTags).toHaveBeenCalledWith("t-123", [
+            { resourceId: "res-1", tags: { CostCenter: "CorePlatform" } },
+        ]);
+        expect(data).toMatchObject({ success: true, dryRun: false, applied: 1, failed: 1 });
+    });
+
+    it("en dryRun no toca la caché local", async () => {
+        const req = makeReq("http://localhost:3000/api/governance/tags/apply-inheritance", {
+            method: "POST",
+            body: JSON.stringify({ tenantId: "t-123", ops: [{ resourceId: "res-1", tagsToMerge: { key: "value" } }], dryRun: true }),
+            headers: { "Content-Type": "application/json" },
+        });
+
+        await postApply(req);
+
+        expect(mocks.mockApplyTagInheritance).toHaveBeenCalled();
+        expect(mocks.mockMergeLocalCachedTags).not.toHaveBeenCalled();
     });
 });

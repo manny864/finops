@@ -4,6 +4,8 @@ import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
 import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { getAzureCredential } from "@/lib/azure";
 import { applyTagInheritance, ApplyOp } from "@/services/tagInheritanceService";
+import { mergeLocalCachedTags } from "@/services/azureTagGovernance.service";
+import { isMockTenant } from "@/lib/mockData";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function POST(request: NextRequest) {
@@ -36,6 +38,18 @@ export async function POST(request: NextRequest) {
             }, { status: 400 });
         }
 
+        // Demo: simula la herencia sin tocar Azure (como /api/tags/apply* en el TenantProvider).
+        if (isMockTenant(tenantId)) {
+            return NextResponse.json({
+                success: true,
+                mock: true,
+                dryRun: !!dryRun,
+                applied: ops.length,
+                failed: 0,
+                results: ops.map((op) => ({ resourceId: op.resourceId, success: true })),
+            });
+        }
+
         // Solo Admin / Owner pueden aplicar tags (mutación en Azure)
         await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
         // Remediación de tags (misma feature/tier que "Editar Etiquetas" en
@@ -60,6 +74,15 @@ export async function POST(request: NextRequest) {
         }
 
         const results = await applyTagInheritance(credential, ops, { dryRun: !!dryRun });
+
+        // Una fila de caché previa taparía en el escaneo lo que ARM ya aceptó.
+        // applyTagInheritance devuelve un resultado por op, en el mismo orden.
+        if (!dryRun) {
+            await mergeLocalCachedTags(
+                tenantId,
+                ops.filter((_, i) => results[i]?.success).map((op) => ({ resourceId: op.resourceId, tags: op.tagsToMerge }))
+            );
+        }
 
         const success = results.filter(r => r.success).length;
         const failed = results.length - success;

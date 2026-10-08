@@ -57,7 +57,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-39](#mej-39--fin-de-soporte-eoleos-de-la-plataforma-azure) | Fin de soporte (EOL/EOS) con el costo de lo afectado — **fase 1 hecha**: catálogo curado de AKS + PostgreSQL + MySQL Flexible, semáforo y costo mensual; fase 2 (licencias en la nube) sin empezar | Gobernanza / Riesgo | Alto | Medio | Parcial |
 | [MEJ-40](#mej-40--esr-y-riesgo-de-la-cartera-de-compromisos) | Concentración de vencimientos + ESR; se desbloqueó poblando `ListCost` de verdad | Compromisos | Alto | Medio | Hecha |
 | [MEJ-41](#mej-41--whiteboard-selector-de-rango-temporal-30d90d-y-persistencia-en-base-de-datos) | Whiteboard: selector temporal (30D/90D) y persistencia/consulta de costos históricos en BD | Whiteboard / Resumen Ejecutivo | Alto | Medio | Hecha |
-| [MEJ-42](#mej-42--capacidades-de-ia-fase-1-hecha-y-lo-encontrado-de-paso) | Capacidades de IA (propuesta 2026-10-07): fase 1, Managed Identity, soporte y Document Intelligence hechos y los cinco huecos de paso corregidos; quedan el rollout de Managed Identity, el aviso legal, prender soporte y Document Intelligence, la fase 2 y tres huecos nuevos | IA | Alto | Alto | En curso |
+| [MEJ-42](#mej-42--capacidades-de-ia-fase-1-hecha-y-lo-encontrado-de-paso) | Capacidades de IA (propuesta 2026-10-07): fase 1, Managed Identity, soporte, Document Intelligence y fase 2 (tags) hechos y los cinco huecos de paso corregidos; quedan el rollout de Managed Identity, el aviso legal, prender soporte y Document Intelligence, lo que quedó afuera de la fase 2 y siete huecos nuevos | IA | Alto | Alto | En curso |
 
 ---
 
@@ -4735,7 +4735,7 @@ Esto garantiza que la Pizarra Ejecutiva responda en menos de 50 ms sin depender 
 
 ## MEJ-42 — Capacidades de IA: fase 1 hecha y lo encontrado de paso
 
-**Módulo:** IA · **Impacto:** Alto · **Esfuerzo:** Alto · **Estado:** En curso (fase 1 hecha el 2026-10-07; puntos 1 a 5, Managed Identity, soporte y Document Intelligence el 2026-10-08)
+**Módulo:** IA · **Impacto:** Alto · **Esfuerzo:** Alto · **Estado:** En curso (fase 1 hecha el 2026-10-07; puntos 1 a 5, Managed Identity, soporte, Document Intelligence y la fase 2 el 2026-10-08)
 
 El análisis, el plan por PRs, lo implementado y lo que queda están en
 [`propuesta-capacidades-ia-2026-10-07.md`](propuesta-capacidades-ia-2026-10-07.md), secciones 6.9 y 10.
@@ -4750,7 +4750,9 @@ abajo y los subencargados (`24fa317`). Managed Identity y el módulo Terraform `
 `feat/ia-fase0-managed-identity`, apagados hasta el rollout (sección 10.6 de la propuesta). El triaje y los
 borradores de soporte (PR 8) están en `feat/ia-fase3-soporte`, apagados hasta medir el volumen de tickets
 (sección 10.7). Document Intelligence para gasto externo (PR 9) está en
-`feat/ia-fase4-document-intelligence`, apagado hasta validar la demanda y el precio (sección 10.8).
+`feat/ia-fase4-document-intelligence`, apagado hasta validar la demanda y el precio (sección 10.8). La
+normalización de valores de etiquetas (PRs 6 y 7) está en `feat/ia-fase2-tags`, encendida por defecto
+(sección 10.9); lo que quedó afuera, en la 10.10.
 
 ### Encontrado de paso y corregido
 
@@ -4785,3 +4787,18 @@ borradores de soporte (PR 8) están en `feat/ia-fase3-soporte`, apagados hasta m
 8. **La página de subencargados y el documento descargable no coinciden en Microsoft Graph.** La página
    lo ubica en Estados Unidos y la Unión Europea; el generador (`scripts/generate-trust-center-docs.js`),
    sólo en Estados Unidos. Lo decide legal.
+9. **El escáner de Tag Governance no pagina.** `scanTagGovernanceLive` consulta Resource Graph con
+   `limit 1000` para recursos y `limit 500` para grupos de recursos, sin `$skipToken`. En un tenant más
+   grande, el % de cumplimiento, los valores no conformes y el historial diario salen de una parte de los
+   recursos, sin aviso. La fase 2 lo heredó.
+10. **El % de cumplimiento cuenta sólo recursos.** `overallCompliancePercentage` divide los recursos que
+    cumplen por los escaneados; los grupos de recursos no entran. El tooltip de **Cumplimiento Global de
+    Tags** dice que es un porcentaje ponderado de recursos y grupos de recursos. Hay que decidir si los
+    grupos cuentan y después corregir el cálculo o el texto.
+11. **Tags Faltantes Frecuentes tiene un valor por defecto.** Si no falta ninguna etiqueta,
+    `mostFrequentMissingTag` vale `CostCenter & Role`, aunque el tenant cumpla todo o sus políticas sean
+    otras.
+12. **`?mock=true` abre la demo en `/api/governance/tags`.** Con ese parámetro, el GET devuelve el escaneo
+    de la demo y el POST simula el éxito, los dos sin sesión. No expone datos de clientes ni escribe en
+    Azure, pero un POST real con `?mock=true` contesta que aplicó las etiquetas sin hacer nada. Además, sin
+    `tenantId` el tenant es `default`. Alcanza con mirar sólo `isMockTenant`.

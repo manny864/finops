@@ -5,6 +5,7 @@ import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAu
 import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
 import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { isMockTenant, markMockResourcesAsTagged } from "@/lib/mockData";
+import { mergeLocalCachedTags } from "@/services/azureTagGovernance.service";
 
 // RBAC: Requires Admin/Owner role (same as single-resource tagging)
 // Tier: Business+ (same as single-resource tagging)
@@ -83,6 +84,12 @@ export async function POST(request: NextRequest) {
 
     const successCount = results.filter(r => r.success).length;
     const failureCount = results.filter(r => !r.success).length;
+
+    // Sin esto, una fila de caché previa seguiría tapando en el escaneo lo que ARM ya aceptó.
+    await mergeLocalCachedTags(
+      tenantId,
+      results.filter((r) => r.success).map((r) => ({ resourceId: r.resourceId, tags }))
+    );
 
     return NextResponse.json({
       success: true,

@@ -659,7 +659,7 @@ compartidas entre servidor y cliente viven en los archivos de tipos o en `src/li
 
 ### 12.7 Gobernanza de Etiquetas y Hardening de Secretos de Infraestructura
 
-- **Gobernanza de Etiquetas (Azure Tag Governance Engine).** Auditoría automatizada de políticas obligatorias (`Environment`, `Role`, `CostCenter`, `Department`), propagación de etiquetas desde Grupos de Recursos con Merge Seguro y sugerencia de etiquetas faltantes por convención de nombres (una heurística, sin IA: §19.4).
+- **Gobernanza de Etiquetas (Azure Tag Governance Engine).** Auditoría automatizada de políticas obligatorias (`Environment`, `Role`, `CostCenter`, `Department`), propagación de etiquetas desde Grupos de Recursos con Merge Seguro, sugerencia de etiquetas faltantes por convención de nombres (una heurística, sin IA: §19.4) y normalización de valores no permitidos, por regla y, para lo que la regla no resuelve, con IA (§19.9).
 - **Key Vault Network Isolation.** Aislamiento perimetral completo del almacén de secretos (`cscs-finops-prod-wus2-kv`) mediante Private Endpoint (`privatelink.vaultcore.azure.net`) y directiva `default_action = Deny`, eliminando vectores de acceso público y protegiendo credenciales de tenants en tránsito y reposo.
 
 *© 2026 CSCloudSolutions. Todos los derechos reservados. — CONFIDENCIAL*
@@ -1172,7 +1172,8 @@ sección 10). La regla de fondo: cifras, causas y acciones salen de lógica
 determinista; el modelo sólo pone en palabras lo que el código ya verificó, o
 elige entre opciones cerradas. El detalle técnico está en el LLD §40; para la
 IA de plataforma sin keys (19.6), en el §41; para la IA de soporte (19.7), en el
-§42, y para el gasto externo (19.8), en el §43.
+§42; para el gasto externo (19.8), en el §43, y para la normalización de tags
+(19.9), en el §44.
 
 ### 19.1 Un solo lugar decide si se gasta IA
 
@@ -1285,6 +1286,8 @@ convención de nombres, con una confianza fija de 0,94. Ahora se llama **Sugerir
 por convención de nombres**, la respuesta declara `method: "heuristic"` y la
 confianza inventada desapareció. De paso, el endpoint exige `tenantId` y acceso
 al tenant: se quitaron el bypass `?mock=true` y la caída al tenant `"default"`.
+Desde la fase 2 (19.9), cada etiqueta sugerida trae su método y una confianza
+que sale de la regla que la propuso.
 
 ### 19.5 Lo que se corrigió de paso (MEJ-42)
 
@@ -1417,7 +1420,81 @@ flowchart TD
 - **Retención.** El original se borra a los 365 días si ya se revisó; lo
   extraído y lo revisado quedan. Los avisos de renovación salen del mismo cron.
 
-### 19.9 Lo que queda
+### 19.9 Tags: la regla corrige, la IA elige, una persona aplica
+
+En `/governance/tags` (Professional), cada política de etiqueta puede tener una
+lista de valores permitidos. Un valor fuera de la lista es **no permitido**,
+distinto de faltante, y el recurso deja de cumplir. Para cada valor no conforme,
+una regla determinista busca el canónico: la misma forma escrita distinto, un
+alias o un valor parecido. La IA ve sólo lo que la regla no resolvió y elige
+dentro de la lista: nunca inventa un valor. Nada llega a Azure sin que una
+persona lo confirme. Arranca encendida: las reglas no llaman a ningún modelo y
+la IA corre sólo cuando alguien la pide.
+
+```mermaid
+flowchart TD
+    SCAN["Escaneo: Resource Graph<br/>con la caché local superpuesta"] --> POL["Políticas del tenant<br/>(o las por defecto)"]
+    POL --> NC{"¿Qué incumple?"}
+    NC -->|"valor no permitido"| RULE{"Regla: forma exacta,<br/>alias o distancia de edición"}
+    NC -->|"falta CostCenter<br/>o Department"| INH{"¿El grupo de recursos<br/>tiene el valor?"}
+    RULE -->|"resuelve"| SUG["Sugerencia con<br/>método y confianza"]
+    RULE -->|"no resuelve"| GATE{"Gate y DLP:<br/>¿comparte tags?"}
+    INH -->|"sí"| HER["Heredar del grupo"]
+    INH -->|"no"| GATE
+    GATE -->|"no"| MOT["Motivo en pantalla;<br/>se corrige a mano"]
+    GATE -->|"sí"| AI["IA: elige entre los permitidos<br/>o los valores en uso, o UNKNOWN"]
+    AI --> VAL{"¿La salida valida<br/>en código?"}
+    VAL -->|"no"| MOT
+    VAL -->|"sí"| SUG
+    SUG --> HUM{"Confirmación humana<br/>(Admin u Owner)"}
+    HER --> HUM
+    HUM -->|"Descartar"| DEC["TagNormalizationDecisions"]
+    HUM -->|"Confirmar y aplicar<br/>(Business)"| ARM["ARM: Merge de tags"]
+    ARM --> CACHE["Fila de caché local,<br/>si existe"]
+    ARM --> DEC
+    DEC --> KPI["KPIs: regla, IA, a mano<br/>y aceptación"]
+    DEC -->|"si se marcó"| ALIAS["Alias del tenant"]
+    ALIAS -.->|"próximo escaneo"| RULE
+```
+
+- **Los alias no cruzan tenants.** `TagValueAliases` tiene alias globales
+  (`tenant_id` NULL), sembrados por migración, y alias de cada tenant, que se
+  guardan al aprobar una corrección. El escáner lee los globales y los del
+  propio tenant, nunca los de otro: lo que aprende un cliente no cambia lo que se
+  le sugiere a otro. El del tenant gana sobre el global, y un alias que apunta a
+  un valor que ya no está permitido se ignora.
+- **Qué ve la IA.** Una etiqueta por pedido y hasta 50 valores o recursos,
+  dentro de `<context_data>`. Para normalizar, los valores no resueltos, la
+  lista de permitidos y, si el tenant comparte nombres, hasta tres tipos y tres
+  nombres de recursos por valor. Para completar, el nombre, el tipo y el grupo de
+  cada recurso, los valores de las otras políticas y los que el tenant ya usa
+  para esa etiqueta. Nunca el resto de los tags, que pueden traer dueños o
+  mails. El lote sale del escaneo del servidor, no de lo que manda el navegador.
+- **DLP.** Si el tenant no comparte tags con la IA, no sale nada y la pantalla
+  lo dice. Si no comparte nombres de recursos, normalizar manda sólo los
+  valores y completar no corre: sin el nombre, no tiene de dónde deducir.
+- **La salida se valida en código.** El esquema es un enum con los valores
+  posibles más `UNKNOWN`, y además el código revisa claves, repetidos,
+  vocabulario y confianza. Lo que no valida se descarta y queda registrado. La
+  respuesta válida se guarda en `AiCache` por contenido: el mismo lote no se
+  vuelve a pagar.
+- **Escribir en Azure es lo de siempre.** Aplicar usa `/api/tags/apply-bulk` y
+  heredar, `apply-inheritance`: el mismo Merge de ARM, el mismo plan (Business),
+  el mismo rol (Admin u Owner) y el mismo bloqueo de las delegaciones de sólo
+  lectura. La IA no tiene un camino propio para escribir.
+- **La caché local se superpone, no reemplaza.** `LocalResourceTagsCache`
+  guarda lo que se editó desde la plataforma, para mostrarlo antes de que
+  Resource Graph se ponga al día. Antes reemplazaba todos los tags de Azure, y
+  una fila parcial (la del TTL o la de respaldos huérfanos) escondía etiquetas
+  reales: heredar o completar podía pisarle al cliente un CostCenter que sí
+  tenía. Ahora la caché gana sólo en sus claves, y lo que ARM acepta se copia a
+  la fila, si existe, para que la corrección no vuelva en el próximo escaneo.
+- **Cómo se mide.** Cada corrección y cada sugerencia descartada quedan en
+  `TagNormalizationDecisions`. De ahí salen, en 90 días, cuánto se corrigió por
+  regla, con IA y a mano, y la tasa de aceptación. La evolución del cumplimiento
+  es una foto diaria (`tag_compliance`) del escaneo del tenant completo.
+
+### 19.10 Lo que queda
 
 - El rollout de 19.6: confirmar la cuota del modelo en West US 3, actualizar el
   centro de confianza, aplicar con la app todavía en la key, verificar el DNS
@@ -1439,4 +1516,8 @@ flowchart TD
   desde el contenedor, decidir el precio del add-on, el límite de páginas por
   plan y la fuente de tipo de cambio, y recién después prender el interruptor.
   Quedan pendientes el escaneo de malware y el private endpoint de Blob.
-- La fase 2 de la propuesta: tags.
+- Tags (19.9): aplicar las migraciones antes del código y revisar cuánto baja el
+  % de cumplimiento con los valores permitidos por defecto. El reporte ejecutivo
+  y *Fugas Financieras* siguen mirando sólo presencia. Faltan un editor de
+  políticas, paginar el escáner y lo que ve la IA, una lista de excepciones para
+  *Descartar* y que la caché local venza.

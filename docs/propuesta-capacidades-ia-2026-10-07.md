@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Fecha** | 2026-10-07 |
-| **Estado** | **Implementada en parte** (ramas `feat/ia-fase1-anomalias`, `feat/ia-fase0-managed-identity`, `feat/ia-fase3-soporte` y `feat/ia-fase4-document-intelligence`, 2026-10-07 y 2026-10-08): gate único con interruptor por feature y telemetría (0.1 y 6.8), Managed Identity y módulo Terraform `ai_services`, apagados hasta el rollout (0.2 y 0.3), hardening de `tags/suggest` (0.4), subencargados (0.5; legal decide si exige el aviso de 30 días), hechos de causa raíz (1a), explicación de anomalías (1b), mapeo de CSV (6.4), el reporte de la carga bajo el gate, triaje y borradores de soporte, apagados hasta medir el volumen (3a y 3b), y Document Intelligence para gasto externo (fase 4), apagado hasta validar demanda y precio. Pendientes: el rollout de 0.2 y 0.3 y la fase 2. Qué se hizo y en qué se apartó de este documento: [sección 10](#10-implementación-qué-se-hizo-y-en-qué-se-apartó). |
+| **Estado** | **Implementada; falta el rollout** (ramas `feat/ia-fase1-anomalias`, `feat/ia-fase0-managed-identity`, `feat/ia-fase3-soporte`, `feat/ia-fase4-document-intelligence` y `feat/ia-fase2-tags`, 2026-10-07 y 2026-10-08): gate único con interruptor por feature y telemetría (0.1 y 6.8), Managed Identity y módulo Terraform `ai_services`, apagados hasta el rollout (0.2 y 0.3), hardening de `tags/suggest` (0.4), subencargados (0.5; legal decide si exige el aviso de 30 días), hechos de causa raíz (1a), explicación de anomalías (1b), normalización de valores de tags, encendida (2a y 2b), mapeo de CSV (6.4), el reporte de la carga bajo el gate, triaje y borradores de soporte, apagados hasta medir el volumen (3a y 3b), y Document Intelligence para gasto externo (fase 4), apagado hasta validar demanda y precio. Pendientes: el rollout de 0.2 y 0.3, prender soporte y Document Intelligence, y las decisiones abiertas (8). Qué se hizo y en qué se apartó de este documento: [sección 10](#10-implementación-qué-se-hizo-y-en-qué-se-apartó). |
 | **Base analizada** | `main` @ `057287c9` |
 | **Origen** | Propuesta generada con Gemini (texto completo en el [Anexo A](#anexo-a-texto-original-de-la-propuesta)), verificada contra el código, la IaC (Terraform) y la documentación oficial de Microsoft. |
 | **Alcance** | Viabilidad de los cuatro módulos propuestos y de la infraestructura asociada; plan de implementación por fases. |
@@ -786,7 +786,7 @@ CREATE TABLE IF NOT EXISTS TagValueAliases (
 - **PRs 1 a 8:** entre 36 y 41 días hábiles, unas **7 a 8 semanas** de un desarrollador.
 - **PR 9:** **3 a 4 semanas** más.
 - **PR 2** no bloquea el desarrollo de los demás, porque la configuración actual con key funciona. Sí es recomendable antes de habilitar funciones nuevas en prod con la IA de plataforma.
-- **Estado:** los PRs 1 a 5, 8 y 9 están hechos (el 2, el 8 y el 9, apagados hasta su rollout); faltan los PRs 6 y 7 (ver [10](#10-implementación-qué-se-hizo-y-en-qué-se-apartó)).
+- **Estado:** los PRs 1 a 9 están hechos (el 2, el 8 y el 9, apagados hasta su rollout); falta el rollout y las decisiones abiertas (ver [10.10](#1010-pendiente)).
 
 | Semana | Trabajo | Notas |
 |---|---|---|
@@ -901,7 +901,7 @@ Con el deployment por defecto actual (`gpt-5.1`), el costo por llamada sería va
 
 ## 10. Implementación: qué se hizo y en qué se apartó
 
-Rama `feat/ia-fase1-anomalias`, sobre `main` @ `ac55fe5`, con un commit por pieza. El PR 2 (Managed Identity y Terraform) está en `feat/ia-fase0-managed-identity`, encima de esa rama ([10.6](#106-managed-identity-y-terraform-02-y-03)); el PR 8 (soporte), en `feat/ia-fase3-soporte`, encima del PR 2 ([10.7](#107-soporte-triaje-y-borradores-3a-y-3b)), y el PR 9 (Document Intelligence), en `feat/ia-fase4-document-intelligence`, encima del PR 8 ([10.8](#108-document-intelligence-gasto-externo-fase-4)). El detalle técnico está en el [LLD §40](lld/00-lld-completo.md) y el de arquitectura en el [HLD §19](hld/00-hld-completo.md).
+Rama `feat/ia-fase1-anomalias`, sobre `main` @ `ac55fe5`, con un commit por pieza. El PR 2 (Managed Identity y Terraform) está en `feat/ia-fase0-managed-identity`, encima de esa rama ([10.6](#106-managed-identity-y-terraform-02-y-03)); el PR 8 (soporte), en `feat/ia-fase3-soporte`, encima del PR 2 ([10.7](#107-soporte-triaje-y-borradores-3a-y-3b)); el PR 9 (Document Intelligence), en `feat/ia-fase4-document-intelligence`, encima del PR 8 ([10.8](#108-document-intelligence-gasto-externo-fase-4)), y los PRs 6 y 7 (tags), en `feat/ia-fase2-tags`, encima del PR 9 ([10.9](#109-normalización-de-valores-de-tags-con-ia-fase-2)). El detalle técnico está en el [LLD §40](lld/00-lld-completo.md) y el de arquitectura en el [HLD §19](hld/00-hld-completo.md).
 
 | Commit | Pieza | Sección | PR del plan |
 |---|---|---|---|
@@ -932,8 +932,18 @@ Rama `feat/ia-fase1-anomalias`, sobre `main` @ `ac55fe5`, con un commit por piez
 | `93f40c8` | Pantalla de gasto externo | 6.7 | 9 |
 | `5d10a75` | Cuenta de Document Intelligence y cron en Terraform | 6.7 | 9 |
 | `191f61b` | Contratos aprobados y errores del storage | 6.7 | 9 |
+| `50bd8b9` | Normalizador determinista y alias | 2a | 6 |
+| `b359581` | `TaggingPolicies` en snake_case y valores permitidos | 2a | 6 |
+| `3f75661` | Escáner con las políticas del tenant y "valor no permitido" | 2a | 6 |
+| `54c5bdf` | Decisiones, alias aprendidos y KPIs | 2a y 2b | 6 y 7 |
+| `260f7e3` | Historial diario del cumplimiento | 2b | 7 |
+| `7a0dbbb` | IA para el residuo y para CostCenter y Department | 2b | 7 |
+| `154cbd0` | `tags/suggest` con método y confianza reales | 2b | 7 |
+| `ee2e019` | Vista de valores no conformes | 2a y 2b | 6 y 7 |
+| `183cc86` | e2e de la demo | 2a y 2b | 6 y 7 |
+| `6d6e159` | Caché superpuesta, acciones por rol y valores permitidos al editar | 2a y 2b | 6 y 7 |
 
-Las secciones 0.1 a 0.5, 1a, 1b, 3a, 3b, 6.4, 6.7 y 6.8 conservan el diseño original. Donde difieren de lo construido, manda esta sección.
+Las secciones 0.1 a 0.5, 1a, 1b, 2a, 2b, 3a, 3b, 6.4, 6.7 y 6.8 conservan el diseño original. Donde difieren de lo construido, manda esta sección.
 
 ### 10.1 Gate único (0.1)
 
@@ -1127,7 +1137,55 @@ Rama `feat/ia-fase4-document-intelligence`. Arranca apagada: la precondición de
   4. Decidir el precio del add-on, el límite de páginas por plan y la fuente de tipo de cambio (decisión 8).
   5. Prender el interruptor en *IA — Configuración global*.
 
-### 10.9 Pendiente
+### 10.9 Normalización de valores de tags con IA (fase 2)
+
+Rama `feat/ia-fase2-tags`. Arranca encendida: las reglas no llaman a ningún modelo, y la IA corre sólo cuando alguien la pide en la pantalla, dentro del cupo de la función. El detalle está en el [LLD §44](lld/00-lld-completo.md) y la arquitectura en el [HLD §19.9](hld/00-hld-completo.md).
+
+- **Normalizador y alias (2a, `50bd8b9`).** `normalizeTagValue` (`src/lib/tagValueNormalizer.ts`) es una función pura, sin base ni red.
+  - Compara la forma sin acentos, en minúsculas y sin separadores: `Pre-Producción ` y `preproduccion` son lo mismo.
+  - Prueba en este orden: un permitido con esa forma (`exact`, confianza 1), un alias del tenant y después uno global (`alias`, 0,95) y la distancia de edición (`fuzzy`).
+  - La distancia corre desde 5 caracteres: hasta 1 edición entre 5 y 7, y hasta 2 desde 8. Con menos, `dev` o `qa` quedarían cerca de cualquier cosa. Si dos canónicos distintos empatan, no sugiere nada.
+  - `TagValueAliases` trae 65 alias globales hacia los valores por defecto: `production`, `produccion`, `prd` o `live` a `prod`; `staging`, `preprod` o `uat` a `stg`; `web` a `frontend`; `aks` o `k8s` a `orchestrator`, entre otros.
+- **Políticas y valores permitidos (2a, `b359581`).** `TaggingPolicies` queda en snake_case (`20261008-010`) y suma `allowed_values`, un arreglo JSON donde NULL es valor libre (`20261008-011`). `/api/governance/policies` y `/api/tags` usan las columnas canónicas, y escribir políticas pasa a pedir Admin u Owner: ahora definen el cumplimiento.
+- **Escáner (2a, `3f75661`).** Usa las políticas del tenant y, si no definió ninguna, las por defecto. Un valor fuera de la lista es **valor no permitido** (`invalidTags`), distinto de faltante, y el recurso cuenta como no conforme. Las métricas suman `invalidValueResourcesCount` e `invalidValueResourceGroupsCount`.
+- **Decisiones y KPIs (`54c5bdf`).** `TagNormalizationDecisions` (`20261008-013`) guarda cada corrección aplicada y cada sugerencia descartada, con su origen (regla o IA), el método y la confianza. De ahí salen los KPIs de 90 días: recursos corregidos por regla, con IA y a mano, y la tasa de aceptación. Una corrección aprobada puede guardarse como alias del tenant.
+- **Historial (`260f7e3`).** El escaneo del tenant completo guarda una foto diaria del cumplimiento (`tag_compliance`), que se ve con el botón *Historial* de la pantalla.
+- **IA para el residuo (2b, `7a0dbbb`).** Feature `tag-value-normalization`, desde Professional (el plan de `/governance/tags` en `routeTiers` y en el pricing), con la cuota estándar, 5 pedidos por minuto por usuario y 1000 tokens de salida.
+  - *Normalizar:* los valores de una etiqueta que la regla no resolvió, hasta 50 por pedido. La salida es `z.enum([...permitidos, "UNKNOWN"])` con confianza, y el código la vuelve a validar.
+  - *Completar:* CostCenter o Department faltantes que no se pueden heredar del grupo de recursos. La IA elige entre los valores que el tenant ya usa para esa etiqueta.
+  - El servidor vuelve a escanear el tenant: no confía en lo que manda el navegador.
+  - DLP: sin `shareTags` no sale nada; sin `shareResourceNames`, normalizar manda sólo los valores y completar no corre.
+- **`tags/suggest` (2b, `154cbd0`).** Devuelve el método (`exact`, `alias`, `fuzzy` o `naming`) y la confianza de cada etiqueta en `details`. Sugiere sólo dentro de los valores permitidos, y la convención de nombres ya no propone `prod` sin indicios.
+- **Pantalla (`ee2e019`, e2e en `183cc86`).** En `/governance/tags`:
+  - *Valores No Conformes* agrupa por etiqueta y valor, con el valor sugerido, su método y su confianza. *Aplicar* corrige en Azure por `/api/tags/apply-bulk`, después de *Confirmar cambios en Azure*.
+  - *Etiquetas Libres Faltantes* ofrece *Heredar del grupo* (por `apply-inheritance`) y *Proponer con IA*, con aprobación por recurso.
+  - Las políticas muestran sus valores permitidos. En la demo todo es de ejemplo y no se llama a la IA.
+- **Correcciones del review (`6d6e159`).** La caché local de tags se superpone a lo que devuelve Azure en vez de reemplazarlo, y lo que ARM acepta se lleva a la fila de caché si existe. Las acciones que escriben se deshabilitan para quien no es Admin u Owner, y el modal *Editar Etiquetas* arma sus opciones con los valores permitidos.
+- **En qué se apartó del boceto:**
+  - **Tres variantes de `TaggingPolicies`, no dos.** 4.3 decía que `/api/tags` usaba la forma canónica. En realidad usaba `tag_key` y `required`, la de `20260728-003`, que es la que tienen las bases creadas con las migraciones. `20261008-010` lleva las tres a la canónica. Para crear la clave única `(tenant_id, policy_name)` borra las filas repetidas y deja la de menor id. Para crear la FK a `Tenants` borra las políticas de tenants que ya no existen.
+  - **Los valores permitidos viven en la tabla.** El boceto no decía dónde. `20261008-011` les pone las listas por defecto a las filas Environment y Role que sembró `20260813-001`: si quedaban en NULL, el tenant con filas perdía la validación que el tenant sin filas sí tiene.
+  - **Una tabla de decisiones para los KPIs.** Los logs de auditoría no dicen de dónde salió una sugerencia ni si se aceptó. La evolución del cumplimiento sí reusa los snapshots diarios, pero sólo del escaneo del tenant completo: el historial no filtra por suscripción y mezclaría alcances.
+  - **La IA trabaja a pedido y por etiqueta.** No corre durante el escaneo: la llama el botón, con una etiqueta y hasta 50 valores o recursos. La respuesta queda en `AiCache` por contenido y sin vencimiento: el mismo lote no se vuelve a pagar.
+  - **Completar no corre sin nombres.** El boceto decía "sólo los valores" si el tenant no comparte nombres de recursos. Para una etiqueta faltante no hay valor: la única pista es el nombre. Sin `shareResourceNames` responde `dlp_names`.
+  - **Descartar es local.** Oculta el valor hasta el próximo escaneo y, si había sugerencia, cuenta como rechazada. No hay una lista de excepciones que persista.
+  - **No hay editor de políticas en la pantalla.** Las tarjetas y *Gestionar Políticas* muestran las políticas efectivas, de sólo lectura. Se editan por `/api/governance/policies`. `/api/tags` sigue escribiendo la misma tabla.
+  - **Corregir pide Business; la IA, Professional.** *Aplicar*, *Heredar del grupo* y *Aplicar aprobadas* usan la remediación de etiquetas que ya existía, que arranca en Business. Un tenant Professional ve las sugerencias y puede pedirlas a la IA, pero no aplicarlas.
+  - **`tags/suggest` sigue diciendo `method: "heuristic"`.** Es la verdad para la respuesta entera: son reglas, no un modelo. El método y la confianza reales van por etiqueta en `details`. La confianza por convención de nombres ordena la evidencia (0,8 por el nombre, 0,7 por el tipo, 0,6 por el grupo y 0,5 para Department deducido del rol), pero no está calibrada.
+  - **La caché local se superpone a Azure.** `LocalResourceTagsCache` reemplazaba todos los tags de Azure. Las filas parciales de `cleanup/ttl` y `cleanup/backup-orphans` escondían CostCenter o Environment reales, y heredar o completar podía pisar el valor del cliente. Ahora la caché gana sólo en sus claves. Costo: una clave borrada desde el modal se sigue viendo hasta que Resource Graph se pone al día.
+- **Antes de desplegarlo:**
+  1. **Migraciones antes que el código, como ya hace el pipeline.** `deploy-azure.yml` corre el job de migraciones y despliega la app sólo si terminó bien. `20261008-010` a `20261008-013` entran aunque ya estén aplicadas las de soporte y Document Intelligence: el runner aplica en orden alfabético las que falten.
+     - Mientras sale la revisión nueva, el código viejo corre sobre el esquema nuevo. El POST viejo de `/api/tags` responde 500, porque escribe `tag_key`, y su GET devuelve `policy_name` e `is_required` en vez de `tag_key` y `required`. Ninguna pantalla usa esa ruta: no hace falta cortar el servicio.
+     - Al revés, con el código nuevo sin migrar, el escáner cae a las políticas por defecto, sin alias, y fallan las rutas de políticas, decisiones y KPIs. Por eso las migraciones van primero.
+  2. **Respaldar `TaggingPolicies`.** `20261008-010` borra los duplicados por tenant y política y las filas de tenants que ya no existen. Antes conviene un `mysqldump` de la tabla y contar las dos cosas: los duplicados por `(tenant_id, tag_key)` (o `policy_name`, según la variante) y las filas cuyo `tenant_id` no está en `Tenants`.
+  3. **El % de cumplimiento puede bajar el día del deploy.** Hasta ahora el escáner sólo miraba presencia. Desde el deploy, Environment tiene que ser `prod`, `stg`, `dev`, `qa` o `sandbox`, y Role, `database`, `api`, `frontend`, `backup`, `orchestrator`, `network`, `storage` o `worker`, escritos igual: `Prod` o `production` ya no cumplen. Vale para todos los tenants: los que tienen filas reciben las listas por `20261008-011` y los que no usan las por defecto, que ya las tenían pero no se aplicaban.
+     - Antes: medir en Resource Graph cuántos valores quedan afuera (`resources | summarize count() by tostring(tags.Environment)`, y lo mismo con Role) y avisar a los clientes más afectados.
+     - Los alias sólo sugieren: el recurso sigue no conforme hasta que alguien aplica la corrección.
+     - Si un tenant usa otro vocabulario, se ajusta con `PUT /api/governance/policies`: su propia lista, o `allowedValues: null` para volver a exigir sólo presencia. Un tenant sin filas tiene que crear todas sus políticas, porque una sola reemplaza a las cuatro por defecto.
+     - El historial `tag_compliance` empieza ese día: no hay un antes con qué comparar.
+  4. **El interruptor arranca prendido.** Para apagar sólo la IA: *IA — Configuración global*, *Normalización de valores de etiquetas con IA*. Las reglas y la pantalla siguen funcionando.
+  5. **La cuota es la de la función.** 50 llamadas al modelo por mes en Professional y 150 en Business, por tenant; Enterprise y BYOK sin cupo. Es la primera función con cupo que arranca en Professional. Una respuesta que sale de la caché no consume cupo.
+
+### 10.10 Pendiente
 
 - **Rollout de 0.2 y 0.3** (10.6). Lo corre el operador. Si Enterprise necesita un modelo mayor que el mini, hace falta un segundo deployment.
 - **0.5:** la decisión de legal sobre el aviso de 30 días a clientes. Si lo exige, va antes de habilitar las funciones a clientes.
@@ -1141,8 +1199,14 @@ Rama `feat/ia-fase4-document-intelligence`. Arranca apagada: la precondición de
   - Paginar las listas: hoy muestran los últimos 200 documentos y hasta 500 compromisos.
   - Un cron que cargue tipos de cambio históricos en `FxRates`, si esa es la fuente que se elige.
   - Precargar el tipo de compromiso desde el contrato: hoy arranca en *Otro*.
-- **PRs 6 y 7:** fase 2 (tags).
-- Lo encontrado de paso y no corregido está en MEJ-42 ([`MEJORAS-FUTURAS.md`](MEJORAS-FUTURAS.md)): el servicio y la suscripción de los exports FOCUS, y `getAssessment` sin plan ni cupo en `ai-report`, `assessment` y `executive-report`.
+- **Fase 2** (10.9): lo de *Antes de desplegarlo*, y además:
+  - Los demás chequeos de etiquetas siguen mirando sólo presencia, con una lista fija y no con las políticas del tenant: `tagComplianceService` y `/api/tags/compliance` (el reporte ejecutivo), y en *Fugas Financieras* la consulta `kqlCatalog.taggingNonCompliance` y el modal para etiquetar (`tagConfig.ts`). Un recurso con `Environment=production` cumple ahí y no en Tag Governance.
+  - Un editor de políticas en la pantalla. Hoy se cambian por `/api/governance/policies`; `/api/tags` escribe la misma tabla sin valores permitidos, y conviene dejar una sola API.
+  - La IA ve los primeros 50 valores o recursos de la etiqueta. Si entre ellos hay valores que no sabe resolver, los que siguen no le llegan nunca: hace falta paginar o saltear los ya consultados.
+  - *Descartar* es local. Una lista de excepciones por tenant, etiqueta y valor evitaría que un valor aceptado a propósito vuelva en cada escaneo y en cada pedido a la IA.
+  - Las filas de `LocalResourceTagsCache` no vencen. La caché ya no esconde los tags de Azure, pero en sus claves gana para siempre, aunque después alguien cambie el valor en el portal.
+  - Calibrar la confianza por convención de nombres y revisar los alias globales: `uat` va a `stg`, y hay equipos que lo usan como QA.
+- Lo encontrado de paso y no corregido está en MEJ-42 ([`MEJORAS-FUTURAS.md`](MEJORAS-FUTURAS.md)): el servicio y la suscripción de los exports FOCUS, y `getAssessment` sin plan ni cupo en `ai-report`, `assessment` y `executive-report`. De la fase 2: el escáner de etiquetas sin paginar, el % de cumplimiento que cuenta sólo recursos, la etiqueta más omitida cuando no falta ninguna y `?mock=true` en el GET y el POST de `/api/governance/tags`.
 
 ---
 
