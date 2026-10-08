@@ -29,6 +29,7 @@ Tudo o que mudou para o usuário de um tenant está no **Manual do Usuário** e 
 - **Funil de cadastro (21), Unidades de preço (23), Teste de carga (24) e IA — Configuração global (25):** documentados pela primeira vez neste manual.
 - **Anomalias com responsável e acompanhamento (18) e assinaturas fora do limite de um plano (19):** o que o cliente vê e como explicar para ele.
 - **Anomalias que dizem o que mudou, explicação com IA e mapeamento de CSV com IA (5.1.7, 18.4, 22.1 e 25):** o que o cliente vê, a cota mensal de cada recurso e quais interruptores o desligam. Agora cada recurso de IA tem o seu próprio interruptor (25); a explicação de anomalias exige Enterprise; o relatório do envio de CSV mostra um resumo sem IA quando a IA não está disponível, e os exports também trazem o detalhe por medidor (18.4).
+- **Valores não conformes de etiquetas (7.1.1, 22.1 e 25):** o que o cliente vê, a cota do recurso, o primeiro com cota que começa no Professional, e o seu interruptor, que começa ativado. Environment e Role passam a ter valores permitidos, então o % de conformidade de um cliente pode cair no dia do deploy sem que nada mude no Azure: se ele perguntar, é isso.
 - **Links que saem da plataforma:** o link do painel do parceiro e os demais links que enviamos por e-mail usam a URL pública configurada (`NEXT_PUBLIC_APP_URL`), não o host com o qual entrou quem os pediu.
 - **Avisos de vencimento de reservas (MEJ-16):** um cron diário novo, `reservation-expiry-alerts` (09:03 UTC), avisa cada tenant 90, 60 e 30 dias antes do vencimento das suas reservas, pelo sino e pelos seus canais de notificação (5.4.4). O que já foi avisado fica registrado em `ReservationExpiryNotices`, então não se repete. Roda desde 06/10, depois do `terraform apply` por CI de 05/10.
 - **O que era só por API agora tem tela:** alcance por usuário (8.2), visões compartilhadas e padrão (3.4), classificação COGS/OpEx (5.2), transferência de orçamento e ano fiscal (5.1.5), e a política da pontuação de maturidade (MEJ-08, 4.4). O Shift-Left tem entrada no menu, e um usuário restrito vê os hubs que lhe cabem em vez de só o Whiteboard.
@@ -237,7 +238,7 @@ Uma **busca** no topo do menu lateral permite encontrar páginas pelo nome sem n
 
 ### 3.1. Botão "Histórico" — evolução temporal de qualquer métrica
 
-No Dashboard, Descontos por Compromisso, Rightsizing, Anomalias, Orçamentos e Alta Disponibilidade você vai encontrar um botão **Histórico** no canto superior direito. Ao abri-lo:
+No Dashboard, Descontos por Compromisso, Rightsizing, Anomalias, Orçamentos, Alta Disponibilidade e Governança de Etiquetas você vai encontrar um botão **Histórico** no canto superior direito. Ao abri-lo:
 
 1. Escolhe um intervalo de datas (até **1 ano atrás**).
 2. Vê a evolução diária das métricas daquela página como **gráfico de linhas** e **tabela**.
@@ -774,15 +775,56 @@ Painel abrangente de auditoria, sugestão e propagação de metadados corporativ
 
 **Principais capacidades:**
 - **Auditoria Dupla de Conformidade:** Telas dedicadas para auditar tanto **Recursos Individuais** quanto **Grupos de Recursos (Resource Groups)**.
-- **4 Políticas Obrigatórias:** Acompanhamento em tempo real da conformidade das 4 tags essenciais de FinOps:
-  - `Environment` (prod, staging, dev, qa, test, sandbox)
-  - `Role` (função ou perfil arquitetônico)
-  - `CostCenter` (centro de custo contábil)
-  - `Department` (área ou unidade de negócio responsável)
-- **Sugestão pela convenção de nomes (1-clique):** O botão **Sugerir pela convenção de nomes** preenche as tags faltantes do formulário de edição a partir do nome do recurso, do seu grupo de recursos e do seu tipo. Por exemplo, `dev` no nome sugere `Environment = dev`. É uma regra fixa, não IA: revise a sugestão, que só é aplicada quando você salvar.
+- **Políticas de etiquetagem:** se a sua organização não definiu as próprias, são avaliadas as 4 tags essenciais de FinOps. Environment e Role têm, além disso, uma lista de valores permitidos (7.1.1):
+  - `Environment` (ambiente): `prod`, `stg`, `dev`, `qa` ou `sandbox`.
+  - `Role` (função do recurso): `database`, `api`, `frontend`, `backup`, `orchestrator`, `network`, `storage` ou `worker`.
+  - `CostCenter` (centro de custo contábil): valor livre.
+  - `Department` (área ou unidade de negócio responsável): valor livre.
+- **Sugestão pela convenção de nomes (1-clique):** O botão **Sugerir pela convenção de nomes** preenche as tags faltantes do formulário de edição a partir do nome do recurso, do seu grupo de recursos e do seu tipo. Por exemplo, `dev` no nome sugere `Environment = dev`. Só sugere valores permitidos e, se o nome, o tipo e o grupo não dão pistas, não sugere nada. É uma regra fixa, não IA: revise a sugestão, que só é aplicada quando você salvar.
 - **Herança em Lote do RG (Merge Seguro):** Com o botão "Herdar do RG", recursos filhos adotam as tags do Resource Group pai sem sobrescrever nem apagar tags preexistentes.
-- **Edición e Cache Otimista:** Edição em linha com persistência imediata em cache local e sincronização assíncrona com o Azure Resource Manager.
+- **Edição de etiquetas:** **Editar Etiquetas** grava no Azure as etiquetas de um recurso, sem apagar as demais, e a tela as mostra na hora, sem esperar o Azure informá-las. Environment e Role são escolhidos da lista de valores permitidos; se a política não tem lista, são digitados livremente. Se o recurso tem um valor que não está na lista, ele aparece como **{valor} (não permitido)**, para você vê-lo e trocá-lo.
 - **Padrão CMP e Personalização:** Tabelas com redimensionamento de colunas (`col-resize`, 100px - 600px), seletor de colunas visíveis em `z-[100]` e persistência automática por tenant em `localStorage`.
+
+#### 7.1.1. Valores Não Conformes
+
+Uma etiqueta pode estar presente e mesmo assim não servir: `Production`, `PRD` e `prod` são o mesmo ambiente, mas um relatório agrupado por Environment os conta como três. Esta seção encontra esses valores, sugere o correto e, quando você confirma, corrige no Azure.
+
+**Valores permitidos.** Cada política pode ter uma lista de valores permitidos. Se tiver, o valor precisa estar escrito igual ao da lista: `Prod` ou `production` não cumprem em Environment. Sem lista, a política é de **Valor livre** e só exige que a etiqueta esteja presente. Os cartões de **Políticas de Etiquetagem Globais Ativas** e **Gerenciar Políticas** mostram a lista de cada política, ou **Valor livre**, e **OPCIONAL** se ela não for obrigatória. Na tela elas são exibidas, mas não editadas: por enquanto, um Admin ou Owner as altera pela API (`/api/governance/policies`). Se a sua organização define uma única política própria, ela substitui as 4 padrão, então convém definir todas.
+
+**O % de conformidade pode cair.** A partir desta versão, um valor fora da lista conta como não conformidade, igual a uma etiqueta faltante. Se os seus recursos usam `production` ou `Prod`, a **Conformidade Global de Tags** cai sem que nada tenha mudado no Azure. Não é um erro: são os valores que esta seção ajuda a corrigir. Na auditoria, a coluna **Faltantes ou Não Permitidas** mostra os valores não permitidos em âmbar, com o valor sugerido ao passar o mouse, e o CSV ganha a coluna **Valores Não Permitidos**.
+
+**A tabela.** Agrupa por etiqueta e valor: **Etiqueta**, **Valor atual**, quantos **Recursos** o usam (ao passar o mouse você vê os nomes), **Corrigir para**, **Sugestão** e **Ações**.
+
+**Sugestões e confiança.** Primeiro são testadas regras fixas, sem IA. A coluna **Sugestão** diz qual delas encontrou o valor e com que confiança:
+
+- **Formato** (100 %): o mesmo valor escrito de outro jeito, como `Prod` ou `PROD` para `prod`, ou `Front-End` para `frontend`. A comparação ignora maiúsculas, acentos, espaços e hifens.
+- **Alias** (95 %): um sinônimo conhecido. `production`, `produccion` ou `prd` vão para `prod`; `staging` ou `preprod`, para `stg`; `web`, para `frontend`; `k8s`, para `orchestrator`. Primeiro contam os aliases da sua organização e depois os da plataforma.
+- **Parecido:** um erro de digitação em um valor de 5 letras ou mais, como `prodution`. Admite uma letra de diferença até 7 letras e duas a partir de 8, e a confiança cai a cada uma. Se dois valores ficam igualmente próximos, não sugere nenhum.
+- **IA:** para o que as regras não resolveram, **Sugerir com IA** pede à IA os valores não resolvidos daquela etiqueta. Para cada um, ela escolhe um valor da lista ou responde que não sabe (**A IA não soube**). Nunca inventa um valor. A sugestão aparece com **IA** e a sua confiança, e é aplicada como as outras.
+
+**Aplicar.** **Corrigir para** começa na sugestão, e você pode escolher outro valor da lista. **Aplicar** abre **Confirmar alterações no Azure**, com a alteração e os recursos afetados. **Confirmar e aplicar** grava a etiqueta no Azure nesses recursos, sem mexer nas outras etiquetas deles. A linha some quando o Azure aceita a alteração; se alguns recursos falharem, a tela diz quantos.
+
+**Salvar como alias.** A confirmação oferece *Salvar “x” → “y” como alias da sua organização, para que da próxima vez seja corrigido automaticamente*. Se você marcar, esse valor passa a ser sugerido por regra, sem IA, em qualquer recurso da sua organização. O alias é só da sua organização. Não é oferecido quando a diferença é de formato, porque isso já se resolve sozinho.
+
+**Descartar.** Oculta o valor até a próxima varredura. Se havia uma sugestão, ela conta como rejeitada. Não é uma exceção permanente: se o valor continua no Azure, ele volta na próxima varredura.
+
+**Etiquetas Livres Faltantes.** As etiquetas obrigatórias sem lista (por padrão, CostCenter e Department) não têm um valor para corrigir: estão faltando. Esta parte aparece quando há recursos sem a etiqueta.
+
+- **Herdar do grupo (N)** grava em cada recurso o valor que o seu grupo de recursos tem. Vem primeiro porque não adivinha nada.
+- **Propor com IA (N)** é para os recursos que não podem herdar. A IA propõe um valor por recurso, olhando o seu nome, o seu tipo e o seu grupo, e só entre os valores que a sua organização já usa para essa etiqueta. Você revisa cada linha (**Valor proposto**, **Confiança**), troca o valor se precisar e marca **Aprovar**.
+- **Aplicar aprovadas (N)** grava no Azure só o que você aprovou. Uma proposta nunca é aplicada sozinha.
+
+**Quem pode o quê.** Todos veem a seção e podem pedir sugestões à IA, que só propõe. Aplicar, herdar, aplicar aprovadas e descartar ficam com um **Admin** ou **Owner**, porque alteram etiquetas no Azure ou contam nos indicadores. Aplicar, herdar e aplicar aprovadas exigem também o plano **Business**, como o resto da correção de etiquetas: no Professional você vê as sugestões, mas não as aplica. Se um botão está desabilitado, ao passar o mouse ele diz por quê.
+
+**Indicadores.** No canto superior direito da seção, duas linhas resumem os últimos 90 dias: quantos recursos foram corrigidos e que parte foi **por regra**, **com IA** e **manualmente** (sem sugestão ou com um valor diferente do sugerido), e a **Aceitação de sugestões**: quantas sugestões foram aplicadas como vieram, entre as aplicadas ou descartadas. O botão **Histórico** (3.1) mostra a evolução diária da conformidade, dos recursos não conformes e dos que têm valores não permitidos. A foto do dia é tirada ao varrer todas as assinaturas, não ao filtrar uma.
+
+**Cota da IA.** 50 pedidos por mês para a sua organização no Professional e 150 no Business; o Enterprise não tem cota. Cada **Sugerir com IA** ou **Propor com IA** que chega à IA conta um. Se a plataforma já tem a resposta para esse mesmo lote, não conta. Com a sua própria chave de IA (BYOK) não há cota.
+
+**Se a IA não estiver disponível** (desativada na plataforma ou para a sua organização, sem cota, com pedidos demais em sequência, ou porque a sua organização não compartilha etiquetas ou nomes de recursos com a IA), o botão mostra o motivo. As regras e a correção manual continuam funcionando igual.
+
+**O que a IA vê.** Uma etiqueta por pedido, e até 50 valores ou recursos. Para corrigir valores: os valores não resolvidos, a lista de permitidos e, se a sua organização compartilha nomes de recursos, alguns nomes e tipos dos recursos que os usam. Para propor valores faltantes: o nome, o tipo e o grupo de cada recurso, as suas etiquetas das outras políticas e os valores que você já usa. Nunca o resto das suas etiquetas, que podem trazer nomes ou e-mails. O que se compartilha é configurado em **Configuração de IA → Quais Dados São Compartilhados**.
+
+**Na demo** você vê valores não conformes e etiquetas faltantes de exemplo, com sugestões por regra e por IA. A IA não é chamada de verdade, e aplicar só altera os dados de exemplo.
 
 ### 7.2. Relatório de Governança (`/governance/reporting`, Enterprise+)
 
@@ -2244,8 +2286,9 @@ Se o custo dispara por um incidente com o provedor, o **interruptor mestre** de 
 | `support-ticket-triage`, triagem de tickets de suporte (8.1) | Professional, sem cota | O ticket é atendido sem sugestão |
 | `support-reply-draft`, rascunhos de resposta de suporte (8.1) | Professional, sem cota | A equipe responde à mão |
 | `document-intelligence`, leitura de faturas e contratos (5.1.8) | Business, por documento | Nenhum documento é analisado; dá para revisar o que já foi enviado e cadastrar compromissos à mão |
+| `tag-value-normalization`, normalização de valores de etiquetas (7.1.1) | Professional | As sugestões por regra continuam aparecendo e a correção é manual; os botões de IA mostram o motivo |
 
-Os dois de suporte são usados pela equipe, não pelo cliente: não têm cota e o seu consumo aparece em nome do tenant dono do ticket. Nenhum recurso com cota começa no Professional, então essa cota ainda não é usada.
+Os dois de suporte são usados pela equipe, não pelo cliente: não têm cota e o seu consumo aparece em nome do tenant dono do ticket. A normalização de valores de etiquetas é o primeiro recurso com cota que começa no Professional. Conta cada **Sugerir com IA** ou **Propor com IA** que chega ao modelo; se já havia uma resposta guardada para o mesmo lote, não conta.
 
 **O Document Intelligence conta documentos.** A sua cota é de 150 documentos analisados por mês no Business e 500 no Enterprise. Não há exceção para Enterprise nem para BYOK: a análise roda sempre na conta de Document Intelligence da plataforma, e quem paga é a casa. Cada documento deixa uma linha com o provedor `azure_document_intelligence` e o modelo que o leu (`prebuilt-invoice`, `prebuilt-contract` ou `prebuilt-layout`). Os *tokens de entrada* dessa linha são as **páginas** analisadas, até 20 por documento. A linha é gravada ao terminar a análise, então um documento que falha não consome cota; pelo mesmo motivo, uma rajada de envios pode passar da cota por poucos documentos, e o limite de 5 por minuto por usuário a contém. O cron `external-spend-poll`, a cada 5 minutos, termina as análises que não chegaram a fechar durante o envio, apaga os originais vencidos e envia os avisos de renovação de compromissos: se ele para, param as três coisas.
 
@@ -2296,12 +2339,12 @@ O **histórico** guarda as rodadas anteriores para comparar antes e depois de um
 
 **Rota:** `/superadmin/ai-global-config` · **Menu:** Administração → IA — Configuração Global
 
-O provedor e a key de IA usados **como respaldo** para qualquer tenant que não configurou a sua própria (BYOK por tenant, em *Configuração → IA*). Alimenta o **FinOps Copilot**, os **relatórios executivos com IA**, a **explicação de anomalias** (18.4), o **mapeamento de colunas** e o **relatório** do envio de CSV (5.1.7), e a **triagem** e os **rascunhos** de suporte (8.1). Só o SuperAdmin a vê.
+O provedor e a key de IA usados **como respaldo** para qualquer tenant que não configurou a sua própria (BYOK por tenant, em *Configuração → IA*). Alimenta o **FinOps Copilot**, os **relatórios executivos com IA**, a **explicação de anomalias** (18.4), o **mapeamento de colunas** e o **relatório** do envio de CSV (5.1.7), a **normalização de valores de etiquetas** (7.1.1) e a **triagem** e os **rascunhos** de suporte (8.1). Só o SuperAdmin a vê.
 
 A leitura de faturas e contratos de *Gastos externos* (5.1.8) não usa este provedor nem esta key: vai para a conta de Document Intelligence da plataforma, com a sua identidade gerenciada. Essa conta é criada pela infraestrutura (`document_intelligence_enabled`); sem ela, o cliente vê que a análise não está configurada, mesmo com o interruptor ligado.
 
 - **Interruptor mestre** *«Ativar recursos de IA (plataforma)»*: se desligado, a IA fica desabilitada para **todos** os tenants, independentemente do interruptor de cada um. Pensado para incidentes com o provedor ou custos fora de controle.
-- **Funções de IA (interruptor por função):** desativa um único recurso para todos os tenants sem afetar o resto: a explicação de anomalias, o mapeamento de colunas de CSV, a análise com IA do envio de CSV, a triagem de tickets de suporte, os rascunhos de resposta de suporte ou a leitura de faturas e contratos com IA. Os três primeiros começam ativados; os dois de suporte, desativados, até medir o volume de tickets (8.1); o de faturas e contratos, desativado até validar a demanda e o preço (5.1.8). O interruptor mestre tem prioridade. Com um recurso desativado, a tela continua com a versão sem IA e mostra o motivo ao cliente (no suporte, ao operador). O Copilot e os relatórios executivos não têm interruptor próprio: o mestre ou o do tenant os desligam.
+- **Funções de IA (interruptor por função):** desativa um único recurso para todos os tenants sem afetar o resto: a explicação de anomalias, o mapeamento de colunas de CSV, a análise com IA do envio de CSV, a normalização de valores de etiquetas, a triagem de tickets de suporte, os rascunhos de resposta de suporte ou a leitura de faturas e contratos com IA. Os quatro primeiros começam ativados; o de etiquetas, porque as regras não chamam nenhum modelo e a IA só roda quando um usuário pede (7.1.1); os dois de suporte, desativados, até medir o volume de tickets (8.1); o de faturas e contratos, desativado até validar a demanda e o preço (5.1.8). O interruptor mestre tem prioridade. Com um recurso desativado, a tela continua com a versão sem IA e mostra o motivo ao cliente (no suporte, ao operador). O Copilot e os relatórios executivos não têm interruptor próprio: o mestre ou o do tenant os desligam.
 - **Provedor:** Google Gemini (Flash, grátis no free tier), OpenAI (GPT-4o), **Azure IA** (Azure OpenAI), Anthropic (Claude) ou DeepSeek. A configuração é **separada por plano**: *Planos não Enterprise* (o respaldo para Professional e Business) e *Planos Enterprise* (o provedor exclusivo desse plano). Com Azure IA são necessários a **API Key**, o **Endpoint URL** e o **Deployment** (modelo).
 - **API Key:** guarda-se **cifrada**. **Testar conexão** faz uma chamada real ao provedor salvo. **Excluir API Key** deixa **sem IA** os tenants que não têm a sua até que você carregue uma nova.
 - **Azure IA com identidade gerenciada:** quando a infraestrutura liga a conta de IA própria da plataforma, o app se conecta à Azure IA com a sua identidade, sem key. Vale só se o provedor for **Azure IA**. Nesse modo, a **API Key**, o **Endpoint URL** e o **Deployment** da Azure IA que você cadastrar aqui não são usados, todos os planos usam o mesmo modelo e excluir a key não deixa ninguém sem IA. **Testar conexão** sem digitar uma key testa a conexão com a identidade; com uma key digitada, testa essa key. Os outros provedores continuam com a sua key.

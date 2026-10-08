@@ -4530,7 +4530,7 @@ El mismo enfoque que los adjuntos de soporte (`supportAttachments.ts`).
   `stored_name` en NULL. Lo extraído y lo revisado quedan. Lo que espera
   revisión conserva el archivo.
 - Borrar un tenant borra las filas en cascada, no los archivos. Queda
-  pendiente (propuesta, 10.9).
+  pendiente (propuesta, 10.10).
 
 ### 43.11 UI
 
@@ -4613,3 +4613,496 @@ Suite completa (`env -u DB_HOST REDIS_PORT=1 npx vitest run`): 4258 tests en
 verde y 39 omitidos, en 421 archivos; `tsc` limpio y sin warnings nuevos de
 ESLint. Falta probarlo contra una cuenta real de Document Intelligence con las
 migraciones aplicadas.
+
+---
+
+## 44. Addendum 2026-10-08 — Normalización de valores de etiquetas (fase 2)
+
+PRs 6 y 7 de la propuesta de IA
+([`docs/propuesta-capacidades-ia-2026-10-07.md`](../propuesta-capacidades-ia-2026-10-07.md),
+10.9). Contexto arquitectónico en el HLD §19.9. Rama `feat/ia-fase2-tags`,
+encima de `feat/ia-fase4-document-intelligence`: `50bd8b9` (normalizador y
+alias), `b359581` (`TaggingPolicies` y valores permitidos), `3f75661`
+(escáner), `54c5bdf` (decisiones, alias y KPIs), `260f7e3` (historial),
+`7a0dbbb` (IA), `154cbd0` (`tags/suggest`), `ee2e019` (pantalla), `183cc86`
+(e2e) y `6d6e159` (correcciones del review). Arranca encendida: las reglas no
+llaman a ningún modelo y la IA corre sólo cuando alguien la pide en la
+pantalla.
+
+### 44.1 Gate — `src/lib/aiFeatureGate.ts`
+
+| Feature | `defaultEnabled` | `minTier` | `monthlyQuota` | `perMinute` | `maxOutputTokens` | Clave del rate limit |
+|---|---|---|---|---|---|---|
+| `tag-value-normalization` | `true` | Professional | `QUOTA`: Professional 50, Business 150, Enterprise sin cupo | 5 | 1000 | Tenant y email de quien la pide |
+
+- **Professional** es el plan de `/governance/tags` en `routeTiers` y en
+  `pricing.*.features`. Es la primera feature con cupo que arranca ahí: hasta
+  ahora el cupo de Professional no lo usaba ninguna.
+- **La cuota cuenta llamadas al modelo:** las filas de `PlatformAiUsage` con
+  `source = 'platform'` y la feature. Con BYOK la fila sale con
+  `source = 'byok'` y no cuenta. Una respuesta que sale de `AiCache` no escribe
+  fila: no consume cupo, aunque el gate ya corrió (rate limit y telemetría).
+- **Modelo:** `AIProviderFactory.getGeminiModel(tenantId)`, como la explicación
+  de anomalías: la clave propia del tenant si la configuró y, si no, la de
+  plataforma.
+- El rótulo del interruptor está en
+  `AdminAiConfigGlobal.featureSwitches.features.tag-value-normalization`, en los
+  tres idiomas. Apagarlo apaga sólo la IA: las reglas y la pantalla siguen.
+
+### 44.2 Tablas — migraciones `20261008-010` a `20261008-013`
+
+Las cuatro son idempotentes. Cada paso condicional mira `INFORMATION_SCHEMA` y
+arma el DDL con `PREPARE`, porque el runner parte los archivos por `;` y no
+admite procedimientos. Las dos tablas nuevas caen en cascada con `Tenants`
+(`cascadaBorradoTenant.test`) y no están en `schema.sql`.
+
+**`20261008-010` — `TaggingPolicies` en snake_case.** Según la historia de cada
+base conviven tres variantes:
+
+| Variante | Columnas | Origen |
+|---|---|---|
+| VPS | `tag_key`, `required`; sin `updated_at` ni clave única; con FK | `20260728-003`. La tienen las bases creadas con las migraciones |
+| Canónica | `policy_name`, `is_required`, `uk_tenant_policy`; sin FK | `20260813-001` |
+| camelCase | `tenantId`, `policyName`, `isRequired`, `createdAt`, `updatedAt` | La que consultaba `governance/policies/route.ts` |
+
+1. Renombra a `tenant_id`, `policy_name`, `is_required`, `created_at` y
+   `updated_at` sólo si existe la columna vieja y no la nueva. `RENAME COLUMN`
+   conserva tipo, índices y FKs. Si no hay `updated_at` ni `updatedAt`, la crea.
+2. Borra las filas repetidas por `(tenant_id, policy_name)`, deja la de menor
+   id y crea `UNIQUE uk_tenant_policy (tenant_id, policy_name)`. Sin esa clave,
+   el `ON DUPLICATE KEY` de `/api/tags` insertaba duplicados.
+3. Si no hay FK a `Tenants`: `MODIFY tenant_id VARCHAR(255) … COLLATE
+   utf8mb4_unicode_ci NOT NULL` (la collation de `Tenants.tenant_id`; si no,
+   MySQL rechaza la FK), borra las filas de tenants que ya no existen y agrega
+   `fk_tagging_policies_tenant` `ON DELETE CASCADE`.
+
+**`20261008-011` — `allowed_values`.** `JSON NULL AFTER is_required`: un
+arreglo de strings, y NULL es valor libre (sólo se exige presencia). Si la
+columna se creó en esa corrida (`@c = 0`), las filas Environment y Role en NULL
+toman las listas de `DEFAULT_MANDATORY_TAG_POLICIES`:
+
+- Environment: `prod`, `stg`, `dev`, `qa`, `sandbox`.
+- Role: `database`, `api`, `frontend`, `backup`, `orchestrator`, `network`,
+  `storage`, `worker`.
+
+Sin ese relleno, el tenant con filas perdía la validación que el tenant sin
+filas sí tiene. En una segunda corrida no pisa un NULL puesto a propósito.
+
+**`TagValueAliases`** (`012`):
+
+| Columna | Tipo | Nota |
+|---|---|---|
+| `id` | `INT` PK | |
+| `tenant_id` | `VARCHAR(255)` NULL | NULL es global. FK `fk_tag_value_aliases_tenant` `ON DELETE CASCADE` |
+| `tag_name` | `VARCHAR(128)` | Nombre de la política |
+| `alias` | `VARCHAR(256)` | En forma comparable (`tagValueKey`, 44.3): `Pre-Prod` se guarda `preprod` |
+| `canonical_value` | `VARCHAR(256)` | Tal como está en la lista de permitidos |
+| `created_by` | `VARCHAR(255)` NULL | Email u oid de quien aprobó la corrección. NULL en los globales |
+| `created_at` | `TIMESTAMP` | |
+
+`UNIQUE uq_tag_alias (tenant_id, tag_name, alias)`. MySQL no considera iguales
+dos NULL en un índice único, así que los 65 globales se siembran con
+`INSERT … SELECT … WHERE NOT EXISTS`. El `CONVERT(… USING utf8mb4) COLLATE
+utf8mb4_unicode_ci` evita el *Illegal mix of collations* cuando la conexión usa
+otra collation.
+
+| Etiqueta | Canónico | Alias globales |
+|---|---|---|
+| Environment | `prod` | production, produccion, producao, productivo, prd, live |
+| Environment | `dev` | development, develop, desarrollo, desa, desenvolvimento |
+| Environment | `qa` | test, testing, tst, teste, prueba, pruebas, quality, qualityassurance |
+| Environment | `stg` | staging, stage, preprod, preproduction, preproduccion, uat, homologacion, homologacao, hml |
+| Environment | `sandbox` | sbx, lab, playground |
+| Role | `database` | db, bd, sql, mysql, postgres, postgresql, basededatos, bancodedados |
+| Role | `api` | backend, apis |
+| Role | `frontend` | web, webapp, front, ui |
+| Role | `backup` | backups, bkp, respaldo |
+| Role | `orchestrator` | aks, k8s, kubernetes, orquestador |
+| Role | `network` | net, networking, red, rede |
+| Role | `storage` | blob, disk, almacenamiento, armazenamento |
+| Role | `worker` | job, jobs, batch, function, functions |
+
+**`TagNormalizationDecisions`** (`013`, una fila por corrección aplicada o
+sugerencia descartada):
+
+| Columna | Tipo | Nota |
+|---|---|---|
+| `id` | `BIGINT` PK | |
+| `tenant_id` | `VARCHAR(255)` | FK `fk_tag_norm_decisions_tenant` `ON DELETE CASCADE`. Índice `idx_tag_norm_tenant_created (tenant_id, created_at)` |
+| `tag_name` | `VARCHAR(128)` | El nombre de la política, no el que mandó el cliente |
+| `original_value` | `VARCHAR(256)` | Vacío si la etiqueta faltaba (heredar o completar) |
+| `suggested_value` | `VARCHAR(256)` NULL | NULL: no había sugerencia |
+| `suggestion_source` | `VARCHAR(8)` NULL | `rule` o `ai` |
+| `suggested_method` | `VARCHAR(16)` NULL | `exact`, `alias`, `fuzzy`, `inheritance` o `ai` |
+| `suggested_confidence` | `DECIMAL(4,3)` NULL | 0 a 1 |
+| `applied_value` | `VARCHAR(256)` NULL | NULL: se descartó |
+| `accepted` | `TINYINT(1)` NULL | Lo calcula el servidor (44.8) |
+| `resource_count` | `INT` | Recursos corregidos con esa decisión. Default 0 |
+| `decided_by` | `VARCHAR(255)` NULL | Email u oid |
+| `created_at` | `TIMESTAMP` | |
+
+### 44.3 Normalizador — `src/lib/tagValueNormalizer.ts`
+
+Funciones puras, sin base ni red. Las usan el escáner, `tags/suggest`, la
+pantalla y el servicio de IA.
+
+- **`tagValueKey(value)`**: NFD, saca las marcas (`\p{M}`), pasa a minúsculas y
+  deja sólo letras y dígitos. `Pre-Producción ` → `preproduccion`.
+- **`parseAllowedValues(raw)`**: acepta el arreglo que devuelve mysql2 o el
+  JSON como string. Recorta y saca vacíos, no-strings y repetidos. Un arreglo
+  vacío, un JSON inválido o algo que no es arreglo es `null` (valor libre).
+- **`editDistance(a, b)`**: distancia de edición con transposiciones adyacentes
+  (OSA). `prdo` → `prod` cuesta 1.
+- **`normalizeTagValue(value, allowedValues, aliases = [])`** →
+  `{ normalized, method, confidence }`:
+  1. Sin permitidos, o con forma comparable vacía: `{ null, null, 0 }`.
+  2. **`exact`** (1): el valor está tal cual en la lista o tiene la forma de un
+     permitido. Devuelve el permitido como está escrito en la política; si dos
+     tienen la misma forma, prefiere el idéntico y si no, el primero.
+  3. **`alias`** (`ALIAS_CONFIDENCE = 0.95`): recorre los alias en orden, los
+     del tenant primero. Gana el primero con la misma forma cuyo canónico siga
+     permitido, literal o por forma. Un alias hacia un valor que el tenant ya
+     no permite se ignora.
+  4. Con una forma de menos de 5 caracteres (`FUZZY_MIN_LENGTH`) termina sin
+     sugerencia: `dev` o `qa` quedan a una o dos ediciones de casi cualquier
+     cosa.
+  5. **`fuzzy`**: hasta 1 edición entre 5 y 7 caracteres y hasta 2 desde 8.
+     Compara contra los permitidos y contra los alias, que proponen su
+     canónico; saltea los que difieren en largo más que el tope. Una distancia
+     menor reemplaza a la mejor y borra el empate. Una igual con otro canónico
+     es empate, y con empate no hay sugerencia. Dos candidatos del mismo
+     canónico no empatan. Confianza: `round((1 − d / max(largos)) × 100) / 100`.
+     `stagin` → `stg` por el alias `staging`, con 0,86.
+- **`findInvalidTagValues(currentTags, policies, aliasesByTag)`**: sólo las
+  políticas con lista. Busca la clave sin distinguir mayúsculas. Un valor
+  presente, no vacío y que no está **literal** en la lista es un
+  `InvalidTagValue` `{ tagName, tagKey, value, suggestion }`; `tagKey` es la
+  clave como está escrita en el recurso, que es la que se corrige. Ausente o
+  vacío es faltante, no valor no permitido. `Prod` no cumple aunque la regla lo
+  lleve a `prod` con `exact`.
+
+`src/lib/tagNonConformities.ts`, también puro:
+
+- `tagValueOf` y `missingTagsOf`: las obligatorias que faltan o están vacías.
+- `withTags(item, tags, policies, aliases?)`: recalcula faltantes, valores no
+  permitidos y estado después de aplicar. Conserva la sugerencia del servidor
+  para un valor que no cambió: el cliente no tiene los alias del tenant.
+- `groupNonConformingValues(resources, rgs)`: por etiqueta y valor, de más a
+  menos recursos.
+- `findMissingTag(resources, rgs, tagName)`: los recursos sin esa etiqueta, con
+  el valor que heredarían de su grupo (`inheritedValue`, o null).
+- `tagVocabulary(resources, rgs, tagName, max = 100)`: los valores que el
+  tenant ya usa para esa etiqueta, de más a menos usados.
+
+### 44.4 Políticas, escáner, historial y `tags/suggest`
+
+En `src/services/azureTagGovernance.service.ts`:
+
+- **`getTenantTagPolicies(tenantId)`**: `SELECT id, policy_name, is_required,
+  allowed_values … ORDER BY id`. Sin filas, o si la tabla no se puede leer,
+  devuelve `DEFAULT_MANDATORY_TAG_POLICIES`. Una sola fila reemplaza a las
+  cuatro por defecto. `descriptionKey` sale de la política por defecto con el
+  mismo nombre.
+- **`getTagValueAliases(tenantId)`**: `WHERE tenant_id = ? OR tenant_id IS NULL
+  ORDER BY (tenant_id IS NULL), id`, en un `Map` por etiqueta en minúsculas. Los
+  del tenant van primero y ganan; nunca se leen los de otro tenant. Si falla,
+  vacío.
+- **`scanTagGovernanceLive(credential, subs, tenantId)`**: lee la caché, las
+  políticas y los alias en paralelo. Por cada recurso
+  (`resources | … | limit 1000`) y grupo (`resourcecontainers | … | limit 500`)
+  aplica `overlayCachedTags` (44.5), `missingTagsOf` y `findInvalidTagValues`.
+  Conforme es sin faltantes y sin valores no permitidos. Cada ítem suma
+  `invalidTags` y el resumen, `invalidValueResourcesCount` e
+  `invalidValueResourceGroupsCount`. `overallCompliancePercentage` cuenta sólo
+  recursos.
+- **Historial.** `GET /api/governance/tags` llama a
+  `recordDailySnapshotAsync(tenantId, "tag_compliance", { compliancePct,
+  nonCompliantResources, invalidValueResources })` sólo cuando escaneó el tenant
+  completo: `DailySnapshots` no filtra por suscripción y mezclaría alcances.
+  `tag_compliance` se sumó a los dominios de `snapshotService`, la demo lo arma
+  en `mockData` y la página monta `HistoryButton domain="tag_compliance"`.
+- **`inferTagsFromNaming(name, type, rg)`**: Environment sólo con indicios (ya
+  no `prod` por defecto). `disk` da Role `storage`, no `database-disk`, que no
+  es un valor permitido. Devuelve el valor y su base: `name`, `type`,
+  `resource_group` o `role`.
+- **`suggestTagValues(resource, policies, aliases)`**, por etiqueta:
+  - Un valor actual permitido, o de una etiqueta libre, no se toca.
+  - Uno no permitido pasa por el normalizador. Si no lo resuelve, se prueba la
+    convención de nombres.
+  - Lo inferido se lleva a la lista con el normalizador. Si no cae en un
+    permitido, no se sugiere.
+  - Confianza de la convención: `NAMING_CONFIDENCE` (`name` 0,8, `type` 0,7,
+    `resource_group` 0,6, `role` 0,5) por la del normalizador. Ordena la
+    evidencia; no está calibrada.
+- **`POST /api/governance/tags/suggest`** (`154cbd0`) devuelve
+  `{ success, suggestedTags, details, method: "heuristic" }`, con
+  `details[tag] = { value, method: "exact" | "alias" | "fuzzy" | "naming",
+  basis?, confidence }`. `method` sigue diciendo `heuristic` porque es la verdad
+  para la respuesta entera: son reglas, no un modelo. Antes devolvía un
+  `confidence: 0.94` fijo. Toma `currentTags` del body: sólo pares string, con
+  clave de hasta 512 y valor de hasta 256 caracteres, y hasta 50. La demo usa
+  las políticas por defecto y `MOCK_TAG_VALUE_ALIASES`.
+
+### 44.5 Caché local — `overlayCachedTags` y `mergeLocalCachedTags` (`6d6e159`)
+
+`LocalResourceTagsCache` guarda tags que la plataforma escribió y Resource
+Graph todavía no devuelve. La escriben *Editar Etiquetas* y *Propagar a Hijos*
+(`saveLocalCachedTags`, con lo que ARM aceptó), `cleanup/ttl`
+(`{ ExpireOn, TTL }`) y `cleanup/backup-orphans` (`{ PurgeStatus, RequestedAt }`).
+Las dos últimas no tocan ARM. Las filas no vencen.
+
+- **El problema.** El escáner usaba `cachedTags || raw.tags`: una fila
+  reemplazaba todos los tags de Azure. Una fila de TTL escondía CostCenter y
+  Environment reales; *Heredar del grupo* o *Proponer con IA* los daban por
+  faltantes y el Merge de ARM pisaba el valor del cliente. Además, una
+  corrección aplicada volvía en el próximo escaneo si el recurso tenía fila.
+- **`overlayCachedTags(azureTags, cachedTags)`** arranca de Azure, saca las
+  claves que coinciden sin distinguir mayúsculas con una de la caché y suma las
+  de la caché. Se usa en recursos y en grupos. Costo aceptado: una clave que se
+  saca en el modal se sigue viendo mientras Resource Graph la devuelva, porque
+  el modal aplica con Merge, que no borra en Azure.
+- **`mergeLocalCachedTags(tenantId, changes)`** corre después de escribir en
+  Azure. Junta los cambios por id, hace un
+  `SELECT id, resource_id, tags_json … WHERE tenant_id = ? AND resource_id IN (?)`
+  y, por cada fila que existe, superpone los tags aplicados con
+  `UPDATE … WHERE id = ? AND tenant_id = ?`. No crea filas: sin fila, el
+  escaneo ya lee Azure. Si falla, `console.warn` y sigue, porque Azure ya
+  aceptó.
+- La llaman `POST /api/tags/apply-bulk`, con los recursos que ARM aceptó, y
+  `POST /api/governance/tags/apply-inheritance`, con las ops que salieron bien.
+  Nunca en `dryRun` ni en la demo. Las respuestas no cambian.
+
+### 44.6 IA — `src/services/tagValueAiSuggestion.service.ts`
+
+`suggestTagValuesWithAi({ tenantId, userKey, mode, policy, policies,
+loadSummary })`. El modo lo valida antes `policyForAi(policies, mode, tagName)`:
+`normalize` sólo sobre políticas con lista y `fill` sólo sobre obligatorias sin
+lista (CostCenter, Department).
+
+1. `checkAiFeature(tenantId, "tag-value-normalization", email)`. Si deniega,
+   devuelve el motivo sin escanear.
+2. DLP con `getDataSharingPrefs`: sin `shareTags`, `dlp_tags` y no sale nada.
+   `fill` sin `shareResourceNames` es `dlp_names`: para una etiqueta faltante
+   la única pista es el nombre.
+3. `loadSummary()`: el servidor vuelve a escanear la suscripción del pedido o
+   todas las del tenant. No usa lo que manda el navegador.
+4. `buildAiBatch(scan, mode, policy, policies, shareResourceNames)`:
+   - `normalize`: los grupos de esa etiqueta que la regla no resolvió
+     (`suggestion.normalized === null`), los primeros 50 (`TAG_AI_BATCH_SIZE`),
+     de más a menos recursos. Cada valor viaja como `{ key: "v1", value }` y, si
+     se comparten nombres, con hasta 3 tipos y 3 nombres de los recursos que lo
+     usan. El vocabulario es la lista de permitidos.
+   - `fill`: los recursos sin la etiqueta que no pueden heredarla del grupo, los
+     primeros 50, como `{ key: "r1", name, type, resourceGroup, tags }`. `tags`
+     lleva sólo las etiquetas de las otras políticas: el resto puede traer datos
+     personales (dueño, mail). El vocabulario es `tagVocabulary`, los valores
+     que el tenant ya usa para esa etiqueta.
+   - Sin pendientes, `nothing_to_resolve`. `fill` sin vocabulario,
+     `no_vocabulary`. Ninguno llama al modelo.
+5. `redactForDataSharing(context, prefs)`.
+6. Caché en `AiCache`, con clave
+   `sha256("tag-norm:v1:{tenantId}:{mode}:{contexto}")` (`hash_prompt` es
+   `VARCHAR(64)`). No vence: el contenido es la clave, así que otros valores,
+   otra lista u otros recursos arman otra. Al leerla se vuelve a validar contra
+   el lote actual y, si no valida, se ignora.
+7. `AIProviderFactory.getGeminiModel(tenantId)`. Si falla, `not_configured`.
+8. `timeAiCall` → `aiQueue` → `withExponentialBackoff` → `generateObject` con
+   el esquema, el system prompt del modo, el contexto en `<context_data>` y
+   `maxOutputTokens`. Después, `insertPlatformAiUsage` con la feature. Una
+   excepción es `error`.
+9. `validateAiItems`: una clave desconocida o repetida, un valor fuera del
+   vocabulario o una confianza fuera de `[0, 1]` rechazan el lote entero. Emite
+   `logAiEvent` `output/rejected`, devuelve `validation` y no cachea.
+10. `REPLACE INTO AiCache`. Si el guardado falla, igual devuelve: la llamada ya
+    se pagó.
+
+```ts
+z.object({
+  items: z.array(z.object({
+    key: z.string(),
+    value: z.enum([...vocabulario, "UNKNOWN"]),
+    confidence: z.number(),
+  })),
+})
+```
+
+Los dos system prompts están en inglés. Piden elegir el valor de la lista que
+corresponde (sinónimo, traducción, abreviatura o error de tipeo) o `UNKNOWN`,
+"never guess and never invent a value", y tratar lo de `<context_data>` como
+datos. `PROMPT_VERSION = "v1"` entra en la clave de caché: cambiarlo invalida lo
+guardado. `toSuggestions` devuelve una sugerencia por target; lo que el modelo
+no contestó o dejó en `UNKNOWN` sale con `suggestion: null`.
+
+**Demo.** `getMockTagAiSuggestions` arma el mismo lote sobre
+`getMockTagGovernanceSummary()` y contesta con respuestas fijas, sin gate ni
+modelo: `k8s-cluster` → `orchestrator` (0,86), `pruebas` → `qa` (0,81) y
+CostCenter de `vm-jumpbox-legacy` → `CorePlatform` (0,64), entre otras.
+
+### 44.7 Endpoints
+
+| Método y ruta | Auth | Contrato |
+|---|---|---|
+| `POST /api/governance/tags/normalization/ai?tenantId=` | `requireTenantAccess` y `exigirSuscripcionDelTenant`; demo sin guard | Body `{ mode: "normalize" \| "fill", tagName, subscriptionId? }`. 200 con `{ success, aiAvailable: true, mode, tagName, suggestions: [{ target, suggestion \| null, confidence }] }` o `{ success, aiAvailable: false, reason }`. `target` es el valor (`normalize`) o el id del recurso (`fill`). `maxDuration = 60` |
+| `GET /api/governance/tags/normalization?tenantId=` | `requireTenantAccess`; demo sin guard | Los KPIs de 44.8 |
+| `POST /api/governance/tags/normalization?tenantId=` | Admin u Owner (`requireTenantRole`, que deja pasar al superadmin); demo sin rol | Body `{ tagName, originalValue, suggestedValue?, suggestionSource?, suggestedMethod?, suggestedConfidence?, appliedValue?, resourceCount?, saveAlias? }`. `{ success, aliasSaved }`. En la demo valida, no escribe y suma `mock: true` |
+| `POST /api/governance/tags/suggest?tenantId=` (cambia) | `requireTenantAccess`; demo sin guard | 44.4 |
+| `GET /api/governance/tags` (cambia) | `requireTenantAccess` y `exigirSuscripcionDelTenant`. La demo y `?mock=true` devuelven el mock antes del guard; lo segundo es preexistente, pasa también en el POST y quedó en MEJ-42 | El resumen suma `invalidTags` y los contadores de valores no permitidos, y guarda el historial (44.4) |
+| `GET\|POST\|PUT\|DELETE /api/governance/policies` (cambia) | Leer: `requireTenantAccess` (`x-tenant-id` o `?tenantId`). Escribir: Admin u Owner (`x-tenant-id`) | snake_case en SQL y camelCase en el JSON. POST `{ policyName, isRequired, allowedValues? }`, 409 si ya existe. PUT `{ id, isRequired, allowedValues? }`: sin `allowedValues` no toca la lista y con `null` la borra. DELETE `{ id }`, siempre con `tenant_id`. `allowedValues`: hasta 100 strings no vacíos de hasta 256 caracteres |
+| `GET\|POST\|DELETE /api/tags` (cambia) | Leer: `requireTenantAccess`, que deja pasar al superadmin. Escribir: Admin u Owner | Usa `policy_name` e `is_required`. El GET los sigue devolviendo como `tag_key` y `required`. POST hace `ON DUPLICATE KEY UPDATE is_required` |
+| `POST /api/tags/apply-bulk` (cambia) | Admin u Owner, bloqueo por delegación de lectura y Business | Mismo contrato; suma `mergeLocalCachedTags` (44.5) |
+| `POST /api/governance/tags/apply-inheritance` (cambia) | Admin u Owner; sin `dryRun`, Business y bloqueo por delegación | Mismo contrato; suma `mergeLocalCachedTags` |
+
+Los errores de validación son 400 con `{ error }`, en español; los de los
+guards, 401 o 403 con el status del `AuthError`; el resto, 500.
+
+| Ruta | `error` (400) |
+|---|---|
+| `normalization/ai` | `Faltan tenantId, mode (normalize\|fill) o tagName.` y `La etiqueta no tiene una política que admita ese modo.` (`policyForAi`). El 500 es `No se pudieron generar las sugerencias.` |
+| `normalization` (GET y POST) | `tenantId requerido` |
+| `normalization` (POST) | `Body JSON inválido`, `tagName inválido` (hasta 128), `originalValue inválido`, `suggestedValue/appliedValue inválidos` (hasta 256), `Falta suggestedValue o appliedValue`, `suggestionSource inválido` (`rule` o `ai`), `suggestedMethod inválido` (`exact`, `alias`, `fuzzy`, `inheritance` o `ai`), `suggestedConfidence inválido` (0 a 1), `resourceCount inválido` (entero de 0 a 100.000), `La etiqueta no tiene política` y `El valor aplicado no está entre los permitidos` |
+| `suggest` | `tenantId requerido`, `Body JSON inválido` y `resourceName requerido` |
+
+Un pedido a la IA que no se puede hacer responde 200 con `aiAvailable: false`,
+como la explicación de anomalías. Los motivos son
+`TAG_AI_UNAVAILABLE_REASONS` (`src/types/azureTagGovernance.types.ts`),
+traducidos en `TagNormalization.aiReason_*`, en el orden en que se evalúan:
+
+| `reason` | Lo decide | Cuándo |
+|---|---|---|
+| `global_disabled` | Gate | La IA está apagada en la plataforma |
+| `feature_disabled` | Gate | El interruptor `tag-value-normalization` está apagado |
+| `tenant_disabled` | Gate | `Tenants.ai_enabled` está apagado |
+| `tier` | Gate | El plan es menor que Professional |
+| `quota` | Gate | Se agotó el cupo del mes (sin BYOK) |
+| `rate_limited` | Gate | Más de 5 pedidos por minuto del mismo usuario |
+| `dlp_tags` | Servicio | El tenant no comparte tags |
+| `dlp_names` | Servicio | `fill` y el tenant no comparte nombres de recursos |
+| `nothing_to_resolve` | Servicio | No quedan valores, o recursos, sin resolver para esa etiqueta |
+| `no_vocabulary` | Servicio | `fill` y ningún recurso usa todavía esa etiqueta |
+| `not_configured` | Servicio | No hay modelo: ni BYOK ni IA de plataforma |
+| `error` | Servicio | Falló la llamada al modelo |
+| `validation` | Servicio | La salida no pasó `validateAiItems` |
+
+### 44.8 Decisiones y KPIs — `src/services/tagNormalization.service.ts`
+
+**`recordTagNormalizationDecision(tenantId, input, decidedBy)`:**
+
+- `accepted` lo calcula el servidor, no lo manda el cliente. Con sugerencia, es
+  1 si lo aplicado es lo sugerido y 0 si se aplicó otro valor o se descartó. Sin
+  sugerencia, NULL. Origen, método y confianza se guardan sólo si hubo
+  sugerencia.
+- La ruta valida antes contra la política: se guarda el nombre de la política
+  y, si tiene lista, lo aplicado tiene que estar en ella.
+- **Alias.** Con `saveAlias`, si se aplicó algo y la forma comparable del
+  original no está vacía ni es la de lo aplicado (eso ya lo resuelve `exact`),
+  `INSERT … ON DUPLICATE KEY UPDATE canonical_value, created_by` en
+  `TagValueAliases`, con `alias = tagValueKey(original)` y el tenant.
+
+Qué registra la pantalla:
+
+| Acción | Decisión |
+|---|---|
+| *Aplicar* | Una por grupo: original, lo sugerido (regla o IA, si había), lo aplicado y los recursos que ARM aceptó |
+| *Descartar* | Sólo si había sugerencia, con lo aplicado en NULL |
+| *Heredar del grupo* | Una por valor heredado: original vacío, `rule`, `inheritance`, confianza 1, aceptada |
+| *Aplicar aprobadas* | Una por par (propuesta de la IA, valor aplicado), con la confianza promedio. Sin propuesta, sin origen |
+
+**`getTagNormalizationKpis(tenantId)`**, con ventana de 90 días
+(`KPI_PERIOD_DAYS`):
+
+```sql
+SELECT
+  COALESCE(SUM(CASE WHEN applied_value IS NOT NULL AND accepted = 1 AND suggestion_source = 'rule' THEN resource_count END), 0) AS by_rule,
+  COALESCE(SUM(CASE WHEN applied_value IS NOT NULL AND accepted = 1 AND suggestion_source = 'ai' THEN resource_count END), 0) AS by_ai,
+  COALESCE(SUM(CASE WHEN applied_value IS NOT NULL AND (accepted IS NULL OR accepted = 0) THEN resource_count END), 0) AS manual,
+  COALESCE(SUM(accepted = 1), 0) AS accepted_count,
+  COALESCE(SUM(accepted IS NOT NULL), 0) AS decided_count
+FROM TagNormalizationDecisions
+WHERE tenant_id = ? AND created_at >= NOW() - INTERVAL ? DAY
+```
+
+Devuelve `TagNormalizationKpis`
+`{ periodDays, resolvedResources: { rule, ai, manual }, suggestionsDecided, suggestionsAccepted, acceptanceRatePct }`.
+Los recursos corregidos pesan por `resource_count`; la tasa cuenta decisiones:
+aceptadas sobre decididas, con un decimal, o null si no hay ninguna. *A mano*
+es lo aplicado sin sugerencia o con otro valor que el sugerido. La evolución
+del cumplimiento sale del historial `tag_compliance` (44.4), no de esta tabla.
+
+### 44.9 UI
+
+- **`src/components/governance/TagNonConformingValues.tsx`** (namespace
+  `TagNormalization`), dentro de `TagGovernancePanel`, debajo de las políticas
+  activas:
+  - **Valores No Conformes.** `groupNonConformingValues`, de a 10 por página.
+    Por grupo: etiqueta, valor actual, recursos (los primeros 10 nombres en el
+    title), *Corregir a* (un select con los permitidos, que arranca en la
+    sugerencia), *Sugerencia* y las acciones *Aplicar* y *Descartar*. La
+    sugerencia muestra el método (*Formato*, *Alias*, *Parecido* o *IA*) y la
+    confianza; si no hay, el botón *Sugerir con IA*, que pide la etiqueta
+    entera, o el motivo traducido.
+  - **Aplicar** abre *Confirmar cambios en Azure*: el cambio, hasta 8 nombres
+    (*y N más*) y, si corresponde, la casilla para guardar el alias. No se
+    ofrece si el cambio es sólo de formato o si la sugerencia ya era ese alias.
+    *Confirmar y aplicar* manda `/api/tags/apply-bulk` en lotes de 100, una vez
+    por cada forma en que está escrita la clave en los recursos (`environment`
+    o `Environment`), y después registra la decisión.
+  - **Etiquetas Libres Faltantes**, por cada política obligatoria sin lista con
+    recursos sin la etiqueta. *Heredar del grupo (N)* manda `apply-inheritance`
+    en lotes de 200. *Proponer con IA (N)* pide `fill` y arma una tabla con
+    *Valor propuesto* (un select con los valores en uso), *Confianza* y
+    *Aprobar*. *Aplicar aprobadas (N)* agrupa por valor y manda `apply-bulk`.
+  - **KPIs**: la línea de recursos corregidos y la de aceptación, de
+    `GET …/normalization`.
+  - Después de aplicar, `onTagsApplied` actualiza la tabla con `withTags`, sin
+    esperar a Resource Graph.
+- **Permisos** (`6d6e159`). `canEdit` es Admin, Owner o superadmin
+  (`useTenant`). `canApply` es `canEdit` y `canRemediateTags(tier)`, que pide
+  Business (`TAG_REMEDIATION_TIER`). *Aplicar*, *Heredar del grupo* y *Aplicar
+  aprobadas* piden `canApply`, con el motivo en el title (`roleTip` o
+  `applyTierTip`). *Descartar* pide `canEdit`. Los botones de IA quedan
+  habilitados para todos, porque sólo proponen. `recordDecision` muestra el
+  `error` del servidor. Lo que manda es la API.
+- **`TagGovernancePanel.tsx`** (namespace `GovernanceTags`):
+  - La auditoría muestra *Faltantes o No Permitidas*: los valores no permitidos
+    en ámbar, con el sugerido en el title. El CSV suma *Valores No Permitidos*.
+    Los tooltips de los KPIs dicen que también cuentan los valores.
+  - Las tarjetas de políticas y *Gestionar Políticas* muestran los valores
+    permitidos o *Valor libre*, y *OPCIONAL* si la política no es obligatoria.
+    Son de sólo lectura.
+  - *Editar Etiquetas*: Environment y Role arman sus opciones con los
+    permitidos de su política. Si el valor actual no está, aparece como
+    *{valor} (no permitido)*. Role sin lista sigue siendo texto libre.
+  - *Sugerir por convención de nombres* usa `details` de `tags/suggest`.
+- **Demo.** El escaneo de `getMockTagGovernanceSummary` trae valores no
+  conformes de ejemplo; los alias son `MOCK_TAG_VALUE_ALIASES`, los KPIs
+  `getMockTagNormalizationKpis` (46 recursos por regla, 9 con IA y 5 a mano; 20
+  de 23 sugerencias aceptadas) y la IA, la de 44.6. Aplicar marca los recursos
+  en memoria (`markMockResourcesAsTagged`). El usuario de la demo es Admin.
+- **i18n.** `TagNormalization.*`, las claves nuevas de `GovernanceTags` y
+  `AdminAiConfigGlobal.featureSwitches.features.tag-value-normalization`, en
+  los tres idiomas.
+
+### 44.10 Verificación
+
+| Test | Cubre |
+|---|---|
+| `__tests__/unit/tagValueNormalizer.test.ts` | Forma comparable, `parseAllowedValues` y OSA; `exact`, `alias` (orden, canónico ya no permitido) y `fuzzy` (topes por largo, mínimo de 5, empates, el más cercano gana); `findInvalidTagValues` |
+| `__tests__/unit/governancePoliciesRoute.test.ts` | Columnas snake_case y JSON en camelCase; Admin u Owner; `allowed_values` como JSON o NULL; 400 y 409; PUT sin lista no la toca y con `null` la borra; DELETE por tenant |
+| `__tests__/unit/tagGovernanceValoresPermitidos.test.ts` | Políticas del tenant o por defecto, también si la tabla falla; alias del tenant primero; el escáner separa faltantes de valores no permitidos |
+| `__tests__/unit/tagNormalizationDecisions.test.ts` | Rol, nombre de la política y `accepted`; alias en forma comparable y cuándo no se guarda; herencia; valor fuera de la lista; payloads inválidos; 403 sin tocar la base; demo; KPIs ponderados y tasa null |
+| `__tests__/unit/tagValueAiSuggestion.test.ts` | Agrupación, herencia y vocabulario; `withTags`; `policyForAi`; el lote (residuo, pistas según DLP, tope de 50); validación; gate y DLP antes de escanear; caché válida e inválida; motivos; demo |
+| `__tests__/unit/azureTagGovernanceService.test.ts` | Convención de nombres sólo con indicios y su base; `suggestTagValues` dentro del vocabulario del tenant |
+| `__tests__/unit/tagsSuggestRoute.test.ts` | 400 sin `tenantId`; `?mock=true` no saltea la autenticación; status del `AuthError`; `heuristic` con `details`; alias del tenant; demo |
+| `__tests__/unit/tagGovernanceCacheLocal.test.ts` | `overlayCachedTags`; una fila de TTL no esconde Azure, en recursos ni en grupos; la caché gana en su clave; `mergeLocalCachedTags` reemplaza sin distinguir mayúsculas, no inserta y no corta si la base falla |
+| `__tests__/unit/tagsApplyBulk.test.ts` | Sólo lo que ARM aceptó va a la caché y la respuesta no cambia; la demo no toca Azure ni la caché |
+| `__tests__/integration/api-tag-inheritance.test.ts` | Demo sin rol ni Azure; la caché sólo con las ops que salieron bien y nunca en `dryRun` |
+| `__tests__/e2e/tag-normalization.demo.spec.ts` | En la demo: sugerencia por regla y por IA, heredar y proponer CostCenter, auditoría y políticas, el modal con valores permitidos |
+
+Además, `aiFeatureGate.test` exige el rótulo de cada feature de `AI_FEATURES`,
+`i18nClavesDinamicas.test` cubre `TagNormalization.aiReason_*`,
+`cascadaBorradoTenant.test` las FK a `Tenants` y `lighthouseGuardEscritura.test`
+registra que `normalization/ai` no escribe en Azure.
+
+Suite completa (`env -u DB_HOST REDIS_PORT=1 npx vitest run`): 4372 tests en
+verde y 39 omitidos, en 432 archivos; `tsc` limpio y sin warnings nuevos de
+ESLint. Falta probarlo con un tenant real y las migraciones aplicadas.

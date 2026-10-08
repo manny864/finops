@@ -176,7 +176,8 @@ El sistema está dividido en cinco (5) pilares estratégicos en el menú lateral
 ### 3.4. Gobernanza
 - **Gobernanza de Etiquetas (`/governance/tags`, Pro+):**
   - **Auditoría Dual:** Paneles específicos para auditar tanto **Recursos Individuales** como **Grupos de Recursos (RG)**.
-  - **4 Políticas Obligatorias:** Control en tiempo real del cumplimiento de las etiquetas `Environment`, `Role`, `CostCenter` y `Department`.
+  - **4 Políticas Obligatorias:** Control en tiempo real del cumplimiento de las etiquetas `Environment`, `Role`, `CostCenter` y `Department`, si tu organización no definió las suyas. Environment (`prod`, `stg`, `dev`, `qa` o `sandbox`) y Role tienen además una lista de valores permitidos: un valor fuera de la lista cuenta como incumplimiento, así que el % puede bajar sin que nada cambie en Azure.
+  - **Valores No Conformes:** encuentra valores como `Production` o `PRD`, sugiere el correcto por regla (formato, alias o parecido) y, para lo que la regla no resuelve, con IA, que sólo elige entre los valores permitidos. Lo confirmás y se corrige en Azure. A las etiquetas libres que faltan (CostCenter, Department) las hereda del grupo de recursos o la IA propone valores que tu organización ya usa, que aprobás uno por uno. Aplicar pide Admin u Owner y Business. El detalle está en la sección 7.1.1 del manual que abre el ícono de ayuda.
   - **Sugerencia por convención de nombres (1-clic):** Sugerencia de etiquetas faltantes a partir del nombre, el grupo de recursos y el tipo del recurso en Azure (regla fija, no IA).
   - **Herencia desde RG:** Propagación masiva de tags desde el Resource Group hacia recursos hijos bajo política de Merge Seguro (no sobreescribe etiquetas preexistentes).
   - **Tablas CMP y Persistencia:** Columnas redimensionables con manejador de arrastre (`col-resize`), personalización de columnas desplegable en `z-[100]` y persistencia en `localStorage`.

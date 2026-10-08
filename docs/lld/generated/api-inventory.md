@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **483** rutas.
+Total: **485** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -192,15 +192,17 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/governance/expiring-credentials` | GET, POST, PATCH, DELETE | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/governance/ha` | GET, POST | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/governance/lifecycle` | GET | requireTenantAccess | — | sí |
-| `/api/governance/policies` | GET, POST, PUT, DELETE | requireTenantAccess | — | sí |
+| `/api/governance/policies` | GET, POST, PUT, DELETE | requireTenantRole, requireTenantAccess | — | sí |
 | `/api/governance/power-management` | GET | requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/governance/reporting` | GET | requireTenantTier | Enterprise | sí |
 | `/api/governance/shift-left` | GET | requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/governance/shift-left/gates` | PUT | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/governance/tags` | GET, POST | requireTenantRole, requireTenantTier, requireTenantAccess | Business | sí |
-| `/api/governance/tags/apply-inheritance` | POST | requireTenantRole, requireTenantTier | Business | — |
+| `/api/governance/tags/apply-inheritance` | POST | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/governance/tags/inherit-rg` | POST | requireTenantRole, requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/governance/tags/inheritance-preview` | GET | requireTenantAccess | — | — |
+| `/api/governance/tags/normalization` | GET, POST | requireTenantRole, requireTenantAccess | — | sí |
+| `/api/governance/tags/normalization/ai` | POST | requireTenantAccess | — | sí |
 | `/api/governance/tags/suggest` | POST | requireTenantAccess | — | sí |
 | `/api/health` | GET | — | — | — |
 | `/api/history` | GET | requireTenantAccess | — | sí |
@@ -469,7 +471,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/system/diagnostics` | GET | requireSuperAdmin | — | — |
 | `/api/system/diagnostics/data-freshness` | GET | requireSuperAdmin | — | — |
 | `/api/system/diagnostics/tenants` | GET, POST | requireSuperAdmin | — | — |
-| `/api/tags` | GET, POST, DELETE | requireTenantAccess | — | sí |
+| `/api/tags` | GET, POST, DELETE | requireTenantRole, requireTenantAccess | — | sí |
 | `/api/tags/apply` | POST | requireTenantRole, requireTenantTier | Business | — |
 | `/api/tags/apply-bulk` | POST | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/tags/compliance` | GET | requireTenantRole | — | sí |

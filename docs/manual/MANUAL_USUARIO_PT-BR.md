@@ -36,6 +36,7 @@
 - **Anomalias com responsável e acompanhamento** (14) e **assinaturas fora do limite do seu plano** (15).
 - **Anomalias: o que mudou e explicação com IA.** Em **Detecção de Anomalias** (Enterprise), **Ver Causa Raiz** mostra qual medidor do serviço subiu e se foi por consumo, por preço ou por algo novo, com os passos a verificar. A IA pode contar isso em palavras. O detalhe chega pela sincronização com o Azure e também pelos exports de custos (14.4).
 - **CSV que não está no formato FOCUS:** agora **todas** as linhas são processadas. A IA só identifica as colunas e a plataforma lê os valores. O relatório com IA do envio sai no seu idioma e na moeda do arquivo, e se a IA não estiver disponível você vê um resumo por serviço (5.1.7).
+- **Etiquetas com valores não conformes.** Em **Governança de Etiquetas**, Environment e Role têm uma lista de valores permitidos. **Valores Não Conformes** encontra os que não a cumprem, como `Production` ou `PRD`, e sugere o correto: primeiro por regra e, para o que a regra não resolve, com IA. Você confirma e ele é corrigido no Azure. Por isso o % de conformidade pode cair sem que nada mude no Azure (7.1.1).
 
 **Novidades de agosto 2026**
 
@@ -191,7 +192,7 @@ Uma **busca** no topo do menu lateral permite encontrar páginas pelo nome sem n
 
 ### 3.1. Botão "Histórico" — evolução temporal de qualquer métrica
 
-No Dashboard, Descontos por Compromisso, Rightsizing, Anomalias, Orçamentos e Alta Disponibilidade você vai encontrar um botão **Histórico** no canto superior direito. Ao abri-lo:
+No Dashboard, Descontos por Compromisso, Rightsizing, Anomalias, Orçamentos, Alta Disponibilidade e Governança de Etiquetas você vai encontrar um botão **Histórico** no canto superior direito. Ao abri-lo:
 
 1. Escolhe um intervalo de datas (até **1 ano atrás**).
 2. Vê a evolução diária das métricas daquela página como **gráfico de linhas** e **tabela**.
@@ -730,15 +731,56 @@ Painel abrangente de auditoria, sugestão e propagação de metadados corporativ
 
 **Principais capacidades:**
 - **Auditoria Dupla de Conformidade:** Telas dedicadas para auditar tanto **Recursos Individuais** quanto **Grupos de Recursos (Resource Groups)**.
-- **4 Políticas Obrigatórias:** Acompanhamento em tempo real da conformidade das 4 tags essenciais de FinOps:
-  - `Environment` (prod, staging, dev, qa, test, sandbox)
-  - `Role` (função ou perfil arquitetônico)
-  - `CostCenter` (centro de custo contábil)
-  - `Department` (área ou unidade de negócio responsável)
-- **Sugestão pela convenção de nomes (1-clique):** O botão **Sugerir pela convenção de nomes** preenche as tags faltantes do formulário de edição a partir do nome do recurso, do seu grupo de recursos e do seu tipo. Por exemplo, `dev` no nome sugere `Environment = dev`. É uma regra fixa, não IA: revise a sugestão, que só é aplicada quando você salvar.
+- **Políticas de etiquetagem:** se a sua organização não definiu as próprias, são avaliadas as 4 tags essenciais de FinOps. Environment e Role têm, além disso, uma lista de valores permitidos (7.1.1):
+  - `Environment` (ambiente): `prod`, `stg`, `dev`, `qa` ou `sandbox`.
+  - `Role` (função do recurso): `database`, `api`, `frontend`, `backup`, `orchestrator`, `network`, `storage` ou `worker`.
+  - `CostCenter` (centro de custo contábil): valor livre.
+  - `Department` (área ou unidade de negócio responsável): valor livre.
+- **Sugestão pela convenção de nomes (1-clique):** O botão **Sugerir pela convenção de nomes** preenche as tags faltantes do formulário de edição a partir do nome do recurso, do seu grupo de recursos e do seu tipo. Por exemplo, `dev` no nome sugere `Environment = dev`. Só sugere valores permitidos e, se o nome, o tipo e o grupo não dão pistas, não sugere nada. É uma regra fixa, não IA: revise a sugestão, que só é aplicada quando você salvar.
 - **Herança em Lote do RG (Merge Seguro):** Com o botão "Herdar do RG", recursos filhos adotam as tags do Resource Group pai sem sobrescrever nem apagar tags preexistentes.
-- **Edición e Cache Otimista:** Edição em linha com persistência imediata em cache local e sincronização assíncrona com o Azure Resource Manager.
+- **Edição de etiquetas:** **Editar Etiquetas** grava no Azure as etiquetas de um recurso, sem apagar as demais, e a tela as mostra na hora, sem esperar o Azure informá-las. Environment e Role são escolhidos da lista de valores permitidos; se a política não tem lista, são digitados livremente. Se o recurso tem um valor que não está na lista, ele aparece como **{valor} (não permitido)**, para você vê-lo e trocá-lo.
 - **Padrão CMP e Personalização:** Tabelas com redimensionamento de colunas (`col-resize`, 100px - 600px), seletor de colunas visíveis em `z-[100]` e persistência automática por tenant em `localStorage`.
+
+#### 7.1.1. Valores Não Conformes
+
+Uma etiqueta pode estar presente e mesmo assim não servir: `Production`, `PRD` e `prod` são o mesmo ambiente, mas um relatório agrupado por Environment os conta como três. Esta seção encontra esses valores, sugere o correto e, quando você confirma, corrige no Azure.
+
+**Valores permitidos.** Cada política pode ter uma lista de valores permitidos. Se tiver, o valor precisa estar escrito igual ao da lista: `Prod` ou `production` não cumprem em Environment. Sem lista, a política é de **Valor livre** e só exige que a etiqueta esteja presente. Os cartões de **Políticas de Etiquetagem Globais Ativas** e **Gerenciar Políticas** mostram a lista de cada política, ou **Valor livre**, e **OPCIONAL** se ela não for obrigatória. Na tela elas são exibidas, mas não editadas: por enquanto, um Admin ou Owner as altera pela API (`/api/governance/policies`). Se a sua organização define uma única política própria, ela substitui as 4 padrão, então convém definir todas.
+
+**O % de conformidade pode cair.** A partir desta versão, um valor fora da lista conta como não conformidade, igual a uma etiqueta faltante. Se os seus recursos usam `production` ou `Prod`, a **Conformidade Global de Tags** cai sem que nada tenha mudado no Azure. Não é um erro: são os valores que esta seção ajuda a corrigir. Na auditoria, a coluna **Faltantes ou Não Permitidas** mostra os valores não permitidos em âmbar, com o valor sugerido ao passar o mouse, e o CSV ganha a coluna **Valores Não Permitidos**.
+
+**A tabela.** Agrupa por etiqueta e valor: **Etiqueta**, **Valor atual**, quantos **Recursos** o usam (ao passar o mouse você vê os nomes), **Corrigir para**, **Sugestão** e **Ações**.
+
+**Sugestões e confiança.** Primeiro são testadas regras fixas, sem IA. A coluna **Sugestão** diz qual delas encontrou o valor e com que confiança:
+
+- **Formato** (100 %): o mesmo valor escrito de outro jeito, como `Prod` ou `PROD` para `prod`, ou `Front-End` para `frontend`. A comparação ignora maiúsculas, acentos, espaços e hifens.
+- **Alias** (95 %): um sinônimo conhecido. `production`, `produccion` ou `prd` vão para `prod`; `staging` ou `preprod`, para `stg`; `web`, para `frontend`; `k8s`, para `orchestrator`. Primeiro contam os aliases da sua organização e depois os da plataforma.
+- **Parecido:** um erro de digitação em um valor de 5 letras ou mais, como `prodution`. Admite uma letra de diferença até 7 letras e duas a partir de 8, e a confiança cai a cada uma. Se dois valores ficam igualmente próximos, não sugere nenhum.
+- **IA:** para o que as regras não resolveram, **Sugerir com IA** pede à IA os valores não resolvidos daquela etiqueta. Para cada um, ela escolhe um valor da lista ou responde que não sabe (**A IA não soube**). Nunca inventa um valor. A sugestão aparece com **IA** e a sua confiança, e é aplicada como as outras.
+
+**Aplicar.** **Corrigir para** começa na sugestão, e você pode escolher outro valor da lista. **Aplicar** abre **Confirmar alterações no Azure**, com a alteração e os recursos afetados. **Confirmar e aplicar** grava a etiqueta no Azure nesses recursos, sem mexer nas outras etiquetas deles. A linha some quando o Azure aceita a alteração; se alguns recursos falharem, a tela diz quantos.
+
+**Salvar como alias.** A confirmação oferece *Salvar “x” → “y” como alias da sua organização, para que da próxima vez seja corrigido automaticamente*. Se você marcar, esse valor passa a ser sugerido por regra, sem IA, em qualquer recurso da sua organização. O alias é só da sua organização. Não é oferecido quando a diferença é de formato, porque isso já se resolve sozinho.
+
+**Descartar.** Oculta o valor até a próxima varredura. Se havia uma sugestão, ela conta como rejeitada. Não é uma exceção permanente: se o valor continua no Azure, ele volta na próxima varredura.
+
+**Etiquetas Livres Faltantes.** As etiquetas obrigatórias sem lista (por padrão, CostCenter e Department) não têm um valor para corrigir: estão faltando. Esta parte aparece quando há recursos sem a etiqueta.
+
+- **Herdar do grupo (N)** grava em cada recurso o valor que o seu grupo de recursos tem. Vem primeiro porque não adivinha nada.
+- **Propor com IA (N)** é para os recursos que não podem herdar. A IA propõe um valor por recurso, olhando o seu nome, o seu tipo e o seu grupo, e só entre os valores que a sua organização já usa para essa etiqueta. Você revisa cada linha (**Valor proposto**, **Confiança**), troca o valor se precisar e marca **Aprovar**.
+- **Aplicar aprovadas (N)** grava no Azure só o que você aprovou. Uma proposta nunca é aplicada sozinha.
+
+**Quem pode o quê.** Todos veem a seção e podem pedir sugestões à IA, que só propõe. Aplicar, herdar, aplicar aprovadas e descartar ficam com um **Admin** ou **Owner**, porque alteram etiquetas no Azure ou contam nos indicadores. Aplicar, herdar e aplicar aprovadas exigem também o plano **Business**, como o resto da correção de etiquetas: no Professional você vê as sugestões, mas não as aplica. Se um botão está desabilitado, ao passar o mouse ele diz por quê.
+
+**Indicadores.** No canto superior direito da seção, duas linhas resumem os últimos 90 dias: quantos recursos foram corrigidos e que parte foi **por regra**, **com IA** e **manualmente** (sem sugestão ou com um valor diferente do sugerido), e a **Aceitação de sugestões**: quantas sugestões foram aplicadas como vieram, entre as aplicadas ou descartadas. O botão **Histórico** (3.1) mostra a evolução diária da conformidade, dos recursos não conformes e dos que têm valores não permitidos. A foto do dia é tirada ao varrer todas as assinaturas, não ao filtrar uma.
+
+**Cota da IA.** 50 pedidos por mês para a sua organização no Professional e 150 no Business; o Enterprise não tem cota. Cada **Sugerir com IA** ou **Propor com IA** que chega à IA conta um. Se a plataforma já tem a resposta para esse mesmo lote, não conta. Com a sua própria chave de IA (BYOK) não há cota.
+
+**Se a IA não estiver disponível** (desativada na plataforma ou para a sua organização, sem cota, com pedidos demais em sequência, ou porque a sua organização não compartilha etiquetas ou nomes de recursos com a IA), o botão mostra o motivo. As regras e a correção manual continuam funcionando igual.
+
+**O que a IA vê.** Uma etiqueta por pedido, e até 50 valores ou recursos. Para corrigir valores: os valores não resolvidos, a lista de permitidos e, se a sua organização compartilha nomes de recursos, alguns nomes e tipos dos recursos que os usam. Para propor valores faltantes: o nome, o tipo e o grupo de cada recurso, as suas etiquetas das outras políticas e os valores que você já usa. Nunca o resto das suas etiquetas, que podem trazer nomes ou e-mails. O que se compartilha é configurado em **Configuração de IA → Quais Dados São Compartilhados**.
+
+**Na demo** você vê valores não conformes e etiquetas faltantes de exemplo, com sugestões por regra e por IA. A IA não é chamada de verdade, e aplicar só altera os dados de exemplo.
 
 ### 7.2. Relatório de Governança (`/governance/reporting`, Enterprise+)
 

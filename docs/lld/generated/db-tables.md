@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **151** tablas. Migraciones aplicables: **150**.
+Total: **153** tablas. Migraciones aplicables: **154**.
 
 `schema.sql` es el baseline de referencia y **no se ejecuta**; `migrations/` es la
 fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.md`).
@@ -126,6 +126,8 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `SystemAnnouncements` | — | `20260901-001-system-announcements.sql` |
 | `SystemCronRuns` | — | `20260803-001-system-cron-runs.sql` |
 | `TaggingPolicies` | — | `20260728-003-sincronizar-esquema-vps.sql` |
+| `TagNormalizationDecisions` | — | `20261008-013-tag-normalization-decisions.sql` |
+| `TagValueAliases` | — | `20261008-012-tag-value-aliases.sql` |
 | `tenant_health` | sí | `20260628-001-core-bootstrap.sql` |
 | `TenantAddons` | — | `20260913-004-addon-aviso-vencimiento.sql` |
 | `TenantAiSettings` | — | `20260823-003-consolidated-platform-schema.sql` |
@@ -308,6 +310,10 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 - `migrations/20261006-003-vincular-vendedores-a-comerciales.sql`
 - `migrations/20261007-001-anomalies-root-cause-facts.sql`
 - `migrations/20261007-002-anomaly-explanations.sql`
+- `migrations/20261008-010-tagging-policies-snake-case.sql`
+- `migrations/20261008-011-tagging-policies-allowed-values.sql`
+- `migrations/20261008-012-tag-value-aliases.sql`
+- `migrations/20261008-013-tag-normalization-decisions.sql`
 - `migrations/20261008-020-support-ai-triage.sql`
 - `migrations/20261008-021-support-ai-drafts.sql`
 - `migrations/20261008-030-gasto-externo-documentos.sql`
