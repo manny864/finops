@@ -11,6 +11,7 @@ import { RowDataPacket } from 'mysql2';
 import { getAIConfig } from '@/services/aiService';
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 import { timeAiCall } from '@/lib/aiTelemetry';
+import { cognitiveServicesTokenProvider } from '@/lib/azureAiCredential';
 
 // In-memory cache for AI config (provider + apiKey) por tenant.
 // Reduce el round-trip a MySQL en cada request del Copilot.
@@ -240,10 +241,30 @@ export function resolveAzureAiModel(config: {
     azureOpenAIResourceName?: string;
     azureOpenAIDeployment?: string;
     provider?: string;
+    /** 'entra': identidad administrada, sin key (ver usesPlatformEntraAuth en aiService). */
+    authMode?: 'entra';
 }) {
     const rawDeployment = (config.azureOpenAIDeployment || '').trim();
     const deployment = rawDeployment || 'gpt-4o';
     const rawEndpoint = (config.azureOpenAIEndpoint || '').trim();
+
+    // 0. IA de plataforma con Managed Identity: sólo por nombre de recurso. La
+    // cuenta de Terraform no tiene red pública, así que <recurso>.openai.azure.com
+    // tiene que resolver al Private Endpoint (zona privatelink.openai.azure.com).
+    if (config.authMode === 'entra') {
+        if (!config.azureOpenAIResourceName) {
+            throw new Error("Azure OpenAI con Managed Identity no configurado: falta AZURE_OPENAI_RESOURCE_NAME (lo define Terraform con ai_services_enabled).");
+        }
+        // apiKey y tokenProvider son excluyentes en createAzure.
+        const azure = createAzure({
+            resourceName: config.azureOpenAIResourceName,
+            tokenProvider: cognitiveServicesTokenProvider(),
+        });
+        return {
+            model: azure.chat(deployment),
+            modelName: deployment,
+        };
+    }
 
     // 1. Anthropic Claude en Azure AI Foundry / Azure AI Services
     const isAnthropicOnAzure = 
@@ -339,10 +360,11 @@ export class AIProviderFactory {
             azureOpenAIEndpoint?: string;
             azureOpenAIResourceName?: string;
             azureOpenAIDeployment?: string;
+            authMode?: 'entra';
         }
     ) {
         const config = overrideConfig || await getCachedAIConfig(tenantId, forceEnterpriseTier);
-        if (!config.apiKey) {
+        if (!config.apiKey && config.authMode !== 'entra') {
             throw new Error("AI API Key not configured.");
         }
 
