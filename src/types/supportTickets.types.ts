@@ -19,6 +19,15 @@ export type TicketCategory =
 
 export type TicketPriority = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
 
+export const TICKET_CATEGORIES = [
+    "CONSULTA",
+    "FACTURACION_AZURE",
+    "CONEXION_TENANT",
+    "INCIDENCIA_TECNICA",
+    "SOLICITUD_FEATURE",
+] as const satisfies readonly TicketCategory[];
+export const TICKET_PRIORITIES = ["CRITICAL", "HIGH", "MEDIUM", "LOW"] as const satisfies readonly TicketPriority[];
+
 export type TicketStatus = "OPEN" | "IN_PROGRESS" | "WAITING_USER" | "RESOLVED" | "CLOSED";
 
 export type TicketSenderRole = "USER" | "SUPPORT_AGENT" | "SYSTEM";
@@ -42,8 +51,25 @@ export interface TicketMessageItem {
     messageText: string;
     /** Sólo visible para superadmins. El backend nunca la envía a un usuario de tenant. */
     isInternalNote: boolean;
+    /** Nota interna generada por "Sugerir respuesta" (Fase 3b): id del borrador de IA. */
+    aiDraftId?: string;
     attachments?: TicketAttachmentItem[];
     createdAt: string;
+}
+
+/**
+ * Sugerencia de triaje con IA (Fase 3a). Sólo la ve el equipo de soporte y
+ * nunca cambia el ticket sola: aceptarla pasa por el PATCH del ticket.
+ */
+export interface SupportTicketAiTriage {
+    suggestedPriority: TicketPriority;
+    suggestedCategory: TicketCategory;
+    suggestedModule: TicketRelatedModule | null;
+    productionImpact: boolean;
+    rationale: string;
+    /** 0 a 1. */
+    confidence: number;
+    status: "pending" | "accepted" | "dismissed";
 }
 
 export interface SupportTicketItem {
@@ -69,6 +95,8 @@ export interface SupportTicketItem {
     lastMessageSnippet?: string;
     messagesCount: number;
     messages?: TicketMessageItem[];
+    /** Sólo en la cola de superadmin. */
+    aiTriage?: SupportTicketAiTriage;
 }
 
 export interface UserSupportSummaryMetrics {
@@ -117,7 +145,45 @@ export interface GlobalSupportPayload {
     statusCounts: Record<TicketStatus, number>;
     source: "live" | "mock";
     lastUpdated: string;
+    /** Ausente si no se pudieron calcular: no frenan la cola. */
+    kpis?: SupportWindowKpis;
 }
+
+/**
+ * KPIs de la IA de soporte (Fase 3), sobre los tickets y borradores creados en
+ * los últimos `windowDays` días. Un borrador "usado" es el que el operador pasó
+ * al compositor con "Usar como respuesta" y envió como respuesta pública, con o
+ * sin cambios.
+ */
+export interface SupportWindowKpis {
+    windowDays: number;
+    ticketsCreated: number;
+    /** null si ningún ticket de la ventana tuvo primera respuesta. */
+    avgFirstResponseHours: number | null;
+    slaBreaches: number;
+    aiDraftsGenerated: number;
+    aiDraftsUsed: number;
+}
+
+/** Por qué "Sugerir respuesta" no generó un borrador. Se traducen en Support.aiReason_*. */
+export const SUPPORT_AI_UNAVAILABLE_REASONS = [
+    "global_disabled",
+    "feature_disabled",
+    "tenant_disabled",
+    "tier",
+    "quota",
+    "rate_limited",
+    "not_configured",
+    "error",
+    "validation",
+    "data_sharing",
+    "no_sources",
+] as const;
+export type SupportAiUnavailableReason = (typeof SUPPORT_AI_UNAVAILABLE_REASONS)[number];
+
+export type SupportReplyDraftResult =
+    | { aiAvailable: true; messageId: string; draftId: string }
+    | { aiAvailable: false; reason: SupportAiUnavailableReason };
 
 /** Umbral de riesgo de incumplimiento del SLA de primera respuesta, en minutos. */
 export const SLA_BREACH_RISK_MINUTES = 60;

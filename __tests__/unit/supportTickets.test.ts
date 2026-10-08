@@ -9,6 +9,7 @@ import {
     formatSlaRemaining,
     isSlaBreachRisk,
     isValidAttachment,
+    mapAiTriage,
     mapAttachment,
     mapMessage,
     mapTicket,
@@ -138,6 +139,11 @@ describe("Soporte — normalización de filas", () => {
         expect(mapMessage({ id: 3, author_role: "system" }).senderRole).toBe("SYSTEM");
     });
 
+    it("una nota que es un borrador de IA trae el id del borrador (LEFT JOIN)", () => {
+        expect(mapMessage({ id: 4, is_internal_note: 1, author_role: "support", ai_draft_id: 9 }).aiDraftId).toBe("9");
+        expect(mapMessage({ id: 5, is_internal_note: 1, author_role: "support", ai_draft_id: null }).aiDraftId).toBeUndefined();
+    });
+
     it("stripInternalNotes deja fuera exactamente las notas internas", () => {
         const msgs = [
             mapMessage({ id: 1, author_role: "user", body: "hola" }),
@@ -147,6 +153,36 @@ describe("Soporte — normalización de filas", () => {
         const visible = stripInternalNotes(msgs);
         expect(visible).toHaveLength(2);
         expect(visible.map((m) => m.id)).toEqual(["1", "3"]);
+    });
+
+    it("mapAiTriage lee la sugerencia del LEFT JOIN y su estado", () => {
+        const row = {
+            ai_suggested_priority: "HIGH",
+            ai_suggested_category: "INCIDENCIA_TECNICA",
+            ai_suggested_module: "Alerts",
+            ai_production_impact: 1,
+            ai_rationale: "Las alertas dejaron de llegar.",
+            ai_confidence: "0.87",
+        };
+        expect(mapAiTriage(row)).toEqual({
+            suggestedPriority: "HIGH",
+            suggestedCategory: "INCIDENCIA_TECNICA",
+            suggestedModule: "Alerts",
+            productionImpact: true,
+            rationale: "Las alertas dejaron de llegar.",
+            confidence: 0.87,
+            status: "pending",
+        });
+        expect(mapAiTriage({ ...row, ai_accepted_at: "2026-10-08 10:00:00" })?.status).toBe("accepted");
+        expect(mapAiTriage({ ...row, ai_dismissed_at: "2026-10-08 10:00:00" })?.status).toBe("dismissed");
+    });
+
+    it("mapAiTriage: sin triaje o con valores desconocidos no hay sugerencia; un módulo desconocido queda en null", () => {
+        expect(mapAiTriage({})).toBeUndefined();
+        expect(mapAiTriage({ ai_suggested_priority: "urgent", ai_suggested_category: "CONSULTA" })).toBeUndefined();
+        expect(
+            mapAiTriage({ ai_suggested_priority: "LOW", ai_suggested_category: "CONSULTA", ai_suggested_module: "Billing" })?.suggestedModule
+        ).toBeNull();
     });
 });
 

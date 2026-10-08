@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { requireTenantAccess, hasSystemRole, AuthError, type RequestIdentity } from "@/lib/requestAuth";
-import { serverError } from "@/lib/apiErrors";
+import { errorMessage, serverError } from "@/lib/apiErrors";
 import rateLimiter from "@/lib/rateLimiter";
-import { SUPPORT_TICKET_PRIORITIES, SUPPORT_TICKET_STATUSES, SUPPORT_BODY_MAX, getSupportConfig } from "@/lib/supportConfig";
+import { SUPPORT_TICKET_CATEGORIES, SUPPORT_TICKET_PRIORITIES, SUPPORT_TICKET_STATUSES, SUPPORT_BODY_MAX, getSupportConfig } from "@/lib/supportConfig";
 import {
     mapAttachment,
     mapMessage,
@@ -13,6 +13,7 @@ import {
     type RawMessageRow,
     type RawTicketRow,
 } from "@/services/supportTickets.service";
+import { TICKET_RELATED_MODULES } from "@/types/supportTickets.types";
 
 // RBAC: pertenencia al tenant (anti-IDOR: el ticket se busca siempre con
 // WHERE id AND tenant_id). Los superadmins de CSCloudSolutions acceden vía
@@ -53,9 +54,13 @@ export async function GET(
             return NextResponse.json({ error: "Ticket no encontrado." }, { status: 404 });
         }
 
+        // `ai_draft_id`: la nota interna es un borrador de "Sugerir respuesta" (Fase 3b).
         const [messageRows]: any = await pool.query(
-            `SELECT id, ticket_id, author_email, author_name, author_role, body, is_internal_note, created_at
-             FROM SupportTicketMessages WHERE ticket_id = ? ORDER BY created_at ASC`,
+            `SELECT m.id, m.ticket_id, m.author_email, m.author_name, m.author_role, m.body, m.is_internal_note, m.created_at,
+                    d.id AS ai_draft_id
+             FROM SupportTicketMessages m
+             LEFT JOIN SupportTicketAiDrafts d ON d.message_id = m.id
+             WHERE m.ticket_id = ? ORDER BY m.created_at ASC`,
             [ticketId]
         );
 
@@ -172,6 +177,21 @@ export async function POST(
         );
         const messageId = inserted?.insertId ?? null;
 
+        // KPI de la Fase 3b: el operador mandó como respuesta pública un borrador
+        // de IA (lo cargó con "Usar como respuesta"). Best-effort: la respuesta ya
+        // quedó guardada y un KPI no la puede romper.
+        const aiDraftId = Number(body.aiDraftId);
+        if (asSupport && !isInternalNote && Number.isInteger(aiDraftId) && aiDraftId > 0) {
+            try {
+                await pool.query(
+                    "UPDATE SupportTicketAiDrafts SET used_at = UTC_TIMESTAMP() WHERE id = ? AND ticket_id = ? AND used_at IS NULL",
+                    [aiDraftId, ticketId]
+                );
+            } catch (e) {
+                console.error(`[support] no se pudo marcar como usado el borrador ${aiDraftId}: ${errorMessage(e)}`);
+            }
+        }
+
         return NextResponse.json({ success: true, status: newStatus, messageId, isInternalNote }, { status: 201 });
     } catch (e: unknown) {
         if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
@@ -205,6 +225,9 @@ export async function PATCH(
         const asSupport = await isSupportAgent(identity);
         const status = typeof body.status === "string" ? body.status : null;
         const priority = typeof body.priority === "string" ? body.priority : null;
+        // Categoría y módulo los cambia el equipo al aceptar el triaje con IA (Fase 3a).
+        const category = typeof body.category === "string" ? body.category : null;
+        const relatedModule = typeof body.relatedModule === "string" ? body.relatedModule : null;
 
         if (status && !SUPPORT_TICKET_STATUSES.includes(status as never)) {
             return NextResponse.json({ error: "Estado inválido." }, { status: 400 });
@@ -212,19 +235,25 @@ export async function PATCH(
         if (priority && !SUPPORT_TICKET_PRIORITIES.includes(priority as never)) {
             return NextResponse.json({ error: "Prioridad inválida." }, { status: 400 });
         }
+        if (category && !SUPPORT_TICKET_CATEGORIES.includes(category as never)) {
+            return NextResponse.json({ error: "Categoría inválida." }, { status: 400 });
+        }
+        if (relatedModule && !TICKET_RELATED_MODULES.includes(relatedModule as never)) {
+            return NextResponse.json({ error: "Módulo inválido." }, { status: 400 });
+        }
 
         // Los usuarios del tenant solo pueden cerrar su ticket o reabrirlo;
         // cambios de prioridad y estados intermedios son del equipo de soporte.
         if (!asSupport) {
-            if (priority) {
-                return NextResponse.json({ error: "Solo el equipo de soporte puede cambiar la prioridad." }, { status: 403 });
+            if (priority || category || relatedModule) {
+                return NextResponse.json({ error: "Solo el equipo de soporte puede cambiar la prioridad, la categoría o el módulo." }, { status: 403 });
             }
             if (status !== "closed" && status !== "open") {
                 return NextResponse.json({ error: "Solo puedes cerrar o reabrir el ticket." }, { status: 403 });
             }
         }
 
-        if (!status && !priority) {
+        if (!status && !priority && !category && !relatedModule) {
             return NextResponse.json({ error: "Nada que actualizar." }, { status: 400 });
         }
 
@@ -232,6 +261,8 @@ export async function PATCH(
         const values: (string | number)[] = [];
         if (status) { sets.push("status = ?"); values.push(status); }
         if (priority) { sets.push("priority = ?"); values.push(priority); }
+        if (category) { sets.push("category = ?"); values.push(category); }
+        if (relatedModule) { sets.push("related_module = ?"); values.push(relatedModule); }
         // La fecha de resolución alimenta el MTTR de la cola global. Se sella al
         // pasar a resolved/closed y se limpia al reabrir, para no promediar un
         // ticket que volvió a estar vivo.

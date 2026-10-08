@@ -8,7 +8,7 @@ import {
     IconMessageCircle,
     IconRotateClockwise,
 } from "@tabler/icons-react";
-import type { TicketPriority, TicketStatus } from "@/types/supportTickets.types";
+import type { SupportTicketItem, TicketPriority, TicketStatus } from "@/types/supportTickets.types";
 import { formatSlaRemaining } from "@/services/supportTickets.service";
 
 /**
@@ -149,6 +149,24 @@ export function InternalNoteTag({ label }: { label: string }) {
     return (
         <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400">
             <IconLock size={12} stroke={2} className="text-amber-600" />
+            {label}
+        </span>
+    );
+}
+
+/** El triaje con IA marcó impacto productivo y el equipo no lo descartó. */
+export function hasProductionImpact(ticket: SupportTicketItem): boolean {
+    return Boolean(ticket.aiTriage?.productionImpact && ticket.aiTriage.status !== "dismissed");
+}
+
+/** Rosa, como la prioridad urgente: es lo primero que el equipo tiene que mirar. */
+export function ProductionImpactBadge({ label, title }: { label: string; title?: string }) {
+    return (
+        <span
+            title={title}
+            className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-[3px] rounded-md whitespace-nowrap bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800"
+        >
+            <IconAlertTriangle size={12} stroke={2} />
             {label}
         </span>
     );

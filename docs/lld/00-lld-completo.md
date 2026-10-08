@@ -3921,3 +3921,228 @@ Suite completa (`npx vitest run`, sin `.env.development`): 4073 tests en verde y
 archivos tocados. `terraform fmt -check -recursive` y `terraform validate`
 (`environments/prod` con `init -backend=false`) en verde. No se corrió `plan`
 ni `apply`.
+
+---
+
+## 42. Addendum 2026-10-08 — IA de soporte: triaje y borradores con citas
+
+PR 8 de la propuesta de IA
+([`docs/propuesta-capacidades-ia-2026-10-07.md`](../propuesta-capacidades-ia-2026-10-07.md),
+10.7). Contexto arquitectónico en el HLD §19.7. Rama `feat/ia-fase3-soporte`,
+encima de `feat/ia-fase0-managed-identity`: `3209fa5` (gate), `e65f447`
+(tablas), `7d3e16c` (triaje), `b9ae105` (índice), `4d66161` (borradores) y
+`2af6fd3` (UI y KPIs). Con los interruptores apagados, que es el default, no
+cambia nada para nadie.
+
+### 42.1 Gate — `src/lib/aiFeatureGate.ts`
+
+| Feature | `defaultEnabled` | `minTier` | `monthlyQuota` | `perMinute` | `maxOutputTokens` | Clave del rate limit |
+|---|---|---|---|---|---|---|
+| `support-ticket-triage` | `false` | Professional | `NO_QUOTA` | 10 | 300 | Tenant del ticket y email de quien lo abrió |
+| `support-reply-draft` | `false` | Professional | `NO_QUOTA` | 5 | 800 | Tenant del ticket y email del operador |
+
+El gate se evalúa con el tenant **dueño del ticket**: `Tenants.ai_enabled` y su
+tier mandan, aunque quien pide el borrador sea un superadmin. Las dos usan
+`AIProviderFactory.getGeminiModel()` sin `tenantId` (la IA de plataforma, nunca
+la BYOK) y registran el uso con `insertPlatformAiUsage` a nombre del tenant del
+ticket. Los rótulos del interruptor están en
+`AdminAiConfigGlobal.featureSwitches.features.*` en los tres idiomas.
+
+### 42.2 Tablas — migraciones `20261008-020` y `20261008-021`
+
+Ninguna lleva `tenant_id`: cuelgan de `SupportTickets`, que ya se borra en
+cascada con `Tenants` (`cascadaBorradoTenant.test`).
+
+**`SupportTicketAiTriage`** (una fila por ticket):
+
+| Columna | Tipo | Nota |
+|---|---|---|
+| `ticket_id` | `INT` PK | FK a `SupportTickets(id)` `ON DELETE CASCADE` |
+| `suggested_priority` | `VARCHAR(16)` | Valor del dominio (`CRITICAL`…`LOW`), no el `ENUM` de la base |
+| `suggested_category` | `VARCHAR(32)` | `CONSULTA`, `FACTURACION_AZURE`, `CONEXION_TENANT`, `INCIDENCIA_TECNICA` o `SOLICITUD_FEATURE` |
+| `suggested_module` | `VARCHAR(64)` NULL | `TICKET_RELATED_MODULES` |
+| `production_impact` | `TINYINT(1)` | |
+| `rationale` | `VARCHAR(500)` | En español, para el operador |
+| `confidence` | `DECIMAL(3,2)` | 0 a 1 |
+| `model_name` | `VARCHAR(100)` NULL | |
+| `accepted_by`, `accepted_at` | `VARCHAR(320)`, `DATETIME` NULL | |
+| `dismissed_by`, `dismissed_at` | `VARCHAR(320)`, `DATETIME` NULL | |
+| `created_at` | `TIMESTAMP` | |
+
+**`SupportTicketAiDrafts`** (una fila por borrador pedido):
+
+| Columna | Tipo | Nota |
+|---|---|---|
+| `id` | `BIGINT` PK | |
+| `ticket_id` | `INT` | FK `ON DELETE CASCADE`; índice `(ticket_id, created_at)` |
+| `message_id` | `INT` NULL | FK a `SupportTicketMessages(id)` `ON DELETE SET NULL`: la nota interna con el texto |
+| `citations` | `JSON` | `[{ ref, id, manual, lang, title }]` de las secciones citadas |
+| `model_name` | `VARCHAR(100)` NULL | |
+| `created_by` | `VARCHAR(320)` | Email del operador |
+| `created_at` | `TIMESTAMP` | Índice propio, para los KPIs |
+| `used_at` | `DATETIME` NULL | Se sella una sola vez, al enviarlo como respuesta pública |
+
+### 42.3 Triaje — `src/services/supportTicketTriage.service.ts`
+
+`triageTicket(input: TriageInput): Promise<void>` nunca lanza. La llama
+`POST /api/support/tickets` con `after()`, después del commit y de responder.
+
+1. `checkAiFeature(tenantId, "support-ticket-triage", creatorEmail)`. Si
+   deniega, sale.
+2. DLP: si `getDataSharingPrefs(tenantId)` no comparte nombres de recursos **y**
+   tags, sale. El texto libre no se puede redactar por clave.
+3. `generateObject` con el esquema Zod de abajo. El prompt lleva
+   `{ subject, message (≤ 4000 caracteres), customerCategory, customerPriority,
+   customerModule }` dentro de `<context_data>`.
+4. `normalizeTriage`: descarta un `rationale` vacío o una `confidence` fuera de
+   `[0, 1]` (evento `output/rejected`); recorta el motivo a 500 caracteres y
+   redondea la confianza a dos decimales.
+5. `INSERT … ON DUPLICATE KEY UPDATE ticket_id = ticket_id`: si corre dos
+   veces, queda el primero.
+
+```ts
+z.object({
+  suggestedPriority: z.enum(TICKET_PRIORITIES),
+  suggestedCategory: z.enum(TICKET_CATEGORIES),
+  suggestedModule: z.enum(TICKET_RELATED_MODULES).nullable(),
+  productionImpact: z.boolean(),
+  rationale: z.string(),
+  confidence: z.number(),
+})
+```
+
+`TICKET_CATEGORIES` y `TICKET_PRIORITIES` pasaron de constantes locales de la
+ruta de creación a `src/types/supportTickets.types.ts`, para que la ruta y el
+esquema compartan la lista.
+
+### 42.4 Índice de manuales y BM25
+
+**Generador** — `scripts/generate-support-manual-index.mjs` (`npm run support:index`):
+
+- **Corpus:** `MANUAL_DE_USUARIO.md` y `docs/manual/MANUAL_USUARIO_{ES,EN,PT-BR}.md`
+  (`manual: "usuario"` o `"usuario-resumen"`), y
+  `docs/manual/MANUAL_PARTNER_{ES,EN,PT-BR}.md` (`manual: "partner"`). Fuera
+  quedan los manuales de superadmin, `docs/security`, `docs/lld` y `docs/hld`.
+- **Chunks:** un chunk por h2/h3; los h4 quedan dentro de su h3 y lo anterior al
+  primer h2 no se indexa. Las secciones chicas de un mismo h2 se juntan hasta
+  ~800 tokens (`length / 4`) y las grandes se parten por párrafos. Dos h2 nunca
+  se mezclan.
+- **Salida:** `src/generated/supportManualIndex.json`, que **se commitea**,
+  porque `.dockerignore` deja fuera `docs/` y los `.md`. Cada chunk lleva
+  `{ id, manual, lang, label, title, anchor, text }`.
+- `__tests__/unit/supportManualIndex.test.ts` regenera en memoria y compara.
+  Falla si alguien cambia un manual del corpus y no corre el script.
+
+**Búsqueda** — `src/lib/bm25.ts`: Okapi BM25 en memoria (`k1 = 1.2`,
+`b = 0.75`), sin dependencias. `tokenize` pasa a minúsculas y saca tildes; los
+términos de una letra no cuentan. Hay un índice por idioma, con o sin el manual
+del partner, que se arma la primera vez que se usa en el proceso. Sólo lo
+importan rutas de servidor.
+
+### 42.5 Borradores — `src/services/supportReplyDraft.service.ts`
+
+`draftSupportReply(ticket, operator): Promise<SupportReplyDraftResult>`:
+
+1. Gate con el tenant del ticket y el email del operador. Si deniega, devuelve
+   el motivo.
+2. DLP: el mismo criterio que el triaje; si no comparte, `data_sharing`.
+3. Hilo: sólo mensajes públicos (`is_internal_note = 0`), como
+   `{ from: "customer" | "support", text }`, sin emails ni nombres. Si son más
+   de 10, viajan el primero y los últimos nueve, de hasta 2000 caracteres cada
+   uno.
+4. Idioma: `detectTicketLanguage` sobre el asunto y los mensajes del cliente,
+   por palabras frecuentes de cada idioma; ante la duda, `es`.
+5. Recupera hasta cuatro chunks del idioma (`TOP_K = 4`). Suma el manual del
+   partner si quien abrió el ticket tiene email activo en `Affiliates` o
+   `SalesReps`. Si no hay ninguno, `no_sources`.
+6. `generateObject` con `{ body, citations }`. Las secciones viajan como
+   `S1`..`S4`; el prompt pide citar cada afirmación y devolver todo vacío si las
+   secciones no responden. En español, con voseo.
+7. `validateDraft`: todo vacío es `no_sources`; sin texto, sin citas o con una
+   cita (en el texto o en la lista) que no se recuperó es `validation` y no se
+   guarda.
+8. En una transacción: la nota interna (`author_role = 'support'`,
+   `is_internal_note = 1`) con el texto y un bloque `Fuentes:` / `Sources:` /
+   `Fontes:` con `[Sn] Manual › Sección`, `last_message_at` del ticket y la fila
+   de `SupportTicketAiDrafts`. Si falla, rollback. Una nota interna no cambia el
+   estado ni la primera respuesta.
+
+Motivos (`SUPPORT_AI_UNAVAILABLE_REASONS`, traducidos en `Support.aiReason_*`):
+los seis del gate más `not_configured`, `error`, `validation`, `data_sharing` y
+`no_sources`.
+
+### 42.6 Endpoints
+
+| Método y ruta | Auth | Contrato |
+|---|---|---|
+| `POST /api/admin/support/tickets/[id]/ai-triage` | `requireSuperAdmin` | Body `{ decision: "accept" \| "dismiss" }`. Sella `accepted_*` o `dismissed_*` si la sugerencia sigue pendiente; si no, 409 |
+| `POST /api/admin/support/tickets/[id]/ai-draft` | `requireSuperAdmin` | 404 si el ticket no existe y 409 si está cerrado. Si no, 200 con `SupportReplyDraftResult`: `{ aiAvailable: true, messageId, draftId }` o `{ aiAvailable: false, reason }` |
+| `GET /api/admin/support/tickets` (cambia) | `requireSuperAdmin` | Cada ticket suma `aiTriage` (`LEFT JOIN`, con `status` `pending`, `accepted` o `dismissed`) y el payload suma `kpis` (42.7) |
+| `GET /api/support/tickets/[id]` (cambia) | Tenant o soporte | Cada mensaje suma `aiDraftId` si la nota es un borrador. El cliente no recibe notas internas |
+| `POST /api/support/tickets/[id]` (cambia) | Tenant o soporte | Acepta `aiDraftId`. Si responde el equipo con una respuesta pública, sella `used_at` del borrador (`WHERE id AND ticket_id AND used_at IS NULL`). Si falla, la respuesta queda guardada |
+| `PATCH /api/support/tickets/[id]` (cambia) | Tenant o soporte | Acepta `category` (valores de la base) y `relatedModule`, sólo para el equipo; el tenant recibe 403 |
+| `POST /api/support/tickets` (cambia) | Tenant | Programa `triageTicket` con `after()`. Si no se puede programar, el ticket se crea igual |
+
+**Aceptar el triaje** son dos llamadas desde la pantalla: primero el `PATCH` con
+`priorityToDb(suggestedPriority)`, `categoryToDb(suggestedCategory)` y el
+módulo, y después `ai-triage` con `accept`. Ninguna toca `sla_deadline`.
+
+### 42.7 KPIs de la cola
+
+`loadWindowKpis()` en `GET /api/admin/support/tickets`, con ventana de 30 días.
+Si falla, la cola sale sin `kpis`.
+
+```sql
+SELECT COUNT(*) AS tickets_created,
+       AVG(TIMESTAMPDIFF(MINUTE, t.created_at, t.first_responded_at)) AS avg_first_response_minutes,
+       COALESCE(SUM(t.first_responded_at > t.sla_deadline
+           OR (t.first_responded_at IS NULL AND t.sla_deadline < UTC_TIMESTAMP()
+               AND t.status IN ('open', 'in_progress'))), 0) AS sla_breaches,
+       (SELECT COUNT(*) FROM SupportTicketAiDrafts d
+         WHERE d.created_at >= UTC_TIMESTAMP() - INTERVAL ? DAY) AS ai_drafts_generated,
+       (SELECT COUNT(*) FROM SupportTicketAiDrafts d
+         WHERE d.created_at >= UTC_TIMESTAMP() - INTERVAL ? DAY AND d.used_at IS NOT NULL) AS ai_drafts_used
+  FROM SupportTickets t
+ WHERE t.created_at >= UTC_TIMESTAMP() - INTERVAL ? DAY
+```
+
+Devuelve `SupportWindowKpis`
+`{ windowDays, ticketsCreated, avgFirstResponseHours (1 decimal o null), slaBreaches, aiDraftsGenerated, aiDraftsUsed }`.
+
+### 42.8 UI
+
+- `TicketConversationDrawer.tsx`, sólo en modo `agent`:
+  - Tarjeta de la sugerencia pendiente con confianza, motivo y los botones
+    *Aceptar* y *Descartar*.
+  - Insignia de impacto productivo mientras no se descarte.
+  - Botón *Sugerir respuesta* junto al compositor (no en tickets cerrados).
+  - Etiqueta *Borrador con IA* en la nota.
+  - *Usar como respuesta* copia el texto al compositor como respuesta pública y
+    guarda el `aiDraftId`; si el operador vacía el compositor, el id se pierde.
+- `supportUi.tsx`: `hasProductionImpact(ticket)` (impacto y no descartado) y
+  `ProductionImpactBadge`, en rosa como la prioridad urgente.
+- `/superadmin/support`:
+  - Fila rosa e insignia para el impacto productivo.
+  - Fila de KPIs: primera respuesta, SLA incumplido y borradores usados, con
+    `{used} de {generated}`.
+  - Las acciones del panel `decideAiTriage("accept" | "dismiss")` y
+    `suggestReply()`.
+- El cliente no ve nada de esto: `aiTriage` sólo viaja en la cola de superadmin
+  y los borradores son notas internas.
+
+### 42.9 Verificación
+
+| Test | Cubre |
+|---|---|
+| `__tests__/unit/aiFeatureGate.test.ts` | Soporte apagado por defecto; prendido abre desde Professional sin contar cuota; rótulos en los tres idiomas |
+| `__tests__/unit/supportTicketTriage.test.ts` | IA de plataforma con el ticket en `<context_data>`, sin tocar el ticket; gate y DLP antes del modelo; salida inválida descartada y registrada; nunca lanza |
+| `__tests__/unit/bm25.test.ts` | Tokenización sin tildes, orden por relevancia, peso de términos raros, límite |
+| `__tests__/unit/supportManualIndex.test.ts` | El JSON corresponde a los manuales; sin manuales internos; los tres idiomas del usuario y del partner |
+| `__tests__/unit/supportReplyDraft.test.ts` | Idioma; citas del texto y de la lista; cita no recuperada invalida; manual del partner sólo para partners; notas internas fuera del modelo; gate y DLP antes de leer el hilo; rollback si falla el guardado |
+| `__tests__/unit/supportTickets.test.ts` | `aiDraftId` por `LEFT JOIN`; `mapAiTriage` con estado y valores desconocidos |
+| `__tests__/integration/api-support.test.ts` | El triaje no frena la creación; `used_at` sólo con respuesta pública del equipo; el cliente no recibe el borrador; PATCH de categoría y módulo sólo para el equipo y con valores válidos |
+| `__tests__/components/supportAi.test.tsx` | Aceptar y descartar; impacto; motivos traducidos; *Usar como respuesta*; el cliente no ve nada; KPIs y cola sin KPIs; aceptar hace el PATCH con valores de la base |
+
+Suite completa (`npx vitest run`, sin `.env.development`): 4135 tests en verde y
+39 omitidos, en 418 archivos; `tsc` limpio y sin warnings nuevos de ESLint.
+Falta probarlo con un login real de superadmin y las migraciones aplicadas.

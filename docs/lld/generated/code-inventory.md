@@ -9,7 +9,7 @@ naturales a revisar primero cuando algo del dominio no cierra.
 
 Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI directamente.
 
-160 archivos.
+162 archivos.
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
@@ -79,12 +79,12 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureDataFactory.service.ts` | 418 | `ADF_CATEGORY_COLORS`, `calculateAdfSummary`, `generateAdfRecommendations`, `generateMockAdfData`, `fetchAdfData`, `buildAdfRemediationCommand` |
 | `src/services/superAdminOperations.service.ts` | 416 | `getSaaSOperationsHealth`, `triggerCronJob`, `notifySuperAdmins` |
 | `src/services/azureHighAvailability.service.ts` | 415 | `toIssueCategory`, `toSeverity`, `toResourceTypeDisplay`, `extractResourceGroup`, `extractSubscriptionId`, `extractLocation`, … |
+| `src/services/supportTickets.service.ts` | 413 | `toCategory`, `toPriority`, `toStatus`, `toSenderRole`, `categoryToDb`, `priorityToDb`, … |
 | `src/services/azureMachineLearning.service.ts` | 410 | `generateMockAmlData`, `calculateAmlSummary`, `generateAmlRecommendations`, `buildAmlRemediationCommand`, `getLiveAmlData` |
 | `src/services/managedDisks.service.ts` | 407 | `DISK_TIER_RATES`, `extractVmNameFromManagedBy`, `detectDiskRedundancy`, `detectDiskEnvironment`, `resolveDiskTierCode`, `estimateMonthlyDiskCost`, … |
 | `src/services/azureContentSafety.service.ts` | 398 | `generateMockContentSafetyData`, `calculateContentSafetySummary`, `generateContentSafetyRecommendations`, `buildContentSafetyRemediationCommand`, `getLiveContentSafetyData` |
 | `src/services/whiteboard.service.ts` | 396 | `CurrentMonthCostAggregation`, `readCostCenter`, `getCurrentMonthCostAggregation`, `extractReadableResourceName`, `extractSavings`, `buildQuickWinCliCommand`, … |
 | `src/services/azureAnomalyDetection.service.ts` | 392 | `ANOMALY_Z_SCORE_THRESHOLD`, `DEFAULT_BASELINE_WINDOW_DAYS`, `computeZScoreStats`, `buildConfidenceTrend`, `buildAnomalySummary`, `getMockAnomalyPayload`, … |
-| `src/services/supportTickets.service.ts` | 379 | `toCategory`, `toPriority`, `toStatus`, `toSenderRole`, `categoryToDb`, `priorityToDb`, … |
 | `src/services/azureTtlEnforcement.service.ts` | 376 | `formatRelativeTime`, `formatDateIsoToLocal`, `computeTtlSummaryMetrics`, `getMockTtlSummaryMetrics`, `assembleLiveTtlSummary` |
 | `src/services/affiliatePortal.service.ts` | 369 | `hashTokenDePanel`, `generarTokenDePanel`, `pareceTokenDePanel`, `urlDelPanel`, `emitirEnlaceDePanel`, `revocarEnlaceDePanel`, … |
 | `src/services/reservationService.ts` | 367 | `ActiveReservationDetail`, `ReservationUtilizationTrend`, `parseReservationResourceId`, `getActiveReservations`, `getReservationUtilizationTrend`, `setReservationRenew`, … |
@@ -117,6 +117,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/tenantUsers.service.ts` | 264 | `toRole`, `roleToDb`, `toAccountStatus`, `modulesToRoleTags`, `roleTagsToModules`, `parseModules`, … |
 | `src/services/azureTopSpend.service.ts` | 261 | `TopSpendTimeframe`, `generateMockTopSpend`, `getLiveTopSpend` |
 | `src/services/haService.ts` | 259 | `HASeverity`, `HAItem`, `HAEvalResult`, `evaluateHALive` |
+| `src/services/supportReplyDraft.service.ts` | 259 | `DraftLang`, `DraftTicket`, `detectTicketLanguage`, `validateDraft`, `draftSupportReply` |
 | `src/services/mcpApiKey.service.ts` | 257 | `hashMcpKey`, `generateSecureMcpToken`, `maskMcpKey`, `listMcpKeys`, `createMcpKey`, `revokeMcpKey`, … |
 | `src/services/billingCsvMapping.service.ts` | 248 | `CsvColumnMapping`, `CsvMappingError`, `csvCurrency`, `validateCsvMapping`, `decimalSeparatorOf`, `parseCsvAmount`, … |
 | `src/services/cosmosOptimizer.service.ts` | 245 | `RU_MINIMO`, `TARIFAS_LISTA`, `TarifasCosmos`, `EntradaOptimizacion`, `ClaveDecision`, `Decision`, … |
@@ -146,6 +147,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/snapshotService.ts` | 167 | `SNAPSHOT_RETENTION_DAYS`, `SNAPSHOT_DOMAINS`, `SnapshotDomain`, `SnapshotPoint`, `recordDailySnapshot`, `recordDailySnapshotAsync`, … |
 | `src/services/credentialExpiryService.ts` | 159 | `CredItem`, `severityFor`, `getGraphTokenForTenant`, `fetchAllApplications`, `extractExpiringCreds`, `getExpiringCredentials`, … |
 | `src/services/tenantSso.service.ts` | 158 | `isValidDomain`, `normalizeDomain`, `isValidWorkosOrgId`, `isValidWorkosConnectionId`, `toIdpProvider`, `toJitRole`, … |
+| `src/services/supportTicketTriage.service.ts` | 156 | `TriageInput`, `TriageSuggestion`, `normalizeTriage`, `triageTicket` |
 | `src/services/pdfCompiler.service.ts` | 154 | `compileExecutiveReportPdfBuffer`, `compileHtmlToPdfBuffer` |
 | `src/services/commitmentRisk.service.ts` | 149 | `ReservaConCosto`, `VencimientoDelMes`, `ConcentracionVencimientos`, `concentracionDeVencimientos` |
 | `src/services/rateService.ts` | 146 | `RateRecommendation`, `calculateReservationSavings` |

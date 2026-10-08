@@ -965,6 +965,11 @@ either — the ball is on your side.
 (Defender, Zombie resources, Cost allocation, Alerts, Power schedules, Tag governance). It is not
 required, but it speeds up routing to the right team.
 
+**AI in support:** if your organization has AI enabled, the team may use it to classify the ticket and
+to prepare a draft reply based on this manual. A person always reviews it before sending it. If you
+turn off AI for your organization, or don't share resource names or tags with the AI
+(*Configuration → AI*), your tickets don't go through the AI.
+
 ### 8.2. Users & Access (`/admin/access`)
 
 The hub has five tabs: **Users & Permissions** (what this section describes), **Security (2FA)** (section 10), **SAML SSO** (11.1), **Client Onboarding** (1.2 and 1.3) and **Lighthouse Onboarding** (Enterprise, to delegate a client's access without asking for credentials).

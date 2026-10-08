@@ -131,6 +131,23 @@ describe("checkAiFeature", () => {
         expect(await csv()).toEqual({ allowed: true });
         expect(queryMock).toHaveBeenCalledTimes(2);
     });
+
+    it("soporte: apagado por defecto; prendido, abre desde Professional sin contar cuota", async () => {
+        for (const feature of ["support-ticket-triage", "support-reply-draft"] as const) {
+            switchMock.mockResolvedValue(null);
+            expect(await checkAiFeature("t1", feature, "ana@x.com")).toEqual({ allowed: false, reason: "feature_disabled" });
+
+            switchMock.mockResolvedValue(true);
+            queryMock.mockClear();
+            tenant(PRO);
+            expect(await checkAiFeature("t1", feature, "ana@x.com")).toEqual({ allowed: true });
+            expect(queryMock).toHaveBeenCalledTimes(1);
+
+            // Si el tenant apagó la IA, sus tickets no se mandan al modelo.
+            tenant({ ...PRO, ai_enabled: 0 });
+            expect(await checkAiFeature("t1", feature, "ana@x.com")).toEqual({ allowed: false, reason: "tenant_disabled" });
+        }
+    });
 });
 
 // El panel del superadmin lista AI_FEATURES y rotula cada interruptor con su clave.

@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { RowDataPacket } from "mysql2";
 import pool from "@/modules/storage/db";
 import { requireSuperAdmin, AuthError } from "@/lib/requestAuth";
-import { serverError } from "@/lib/apiErrors";
+import { errorMessage, serverError } from "@/lib/apiErrors";
 import { getSupportConfig, SUPPORT_TICKET_PRIORITIES } from "@/lib/supportConfig";
 import {
     buildGlobalSupportSummary,
     buildStatusCounts,
+    mapAiTriage,
     mapTicket,
     resolutionHours,
     statusToDb,
+    type RawAiTriageRow,
     type RawTicketRow,
 } from "@/services/supportTickets.service";
-import type { GlobalSupportPayload, TicketStatus } from "@/types/supportTickets.types";
+import type { GlobalSupportPayload, SupportWindowKpis, TicketStatus } from "@/types/supportTickets.types";
 
 // RBAC: vista global de tickets de TODOS los tenants — exclusiva del equipo
 // de CSCloudSolutions (requireSuperAdmin). Las respuestas y cambios de estado
@@ -43,11 +46,16 @@ export async function GET(request: NextRequest) {
                     t.sla_deadline, t.first_responded_at, t.resolved_at,
                     t.assigned_admin_email, t.related_module,
                     ten.company_name AS tenant_name, ten.tier AS tenant_tier,
+                    tr.suggested_priority AS ai_suggested_priority, tr.suggested_category AS ai_suggested_category,
+                    tr.suggested_module AS ai_suggested_module, tr.production_impact AS ai_production_impact,
+                    tr.rationale AS ai_rationale, tr.confidence AS ai_confidence,
+                    tr.accepted_at AS ai_accepted_at, tr.dismissed_at AS ai_dismissed_at,
                     (SELECT COUNT(*) FROM SupportTicketMessages m WHERE m.ticket_id = t.id) AS message_count,
                     (SELECT m2.body FROM SupportTicketMessages m2
                       WHERE m2.ticket_id = t.id ORDER BY m2.created_at DESC LIMIT 1) AS last_message_snippet
              FROM SupportTickets t
              JOIN Tenants ten ON ten.tenant_id = t.tenant_id
+             LEFT JOIN SupportTicketAiTriage tr ON tr.ticket_id = t.id
              ${where.length ? "WHERE " + where.join(" AND ") : ""}
              ORDER BY FIELD(t.status, 'open', 'in_progress', 'waiting_customer', 'resolved', 'closed'),
                       FIELD(t.priority, 'urgent', 'high', 'medium', 'low'),
@@ -57,12 +65,13 @@ export async function GET(request: NextRequest) {
         );
 
         const now = new Date();
-        const raw = rows as (RawTicketRow & { tenant_tier?: string })[];
+        const raw = rows as (RawTicketRow & RawAiTriageRow & { tenant_tier?: string })[];
         // El SLA es por tier del tenant dueño del ticket, no un valor global:
         // Professional tiene 24 h y Enterprise 4 h, y la cola los mezcla.
-        const tickets = raw.map((r) =>
-            mapTicket(r, { slaHours: getSupportConfig(String(r.tenant_tier || "")).firstResponseSlaHours, now })
-        );
+        const tickets = raw.map((r) => ({
+            ...mapTicket(r, { slaHours: getSupportConfig(String(r.tenant_tier || "")).firstResponseSlaHours, now }),
+            aiTriage: mapAiTriage(r),
+        }));
         const durations = raw.map(resolutionHours).filter((h): h is number => h !== null);
 
         // Los contadores de las pills son globales, no del filtro aplicado: si
@@ -88,11 +97,53 @@ export async function GET(request: NextRequest) {
             statusCounts,
             source: "live",
             lastUpdated: now.toISOString(),
+            kpis: await loadWindowKpis(),
         };
         return NextResponse.json(payload);
     } catch (e: unknown) {
         if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
         return serverError(e, { context: "GET /api/admin/support/tickets" });
+    }
+}
+
+const KPI_WINDOW_DAYS = 30;
+
+/**
+ * KPIs de la IA de soporte (Fase 3): primera respuesta e incumplimientos del SLA
+ * de los tickets creados en la ventana, y borradores de IA generados y usados.
+ * Incumplido = respondido después del vencimiento, o vencido y todavía sin
+ * respuesta (abierto o en curso, como el riesgo de SLA de la cola).
+ * Best-effort: si falla, la cola sale igual sin la fila de KPIs.
+ */
+async function loadWindowKpis(): Promise<SupportWindowKpis | undefined> {
+    try {
+        const [rows] = await pool.query<RowDataPacket[]>(
+            `SELECT COUNT(*) AS tickets_created,
+                    AVG(TIMESTAMPDIFF(MINUTE, t.created_at, t.first_responded_at)) AS avg_first_response_minutes,
+                    COALESCE(SUM(t.first_responded_at > t.sla_deadline
+                        OR (t.first_responded_at IS NULL AND t.sla_deadline < UTC_TIMESTAMP()
+                            AND t.status IN ('open', 'in_progress'))), 0) AS sla_breaches,
+                    (SELECT COUNT(*) FROM SupportTicketAiDrafts d
+                      WHERE d.created_at >= UTC_TIMESTAMP() - INTERVAL ? DAY) AS ai_drafts_generated,
+                    (SELECT COUNT(*) FROM SupportTicketAiDrafts d
+                      WHERE d.created_at >= UTC_TIMESTAMP() - INTERVAL ? DAY AND d.used_at IS NOT NULL) AS ai_drafts_used
+               FROM SupportTickets t
+              WHERE t.created_at >= UTC_TIMESTAMP() - INTERVAL ? DAY`,
+            [KPI_WINDOW_DAYS, KPI_WINDOW_DAYS, KPI_WINDOW_DAYS]
+        );
+        const r = rows[0] ?? {};
+        const avgMinutes = r.avg_first_response_minutes == null ? null : Number(r.avg_first_response_minutes);
+        return {
+            windowDays: KPI_WINDOW_DAYS,
+            ticketsCreated: Number(r.tickets_created || 0),
+            avgFirstResponseHours: avgMinutes == null ? null : Math.round((avgMinutes / 60) * 10) / 10,
+            slaBreaches: Number(r.sla_breaches || 0),
+            aiDraftsGenerated: Number(r.ai_drafts_generated || 0),
+            aiDraftsUsed: Number(r.ai_drafts_used || 0),
+        };
+    } catch (e) {
+        console.error(`[support] no se pudieron calcular los KPIs de soporte: ${errorMessage(e)}`);
+        return undefined;
     }
 }
 

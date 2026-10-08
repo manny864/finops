@@ -1010,6 +1010,11 @@ respuesta, tampoco corre: la pelota está de tu lado.
 Recursos zombis, Prorrateo, Alertas, Horarios de apagado, Gobernanza de tags). No es obligatorio, pero
 acelera la derivación al equipo correcto.
 
+**IA en la atención:** si tu organización tiene la IA habilitada, el equipo puede usarla para
+clasificar el ticket y preparar un borrador de respuesta a partir de este manual. Una persona lo revisa
+siempre antes de enviarlo. Si desactivás la IA de tu organización, o no compartís nombres de recursos
+ni etiquetas con la IA (*Configuración → IA*), tus tickets no pasan por la IA.
+
 
 #### Cola global de soporte (`/superadmin/support`) — sólo equipo CSCloudSolutions
 
@@ -1040,6 +1045,29 @@ contexto para el equipo (diagnóstico, pasos hechos, a quién escalar) que **el 
 está en el servidor, no en la pantalla: la nota no sale del backend hacia un usuario de tenant. Una nota
 interna tampoco mueve el estado del ticket ni cuenta como primera respuesta — el cliente no vio nada, y
 el SLA lo refleja.
+
+**Ayudas con IA (apagadas por defecto).** Las prenden los interruptores de soporte de *IA — Configuración
+global* (25). Usan la IA de la plataforma, no consumen el cupo del cliente y respetan el interruptor de IA
+de la organización del ticket.
+
+- **Sugerencia de triaje.** Al crearse un ticket, la IA sugiere prioridad, categoría, módulo e impacto
+  productivo, con un motivo y su confianza. Se ve en el panel de conversación y **nunca cambia el ticket
+  sola**: *Aceptar* aplica la prioridad, la categoría y el módulo sugeridos, como si los cambiaras a mano,
+  y *Descartar* sólo la archiva. El vencimiento del SLA no cambia en ningún caso.
+- **Impacto productivo.** Si la IA detecta que el problema afecta producción, la fila de la cola se
+  pinta de rosa y el panel muestra la insignia *Impacto productivo* hasta que descartes la sugerencia.
+- **Sugerir respuesta.** Genera un borrador a partir de los manuales de usuario (y del partner, si quien
+  abrió el ticket es afiliado o comercial), en el idioma del ticket. Queda como **nota interna**, con la
+  etiqueta *Borrador con IA* y una lista *Fuentes:* con las secciones citadas. El cliente no lo ve.
+- **Usar como respuesta.** Pasa el borrador a la caja de respuesta como respuesta pública. Lo revisás,
+  lo editás y lo enviás vos: nunca se envía solo.
+- **Cuando no hay borrador**, el panel dice por qué. Por ejemplo: la IA está desactivada para esa
+  organización, la organización no comparte nombres de recursos ni tags con la IA, los manuales no
+  cubren la consulta, o el borrador citó una sección que no correspondía y se descartó.
+- **Tres indicadores de 30 días** debajo de los de la cola: *Primera respuesta* (promedio, con los
+  tickets creados), *SLA incumplido* (respondidos tarde o vencidos sin respuesta) y *Borradores con IA
+  usados* (los que se enviaron como respuesta, editados o no). Sirven para medir el volumen antes de
+  prender las ayudas.
 
 ### 8.2. Usuarios y Accesos (`/admin/access`)
 
@@ -2174,8 +2202,10 @@ Si el costo se dispara por un incidente con el proveedor, el **interruptor maest
 | `billing-csv-column-mapping`, mapeo de columnas de CSV (5.1.7) | Business | El CSV que no es FOCUS no se carga |
 | `billing-upload-assessment`, reporte de la carga de CSV (5.1.7) | Business | Se muestra el resumen por servicio que calcula la plataforma |
 | `anomaly-explanation`, explicación de anomalías (18.4) | Enterprise, sin cupo | Se ven los hechos y los pasos, sin el texto de la IA |
+| `support-ticket-triage`, triaje de tickets de soporte (8.1) | Professional, sin cupo | El ticket se atiende sin sugerencia |
+| `support-reply-draft`, borradores de respuesta de soporte (8.1) | Professional, sin cupo | El equipo responde a mano |
 
-Hoy ninguna función arranca en Professional, así que ese cupo no se usa.
+Las dos de soporte las usa el equipo, no el cliente: no tienen cupo y su consumo figura a nombre del tenant dueño del ticket. Ninguna función con cupo arranca en Professional, así que ese cupo todavía no se usa.
 
 **Telemetría.** Cada pedido a una función de IA deja una línea JSON `evt: "ai_feature"` en los logs de la aplicación (Log Analytics, tabla `ContainerAppConsoleLogs_CL`), con la función, la etapa (`gate`, `model` u `output`), el resultado y, en la llamada al modelo, la latencia. Sirve para ver por qué se niega una función, cuánto tarda el proveedor o cuántas respuestas se descartan por no cumplir el formato.
 
@@ -2224,10 +2254,10 @@ El **historial** conserva las corridas anteriores para comparar antes y después
 
 **Ruta:** `/superadmin/ai-global-config` · **Menú:** Administración → IA — Configuración Global
 
-El proveedor y la key de IA que se usan **de respaldo** para cualquier tenant que no configuró la suya propia (BYOK por tenant, en *Configuración → IA*). Alimenta al **FinOps Copilot**, a los **reportes ejecutivos con IA**, a la **explicación de anomalías** (18.4) y al **mapeo de columnas** y el **reporte** de la carga de CSV (5.1.7). Sólo la ve el SuperAdmin.
+El proveedor y la key de IA que se usan **de respaldo** para cualquier tenant que no configuró la suya propia (BYOK por tenant, en *Configuración → IA*). Alimenta al **FinOps Copilot**, a los **reportes ejecutivos con IA**, a la **explicación de anomalías** (18.4), al **mapeo de columnas** y el **reporte** de la carga de CSV (5.1.7), y al **triaje** y los **borradores** de soporte (8.1). Sólo la ve el SuperAdmin.
 
 - **Interruptor maestro** *«Habilitar funciones de IA (plataforma)»*: si se apaga, la IA queda inhabilitada para **todos** los tenants, sin importar su propio interruptor. Está pensado para incidentes con el proveedor o costos fuera de control.
-- **Funciones de IA (interruptor por función):** apaga una sola función para todos los tenants sin tocar el resto: la explicación de anomalías, el mapeo de columnas de CSV o el análisis con IA de la carga de CSV. Las tres arrancan encendidas. El interruptor maestro tiene prioridad. Con una función apagada, la pantalla sigue con la versión sin IA y le muestra el motivo al cliente. El Copilot y los reportes ejecutivos no tienen interruptor propio: los apagan el maestro o el del tenant.
+- **Funciones de IA (interruptor por función):** apaga una sola función para todos los tenants sin tocar el resto: la explicación de anomalías, el mapeo de columnas de CSV, el análisis con IA de la carga de CSV, el triaje de tickets de soporte o los borradores de respuesta de soporte. Las tres primeras arrancan encendidas; las dos de soporte, apagadas, hasta medir el volumen de tickets (8.1). El interruptor maestro tiene prioridad. Con una función apagada, la pantalla sigue con la versión sin IA y le muestra el motivo al cliente (en soporte, al operador). El Copilot y los reportes ejecutivos no tienen interruptor propio: los apagan el maestro o el del tenant.
 - **Proveedor:** Google Gemini (Flash, gratis en free tier), OpenAI (GPT-4o), **Azure IA** (Azure OpenAI), Anthropic (Claude) o DeepSeek. La configuración está **separada por plan**: *Planes no Enterprise* (el respaldo para Professional y Business) y *Planes Enterprise* (el proveedor exclusivo de ese plan). Con Azure IA hace falta la **API Key**, el **Endpoint URL** y el **Deployment** (modelo).
 - **API Key:** se guarda **cifrada**. **Probar conexión** hace una llamada real al proveedor guardado. **Eliminar API Key** deja **sin IA** a los tenants que no tienen la suya hasta que cargues una nueva.
 - **Azure IA con identidad administrada:** cuando la infraestructura prende la cuenta de IA propia de la plataforma, la app se conecta a Azure IA con su identidad, sin key. Aplica sólo si el proveedor es **Azure IA**. En ese modo, la **API Key**, el **Endpoint URL** y el **Deployment** de Azure IA que cargues acá no se usan, todos los planes usan el mismo modelo y eliminar la key no deja a nadie sin IA. **Probar conexión** sin escribir una key prueba la conexión con la identidad; con una key escrita, prueba esa key. Los otros proveedores siguen con su key.

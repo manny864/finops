@@ -964,6 +964,11 @@ também não corre — a bola está do seu lado.
 Recursos zumbis, Rateio de custos, Alertas, Agendamentos de desligamento, Governança de tags). Não é
 obrigatório, mas acelera o encaminhamento para a equipe correta.
 
+**IA no atendimento:** se a sua organização tem a IA habilitada, a equipe pode usá-la para classificar o
+ticket e preparar um rascunho de resposta a partir deste manual. Uma pessoa sempre o revisa antes de
+enviá-lo. Se você desativar a IA da sua organização, ou não compartilhar nomes de recursos nem tags com
+a IA (*Configuração → IA*), os seus tickets não passam pela IA.
+
 ### 8.2. Usuários e Acessos (`/admin/access`)
 
 O hub tem cinco abas: **Usuários e Permissões** (o que descreve esta seção), **Segurança (2FA)** (seção 10), **SSO SAML** (11.1), **Onboarding de Clientes** (1.2 e 1.3) e **Onboarding Lighthouse** (Enterprise, para delegar o acesso de um cliente sem pedir credenciais).

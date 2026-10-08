@@ -219,6 +219,10 @@ En **Soporte** (`/support`, ícono de salvavidas en el menú de Administración)
 - **Módulo afectado (opcional):** al crear el ticket podés indicar de qué módulo se trata (Defender,
   Recursos zombis, Prorrateo, Alertas, Horarios de apagado, Gobernanza de tags) para acelerar la
   derivación.
+- **IA en la atención:** si tu organización tiene la IA habilitada, el equipo puede usarla para
+  clasificar el ticket y preparar un borrador de respuesta a partir del manual. Una persona lo revisa
+  siempre antes de enviarlo. Si desactivás la IA, o no compartís nombres de recursos ni etiquetas con la
+  IA (*Configuración → IA*), tus tickets no pasan por la IA.
 - **Vista de lista:** tabla con filtros, búsqueda, columnas redimensionables y personalizables, y
   paginado 15/30/45/60. La conversación se abre en un panel lateral sin perder la tabla.
 - **Acceso rápido y notificaciones:** el ícono de salvavidas junto a tu usuario (header) abre Soporte desde cualquier página. Cuando el equipo responde tu ticket, verás una notificación en la campanita 🔔 y un aviso en pantalla.

@@ -1170,8 +1170,9 @@ Primera parte de la propuesta de capacidades de IA
 ([`docs/propuesta-capacidades-ia-2026-10-07.md`](../propuesta-capacidades-ia-2026-10-07.md),
 sección 10). La regla de fondo: cifras, causas y acciones salen de lógica
 determinista; el modelo sólo pone en palabras lo que el código ya verificó, o
-elige entre opciones cerradas. El detalle técnico está en el LLD §40 y, para la
-IA de plataforma sin keys (19.6), en el §41.
+elige entre opciones cerradas. El detalle técnico está en el LLD §40; para la
+IA de plataforma sin keys (19.6), en el §41, y para la IA de soporte (19.7), en
+el §42.
 
 ### 19.1 Un solo lugar decide si se gasta IA
 
@@ -1325,7 +1326,50 @@ hasta el rollout.
   consumo del modelo. Tiene un presupuesto propio de US$50 por mes con avisos al
   50, 75, 90 y 100 %.
 
-### 19.7 Lo que queda
+### 19.7 Soporte: la IA sugiere, el operador decide
+
+Dos ayudas para el equipo de CSCloudSolutions en `/superadmin/support`. Las paga
+la plataforma con su propia IA, nunca con la BYOK del tenant, y no consumen la
+cuota del cliente. Arrancan apagadas: primero hay que medir si el volumen de
+tickets las justifica.
+
+- **Triaje.** Al crear un ticket, después de responderle al usuario, el modelo
+  sugiere prioridad, categoría, módulo e impacto productivo, eligiendo entre
+  valores cerrados. La sugerencia queda en su propia tabla y **nunca** cambia la
+  prioridad ni el SLA. Aceptarla pasa por el mismo PATCH que un cambio manual:
+  la IA no tiene un camino propio para escribir en el ticket.
+- **Borradores.** A pedido del operador, el código busca en los manuales las
+  secciones que mejor responden el ticket, en su idioma, y el modelo redacta
+  citándolas. Si cita una sección que no se le dio, el borrador no se guarda. El
+  que pasa la validación queda como **nota interna**: nunca se envía solo.
+
+```mermaid
+flowchart LR
+    NEW["POST /api/support/tickets<br/>(commit y respuesta)"] -->|"after()"| TRI["Triaje: gate, DLP<br/>y salida enum"]
+    TRI --> TT["SupportTicketAiTriage"]
+    TT --> Q["Cola /superadmin/support"]
+    Q -->|"Aceptar"| PATCH["PATCH del ticket<br/>(mismo que el manual)"]
+    Q -->|"Sugerir respuesta"| BM["BM25 sobre el índice<br/>de manuales commiteado"]
+    BM --> LLM["El modelo redacta<br/>con citas [S1]..[S4]"]
+    LLM --> VAL{"¿Cada cita se<br/>recuperó?"}
+    VAL -->|"no"| DROP["No se guarda"]
+    VAL -->|"sí"| NOTE["Nota interna<br/>+ SupportTicketAiDrafts"]
+    NOTE -->|"Usar como respuesta"| REPLY["El operador edita y envía"]
+```
+
+- **Por qué un índice commiteado.** La imagen de Docker no lleva `docs/` ni los
+  `.md`, así que el índice no se puede armar en el build ni en runtime. Se genera
+  con `npm run support:index` y un test falla si no corresponde a los manuales.
+  Son unos cientos de secciones: BM25 en memoria alcanza y no hace falta una
+  base vectorial.
+- **Qué ve el modelo.** El ticket va dentro de `<context_data>`, como dato. Del
+  hilo sólo viajan los mensajes públicos, sin emails ni nombres. Si el tenant no
+  comparte nombres de recursos o tags con la IA, el texto libre del ticket no
+  sale. Los manuales de superadmin, seguridad, HLD y LLD quedan fuera del índice.
+- **Cómo se mide.** La cola muestra la primera respuesta, los SLA incumplidos y
+  el porcentaje de borradores que se enviaron, en una ventana de 30 días.
+
+### 19.8 Lo que queda
 
 - El rollout de 19.6: confirmar la cuota del modelo en West US 3, actualizar el
   centro de confianza, aplicar con la app todavía en la key, verificar el DNS
@@ -1339,4 +1383,7 @@ hasta el rollout.
   ejecutivo) siguen sin tier ni cuota, en español y USD.
 - En la ingesta FOCUS, la columna de servicio puede tomar `ServiceCategory` y la
   de suscripción no reconoce `SubAccountId`. Corregirlo exige limpiar datos.
-- Las fases 2 a 4 de la propuesta: tags, soporte y Document Intelligence.
+- La IA de soporte (19.7): aplicar las migraciones, medir el volumen, confirmar
+  qué tickets usan el manual del partner y recién después prender los
+  interruptores.
+- Las fases 2 y 4 de la propuesta: tags y Document Intelligence.

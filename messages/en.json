@@ -452,6 +452,14 @@
           "label": "AI CSV column mapping",
           "description": "Suggests which FOCUS column matches each column of a billing CSV that is not in FOCUS format. Business and above."
         },
+        "support-ticket-triage": {
+          "label": "AI support ticket triage",
+          "description": "When a ticket is created, suggests priority, category, module and production impact for the operator, who accepts or dismisses it. It never changes the priority or the SLA on its own. Paid by the platform and does not use the tenant's quota; honors the tenant's AI opt-out."
+        },
+        "support-reply-draft": {
+          "label": "AI support reply drafts",
+          "description": "On the operator's request, writes a draft citing sections of the manuals and saves it as an editable internal note on the ticket. It is never sent on its own. Paid by the platform and does not use the tenant's quota; honors the tenant's AI opt-out."
+        },
         "billing-upload-assessment": {
           "label": "AI analysis of CSV uploads",
           "description": "Writes the executive report for an uploaded billing CSV. When off, the upload shows the per-service summary without AI. Business and above."
@@ -13346,6 +13354,14 @@
     "kpiMttr": "Mean resolution time",
     "kpiMttrHint": "Average across resolved tickets",
     "kpiMttrHelp": "Average hours between creation and resolution. Only resolved tickets count: including open ones would produce a number that drops when new work arrives.",
+    "kpiFirstResponse": "First response ({days} d)",
+    "kpiFirstResponseHint": "{count} tickets created",
+    "kpiFirstResponseHelp": "Average time between ticket creation and the team’s first public reply, for tickets created in the window. Internal notes do not count.",
+    "kpiSlaBreaches": "SLA breached ({days} d)",
+    "kpiSlaBreachesHelp": "Tickets created in the window that were answered after the first-response SLA deadline, or that are past it and still unanswered.",
+    "kpiAiDraftsUsed": "AI drafts used ({days} d)",
+    "kpiAiDraftsUsedHint": "{used} of {generated} drafts",
+    "kpiAiDraftsUsedHelp": "Share of the “Suggest reply” drafts generated in the window that the team sent as a public reply with “Use as reply”, edited or not.",
     "allTenants": "All organizations",
     "allPriorities": "All priorities",
     "allAgents": "All agents",
@@ -13379,7 +13395,8 @@
     "col_created": "Created",
     "col_created_help": "When the customer opened the ticket.",
     "col_actions": "Quick actions",
-    "col_actions_help": "Attend opens the conversation; Take assigns it to you; Resolve closes it as resolved."
+    "col_actions_help": "Attend opens the conversation; Take assigns it to you; Resolve closes it as resolved.",
+    "aiTriageDismissed": "Suggestion dismissed."
   },
   "SuperAdminTenants": {
     "title": "Tenant Management (SuperAdmin)",
@@ -13607,7 +13624,31 @@
     "col_sla": "SLA remaining",
     "col_sla_help": "Time left on the first-response SLA. It stops counting once the team replies.",
     "col_actions": "Actions",
-    "col_actions_help": "Opens the full ticket conversation."
+    "col_actions_help": "Opens the full ticket conversation.",
+    "aiProductionImpact": "Production impact",
+    "aiProductionImpactHelp": "The AI detected that the issue affects one of the customer’s production environments.",
+    "aiTriageTitle": "AI triage suggestion",
+    "aiTriageConfidence": "Confidence: {value}%",
+    "aiTriageAccept": "Accept",
+    "aiTriageAcceptHelp": "Applies the suggested priority, category and module to the ticket. The SLA deadline does not change.",
+    "aiTriageDismiss": "Dismiss",
+    "aiSuggestReply": "Suggest reply",
+    "aiSuggesting": "Generating draft…",
+    "aiSuggestReplyHelp": "Drafts a reply with AI based on the manuals and saves it as an internal note. It is not sent to the customer.",
+    "aiDraftSaved": "Draft saved as an internal note.",
+    "aiDraftTag": "AI draft",
+    "aiUseAsReply": "Use as reply",
+    "aiReason_global_disabled": "AI features are turned off on the platform.",
+    "aiReason_feature_disabled": "AI drafts are turned off on the platform.",
+    "aiReason_tenant_disabled": "AI is turned off for this ticket’s organization.",
+    "aiReason_tier": "This organization’s plan does not include this AI feature.",
+    "aiReason_quota": "The monthly limit for this AI feature has been reached.",
+    "aiReason_rate_limited": "Too many requests in a row. Try again in a minute.",
+    "aiReason_not_configured": "No AI provider is configured.",
+    "aiReason_error": "The draft could not be generated. Try again later.",
+    "aiReason_validation": "The generated draft failed the automatic check (citations) and was not saved.",
+    "aiReason_data_sharing": "This organization does not share resource names or tags with the AI, and the ticket text might include them.",
+    "aiReason_no_sources": "The manuals have no information to answer this ticket."
   },
   "Sustainability": {
     "greenFinops": "Green FinOps (Sustainability)",
