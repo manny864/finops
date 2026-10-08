@@ -18,6 +18,7 @@ export type AiFeature =
     | "anomaly-explanation"
     | "billing-csv-column-mapping"
     | "billing-upload-assessment"
+    | "tag-value-normalization"
     | "support-ticket-triage"
     | "support-reply-draft"
     | "document-intelligence";
@@ -83,6 +84,15 @@ export const AI_FEATURES: Record<AiFeature, AiFeatureConfig> = {
         perMinute: 5,
         // Seis secciones con tablas; sin tope corría hasta el máximo del modelo.
         maxOutputTokens: 4000,
+    },
+    // Professional, como /governance/tags (routeTiers y pricing). Un lote es un
+    // tag con hasta 50 valores que el normalizador no resolvió.
+    "tag-value-normalization": {
+        defaultEnabled: true,
+        minTier: "Professional",
+        monthlyQuota: QUOTA,
+        perMinute: 5,
+        maxOutputTokens: 1000,
     },
     // Soporte (Fase 3): todos los tenants abren tickets y la IA la paga la
     // plataforma. Apagadas hasta medir el volumen de tickets (sección 6.6).

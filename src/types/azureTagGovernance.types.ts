@@ -74,6 +74,42 @@ export interface TagUpdatePayload {
   propagateToChildren?: boolean;
 }
 
+/**
+ * normalize: valores no permitidos que el normalizador no resolvió.
+ * fill: etiqueta libre (CostCenter, Department) faltante que no se puede heredar del grupo.
+ */
+export type TagAiMode = "normalize" | "fill";
+
+// Por qué no hay sugerencias con IA. Los seis primeros los decide el gate.
+export const TAG_AI_UNAVAILABLE_REASONS = [
+  "global_disabled",
+  "feature_disabled",
+  "tenant_disabled",
+  "tier",
+  "quota",
+  "rate_limited",
+  "not_configured",
+  "error",
+  "validation",
+  "dlp_tags",
+  "dlp_names",
+  "nothing_to_resolve",
+  "no_vocabulary",
+] as const;
+export type TagAiUnavailableReason = (typeof TAG_AI_UNAVAILABLE_REASONS)[number];
+
+export interface TagAiSuggestion {
+  /** normalize: el valor no conforme. fill: el id del recurso. */
+  target: string;
+  /** Uno de los permitidos (o de los que el tenant ya usa); null = la IA no supo, nunca inventa. */
+  suggestion: string | null;
+  confidence: number;
+}
+
+export type TagAiSuggestionResult =
+  | { aiAvailable: true; mode: TagAiMode; tagName: string; suggestions: TagAiSuggestion[] }
+  | { aiAvailable: false; reason: TagAiUnavailableReason };
+
 export interface TableColumnConfig {
   id: string;
   label: string;

@@ -4,6 +4,7 @@ import pool from "@/modules/storage/db";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import { errorMessage } from "@/lib/apiErrors";
 import { findInvalidTagValues, parseAllowedValues, type TagValueAlias } from "@/lib/tagValueNormalizer";
+import { missingTagsOf } from "@/lib/tagNonConformities";
 import {
   TagPolicyRule,
   ResourceTagAuditItem,
@@ -57,25 +58,7 @@ export function evaluateResourceMissingTags(
   currentTags: Record<string, string>,
   policies: TagPolicyRule[] = DEFAULT_MANDATORY_TAG_POLICIES
 ): string[] {
-  const normalizedCurrentKeys = Object.keys(currentTags || {}).map((k) => k.toLowerCase());
-  const missing: string[] = [];
-
-  for (const pol of policies) {
-    if (!pol.isRequired) continue;
-    const polKeyLower = pol.tagName.toLowerCase();
-    const foundIdx = normalizedCurrentKeys.indexOf(polKeyLower);
-    if (foundIdx === -1) {
-      missing.push(pol.tagName);
-    } else {
-      const origKey = Object.keys(currentTags)[foundIdx];
-      const val = currentTags[origKey];
-      if (!val || val.trim() === "") {
-        missing.push(pol.tagName);
-      }
-    }
-  }
-
-  return missing;
+  return missingTagsOf(currentTags, policies);
 }
 
 /**
