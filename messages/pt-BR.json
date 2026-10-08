@@ -446,7 +446,7 @@
       "features": {
         "anomaly-explanation": {
           "label": "Explicação de anomalias com IA",
-          "description": "Redige, a partir dos fatos calculados, por que o custo mudou no painel \"Ver Causa Raiz\". Professional em diante."
+          "description": "Redige, a partir dos fatos calculados, por que o custo mudou no painel \"Ver Causa Raiz\". Somente Enterprise."
         },
         "billing-csv-column-mapping": {
           "label": "Mapeamento de colunas de CSV com IA",

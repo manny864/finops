@@ -6,6 +6,7 @@ import {
     deletePlatformAiApiKey,
     testPlatformAiConnection,
 } from "@/services/superAdminAiConfig.service";
+import { AI_FEATURES, type AiFeature } from "@/lib/aiFeatureGate";
 
 const mocks = vi.hoisted(() => {
     return {
@@ -115,10 +116,9 @@ describe("superAdminAiConfig.service", () => {
         it("sin valor guardado devuelve el default de cada feature", async () => {
             settingsRows([]);
             const settings = await getPlatformGlobalAiSettings(false);
-            expect(settings.featureSwitches).toEqual({
-                "anomaly-explanation": true,
-                "billing-csv-column-mapping": true,
-            });
+            for (const [feature, cfg] of Object.entries(AI_FEATURES)) {
+                expect(settings.featureSwitches[feature as AiFeature]).toBe(cfg.defaultEnabled);
+            }
             const [, params] = mocks.mockPoolQuery.mock.calls.find(([sql]) => sql.includes("SELECT setting_key"))!;
             expect(params).toContain("ai_feature:anomaly-explanation");
         });

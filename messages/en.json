@@ -446,7 +446,7 @@
       "features": {
         "anomaly-explanation": {
           "label": "AI anomaly explanation",
-          "description": "Writes, from the computed facts, why the cost changed in the \"View Root Cause\" panel. Professional and above."
+          "description": "Writes, from the computed facts, why the cost changed in the \"View Root Cause\" panel. Enterprise only."
         },
         "billing-csv-column-mapping": {
           "label": "AI CSV column mapping",

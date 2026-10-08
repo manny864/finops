@@ -45,7 +45,9 @@ const QUOTA = { Professional: 50, Business: 150, Enterprise: null };
 export const AI_FEATURES: Record<AiFeature, AiFeatureConfig> = {
     "anomaly-explanation": {
         defaultEnabled: true,
-        minTier: "Professional",
+        // Enterprise, como la pantalla de anomalías (routeTiers y pricing). Desde
+        // Professional se venden sólo las alertas, que no llevan IA.
+        minTier: "Enterprise",
         monthlyQuota: QUOTA,
         perMinute: 10,
         maxOutputTokens: 600,

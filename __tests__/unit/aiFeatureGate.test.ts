@@ -14,9 +14,12 @@ vi.mock("@/lib/rateLimiter", () => ({ default: { checkByKeyDistributed: rlMock }
 import { AI_FEATURES, checkAiFeature } from "@/lib/aiFeatureGate";
 
 const PRO = { tier: "Professional", ai_enabled: 1, ai_provider: "system", ai_api_key: null };
+const BIZ = { ...PRO, tier: "Business" };
+const ENT = { ...PRO, tier: "Enterprise" };
 const tenant = (row: object | null) => queryMock.mockResolvedValueOnce([row ? [row] : []]);
 const used = (c: number) => queryMock.mockResolvedValueOnce([[{ c }]]);
 const check = () => checkAiFeature("t1", "anomaly-explanation", "ana@x.com");
+const csv = () => checkAiFeature("t1", "billing-csv-column-mapping", "ana@x.com");
 
 beforeEach(() => {
     queryMock.mockReset();
@@ -48,7 +51,7 @@ describe("checkAiFeature", () => {
         try {
             expect(await check()).toEqual({ allowed: false, reason: "feature_disabled" });
             switchMock.mockResolvedValue(true);
-            tenant({ ...PRO, tier: "Enterprise" });
+            tenant(ENT);
             expect(await check()).toEqual({ allowed: true });
         } finally {
             cfg.defaultEnabled = true;
@@ -67,42 +70,50 @@ describe("checkAiFeature", () => {
         expect(await check()).toEqual({ allowed: false, reason: "tier" });
     });
 
+    it("la explicación de anomalías pide Enterprise, como la pantalla", async () => {
+        tenant(PRO);
+        expect(await check()).toEqual({ allowed: false, reason: "tier" });
+        tenant(BIZ);
+        expect(await check()).toEqual({ allowed: false, reason: "tier" });
+        tenant(ENT);
+        expect(await check()).toEqual({ allowed: true });
+    });
+
     it("el mapeo de CSV pide Business, como la página de upload", async () => {
-        const csv = () => checkAiFeature("t1", "billing-csv-column-mapping", "ana@x.com");
         tenant(PRO);
         expect(await csv()).toEqual({ allowed: false, reason: "tier" });
-        tenant({ ...PRO, tier: "Business" });
+        tenant(BIZ);
         used(0);
         expect(await csv()).toEqual({ allowed: true });
     });
 
     it("rate limit por feature, tenant y usuario, antes de contar la cuota", async () => {
-        tenant(PRO);
+        tenant(BIZ);
         rlMock.mockResolvedValue({ allowed: false, resetAt: new Date() });
-        expect(await check()).toEqual({ allowed: false, reason: "rate_limited" });
-        expect(rlMock).toHaveBeenCalledWith("ai:anomaly-explanation:t1:ana@x.com", 10, 60_000);
+        expect(await csv()).toEqual({ allowed: false, reason: "rate_limited" });
+        expect(rlMock).toHaveBeenCalledWith("ai:billing-csv-column-mapping:t1:ana@x.com", 5, 60_000);
         expect(queryMock).toHaveBeenCalledTimes(1);
     });
 
     it("cuota mensual: cuenta sólo lo que pagó la plataforma para esa feature", async () => {
-        tenant(PRO);
-        used(50);
-        expect(await check()).toEqual({ allowed: false, reason: "quota" });
+        tenant(BIZ);
+        used(150);
+        expect(await csv()).toEqual({ allowed: false, reason: "quota" });
         const [sql, params] = queryMock.mock.calls[1];
         expect(sql).toContain("source = 'platform'");
         expect(sql).toContain("DATE_FORMAT(UTC_TIMESTAMP(), '%Y-%m-01')");
-        expect(params).toEqual(["t1", "anomaly-explanation"]);
+        expect(params).toEqual(["t1", "billing-csv-column-mapping"]);
 
-        tenant(PRO);
-        used(49);
-        expect(await check()).toEqual({ allowed: true });
+        tenant(BIZ);
+        used(149);
+        expect(await csv()).toEqual({ allowed: true });
     });
 
     it("BYOK y Enterprise no tienen cuota: no se consulta el uso", async () => {
-        tenant({ ...PRO, ai_provider: "openai", ai_api_key: "enc:..." });
-        expect(await check()).toEqual({ allowed: true });
-        tenant({ ...PRO, tier: "Enterprise" });
-        expect(await check()).toEqual({ allowed: true });
+        tenant({ ...BIZ, ai_provider: "openai", ai_api_key: "enc:..." });
+        expect(await csv()).toEqual({ allowed: true });
+        tenant(ENT);
+        expect(await csv()).toEqual({ allowed: true });
         expect(queryMock).toHaveBeenCalledTimes(2);
     });
 });
