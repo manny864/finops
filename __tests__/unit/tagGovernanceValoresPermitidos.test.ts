@@ -56,7 +56,7 @@ describe("getTenantTagPolicies", () => {
         const pols = await getTenantTagPolicies("t1");
         expect(queryMock.mock.calls[0][1]).toEqual(["t1"]);
         expect(pols).toEqual([
-            { id: "tenant-policy-1", tagName: "Environment", isRequired: true, allowedValues: ["prod", "dev"], descriptionKey: "policyEnvironmentDesc" },
+            { id: "tenant-policy-1", tagName: "Environment", isRequired: true, allowedValues: ["prod", "dev"], descriptionKey: "policyEnvironmentPurpose" },
             { id: "tenant-policy-2", tagName: "Owner", isRequired: false, allowedValues: undefined, descriptionKey: undefined },
             { id: "tenant-policy-3", tagName: "Role", isRequired: true, allowedValues: ["api", "web"], descriptionKey: "policyRoleDesc" },
         ]);

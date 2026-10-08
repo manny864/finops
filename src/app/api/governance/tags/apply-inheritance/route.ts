@@ -4,6 +4,7 @@ import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
 import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { getAzureCredential } from "@/lib/azure";
 import { applyTagInheritance, ApplyOp } from "@/services/tagInheritanceService";
+import { isMockTenant } from "@/lib/mockData";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function POST(request: NextRequest) {
@@ -34,6 +35,18 @@ export async function POST(request: NextRequest) {
                 success: false,
                 error: "Demasiadas ops en un solo batch (máx 200). Dividir en múltiples requests.",
             }, { status: 400 });
+        }
+
+        // Demo: simula la herencia sin tocar Azure (como /api/tags/apply* en el TenantProvider).
+        if (isMockTenant(tenantId)) {
+            return NextResponse.json({
+                success: true,
+                mock: true,
+                dryRun: !!dryRun,
+                applied: ops.length,
+                failed: 0,
+                results: ops.map((op) => ({ resourceId: op.resourceId, success: true })),
+            });
         }
 
         // Solo Admin / Owner pueden aplicar tags (mutación en Azure)

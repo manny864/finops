@@ -80,6 +80,25 @@ describe("POST /api/governance/tags/normalization", () => {
         expect(queryMock.mock.calls[2][1].slice(3, 7)).toEqual([null, null, null, null]);
     });
 
+    it("registra la herencia del grupo como sugerencia por regla aceptada, sin alias", async () => {
+        const res = await POST(req("POST", "t1", {
+            tagName: "costcenter",
+            originalValue: "",
+            suggestedValue: "CorePlatform",
+            suggestionSource: "rule",
+            suggestedMethod: "inheritance",
+            suggestedConfidence: 1,
+            appliedValue: "CorePlatform",
+            resourceCount: 2,
+            saveAlias: true,
+        }));
+        expect(await res.json()).toEqual({ success: true, aliasSaved: false });
+        expect(queryMock).toHaveBeenCalledTimes(1);
+        expect(queryMock.mock.calls[0][1]).toEqual(
+            ["t1", "CostCenter", "", "CorePlatform", "rule", "inheritance", 1, "CorePlatform", 1, 2, "ana@cliente.com"],
+        );
+    });
+
     it("rechaza un valor aplicado fuera de los permitidos", async () => {
         const res = await POST(req("POST", "t1", { ...DECISION, appliedValue: "produccion" }));
         expect(res.status).toBe(400);

@@ -26,7 +26,11 @@ export function missingTagsOf(tags: Record<string, string>, policies: readonly T
   return policies.filter((p) => p.isRequired && tagValueOf(tags, p.tagName) === null).map((p) => p.tagName);
 }
 
-/** Recalcula faltantes, valores no permitidos y estado tras cambiar las etiquetas (actualización optimista). */
+/**
+ * Recalcula faltantes, valores no permitidos y estado tras cambiar las etiquetas
+ * (actualización optimista). El cliente no tiene los alias del tenant: para un
+ * valor que no cambió conserva la sugerencia que calculó el servidor.
+ */
 export function withTags<T extends ResourceTagAuditItem | ResourceGroupTagAuditItem>(
   item: T,
   tags: Record<string, string>,
@@ -34,7 +38,11 @@ export function withTags<T extends ResourceTagAuditItem | ResourceGroupTagAuditI
   aliasesByTag?: ReadonlyMap<string, TagValueAlias[]>,
 ): T {
   const missingTags = missingTagsOf(tags, policies);
-  const invalidTags = findInvalidTagValues(tags, policies, aliasesByTag);
+  const before = new Map((item.invalidTags ?? []).map((i) => [`${i.tagName}\u0000${i.value}`, i.suggestion]));
+  const invalidTags = findInvalidTagValues(tags, policies, aliasesByTag).map((i) => {
+    const suggestion = before.get(`${i.tagName}\u0000${i.value}`);
+    return suggestion ? { ...i, suggestion } : i;
+  });
   return {
     ...item,
     currentTags: tags,

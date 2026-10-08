@@ -18,7 +18,7 @@ export const DEFAULT_MANDATORY_TAG_POLICIES: TagPolicyRule[] = [
     tagName: "Environment",
     isRequired: true,
     allowedValues: ["prod", "stg", "dev", "qa", "sandbox"],
-    descriptionKey: "policyEnvironmentDesc",
+    descriptionKey: "policyEnvironmentPurpose",
   },
   {
     id: "policy-role",

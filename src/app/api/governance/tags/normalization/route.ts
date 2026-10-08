@@ -13,7 +13,8 @@ import {
 export const dynamic = "force-dynamic";
 
 const SOURCES = ["rule", "ai"];
-const METHODS = ["exact", "alias", "fuzzy", "ai"];
+// "inheritance": CostCenter/Department faltante que se heredó del grupo de recursos.
+const METHODS = ["exact", "alias", "fuzzy", "inheritance", "ai"];
 const MAX_VALUE = 256;
 
 /** Valor opcional: null si no vino, undefined si vino mal. */

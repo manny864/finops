@@ -357,4 +357,27 @@ describe("POST /api/governance/tags/apply-inheritance", () => {
             expect.arrayContaining(["Admin", "Owner"])
         );
     });
+
+    it("demo: simula la herencia sin pedir rol ni tocar Azure", async () => {
+        const ops = [
+            { resourceId: "res-1", tagsToMerge: { CostCenter: "CorePlatform" } },
+            { resourceId: "res-2", tagsToMerge: { CostCenter: "CorePlatform" } },
+        ];
+
+        const req = makeReq("http://localhost:3000/api/governance/tags/apply-inheritance", {
+            method: "POST",
+            body: JSON.stringify({ tenantId: "demo-tenant", ops }),
+            headers: { "Content-Type": "application/json" },
+        });
+
+        const data = await (await postApply(req)).json();
+
+        expect(data).toMatchObject({ success: true, mock: true, applied: 2, failed: 0 });
+        expect(data.results).toEqual([
+            { resourceId: "res-1", success: true },
+            { resourceId: "res-2", success: true },
+        ]);
+        expect(mocks.mockRequireTenantRole).not.toHaveBeenCalled();
+        expect(mocks.mockApplyTagInheritance).not.toHaveBeenCalled();
+    });
 });

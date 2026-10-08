@@ -162,6 +162,14 @@ describe("agrupación de lo que no cumple", () => {
     expect(fixed).toMatchObject({ missingTags: [], invalidTags: [], complianceStatus: "COMPLIANT" });
     expect(withTags(SCAN.resources[3], { Role: "api" }, POLICIES).missingTags).toEqual(["Environment", "CostCenter", "Department"]);
   });
+
+  it("withTags conserva la sugerencia del servidor (que conoce los alias del tenant) si el valor no cambió", () => {
+    const web = SCAN.resources[2];
+    const envOf = (item: ResourceTagAuditItem) => item.invalidTags?.find((i) => i.tagName === "Environment")?.suggestion;
+    expect(envOf(web)?.method).toBe("alias");
+    expect(envOf(withTags(web, { ...web.currentTags, CostCenter: "Ops" }, POLICIES))).toEqual(envOf(web));
+    expect(envOf(withTags(web, { ...web.currentTags, Environment: "Produccion" }, POLICIES))?.method).not.toBe("alias");
+  });
 });
 
 describe("policyForAi", () => {
