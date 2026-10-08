@@ -72,6 +72,10 @@ export const ROUTE_TIERS: Record<string, 'Professional' | 'Business' | 'Enterpri
     '/intelligence/ai-analytics': 'Enterprise',
     '/intelligence/macc': 'Enterprise',
     '/intelligence/upload': 'Business',
+    // Gasto externo (facturas y contratos con Document Intelligence) y su
+    // pestaña en Consumo y Presupuesto.
+    '/intelligence/external-spend': 'Business',
+    '/intelligence/consumo-y-presupuesto/gasto-externo': 'Business',
     '/intelligence/analitica-avanzada': 'Enterprise',
     // Limpieza — TTL Business (vista y remediación quedan separadas dentro de
     // la página, ver canDeleteResources en tierLogic.ts). Networking Zombies
