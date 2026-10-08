@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAssessment, extractAiErrorMessage } from "@/modules/core/aiProvider";
 import { CsvMappingError, normalizeBillingCsv } from "@/services/billingCsvMapping.service";
 import { FocusCostEntry } from "@/modules/core/focusMapper";
-import { requireRequestIdentity, AuthError } from "@/lib/requestAuth";
+import { requireRequestIdentity, assertTenantTier, AuthError } from "@/lib/requestAuth";
 import rateLimiter from "@/lib/rateLimiter";
 import { errorMessage, errorStatus, serverError } from '@/lib/apiErrors';
 
@@ -17,6 +17,9 @@ export async function POST(request: NextRequest) {
         // Auth: requires valid JWT. Tenant + email resolved from token.
         const identity = await requireRequestIdentity(request);
         const { email, tenantId } = identity;
+        // La pantalla es Business (routeTiers); sin esto un Professional
+        // llamaba la API directo y gastaba IA que su plan no incluye.
+        await assertTenantTier(identity, tenantId, "Business", request.nextUrl.pathname);
 
         // Rate limit per (tenant, email) to prevent Denial-of-Wallet on the AI provider.
         const rl = await rateLimiter.checkByKeyDistributed(`upload:${tenantId}:${email}`, RL_LIMIT, RL_WINDOW_MS);
