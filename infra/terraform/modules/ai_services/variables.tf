@@ -1,6 +1,18 @@
 variable "name" {
-  description = "Nombre de la cuenta y de su subdominio (<name>.openai.azure.com). Lleva la región de la cuenta, que puede no ser la del stamp."
+  description = "Nombre de la cuenta y de su subdominio. Lleva la región de la cuenta, que puede no ser la del stamp."
   type        = string
+}
+
+variable "short_name" {
+  description = "Sufijo de los nombres con la base del stamp (private endpoint, diagnóstico y presupuesto): ai, di."
+  type        = string
+  default     = "ai"
+}
+
+variable "kind" {
+  description = "AIServices (IA de plataforma) o FormRecognizer (Document Intelligence)."
+  type        = string
+  default     = "AIServices"
 }
 
 variable "name_base" {
@@ -51,7 +63,7 @@ variable "local_auth_enabled" {
 # https://learn.microsoft.com/en-us/azure/foundry/openai/concepts/model-retirement-schedule
 # https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/deployment-types
 variable "chat_model_name" {
-  description = "Modelo y, a la vez, nombre del deployment (ver main.tf)."
+  description = "Modelo y, a la vez, nombre del deployment (ver main.tf). null: sin deployment, como Document Intelligence."
   type        = string
   default     = "gpt-5.4-mini"
 }
@@ -80,13 +92,24 @@ variable "subnet_id" {
 }
 
 variable "private_dns_zone_ids" {
-  description = "Zonas cognitiveservices, openai y services.ai (modules/private_dns)."
+  description = "Zonas de modules/private_dns: cognitiveservices, openai y services.ai para AIServices; a FormRecognizer le alcanza cognitiveservices."
   type        = list(string)
 }
 
 variable "app_principal_id" {
   description = "Identidad de la app (azurerm_user_assigned_identity.app del stamp)."
   type        = string
+}
+
+variable "role_definition_name" {
+  description = <<-DESC
+    Rol de la app sobre la cuenta. Cognitive Services OpenAI User: inferencia
+    sí; gestionar la cuenta o leer las keys, no. Document Intelligence pide
+    Cognitive Services User, que además lista las keys: con
+    local_auth_enabled = false no sirven de nada.
+  DESC
+  type        = string
+  default     = "Cognitive Services OpenAI User"
 }
 
 variable "workspace_id" {

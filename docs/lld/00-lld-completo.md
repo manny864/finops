@@ -4146,3 +4146,470 @@ Devuelve `SupportWindowKpis`
 Suite completa (`npx vitest run`, sin `.env.development`): 4135 tests en verde y
 39 omitidos, en 418 archivos; `tsc` limpio y sin warnings nuevos de ESLint.
 Falta probarlo con un login real de superadmin y las migraciones aplicadas.
+
+---
+
+## 43. Addendum 2026-10-08 — Document Intelligence: gasto externo (fase 4)
+
+PR 9 de la propuesta de IA
+([`docs/propuesta-capacidades-ia-2026-10-07.md`](../propuesta-capacidades-ia-2026-10-07.md),
+10.8). Contexto arquitectónico en el HLD §19.8. Rama
+`feat/ia-fase4-document-intelligence`, encima de `feat/ia-fase3-soporte`:
+`8e1fca8` (gate, tablas, cliente REST, mapeo y validaciones), `55a3a87`
+(servicio, cron, API y avisos), `93f40c8` (pantalla, navegación e i18n),
+`5d10a75` (Terraform) y `191f61b` (correcciones). Con el interruptor apagado,
+que es el default, no se analiza ningún documento: la pantalla muestra el
+motivo y deja revisar lo ya subido y cargar compromisos a mano.
+
+### 43.1 Gate — `src/lib/aiFeatureGate.ts`
+
+| Feature | `defaultEnabled` | `minTier` | `monthlyQuota` | `perMinute` | `maxOutputTokens` | Clave del rate limit |
+|---|---|---|---|---|---|---|
+| `document-intelligence` | `false` | Business | Business 150, Enterprise 500 | 5 | 0 | Tenant y email de quien sube |
+
+- **`platformOnly: true`**, nuevo en `AiFeatureConfig`. La llamada va siempre a
+  la cuenta de Document Intelligence del stamp, así que la clave propia del
+  tenant (BYOK) no exime de la cuota: `byok = !cfg.platformOnly && …`.
+- **La cuota cuenta documentos.** Son las filas de `PlatformAiUsage` con
+  `source = 'platform'` y la feature, desde el día 1 del mes UTC. La fila se
+  escribe al terminar el análisis (43.5): lo que falla no cuenta, y una ráfaga
+  de subidas puede pasarse por lo que esté en análisis, acotada por el rate
+  limit.
+- **Enterprise también tiene techo**, a diferencia de las otras features: cada
+  página se paga y todavía no hay add-on que lo cubra.
+- **El tope de páginas no es del gate.** `EXTERNAL_SPEND_MAX_PAGES = 20`
+  (`src/types/externalSpend.types.ts`) viaja como `pages=1-20` en cada
+  análisis. Con la cuota, el peor caso es 3.000 páginas por mes en Business y
+  10.000 en Enterprise.
+- **`peekAiFeature(tenantId, feature)`** da el mismo veredicto que
+  `checkAiFeature` sin rate limit ni telemetría (`decide(tenantId, feature,
+  null)`). Lo usa `GET /api/intelligence/external-spend` para mostrar el motivo
+  antes de que el usuario elija un archivo.
+- `maxOutputTokens: 0`: no es un LLM. El interruptor se lista solo desde
+  `AI_FEATURES`; su rótulo está en
+  `AdminAiConfigGlobal.featureSwitches.features.document-intelligence`.
+
+### 43.2 Tablas — migraciones `20261008-030` a `20261008-032`
+
+Todas caen en cascada con `Tenants`, directo o por su padre
+(`cascadaBorradoTenant.test`). El dinero va en DECIMAL. No están en
+`schema.sql`.
+
+**`ExternalSpendDocuments`** (`030`, una fila por archivo subido):
+
+| Columna | Tipo | Nota |
+|---|---|---|
+| `id` | `BIGINT` PK | |
+| `tenant_id` | `VARCHAR(255)` | FK `ON DELETE CASCADE`, con `COLLATE utf8mb4_unicode_ci` por la FK |
+| `doc_type` | `ENUM('invoice','contract')` | Elige el modelo |
+| `status` | `ENUM` | `uploaded`, `extracting`, `needs_review`, `approved`, `rejected` o `failed` (43.5) |
+| `original_name`, `mime_type`, `size_bytes` | `VARCHAR(255)`, `VARCHAR(64)`, `INT UNSIGNED` | El tipo sale de los magic bytes, no del cliente |
+| `stored_name` | `VARCHAR(64)` NULL | `<uuid>.<ext>`. NULL cuando la retención ya borró el original |
+| `sha256` | `CHAR(64)` ascii | `UNIQUE (tenant_id, sha256)`: el mismo archivo dos veces es un duplicado |
+| `vendor_name`, `invoice_number` | `VARCHAR(255)`, `VARCHAR(128)` | En un contrato, la primera parte y el número de contrato |
+| `invoice_date`, `due_date`, `period_start`, `period_end` | `DATE` | En un contrato, la firma y la vigencia |
+| `currency` | `CHAR(3)` | ISO 4217 |
+| `subtotal`, `tax`, `total` | `DECIMAL(18,4)` | En la moneda del documento |
+| `total_usd`, `fx_rate`, `fx_rate_date` | `DECIMAL(18,4)`, `DECIMAL(18,8)`, `DATE` | Se fijan al aprobar (43.7). `fx_rate` son unidades por 1 USD, como `FxRates.rate` |
+| `extraction_json` | `JSON` | Lo que devolvió el modelo, mapeado y sin editar. La revisión pisa las columnas, no este JSON |
+| `validation_issues` | `JSON` | `[{ code, documentId? }]` de la última validación |
+| `model_id`, `api_version` | `VARCHAR(64)`, `VARCHAR(32)` | El modelo que leyó el documento (también el layout de respaldo) |
+| `confidence`, `pages` | `DECIMAL(5,4)`, `SMALLINT UNSIGNED` | La confianza más baja de la cabecera; las páginas analizadas |
+| `operation_location` | `VARCHAR(1024)` | La URL del análisis en curso. NULL fuera de `extracting` |
+| `error_message` | `VARCHAR(500)` | El motivo de `failed` |
+| `uploaded_by`, `reviewed_by`, `reviewed_at` | `VARCHAR(255)`, `TIMESTAMP` | Emails del token |
+| `created_at`, `updated_at` | `TIMESTAMP` | `updated_at` mide cuánto lleva un análisis. Índice `(status, updated_at)` para el cron |
+
+**`ExternalSpendLines`** (`030`): `document_id` (FK `ON DELETE CASCADE`),
+`tenant_id` (FK), `line_no`, `description` `VARCHAR(500)`, `quantity`
+`DECIMAL(18,4)`, `unit_price` `DECIMAL(18,6)`, `amount` `DECIMAL(18,4)`,
+`currency`, `service_category`, `period_start`, `period_end`, `cost_center` y
+`confidence`. Índice `(document_id, line_no)`. Se reemplazan todas al terminar
+el análisis y en cada corrección. El modelo no trae categoría ni centro de
+costo: los carga quien revisa.
+
+**`Commitments`** (`031`):
+
+| Columna | Tipo | Nota |
+|---|---|---|
+| `id` | `BIGINT` PK | |
+| `tenant_id` | `VARCHAR(255)` | FK `ON DELETE CASCADE`. Índice `(tenant_id, end_date)` |
+| `vendor_name` | `VARCHAR(255)` | |
+| `commitment_type` | `ENUM` | `EA`, `MACC`, `savings_plan`, `reservation`, `saas_subscription` u `other` |
+| `amount`, `currency` | `DECIMAL(18,4)`, `CHAR(3)` | Lo firmado, en su moneda. No se convierte |
+| `start_date`, `end_date` | `DATE` | |
+| `renewal_date` | `DATE` NULL | NULL: se renueva o vence en `end_date` |
+| `notice_days` | `SMALLINT UNSIGNED` | Días de preaviso. Default 0 |
+| `auto_renew` | `TINYINT(1)` | |
+| `source_document_id` | `BIGINT` NULL | FK a `ExternalSpendDocuments(id)` `ON DELETE SET NULL`: el contrato del que salió |
+| `created_by`, `created_at`, `updated_at` | | |
+
+**`CommitmentRenewalNotices`** (`032`): PK `(commitment_id, deadline,
+threshold_days)` y `notified_at`, con FK `ON DELETE CASCADE` a `Commitments`.
+No lleva `tenant_id`: cae con su compromiso. Copia `ReservationExpiryNotices`
+(`20261004-002`).
+
+### 43.3 Cliente REST — `src/lib/documentIntelligenceClient.ts`
+
+Dos llamadas con `fetch` contra la API `2024-11-30`. Sin
+`@azure-rest/ai-document-intelligence`: sumaba una dependencia para esto.
+
+- **Configuración.** `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT`, que pone Terraform,
+  sin la barra final. `isDocumentIntelligenceConfigured()` pide el endpoint y
+  `hasAiManagedIdentity()`: fuera de Azure no hay identidad con la que
+  autenticar.
+- **Auth.** `Authorization: Bearer` con `cognitiveServicesTokenProvider()`, la
+  identidad administrada del stamp con scope
+  `https://cognitiveservices.azure.com/.default`. La cuenta tiene
+  `local_auth_enabled = false`: no hay key.
+- **`submitAnalyze(modelId, bytes)`.** `POST
+  {endpoint}/documentintelligence/documentModels/{modelId}:analyze?api-version=2024-11-30&pages=1-20`
+  con `{ "base64Source": "…" }`. Responde 202 y devuelve el header
+  `Operation-Location`. Sin el header, error reintentable.
+- **`getAnalyzeOperation(url)`.** `GET` a esa URL. Antes compara su origen con el
+  del endpoint configurado: la URL sale de la base y la llamada lleva el token,
+  así que nunca se manda a otro host. El `status` es `notStarted`, `running`,
+  `succeeded`, `failed`, `canceled` o `skipped`; con `succeeded` trae
+  `analyzeResult`.
+- **Errores.** Cada llamada corta a los 30 s (`AbortSignal.timeout`). Un error
+  HTTP es `DocumentIntelligenceError(message, status, retryable)`, con el
+  mensaje recortado a 300 caracteres y `retryable` para 429 y 5xx. La red o el
+  timeout no son `DocumentIntelligenceError`; el servicio los reintenta.
+- **Modelos.** `diModelFor` da `prebuilt-invoice` o `prebuilt-contract`;
+  `DI_LAYOUT_MODEL` es `prebuilt-layout`, el respaldo.
+
+### 43.4 Mapeo — `src/lib/externalSpendExtraction.ts`
+
+`mapAnalyzeResult(docType, modelId, result): ExternalSpendExtraction` lee
+`documents[0].fields`:
+
+| Columna | `prebuilt-invoice` | `prebuilt-contract` |
+|---|---|---|
+| `vendor_name` | `VendorName` | La primera de `Parties` |
+| `invoice_number` | `InvoiceId` | `ContractId` |
+| `invoice_date` | `InvoiceDate` | `ExecutionDate` |
+| `due_date` | `DueDate` | — |
+| `period_start`, `period_end` | `ServiceStartDate`, `ServiceEndDate` | `EffectiveDate`, `ExpirationDate` |
+| `currency` | La del primer importe que la traiga: `InvoiceTotal`, `SubTotal`, `TotalTax` o `AmountDue` | — |
+| `subtotal`, `tax`, `total` | `SubTotal`, `TotalTax`, `InvoiceTotal` | — (el modelo no extrae montos) |
+| Líneas | `Items`: `Description` (o `ProductCode`), `Quantity`, `UnitPrice`, `Amount` y `Date` | Ninguna |
+
+- `AmountDue` no es respaldo del total: puede arrastrar saldos anteriores.
+- Los importes salen de `valueCurrency.amount`, `valueNumber` o
+  `valueInteger`. Uno de 1e12 o más se descarta, y una fecha que no existe
+  también. Los textos se recortan al ancho de la columna.
+- Del contrato quedan además, en `extraction_json.contract`, el título, las
+  partes, la vigencia, la renovación y la duración, para precargar el
+  compromiso.
+- `confidence` es la más baja entre los campos de la cabecera con valor.
+  `fieldConfidence` guarda la de cada uno, para marcarlos en la pantalla.
+  `pages` es `result.pages.length`.
+- Si el modelo no reconoció campos ni líneas, guarda `content` (hasta 20.000
+  caracteres). Es el texto que los modelos prebuilt ya traen del layout: no
+  hace falta una segunda llamada, que se paga.
+
+### 43.5 Estados y cron — `src/services/externalSpend.service.ts`
+
+| Desde | Hacia | Cuándo |
+|---|---|---|
+| — | `uploaded` | La subida pasó las validaciones del archivo, el duplicado y el gate |
+| `uploaded` | `extracting` | Document Intelligence aceptó el análisis (202). Guarda `model_id` y `operation_location`. Si el modelo rechaza el pedido con un error definitivo, se manda con `prebuilt-layout` |
+| `extracting` | `extracting` | El análisis terminó en `failed`, `canceled` o `skipped` con el modelo específico: se manda otra vez con `prebuilt-layout`, con otra operación |
+| `extracting` | `needs_review` | `succeeded`: mapeo, validaciones y líneas en una transacción |
+| `uploaded`, `extracting` | `failed` | Falta el original, falla también el layout o pasa un día sin poder avanzar |
+| `needs_review` | `approved` | La factura se aprueba (43.7); el contrato, al cargar su compromiso |
+| `needs_review` | `rejected` | *Rechazar* |
+| `approved` | `rejected` | Sólo facturas (`191f61b`) |
+
+`rejected` y `failed` son finales, pero el mismo archivo se puede volver a
+subir y reemplaza la fila.
+
+**`processDocument(id)`** lee la fila con `updated_at < NOW() - INTERVAL 1 DAY
+AS stale` y avanza un paso: `uploaded` va a `submit` y `extracting` a `poll`.
+
+- **Carreras.** Cada cambio de estado es `UPDATE … WHERE id = ? AND status = ?
+  AND operation_location <=> ?` con los valores leídos (`transition`). Si la
+  subida y el cron toman el mismo documento, avanza uno; el otro ve
+  `affectedRows = 0` y no pisa nada. Al terminar, las líneas se reemplazan en
+  la misma transacción y sólo si ganó, así que el uso se registra una vez.
+- **Reintentos.** Un 429, un 5xx, la red o un storage que no responde dejan el
+  documento como está y lo retoma el cron. Pasado un día sin avanzar, `failed`:
+  Document Intelligence guarda el resultado 24 horas.
+- **El original.** `submit` lo lee con `readExternalSpendFile`. `null` (no
+  existe) es `failed`; si la lectura lanza, se reintenta (`191f61b`).
+- **Al terminar.** `insertPlatformAiUsage({ source: "platform", provider:
+  "azure_document_intelligence", modelName, feature: "document-intelligence",
+  inputTokens: pages, outputTokens: 0 })`: una fila por documento, que es lo que
+  cuenta la cuota. Las páginas van en `input_tokens` para poder cobrar por
+  página si se decide así. Si quedaron observaciones, `logAiEvent(…, { stage:
+  "output", outcome: "rejected" })`. Las llamadas van envueltas en
+  `timeAiCall`.
+
+**`uploadDocument`**:
+
+1. Sin `isDocumentIntelligenceConfigured()`, `not_configured`.
+2. `checkExternalSpendFile` (43.10).
+3. `sha256`. Si el tenant ya tiene ese hash en un documento que no está
+   `rejected` ni `failed`, `duplicate`.
+4. `checkAiFeature(tenantId, "document-intelligence", email)`. Va después de lo
+   que se rechaza gratis: un archivo inválido o repetido no gasta rate limit.
+5. Si había un `rejected` o `failed` con el mismo hash, borra la fila (con sus
+   líneas) y su original.
+6. Guarda el original e inserta la fila. Si choca con la clave única (dos
+   subidas a la vez), borra su copia y responde `duplicate`.
+7. Llama a `processDocument` cada 2 s hasta que sale de `uploaded` y
+   `extracting` o pasan 20 s (`UPLOAD_WAIT_MS`). Si algo lanza, queda para el
+   cron. Responde con el documento como esté.
+
+**Cron `GET|POST /api/cron/external-spend-poll`**
+(`src/app/api/cron/external-spend-poll/route.ts`):
+
+- `Authorization: Bearer <CRON_SECRET>`. Sin secreto o con menos de 16
+  caracteres, 503; con otro, 401.
+- `processPendingDocuments(20)`: los `uploaded` y `extracting` con
+  `updated_at` de hace más de un minuto, del más viejo al más nuevo. El minuto
+  de gracia evita pisarse con la subida. Si uno lanza, sigue con el resto.
+- Después `purgeExpiredFiles(200)` (43.10) y `sendCommitmentRenewalAlerts`
+  (43.9). Van en el mismo job para no sumar otro en Terraform; sin nada que
+  hacer, son una consulta cada uno.
+- Responde `{ success, processed, purged, evaluated, notified, errors? }`, con
+  hasta 10 errores, y deja la corrida en `recordCronRun` como `ok`, `warning`
+  (errores parciales) o `error`.
+- No vuelve a pasar por el gate: lo aceptado al subir se termina de analizar
+  aunque después se apague el interruptor.
+
+### 43.6 Validaciones
+
+`validateExtraction(docType, header, lines, today)` en
+`externalSpendExtraction.ts`, más el duplicado que suma el servicio
+(`issuesFor`). Corren al terminar el análisis, en cada corrección y otra vez al
+aprobar.
+
+| Código | Cuándo | Impide aprobar |
+|---|---|---|
+| `no_fields` | No hay ningún dato en la cabecera ni líneas | No |
+| `total_missing` | Factura sin total | Sí |
+| `date_missing` | Factura sin fecha | Sí |
+| `currency_invalid` | Factura sin moneda o con un código que no es ISO 4217 (`Intl.supportedValuesOf("currency")`) | Sí |
+| `lines_mismatch` | La suma de los importes de las líneas no da el subtotal | No |
+| `total_mismatch` | Subtotal más impuestos no da el total | No |
+| `dates_incoherent` | Vencimiento antes de la fecha, un período al revés (también en una línea) o una factura con fecha futura | No |
+| `duplicate_invoice` | Otra factura del tenant, ni rechazada ni fallida, con el mismo proveedor y número. `documentId` la señala | Si la otra ya está aprobada |
+
+- La tolerancia es `near(a, b)`: `|a − b| ≤ max(0,01; 0,5 % de |b|)`. Absorbe
+  el redondeo por línea sin tapar una línea faltante.
+- Las tres que bloquean están en `BLOCKING_ISSUES`
+  (`src/types/externalSpend.types.ts`). El resto son avisos: quien revisa
+  conoce el documento mejor que la regla.
+- Un contrato sólo puede tener `no_fields` y `dates_incoherent`. El duplicado
+  por hash ni llega acá: se rechaza al subir.
+
+### 43.7 Revisión, aprobación y tipo de cambio
+
+- **`updateDocument`** (PATCH), sólo en `needs_review`. Revalida y reemplaza la
+  cabecera, `validation_issues` y las líneas en una transacción, con `WHERE …
+  AND status = 'needs_review'`. Un contrato no guarda líneas. `reviewSchema`:
+  los campos de la cabecera admiten NULL, las fechas tienen que existir, los
+  importes van entre −1e12 y 1e12, la moneda son tres mayúsculas y hay hasta
+  1000 líneas.
+- **`approveDocument`**, sólo facturas en `needs_review`. Vuelve a validar lo
+  guardado. Con un bloqueante o la misma factura ya aprobada en otro documento,
+  guarda las observaciones y responde `blocking_issues`. Si no:
+  - Con una de las 15 monedas de `fx.ts` (`isSupportedCurrency`),
+    `getRateOn(currency, invoiceDate)`. USD es tasa 1. Si no, la fila de
+    `FxRates` con base USD más reciente hasta la fecha de la factura o, si no
+    hay ninguna anterior, la más cercana después. Sin filas o sin tabla,
+    `FALLBACK_RATES` con fecha NULL.
+  - `total_usd = total / fx_rate` con Decimal.js, a cuatro decimales. Se
+    guardan la tasa y su fecha para que el número no cambie cuando se actualice
+    `FxRates`.
+  - Otra moneda se aprueba sin USD y el resumen la cuenta aparte.
+  - `UPDATE … SET status = 'approved' … WHERE … AND status = 'needs_review'`,
+    con `reviewed_by` y `reviewed_at`.
+- **`rejectDocument`**: `WHERE id = ? AND tenant_id = ? AND (status =
+  'needs_review' OR (status = 'approved' AND doc_type = 'invoice'))`. Una
+  factura aprobada sale del resumen. Un contrato aprobado no se rechaza: su
+  compromiso seguiría avisando y, si se volvía a subir el PDF, el borrado del
+  documento viejo dejaba el compromiso con `source_document_id` NULL y quedaban
+  dos. Para que deje de avisar se borra el compromiso. Si el UPDATE no toca
+  nada, `not_found` o `invalid_state` según exista la fila.
+- **`createCommitment`.** Con `sourceDocumentId`, en la misma transacción,
+  aprueba el contrato (`WHERE … AND doc_type = 'contract' AND status =
+  'needs_review'`) e inserta el compromiso: si el alta falla, el contrato no
+  queda aprobado. `commitmentSchema`: proveedor de 1 a 255 caracteres, tipo del
+  ENUM, monto de 0 en adelante, moneda ISO 4217, fechas que existan, inicio no
+  posterior al fin, renovación no anterior al inicio, `noticeDays` entero de 0 a
+  3650 (default 0) y `autoRenew` (default `false`).
+- **`deleteCommitment`** lo borra con sus avisos, en cascada. No toca el
+  contrato de origen, que sigue aprobado.
+- **`getSummary`**: sólo facturas aprobadas, en el USD fijado al aprobar. El
+  total, las facturas sin USD (`unconverted`), los 20 proveedores con más gasto
+  y los últimos 12 meses, por `COALESCE(period_start, invoice_date)`.
+
+### 43.8 Endpoints
+
+En `src/app/api/intelligence/external-spend/`. Los guards van en cada handler:
+`requireTenantTier(…, "Business")` y, para escribir, además
+`requireTenantRole(…, ["Admin", "Owner"])`, que deja pasar al superadmin. El
+tenant demo lee sin guard, como el resto de las pantallas.
+
+| Método y ruta | Auth | Contrato |
+|---|---|---|
+| `GET /api/intelligence/external-spend?tenantId=` | Business; demo sin guard | `{ documents, commitments, summary, ai }`: los últimos 200 documentos, hasta 500 compromisos, el resumen de 43.7 y `ai`, que es `{ allowed: true }` o `{ allowed: false, reason }` (`not_configured` o el de `peekAiFeature`) |
+| `POST /api/intelligence/external-spend` | Business, Admin u Owner | Multipart con `tenantId`, `type` (`invoice` o `contract`) y `file`. 201 con el documento: `needs_review` si el análisis terminó en 20 s; si no, `uploaded` o `extracting` |
+| `GET /api/intelligence/external-spend/[id]?tenantId=` | Business; demo sin guard | El documento con sus líneas y `extraction` |
+| `PATCH /api/intelligence/external-spend/[id]` | Business, Admin u Owner | `{ tenantId, header, lines }`. Corrige, revalida y devuelve el detalle |
+| `POST /api/intelligence/external-spend/[id]` | Business, Admin u Owner | `{ tenantId, action: "approve" \| "reject" }`. Devuelve el detalle |
+| `GET /api/intelligence/external-spend/[id]/file?tenantId=` | Business, cualquier rol | El original como adjunto, con `nosniff` y `Cache-Control: private, no-store`. 410 si la retención ya lo borró; 503 si el storage o la base no responden |
+| `POST /api/intelligence/external-spend/commitments` | Business, Admin u Owner | `{ tenantId, vendorName, commitmentType, amount, currency, startDate, endDate, renewalDate?, noticeDays?, autoRenew?, sourceDocumentId? }`. 201 con `{ id }` |
+| `DELETE /api/intelligence/external-spend/commitments/[id]?tenantId=` | Business, Admin u Owner | `{ ok: true }` |
+| `GET\|POST /api/cron/external-spend-poll` | `CRON_SECRET` | 43.5 |
+
+Los errores del servicio son `{ error, reason }` y la UI traduce `reason`
+(`ExternalSpend.error_*`). Los de los guards llevan sólo `error`. El id del
+segmento tiene que ser un entero positivo (`^[1-9]\d{0,15}$`).
+
+| Status | `reason` |
+|---|---|
+| 400 | `invalid_input`, `empty_file` |
+| 403 | `global_disabled`, `feature_disabled`, `tenant_disabled`, `tier` |
+| 404 | `not_found` |
+| 409 | `duplicate`, `invalid_state` |
+| 413 | `file_too_large` |
+| 415 | `file_type` |
+| 422 | `blocking_issues` |
+| 429 | `quota`, `rate_limited` |
+| 503 | `not_configured` |
+
+### 43.9 Avisos de renovación — `src/services/commitmentRenewalAlerts.service.ts`
+
+`sendCommitmentRenewalAlerts(publicUrl, today)`, desde el cron de 43.5. Lo que
+se vigila es la fecha límite del preaviso, no el fin: pasada esa fecha ya no se
+puede cancelar ni renegociar.
+
+1. Una consulta trae los compromisos con fecha límite
+   (`COALESCE(renewal_date, end_date)` menos `notice_days`) entre ayer y dentro
+   de 91 días, de tenants que no estén `CANCELED` ni `EXPIRED`, hasta 5000.
+2. Por tenant, salta la demo y a quien no tiene la pantalla: ni el plan de
+   `routeTiers` ni un add-on que la habilite.
+3. `renewalNotices` reusa `diasHastaVencer` y `escalonPara` de
+   `reservationExpiryAlerts.service.ts`: escalones de 90, 60 y 30 días, por
+   escalón y no por día exacto, en UTC.
+4. `INSERT IGNORE INTO CommitmentRenewalNotices` hace de candado: cada escalón
+   se avisa una vez, aunque dos corridas se superpongan.
+5. Con escalones nuevos, una notificación en la campanita (`createNotification`
+   con `notif_commitment_renewal_title` y `_msg`, `{ count, days }`, el enlace a
+   la pantalla y `source: "commitment_renewal"`) y `notifyTenant` por email,
+   Slack y Teams, con un texto en castellano de hasta 15 compromisos.
+6. La gravedad la marca el escalón más cercano: 30 días es `critical`, 60
+   `warning` y 90 `info`.
+
+### 43.10 Archivos y retención — `src/lib/externalSpendFiles.ts`
+
+El mismo enfoque que los adjuntos de soporte (`supportAttachments.ts`).
+
+- **`checkExternalSpendFile(bytes)`.** Vacío es `empty_file` y más de 10 MB
+  (`EXTERNAL_SPEND_MAX_BYTES`) `file_too_large`. El tipo sale de los magic
+  bytes (PDF, JPEG, PNG o TIFF); si no, `file_type`. Nunca se confía en el
+  Content-Type ni en la extensión del cliente. La ruta corta antes por
+  `file.size`, y la pantalla también.
+- **Guardado** como `<uuid>.<ext>`. Con `AZURE_STORAGE_CONNECTION_STRING`, en el
+  container privado `AZURE_STORAGE_CONTAINER_EXTERNAL_SPEND` (default
+  `external-spend-documents`). Si no, en disco bajo `EXTERNAL_SPEND_UPLOAD_DIR`
+  (default `./data/external-spend`), con modo 0600.
+- **Lectura.** El nombre se valida contra
+  `^[0-9a-f-]{36}\.(pdf|jpg|png|tiff)$` aunque venga de la base. Devuelve
+  `null` sólo si el original no existe: 404 del blob (`downloadBlob`) o
+  `ENOENT` en disco. Cualquier otro error se relanza (`191f61b`): confundirlo
+  con "no existe" fallaba para siempre un documento que sólo había que
+  reintentar.
+- **Borrado.** Ignora que el archivo ya no exista.
+- **Retención.** `purgeExpiredFiles`, en el cron, borra los originales de los
+  documentos `approved`, `rejected` o `failed` de más de 365 días
+  (`EXTERNAL_SPEND_RETENTION_DAYS`), hasta 200 por corrida, y pone
+  `stored_name` en NULL. Lo extraído y lo revisado quedan. Lo que espera
+  revisión conserva el archivo.
+- Borrar un tenant borra las filas en cascada, no los archivos. Queda
+  pendiente (propuesta, 10.9).
+
+### 43.11 UI
+
+- **Rutas.** `src/app/[locale]/intelligence/external-spend/page.tsx`. La pestaña
+  *Gasto externo* de Consumo y Presupuesto
+  (`/intelligence/consumo-y-presupuesto/gasto-externo`) re-exporta la misma
+  página. Las dos son Business en `routeTiers`; la página está en
+  `pageRegistry` (`int-external-spend`) y en `pageRoleTags` (FinOps).
+- **Resumen** de lo aprobado, con la etiqueta *Fuera del costo de Azure*: total
+  en USD, por proveedor y por mes, y las facturas sin tasa aparte. Al lado, lo
+  que está por revisar y el próximo límite de preaviso.
+- **Subida**: tipo de documento y archivo. Si `ai.allowed` es `false`, muestra
+  el motivo traducido y deshabilita la subida.
+- **Lista de documentos** con su estado. Mientras alguno está `uploaded` o
+  `extracting`, se recarga cada 30 s.
+- **`components/ReviewDrawer.tsx`**: quién y cuándo, observaciones (los
+  bloqueantes con *Impide aprobar*), cabecera y líneas editables mientras está
+  `needs_review`, campos y líneas con confianza menor a 80 % marcados
+  (`LOW_CONFIDENCE`), el texto del documento si no se reconocieron campos,
+  el tipo de cambio aplicado y *Descargar original*.
+  - Factura: *Guardar cambios*, *Aprobar* (si hay cambios, primero los guarda)
+    y *Rechazar*, que pide confirmación si la factura ya está aprobada.
+  - Contrato: los términos y *Cargar como compromiso*, con el formulario
+    precargado con proveedor, moneda, vigencia y renovación. *Rechazar* sólo
+    mientras está por revisar (`191f61b`).
+- **`components/CommitmentsSection.tsx`**: la lista con su límite de preaviso y
+  el alta manual (tipo *Otro* y USD por defecto). *Eliminar compromiso* pide
+  confirmación.
+- **Permisos.** Escriben Admin, Owner y el superadmin; el resto ve todo y una
+  nota. La pantalla calcula `canWrite` con el rol, pero lo que manda es la API.
+- **Demo.** `mockExternalSpendOverview()` y `mockExternalSpendDocument(id)`
+  (`src/lib/externalSpendMock.ts`), con fechas relativas a hoy. Las escrituras
+  muestran `demoNote` y no mandan nada.
+- **i18n.** `ExternalSpend.*`, la pestaña en
+  `ConsumptionBudgetsHub.tabExternalSpend` y la página en
+  `MyDashboard.page_int-external-spend_*`, en los tres idiomas.
+
+### 43.12 Terraform (`5d10a75`)
+
+- `document_intelligence_enabled` (`optional(bool, false)`). Sin él, el plan no
+  cambia.
+- `module "document_intelligence"` reusa `modules/ai_services`, que suma
+  `kind`, `short_name`, `role_definition_name` y `chat_model_name = null` (sin
+  deployment). Los defaults dejan igual la IA de plataforma.
+  - Cuenta `${name_base}-di` (por ejemplo, `cscs-finops-prod-westus2-di`),
+    `kind = "FormRecognizer"`, S0, en la región del stamp.
+  - `local_auth_enabled = false` y sin acceso público. Private endpoint en la
+    subnet del stamp, con la zona `cognitiveservices`, que `modules/private_dns`
+    crea también cuando sólo está Document Intelligence.
+  - Rol *Cognitive Services User* para la identidad de la app: *Cognitive
+    Services OpenAI User* no alcanza para Document Intelligence. Ese rol puede
+    listar las keys, pero con la autenticación local apagada no sirven.
+  - Diagnóstico de auditoría a Log Analytics y presupuesto propio (US$ 50 por
+    mes, el default del módulo).
+- La app recibe `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT`
+  (`https://<subdominio>.cognitiveservices.azure.com/`), después de
+  `extra_env_vars`.
+- `cron-jobs.tfvars`: `external-spend-poll = { cron = "*/5 * * * *",
+  timeout_seconds = 240 }`. El runner corta a los 210 s, así que dos corridas no
+  se pisan. El stamp lo crea sólo con la cuenta, y `checks.tf` lo exime del
+  guard de Cost Management.
+
+### 43.13 Verificación
+
+| Test | Cubre |
+|---|---|
+| `__tests__/unit/aiFeatureGate.test.ts` | Apagada por defecto; Business; cuota aunque haya BYOK; `peekAiFeature` sin rate limit; rótulo en los tres idiomas |
+| `__tests__/unit/documentIntelligenceClient.test.ts` | Configuración; base64 con token y `pages=1-20`; `Operation-Location`; qué errores se reintentan; el token no va a otro origen |
+| `__tests__/unit/externalSpendExtraction.test.ts` | Mapeo de factura y contrato con fixtures (`__tests__/fixtures/documentIntelligence.ts`); `AmountDue`; fechas e importes absurdos; texto sin campos; cada validación y la tolerancia; magic bytes y tamaño |
+| `__tests__/unit/externalSpendService.test.ts` | El poller con `fetch` mockeado: estados, layout de respaldo, reintentos y el día de gracia, carreras; la subida (gate después de lo gratis, duplicados, reemplazo); aprobación con tipo de cambio y bloqueantes; compromiso y contrato en una transacción; rechazo |
+| `__tests__/unit/externalSpendRoutes.test.ts` | Demo sin guard; Business y roles; status por motivo; adjunto con `nosniff`, 410 y 503; compromisos; el cron con su secreto, el registro y los errores parciales |
+| `__tests__/unit/externalSpendFiles.test.ts` | Nombres inválidos; `null` sólo si no existe, en Blob y en disco; el resto se relanza |
+| `__tests__/unit/externalSpendReviewDrawer.test.tsx` | Quién ve *Rechazar*: nadie en un contrato aprobado ni sin permiso |
+| `__tests__/unit/commitmentRenewalAlerts.test.ts` | Escalones y gravedad; el texto; un aviso por escalón por campanita y canales; sin pantalla o en la demo no avisa; un tenant que falla no frena al resto |
+
+Además, `i18nClavesDinamicas.test` cubre las claves `ExternalSpend.*` que se
+arman en ejecución, y `cascadaBorradoTenant.test` las FK a `Tenants`.
+
+Suite completa (`env -u DB_HOST REDIS_PORT=1 npx vitest run`): 4258 tests en
+verde y 39 omitidos, en 421 archivos; `tsc` limpio y sin warnings nuevos de
+ESLint. Falta probarlo contra una cuenta real de Document Intelligence con las
+migraciones aplicadas.

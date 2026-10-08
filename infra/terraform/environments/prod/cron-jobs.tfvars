@@ -202,5 +202,12 @@ cron_jobs = {
   # Cada corrida vuelca 12 h hacia atrás, así que saltear una ejecución no
   # pierde datos: la siguiente los recupera.
   azure-api-usage-rollup = { cron = "13 * * * *" }
+
+  # Document Intelligence: analiza los documentos de gasto externo en cola.
+  # Se crea sólo en los stamps con document_intelligence_enabled
+  # (modules/stamp). Pega a Document Intelligence, no a Cost Management.
+  # timeout 240: el runner corta a los 210 s, antes del techo de ~240 s del
+  # ingress y de la corrida siguiente, así que dos corridas no se pisan.
+  external-spend-poll = { cron = "*/5 * * * *", timeout_seconds = 240 }
 }
 

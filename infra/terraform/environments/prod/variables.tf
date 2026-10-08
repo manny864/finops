@@ -99,6 +99,9 @@ variable "stamps" {
     ai_services_enabled    = optional(bool, false)
     ai_services_location   = optional(string)
     ai_services_entra_auth = optional(bool, true)
+
+    # Document Intelligence (modules/ai_services). Ver modules/stamp/variables.tf.
+    document_intelligence_enabled = optional(bool, false)
   }))
 }
 

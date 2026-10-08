@@ -9,7 +9,7 @@ naturales a revisar primero cuando algo del dominio no cierra.
 
 Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI directamente.
 
-162 archivos.
+164 archivos.
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
@@ -35,6 +35,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureWaf.service.ts` | 715 | `normalizeHostPlatform`, `normalizeMode`, `isPublicIp`, `isGeoFilterRule`, `isRateLimitRule`, `looksProduction`, … |
 | `src/services/azureHistoricalProgress.service.ts` | 709 | `getDaysForRange`, `estimateMonthlySavings`, `resolveRealizedCostDelta`, `generateMockHistoricalProgress`, `getLiveHistoricalProgress` |
 | `src/services/azureMonitor.service.ts` | 702 | `LOG_SEARCH_DATA_RATE_PER_GB`, `METRIC_ALERT_BASE_RATE`, `LOG_SEARCH_EVAL_RATE_1M`, `LOG_SEARCH_EVAL_RATE_5M`, `WEB_TEST_BASE_RATE`, `ALERT_TYPE_COLORS`, … |
+| `src/services/externalSpend.service.ts` | 702 | `ExternalSpendError`, `reviewSchema`, `ReviewInput`, `commitmentSchema`, `CommitmentInput`, `getAiStatus`, … |
 | `src/services/azureCostAllocation.service.ts` | 695 | `normalizeStrategy`, `deriveSharedResourceType`, `isValidResourceType`, `deriveAllocationStatus`, `validateTargets`, `calculateAllocation`, … |
 | `src/services/executiveReportGenerator.service.ts` | 694 | `EXECUTIVE_HISTORY_MONTHS`, `HARD_WASTE_CONFIG`, `aggregateExecutiveTelemetry`, `EXECUTIVE_REPORT_SYSTEM_PROMPT`, `generateExecutiveReportAiMarkdown`, `buildExecutiveReportHtmlDocument`, … |
 | `src/services/azureUnitEconomics.service.ts` | 691 | `isValidMetricType`, `normalizeMetricType`, `normalizeIngestionMode`, `calcUnitCost`, `percentDelta`, `pearsonCorrelation`, … |
@@ -149,6 +150,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/tenantSso.service.ts` | 158 | `isValidDomain`, `normalizeDomain`, `isValidWorkosOrgId`, `isValidWorkosConnectionId`, `toIdpProvider`, `toJitRole`, … |
 | `src/services/supportTicketTriage.service.ts` | 156 | `TriageInput`, `TriageSuggestion`, `normalizeTriage`, `triageTicket` |
 | `src/services/pdfCompiler.service.ts` | 154 | `compileExecutiveReportPdfBuffer`, `compileHtmlToPdfBuffer` |
+| `src/services/commitmentRenewalAlerts.service.ts` | 149 | `COMMITMENTS_PAGE`, `CommitmentRenewalNotice`, `renewalNotices`, `renewalSeverity`, `renewalNoticeText`, `sendCommitmentRenewalAlerts` |
 | `src/services/commitmentRisk.service.ts` | 149 | `ReservaConCosto`, `VencimientoDelMes`, `ConcentracionVencimientos`, `concentracionDeVencimientos` |
 | `src/services/rateService.ts` | 146 | `RateRecommendation`, `calculateReservationSavings` |
 | `src/services/anomalyOwnerResolver.ts` | 144 | `AssignmentVia`, `OwnerResolution`, `ContributorLike`, `resolveAnomalyOwner` |

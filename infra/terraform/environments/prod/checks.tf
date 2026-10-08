@@ -19,7 +19,8 @@ locals {
   # azure-api-usage-rollup sólo vuelca contadores a MySQL
   # (volcarUsoApiAzureAMysql) y comparte el minuto 13 con sync-azure-ai, que
   # llega por el tfvars del secret y no está en cron-jobs.tfvars.
-  sin_cost_management = ["power-schedules", "status-snapshot", "azure-api-usage-rollup"]
+  # external-spend-poll (*/5) pega a Document Intelligence.
+  sin_cost_management = ["power-schedules", "status-snapshot", "azure-api-usage-rollup", "external-spend-poll"]
 
   # Los diarios quedan afuera: prewarm-daily es "0 4 * * *" y comparte el minuto
   # 0 con prewarm-dashboard, pero solo coinciden una vez al dia, no cada hora.

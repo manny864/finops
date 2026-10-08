@@ -57,7 +57,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-39](#mej-39--fin-de-soporte-eoleos-de-la-plataforma-azure) | Fin de soporte (EOL/EOS) con el costo de lo afectado — **fase 1 hecha**: catálogo curado de AKS + PostgreSQL + MySQL Flexible, semáforo y costo mensual; fase 2 (licencias en la nube) sin empezar | Gobernanza / Riesgo | Alto | Medio | Parcial |
 | [MEJ-40](#mej-40--esr-y-riesgo-de-la-cartera-de-compromisos) | Concentración de vencimientos + ESR; se desbloqueó poblando `ListCost` de verdad | Compromisos | Alto | Medio | Hecha |
 | [MEJ-41](#mej-41--whiteboard-selector-de-rango-temporal-30d90d-y-persistencia-en-base-de-datos) | Whiteboard: selector temporal (30D/90D) y persistencia/consulta de costos históricos en BD | Whiteboard / Resumen Ejecutivo | Alto | Medio | Hecha |
-| [MEJ-42](#mej-42--capacidades-de-ia-fase-1-hecha-y-lo-encontrado-de-paso) | Capacidades de IA (propuesta 2026-10-07): fase 1, Managed Identity y soporte hechos y los cinco huecos de paso corregidos; quedan el rollout de Managed Identity, el aviso legal, prender soporte, las fases 2 y 4 y tres huecos nuevos | IA | Alto | Alto | En curso |
+| [MEJ-42](#mej-42--capacidades-de-ia-fase-1-hecha-y-lo-encontrado-de-paso) | Capacidades de IA (propuesta 2026-10-07): fase 1, Managed Identity, soporte y Document Intelligence hechos y los cinco huecos de paso corregidos; quedan el rollout de Managed Identity, el aviso legal, prender soporte y Document Intelligence, la fase 2 y tres huecos nuevos | IA | Alto | Alto | En curso |
 
 ---
 
@@ -4735,7 +4735,7 @@ Esto garantiza que la Pizarra Ejecutiva responda en menos de 50 ms sin depender 
 
 ## MEJ-42 — Capacidades de IA: fase 1 hecha y lo encontrado de paso
 
-**Módulo:** IA · **Impacto:** Alto · **Esfuerzo:** Alto · **Estado:** En curso (fase 1 hecha el 2026-10-07; puntos 1 a 5, Managed Identity y soporte el 2026-10-08)
+**Módulo:** IA · **Impacto:** Alto · **Esfuerzo:** Alto · **Estado:** En curso (fase 1 hecha el 2026-10-07; puntos 1 a 5, Managed Identity, soporte y Document Intelligence el 2026-10-08)
 
 El análisis, el plan por PRs, lo implementado y lo que queda están en
 [`propuesta-capacidades-ia-2026-10-07.md`](propuesta-capacidades-ia-2026-10-07.md), secciones 6.9 y 10.
@@ -4749,7 +4749,8 @@ misma rama: interruptor por feature (`37009a1`), telemetría por feature (`e1b96
 abajo y los subencargados (`24fa317`). Managed Identity y el módulo Terraform `ai_services` (PR 2) están en
 `feat/ia-fase0-managed-identity`, apagados hasta el rollout (sección 10.6 de la propuesta). El triaje y los
 borradores de soporte (PR 8) están en `feat/ia-fase3-soporte`, apagados hasta medir el volumen de tickets
-(sección 10.7).
+(sección 10.7). Document Intelligence para gasto externo (PR 9) está en
+`feat/ia-fase4-document-intelligence`, apagado hasta validar la demanda y el precio (sección 10.8).
 
 ### Encontrado de paso y corregido
 

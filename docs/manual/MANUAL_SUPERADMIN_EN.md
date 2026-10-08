@@ -370,7 +370,7 @@ This is where the cost and optimization analysis of Azure lives. Almost every me
 
 ### 5.1. Consumption & Budget (`/intelligence/consumo-y-presupuesto`)
 
-Seven tabs: **Real Consumption**, **By Category**, **Budgets**, **Cost Groups**, **Cost Group Budgets**, **Spend & Forecast** and **CSV Ingestion**.
+Eight tabs: **Real Consumption**, **By Category**, **Budgets**, **Cost Groups**, **Cost Group Budgets**, **Spend & Forecast**, **CSV Ingestion** and **External spend**.
 
 #### 5.1.1. Real Consumption (Professional+)
 
@@ -445,6 +445,47 @@ If the file is already in FOCUS format, it loads directly. If not, AI looks at t
 - **If AI isn't available** (turned off, out of quota, or too many requests in a row), the file isn't loaded and the screen tells you why. Uploading it in FOCUS format avoids AI.
 
 **The AI report.** After reading the file, AI writes a report in the screen's language and in the currency the file states; if the file doesn't state one, the report doesn't assume it. It has its own monthly quota: 150 reports on Business, unlimited on Enterprise or with BYOK. If AI is turned off, out of quota, or getting too many requests in a row, you see the **File summary** instead of the report: the cost per service and category calculated by the platform, along with the reason.
+
+#### 5.1.8. External spend (Business+)
+
+Invoices and contracts from vendors that don't go through Azure billing: licenses, SaaS, consulting. Document Intelligence reads them, you review what it extracted, and what you approve is reported separately, labeled **Outside Azure cost**. It never mixes with Azure cost or with anomaly detection (18): it's another source, with another level of precision.
+
+Everyone can see the screen. Uploading, reviewing and adding commitments takes an **Admin** or **Owner**, because what gets approved goes into the reports.
+
+**Uploading.** In **Upload an invoice or contract** you pick the **Document type** (**Invoice** or **Contract**), click **Choose file** and then **Upload and analyze**.
+
+- PDF, JPEG, PNG or TIFF up to **10 MB**. The first **20 pages** are read.
+- **Monthly quota for the organization:** 150 documents on Business and 500 on Enterprise. It applies even if you have your own AI key (BYOK), because the analysis runs on the platform's account.
+- The same file doesn't go in twice: if it's already in the list, the screen tells you. A **Rejected** or **Failed** one can be uploaded again, for example with the right type, and it replaces the previous one.
+
+**Statuses.** **Uploaded** → **Analyzing** → **To review** → **Approved** or **Rejected**. **Failed** if it couldn't be analyzed. A one- or two-page invoice is usually ready in seconds. If it takes longer, the analysis continues in the background and the list refreshes on its own.
+
+**Reviewing.** **Review** opens what AI extracted, with **Download original** at hand:
+
+- **Invoice details:** vendor, number, date, due date, period, currency, subtotal, tax and total.
+- **Lines:** description, quantity, unit price, amount, **Category** and **Cost center**. You correct them in place, and there's **Add line** and **Remove line**.
+- Anything read with **low confidence** (under 80%) is flagged: check it against the original.
+- If the model doesn't recognize any fields, you see the **Document text** so you can copy what you need.
+
+**Validation findings.** The platform calculates them, not AI: that the lines add up to the subtotal and that subtotal plus tax gives the total (with a 0.5% rounding margin), that the dates are consistent, and that there's no other invoice from the same vendor with the same number. They're warnings, because whoever reviews knows the document better than the rule. The ones marked **Blocks approval** are four: the total is missing, the date is missing, the currency isn't an ISO 4217 code (USD, EUR…), or that same invoice is already approved in another document. Without a total, a date and a currency there's no way to report it, and approving it twice would count it double.
+
+**Approving or rejecting.** **Save changes** saves and validates again. **Approve** saves anything pending and, from then on, the invoice counts as external spend. **Reject** leaves it out. An approved invoice can also be rejected, after a confirmation, and it stops counting. An approved contract can't: its commitment would keep sending notices. To undo it, delete the commitment.
+
+**Exchange rate.** On approval, the platform fixes the USD equivalent with the rate for the invoice date (or the closest one it has) and shows it: *USD equivalent: … (1 USD = …, rate as of …)*. It stays fixed, so a closed report doesn't change on its own. If the platform has no rates loaded, it uses an undated reference rate and says so. The convertible currencies are USD, EUR, GBP, ARS, BRL, MXN, CLP, COP, PEN, CAD, AUD, JPY, CHF, CNY and INR. An invoice in another currency is still approved, but it isn't included in the USD total, and the summary counts it separately.
+
+**Contracts and commitments.** The contract model reads parties, dates, renewal and duration (**Contract terms**), but not amounts. When reviewing a contract you fill in **Add as a commitment** with the committed amount; saving it approves the contract. A commitment without a document is added with **New commitment**: vendor, type (Enterprise Agreement, MACC, Savings plan, Reservation, SaaS subscription or Other), amount, currency, start, end, renewal (optional), notice days and whether it renews automatically. Commitments can't be edited: if something changed, delete it and add it again.
+
+**Renewal notices (90, 60 and 30 days).** The **Notice deadline** is the renewal date (or the end date, if there's no renewal) minus the notice days: the last day to cancel or renegotiate. The platform sends a notice when a commitment enters the **90-day** window before that deadline, again at **60** and again at **30**: once per step. It reaches the whole tenant's **bell** and the **Notification channels** (8.5), with the vendor, the date and whether it renews automatically. At 30 days or less it's **critical**, with or without auto-renewal: the date to cancel doesn't move. **Delete commitment** stops its notices.
+
+**Summary.** **Approved external spend (USD)** adds up only approved invoices, **By vendor** and **By month** (the month of the billed period or, if the invoice doesn't have one, of its date; the last 12). Next to it you see how many documents are **To review**, the commitments and the next notice deadline.
+
+**The original.** It's deleted **365 days** after upload; the extracted and reviewed data is kept. A document still **To review** keeps its file.
+
+**If analysis isn't available** (turned off on the platform or for your organization, out of quota, or too many documents in a row), you can't upload and the screen tells you why. You can still review what you already uploaded and add commitments by hand. If the installation doesn't have Document Intelligence, the screen says document analysis isn't configured.
+
+**In the demo** you see sample invoices and a contract in different statuses, and three commitments. No files are uploaded and no changes are saved.
+
+> This isn't the same as *Azure AI → Document Intelligence* (4.3.1). There you see what your own Document Intelligence accounts in Azure cost you. Here the platform uses its own to read your documents, at no cost to your subscription.
 
 ### 5.2. Team leaderboard (`/intelligence/leaderboard`, Enterprise)
 
@@ -2211,8 +2252,11 @@ If the cost spikes because of an incident with the provider, the AI **master swi
 | `anomaly-explanation`, anomaly explanation (18.4) | Enterprise, no quota | The facts and the steps are shown, without the AI text |
 | `support-ticket-triage`, support ticket triage (8.1) | Professional, no quota | The ticket is handled without a suggestion |
 | `support-reply-draft`, support reply drafts (8.1) | Professional, no quota | The team replies by hand |
+| `document-intelligence`, invoice and contract reading (5.1.8) | Business, per document | No documents are analyzed; what was already uploaded can be reviewed and commitments added by hand |
 
 The two support features are used by the team, not the client: they have no quota and their usage is recorded under the tenant that owns the ticket. No feature with a quota starts at Professional, so that quota still goes unused.
+
+**Document Intelligence counts documents.** Its quota is 150 analyzed documents per month on Business and 500 on Enterprise. There's no exemption for Enterprise or BYOK: the analysis always runs on the platform's Document Intelligence account and the house pays for it. Each document leaves a row with the provider `azure_document_intelligence` and the model that read it (`prebuilt-invoice`, `prebuilt-contract` or `prebuilt-layout`). That row's *input tokens* are the analyzed **pages**, up to 20 per document. The row is written when the analysis finishes, so a document that fails doesn't use quota; for the same reason, a burst of uploads can go over the quota by a few documents, and the limit of 5 per minute per user keeps that small. The `external-spend-poll` cron, every 5 minutes, finishes the analyses that didn't complete during the upload, deletes expired originals and sends the commitment renewal alerts: if it stops, all three stop.
 
 **Telemetry.** Each AI feature request leaves a JSON line `evt: "ai_feature"` in the application logs (Log Analytics, table `ContainerAppConsoleLogs_CL`), with the feature, the stage (`gate`, `model` or `output`), the outcome and, for the model call, the latency. Use it to see why a feature is denied, how long the provider takes, or how many responses are discarded for not meeting the format.
 
@@ -2263,8 +2307,10 @@ The **history** keeps the previous runs so you can compare before and after a ch
 
 The AI provider and key used **as a fallback** for any tenant that has not configured its own (per-tenant BYOK, in *Configuration → AI*). It feeds the **FinOps Copilot**, the **AI-powered executive reports**, the **anomaly explanation** (18.4), the CSV upload's **column mapping** and **report** (5.1.7), and the support **triage** and **drafts** (8.1). Only the SuperAdmin sees it.
 
+Invoice and contract reading in *External spend* (5.1.8) doesn't use this provider or this key: it goes to the platform's Document Intelligence account, with its managed identity. The infrastructure creates that account (`document_intelligence_enabled`); without it, the client sees that analysis isn't configured even if the switch is on.
+
 - **Master switch** *"Enable AI features (platform)"*: if turned off, AI is disabled for **all** tenants, regardless of their own switch. It is meant for incidents with the provider or runaway costs.
-- **AI features (per-feature switch):** turns off a single feature for all tenants without touching the rest: the anomaly explanation, the CSV column mapping, the AI analysis of CSV uploads, the support ticket triage or the support reply drafts. The first three start on; the two support ones start off until the ticket volume is measured (8.1). The master switch takes precedence. With a feature off, the screen keeps the non-AI version and shows the client the reason (in support, the operator). The Copilot and the executive reports have no switch of their own: the master switch or the tenant's switch turns them off.
+- **AI features (per-feature switch):** turns off a single feature for all tenants without touching the rest: the anomaly explanation, the CSV column mapping, the AI analysis of CSV uploads, the support ticket triage, the support reply drafts or AI invoice and contract reading. The first three start on; the two support ones start off until the ticket volume is measured (8.1); the invoice and contract one starts off until demand and price are validated (5.1.8). The master switch takes precedence. With a feature off, the screen keeps the non-AI version and shows the client the reason (in support, the operator). The Copilot and the executive reports have no switch of their own: the master switch or the tenant's switch turns them off.
 - **Provider:** Google Gemini (Flash, free on the free tier), OpenAI (GPT-4o), **Azure AI** (Azure OpenAI), Anthropic (Claude) or DeepSeek. The configuration is **split by plan**: *Non-Enterprise plans* (the fallback for Professional and Business) and *Enterprise plans* (the exclusive provider for that plan). With Azure AI you need the **API Key**, the **Endpoint URL** and the **Deployment** (model).
 - **API Key:** stored **encrypted**. **Test connection** makes a real call to the saved provider. **Delete API Key** leaves tenants without their own key **without AI** until you load a new one.
 - **Azure AI with managed identity:** when the infrastructure turns on the platform's own AI account, the app connects to Azure AI with its identity, without a key. It applies only if the provider is **Azure AI**. In that mode, the Azure AI **API Key**, **Endpoint URL** and **Deployment** you enter here are not used, every plan uses the same model and deleting the key leaves no one without AI. **Test connection** with no key typed tests the connection with the identity; with a key typed, it tests that key. The other providers keep using their key.

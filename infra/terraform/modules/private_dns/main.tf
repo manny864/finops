@@ -23,12 +23,15 @@ locals {
     # <sub>.services.ai.azure.com) y su private endpoint registra un A record
     # en cada zona. Si falta una, ese hostname resuelve a la IP pública y, con
     # el acceso público apagado, la llamada falla con 403 — el mismo síntoma
-    # silencioso que la zona equivocada de Redis.
+    # silencioso que la zona equivocada de Redis. Document Intelligence
+    # (FormRecognizer) responde sólo en cognitiveservices.
     # https://learn.microsoft.com/en-us/azure/private-link/private-endpoint-dns
-    var.ai_services_enabled ? {
+    var.ai_services_enabled || var.document_intelligence_enabled ? {
       cognitiveservices = "privatelink.cognitiveservices.azure.com"
-      openai            = "privatelink.openai.azure.com"
-      aiservices        = "privatelink.services.ai.azure.com"
+    } : {},
+    var.ai_services_enabled ? {
+      openai     = "privatelink.openai.azure.com"
+      aiservices = "privatelink.services.ai.azure.com"
     } : {}
   )
 }

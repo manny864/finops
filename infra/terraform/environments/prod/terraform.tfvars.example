@@ -117,6 +117,10 @@ stamps = {
     # ai_services_enabled    = true
     # ai_services_location   = "westus3"
     # ai_services_entra_auth = false
+
+    # Document Intelligence: cuenta en esta región, sólo con Entra ID, más el
+    # cron external-spend-poll. Prenderlo cuando la app tenga ese endpoint.
+    # document_intelligence_enabled = true
   }
 
   # eu = {

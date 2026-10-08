@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **477** rutas.
+Total: **483** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -140,6 +140,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/cron/cost-exports-sync` | GET | _CRON_SECRET_ | — | sí |
 | `/api/cron/cost-sync-staleness-check` | GET | _CRON_SECRET_ | — | — |
 | `/api/cron/credential-expiry-alerts` | GET | _CRON_SECRET_ | — | — |
+| `/api/cron/external-spend-poll` | GET | _CRON_SECRET_ | — | — |
 | `/api/cron/focus-export-daily` | GET | _CRON_SECRET_ | — | — |
 | `/api/cron/historical-gap-backfill` | GET, POST | _CRON_SECRET_ | — | — |
 | `/api/cron/idle-resources-alerts` | GET | _CRON_SECRET_ | — | — |
@@ -271,6 +272,11 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/executive-report/jobs` | GET, POST | requireTenantAccess | — | sí |
 | `/api/intelligence/executive-report/send-email` | — | — | — | — |
 | `/api/intelligence/export/powerbi` | GET | requireTenantRole | — | — |
+| `/api/intelligence/external-spend` | GET, POST | requireTenantRole, requireTenantTier | Business | sí |
+| `/api/intelligence/external-spend/[id]` | GET, POST, PATCH | requireTenantRole, requireTenantTier | Business | sí |
+| `/api/intelligence/external-spend/[id]/file` | GET | requireTenantTier | Business | — |
+| `/api/intelligence/external-spend/commitments` | POST | requireTenantRole, requireTenantTier | Business | — |
+| `/api/intelligence/external-spend/commitments/[id]` | DELETE | requireTenantRole, requireTenantTier | Business | — |
 | `/api/intelligence/financial-leaks` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/forecast` | GET, POST | requireTenantAccess | — | sí |
 | `/api/intelligence/forecast/by-service` | GET | requireTenantAccess | — | — |

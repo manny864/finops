@@ -105,6 +105,7 @@ export const PAGE_ROLE_TAGS: Record<string, RoleTag[]> = {
     "/intelligence/macc": ["FinOps"],
     "/intelligence/analitica-avanzada": ["FinOps", "CloudAdmin", "Security", "ProductOwner"],
     "/intelligence/upload": ["FinOps"],
+    "/intelligence/external-spend": ["FinOps"],
 
     // Limpieza de Nube
     "/cleanup/zombies": ["CloudAdmin"],

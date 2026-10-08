@@ -27,6 +27,13 @@ import { WATERFALL_STEP_KEYS } from "@/types/azureWhatIf.types";
 import { ROOT_CAUSE_FACT_TYPES, ROOT_CAUSE_ACTIONS, EXPLANATION_UNAVAILABLE_REASONS } from "@/types/anomalyRootCause.types";
 import { CSV_MAPPING_ERROR_REASONS, UPLOAD_ASSESSMENT_UNAVAILABLE_REASONS } from "@/types/billingCsvMapping.types";
 import { SUPPORT_AI_UNAVAILABLE_REASONS } from "@/types/supportTickets.types";
+import {
+    COMMITMENT_TYPES,
+    EXTERNAL_SPEND_DOC_TYPES,
+    EXTERNAL_SPEND_ERROR_REASONS,
+    EXTERNAL_SPEND_STATUSES,
+    VALIDATION_ISSUE_CODES,
+} from "@/types/externalSpend.types";
 import { REDIS_RULE_I18N } from "@/types/redisCache";
 import { MONGO_RULE_I18N } from "@/types/azureMongoDb";
 import { MYSQL_RULE_I18N } from "@/types/azureMySQL";
@@ -830,6 +837,17 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
             que: "motivos por los que no hay borrador de respuesta con IA (SUPPORT_AI_UNAVAILABLE_REASONS)",
             ns: "Support",
             claves: SUPPORT_AI_UNAVAILABLE_REASONS.map((k) => `aiReason_${k}`),
+        },
+        {
+            que: "gasto externo: motivos de error, observaciones de validación, estados y tipos (externalSpend.types)",
+            ns: "ExternalSpend",
+            claves: [
+                ...EXTERNAL_SPEND_ERROR_REASONS.map((k) => `error_${k}`),
+                ...VALIDATION_ISSUE_CODES.map((k) => `issue_${k}`),
+                ...EXTERNAL_SPEND_STATUSES.map((k) => `status_${k}`),
+                ...COMMITMENT_TYPES.map((k) => `type_${k}`),
+                ...EXTERNAL_SPEND_DOC_TYPES.map((k) => `docType_${k}`),
+            ],
         },
     ];
 

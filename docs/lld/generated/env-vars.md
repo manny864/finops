@@ -33,7 +33,7 @@ Una variable con 0 usos está declarada pero no la lee nadie: o es de build/infr
 | `BACKUP_HEALTHCHECK_URL` | 0 | — |
 | `COST_SYNC_STALENESS_HEALTHCHECK_URL` | 0 | — |
 | `CREDENTIAL_EXPIRY_ALERTS_HEALTHCHECK_URL` | 0 | — |
-| `CRON_SECRET` | 43 | `src/app/api/admin/config/account-status/sync-now/route.ts`, `src/app/api/cron/addon-expiry/route.ts` |
+| `CRON_SECRET` | 44 | `src/app/api/admin/config/account-status/sync-now/route.ts`, `src/app/api/cron/addon-expiry/route.ts` |
 | `CRON_SYNC_GAP_PACE_MS` | 1 | `src/app/api/cron/sync/route.ts` |
 | `CRON_SYNC_PACE_BUDGET_MS` | 1 | `src/app/api/cron/sync/route.ts` |
 | `CRON_SYNC_TENANT_PACE_MS` | 1 | `src/app/api/cron/sync/route.ts` |

@@ -3,7 +3,7 @@ import { Inter } from "next/font/google";
 import { getTranslations } from "next-intl/server";
 import RouteTabsNav from "@/components/navigation/RouteTabsNav";
 import { IconCoins } from "@tabler/icons-react";
-import { Activity, PieChart, Wallet, Layers, Building2, ChartLine, FileSpreadsheet } from "lucide-react";
+import { Activity, PieChart, Wallet, Layers, Building2, ChartLine, FileSpreadsheet, ReceiptText } from "lucide-react";
 import InfoTooltip from "@/components/InfoTooltip";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -19,6 +19,7 @@ export default async function ConsumoPresupuestoLayout({ children }: { children:
         { href: "/intelligence/consumo-y-presupuesto/presupuesto-por-grupos-de-costos", label: t("tabCostGroupBudgets"), icon: <Building2 className="w-4 h-4 text-[#0054A6]" />, tooltip: t("tooltip_tab_cost_group_budgets") },
         { href: "/intelligence/consumo-y-presupuesto/gastos-y-proyeccion", label: t("tabForecast"), icon: <ChartLine className="w-4 h-4 text-[#0054A6]" />, tooltip: t("tooltip_tab_forecast") },
         { href: "/intelligence/consumo-y-presupuesto/ingesta-csv", label: t("tabCsvIngest"), icon: <FileSpreadsheet className="w-4 h-4 text-[#0054A6]" />, tooltip: t("tooltip_tab_csv_ingest") },
+        { href: "/intelligence/consumo-y-presupuesto/gasto-externo", label: t("tabExternalSpend"), icon: <ReceiptText className="w-4 h-4 text-[#0054A6]" />, tooltip: t("tooltip_tab_external_spend") },
     ];
 
     return (

@@ -79,6 +79,7 @@ export const PAGES: PageEntry[] = [
     { id: "int-scorecard", path: "/intelligence/scorecard", icon: "Trophy", category: "intelligence" },
     { id: "int-billing", path: "/intelligence/billing", icon: "Receipt", category: "intelligence" },
     { id: "int-upload", path: "/intelligence/upload", icon: "Upload", category: "intelligence" },
+    { id: "int-external-spend", path: "/intelligence/external-spend", icon: "ReceiptText", category: "intelligence" },
     { id: "int-allocation", path: "/intelligence/allocation", icon: "Layers", category: "intelligence" },
     { id: "int-cost-centers", path: "/intelligence/cost-centers", icon: "Wallet", category: "intelligence" },
 

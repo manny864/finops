@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **147** tablas. Migraciones aplicables: **147**.
+Total: **151** tablas. Migraciones aplicables: **150**.
 
 `schema.sql` es el baseline de referencia y **no se ejecuta**; `migrations/` es la
 fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.md`).
@@ -41,6 +41,8 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `BusinessMetrics` | — | `20260701-002-business-metrics.sql` |
 | `BusinessMetricsConfig` | — | `20260701-002-business-metrics.sql` |
 | `Commissions` | — | `20260913-006-comisiones-unificadas.sql` |
+| `CommitmentRenewalNotices` | — | `20261008-032-avisos-renovacion-compromisos.sql` |
+| `Commitments` | — | `20261008-031-compromisos.sql` |
 | `CopilotUsage` | — | `20260715-001-create-copilot-usage.sql` |
 | `cost_snapshots` | sí | `20260728-003-sincronizar-esquema-vps.sql` |
 | `CostCategorySnapshots` | — | `20260704-003-cost-category-snapshots.sql` |
@@ -57,6 +59,8 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `ExecutiveReportHistory` | — | `20260823-003-consolidated-platform-schema.sql` |
 | `ExecutiveReportJobs` | — | `20260810-001-executive-report-jobs.sql` |
 | `ExpiringCredentials` | — | `20260728-003-sincronizar-esquema-vps.sql` |
+| `ExternalSpendDocuments` | — | `20261008-030-gasto-externo-documentos.sql` |
+| `ExternalSpendLines` | — | `20261008-030-gasto-externo-documentos.sql` |
 | `FocusExportSchedules` | — | `20260719-003-focus-export-schedules.sql` |
 | `FocusLineItems` | — | `20260725-001-focus-line-items.sql` |
 | `FxRates` | — | `20260629-004-multicurrency.sql` |
@@ -306,3 +310,6 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 - `migrations/20261007-002-anomaly-explanations.sql`
 - `migrations/20261008-020-support-ai-triage.sql`
 - `migrations/20261008-021-support-ai-drafts.sql`
+- `migrations/20261008-030-gasto-externo-documentos.sql`
+- `migrations/20261008-031-compromisos.sql`
+- `migrations/20261008-032-avisos-renovacion-compromisos.sql`

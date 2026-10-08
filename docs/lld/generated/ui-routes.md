@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **241** páginas, bajo `src/app/[locale]/`.
+Total: **243** páginas, bajo `src/app/[locale]/`.
 Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 
 ## `(raíz)` (1)
@@ -78,7 +78,7 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/governance/shift-left`
 - `/governance/tags`
 
-## `intelligence` (144)
+## `intelligence` (146)
 
 - `/intelligence/ai-analytics`
 - `/intelligence/aks`
@@ -143,6 +143,7 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/intelligence/computo/vmss`
 - `/intelligence/computo/waas`
 - `/intelligence/consumo-y-presupuesto`
+- `/intelligence/consumo-y-presupuesto/gasto-externo`
 - `/intelligence/consumo-y-presupuesto/gastos-y-proyeccion`
 - `/intelligence/consumo-y-presupuesto/grupos-de-costos`
 - `/intelligence/consumo-y-presupuesto/ingesta-csv`
@@ -156,6 +157,7 @@ Todas cuelgan del segmento de locale (`es` por defecto, `en`, `pt-BR`).
 - `/intelligence/cost-groups`
 - `/intelligence/cost-projection`
 - `/intelligence/defender`
+- `/intelligence/external-spend`
 - `/intelligence/hybrid-benefit`
 - `/intelligence/integration-services`
 - `/intelligence/integration-services/adf`
