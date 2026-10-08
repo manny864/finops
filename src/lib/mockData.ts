@@ -15,6 +15,9 @@ import { concentracionDeVencimientos } from '@/services/commitmentRisk.service';
 // toca la base; un mock que copiara el resultado se volveria mentira en cuanto
 // cambie el evaluador.
 import { repartir, type ReglaPerspectiva, type FilaDeCosto } from '@/services/perspectives.service';
+import { buildRootCauseFacts, type MeterRow } from '@/services/anomalyRootCause.service';
+import type { AnomalyContributor } from '@/services/anomalyDetectionService';
+import type { RootCauseFact } from '@/types/anomalyRootCause.types';
 
 /**
  * Tenant "cliente" que se precarga en el generador de script de
@@ -425,6 +428,48 @@ export function getMockPerspectivesBreakdown(arg2: string, reglas: ReglaPerspect
         },
         reparto: repartir(filasDemo(mult), reglas),
     };
+}
+
+// Un medidor por servicio, con el patrón que mejor lo representa. Los servicios
+// que no están acá muestran INSUFFICIENT_DETAIL, como un tenant sin detalle.
+const DEMO_METERS: Record<string, [meter: string, pattern: 'usage' | 'price' | 'new']> = {
+    'Virtual Machines': ['D4s v3', 'usage'],
+    'SQL Database': ['vCore', 'price'],
+    'Azure SQL Database': ['vCore', 'price'],
+    'Storage': ['Hot LRS Data Stored', 'usage'],
+    'Storage Accounts': ['Hot LRS Data Stored', 'usage'],
+    'App Service': ['P1 v3', 'new'],
+    'Azure Kubernetes Service': ['Uptime SLA', 'new'],
+    'Azure OpenAI': ['gpt-4o-mini Input Tokens', 'usage'],
+};
+
+/**
+ * Hechos de causa raíz de la demo. Arma filas de medidor con la forma de
+ * `CostMeterSnapshots` y las clasifica con `buildRootCauseFacts`, la función de
+ * producción (mismo criterio que MEJ-34/MEJ-40).
+ */
+export function demoRootCauseFacts(contributors: AnomalyContributor[]): RootCauseFact[] {
+    const DAYS = 30;
+    const QTY = 100;
+    const rows: MeterRow[] = contributors.flatMap((c) => {
+        const demo = DEMO_METERS[c.service_name];
+        if (!demo) return [];
+        const [meter, pattern] = demo;
+        // El medidor explica el 80% del delta del contribuyente.
+        const base = pattern === 'new' ? 0 : c.baseline_avg * 0.6;
+        const day = base + c.delta * 0.8;
+        // 'usage' mantiene el costo unitario y 'price' la cantidad.
+        const dayQty = pattern === 'usage' ? (QTY * day) / base : QTY;
+        return [{
+            service_name: c.service_name,
+            meter_name: meter,
+            day_cost: day,
+            day_qty: dayQty,
+            base_cost: base * DAYS,
+            base_qty: pattern === 'new' ? 0 : QTY * DAYS,
+        }];
+    });
+    return buildRootCauseFacts(contributors, rows, DAYS);
 }
 
 export function getMockDataForRoute<K extends keyof MockContracts>(route: K, arg2: string, locale?: string, options?: Record<string, any>): MockContracts[K];
@@ -1213,6 +1258,7 @@ export function getMockDataForRoute(route: string, arg2: string, locale?: string
                     severity: s.amount > baseMean + 5 * std ? 'Critical' : 'High',
                     description: `Pico inusual detectado en ${primaryService} — desviación de +$${(s.amount - baseMean).toFixed(0)} vs media móvil.`,
                     top_contributors,
+                    root_cause_facts: demoRootCauseFacts(top_contributors),
                     detected_at: detectedAt.toISOString(),
                     resolved_at: resolvedAt ? resolvedAt.toISOString() : null,
                 };

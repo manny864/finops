@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isMockTenant } from "@/lib/mockData";
+import { demoRootCauseFacts, isMockTenant } from "@/lib/mockData";
 import { urlPublica } from "@/lib/urlPublica";
 import pool from "@/modules/storage/db";
 import { sendWebhookAlert } from "@/lib/notifications";
@@ -93,6 +93,7 @@ export async function GET(request: NextRequest) {
                     detected_at: detectedAt.toISOString(),
                     resolved_at: resolvedAt ? resolvedAt.toISOString() : null,
                     top_contributors,
+                    root_cause_facts: demoRootCauseFacts(top_contributors),
                 };
             });
             if (anomalies.length > 0) {
@@ -142,6 +143,7 @@ export async function GET(request: NextRequest) {
         // por la persistencia (MEJ-33).
         let enrichedAnomalies: (typeof rawAnomalies[number] & {
             top_contributors?: import("@/services/anomalyDetectionService").AnomalyContributor[];
+            root_cause_facts?: import("@/types/anomalyRootCause.types").RootCauseFact[];
             id?: number;
             status?: import("@/services/anomalyDetectionService").AnomalyStatus;
             assigned_to?: string | null;

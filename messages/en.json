@@ -2450,7 +2450,22 @@
     "statusResolved": "Resolved",
     "statusFalsePositive": "False positive",
     "assignedTo": "Owner",
-    "unassigned": "Unassigned — set an owner in Cost Groups or tag the resource with Owner"
+    "unassigned": "Unassigned — set an owner in Cost Groups or tag the resource with Owner",
+    "rootCauseTitle": "What changed",
+    "rootCauseScopeNote": "Meter detail is at service level: it adds up all regions and resource groups.",
+    "factType_NEW_METER": "New meter",
+    "factType_USAGE_INCREASE": "Higher usage",
+    "factType_PRICE_INCREASE": "Higher unit cost",
+    "factType_COST_INCREASE": "Higher cost",
+    "factType_INSUFFICIENT_DETAIL": "No meter detail",
+    "factVsBaseline": "{actual} vs. {baseline} average",
+    "factQuantityChange": "quantity {pct}",
+    "factUnitCostChange": "unit cost {pct}",
+    "suggestedActionsTitle": "What to check",
+    "action_REVIEW_NEW_USAGE": "Confirm the new meter is expected usage",
+    "action_CHECK_SCHEDULING": "Check whether it can be shut down off-hours",
+    "action_REVIEW_COMMITMENT_COVERAGE": "Review reservation and savings plan coverage",
+    "action_ASSIGN_OWNER": "Assign an owner"
   },
   "AnomalyPanel": {
     "loadError": "Failed to load anomaly detection",

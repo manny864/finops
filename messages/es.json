@@ -2450,7 +2450,22 @@
     "statusResolved": "Resuelta",
     "statusFalsePositive": "Falso positivo",
     "assignedTo": "Responsable",
-    "unassigned": "Sin asignar — definí un dueño en Cost Groups o etiquetá el recurso con Owner"
+    "unassigned": "Sin asignar — definí un dueño en Cost Groups o etiquetá el recurso con Owner",
+    "rootCauseTitle": "Qué cambió",
+    "rootCauseScopeNote": "El detalle por medidor es a nivel servicio: suma todas las regiones y resource groups.",
+    "factType_NEW_METER": "Medidor nuevo",
+    "factType_USAGE_INCREASE": "Más consumo",
+    "factType_PRICE_INCREASE": "Costo unitario más alto",
+    "factType_COST_INCREASE": "Más costo",
+    "factType_INSUFFICIENT_DETAIL": "Sin detalle por medidor",
+    "factVsBaseline": "{actual} vs. {baseline} de promedio",
+    "factQuantityChange": "cantidad {pct}",
+    "factUnitCostChange": "costo unitario {pct}",
+    "suggestedActionsTitle": "Qué revisar",
+    "action_REVIEW_NEW_USAGE": "Confirmá que el medidor nuevo sea un uso esperado",
+    "action_CHECK_SCHEDULING": "Revisá si se puede apagar fuera de horario",
+    "action_REVIEW_COMMITMENT_COVERAGE": "Revisá la cobertura de reservas y savings plans",
+    "action_ASSIGN_OWNER": "Asigná un responsable"
   },
   "AnomalyPanel": {
     "loadError": "Error al cargar la detección de anomalías",
