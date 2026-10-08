@@ -94,6 +94,11 @@ variable "stamps" {
     custom_domain_enabled          = optional(bool, false)
     custom_domain_name             = optional(string, "")
     custom_domain_certificate_name = optional(string, "")
+
+    # IA de plataforma (modules/ai_services). Ver modules/stamp/variables.tf.
+    ai_services_enabled    = optional(bool, false)
+    ai_services_location   = optional(string)
+    ai_services_entra_auth = optional(bool, true)
   }))
 }
 

@@ -108,6 +108,15 @@ stamps = {
     keyvault_allowed_ip_rules = []
 
     monthly_budget_amount = 250
+
+    # IA de plataforma (modules/ai_services). West US 2 no ofrece modelos de
+    # Azure OpenAI, así que la cuenta va en West US 3; el private endpoint
+    # queda en esta VNet. El primer apply con ai_services_entra_auth = false
+    # crea sólo la infraestructura: verificar el DNS privado desde el
+    # contenedor y recién después pasarlo a true.
+    # ai_services_enabled    = true
+    # ai_services_location   = "westus3"
+    # ai_services_entra_auth = false
   }
 
   # eu = {

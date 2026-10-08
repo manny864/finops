@@ -239,6 +239,10 @@ module "stamp" {
   custom_domain_name              = each.value.custom_domain_name
   custom_domain_certificate_name  = each.value.custom_domain_certificate_name
 
+  ai_services_enabled    = each.value.ai_services_enabled
+  ai_services_location   = each.value.ai_services_location
+  ai_services_entra_auth = each.value.ai_services_entra_auth
+
   tags = merge(local.tags, { DataRegion = upper(each.key) })
 
   # Garantiza que el role AcrPull propagó en AAD antes de que Container Apps

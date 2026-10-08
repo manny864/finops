@@ -51,6 +51,7 @@ module "private_dns" {
   resource_group_name = module.network.resource_group_name
   vnet_id             = module.network.vnet_id
   redis_enabled       = true
+  ai_services_enabled = var.ai_services_enabled
   tags                = var.tags
 }
 
@@ -313,6 +314,36 @@ module "storage" {
   tags                          = var.tags
 }
 
+# IA de plataforma: Azure AI Services con private endpoint y Entra ID. Ver
+# modules/ai_services.
+locals {
+  ai_services_location = coalesce(var.ai_services_location, var.location)
+}
+
+module "ai_services" {
+  source = "../ai_services"
+  count  = var.ai_services_enabled ? 1 : 0
+
+  # Con la región de la CUENTA, no la del stamp, como el resto de los nombres:
+  # es donde vive el recurso.
+  name                      = lower("${var.name_prefix}-${var.project}-${var.environment}-${local.ai_services_location}-ai")
+  name_base                 = local.name_base
+  location                  = local.ai_services_location
+  private_endpoint_location = var.location
+  resource_group_name       = module.network.resource_group_name
+  resource_group_id         = module.network.resource_group_id
+  subnet_id                 = module.network.private_endpoint_subnet_id
+  private_dns_zone_ids = [
+    module.private_dns.cognitiveservices_zone_id,
+    module.private_dns.openai_zone_id,
+    module.private_dns.aiservices_zone_id,
+  ]
+  app_principal_id = azurerm_user_assigned_identity.app.principal_id
+  workspace_id     = module.monitoring.workspace_id
+  alert_email      = var.alert_email
+  tags             = var.tags
+}
+
 resource "azurerm_container_app_environment" "this" {
   name                       = "${local.name_base}-cae"
   location                   = var.location
@@ -337,6 +368,17 @@ resource "azurerm_container_app_environment" "this" {
 }
 
 locals {
+  # IA de plataforma con Entra ID (src/services/aiService.ts). Va después de
+  # extra_env_vars a propósito: un AZURE_OPENAI_RESOURCE_NAME o
+  # AZURE_OPENAI_DEPLOYMENT heredado del .env apuntaría a otra cuenta, donde
+  # la identidad no tiene rol. AZURE_OPENAI_ENDPOINT no hace falta: con Entra
+  # la app arma la URL con el nombre del recurso.
+  ai_services_env = var.ai_services_enabled && var.ai_services_entra_auth ? {
+    AZURE_OPENAI_RESOURCE_NAME = module.ai_services[0].resource_name
+    AZURE_OPENAI_DEPLOYMENT    = module.ai_services[0].deployment_name
+    AZURE_OPENAI_AUTH          = "entra"
+  } : {}
+
   app_env = merge({
     NODE_ENV               = "production"
     DB_HOST                = module.mysql.fqdn
@@ -372,7 +414,7 @@ locals {
     OTEL_SERVICE_NAME                           = "finops-web"
     OTEL_RESOURCE_ATTRIBUTES                    = "service.namespace=${var.data_region},deployment.environment=${var.environment}"
     AZURE_SENDER_EMAIL_ALERTS                   = "alerts@cscloudsolutions.com.ar"
-  }, var.extra_env_vars)
+  }, var.extra_env_vars, local.ai_services_env)
 
   app_secrets = {
     db-password                   = random_password.mysql.result

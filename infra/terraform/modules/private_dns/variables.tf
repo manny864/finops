@@ -16,6 +16,11 @@ variable "redis_enabled" {
   default = false
 }
 
+variable "ai_services_enabled" {
+  type    = bool
+  default = false
+}
+
 variable "tags" {
   type = map(string)
 }
