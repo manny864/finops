@@ -4,6 +4,7 @@ import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
 import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { getAzureCredential } from "@/lib/azure";
 import { applyTagInheritance, ApplyOp } from "@/services/tagInheritanceService";
+import { mergeLocalCachedTags } from "@/services/azureTagGovernance.service";
 import { isMockTenant } from "@/lib/mockData";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
@@ -73,6 +74,15 @@ export async function POST(request: NextRequest) {
         }
 
         const results = await applyTagInheritance(credential, ops, { dryRun: !!dryRun });
+
+        // Una fila de caché previa taparía en el escaneo lo que ARM ya aceptó.
+        // applyTagInheritance devuelve un resultado por op, en el mismo orden.
+        if (!dryRun) {
+            await mergeLocalCachedTags(
+                tenantId,
+                ops.filter((_, i) => results[i]?.success).map((op) => ({ resourceId: op.resourceId, tags: op.tagsToMerge }))
+            );
+        }
 
         const success = results.filter(r => r.success).length;
         const failed = results.length - success;

@@ -111,10 +111,16 @@ export default function TagNonConformingValues({
   onTagsApplied,
 }: Props) {
   const t = useTranslations("TagNormalization");
-  const { selectedTenant } = useTenant();
+  const { selectedTenant, userRole, systemRole } = useTenant();
   const { selectedSubscription } = useSubscription();
-  const canApply = canRemediateTags(selectedTenant?.tier);
-  const applyTitle = canApply ? undefined : t("applyTierTip", { tier: getTagRemediationTier() });
+  // Mismos permisos que exigen las rutas de escritura (requireTenantRole Admin/Owner).
+  const canEdit = userRole === "Admin" || userRole === "Owner" || systemRole === "SUPERADMIN";
+  const canApply = canEdit && canRemediateTags(selectedTenant?.tier);
+  const applyTitle = !canEdit
+    ? t("roleTip")
+    : canApply
+      ? undefined
+      : t("applyTierTip", { tier: getTagRemediationTier() });
 
   const headers = useMemo<Record<string, string>>(
     () => ({ "Content-Type": "application/json", ...(token && !isDemo ? { Authorization: `Bearer ${token}` } : {}) }),
@@ -262,10 +268,11 @@ export default function TagNonConformingValues({
         headers,
         body: JSON.stringify(decision),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    } catch {
-      toast.error(t("decisionError"));
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+      return json;
+    } catch (err) {
+      toast.error(t("decisionError"), { description: errorMessage(err) });
       return null;
     }
   };
@@ -558,9 +565,10 @@ export default function TagNonConformingValues({
                           </button>
                           <button
                             type="button"
+                            disabled={!canEdit}
                             onClick={() => dismiss(g)}
-                            title={t("dismissTip")}
-                            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-lg text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                            title={canEdit ? t("dismissTip") : t("roleTip")}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-lg text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <IconX size={13} stroke={1.5} />
                             {t("dismiss")}

@@ -149,6 +149,66 @@ export async function getLocalCachedTags(tenantId: string): Promise<Map<string, 
 }
 
 /**
+ * Superpone la caché local a los tags de Azure: la caché gana en sus claves (sin
+ * distinguir mayúsculas) y el resto sale de Azure. Reemplazar el set entero
+ * escondía tags reales detrás de filas parciales, como las de cleanup/ttl
+ * ({ExpireOn, TTL}) o backup-orphans ({PurgeStatus, RequestedAt}). Costo
+ * aceptado: una clave que se saca en el modal se sigue viendo mientras Resource
+ * Graph la devuelva (el modal aplica con Merge, que no borra en Azure).
+ */
+export function overlayCachedTags(
+  azureTags: unknown,
+  cachedTags?: Record<string, string>
+): Record<string, string> {
+  const tags: Record<string, string> =
+    azureTags && typeof azureTags === "object" ? { ...(azureTags as Record<string, string>) } : {};
+  if (!cachedTags) return tags;
+  const pisadas = new Set(Object.keys(cachedTags).map((k) => k.toLowerCase()));
+  for (const k of Object.keys(tags)) if (pisadas.has(k.toLowerCase())) delete tags[k];
+  return Object.assign(tags, cachedTags);
+}
+
+/**
+ * Después de escribir en Azure, lleva los tags aplicados a las filas de caché
+ * que ya existían, para que el escaneo no siga mostrando el valor viejo. No crea
+ * filas (sin fila, el escaneo ya lee Azure) y si falla sólo avisa: Azure ya
+ * aceptó el cambio.
+ */
+export async function mergeLocalCachedTags(
+  tenantId: string,
+  changes: Array<{ resourceId: string; tags: Record<string, string> }>
+): Promise<void> {
+  if (changes.length === 0) return;
+  const aplicados = new Map<string, Record<string, string>>();
+  for (const c of changes) {
+    const k = c.resourceId.toLowerCase();
+    aplicados.set(k, overlayCachedTags(aplicados.get(k), c.tags));
+  }
+  try {
+    const [rows] = await pool.query(
+      `SELECT id, resource_id, tags_json FROM LocalResourceTagsCache
+        WHERE tenant_id = ? AND resource_id IN (?)`,
+      [tenantId, changes.map((c) => c.resourceId)]
+    );
+    for (const row of (Array.isArray(rows) ? rows : []) as Array<{ id: string; resource_id: string; tags_json: unknown }>) {
+      const tags = aplicados.get(row.resource_id.toLowerCase());
+      if (!tags) continue;
+      try {
+        const actuales = typeof row.tags_json === "string" ? JSON.parse(row.tags_json) : row.tags_json;
+        await pool.query(
+          `UPDATE LocalResourceTagsCache SET tags_json = ?, updated_at = NOW() WHERE id = ? AND tenant_id = ?`,
+          [JSON.stringify(overlayCachedTags(actuales, tags)), row.id, tenantId]
+        );
+      } catch (err) {
+        console.warn("[azureTagGovernance] Error actualizando LocalResourceTagsCache:", errorMessage(err));
+      }
+    }
+  } catch (err) {
+    console.warn("[azureTagGovernance] Error leyendo LocalResourceTagsCache:", errorMessage(err));
+  }
+}
+
+/**
  * Guarda o actualiza etiquetas optimistas en LocalResourceTagsCache
  */
 export async function saveLocalCachedTags(
@@ -232,9 +292,7 @@ export async function scanTagGovernanceLive(
       const subId = raw.subscriptionId || "";
       const subName = resolveSubscriptionName(subId, subMap);
       const resId = raw.id || "";
-      const cachedTags = localCache.get(resId.toLowerCase());
-      const rawTags: Record<string, string> =
-        cachedTags || (raw.tags && typeof raw.tags === "object" ? raw.tags : {});
+      const rawTags = overlayCachedTags(raw.tags, localCache.get(resId.toLowerCase()));
 
       const missing = evaluateResourceMissingTags(rawTags, policies);
       const invalid = findInvalidTagValues(rawTags, policies, aliases);
@@ -276,9 +334,7 @@ export async function scanTagGovernanceLive(
       const subName = resolveSubscriptionName(subId, subMap);
       const rgId = raw.id || "";
       const rgName = raw.name || rgId.split("/").pop() || "rg";
-      const cachedTags = localCache.get(rgId.toLowerCase());
-      const rawTags: Record<string, string> =
-        cachedTags || (raw.tags && typeof raw.tags === "object" ? raw.tags : {});
+      const rawTags = overlayCachedTags(raw.tags, localCache.get(rgId.toLowerCase()));
 
       const missing = evaluateResourceMissingTags(rawTags, policies);
       const invalid = findInvalidTagValues(rawTags, policies, aliases);

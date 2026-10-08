@@ -347,6 +347,37 @@ export default function TagGovernancePanel() {
     toast.success(t("inheritedFromRg"));
   };
 
+  // Environment y Role siguen la política del tenant: con valores permitidos se
+  // elige de la lista (y un valor actual fuera de ella se muestra marcado, para
+  // verlo y cambiarlo); sin lista, texto libre.
+  const policyValueField = (
+    tag: "Environment" | "Role",
+    emptyLabel: string,
+    placeholder: string,
+    labels: Record<string, string> = {}
+  ) => {
+    const allowed = policies.find((p) => p.tagName.toLowerCase() === tag.toLowerCase())?.allowedValues;
+    const value = tagForm[tag];
+    const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+      setTagForm({ ...tagForm, [tag]: e.target.value });
+    const className =
+      "w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0054A6]";
+    if (!allowed?.length) {
+      return <input type="text" placeholder={placeholder} value={value} onChange={onChange} className={className} />;
+    }
+    return (
+      <select value={value} onChange={onChange} className={className}>
+        <option value="">{emptyLabel}</option>
+        {value && !allowed.includes(value) && <option value={value}>{t("notAllowedOption", { value })}</option>}
+        {allowed.map((v) => (
+          <option key={v} value={v}>
+            {labels[v] ?? v}
+          </option>
+        ))}
+      </select>
+    );
+  };
+
   // Guardar Etiquetas con Actualización Optimista
   const handleSaveTags = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1318,31 +1349,20 @@ export default function TagGovernancePanel() {
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Environment <span className="text-rose-500">*</span>
                   </label>
-                  <select
-                    value={tagForm.Environment}
-                    onChange={(e) => setTagForm({ ...tagForm, Environment: e.target.value })}
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0054A6]"
-                  >
-                    <option value="">{t("selectEnvironment")}</option>
-                    <option value="prod">{t("envProd")}</option>
-                    <option value="stg">{t("envStg")}</option>
-                    <option value="dev">{t("envDev")}</option>
-                    <option value="qa">{t("envQa")}</option>
-                    <option value="sandbox">{t("envSandbox")}</option>
-                  </select>
+                  {policyValueField("Environment", t("selectEnvironment"), t("environmentPlaceholder"), {
+                    prod: t("envProd"),
+                    stg: t("envStg"),
+                    dev: t("envDev"),
+                    qa: t("envQa"),
+                    sandbox: t("envSandbox"),
+                  })}
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Role <span className="text-rose-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    placeholder={t("rolePlaceholder")}
-                    value={tagForm.Role}
-                    onChange={(e) => setTagForm({ ...tagForm, Role: e.target.value })}
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0054A6]"
-                  />
+                  {policyValueField("Role", t("selectRole"), t("rolePlaceholder"))}
                 </div>
 
                 <div>

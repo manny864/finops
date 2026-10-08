@@ -82,4 +82,22 @@ test.describe("Tag Governance · valores no conformes (demo)", () => {
         await expect(page.getByText("OBLIGATORIA").first()).toBeVisible();
         await captura(page, "07-modal-politicas");
     });
+
+    test("editar etiquetas ofrece los valores permitidos y marca el actual si no lo es", async ({ page }) => {
+        await abrir(page);
+        await page.getByPlaceholder("Buscar recurso, RG, tipo...").fill("aks-platform-prod");
+        await page.locator("tr", { hasText: "aks-platform-prod" }).getByRole("button", { name: "Editar Etiquetas" }).click();
+
+        const modal = page.locator("form", { has: page.getByRole("button", { name: "Guardar Etiquetas" }) });
+        const [environment, role] = [modal.locator("select").nth(0), modal.locator("select").nth(1)];
+        await expect(environment).toHaveValue("prod");
+        await expect(role).toHaveValue("k8s-cluster");
+        await expect(role.locator("option")).toHaveText([
+            "Seleccionar rol...", "k8s-cluster (no permitido)",
+            "database", "api", "frontend", "backup", "orchestrator", "network", "storage", "worker",
+        ]);
+        await captura(modal, "08-modal-editar-valores-permitidos");
+        await role.selectOption("orchestrator");
+        await expect(role.locator("option", { hasText: "no permitido" })).toHaveCount(0);
+    });
 });
