@@ -43,6 +43,12 @@ export default function SubprocessorsPage() {
       locations: [t('locUS'), t('locEU')],
       dpa: 'yes' as const,
     },
+    {
+      name: 'Cloudflare',
+      purpose: t('procCloudflarePurpose'),
+      locations: [t('locGlobalEdge')],
+      dpa: 'yes' as const,
+    },
   ];
 
   return (

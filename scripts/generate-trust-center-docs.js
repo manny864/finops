@@ -131,6 +131,7 @@ ${t.residencyPlannedBefore}${t.residencyPlannedBody}
 | WorkOS | ${t.procWorkosPurpose} | ${t.locUS} |
 | ${t.procGeminiName} | ${t.procGeminiPurpose} | ${t.locUS} |
 | ${t.procGraphName} | ${t.procGraphPurpose} | ${t.locUS} |
+| Cloudflare | ${t.procCloudflarePurpose} | ${t.locGlobalEdge} |
 
 ${t.detailProtection}
 ${t.detailDpaAvailable}
@@ -176,7 +177,10 @@ ${t.heroSubtitle}
 
 ## ${t.infraTitle}
 - ${t.infraProvider}
+- ${t.infraRegion}
 - ${t.infraDb}
+- ${t.infraCache}
+- ${t.infraEdge}
 - ${t.infraDr}
 - ${t.infraSla}
 

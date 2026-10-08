@@ -23,7 +23,7 @@ Our security posture and compliance commitment
 - Primary Cloud Provider: Microsoft Azure (certified for HIPAA, FedRAMP, SOC 2)
 - Active physical region: single deployment in Azure West US 2
 - Database: managed MySQL in Azure with automatic backups
-- Cache: Azure Managed Redis (`Balanced_B3`) with high availability enabled and private access
+- Cache: Azure Managed Redis (Balanced_B3) with high availability enabled and private access
 - Perimeter: Cloudflare as CDN/WAF in front of the Azure origin
 - Disaster Recovery: Geo-redundant backups; RTO < 4 hours, RPO < 1 hour
 - SLA: 99.9% uptime SLA for paid plans (excludes scheduled maintenance)
@@ -38,7 +38,7 @@ We partner with industry-leading providers for specific services:
 
 | Processor | Purpose | Location |
 |---|---|---|
-| Microsoft Azure | Compute, Storage, Networking | Azure West US 2 |
+| Microsoft Azure | Compute, Storage, Networking, AI inference (Azure OpenAI) | Azure West US 2 |
 | Paddle | Payment Processing | US/UK |
 | WorkOS | Authentication & SSO | US |
 | Google Gemini AI | Optional LLM Services | US |

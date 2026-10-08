@@ -23,7 +23,7 @@ Nossa postura de segurança e compromisso com a conformidade
 - Provedor de nuvem principal: Microsoft Azure (certificado para HIPAA, FedRAMP, SOC 2)
 - Região física ativa: implantação única em Azure West US 2
 - Banco de dados: MySQL gerenciado no Azure com backups automáticos
-- Cache: Azure Managed Redis (`Balanced_B3`) com alta disponibilidade habilitada e acesso privado
+- Cache: Azure Managed Redis (Balanced_B3) com alta disponibilidade habilitada e acesso privado
 - Perímetro: Cloudflare como CDN/WAF na frente da origem no Azure
 - Recuperação de desastres: backups geo-redundantes; RTO < 4 horas, RPO < 1 hora
 - SLA: 99,9% de disponibilidade garantida para planos pagos (exclui manutenção programada)
@@ -38,7 +38,7 @@ Trabalhamos com provedores líderes do setor para serviços específicos:
 
 | Processador | Finalidade | Localização |
 |---|---|---|
-| Microsoft Azure | Computação, Armazenamento, Rede | Azure West US 2 |
+| Microsoft Azure | Computação, Armazenamento, Rede, Inferência de IA (Azure OpenAI) | Azure West US 2 |
 | Paddle | Processamento de Pagamentos | US/UK |
 | WorkOS | Autenticação e SSO | US |
 | Google Gemini AI | Serviços de LLM Opcionais | US |
