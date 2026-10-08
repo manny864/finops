@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **474** rutas.
+Total: **475** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -79,7 +79,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/advisor/suppress` | POST, DELETE | requireTenantRole | — | — |
 | `/api/advisor/suppressions` | GET | requireTenantAccess | — | — |
 | `/api/analytics/allocation` | GET, POST, DELETE | requireTenantRole, requireTenantAccess | — | sí |
-| `/api/analytics/anomalies` | GET, PATCH | requireTenantAccess | — | sí |
+| `/api/analytics/anomalies` | GET | requireTenantAccess | — | sí |
 | `/api/analytics/macc` | GET, POST | requireTenantAccess | — | sí |
 | `/api/analytics/scorecard` | GET | requireTenantAccess | — | sí |
 | `/api/analytics/self-service-alerts` | GET, POST, PUT, DELETE | requireTenantRole, requireTenantAccess | — | sí |
@@ -209,6 +209,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/aks-chargeback` | GET | requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/intelligence/allocation-rules` | GET, POST | requireTenantRole, requireTenantAccess | — | sí |
 | `/api/intelligence/anomalies` | GET, PATCH | requireTenantRole, requireTenantAccess | — | sí |
+| `/api/intelligence/anomalies/[id]/explanation` | GET, POST | requireTenantAccess | — | — |
 | `/api/intelligence/app-insights` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/applied-savings` | GET | requireTenantAccess | — | sí |
 | `/api/intelligence/assessment` | POST | requireTenantAccess | — | — |

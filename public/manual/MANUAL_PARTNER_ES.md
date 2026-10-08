@@ -293,7 +293,7 @@ Este es el mapa de lo que el cliente va a usar todos los días. Para cada pantal
 
 | Pantalla | Problema que resuelve | Qué ve el usuario | Plan |
 |---|---|---|---|
-| **Cumplimiento de Etiquetas** | Sin etiquetas no hay reparto de costos | Auditoría de las 4 etiquetas estructurales, **sugerencia con IA** de las que faltan y herencia desde el grupo de recursos | P+ (auto-corrección B+) |
+| **Cumplimiento de Etiquetas** | Sin etiquetas no hay reparto de costos | Auditoría de las 4 etiquetas estructurales, **sugerencia por convención de nombres** de las que faltan y herencia desde el grupo de recursos | P+ (auto-corrección B+) |
 | **Alertas Self-Service** | Enterarse de un desvío cuando ya pasó | Reglas por presupuesto, umbral fijo, anomalía o forecast, con entrega a Teams, Slack, correo, webhook o ServiceNow | P+ |
 | **Horarios de Apagado** | Máquinas encendidas de noche y fines de semana | Programación de encendido y apagado con **Smart Shutdown** (no apaga una VM que está trabajando) y ahorro calculado | B+ |
 | **Alta Disponibilidad** | No saber qué tan expuesto está lo crítico | Brechas de redundancia, SLA actual vs alcanzable en minutos de caída por mes | B+ |
@@ -513,7 +513,7 @@ No vendas funciones: **escuchá el dolor** y mostrá la pantalla que lo resuelve
 | 2-5 | **White Board** | Costo del período (cambiá entre mes, 30 y 90 días), forecast, **Ahorro Potencial**, zombis, Quick Wins | «Esta es la vista de Dirección. Y este número es plata que se puede recuperar.» |
 | 5-9 | **Limpieza → Recursos Zombis** | Los 25 tipos, desperdicio duro vs blando, el botón de remediación con snapshot previo, y **Aprobaciones** | «Cada recurso sin uso, con su costo mensual. Y nada se borra sin que otra persona lo apruebe.» |
 | 9-11 | **Gobernanza → Horarios de Apagado** | Una regla de apagado y el **Smart Shutdown** (no apaga una VM que está trabajando) | «Apagar los entornos de pruebas de noche y fines de semana es de lo más rentable que hay.» |
-| 11-13 | **Gobernanza → Etiquetas** y **Cost Groups** | La sugerencia de etiquetas con IA y el reparto por unidad de negocio | «Sin etiquetas no hay reparto justo. Esto lo ordena casi solo.» |
+| 11-13 | **Gobernanza → Etiquetas** y **Cost Groups** | La sugerencia de etiquetas por convención de nombres y el reparto por unidad de negocio | «Sin etiquetas no hay reparto justo. Esto lo ordena casi solo.» |
 | 13-15 | **Consumo y Presupuesto** y **Alertas Self-Service** | Un presupuesto con umbral, una alerta que llega a Teams o Slack | «Te enterás del desvío cuando pasa, no cuando llega la factura.» |
 | 15-17 | **Copilot** | Una pregunta en vivo sobre la pantalla actual | «Le preguntás en tu idioma y analiza lo que estás viendo.» |
 | 17-19 | **Reportes** | El reporte ejecutivo y las **suscripciones por correo** | «Dirección y Finanzas lo reciben solos, cada lunes.» |
@@ -525,7 +525,7 @@ No vendas funciones: **escuchá el dolor** y mostrá la pantalla que lo resuelve
 
 | Objeción | Qué hay detrás | Cómo responder |
 |---|---|---|
-| «Ya tenemos Azure Cost Management / Advisor» | Cree que ya está cubierto | «Son el punto de partida, y los usamos como fuente. Lo que agregamos es decir qué hacer, quién lo hace y cuánto se ahorró: zombis con remediación y aprobación, etiquetas con IA, apagados, reparto por equipo, presupuestos con alertas y reportes que llegan solos.» |
+| «Ya tenemos Azure Cost Management / Advisor» | Cree que ya está cubierto | «Son el punto de partida, y los usamos como fuente. Lo que agregamos es decir qué hacer, quién lo hace y cuánto se ahorró: zombis con remediación y aprobación, sugerencia de etiquetas, apagados, reparto por equipo, presupuestos con alertas y reportes que llegan solos.» |
 | «Es caro» | No ve el retorno | «Hagamos la cuenta con tu gasto» (7.6). «Y el precio es fijo: no sube cuando crece tu consumo.» |
 | «No queremos darle permisos a un tercero» | Riesgo de seguridad | 3.2: roles de **sólo lectura** en Professional, sin Contributor ni Owner en ningún plan, revocables, y con Lighthouse sin credenciales. «Podés empezar sólo con lectura.» |
 | «¿Y si ejecuta algo y rompe producción?» | Miedo a la automatización | Los cambios pasan por **aprobación de cuatro ojos**, con snapshot previo y auditoría; el rol está acotado a propósito; **el Copilot no ejecuta**. |

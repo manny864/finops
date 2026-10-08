@@ -97,7 +97,10 @@ export default function SecurityPage() {
           </div>
           <div className="space-y-4 text-gray-700 dark:text-white">
             <p>{t('infraProvider')}</p>
+            <p>{t('infraRegion')}</p>
             <p>{t('infraDb')}</p>
+            <p>{t('infraCache')}</p>
+            <p>{t('infraEdge')}</p>
             <p>{t('infraDr')}</p>
             <p>{t('infraSla')}</p>
           </div>

@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **144** tablas. Migraciones aplicables: **143**.
+Total: **145** tablas. Migraciones aplicables: **145**.
 
 `schema.sql` es el baseline de referencia y **no se ejecuta**; `migrations/` es la
 fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.md`).
@@ -19,6 +19,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `AlertRules` | — | `20260628-001-core-bootstrap.sql` |
 | `AllocationRules` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `Anomalies` | — | `20260704-004-create-anomalies.sql` |
+| `AnomalyExplanations` | — | `20261007-002-anomaly-explanations.sql` |
 | `ApiQuotaSamples` | — | `20260822-010-api-quota-samples.sql` |
 | `AppServiceRecommendations` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `AuditTrailLogs` | — | `20260823-003-consolidated-platform-schema.sql` |
@@ -299,3 +300,5 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 - `migrations/20261006-001-afiliados-atribucion-manual.sql`
 - `migrations/20261006-002-comerciales-enlace-de-panel.sql`
 - `migrations/20261006-003-vincular-vendedores-a-comerciales.sql`
+- `migrations/20261007-001-anomalies-root-cause-facts.sql`
+- `migrations/20261007-002-anomaly-explanations.sql`

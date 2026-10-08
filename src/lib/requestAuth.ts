@@ -558,10 +558,23 @@ export async function requireTenantTier(
   options?: { allowSuperAdmin?: boolean }
 ): Promise<RequestIdentity> {
   const identity = await requireTenantAccess(request, tenantId, options);
+  await assertTenantTier(identity, tenantId, minTier, request.nextUrl.pathname);
+  return identity;
+}
 
+/**
+ * Sólo el corte por plan de `requireTenantTier`, para las rutas que ya
+ * resolvieron la identidad por otro camino (p. ej. el tenant del token).
+ */
+export async function assertTenantTier(
+  identity: RequestIdentity,
+  tenantId: string,
+  minTier: string,
+  pathname: string
+): Promise<void> {
   if (identity.isCorporateDomain) {
     const superAdmin = await hasSystemRole(identity.email, "SUPERADMIN");
-    if (superAdmin) return identity;
+    if (superAdmin) return;
   }
 
   const [rows] = await pool.query(
@@ -572,11 +585,9 @@ export async function requireTenantTier(
   const tier = row?.tier || "Professional";
 
   if (!hasAccess(tier, minTier)) {
-    if (await addonCubreLaRuta(tenantId, request.nextUrl.pathname)) return identity;
+    if (await addonCubreLaRuta(tenantId, pathname)) return;
     throw new AuthError(`Esta función requiere el plan ${minTier} o superior.`, 403);
   }
-
-  return identity;
 }
 
 /**

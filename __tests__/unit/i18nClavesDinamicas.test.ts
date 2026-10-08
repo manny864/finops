@@ -24,6 +24,8 @@ import { FOUNDRY_REMEDIATION_CATEGORIES } from "@/types/azureAiFoundry.types";
 import { DOC_INTELLIGENCE_REMEDIATION_CATEGORIES } from "@/types/azureDocumentIntelligence.types";
 import { ALLOCATION_REMEDIATION_CATEGORIES } from "@/types/azureCostAllocation.types";
 import { WATERFALL_STEP_KEYS } from "@/types/azureWhatIf.types";
+import { ROOT_CAUSE_FACT_TYPES, ROOT_CAUSE_ACTIONS, EXPLANATION_UNAVAILABLE_REASONS } from "@/types/anomalyRootCause.types";
+import { CSV_MAPPING_ERROR_REASONS, UPLOAD_ASSESSMENT_UNAVAILABLE_REASONS } from "@/types/billingCsvMapping.types";
 import { REDIS_RULE_I18N } from "@/types/redisCache";
 import { MONGO_RULE_I18N } from "@/types/azureMongoDb";
 import { MYSQL_RULE_I18N } from "@/types/azureMySQL";
@@ -799,6 +801,29 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
             que: "comentarios de scripts marcados con {{cmt.X}}",
             ns: "ScriptComments",
             claves: clavesDeMarcadoresDeScript(),
+        },
+        {
+            que: "hechos y acciones de causa raíz de anomalías (ROOT_CAUSE_FACT_TYPES, ROOT_CAUSE_ACTIONS)",
+            ns: "Anomalies",
+            claves: [
+                ...ROOT_CAUSE_FACT_TYPES.map((k) => `factType_${k}`),
+                ...ROOT_CAUSE_ACTIONS.map((k) => `action_${k}`),
+            ],
+        },
+        {
+            que: "motivos por los que no hay explicación con IA de una anomalía (EXPLANATION_UNAVAILABLE_REASONS)",
+            ns: "Anomalies",
+            claves: EXPLANATION_UNAVAILABLE_REASONS.map((k) => `aiReason_${k}`),
+        },
+        {
+            que: "motivos por los que un CSV no FOCUS no se pudo mapear (CSV_MAPPING_ERROR_REASONS)",
+            ns: "IntelligenceUpload",
+            claves: CSV_MAPPING_ERROR_REASONS.map((k) => `mappingError_${k}`),
+        },
+        {
+            que: "motivos por los que una carga de CSV no trae el análisis con IA (UPLOAD_ASSESSMENT_UNAVAILABLE_REASONS)",
+            ns: "IntelligenceUpload",
+            claves: UPLOAD_ASSESSMENT_UNAVAILABLE_REASONS.map((k) => `aiUnavailable_${k}`),
         },
     ];
 

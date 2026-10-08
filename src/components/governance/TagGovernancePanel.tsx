@@ -278,7 +278,7 @@ export default function TagGovernancePanel() {
     });
   };
 
-  // Autocompletar con IA
+  // Sugerencia por convención de nombres (heurística, no IA)
   const handleAiSuggest = async () => {
     if (!editingItem) return;
     setIsSuggestingAi(true);

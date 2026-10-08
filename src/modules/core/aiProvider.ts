@@ -1,7 +1,6 @@
 import pool, { insertPlatformAiUsage } from '@/modules/storage/db';
 import crypto from 'crypto';
-import { generateText, generateObject } from 'ai';
-import { z } from 'zod';
+import { generateText } from 'ai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAzure } from '@ai-sdk/azure';
@@ -11,6 +10,7 @@ import { createCohere } from '@ai-sdk/cohere';
 import { RowDataPacket } from 'mysql2';
 import { getAIConfig } from '@/services/aiService';
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
+import { timeAiCall } from '@/lib/aiTelemetry';
 
 // In-memory cache for AI config (provider + apiKey) por tenant.
 // Reduce el round-trip a MySQL en cada request del Copilot.
@@ -413,7 +413,19 @@ export class AIProviderFactory {
     }
 }
 
-export async function getAssessment(metricsData: any, tenantId: string): Promise<string> {
+const ASSESSMENT_LANGUAGE: Record<string, string> = { es: 'español', en: 'inglés', 'pt-BR': 'portugués de Brasil' };
+
+export interface AssessmentOptions {
+    /** Feature del gate único: con ella el uso cuenta para su cupo y su telemetría. */
+    feature?: string;
+    maxOutputTokens?: number;
+    /** Idioma de la UI; sin él, español. */
+    locale?: string;
+    /** Código ISO de los montos; null = el dato no dice en qué moneda está. Sin él, USD. */
+    currency?: string | null;
+}
+
+export async function getAssessment(metricsData: any, tenantId: string, opts: AssessmentOptions = {}): Promise<string> {
     if (!tenantId) {
         // Aislamiento multi-tenant obligatorio: sin tenantId el caché podría
         // cruzar reportes entre tenants (IA-1) y la key resuelta sería la global.
@@ -428,7 +440,10 @@ export async function getAssessment(metricsData: any, tenantId: string): Promise
     const dataString = JSON.stringify(redactedMetrics);
     // El hash incluye el tenantId para que dos tenants con el mismo payload
     // NO compartan la misma entrada de caché (fuga cross-tenant IA-1).
-    const hashPrompt = crypto.createHash('sha256').update(`${tenantId}:${dataString}`).digest('hex');
+    const language = ASSESSMENT_LANGUAGE[opts.locale ?? 'es'] ?? ASSESSMENT_LANGUAGE.es;
+    const currency = opts.currency === undefined ? 'USD' : opts.currency;
+    // El idioma y la moneda cambian la respuesta: van en la clave de caché.
+    const hashPrompt = crypto.createHash('sha256').update(`${tenantId}:${language}:${currency}:${dataString}`).digest('hex');
 
     // Query Cache
     const [rows] = await pool.query<RowDataPacket[]>(
@@ -453,11 +468,17 @@ export async function getAssessment(metricsData: any, tenantId: string): Promise
     // Call Gemini — usa la config/key del tenant (no la global) para respetar
     // el aislamiento por tenant y la key configurada por cada cliente (IA-1).
     const { model, modelName, config } = await AIProviderFactory.getGeminiModel(tenantId);
+    const enMoneda = currency ? ` (${currency})` : '';
+    const porMes = currency ? `${currency}/mes` : 'por mes';
+    const porAnio = currency ? `${currency}/año` : 'por año';
+    const reglaMoneda = currency
+        ? `Todo en ${currency} con formato estándar (${currency === 'USD' ? '$' : ''}X,XXX.XX ${currency}).`
+        : 'Los montos vienen en la moneda de facturación del archivo, que no está indicada: escríbelos sin símbolo ni código de moneda y no los conviertas.';
     const systemPrompt = `Eres el Arquitecto Principal de Azure FinOps y Asesor Estratégico Cloud (FinOps Copilot) de la plataforma SaaS de CSCloudSolutions.
 Tu objetivo es analizar el JSON del tenant y redactar un Reporte Ejecutivo Estratégico C-Level (dirigido a CFO, CTO, CEO y Líderes de Infraestructura) en Markdown estructurado con 6 secciones obligatorias:
 
 ## 1. Resumen Ejecutivo y Diagnóstico Financiero C-Level
-* Tabla de KPIs Financieros: Métrica Clave | Período Actual (USD) | Período Anterior (USD) | Variación MoM (%) | Proyección Cierre Mes (USD) | Meta / Target
+* Tabla de KPIs Financieros: Métrica Clave | Período Actual${enMoneda} | Período Anterior${enMoneda} | Variación MoM (%) | Proyección Cierre Mes${enMoneda} | Meta / Target
 * Diagnóstico de Situación: Síntesis ejecutiva (máximo 3 párrafos) explicando si el comportamiento del gasto es saludable, alcista o crítico, justificando las causas del desvío mensual frente al promedio histórico.
 
 ## 2. Economía Unitaria y Eficiencia de Asignación (Showback / Chargeback)
@@ -467,7 +488,7 @@ Tu objetivo es analizar el JSON del tenant y redactar un Reporte Ejecutivo Estra
 ## 3. Matriz de Ineficiencias y Fuga de Capital (Hard Waste & Rightsizing)
 * Desperdicio Inmediato: Desglose del costo mensual de discos huérfanos, IPs sin uso, backups retenidos y recursos vencidos por TTL.
 * Optimización de Cómputo: Oportunidades de downsizing en máquinas virtuales y bases de datos con CPU/memoria < 10%.
-* Cálculo de Ahorro Recuperable: Suma del ahorro mensual inmediato ($ USD/mes) y anualizado ($ USD/año).
+* Cálculo de Ahorro Recuperable: Suma del ahorro mensual inmediato (${porMes}) y anualizado (${porAnio}).
 
 ## 4. Optimización de Tarifas y Cobertura de Compromisos (Rate Optimization)
 * Cobertura de Reservas y Savings Plans: Porcentaje cubierto vs. exposición a tarifa bajo demanda (Pay-As-You-Go).
@@ -479,32 +500,34 @@ Tu objetivo es analizar el JSON del tenant y redactar un Reporte Ejecutivo Estra
 * Sostenibilidad: Estimación de huella de carbono (CO2 en kg) e impacto de optimización.
 
 ## 6. Hoja de Ruta y Plan de Acción Priorizado (30 - 60 - 90 Días)
-* Matriz de Decisiones Estratégicas: Fase / Plazo | Acción Recomendada | Impacto Estimado (USD/mes) | Nivel de Esfuerzo | Dueño Sugerido | ROI Clave
+* Matriz de Decisiones Estratégicas: Fase / Plazo | Acción Recomendada | Impacto Estimado (${porMes}) | Nivel de Esfuerzo | Dueño Sugerido | ROI Clave
   - Inmediato (0-30d): Purgar desperdicio zombi sin riesgo.
   - Medio Plazo (30-60d): Rightsizing y políticas TTL.
   - Estratégico (60-90d): Commitments RIs/SPs y arquitectura HA.
 
 Reglas estrictas:
 1. Cero Alucinación: Basa cada afirmación en números concretos del JSON. Si falta algún dato, declara "Dato no disponible en este tenant".
-2. Moneda y Formato: Todo en USD con formato estándar ($X,XXX.XX USD).
-3. Tono: Ejecutivo, analítico y orientado a la toma de decisiones. Redacta en Español formal.`;
+2. Moneda y Formato: ${reglaMoneda}
+3. Tono: Ejecutivo, analítico y orientado a la toma de decisiones. Redacta todo el reporte, incluidos los títulos de las secciones, en ${language} formal.`;
 
-    const { text, usage } = await aiQueue.add(() =>
+    const call = () => aiQueue.add(() =>
         withExponentialBackoff(() =>
             generateText({
                 model: model as any,
                 system: systemPrompt,
-                prompt: `Here are the latest metrics for the tenant:\n\n${dataString}`
+                prompt: `Here are the latest metrics for the tenant:\n\n${dataString}`,
+                maxOutputTokens: opts.maxOutputTokens,
             })
         )
     );
+    const { text, usage } = opts.feature ? await timeAiCall(opts.feature, call) : await call();
 
     insertPlatformAiUsage({
         tenantId,
         source: config.source,
         provider: config.provider,
         modelName,
-        feature: 'assessment',
+        feature: opts.feature ?? 'assessment',
         inputTokens: usage.inputTokens || 0,
         outputTokens: usage.outputTokens || 0,
     });
@@ -562,16 +585,6 @@ ${reportSample}`,
     return text.replace(/\s+/g, " ").trim();
 }
 
-export const focusCostEntrySchema = z.object({
-    ProviderName: z.string().describe("E.g., Azure, AWS, GCP"),
-    SubAccountId: z.string().describe("E.g., Subscription ID or AWS Account ID"),
-    ServiceName: z.string(),
-    ChargeCategory: z.string(),
-    UsageDate: z.string(),
-    BilledCost: z.number(),
-    EffectiveCost: z.number()
-});
-
 /** Campos que definen el schema destino; si el CSV ya los trae, no hace falta IA. */
 const FOCUS_REQUIRED_COLUMNS = ['BilledCost', 'EffectiveCost', 'ChargeCategory', 'ProviderName', 'ServiceName'];
 
@@ -597,7 +610,7 @@ function focusDate(row: Record<string, unknown>): string {
  * las primeras 50 filas de 256 y podía fallar por schema, deployment o 429. El
  * atajo determinista es instantáneo, gratis, cubre el archivo completo y no
  * puede fallar. La IA queda para lo que realmente la necesita: exports con
- * columnas propias de cada proveedor.
+ * columnas propias de cada proveedor (`billingCsvMapping.service.ts`).
  */
 export function isAlreadyFocusFormat(rawCsvData: any[]): boolean {
     const first = rawCsvData?.[0];
@@ -620,62 +633,4 @@ export function mapNativeFocusRows(rawCsvData: any[]): any[] {
             ? num(row.BilledCost)
             : num(row.EffectiveCost),
     }));
-}
-
-export async function normalizeBillingCsv(rawCsvData: any[], tenantId?: string): Promise<any[]> {
-    // Atajo: si ya es FOCUS, se mapea sin IA (ver isAlreadyFocusFormat).
-    if (isAlreadyFocusFormat(rawCsvData)) {
-        console.log(`[normalizeBillingCsv] CSV ya en formato FOCUS: ${rawCsvData.length} filas mapeadas sin IA.`);
-        return mapNativeFocusRows(rawCsvData);
-    }
-
-    // Usa la configuración de IA DEL TENANT (BYOK) y cae a la global sólo si el
-    // tenant no tiene la suya, igual que el resto de los caminos de IA.
-    //
-    // Antes llamaba a getGeminiModel() sin tenantId y forzaba la key global.
-    // Con una config global apuntando a un deployment inexistente, la ingesta
-    // de CSV devolvía 404 DeploymentNotFound -> 500 "Internal server error
-    // processing CSV", aunque el tenant tuviera un proveedor válido cargado.
-    // Además hacía que el upload lo pagara siempre la plataforma.
-    const { model, modelName, config } = await AIProviderFactory.getGeminiModel(tenantId);
-    const systemPrompt = `You are a universal multi-cloud FinOps mapper.
-Identify the cloud provider (AWS, Azure, GCP, etc.) from the raw JSON billing rows.
-Map the diverse column names to the standard FOCUS specification.
-Return an array of the mapped FocusCostEntry objects.`;
-
-    // DLP (IA-5): el CSV lleva nombres de recursos y sale hacia el proveedor de
-    // IA. Este camino tampoco aplicaba las preferencias del tenant. Se redacta
-    // por clave, que no afecta al mapeo: lo que se infiere son los NOMBRES DE
-    // COLUMNA, no los valores.
-    const sample = tenantId
-        ? await redactForTenant(tenantId, rawCsvData.slice(0, 50))
-        : rawCsvData.slice(0, 50);
-    const dataString = JSON.stringify(sample);
-
-    // El schema raíz va envuelto en un objeto y no como z.array(...).
-    // Structured outputs de OpenAI/Azure OpenAI rechaza un array en la raíz:
-    // "schema must be a JSON Schema of type object, got type array" (400).
-    // Se desenvuelve abajo para conservar el contrato de la función.
-    const { object, usage } = await aiQueue.add(() =>
-        withExponentialBackoff(() =>
-            generateObject({
-                model: model as any,
-                schema: z.object({ entries: z.array(focusCostEntrySchema) }),
-                system: systemPrompt,
-                prompt: `Map these billing records to FOCUS format:\n\n${dataString}`
-            })
-        )
-    );
-
-    insertPlatformAiUsage({
-        tenantId,
-        source: config.source,
-        provider: config.provider,
-        modelName,
-        feature: 'billing-csv-normalize',
-        inputTokens: usage.inputTokens || 0,
-        outputTokens: usage.outputTokens || 0,
-    });
-
-    return object.entries ?? [];
 }

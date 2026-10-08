@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isMockTenant } from "@/lib/mockData";
+import { demoRootCauseFacts, isMockTenant } from "@/lib/mockData";
 import { urlPublica } from "@/lib/urlPublica";
 import pool from "@/modules/storage/db";
 import { sendWebhookAlert } from "@/lib/notifications";
 import { AuthError, requireTenantAccess, requireTenantRole } from "@/lib/requestAuth";
 import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
-import { computeStats, runAnomalyDetection, persistAndNotifyAnomalies, ANOMALY_STATUSES, zScore } from "@/services/anomalyDetectionService";
+import { computeStats, runAnomalyDetection, persistAndNotifyAnomalies, ANOMALY_STATUSES, zScore, type AnomalyStatus } from "@/services/anomalyDetectionService";
 import { errorMessage } from '@/lib/apiErrors';
+import { invalidateCache, liveAnomaliesCacheKey } from "@/lib/cache";
 
 export async function GET(request: NextRequest) {
     try {
@@ -27,8 +28,7 @@ export async function GET(request: NextRequest) {
         if (isMockTenant(tenantId)) {
             const today = new Date();
             // Días con picos de gasto simulados, repartidos en la ventana de 60 días
-            // para poder mostrar anomalías en distintos estados (Open/Postponed/
-            // Dismissed/Completed) en el demo.
+            // para poder mostrar anomalías en los cuatro estados de triaje en el demo.
             const spikeIndices = [59, 55, 47, 39, 30, 21, 12];
             const spikeSet = new Set(spikeIndices);
             const dailyCosts = Array.from({ length: 60 }).map((_, i) => {
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
             const baseline = dailyCosts.filter((_, i) => !spikeSet.has(i)).slice(0, 40).map(d => d.amount);
             const { mean, stdDev } = computeStats(baseline);
 
-            const STATUS_CYCLE = ['Open', 'Postponed', 'Dismissed', 'Completed', 'Completed', 'Open', 'Dismissed'];
+            const STATUS_CYCLE: AnomalyStatus[] = ['New', 'Investigating', 'False Positive', 'Resolved', 'Resolved', 'New', 'False Positive'];
             const SUBS = ['sub-prod-eastus', 'sub-dev-westeurope', 'sub-shared-services', 'sub-prod-brazilsouth'];
             // Causas plausibles para el demo — un servicio+RG por anomalía, con el
             // resto del delta repartido entre 1-2 contribuyentes menores.
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
                 const d = dailyCosts[idx];
                 const detectedAt = new Date(new Date(d.date).getTime() + 6 * 60 * 60 * 1000);
                 const status = STATUS_CYCLE[i % STATUS_CYCLE.length];
-                const resolvedAt = status !== 'Open'
+                const resolvedAt = status === 'Resolved' || status === 'False Positive'
                     ? new Date(detectedAt.getTime() + (4 + Math.random() * 36) * 60 * 60 * 1000)
                     : null;
                 const totalDelta = Math.max(0, d.amount - mean);
@@ -93,6 +93,7 @@ export async function GET(request: NextRequest) {
                     detected_at: detectedAt.toISOString(),
                     resolved_at: resolvedAt ? resolvedAt.toISOString() : null,
                     top_contributors,
+                    root_cause_facts: demoRootCauseFacts(top_contributors),
                 };
             });
             if (anomalies.length > 0) {
@@ -142,6 +143,7 @@ export async function GET(request: NextRequest) {
         // por la persistencia (MEJ-33).
         let enrichedAnomalies: (typeof rawAnomalies[number] & {
             top_contributors?: import("@/services/anomalyDetectionService").AnomalyContributor[];
+            root_cause_facts?: import("@/types/anomalyRootCause.types").RootCauseFact[];
             id?: number;
             status?: import("@/services/anomalyDetectionService").AnomalyStatus;
             assigned_to?: string | null;
@@ -211,16 +213,21 @@ export async function PATCH(request: NextRequest) {
 
         // El tenant va en el WHERE, no sólo en la validación de acceso: sin eso
         // un id de otro tenant sería editable con sólo conocer el número.
+        // `resolved_at` es la fecha de cierre: de ahí sale el MTTR del panel.
+        const closes = status === "Resolved" || status === "False Positive";
         const [result]: any = await pool.query(
             `UPDATE Anomalies
-                SET status = ?, status_changed_by = ?, status_changed_at = NOW()
+                SET status = ?, status_changed_by = ?, status_changed_at = NOW(),
+                    resolved_at = IF(?, NOW(), NULL)
               WHERE id = ? AND tenant_id = ?`,
-            [status, identity.email || "unknown", anomalyId, tenantId]
+            [status, identity.email || "unknown", closes, anomalyId, tenantId]
         );
 
         if (!result?.affectedRows) {
             return NextResponse.json({ error: "Anomalía no encontrada para este tenant." }, { status: 404 });
         }
+
+        await invalidateCache(liveAnomaliesCacheKey(tenantId));
 
         return NextResponse.json({
             success: true,

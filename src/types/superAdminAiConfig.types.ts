@@ -1,6 +1,7 @@
 /**
  * Tipos y contratos TypeScript para la Gobernanza y Configuración Global de IA (SuperAdmin).
  */
+import type { AiFeature } from "@/lib/aiFeatureGate";
 
 export type AnomalySensitivityLevel = "LOW" | "MEDIUM" | "HIGH" | "STRICT";
 
@@ -19,6 +20,8 @@ export interface PlatformGlobalAiSettings {
     defaultAnomalySensitivity: AnomalySensitivityLevel;
     defaultShareResourceNames: boolean;
     defaultShareTags: boolean;
+    /** Interruptor de cada feature del gate de IA (`aiFeatureGate.ts`), ya resuelto con su default. */
+    featureSwitches: Record<AiFeature, boolean>;
     updatedAtIso?: string;
 }
 
@@ -41,6 +44,8 @@ export interface SavePlatformAiPayload {
     defaultAnomalySensitivity: string;
     defaultShareResourceNames: boolean;
     defaultShareTags: boolean;
+    /** Sólo se guardan las features que vienen; las desconocidas se ignoran. */
+    featureSwitches?: Partial<Record<AiFeature, boolean>>;
 }
 
 export interface TestPlatformAiPayload {

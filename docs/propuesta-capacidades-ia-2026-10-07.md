@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Fecha** | 2026-10-07 |
-| **Estado** | Propuesta. **No implementada**: este documento no viene acompañado de cambios de código ni de infraestructura. |
+| **Estado** | **Implementada en parte** (rama `feat/ia-fase1-anomalias`, 2026-10-07 y 2026-10-08): gate único con interruptor por feature y telemetría (0.1 y 6.8), hardening de `tags/suggest` (0.4), subencargados (0.5; legal decide si exige el aviso de 30 días), hechos de causa raíz (1a), explicación de anomalías (1b), mapeo de CSV (6.4) y el reporte de la carga bajo el gate. Pendientes: Managed Identity y Terraform (0.2 y 0.3) y las fases 2 a 4. Qué se hizo y en qué se apartó de este documento: [sección 10](#10-implementación-qué-se-hizo-y-en-qué-se-apartó). |
 | **Base analizada** | `main` @ `057287c9` |
 | **Origen** | Propuesta generada con Gemini (texto completo en el [Anexo A](#anexo-a-texto-original-de-la-propuesta)), verificada contra el código, la IaC (Terraform) y la documentación oficial de Microsoft. |
 | **Alcance** | Viabilidad de los cuatro módulos propuestos y de la infraestructura asociada; plan de implementación por fases. |
@@ -36,6 +36,7 @@
 7. [Riesgos y mitigaciones](#7-riesgos-y-mitigaciones)
 8. [Decisiones abiertas](#8-decisiones-abiertas)
 9. [Referencias](#9-referencias)
+10. [Implementación: qué se hizo y en qué se apartó](#10-implementación-qué-se-hizo-y-en-qué-se-apartó)
 - [Anexo A. Texto original de la propuesta](#anexo-a-texto-original-de-la-propuesta)
 
 ---
@@ -107,9 +108,9 @@ Resumen; el texto completo está en el [Anexo A](#anexo-a-texto-original-de-la-p
 | Reportes ejecutivos asíncronos con IA | `ExecutiveReportJobs` | ✅ Existe |
 | Patrón "la IA redacta, el código decide": placeholders validados, fallback, caché de 24 h y medición | `src/services/advisorRemediationNarration.ts` | ✅ Plantilla a reutilizar |
 | Anomalías: Z-score con umbral 2,5, top 5 contribuyentes por resource group y servicio, dueño (MEJ-33) y notificación única | `src/services/anomalyDetectionService.ts` | ✅ Existe, sin causa raíz ni explicación |
-| Normalización de CSV a FOCUS con IA | `normalizeBillingCsv` (`aiProvider.ts`, ~L625) | ⚠️ Procesa sólo 50 filas |
+| Normalización de CSV a FOCUS con IA | `normalizeBillingCsv` (`aiProvider.ts`, ~L625) | ⚠️ Procesa sólo 50 filas (resuelto: ver [10](#10-implementación-qué-se-hizo-y-en-qué-se-apartó)) |
 | Auditoría de tags obligatorios | `src/services/azureTagGovernance.service.ts` | ⚠️ Sólo valida presencia; ignora `allowedValues` y las políticas por tenant |
-| Sugerencia de tags | `src/app/api/governance/tags/suggest/route.ts` | ⚠️ Heurística presentada como IA, con `confidence` fijo |
+| Sugerencia de tags | `src/app/api/governance/tags/suggest/route.ts` | ⚠️ Heurística presentada como IA, con `confidence` fijo (resuelto: ver [10](#10-implementación-qué-se-hizo-y-en-qué-se-apartó)) |
 | Soporte con SLA por plan y notas internas | `src/app/api/support/tickets/route.ts`, `src/lib/supportConfig.ts` | ✅ Existe, sin IA |
 | Recursos de IA en Terraform | `infra/terraform/` | ❌ No existen |
 | Uso interno de Document Intelligence | — | ❌ No existe. `azureDocumentIntelligence.service.ts` es el módulo FinOps que analiza el gasto en DI *de los clientes*. |
@@ -178,6 +179,8 @@ No hay uso interno de Document Intelligence.
    - Con los datos que recibe hoy, el modelo sólo conoce resource group, servicio y montos. No puede saber si la causa fue un recurso nuevo, más uso, un aumento de precio o la pérdida de cobertura de una reserva.
    - El ejemplo de Gemini menciona SKU, ausencia de apagado programado y Azure Hybrid Benefit. Nada de eso se le pasa, así que lo inventaría.
    - Hace falta un **drill-down determinista** (recurso, medidor, cantidad contra precio unitario, cobertura de compromisos) sobre columnas que `CostSnapshots` ya tiene: `ResourceId`, `MeterName`, `MeterCategory`, `Quantity`, `UnitOfMeasure`, `CommitmentDiscountId`, `EffectiveCost` y `ListCost`. El modelo sólo **redacta** sobre esos hechos.
+
+   > **Corrección (implementación).** Esta premisa es falsa. Las columnas existen en el esquema, pero ninguna ruta de ingesta las llena juntas. El sync por API escribe `CostSnapshots` agrupado por servicio y resource group: `MeterName` queda en NULL y `Quantity` suma medidores de unidades distintas. El ingestor de exports escribe `ResourceId` y `Tags`, pero no medidor ni cantidad. Ninguno escribe `CommitmentDiscountId`. El detalle por medidor vive en `CostMeterSnapshots` (servicio, medidor, región, costo y cantidad, sin resource group), y sólo lo escribe el sync por API. El drill-down se hizo a ese grano: ver [10.2](#102-1a-hechos-de-causa-raíz).
 2. **No generar en el cron.** En prod el cron corre cada 30 minutos (`1,31 * * * *` en `infra/terraform/environments/prod/cron-jobs.tfvars`). Generar ahí suma latencia, riesgo de timeout y costo por anomalías que nadie abre. Conviene generar **lazy**, la primera vez que alguien abre la anomalía, y cachear por anomalía, idioma y hash de los hechos.
 3. **Salida estructurada y validada.** Los delimitadores mitigan el prompt injection pero no lo eliminan: los nombres de recursos y los tags son texto que controla el cliente. La salida tiene que cumplir tres reglas:
    - Ser un objeto validado con zod, con validación de cifras e IDs.
@@ -783,6 +786,7 @@ CREATE TABLE IF NOT EXISTS TagValueAliases (
 - **PRs 1 a 8:** entre 36 y 41 días hábiles, unas **7 a 8 semanas** de un desarrollador.
 - **PR 9:** **3 a 4 semanas** más.
 - **PR 2** no bloquea el desarrollo de los demás, porque la configuración actual con key funciona. Sí es recomendable antes de habilitar funciones nuevas en prod con la IA de plataforma.
+- **Estado:** los PRs 3, 4 y 5 y el código del PR 1 están hechos; faltan los subprocesadores del PR 1 y los PRs 2 y 6 a 9 (ver [10](#10-implementación-qué-se-hizo-y-en-qué-se-apartó)).
 
 | Semana | Trabajo | Notas |
 |---|---|---|
@@ -841,6 +845,7 @@ Con el deployment por defecto actual (`gpt-5.1`), el costo por llamada sería va
 1. **Modelo y tipo de deployment.** ¿Global Standard (más barato y con más modelos), Data Zone Standard US o Standard regional, según los compromisos de residencia? ¿Qué modelos "mini" hay disponibles en `westus2` con ese tipo?
 2. **Región de la cuenta de IA.** ¿`westus2`, como el resto (Private Endpoint local), u otra región con más capacidad o modelos?
 3. **Tier de la explicación de anomalías.** Recomendación: hechos deterministas para todos los tiers y narración desde Professional, sin límite para BYOK, como el Copilot. Falta definir si la cuota es propia o compartida con el Copilot.
+   - **Decidido en la implementación:** cuota propia por feature, con los mismos números del Copilot (ver [10.1](#101-gate-único-01)).
 4. **Migración a Managed Identity.** ¿Se desactivan las keys (`local_auth_enabled = false`) en el mismo PR o en un segundo paso, después de validar en prod? Recomendación: dos pasos.
 5. **Subprocesadores.** ¿Legal considera que explicitar la inferencia en Azure es un cambio que requiere el aviso de 30 días?
 6. **Opt-out.** ¿Alcanza con `Tenants.ai_enabled` o hace falta un opt-out por feature?
@@ -857,8 +862,13 @@ Con el deployment por defecto actual (`gpt-5.1`), el costo por llamada sería va
 ### Código e infraestructura del repo
 
 - **Capa de IA:**
-  - [`src/modules/core/aiProvider.ts`](../src/modules/core/aiProvider.ts): capa de IA, DLP, `resolveAzureAiModel` y `normalizeBillingCsv`.
+  - [`src/modules/core/aiProvider.ts`](../src/modules/core/aiProvider.ts): capa de IA, DLP y `resolveAzureAiModel`.
   - [`src/services/aiService.ts`](../src/services/aiService.ts): `getAIConfig` e `isAiGloballyEnabled`.
+- **Implementación (sección 10):**
+  - [`src/lib/aiFeatureGate.ts`](../src/lib/aiFeatureGate.ts): gate único.
+  - [`src/services/anomalyRootCause.service.ts`](../src/services/anomalyRootCause.service.ts) y [`src/types/anomalyRootCause.types.ts`](../src/types/anomalyRootCause.types.ts): hechos de causa raíz.
+  - [`src/services/anomalyExplanation.service.ts`](../src/services/anomalyExplanation.service.ts) y [`src/app/api/intelligence/anomalies/[id]/explanation/route.ts`](../src/app/api/intelligence/anomalies/[id]/explanation/route.ts): explicación con IA.
+  - [`src/services/billingCsvMapping.service.ts`](../src/services/billingCsvMapping.service.ts): mapeo de CSV.
 - **Patrón a reutilizar:** [`src/services/advisorRemediationNarration.ts`](../src/services/advisorRemediationNarration.ts) y [`__tests__/unit/advisorRemediationNarration.test.ts`](../__tests__/unit/advisorRemediationNarration.test.ts), el patrón y el estilo de test.
 - **Copilot:** [`src/app/api/intelligence/copilot/route.ts`](../src/app/api/intelligence/copilot/route.ts) y [`src/lib/copilotConfig.ts`](../src/lib/copilotConfig.ts), el gate y las cuotas.
 - **Anomalías:** [`src/services/anomalyDetectionService.ts`](../src/services/anomalyDetectionService.ts), [`src/components/dashboard/AnomalyDashboard.tsx`](../src/components/dashboard/AnomalyDashboard.tsx) y [`src/app/api/intelligence/anomalies/route.ts`](../src/app/api/intelligence/anomalies/route.ts).
@@ -881,6 +891,133 @@ Con el deployment por defecto actual (`gpt-5.1`), el costo por llamada sería va
 - [Modelo prebuilt de contratos de Document Intelligence](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/prebuilt/contract)
 - [NER en Azure AI Language](https://learn.microsoft.com/en-us/azure/ai-services/language-service/named-entity-recognition/overview)
 - [Proveedor Azure del AI SDK (`tokenProvider`)](https://ai-sdk.dev/providers/ai-sdk-providers/azure)
+
+---
+
+## 10. Implementación: qué se hizo y en qué se apartó
+
+Rama `feat/ia-fase1-anomalias`, sobre `main` @ `ac55fe5`, con un commit por pieza. El detalle técnico está en el [LLD §40](lld/00-lld-completo.md) y el de arquitectura en el [HLD §19](hld/00-hld-completo.md).
+
+| Commit | Pieza | Sección | PR del plan |
+|---|---|---|---|
+| `41dbe9e` | Hardening de `tags/suggest` | 0.4 | 1 (parte) |
+| `b11beda` | Hechos de causa raíz | 1a | 3 |
+| `c98e3ea` | Gate único y explicación con IA | 0.1 y 1b | 1 (parte) y 4 |
+| `7ebbb71` | Mapeo de CSV por columnas | 6.4 | 5 |
+| `16276bc` | Hechos y explicación en el panel que se ve | 1a y 1b | 3 y 4 |
+| `37009a1` | Interruptor por feature | 0.1 | 1 (parte) |
+| `331f936` | La explicación pide Enterprise, como la pantalla | 1b | 4 |
+| `e1b963b` | Telemetría por feature | 6.8 | 1 (parte) |
+| `9da7e97` | Triaje de anomalías unificado | — (MEJ-42) | — |
+| `8390af8` | La carga de CSV valida el plan en el servidor | — (MEJ-42) | — |
+| `7200145` | El reporte de la carga pasa por el gate | — (MEJ-42) | — |
+| `cf440f9` | Detalle por medidor desde los exports | 1a (MEJ-42) | — |
+| `24fa317` | Subencargados | 0.5 | 1 (parte) |
+
+Las secciones 0.1, 0.4, 0.5, 1a, 1b, 6.4 y 6.8 conservan el diseño original. Donde difieren de lo construido, manda esta sección.
+
+### 10.1 Gate único (0.1)
+
+- **Firma real:** `checkAiFeature(tenantId, feature, userKey)`.
+  - No recibe la request: la ruta ya validó el acceso con `requireTenantAccess`, y el gate sólo decide si se puede gastar IA. `userKey` arma la clave del rate limit.
+  - No existe `checkAiFeatureForTenant`, porque todavía no hay jobs que lo necesiten.
+- **Orden de los controles:** kill switch global, interruptor de la feature, `Tenants.ai_enabled` (un tenant sin fila también se niega), tier, rate limit por minuto y cuota mensual.
+- **Interruptor por feature:** el superadmin apaga una función puntual para todos los tenants desde Configuración de IA Global → "Funciones de IA". Se guarda en `GlobalSettings` como `ai_feature:<feature>`; sin valor guardado manda `defaultEnabled` de `AI_FEATURES`, para que las features con precondiciones de negocio (6.9) arranquen apagadas. Niega con `feature_disabled`.
+- **Tier:** sale de la fila de `Tenants`. No hay pase para SuperAdmin ni add-ons, porque ninguna de estas funciones tiene add-on.
+- **Cuotas:** las mismas del Copilot (Professional 50, Business 150, Enterprise sin límite), contadas **por feature** en `PlatformAiUsage` con `source = 'platform'` y por mes calendario UTC. BYOK no consume cuota.
+- **Features:** tres, y las demás se agregan con su fase.
+  - `anomaly-explanation`: Enterprise, como la pantalla y el pricing (`331f936`); 10 por minuto, 600 tokens de salida.
+  - `billing-csv-column-mapping`: Business, 5 por minuto, 800 tokens de salida.
+  - `billing-upload-assessment`: el reporte que sigue a la carga de CSV (10.5). Business, 5 por minuto, 4000 tokens de salida, encendida por defecto porque ya corría en cada carga.
+- **Telemetría (6.8):** líneas JSON `evt=ai_feature` en stdout, que llegan a Log Analytics (`ContainerAppConsoleLogs_CL`). Se registra la decisión del gate, la latencia y el error de la llamada al modelo (`timeAiCall`) y cada salida descartada por la validación. No son spans: la app no tiene exporter de OpenTelemetry, y si se suma cambia sólo `aiTelemetry.ts`.
+- **El Copilot conserva su gate.** Migrarlo debilitaría lo que ya tiene:
+  - Atiende el demo público, cuyos tenants no tienen fila en `Tenants`; el gate los niega.
+  - Cuenta el cupo en `CopilotUsage` **antes** de llamar al modelo, o sea por intento. El gate cuenta en `PlatformAiUsage`, que se escribe al terminar la respuesta: un stream cortado a mitad de camino no consumiría cupo.
+  - Pasar a contar en otra tabla reinicia el cupo del mes en curso, y el cliente depende de `aiDisabled` y `quotaExceeded`.
+  - El interruptor global ya lo apaga.
+
+### 10.2 1a: hechos de causa raíz
+
+- **Grano: servicio y medidor**, desde `CostMeterSnapshots` (ver la corrección en [4.2](#42-copilot-finops-y-explicación-de-anomalías)).
+  - Para cada contribuyente se miran los medidores de su servicio, sumando regiones y resource groups, porque la tabla no tiene resource group. La UI lo aclara.
+  - Desde `cf440f9` la ingesta de exports también escribe `CostMeterSnapshots`, con la misma clave y el mismo upsert que el sync por API. Lee el medidor (`SkuMeter` o `x_SkuMeterName` en FOCUS, `MeterName` en legacy), la cantidad, la unidad, la categoría y la región. Un export sin columna de medidor no escribe detalle y sus anomalías reciben `INSUFFICIENT_DETAIL`.
+- **Tipos de hecho:**
+  - `NEW_METER`: el medidor no tuvo costo en la ventana base.
+  - `USAGE_INCREASE` y `PRICE_INCREASE`: se elige con la descomposición precio-volumen `delta = (q1 − q0)·u0 + q1·(u1 − u0)`, y gana el efecto mayor.
+  - `COST_INCREASE`: el costo subió, pero no hay cantidades para separar precio de volumen.
+  - `INSUFFICIENT_DETAIL`: no hay detalle de medidores para ese contribuyente.
+  - Se descartaron `NEW_RESOURCE` (el sync no trae recurso), `COMMITMENT_COVERAGE_LOSS` (ninguna ruta escribe `CommitmentDiscountId`) y `METER_CHANGE` (lo cubre `NEW_METER`).
+- **Ventana base:** 30 días (`ROOT_CAUSE_BASELINE_DAYS`). El promedio diario se calcula sobre los días **con dato**; si no hay ninguno, el hecho es `INSUFFICIENT_DETAIL`.
+- **Topes:** 3 contribuyentes y 3 medidores por servicio. Se descartan los deltas menores a medio centavo.
+- **Forma:** `{ id, type, serviceName, resourceGroup?, meterName?, baseline, actual, delta, costChangePct?, quantityChangePct?, unitCostChangePct? }`.
+  - No hay `deltaPctOfTotal`.
+  - Los porcentajes vienen calculados, para que ni la UI ni el modelo hagan cuentas.
+- **Persistencia:** columna `Anomalies.root_cause_facts JSON` (migración `20261007-001`). Se calcula en `persistAndNotifyAnomalies` y, si falla, la anomalía se guarda igual sin hechos. Las anomalías anteriores quedan en NULL.
+- **Acciones deterministas.** Las calcula el código a partir de los hechos (`suggestedActions`), no el modelo:
+  - `NEW_METER`: revisar el consumo nuevo.
+  - `USAGE_INCREASE`: revisar horarios.
+  - `PRICE_INCREASE`: revisar la cobertura de compromisos, que es la mejor señal disponible sin `CommitmentDiscountId`.
+  - Sin responsable: asignar uno.
+- **UI:** los bloques "Qué cambió" y "Qué revisar", sin IA, en el panel **Ver Causa Raíz** de `AnomalyDetectionPanel`, debajo del desglose por servicio.
+  - La propuesta decía `AnomalyDashboard.tsx`, pero ninguna página lo renderiza desde `9d6b323`. Los bloques quedaron montados ahí, sin verse, hasta `16276bc`.
+  - Los lee `GET /api/analytics/anomalies`, que es la ruta de esa pantalla.
+  - La página de anomalías es Enterprise (`routeTiers`): el cron calcula los hechos desde Professional, pero hoy sólo Enterprise los ve.
+- La línea "Principal causa" del aviso no cambió.
+
+### 10.3 1b: explicación con IA
+
+- **Endpoints:** `GET /api/intelligence/anomalies/[id]/explanation`. El feedback va por `POST` a la **misma** ruta, no a `/feedback`, y sólo se puede votar una explicación con `source = 'ai'`.
+- **Esquema de salida:** `{ summary, causes: [{ factId, text }] }`, sin `suggestedActions`, porque las acciones ya las decide el código (10.2).
+- **El modelo no ve montos.** Recibe porcentajes, z-score, fecha y nombres.
+  - La pantalla convierte la moneda, así que una cifra en USD dentro del texto la contradiría.
+  - El validador rechaza cualquier símbolo o código de moneda.
+- **Validadores:** vacío, largo, `factId` desconocido, link, moneda y número. Todo número del texto tiene que coincidir con un valor permitido, con una tolerancia de ±0,51 o del 1 %, la que sea mayor.
+- **No hay plantilla en texto.** Si la salida no valida, la UI muestra los hechos de 1a.
+  - Se guarda una fila con `source = 'template'` y el motivo, para no pagar dos veces por los mismos hechos.
+  - Un error de generación devuelve `error` y no se guarda.
+- **Caché:** tabla `AnomalyExplanations` por anomalía, idioma y hash (migración `20261007-002`).
+  - El hash cubre `PROMPT_VERSION` y el contexto **ya redactado** por DLP, es decir, lo que ve el modelo.
+  - Se consulta después del gate: si se apaga la IA, deja de mostrarse también lo generado antes.
+- **La tabla no tiene `tenant_id`.** El tenant se alcanza por `Anomalies`, que es desde donde cascadea el borrado.
+- **Modo demo:** devuelve `aiAvailable: false` con motivo `demo`. Nunca muestra un texto fijo como si fuera de la IA.
+- **UI:** botón "Explicar con IA" (carga lazy), etiqueta "Generado con IA · verificá los datos" y botones de feedback, en el mismo panel y sólo si hay hechos.
+  - El gate pide Enterprise, igual que la página (`331f936`). Abrirla a más planes es cambiar `routeTiers` y el `minTier` de la feature, y es una decisión de producto.
+
+### 10.4 Mapeo de CSV por columnas (6.4)
+
+- **Como se propuso:** encabezados y 20 filas redactadas, luego `{ provider, mappings: [{ sourceColumn, focusField }], dateFormat }`, después la validación y por último la aplicación a **todas** las filas.
+- **Sin `transform`, `negate`, `currency` ni vista previa (YAGNI).**
+  - Los montos y las fechas los interpreta el código.
+  - El separador decimal se detecta por archivo.
+  - Una fecha ambigua o ilegible queda vacía, en lugar de adivinarse.
+- **Caché en `AiCache`:** la clave `csv-mapping:v1:{tenantId}:{encabezados ordenados}` se guarda hasheada, porque `hash_prompt` es `VARCHAR(64)`.
+  - Se consulta **antes** del gate: reutilizar un mapeo no envía datos ni consume cuota.
+  - Si guardar el mapeo falla, el archivo se procesa igual.
+- **Errores:** mapeo inválido devuelve 422; cuota o rate limit, 429; el resto de los rechazos del gate, 403. El cuerpo es `{ error, reason }` y la página muestra el motivo traducido.
+- **Tier:** Business, igual que la página de upload.
+- **Se reemplazó** `normalizeBillingCsv` de `aiProvider.ts`, que enviaba sólo 50 filas y dejaba que el modelo reescribiera los montos.
+
+### 10.5 Correcciones de lo encontrado de paso (MEJ-42)
+
+- **Triaje (`9da7e97`).** El panel que se ve mandaba su propio vocabulario (`Open`, `Postponed`, `Dismissed`, `Completed`) a una columna `ENUM('New','Investigating','Resolved','False Positive')`. Con `sql_mode` estricto esas escrituras fallaban siempre y el error se tragaba, así que no hubo datos que migrar.
+  - Queda un solo endpoint, `PATCH /api/intelligence/anomalies` (Admin, Owner o Colaborador), y un solo vocabulario, `ANOMALY_STATES`: Nueva, En investigación, Resuelta y Falso positivo.
+  - El PATCH fija `resolved_at` al cerrar y lo borra al reabrir. El panel muestra el responsable y oculta el triaje al Reader.
+- **Plan de la carga (`8390af8`).** `/api/intelligence/upload` exige Business en el servidor con `assertTenantTier`. No usa `requireTenantTier` entero porque su corte por alcance (MEJ-38) les cerraría la carga a los usuarios acotados.
+- **Reporte de la carga (`7200145`).** `getAssessment` pasa por el gate como `billing-upload-assessment`.
+  - Si el gate niega, la carga no falla: devuelve el resumen por servicio y categoría calculado sin IA, con el motivo traducido.
+  - El reporte sale en el idioma de la UI y rotula la moneda del archivo (`BillingCurrency` o `billingCurrencyCode`); si el archivo no la indica, no la inventa. Idioma y moneda van en la clave de caché.
+  - `/api/intelligence/assessment` respeta el interruptor global y el del tenant.
+- **Medidores desde los exports (`cf440f9`):** ver 10.2.
+- **Subencargados (0.5, `24fa317`).** La lista y el whitepaper declaran que la inferencia de IA de la plataforma corre en Azure (Azure OpenAI y Azure AI services). Gemini sigue como opcional.
+  - Los textos de Cloudflare, región, Redis y perímetro, que estaban editados a mano en los `.md` y se perdían al regenerar, ahora salen de `messages` y se ven también en `/legal/subprocessors` y `/legal/security`.
+  - Falta que legal decida si la aclaración exige el aviso de 30 días (decisión abierta 5 de la sección 8). El borrador de [`aviso-cambio-subencargado-2026.md`](aviso-cambio-subencargado-2026.md) cubre sólo el cambio de ubicación.
+
+### 10.6 Pendiente
+
+- **PR 2:** Managed Identity y módulo Terraform `ai_services`. La IA de plataforma sigue con key.
+- **0.5:** la decisión de legal sobre el aviso de 30 días a clientes. Si lo exige, va antes de habilitar las funciones a clientes.
+- **PRs 6 a 9:** fases 2 (tags), 3 (soporte) y 4 (Document Intelligence).
+- Lo encontrado de paso y no corregido está en MEJ-42 ([`MEJORAS-FUTURAS.md`](MEJORAS-FUTURAS.md)): el servicio y la suscripción de los exports FOCUS, y `getAssessment` sin plan ni cupo en `ai-report`, `assessment` y `executive-report`.
 
 ---
 

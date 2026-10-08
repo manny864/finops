@@ -28,6 +28,7 @@ Todo lo que cambió para el usuario de un tenant está en el **Manual de Usuario
 - **Consumo de plataforma (22):** tokens de IA que absorbe la casa y llamadas a las APIs de Azure, con el porcentaje de throttling por servicio y por tenant.
 - **Embudo de registro (21), Unidades de precio (23), Prueba de carga (24) e IA — Configuración global (25):** documentados por primera vez en este manual.
 - **Anomalías con responsable y seguimiento (18) y suscripciones fuera del tope de un plan (19):** lo que ve el cliente y cómo explicárselo.
+- **Anomalías que dicen qué cambió, explicación con IA y mapeo de CSV con IA (5.1.7, 18.4, 22.1 y 25):** lo que ve el cliente, el cupo mensual de cada función y qué interruptores la apagan. Ahora cada función de IA tiene su propio interruptor (25); la explicación de anomalías pide Enterprise; el reporte de la carga de CSV muestra un resumen sin IA cuando la IA no está disponible, y los exports también traen el detalle por medidor (18.4).
 - **Enlaces que salen de la plataforma:** el enlace del panel del partner y el resto de los enlaces que mandamos por correo usan la URL pública configurada (`NEXT_PUBLIC_APP_URL`), no el host con el que entró quien los pidió.
 - **Avisos de vencimiento de reservas (MEJ-16):** un cron diario nuevo, `reservation-expiry-alerts` (09:03 UTC), avisa a cada tenant a los 90, 60 y 30 días del vencimiento de sus reservas, por la campanita y por sus canales de notificación (5.4.4). Lo que ya avisó queda anotado en `ReservationExpiryNotices`, así que no se repite. Corre desde el 06/10, después del `terraform apply` del 05/10.
 - **Lo que era sólo por API ya tiene pantalla:** alcance por usuario (8.2), vistas compartidas y predeterminadas (3.4), clasificación COGS/OpEx (5.2), arrastre de presupuesto y año fiscal (5.1.5), y la política del puntaje de madurez (MEJ-08, 4.4). Shift-Left tiene entrada en el menú, y un usuario acotado ve los hubs que le corresponden en vez de sólo el Whiteboard.
@@ -436,6 +437,15 @@ Hay una tarjeta resumen de esto mismo en el Dashboard con el link **"Ver detalle
 
 Importación manual o programada de archivos de costos bajo el estándar **FOCUS** y de exports de Azure: subís el CSV de facturación de terceros y lo analizás junto a tus datos de Azure.
 
+Si el archivo ya está en formato FOCUS, se carga directo. Si no, la IA mira los encabezados y una muestra de 20 filas, con los datos sensibles ocultos, y decide qué columna es el costo, el servicio, la fecha, etc. Después la plataforma aplica ese mapeo a **todas** las filas:
+
+- **Los montos y las fechas los lee la plataforma, nunca la IA.** Una fecha que no se puede leer sin adivinar queda vacía.
+- **El mapeo se recuerda.** Si volvés a subir un archivo con las mismas columnas, no se usa la IA ni se consume cupo.
+- **Cupo mensual de la organización:** 150 formatos nuevos en Business. Es ilimitado en Enterprise o con tu propia clave de IA (BYOK).
+- **Si la IA no está disponible** (desactivada, sin cupo o con demasiados pedidos seguidos), el archivo no se carga y la pantalla te dice por qué. Subirlo en formato FOCUS evita la IA.
+
+**El reporte con IA.** Después de leer el archivo, la IA redacta un reporte en el idioma de la pantalla y en la moneda que indica el archivo; si el archivo no la indica, el reporte no la supone. Tiene su propio cupo mensual: 150 reportes en Business, sin límite en Enterprise o con BYOK. Si la IA está desactivada, sin cupo o con demasiados pedidos seguidos, en lugar del reporte ves el **Resumen del archivo**: el costo por servicio y categoría que calcula la plataforma, con el motivo.
+
 ### 5.2. Leaderboard de equipos (`/intelligence/leaderboard`, Enterprise)
 
 **Quién mejoró, no quién gasta menos.** El tablero compara los **grupos de una Perspective** (3.3 y 5.3) y los ordena por mejora, que es el comportamiento que se busca premiar: un ranking por gasto absoluto castigaría al equipo que corre producción y premiaría al chico.
@@ -720,7 +730,7 @@ Gestión de almacenamiento, costos devengados y cumplimiento legal de copias de 
 
 ### 7.1. Gobernanza de Etiquetas — Azure Tag Governance Engine (`/governance/tags`, Professional+)
 
-Panel integral de auditoría, inferencia inteligente y propagación de metadatos corporativos en Azure.
+Panel integral de auditoría, sugerencia y propagación de metadatos corporativos en Azure.
 
 **Capacidades principales:**
 - **Auditoría Dual de Cumplimiento:** Dos vistas especializadas para auditar tanto **Recursos Individuales** como **Grupos de Recursos (Resource Groups)**.
@@ -729,7 +739,7 @@ Panel integral de auditoría, inferencia inteligente y propagación de metadatos
   - `Role` (Función o rol arquitectónico del recurso)
   - `CostCenter` (Centro de costos contable)
   - `Department` (Área o unidad de negocio responsable)
-- **Inferencia Inteligente con IA (1-clic):** Motor que analiza la tipología, el nombre del recurso y el contexto de la suscripción para sugerir etiquetas faltantes automáticamente. Al presionar el botón "IA Sugerir", las recomendaciones se completan al instante en modo borrador.
+- **Sugerencia por convención de nombres (1-clic):** El botón **Sugerir por convención de nombres** completa las etiquetas faltantes del formulario de edición a partir del nombre del recurso, su grupo de recursos y su tipo. Por ejemplo, `dev` en el nombre sugiere `Environment = dev`. Es una regla fija, no IA: revisá la propuesta, que no se aplica hasta que guardes.
 - **Herencia Masiva desde RG (Merge Seguro):** Con el botón "Heredar de RG", los recursos hijos adoptan los tags presentes en su Grupo de Recursos contenedor sin sobreescribir ni borrar los tags existentes.
 - **Edición y Caché Optimista:** Modificación en línea de tags individuales con persistencia inmediata en caché local y sincronización asíncrona hacia Azure Resource Manager.
 - **Estándar CMP y Personalización:** Tablas con redimensionamiento dinámico de columnas (`col-resize`, 100px - 600px), selector desplegable de visibilidad de columnas en `z-[100]` y persistencia automática por tenant en `localStorage`.
@@ -1952,9 +1962,52 @@ Ese último estado no es lo mismo que "descartada": nos sirve como devolución p
 
 Los cambios los ve todo tu equipo, así que dos personas no trabajan sobre lo mismo sin saberlo.
 
+El estado se cambia en **Analítica Avanzada → Detección de Anomalías** (Enterprise, 5.14), con los botones de cada tarjeta: **Investigar** en una Nueva, **Marcar Resuelta** o **Falso positivo** mientras está abierta, y **Reabrir** cuando ya se cerró. Los usan Owner, Admin y Colaborador; el Reader ve el estado y el responsable, sin los botones. Si el cambio no se puede guardar, la tarjeta vuelve al estado anterior y la pantalla lo avisa.
+
+Los indicadores del panel salen de esos estados:
+
+- **Anomalías Abiertas:** las Nuevas y las que están En investigación.
+- **Impacto Sin Resolver:** lo que las abiertas gastaron por encima de lo esperado.
+- **Resueltas** y **Tiempo Medio de Acción:** sólo las Resueltas. El tiempo va de la detección al cierre; los falsos positivos no cuentan, porque al cerrarlos no se corrigió ningún gasto.
+
 ### 18.3 El aviso
 
 Si la anomalía tiene responsable, la notificación **le llega a esa persona**. Si no lo tiene, le llega a todo el equipo — un desvío sin dueño igual tiene que verlo alguien.
+
+### 18.4 Qué cambió, y la explicación con IA
+
+En **Analítica Avanzada → Detección de Anomalías** (Enterprise, 5.14), el botón **Ver Causa Raíz** de cada anomalía abre el panel lateral. Debajo del desglose por servicio, el bloque **Qué cambió** muestra qué se movió dentro del servicio que la empujó. Compara el día contra el promedio de los 30 días anteriores:
+
+| Hecho | Qué significa |
+|---|---|
+| **Medidor nuevo** | Algo que en los últimos 30 días no costaba nada |
+| **Más consumo** | El aumento se explica sobre todo porque se usó más |
+| **Costo unitario más alto** | El aumento se explica sobre todo porque cada unidad salió más cara, por ejemplo porque dejó de cubrirla una reserva |
+| **Más costo** | Subió el costo, pero no hay cantidades para saber si fue por consumo o por precio |
+| **Sin detalle por medidor** | No hay detalle de ese servicio: la plataforma lo dice en lugar de adivinar |
+
+El detalle es a nivel servicio: suma todas las regiones y grupos de recursos. Llega con la sincronización por API y con los exports de costos que traen la columna del medidor (`MeterName`, o `SkuMeter` / `x_SkuMeterName` en FOCUS). Si el tenant carga los costos con un export sin esa columna, va a ver **Sin detalle por medidor**.
+
+Debajo, **Qué revisar** lista los próximos pasos. Salen de los hechos, no de la IA:
+
+- Confirmar que un medidor nuevo sea un uso esperado.
+- Ver si se puede apagar fuera de horario.
+- Revisar la cobertura de reservas y savings plans.
+- Asignar un responsable, si la anomalía no lo tiene.
+
+Los hechos y los pasos no usan IA: se ven aunque la IA esté apagada.
+
+**Explicar con IA.** El botón **Explicar con IA** le pide a la IA que cuente lo mismo en palabras. La IA sólo puede usar los hechos de arriba:
+
+- No ve montos, y no puede nombrar una causa que no esté en la lista.
+- Si escribe un número que no está en los hechos, la explicación se descarta y quedan los hechos.
+- Por eso lleva la etiqueta **Generado con IA · verificá los datos**.
+
+Con **Me sirvió** o **No me sirvió**, el cliente nos dice si la explicación le resultó útil.
+
+En Enterprise las explicaciones no tienen cupo mensual. Si no está disponible (IA desactivada o en la demo), la pantalla le dice al cliente por qué.
+
+> **Para el soporte:** cada explicación generada figura en **Consumo de Plataforma** (22.1) como la función `anomaly-explanation`. La apagan el interruptor maestro, el de la función (ambos en 25) o el interruptor de IA del propio tenant; los hechos y los pasos se siguen viendo. Pide Enterprise, igual que la pantalla, y no tiene cupo mensual.
 
 ---
 
@@ -2114,6 +2167,18 @@ El detalle se ve **por tenant** (llamadas, tokens de entrada y de salida) y **po
 
 Si el costo se dispara por un incidente con el proveedor, el **interruptor maestro** de IA (25) apaga la IA para todos los tenants.
 
+**Cupo mensual por función.** Cada función de IA tiene su propio cupo por tenant y por mes calendario (UTC). Cuenta las llamadas de esa función con `source = platform`: 50 en Professional y 150 en Business. Enterprise y los tenants con BYOK no tienen cupo, aunque cada usuario sigue teniendo un límite de pedidos por minuto. Al agotarse el cupo, el cliente ve el motivo en pantalla y la función vuelve el día 1.
+
+| Función | Desde | Sin IA |
+|---|---|---|
+| `billing-csv-column-mapping`, mapeo de columnas de CSV (5.1.7) | Business | El CSV que no es FOCUS no se carga |
+| `billing-upload-assessment`, reporte de la carga de CSV (5.1.7) | Business | Se muestra el resumen por servicio que calcula la plataforma |
+| `anomaly-explanation`, explicación de anomalías (18.4) | Enterprise, sin cupo | Se ven los hechos y los pasos, sin el texto de la IA |
+
+Hoy ninguna función arranca en Professional, así que ese cupo no se usa.
+
+**Telemetría.** Cada pedido a una función de IA deja una línea JSON `evt: "ai_feature"` en los logs de la aplicación (Log Analytics, tabla `ContainerAppConsoleLogs_CL`), con la función, la etapa (`gate`, `model` u `output`), el resultado y, en la llamada al modelo, la latencia. Sirve para ver por qué se niega una función, cuánto tarda el proveedor o cuántas respuestas se descartan por no cumplir el formato.
+
 ### 22.2 Llamadas a APIs de Azure
 
 Cuenta las llamadas en el limitador por el que pasan todas las consultas a Azure. **El porcentaje de throttling es el número accionable**: unos 429 sueltos no dicen nada sin saber sobre cuántas llamadas fueron. La tabla trae, por servicio, las llamadas, las **frenadas (429)**, el **% frenado** y el **tiempo esperando**.
@@ -2159,9 +2224,10 @@ El **historial** conserva las corridas anteriores para comparar antes y después
 
 **Ruta:** `/superadmin/ai-global-config` · **Menú:** Administración → IA — Configuración Global
 
-El proveedor y la key de IA que se usan **de respaldo** para cualquier tenant que no configuró la suya propia (BYOK por tenant, en *Configuración → IA*). Alimenta al **FinOps Copilot** y a los **reportes ejecutivos con IA**. Sólo la ve el SuperAdmin.
+El proveedor y la key de IA que se usan **de respaldo** para cualquier tenant que no configuró la suya propia (BYOK por tenant, en *Configuración → IA*). Alimenta al **FinOps Copilot**, a los **reportes ejecutivos con IA**, a la **explicación de anomalías** (18.4) y al **mapeo de columnas** y el **reporte** de la carga de CSV (5.1.7). Sólo la ve el SuperAdmin.
 
 - **Interruptor maestro** *«Habilitar funciones de IA (plataforma)»*: si se apaga, la IA queda inhabilitada para **todos** los tenants, sin importar su propio interruptor. Está pensado para incidentes con el proveedor o costos fuera de control.
+- **Funciones de IA (interruptor por función):** apaga una sola función para todos los tenants sin tocar el resto: la explicación de anomalías, el mapeo de columnas de CSV o el análisis con IA de la carga de CSV. Las tres arrancan encendidas. El interruptor maestro tiene prioridad. Con una función apagada, la pantalla sigue con la versión sin IA y le muestra el motivo al cliente. El Copilot y los reportes ejecutivos no tienen interruptor propio: los apagan el maestro o el del tenant.
 - **Proveedor:** Google Gemini (Flash, gratis en free tier), OpenAI (GPT-4o), **Azure IA** (Azure OpenAI), Anthropic (Claude) o DeepSeek. La configuración está **separada por plan**: *Planes no Enterprise* (el respaldo para Professional y Business) y *Planes Enterprise* (el proveedor exclusivo de ese plan). Con Azure IA hace falta la **API Key**, el **Endpoint URL** y el **Deployment** (modelo).
 - **API Key:** se guarda **cifrada**. **Probar conexión** hace una llamada real al proveedor guardado. **Eliminar API Key** deja **sin IA** a los tenants que no tienen la suya hasta que cargues una nueva.
 - **Valores por defecto para tenants nuevos:** la **sensibilidad de detección de anomalías** (*Baja*, *Media*, *Alta* o *Estricta*, con Z-score 1.0) y **qué datos se comparten** con el proveedor (nombres de recursos y grupos de recursos, y etiquetas). Se asignan al dar de alta a cada tenant; después cada tenant los ajusta en su propia configuración de IA.

@@ -441,6 +441,56 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-10-07/08 — IA fase 1: la anomalía dice qué cambió, y la IA sólo lo redacta
+
+Detalle técnico en `docs/lld/00-lld-completo.md` §40, arquitectónico en
+`docs/hld/00-hld-completo.md` §19. Lo construido y en qué se apartó de la
+propuesta, en `docs/propuesta-capacidades-ia-2026-10-07.md` §10. Lo encontrado
+de paso, en MEJ-42 (`docs/MEJORAS-FUTURAS.md`).
+
+- **Cada anomalía dice qué cambió dentro del servicio.** El código compara el
+  día contra los 30 anteriores, medidor por medidor, y clasifica: medidor nuevo,
+  más consumo, costo unitario más alto o más costo sin cantidades. Lo muestra sin
+  IA en "Qué cambió" y "Qué revisar", dentro del panel **Ver Causa Raíz** de
+  Detección de Anomalías, que es Enterprise. El detalle sale de
+  `CostMeterSnapshots`, que escriben el sync por API y la ingesta de exports con
+  columna de medidor (`MeterName`; `SkuMeter` o `x_SkuMeterName` en FOCUS).
+- **"Explicar con IA".** El modelo redacta sobre esos hechos, a pedido. Cita
+  cada hecho por id, no ve montos y todo número del texto tiene que estar en los
+  hechos; si no valida, no se muestra. Se guarda por anomalía, idioma y hash en
+  `AnomalyExplanations`, con feedback. Es Enterprise, en el gate y en la pantalla.
+- **Gate único de IA (`checkAiFeature`).** Kill switch global, interruptor por
+  feature (Superadmin → IA — Configuración Global; `GlobalSettings` `ai_feature:<id>`),
+  `Tenants.ai_enabled`, tier, rate limit y cuota mensual por feature
+  (Professional 50, Business 150; Enterprise y BYOK sin límite). Cada decisión y
+  cada llamada al modelo dejan una línea `evt: "ai_feature"` en los logs del
+  contenedor (`ContainerAppConsoleLogs_CL`). El Copilot conserva su control: atiende
+  la demo pública, cuyos tenants no tienen fila en `Tenants`.
+- **CSV que no es FOCUS: la IA mapea columnas y el código convierte todas las
+  filas.** Antes el modelo procesaba las primeras 50 filas y reescribía los
+  montos, sin aviso. El mapeo se cachea por tenant y encabezados. Si la IA no
+  está disponible, el upload responde 403, 422 o 429 con el motivo.
+- **El reporte de la carga pasa por el gate.** Es la feature
+  `billing-upload-assessment` (Business, cuota propia). Sale en el idioma de la
+  UI y en la moneda del archivo, sin inventarla si el archivo no la trae. Sin IA,
+  la carga muestra el resumen por servicio y categoría calculado sin IA, con el
+  motivo. `/api/intelligence/upload` exige Business en el servidor.
+- **El triaje de anomalías se guarda.** El panel mandaba estados que la columna
+  no acepta y el error se tragaba. Ahora usa los de la base (Nueva, En
+  investigación, Resuelta, Falso positivo) contra `PATCH /api/intelligence/anomalies`
+  (Owner, Admin o Colaborador; el Reader no ve los botones). El MTTR y
+  "Resueltas" no cuentan los falsos positivos.
+- **La sugerencia de etiquetas ya no se presenta como IA.** Es una heurística
+  por convención de nombres: el botón dice "Sugerir por convención de nombres"
+  y la respuesta ya no inventa una confianza. El endpoint exige `tenantId` y
+  acceso al tenant.
+- **Subencargados.** `/legal/subprocessors` y el whitepaper dicen que la
+  inferencia de IA corre en Azure (Azure OpenAI). Cloudflare, la región, Redis y
+  el perímetro salen de `messages`, así que ya no se pierden al regenerar los
+  PDFs del trust center.
+- **Migraciones** `20261007-001` (`Anomalies.root_cause_facts`) y `20261007-002`
+  (`AnomalyExplanations`). Las aplica el job de migración del deploy.
+
 ### 2026-10-06 — Lighthouse no emite tokens de Graph, y las pantallas de identidad dicen por qué
 
 Detalle técnico en `docs/lld/00-lld-completo.md` §39, arquitectónico en
@@ -1137,7 +1187,7 @@ Se cierran las dos sub-pestañas de **Monitoreo** que seguían apuntando al boar
 
 ### 2026-08-22 — Gobernanza de Etiquetas, Hardening de Infraestructura y Limpieza de Nube
 
-- **Gobernanza de Etiquetas (`/governance/tags`):** Azure Tag Governance Engine con auditoría dual (Recursos individuales y Grupos de Recursos), cumplimiento de 4 políticas estructurales (`Environment`, `Role`, `CostCenter`, `Department`), inferencia inteligente de etiquetas con IA (1-clic), herencia desde Resource Group con política de Merge Seguro y persistencia en caché local.
+- **Gobernanza de Etiquetas (`/governance/tags`):** Azure Tag Governance Engine con auditoría dual (Recursos individuales y Grupos de Recursos), cumplimiento de 4 políticas estructurales (`Environment`, `Role`, `CostCenter`, `Department`), sugerencia de etiquetas faltantes por convención de nombres (heurística, 1-clic), herencia desde Resource Group con política de Merge Seguro y persistencia en caché local.
 - **Key Vault Hardening y Aislamiento de Red:** Key Vault de producción (`cscs-finops-prod-wus2-kv`) aislado de internet mediante Private Endpoint (`cscs-finops-prod-wus2-kv-pe`) en la subnet `snet-pe` con zona DNS `privatelink.vaultcore.azure.net` y firewall en `default_action = "Deny"`. CI/CD de GitHub Actions configurado con apertura y cierre efímero automático de la IP del runner.
 - **Backups Huérfanos (`/cleanup/backup-orphans` & `/cleanup/orphan-backups`):** Detección profunda de protected items en Recovery Services Vaults sin recurso de origen activo en ARM. Cálculo de costo mensual exacto (tarifa base + storage $0.0224/GB), modal de purga con aviso de retención Soft Delete de 14 días, drawer de exenciones por compliance/auditoría legal y transferencias a Archive Tier.
 - **Time-To-Live (TTL) Governance (`/cleanup/ttl`):** Control del ciclo de vida de recursos efímeros y sandboxes con tagging optimista `ExpireOn`, alertas pre-expiración, extensiones interactivas y registro inmutable en `TtlDeletions`.
@@ -1817,7 +1867,7 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Los in
 | `GET /api/cron/prewarm-security-finops` | Cada 20 min         | Pre-calienta el módulo de Seguridad (`/api/intelligence/defender` + `/api/intelligence/security/service-cost`) para todos los tenants activos. |
 | `GET /api/cron/power-schedules`      | Cada 2 min              | Ejecuta los horarios de apagado programado de VMs (tabla `PowerSchedules`) cuyo horario local ya se cumplió (ventana de 8 min). También se dispara al instante desde `/api/power/schedule` (POST) al crear/editar un horario, sin esperar al próximo tick, para minimizar la latencia percibida. |
 | `GET /api/cron/open-data`            | Semanal (lunes 04:00)  | Sincroniza los Open Data Sets del Microsoft FinOps Toolkit (Regions/Services/ResourceTypes/PricingUnits/CommitmentEligibility) a las tablas `OpenData*`. Sin él, los lookups (nombre canónico de región, categoría de servicio, iconos) devuelven null. |
-| `GET /api/cron/anomaly-detection`    | Cada 5 min (mínimo)     | Corre Z-Score sobre `CostSnapshots` para todos los tenants Professional+, persiste en `Anomalies` y notifica (Slack/Teams/email + alerta de navegador) — antes la detección era 100% on-demand (solo calculaba si alguien abría `/intelligence/anomalies`), sin ningún monitoreo proactivo. Contrato `async_poll` (2026-09-05). |
+| `GET /api/cron/anomaly-detection`    | Cada 5 min (mínimo)     | Corre Z-Score sobre `CostSnapshots` para todos los tenants Professional+, persiste en `Anomalies` con los hechos de causa raíz por medidor (`root_cause_facts`, desde `CostMeterSnapshots`; 2026-10-07) y notifica (Slack/Teams/email + alerta de navegador) — antes la detección era 100% on-demand (solo calculaba si alguien abría `/intelligence/anomalies`), sin ningún monitoreo proactivo. Contrato `async_poll` (2026-09-05). |
 | `GET /api/cron/cost-sync-staleness-check` | Diaria 08:00 UTC   | Verifica que `/api/cron/sync` haya escrito datos nuevos en `CostSnapshots` en las últimas 36h para cada tenant real con Azure conectado — Cost Groups y el resto de features basadas en `CostSnapshots` requieren refresco diario. Si el sync no corrió (0 tenants frescos) crea una alerta `critical` en `SystemAlerts` + email a soporte; si es parcial, `warning` sin email. Existe justamente para detectar automáticamente el escenario del incidente del 2026-07-05 (ver nota abajo) la próxima vez que pase, en vez de depender de que alguien lo note manualmente. |
 | `GET /api/cron/ttl-expiry-alerts`     | Diaria (o más seguido)  | Evalúa reglas `AlertRules` tipo `ttl_expiry` (Alertas Self-Service) contra los entornos con tag `ExpireOn`/`TTL` de cada tenant y notifica los que vencen dentro de N días (o ya vencidos) — paso 3 del flujo TTL Enforcement ("El sistema te alerta antes de la eliminación automática"), antes inexistente. Mismo patrón anti-spam que `credential-expiry-alerts` (`last_triggered_at`). |
 | `GET /api/cron/addon-expiry`          | Diaria 07:15 UTC        | Avisa (campanita + email al Admin/Owner) que un módulo comprado suelto vence dentro de 7 días, y marca como `expired` los pases de `TenantAddons` cuya fecha ya pasó. El corte de acceso no depende de este cron —`getActiveAddons` filtra por `expires_at` y `requireTenantTier` consulta esa lista—, pero sin él el corte era mudo: el cliente se enteraba cuando la pantalla dejaba de abrir. Anti-spam: un aviso por pase (`expiry_notified_at`). |

@@ -15,7 +15,7 @@ Planned: Multi-region data residency (EU/US/LATAM/APAC) is a potential future en
 
 | Processor | Purpose | Locations |
 |---|---|---|
-| Microsoft Azure | Cloud compute, storage, networking, and data processing | United States |
+| Microsoft Azure | Cloud compute, storage, networking, and data processing, including the platform's AI inference (Azure OpenAI and Azure AI services) | United States |
 | MySQL Database Host | Relational database hosting and backups | United States |
 | Paddle | Payment processing, billing, and subscription management | United States / United Kingdom |
 | WorkOS | SAML 2.0 SSO/authentication and identity management | United States |

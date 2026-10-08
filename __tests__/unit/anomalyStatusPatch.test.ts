@@ -12,6 +12,11 @@ vi.mock("@/lib/requestAuth", () => ({
 }));
 vi.mock("@/lib/mockData", () => ({ isMockTenant: (t: string) => t === "demo_tenant" }));
 vi.mock("@/lib/notifications", () => ({ sendWebhookAlert: vi.fn() }));
+const invalidateMock = vi.fn();
+vi.mock("@/lib/cache", () => ({
+    invalidateCache: (...a: unknown[]) => invalidateMock(...a),
+    liveAnomaliesCacheKey: (t: string) => `anomalies:v4:${t}`,
+}));
 
 import { PATCH } from "@/app/api/intelligence/anomalies/route";
 
@@ -22,6 +27,7 @@ const req = (body: unknown) => new NextRequest("http://localhost/api/intelligenc
 beforeEach(() => {
     queryMock.mockReset().mockResolvedValue([{ affectedRows: 1 }]);
     roleMock.mockReset().mockResolvedValue({ tenantId: "t1", email: "ana@x.com" });
+    invalidateMock.mockReset();
 });
 
 describe("PATCH /api/intelligence/anomalies — MEJ-33", () => {
@@ -34,7 +40,30 @@ describe("PATCH /api/intelligence/anomalies — MEJ-33", () => {
         const [sql, params] = queryMock.mock.calls[0];
         expect(String(sql)).toContain("UPDATE Anomalies");
         expect(String(sql)).toContain("status_changed_by");
-        expect(params).toEqual(["Investigating", "ana@x.com", 7, "t1"]);
+        expect(params).toEqual(["Investigating", "ana@x.com", false, 7, "t1"]);
+    });
+
+    // De `resolved_at` sale el MTTR del panel: se fija al cerrar y se borra al reabrir.
+    it("cerrar fija la fecha de cierre; reabrir o tomarla la borra", async () => {
+        for (const [st, cierra] of [["Resolved", true], ["False Positive", true], ["New", false], ["Investigating", false]] as const) {
+            queryMock.mockClear().mockResolvedValue([{ affectedRows: 1 }]);
+            await PATCH(req({ tenantId: "t1", anomalyId: 7, status: st }));
+            const [sql, params] = queryMock.mock.calls[0];
+            expect(String(sql)).toContain("resolved_at = IF(?, NOW(), NULL)");
+            expect(params[2], st).toBe(cierra);
+        }
+    });
+
+    // Sin esto, el panel vuelve a mostrar el estado anterior al recargar
+    // durante los 5 minutos del TTL.
+    it("invalida el payload cacheado del panel, y sólo si guardó algo", async () => {
+        await PATCH(req({ tenantId: "t1", anomalyId: 7, status: "Resolved" }));
+        expect(invalidateMock).toHaveBeenCalledWith("anomalies:v4:t1");
+
+        invalidateMock.mockClear();
+        queryMock.mockResolvedValue([{ affectedRows: 0 }]);
+        await PATCH(req({ tenantId: "t1", anomalyId: 999, status: "Resolved" }));
+        expect(invalidateMock).not.toHaveBeenCalled();
     });
 
     // Sin el tenant en el WHERE, conocer el número de id alcanzaría para editar

@@ -61,7 +61,7 @@ describe("Anomaly Detection — Resumen y Métricas", () => {
       deltaUSD: 86.18,
       zScore: 3.32,
       severity: "CRITICAL",
-      state: "OPEN",
+      state: "New",
       title: "Pico en OpenAI",
       rootCauses: [
         {
@@ -80,7 +80,7 @@ describe("Anomaly Detection — Resumen y Métricas", () => {
       deltaUSD: 70.0,
       zScore: 3.1,
       severity: "HIGH",
-      state: "RESOLVED",
+      state: "Resolved",
       title: "Pico en Databricks",
       rootCauses: [],
       resolvedAtDate: "2026-07-21T10:00:00Z",
@@ -96,6 +96,21 @@ describe("Anomaly Detection — Resumen y Métricas", () => {
     expect(summary.confidenceTrend).toHaveLength(3);
     expect(summary.alertThresholdUSD).toBeGreaterThan(summary.baselineMovingAvgUSD);
   });
+
+  it("la que alguien tomó sigue abierta, y un falso positivo no cuenta para el MTTR", () => {
+    const tomada = { ...mockAnomalies[0], id: "anom-3", state: "Investigating" as const, deltaUSD: 10 };
+    // Cerrado en 1 h: si entrara al promedio, el MTTR bajaría de 34 h a 17,5 h.
+    const falso = {
+      ...mockAnomalies[1], id: "anom-4", state: "False Positive" as const,
+      detectionDate: "2026-07-20", resolvedAtDate: "2026-07-20T01:00:00Z",
+    };
+    const summary = buildAnomalySummary(dailyCosts, [...mockAnomalies, tomada, falso]);
+
+    expect(summary.openAnomaliesCount).toBe(2);
+    expect(summary.unresolvedImpactUSD).toBe(96.18);
+    expect(summary.completedCount).toBe(1);
+    expect(summary.meanTimeToResolutionHours).toBe(34);
+  });
 });
 
 describe("Anomaly Detection — Dataset Demo y Ensamblado Vivo", () => {
@@ -104,7 +119,7 @@ describe("Anomaly Detection — Dataset Demo y Ensamblado Vivo", () => {
     expect(payloadPro.source).toBe("mock");
     expect(payloadPro.summary.anomalies.length).toBeGreaterThanOrEqual(1);
 
-    const openAnom = payloadPro.summary.anomalies.find((a) => a.state === "OPEN");
+    const openAnom = payloadPro.summary.anomalies.find((a) => a.state === "New");
     expect(openAnom).toBeDefined();
     expect(openAnom?.rootCauses.length).toBeGreaterThan(0);
     expect(openAnom?.rootCauses[0].serviceName).toContain("Foundry Models");
@@ -132,7 +147,7 @@ describe("Anomaly Detection — Dataset Demo y Ensamblado Vivo", () => {
           amount: 120.0,
           expected_amount: 30.0,
           z_score: 3.5,
-          status: "open",
+          status: "New",
           // LA FORMA QUE ESCRIBE `getAnomalyTopContributors`, que es la unica
           // que existe en la base: snake_case, `delta`, `delta_pct_of_total`.
           //
@@ -156,7 +171,7 @@ describe("Anomaly Detection — Dataset Demo y Ensamblado Vivo", () => {
 
     expect(live.source).toBe("live");
     expect(live.summary.anomalies).toHaveLength(1);
-    expect(live.summary.anomalies[0].state).toBe("OPEN");
+    expect(live.summary.anomalies[0].state).toBe("New");
     expect(live.summary.anomalies[0].rootCauses[0]).toEqual({
       serviceName: "Azure Cosmos DB",
       resourceGroup: "prod-db-rg",
@@ -176,7 +191,7 @@ describe("Anomaly Detection — Dataset Demo y Ensamblado Vivo", () => {
       dbAnomalies: [
         {
           id: 2, date: "2026-08-15", amount: 0.02, expected_amount: 0.01,
-          z_score: 3.74, status: "open",
+          z_score: 3.74, status: "New",
           top_contributors: JSON.stringify([{ service_name: "Key Vault" }]),
         },
       ],
@@ -187,5 +202,61 @@ describe("Anomaly Detection — Dataset Demo y Ensamblado Vivo", () => {
       contributionPercentage: 0,
       deltaSpendUSD: 0,
     });
+  });
+
+  it("los hechos por medidor y el responsable llegan al panel", () => {
+    // El panel que se ve es este. Los hechos se calculaban y se guardaban, pero
+    // esta consulta no los leía: el bloque «Qué cambió» no aparecía nunca.
+    const hecho = {
+      id: "f1", type: "USAGE_INCREASE" as const, serviceName: "Virtual Machines",
+      meterName: "D4s v3", baseline: 10, actual: 40, delta: 30,
+    };
+    const fila = { date: "2026-08-15", amount: 40, expected_amount: 10, z_score: 3.5, status: "New" };
+    const live = assembleLiveAnomalies({
+      dailyCosts: [],
+      dbAnomalies: [
+        // mysql2 entrega la columna JSON ya parseada...
+        { ...fila, id: 1, root_cause_facts: [hecho], assigned_to: "ana@contoso.com", assigned_detail: "Plataforma" },
+        // ...pero el texto también vale, y uno roto no tumba la lista.
+        { ...fila, id: 2, root_cause_facts: JSON.stringify([hecho]), assigned_to: null },
+        { ...fila, id: 3, root_cause_facts: "{roto" },
+      ],
+    });
+    const [a, b, c] = live.summary.anomalies;
+    expect(a.rootCauseFacts).toEqual([hecho]);
+    expect(a.assignedTo).toBe("ana@contoso.com");
+    expect(a.assignedDetail).toBe("Plataforma");
+    expect(b.rootCauseFacts).toEqual([hecho]);
+    expect(b.assignedTo).toBeUndefined();
+    expect(c.rootCauseFacts).toEqual([]);
+  });
+
+  it("la demo trae hechos calculados con la función de producción", () => {
+    const [abierta, resuelta] = getMockAnomalyPayload("demo-tenant-4444").summary.anomalies;
+    expect(abierta.rootCauseFacts?.[0]).toMatchObject({
+      id: "f1",
+      type: "USAGE_INCREASE",
+      serviceName: "Foundry Models (Azure OpenAI)",
+      meterName: "gpt-4o-mini Input Tokens",
+    });
+    // Abierta y sin responsable: se sugiere asignarlo. La resuelta ya lo tiene.
+    expect(abierta.assignedTo).toBeUndefined();
+    expect(resuelta.rootCauseFacts?.map((f) => f.serviceName)).toEqual(["Azure Databricks", "Storage Accounts"]);
+    expect(resuelta.assignedTo).toBeTruthy();
+  });
+
+  it("el estado llega con el vocabulario de la columna, y uno ajeno se muestra como nueva", () => {
+    // El panel tenía su propio vocabulario (Open/Postponed/Dismissed/Completed)
+    // que la columna ENUM rechazaba: el triaje no se guardaba nunca.
+    const fila = { date: "2026-08-15", amount: 40, expected_amount: 10, z_score: 3.5 };
+    const live = assembleLiveAnomalies({
+      dailyCosts: [],
+      dbAnomalies: [
+        { ...fila, id: 1, status: "Investigating" },
+        { ...fila, id: 2, status: "False Positive" },
+        { ...fila, id: 3, status: "Postponed" },
+      ],
+    });
+    expect(live.summary.anomalies.map((a) => a.state)).toEqual(["Investigating", "False Positive", "New"]);
   });
 });

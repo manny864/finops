@@ -176,7 +176,7 @@ El sistema está dividido en cinco (5) pilares estratégicos en el menú lateral
 - **Gobernanza de Etiquetas (`/governance/tags`, Pro+):**
   - **Auditoría Dual:** Paneles específicos para auditar tanto **Recursos Individuales** como **Grupos de Recursos (RG)**.
   - **4 Políticas Obligatorias:** Control en tiempo real del cumplimiento de las etiquetas `Environment`, `Role`, `CostCenter` y `Department`.
-  - **Inferencia IA (1-clic):** Sugerencia automática de etiquetas basada en nomenclatura y tipología de recursos en Azure.
+  - **Sugerencia por convención de nombres (1-clic):** Sugerencia de etiquetas faltantes a partir del nombre, el grupo de recursos y el tipo del recurso en Azure (regla fija, no IA).
   - **Herencia desde RG:** Propagación masiva de tags desde el Resource Group hacia recursos hijos bajo política de Merge Seguro (no sobreescribe etiquetas preexistentes).
   - **Tablas CMP y Persistencia:** Columnas redimensionables con manejador de arrastre (`col-resize`), personalización de columnas desplegable en `z-[100]` y persistencia en `localStorage`.
 - **HA Recommendations (Business):** VMs en producción sin Availability Zone o Availability Set (`/governance/ha`).

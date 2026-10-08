@@ -15,7 +15,7 @@ Planejado: A residência de dados multirregional (UE/EUA/LATAM/APAC) é uma poss
 
 | Processador | Finalidade | Localizações |
 |---|---|---|
-| Microsoft Azure | Computação, armazenamento, rede e processamento de dados na nuvem | Estados Unidos |
+| Microsoft Azure | Computação, armazenamento, rede e processamento de dados na nuvem, incluindo a inferência de IA da plataforma (Azure OpenAI e Azure AI services) | Estados Unidos |
 | Host de Banco de Dados MySQL | Hospedagem de banco de dados relacional e backups | Estados Unidos |
 | Paddle | Processamento de pagamentos, faturamento e gestão de assinaturas | Estados Unidos / Reino Unido |
 | WorkOS | Autenticação SSO/SAML 2.0 e gestão de identidade | Estados Unidos |

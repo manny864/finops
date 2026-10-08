@@ -34,6 +34,8 @@
 - **FinOps Copilot com conversa contínua** entre páginas e botão **Nova conversa** (9).
 - **App móvel (PWA)** com Resumo, Alertas, Aprovações, Suporte e Perfil (11.12).
 - **Anomalias com responsável e acompanhamento** (14) e **assinaturas fora do limite do seu plano** (15).
+- **Anomalias: o que mudou e explicação com IA.** Em **Detecção de Anomalias** (Enterprise), **Ver Causa Raiz** mostra qual medidor do serviço subiu e se foi por consumo, por preço ou por algo novo, com os passos a verificar. A IA pode contar isso em palavras. O detalhe chega pela sincronização com o Azure e também pelos exports de custos (14.4).
+- **CSV que não está no formato FOCUS:** agora **todas** as linhas são processadas. A IA só identifica as colunas e a plataforma lê os valores. O relatório com IA do envio sai no seu idioma e na moeda do arquivo, e se a IA não estiver disponível você vê um resumo por serviço (5.1.7).
 
 **Novidades de agosto 2026**
 
@@ -388,6 +390,15 @@ Há um cartão-resumo disso no Dashboard com o link **"Ver detalhe completo"**. 
 
 Importação manual ou programada de arquivos de custos no padrão **FOCUS** e de exports do Azure: você sobe o CSV de faturamento de terceiros e o analisa junto com os seus dados do Azure.
 
+Se o arquivo já está no formato FOCUS, ele é carregado direto. Se não, a IA olha os cabeçalhos e uma amostra de 20 linhas, com os dados sensíveis ocultos, e decide qual coluna é o custo, o serviço, a data etc. Depois a plataforma aplica esse mapeamento a **todas** as linhas:
+
+- **Os valores e as datas são lidos pela plataforma, nunca pela IA.** Uma data que não dá para ler sem adivinhar fica vazia.
+- **O mapeamento fica guardado.** Se você subir de novo um arquivo com as mesmas colunas, a IA não é usada e não se consome cota.
+- **Cota mensal da organização:** 150 formatos novos no Business. É ilimitada no Enterprise ou com a sua própria chave de IA (BYOK).
+- **Se a IA não estiver disponível** (desativada, sem cota ou com pedidos demais em sequência), o arquivo não é carregado e a tela diz por quê. Subir no formato FOCUS evita a IA.
+
+**O relatório com IA.** Depois de ler o arquivo, a IA redige um relatório no idioma da tela e na moeda que o arquivo indica; se o arquivo não indica a moeda, o relatório não a supõe. Ele tem a sua própria cota mensal: 150 relatórios no Business, sem limite no Enterprise ou com BYOK. Se a IA estiver desativada, sem cota ou com pedidos demais em sequência, em vez do relatório você vê o **Resumo do arquivo**: o custo por serviço e categoria calculado pela plataforma, com o motivo.
+
 ### 5.2. Leaderboard de times (`/intelligence/leaderboard`, Enterprise)
 
 **Quem melhorou, não quem gasta menos.** O painel compara os **grupos de uma Perspective** (3.3 e 5.3) e os ordena por melhoria, que é o comportamento que se quer premiar: um ranking por gasto absoluto puniria o time que roda produção e premiaria o pequeno.
@@ -674,7 +685,7 @@ Gestão de armazenamento, custos acumulados e conformidade legal de cópias de s
 
 ### 7.1. Governança de Etiquetas — Azure Tag Governance Engine (`/governance/tags`, Professional+)
 
-Painel abrangente de auditoria, inferência inteligente e propagação de metadados corporativos no Azure.
+Painel abrangente de auditoria, sugestão e propagação de metadados corporativos no Azure.
 
 **Principais capacidades:**
 - **Auditoria Dupla de Conformidade:** Telas dedicadas para auditar tanto **Recursos Individuais** quanto **Grupos de Recursos (Resource Groups)**.
@@ -683,7 +694,7 @@ Painel abrangente de auditoria, inferência inteligente e propagação de metada
   - `Role` (função ou perfil arquitetônico)
   - `CostCenter` (centro de custo contábil)
   - `Department` (área ou unidade de negócio responsável)
-- **Sugestão Inteligente com IA (1-clique):** Motor que analisa o tipo do recurso, convenções de nomenclatura e contexto da assinatura para preencher tags faltantes instantaneamente em modo rascunho.
+- **Sugestão pela convenção de nomes (1-clique):** O botão **Sugerir pela convenção de nomes** preenche as tags faltantes do formulário de edição a partir do nome do recurso, do seu grupo de recursos e do seu tipo. Por exemplo, `dev` no nome sugere `Environment = dev`. É uma regra fixa, não IA: revise a sugestão, que só é aplicada quando você salvar.
 - **Herança em Lote do RG (Merge Seguro):** Com o botão "Herdar do RG", recursos filhos adotam as tags do Resource Group pai sem sobrescrever nem apagar tags preexistentes.
 - **Edición e Cache Otimista:** Edição em linha com persistência imediata em cache local e sincronização assíncrona com o Azure Resource Manager.
 - **Padrão CMP e Personalização:** Tabelas com redimensionamento de colunas (`col-resize`, 100px - 600px), seletor de colunas visíveis em `z-[100]` e persistência automática por tenant em `localStorage`.
@@ -1453,9 +1464,50 @@ Esse último não é o mesmo que "descartada": serve de retorno para afinar a de
 
 As mudanças são vistas por toda a equipe, então duas pessoas não trabalham no mesmo item sem saber.
 
+O estado é alterado em **Analítica Avançada → Detecção de Anomalias** (Enterprise, 5.14), com os botões de cada cartão: **Investigar** numa Nova, **Marcar como Resolvida** ou **Falso positivo** enquanto está aberta, e **Reabrir** quando já foi fechada. Owner, Admin e Colaborador os usam; o Reader vê o estado e o responsável, sem os botões. Se a mudança não puder ser salva, o cartão volta ao estado anterior e a tela avisa.
+
+Os indicadores do painel saem desses estados:
+
+- **Anomalias Abertas:** as Novas e as que estão Em investigação.
+- **Impacto Não Resolvido:** quanto as abertas gastaram acima do esperado.
+- **Resolvidas** e **Tempo Médio de Ação:** só as Resolvidas. O tempo vai da detecção ao fechamento; os falsos positivos não contam, porque fechá-los não corrigiu nenhum gasto.
+
 ### 14.3 O aviso
 
 Se a anomalia tem responsável, a notificação **chega a essa pessoa**. Se não tem, chega a toda a equipe — um desvio sem dono ainda precisa ser visto por alguém.
+
+### 14.4 O que mudou, e a explicação com IA
+
+Em **Analítica Avançada → Detecção de Anomalias** (Enterprise, 5.14), o botão **Ver Causa Raiz** de cada anomalia abre o painel lateral. Abaixo do detalhamento por serviço, o bloco **O que mudou** mostra o que se moveu dentro do serviço que a puxou. Ele compara o dia com a média dos 30 dias anteriores:
+
+| Fato | O que significa |
+|---|---|
+| **Medidor novo** | Algo que nos últimos 30 dias não custava nada |
+| **Maior consumo** | O aumento vem sobretudo de se usar mais |
+| **Custo unitário maior** | O aumento vem sobretudo de cada unidade sair mais cara, por exemplo porque uma reserva deixou de cobri-la |
+| **Custo maior** | O custo subiu, mas não há quantidades para saber se foi por consumo ou por preço |
+| **Sem detalhe por medidor** | Não há detalhe desse serviço: a plataforma diz isso em vez de adivinhar |
+
+O detalhe é no nível do serviço: soma todas as regiões e grupos de recursos. Ele chega com a sincronização por API e com os exports de custos que trazem a coluna do medidor (`MeterName`, ou `SkuMeter` / `x_SkuMeterName` no FOCUS). Se a sua organização carrega os custos com um export sem essa coluna, você vai ver **Sem detalhe por medidor**.
+
+Abaixo, **O que verificar** lista os próximos passos. Eles saem dos fatos, não da IA:
+
+- Confirmar que um medidor novo é um uso esperado.
+- Ver se dá para desligar fora do horário.
+- Revisar a cobertura de reservas e savings plans.
+- Atribuir um responsável, se a anomalia não tiver.
+
+Os fatos e os passos não usam IA: aparecem mesmo com a IA desligada.
+
+**Explicar com IA.** O botão **Explicar com IA** pede à IA que conte o mesmo em palavras. A IA só pode usar os fatos acima:
+
+- Ela não vê valores e não pode citar uma causa que não esteja na lista.
+- Se escrever um número que não está nos fatos, a explicação é descartada e ficam os fatos.
+- Por isso ela leva a etiqueta **Gerado com IA · verifique os dados**.
+
+Com **Ajudou** ou **Não ajudou** você nos ajuda a medir se a explicação é útil.
+
+No Enterprise as explicações não têm cota mensal. Se não estiver disponível (IA desativada ou na demo), a tela diz por quê.
 
 ---
 

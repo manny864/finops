@@ -1,5 +1,5 @@
 import { listBlobs, downloadBlob, isBlobStorageEnabled } from "@/lib/azureBlobStorage";
-import pool from "@/modules/storage/db";
+import pool, { insertCostMeterSnapshotRow } from "@/modules/storage/db";
 import Decimal from "decimal.js";
 import { toMoneyNumber } from "@/lib/moneyDecimal";
 import { errorMessage } from '@/lib/apiErrors';
@@ -129,6 +129,22 @@ export function agruparPorEjecucion(blobNames: string[]): Map<string, string[]> 
     return porCarpeta;
 }
 
+/** Índice de la primera columna que se llame exactamente como alguno de los nombres. */
+const columnaExacta = (header: string[], ...nombres: string[]) => header.findIndex(h => nombres.includes(h));
+
+/** Acumulador de una fila de `CostMeterSnapshots`: servicio, medidor y región de un día. */
+interface FilaMedidor {
+    subId: string;
+    isoDate: string;
+    srv: string;
+    medidor: string;
+    region: string;
+    categoria: string;
+    unidad: string;
+    cost: Decimal;
+    cantidad: Decimal;
+}
+
 /** Acumulador de una fila de `CostSnapshots` mientras se leen las líneas del export. */
 interface FilaAgregada {
     subId: string;
@@ -197,6 +213,7 @@ export async function ingestCostExportsForTenant(tenantId: string): Promise<Inge
             // muchísimas líneas caen en la misma clave y hay que SUMARLAS. El
             // upsert de antes las pisaba una a una y sobrevivía sólo la última.
             const agregado = new Map<string, FilaAgregada>();
+            const medidores = new Map<string, FilaMedidor>();
 
             for (const blobName of blobsDeLaEjecucion) {
                 const buffer = await downloadBlob(CONTAINER_NAME, blobName);
@@ -259,6 +276,16 @@ export async function ingestCostExportsForTenant(tenantId: string): Promise<Inge
                 // El id del recurso cambia de nombre según el export: ResourceId
                 // (FOCUS), InstanceId o InstanceName (legacy de Azure).
                 const resourceIdIdx = header.findIndex(h => h === "resourceid" || h === "instanceid" || h === "instancename");
+                // MEJ-42 punto 3: el detalle por medidor, que sólo escribía el
+                // sync por API. Sin él, la causa raíz de una anomalía de un
+                // tenant que ingiere por export decía "Sin detalle por medidor".
+                // FOCUS 1.2 / 1.0 / legacy (learn.microsoft.com, "FOCUS cost and
+                // usage details file schema").
+                const meterIdx = columnaExacta(header, "skumeter", "x_skumetername", "metername");
+                const meterCatIdx = columnaExacta(header, "x_skumetercategory", "metercategory");
+                const qtyIdx = columnaExacta(header, "consumedquantity", "quantity");
+                const unitIdx = columnaExacta(header, "consumedunit", "unitofmeasure");
+                const regionIdx = columnaExacta(header, "resourcelocation", "regionid");
 
                 if (costIdx === -1) {
                     // Este `continue` era mudo, y ese silencio es justamente lo
@@ -362,6 +389,21 @@ export async function ingestCostExportsForTenant(tenantId: string): Promise<Inge
                     // Una vez en null ya no vuelve: cualquier id posterior
                     // difiere de null y lo deja en null.
                     if (fila.resourceId !== resourceId) fila.resourceId = null;
+
+                    if (meterIdx < 0) continue;
+                    const medidor = cols[meterIdx] || "";
+                    const region = regionIdx >= 0 ? (cols[regionIdx] || "") : "";
+                    const claveMedidor = [subId, isoDate, srv, medidor, region].join("\u0001");
+                    let m = medidores.get(claveMedidor);
+                    if (!m) {
+                        m = { subId, isoDate, srv, medidor, region, categoria: "", unidad: "", cost: new Decimal(0), cantidad: new Decimal(0) };
+                        medidores.set(claveMedidor, m);
+                    }
+                    m.cost = m.cost.plus(costDecimal);
+                    const cantidad = qtyIdx >= 0 ? Number(cols[qtyIdx]) : NaN;
+                    if (Number.isFinite(cantidad)) m.cantidad = m.cantidad.plus(cantidad);
+                    m.categoria ||= meterCatIdx >= 0 ? (cols[meterCatIdx] || "") : "";
+                    m.unidad ||= unitIdx >= 0 ? (cols[unitIdx] || "") : "";
                 }
             }
 
@@ -420,6 +462,23 @@ export async function ingestCostExportsForTenant(tenantId: string): Promise<Inge
                         list, contracted, tagsJson, fila.resourceId, fila.allocHash]
                 );
                 totalRows++;
+            }
+
+            // Misma clave única y mismo upsert que el sync por API (el medidor
+            // también va en MeterSubCategory): la reexposición del mes pisa el
+            // total del día, igual que arriba.
+            for (const m of medidores.values()) {
+                await insertCostMeterSnapshotRow(tenantId, m.isoDate, {
+                    subscriptionId: m.subId,
+                    serviceName: m.srv,
+                    meterCategory: m.categoria,
+                    meterSubCategory: m.medidor,
+                    meterName: m.medidor,
+                    resourceLocation: m.region,
+                    cost: toMoneyNumber(m.cost, 4),
+                    quantity: m.cantidad.toDecimalPlaces(6).toNumber(),
+                    unitOfMeasure: m.unidad,
+                });
             }
         }
 

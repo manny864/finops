@@ -14,6 +14,7 @@ import {
     SavePlatformAiPayload,
     AnomalySensitivityLevel,
 } from "@/types/superAdminAiConfig.types";
+import type { AiFeature } from "@/lib/aiFeatureGate";
 import {
     IconSparkles,
     IconRobot,
@@ -40,6 +41,8 @@ export default function GlobalAiConfigurationPanel() {
 
     // Estado de Configuración
     const [isPlatformMasterAiEnabled, setIsPlatformMasterAiEnabled] = useState(true);
+    // Las features las define el servidor (AI_FEATURES); el panel sólo las lista.
+    const [featureSwitches, setFeatureSwitches] = useState<Partial<Record<AiFeature, boolean>>>({});
 
     // No-Enterprise Config
     const [nonEntProvider, setNonEntProvider] = useState("anthropic");
@@ -106,6 +109,7 @@ export default function GlobalAiConfigurationPanel() {
             const data: PlatformGlobalAiSettings = json.settings || json;
 
             setIsPlatformMasterAiEnabled(data.isPlatformMasterAiEnabled ?? true);
+            setFeatureSwitches(data.featureSwitches ?? {});
 
             if (data.nonEnterpriseConfig) {
                 setNonEntProvider(data.nonEnterpriseConfig.provider || "anthropic");
@@ -167,6 +171,7 @@ export default function GlobalAiConfigurationPanel() {
                 defaultAnomalySensitivity: sensitivity,
                 defaultShareResourceNames: shareResourceNames,
                 defaultShareTags: shareTags,
+                featureSwitches,
             };
 
             const res = await fetch(url, {
@@ -363,6 +368,42 @@ export default function GlobalAiConfigurationPanel() {
                             />
                             <div className="w-12 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0078D4]"></div>
                         </label>
+                    </div>
+
+                    {/* ─── BLOQUE 1b: Interruptor por función (aiFeatureGate) ─────────── */}
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm space-y-4">
+                        <div className="space-y-1">
+                            <h2 className="text-sm font-bold text-[#1B2A41] dark:text-slate-100 font-['Montserrat',sans-serif] flex items-center gap-2">
+                                <IconSparkles size={18} stroke={1.5} className="text-[#0078D4]" />
+                                <span>{t("featureSwitches.heading")}</span>
+                            </h2>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
+                                {t("featureSwitches.description")}
+                            </p>
+                        </div>
+                        <div className="space-y-3">
+                            {(Object.keys(featureSwitches) as AiFeature[]).map((feature) => (
+                                <label
+                                    key={feature}
+                                    className="flex items-start gap-3 text-xs text-slate-700 dark:text-slate-300 cursor-pointer select-none"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={featureSwitches[feature] ?? false}
+                                        onChange={(e) =>
+                                            setFeatureSwitches((prev) => ({ ...prev, [feature]: e.target.checked }))
+                                        }
+                                        className="mt-0.5 rounded border-slate-300 text-[#0078D4] focus:ring-[#0078D4]"
+                                    />
+                                    <div>
+                                        <span className="font-semibold">{t(`featureSwitches.features.${feature}.label`)}</span>
+                                        <p className="text-slate-500 dark:text-slate-400 text-[11px]">
+                                            {t(`featureSwitches.features.${feature}.description`)}
+                                        </p>
+                                    </div>
+                                </label>
+                            ))}
+                        </div>
                     </div>
 
                     {/* ─── BLOQUE 2: Proveedor Planes No Enterprise (Ancho 100%) ──────── */}

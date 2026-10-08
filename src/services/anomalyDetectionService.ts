@@ -18,6 +18,10 @@ import { redis } from "@/lib/redis";
 import { sendWebhookAlert } from "@/lib/notifications";
 import { createNotification } from "@/lib/notify";
 import { resolveAnomalyOwner, type AssignmentVia } from "@/services/anomalyOwnerResolver";
+import { buildRootCauseFacts, MAX_CONTRIBUTORS, type MeterRow } from "@/services/anomalyRootCause.service";
+import type { RowDataPacket } from "mysql2";
+import { ROOT_CAUSE_BASELINE_DAYS, type RootCauseFact } from "@/types/anomalyRootCause.types";
+import { ANOMALY_STATES, type AnomalyState } from "@/types/azureAnomalyDetection.types";
 import { recordDailySnapshotAsync } from "@/services/snapshotService";
 import { getHistoricalDailyCosts, AZURE_COST_HISTORY_MAX_MONTHS } from "@/modules/collectors/azure/billingService";
 import { tenantUsesAzure } from "@/lib/tenantProviderContext";
@@ -139,8 +143,15 @@ export function detectAnomalies(
         }));
 }
 
-const CONTRIBUTORS_BASELINE_DAYS = 30;
+const CONTRIBUTORS_BASELINE_DAYS = ROOT_CAUSE_BASELINE_DAYS;
 const CONTRIBUTORS_LIMIT = 5;
+
+/** Filtro por suscripción de las consultas de causa raíz. "All" no filtra. */
+function subscriptionFilter(subscriptionId: string): { sql: string; params: string[] } {
+    if (!subscriptionId || subscriptionId.toLowerCase() === "all") return { sql: "", params: [] };
+    const ids = subscriptionId.split(",").map(s => s.trim().toLowerCase());
+    return { sql: `AND LOWER(subscription_id) IN (${ids.map(() => "?").join(",")})`, params: ids };
+}
 
 /**
  * Atribución de causa raíz de una anomalía ya detectada: compara, por
@@ -161,9 +172,7 @@ export async function getAnomalyTopContributors(
     baselineDays = CONTRIBUTORS_BASELINE_DAYS,
     limit = CONTRIBUTORS_LIMIT
 ): Promise<AnomalyContributor[]> {
-    const isAll = !subscriptionId || subscriptionId.toLowerCase() === "all";
-    const subFilter = isAll ? "" : `AND LOWER(subscription_id) IN (${subscriptionId.split(",").map(() => "?").join(",")})`;
-    const subParams: string[] = isAll ? [] : subscriptionId.split(",").map(s => s.trim().toLowerCase());
+    const { sql: subFilter, params: subParams } = subscriptionFilter(subscriptionId);
 
     try {
         const [dayRows]: any = await pool.query(
@@ -215,6 +224,54 @@ export async function getAnomalyTopContributors(
             }));
     } catch (e) {
         console.warn(`[anomalyDetectionService] getAnomalyTopContributors failed for ${tenantId} ${date}:`, errorMessage(e));
+        return [];
+    }
+}
+
+/**
+ * Hechos de causa raíz (propuesta de IA, Fase 1a): baja de los contribuyentes al
+ * medidor. Lee `CostMeterSnapshots` porque `CostSnapshots` no tiene recurso ni
+ * medidor en la ruta de sync por API; la clasificación está en
+ * anomalyRootCause.service.
+ *
+ * Best-effort, igual que getAnomalyTopContributors. `CostMeterSnapshots` lo
+ * escriben el sync por API y la ingesta de exports; un export sin columna de
+ * medidor deja INSUFFICIENT_DETAIL.
+ */
+export async function getAnomalyRootCauseFacts(
+    tenantId: string,
+    subscriptionId: string,
+    date: string,
+    contributors: AnomalyContributor[],
+    baselineDays = CONTRIBUTORS_BASELINE_DAYS
+): Promise<RootCauseFact[]> {
+    if (contributors.length === 0) return [];
+    const services = [...new Set(contributors.slice(0, MAX_CONTRIBUTORS).map(c => c.service_name))];
+    const { sql: subFilter, params: subParams } = subscriptionFilter(subscriptionId);
+
+    try {
+        const [rows] = await pool.query<RowDataPacket[]>(
+            `SELECT service_name, MeterName AS meter_name,
+                    SUM(CASE WHEN date = ? THEN cost_usd ELSE 0 END) AS day_cost,
+                    SUM(CASE WHEN date = ? THEN COALESCE(Quantity, 0) ELSE 0 END) AS day_qty,
+                    SUM(CASE WHEN date < ? THEN cost_usd ELSE 0 END) AS base_cost,
+                    SUM(CASE WHEN date < ? THEN COALESCE(Quantity, 0) ELSE 0 END) AS base_qty
+             FROM CostMeterSnapshots
+             WHERE tenant_id = ? AND date >= DATE_SUB(?, INTERVAL ? DAY) AND date <= ?
+               AND service_name IN (${services.map(() => "?").join(",")})
+               ${subFilter}
+             GROUP BY service_name, MeterName`,
+            [date, date, date, date, tenantId, date, baselineDays, date, ...services, ...subParams]
+        );
+        const [dayRows] = await pool.query<RowDataPacket[]>(
+            `SELECT COUNT(DISTINCT date) AS days
+             FROM CostMeterSnapshots
+             WHERE tenant_id = ? AND date >= DATE_SUB(?, INTERVAL ? DAY) AND date < ? ${subFilter}`,
+            [tenantId, date, baselineDays, date, ...subParams]
+        );
+        return buildRootCauseFacts(contributors, (rows || []) as MeterRow[], Number(dayRows?.[0]?.days) || 0);
+    } catch (e) {
+        console.warn(`[anomalyDetectionService] getAnomalyRootCauseFacts failed for ${tenantId} ${date}:`, errorMessage(e));
         return [];
     }
 }
@@ -350,12 +407,15 @@ export async function runAnomalyDetection(tenantId: string, subscriptionId = "Al
 
 /** Los estados de triaje de una anomalía. Es el vocabulario de la BASE
  *  (`Anomalies.status`), que es el correcto para un detector: "False Positive"
- *  es feedback sobre el Z-Score, algo que un "Dismissed" genérico no distingue. */
-export const ANOMALY_STATUSES = ["New", "Investigating", "Resolved", "False Positive"] as const;
-export type AnomalyStatus = (typeof ANOMALY_STATUSES)[number];
+ *  es feedback sobre el Z-Score, algo que un "Dismissed" genérico no distingue.
+ *  Se define en los tipos porque la pantalla también lo usa. */
+export const ANOMALY_STATUSES = ANOMALY_STATES;
+export type AnomalyStatus = AnomalyState;
 
 export interface AnomalyWithContributors extends DetectedAnomaly {
     top_contributors: AnomalyContributor[];
+    /** Qué medidor explica el pico (ver anomalyRootCause.service). */
+    root_cause_facts?: RootCauseFact[];
     /** Id REAL de la fila en `Anomalies`. Sin esto el cliente no puede
      *  referenciar la anomalía para cambiarle el estado: la ruta devolvía un
      *  índice sintético (`i + 1`). */
@@ -390,7 +450,8 @@ export async function persistAndNotifyAnomalies(
 
     for (const a of anomalies) {
         const topContributors = await getAnomalyTopContributors(tenantId, a.subscription_id, a.date);
-        enriched.push({ ...a, top_contributors: topContributors });
+        const rootCauseFacts = await getAnomalyRootCauseFacts(tenantId, a.subscription_id, a.date, topContributors);
+        enriched.push({ ...a, top_contributors: topContributors, root_cause_facts: rootCauseFacts });
 
         // MEJ-33 paso 2: el responsable se deriva de la gobernanza del cliente.
         // Se recalcula en cada corrida a propósito: si el cliente asigna el
@@ -399,11 +460,12 @@ export async function persistAndNotifyAnomalies(
         const owner = await resolveAnomalyOwner(tenantId, topContributors);
 
         await pool.query(
-            `INSERT INTO Anomalies (tenant_id, subscription_id, date, amount, expected_amount, z_score, top_contributors, status, assigned_to, assigned_via, assigned_detail)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'New', ?, ?, ?)
+            `INSERT INTO Anomalies (tenant_id, subscription_id, date, amount, expected_amount, z_score, top_contributors, root_cause_facts, status, assigned_to, assigned_via, assigned_detail)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'New', ?, ?, ?)
              ON DUPLICATE KEY UPDATE amount = VALUES(amount), expected_amount = VALUES(expected_amount), z_score = VALUES(z_score), top_contributors = VALUES(top_contributors),
+                                     root_cause_facts = VALUES(root_cause_facts),
                                      assigned_to = VALUES(assigned_to), assigned_via = VALUES(assigned_via), assigned_detail = VALUES(assigned_detail)`,
-            [tenantId, a.subscription_id, a.date, a.amount, a.expected_amount, a.z_score, JSON.stringify(topContributors),
+            [tenantId, a.subscription_id, a.date, a.amount, a.expected_amount, a.z_score, JSON.stringify(topContributors), JSON.stringify(rootCauseFacts),
              owner?.assignedTo ?? null, owner?.assignedVia ?? null, owner?.detail ?? null]
         );
 

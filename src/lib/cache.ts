@@ -108,6 +108,16 @@ export function costGroupsCacheKeys(tenantId: string): string[] {
   return ["30d", "90d", "fy"].map((p) => `cost-groups:v2:${tenantId}:${p}`);
 }
 
+/**
+ * El payload de `GET /api/analytics/anomalies`. Lo invalida el PATCH de
+ * triaje (`/api/intelligence/anomalies`): sin eso, el estado recién guardado
+ * vuelve al anterior al recargar durante los 5 minutos del TTL.
+ * v4: estados con el vocabulario de la base y el responsable.
+ */
+export function liveAnomaliesCacheKey(tenantId: string): string {
+  return `anomalies:v4:${tenantId}`;
+}
+
 // In-flight de revalidaciones para deduplicar refreshes concurrentes: si N
 // requests llegan mientras se está revalidando, todos comparten la misma
 // promesa de background y nadie dispara un fetch redundante.

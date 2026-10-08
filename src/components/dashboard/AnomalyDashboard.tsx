@@ -13,6 +13,9 @@ import { useCurrency } from '@/components/CurrencyProvider';
 import { isMockTenant } from '@/lib/mockData';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
+import AnomalyRootCause from './AnomalyRootCause';
+import AnomalyAiExplanation from './AnomalyAiExplanation';
+import type { RootCauseFact } from '@/types/anomalyRootCause.types';
 
 type AnomalyStatus = 'New' | 'Investigating' | 'Resolved' | 'False Positive';
 
@@ -36,6 +39,7 @@ interface Anomaly {
     detected_at: string;
     resolved_at: string | null;
     top_contributors?: AnomalyContributor[];
+    root_cause_facts?: RootCauseFact[];
     /** MEJ-33 paso 2. `null` = sin asignar, y se muestra como tal. */
     assigned_to?: string | null;
     assigned_via?: string | null;
@@ -519,6 +523,9 @@ export default function AnomalyDashboard() {
                                             ))}
                                         </div>
                                     )}
+                                    <AnomalyRootCause facts={anomaly.root_cause_facts} hasOwner={!!anomaly.assigned_to} />
+                                    {/* Sin hechos no hay nada que la IA pueda citar. */}
+                                    {!!anomaly.root_cause_facts?.length && <AnomalyAiExplanation tenantId={selectedTenant.id} anomalyId={anomaly.id} />}
                                 </div>
                                 <div className="text-right space-y-2">
                                     <div>

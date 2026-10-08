@@ -19,7 +19,7 @@ import {
   IconRotateClockwise,
   IconSparkles,
   IconX,
-  IconClock,
+  IconUserCheck,
   IconAdjustments,
   IconBellRinging,
   IconDatabaseExport,
@@ -43,7 +43,11 @@ import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
 import Pagination, { usePagination } from "@/components/Pagination";
 import InfoTooltip from "@/components/InfoTooltip";
+import AnomalyRootCause from "@/components/dashboard/AnomalyRootCause";
+import AnomalyAiExplanation from "@/components/dashboard/AnomalyAiExplanation";
 import {
+  ANOMALY_STATES,
+  isOpenAnomalyState,
   type AnomalyPayload,
   type AnomalyState,
   type CostAnomalyItem,
@@ -60,6 +64,28 @@ const VISIBLE_SCROLLBAR =
 
 const money = (v: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(v);
+
+// Claves explícitas y no `status${estado}`: "False Positive" lleva espacio.
+const STATE_LABEL = {
+  New: "statusNew",
+  Investigating: "statusInvestigating",
+  Resolved: "statusResolved",
+  "False Positive": "statusFalsePositive",
+} as const satisfies Record<AnomalyState, string>;
+
+const STATE_TAB = {
+  New: "tabNew",
+  Investigating: "tabInvestigating",
+  Resolved: "tabResolved",
+  "False Positive": "tabFalsePositive",
+} as const satisfies Record<AnomalyState, string>;
+
+const STATE_STYLE: Record<AnomalyState, string> = {
+  New: "border-rose-300 dark:border-rose-800 text-rose-600 bg-rose-50/50 dark:bg-rose-950/30",
+  Investigating: "border-amber-300 dark:border-amber-800 text-amber-600 bg-amber-50/50 dark:bg-amber-950/30",
+  Resolved: "border-emerald-300 dark:border-emerald-800 text-emerald-600 bg-emerald-50/50",
+  "False Positive": "border-slate-300 dark:border-slate-700 text-slate-500 bg-slate-50",
+};
 
 function formatHours(hours: number): string {
   if (hours < 24) return `${hours.toFixed(1)}h`;
@@ -94,10 +120,11 @@ function buildFetcher(
 // ─── Drawer Lateral de Causa Raíz ───
 interface RootCauseDrawerProps {
   anomaly: CostAnomalyItem | null;
+  tenantId: string;
   onClose: () => void;
 }
 
-function RootCauseDrawer({ anomaly, onClose }: RootCauseDrawerProps) {
+function RootCauseDrawer({ anomaly, tenantId, onClose }: RootCauseDrawerProps) {
   const t = useTranslations("AnomalyPanel");
   const [copied, setCopied] = useState(false);
 
@@ -194,6 +221,14 @@ function RootCauseDrawer({ anomaly, onClose }: RootCauseDrawerProps) {
           </div>
         </div>
 
+        {/* Qué cambió por medidor. Sin hechos no hay nada que la IA pueda citar. */}
+        {!!anomaly.rootCauseFacts?.length && (
+          <div>
+            <AnomalyRootCause facts={anomaly.rootCauseFacts} hasOwner={!!anomaly.assignedTo} />
+            <AnomalyAiExplanation tenantId={tenantId} anomalyId={anomaly.id} />
+          </div>
+        )}
+
         {/* Telemetría y Cuotas */}
         <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/40 dark:bg-slate-800/40 space-y-2">
           <h4 className="text-xs font-bold text-[#0054A6] dark:text-blue-300 flex items-center gap-1.5">
@@ -242,7 +277,8 @@ function RootCauseDrawer({ anomaly, onClose }: RootCauseDrawerProps) {
 // ─── Componente Principal ───
 export default function AnomalyDetectionPanel() {
   const t = useTranslations("AnomalyPanel");
-  const { selectedTenant } = useTenant();
+  const tA = useTranslations("Anomalies");
+  const { selectedTenant, userRole } = useTenant();
   const tenantId = selectedTenant?.id || "";
   const searchParams = useSearchParams();
   const { instance, accounts } = useMsal();
@@ -266,32 +302,32 @@ export default function AnomalyDetectionPanel() {
     dedupingInterval: 30000,
   });
 
-  const [activeTab, setActiveTab] = useState<AnomalyState | "ALL">("OPEN");
+  const [activeTab, setActiveTab] = useState<AnomalyState | "ALL">("New");
   const [selectedAnomalyForDrawer, setSelectedAnomalyForDrawer] = useState<CostAnomalyItem | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   const summary = data?.summary;
   const rawAnomalies = useMemo(() => summary?.anomalies || [], [summary]);
 
-  const [localOverrides, setLocalOverrides] = useState<Record<string, { state: AnomalyState; notes?: string }>>({});
+  const [localOverrides, setLocalOverrides] = useState<Record<string, AnomalyState>>({});
+  const [triageError, setTriageError] = useState(false);
+  // El PATCH exige Admin, Owner o Colaborador: a un Reader no se le ofrece.
+  const canTriage = isMock || userRole !== "Reader";
 
-  const anomalies = useMemo(() => {
-    return rawAnomalies.map((a) => {
-      const override = localOverrides[a.id];
-      if (override) {
-        return { ...a, state: override.state, resolutionNotes: override.notes || a.resolutionNotes };
-      }
-      return a;
-    });
-  }, [rawAnomalies, localOverrides]);
+  const anomalies = useMemo(
+    () => rawAnomalies.map((a) => (localOverrides[a.id] ? { ...a, state: localOverrides[a.id] } : a)),
+    [rawAnomalies, localOverrides]
+  );
 
   const counts = useMemo(() => {
-    const res: Record<AnomalyState, number> = { OPEN: 0, SNOOZED: 0, DISMISSED: 0, RESOLVED: 0 };
+    const res = Object.fromEntries(ANOMALY_STATES.map((s) => [s, 0])) as Record<AnomalyState, number>;
     anomalies.forEach((a) => {
       if (res[a.state] !== undefined) res[a.state]++;
     });
     return res;
   }, [anomalies]);
+  const openCount = counts.New + counts.Investigating;
+  const firstOpen = anomalies.find((a) => isOpenAnomalyState(a.state));
 
   const filtered = useMemo(() => {
     return anomalies.filter((a) => {
@@ -310,22 +346,34 @@ export default function AnomalyDetectionPanel() {
 
   const { paged, page, totalPages, pageSize, setPage, setPageSize, total } = usePagination(filtered, 15);
 
-  const handleStateUpdate = async (anomalyId: string, action: "RESOLVE" | "SNOOZE" | "DISMISS" | "REOPEN") => {
-    const nextState: AnomalyState =
-      action === "RESOLVE" ? "RESOLVED" : action === "SNOOZE" ? "SNOOZED" : action === "DISMISS" ? "DISMISSED" : "OPEN";
+  const handleStateUpdate = async (anomalyId: string, next: AnomalyState) => {
+    const previous = localOverrides[anomalyId];
+    setTriageError(false);
+    setLocalOverrides((prev) => ({ ...prev, [anomalyId]: next }));
+    if (isMock) return;
 
-    setLocalOverrides((prev) => ({ ...prev, [anomalyId]: { state: nextState } }));
-
-    if (!isMock) {
-      try {
-        await fetch("/api/analytics/anomalies", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tenantId, anomalyId, action }),
-        });
-      } catch (e) {
-        console.warn("[AnomalyDetectionPanel] PATCH failed:", e);
-      }
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const idToken = accounts.length > 0 ? await getFreshIdToken(instance, accounts[0]) : null;
+      if (idToken) headers["Authorization"] = `Bearer ${idToken}`;
+      const res = await fetch("/api/intelligence/anomalies", {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ tenantId, anomalyId, status: next }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // Los KPIs de impacto y MTTR los calcula el servidor.
+      mutate();
+    } catch (e) {
+      // Dejar aplicado un estado que no se guardó aparenta que alguien tomó el desvío.
+      setLocalOverrides((prev) => {
+        const rest = { ...prev };
+        if (previous) rest[anomalyId] = previous;
+        else delete rest[anomalyId];
+        return rest;
+      });
+      setTriageError(true);
+      console.warn("[AnomalyDetectionPanel] triage update failed:", e);
     }
   };
 
@@ -425,16 +473,23 @@ export default function AnomalyDetectionPanel() {
         </div>
       )}
 
+      {triageError && (
+        <div role="alert" className="p-3.5 rounded-xl border border-red-200 dark:border-red-800 bg-white dark:bg-slate-900 flex items-start gap-2">
+          <IconAlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" stroke={1.5} />
+          <p className="text-xs text-red-700 dark:text-red-400">{t('triageError')}</p>
+        </div>
+      )}
+
       {/* ─── 4 KPI Cards Superiores ─── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           {
             label: t('kpiOpenLabel'),
             tip: t('kpiOpenTip'),
-            value: String(counts.OPEN),
-            sub: `${counts.OPEN > 0 ? t('kpiOpenSubWarn') : t('kpiOpenSubOk')}`,
+            value: String(openCount),
+            sub: `${openCount > 0 ? t('kpiOpenSubWarn') : t('kpiOpenSubOk')}`,
             Icon: IconAlertCircle,
-            warn: counts.OPEN > 0,
+            warn: openCount > 0,
           },
           {
             label: t('kpiImpactLabel'),
@@ -447,7 +502,7 @@ export default function AnomalyDetectionPanel() {
           {
             label: t('kpiResolvedLabel'),
             tip: t('kpiResolvedTip'),
-            value: String(counts.RESOLVED),
+            value: String(counts.Resolved),
             sub: t('kpiResolvedSub'),
             Icon: IconCircleCheck,
           },
@@ -505,17 +560,17 @@ export default function AnomalyDetectionPanel() {
             <p className="text-[11px] text-slate-400 mt-0.5">{t('alertThreshold')}: <span className="font-bold text-[#0054A6]">{money(upperLimit)}</span></p>
           </div>
 
-          {counts.OPEN > 0 ? (
+          {firstOpen ? (
             <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-rose-300 dark:border-rose-900/60 shadow-xs">
               <div className="flex items-center gap-2 mb-1">
                 <IconAlertTriangle className="w-5 h-5 text-rose-600" stroke={1.5} />
                 <h3 className="text-xs font-bold text-rose-700 dark:text-rose-400">{t('activeAnomaly')}</h3>
               </div>
               <p className="text-2xl font-extrabold text-rose-600 dark:text-rose-400">
-                {money(anomalies.find((a) => a.state === "OPEN")?.actualCostUSD || 113.61)}
+                {money(firstOpen.actualCostUSD)}
               </p>
               <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-0.5 font-medium">
-                Z-Score: {(anomalies.find((a) => a.state === "OPEN")?.zScore || 3.32).toFixed(2)} ({t('criticalDeviation')})
+                Z-Score: {firstOpen.zScore.toFixed(2)} ({t('criticalDeviation')})
               </p>
             </div>
           ) : (
@@ -601,10 +656,7 @@ export default function AnomalyDetectionPanel() {
         {/* Pestañas de Estado */}
         <div className="flex flex-wrap gap-1.5">
           {[
-            { key: "OPEN", label: t('tabOpen'), count: counts.OPEN },
-            { key: "SNOOZED", label: t('tabSnoozed'), count: counts.SNOOZED },
-            { key: "DISMISSED", label: t('tabDismissed'), count: counts.DISMISSED },
-            { key: "RESOLVED", label: t('tabResolved'), count: counts.RESOLVED },
+            ...ANOMALY_STATES.map((s) => ({ key: s, label: tA(STATE_TAB[s]), count: counts[s] })),
             { key: "ALL", label: t('tabAll'), count: anomalies.length },
           ].map((tab) => {
             const isActive = activeTab === tab.key;
@@ -663,17 +715,9 @@ export default function AnomalyDetectionPanel() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <span
-                    className={`text-[10px] font-bold px-2.5 py-0.5 rounded-lg uppercase tracking-wider border ${
-                      anomaly.state === "OPEN"
-                        ? "border-rose-300 dark:border-rose-800 text-rose-600 bg-rose-50/50 dark:bg-rose-950/30"
-                        : anomaly.state === "SNOOZED"
-                          ? "border-amber-300 dark:border-amber-800 text-amber-600 bg-amber-50/50 dark:bg-amber-950/30"
-                          : anomaly.state === "DISMISSED"
-                            ? "border-slate-300 dark:border-slate-700 text-slate-500 bg-slate-50"
-                            : "border-emerald-300 dark:border-emerald-800 text-emerald-600 bg-emerald-50/50"
-                    }`}
+                    className={`text-[10px] font-bold px-2.5 py-0.5 rounded-lg uppercase tracking-wider border ${STATE_STYLE[anomaly.state]}`}
                   >
-                    {t(`state.${anomaly.state}`)}
+                    {tA(STATE_LABEL[anomaly.state])}
                   </span>
                   <span className="text-xs font-semibold text-slate-500">
                     {t('csvDate')}: <span className="font-mono text-[#1B2A41] dark:text-slate-200">{anomaly.detectionDate}</span>
@@ -689,6 +733,19 @@ export default function AnomalyDetectionPanel() {
                   </span>
                 </div>
               </div>
+
+              {/* MEJ-33: el responsable, o su ausencia. "Sin asignar" es el dato que le
+                  dice al cliente qué le falta completar de su gobernanza. */}
+              <p className="text-[11px]">
+                {anomaly.assignedTo ? (
+                  <span className="text-slate-600 dark:text-slate-300">
+                    {tA('assignedTo')}: <strong>{anomaly.assignedTo}</strong>
+                    {anomaly.assignedDetail && <span className="text-slate-400"> — {anomaly.assignedDetail}</span>}
+                  </span>
+                ) : (
+                  <span className="text-amber-700 dark:text-amber-400 font-semibold">{tA('unassigned')}</span>
+                )}
+              </p>
 
               {/* Grid Central: Desglose Causal vs Impacto */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-center">
@@ -760,59 +817,44 @@ export default function AnomalyDetectionPanel() {
                   <span>{t('viewRootCause')}</span>
                 </button>
 
-                <div className="flex items-center gap-2 flex-wrap">
-                  {anomaly.state === "OPEN" && (
-                    <>
+                {canTriage && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {anomaly.state === "New" && (
                       <button
-                        onClick={() => handleStateUpdate(anomaly.id, "SNOOZE")}
+                        onClick={() => handleStateUpdate(anomaly.id, "Investigating")}
                         className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-amber-400 text-amber-700 dark:text-amber-400 bg-white dark:bg-slate-900 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition flex items-center gap-1 cursor-pointer shadow-xs"
                       >
-                        <IconClock className="w-3.5 h-3.5" />
-                        <span>{t('snooze')}</span>
+                        <IconUserCheck className="w-3.5 h-3.5" />
+                        <span>{t('startInvestigating')}</span>
                       </button>
-                      <button
-                        onClick={() => handleStateUpdate(anomaly.id, "DISMISS")}
-                        className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 hover:bg-slate-50 transition cursor-pointer shadow-xs"
-                      >
-                        {t('dismiss')}
-                      </button>
-                      <button
-                        onClick={() => handleStateUpdate(anomaly.id, "RESOLVE")}
-                        className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition flex items-center gap-1 cursor-pointer shadow-xs"
-                      >
-                        <IconCheck className="w-3.5 h-3.5 text-[#0078D4]" />
-                        <span>{t('markResolved')}</span>
-                      </button>
-                    </>
-                  )}
+                    )}
 
-                  {anomaly.state === "SNOOZED" && (
-                    <>
+                    {isOpenAnomalyState(anomaly.state) ? (
+                      <>
+                        <button
+                          onClick={() => handleStateUpdate(anomaly.id, "False Positive")}
+                          className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 hover:bg-slate-50 transition cursor-pointer shadow-xs"
+                        >
+                          {t('markFalsePositive')}
+                        </button>
+                        <button
+                          onClick={() => handleStateUpdate(anomaly.id, "Resolved")}
+                          className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition flex items-center gap-1 cursor-pointer shadow-xs"
+                        >
+                          <IconCheck className="w-3.5 h-3.5 text-[#0078D4]" />
+                          <span>{t('markResolved')}</span>
+                        </button>
+                      </>
+                    ) : (
                       <button
-                        onClick={() => handleStateUpdate(anomaly.id, "REOPEN")}
+                        onClick={() => handleStateUpdate(anomaly.id, "New")}
                         className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-50 transition cursor-pointer shadow-xs"
                       >
                         {t('reopen')}
                       </button>
-                      <button
-                        onClick={() => handleStateUpdate(anomaly.id, "RESOLVE")}
-                        className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-[#0054A6] text-[#0054A6] dark:text-blue-400 bg-white dark:bg-slate-900 hover:bg-blue-50/50 transition flex items-center gap-1 cursor-pointer shadow-xs"
-                      >
-                        <IconCheck className="w-3.5 h-3.5 text-[#0078D4]" />
-                        <span>{t('markResolved')}</span>
-                      </button>
-                    </>
-                  )}
-
-                  {(anomaly.state === "RESOLVED" || anomaly.state === "DISMISSED") && (
-                    <button
-                      onClick={() => handleStateUpdate(anomaly.id, "REOPEN")}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-50 transition cursor-pointer shadow-xs"
-                    >
-                      {t('reopenAnomaly')}
-                    </button>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ))
@@ -827,6 +869,7 @@ export default function AnomalyDetectionPanel() {
       {/* Drawer Lateral de Causa Raíz */}
       <RootCauseDrawer
         anomaly={selectedAnomalyForDrawer}
+        tenantId={tenantId}
         onClose={() => setSelectedAnomalyForDrawer(null)}
       />
     </div>
