@@ -13,7 +13,7 @@ vi.mock("@/services/aiService", () => ({ isAiGloballyEnabled: globalMock, getAiF
 vi.mock("@/lib/rateLimiter", () => ({ default: { checkByKeyDistributed: rlMock } }));
 vi.mock("@/lib/aiTelemetry", () => ({ logAiEvent: logMock }));
 
-import { AI_FEATURES, checkAiFeature } from "@/lib/aiFeatureGate";
+import { AI_FEATURES, checkAiFeature, peekAiFeature } from "@/lib/aiFeatureGate";
 import es from "../../messages/es.json";
 import en from "../../messages/en.json";
 import ptBR from "../../messages/pt-BR.json";
@@ -25,6 +25,7 @@ const tenant = (row: object | null) => queryMock.mockResolvedValueOnce([row ? [r
 const used = (c: number) => queryMock.mockResolvedValueOnce([[{ c }]]);
 const check = () => checkAiFeature("t1", "anomaly-explanation", "ana@x.com");
 const csv = () => checkAiFeature("t1", "billing-csv-column-mapping", "ana@x.com");
+const di = () => checkAiFeature("t1", "document-intelligence", "ana@x.com");
 
 beforeEach(() => {
     queryMock.mockReset();
@@ -147,6 +148,42 @@ describe("checkAiFeature", () => {
             tenant({ ...PRO, ai_enabled: 0 });
             expect(await checkAiFeature("t1", feature, "ana@x.com")).toEqual({ allowed: false, reason: "tenant_disabled" });
         }
+    });
+
+    it("Document Intelligence arranca apagada: hace falta prenderla en superadmin", async () => {
+        expect(await di()).toEqual({ allowed: false, reason: "feature_disabled" });
+        expect(queryMock).not.toHaveBeenCalled();
+    });
+
+    it("Document Intelligence pide Business y cuenta cuota aunque el tenant tenga BYOK", async () => {
+        switchMock.mockResolvedValue(true);
+        tenant(PRO);
+        expect(await di()).toEqual({ allowed: false, reason: "tier" });
+        tenant({ ...BIZ, ai_provider: "openai", ai_api_key: "enc:..." });
+        used(150);
+        expect(await di()).toEqual({ allowed: false, reason: "quota" });
+        // Enterprise también tiene techo: cada página la paga la plataforma.
+        tenant(ENT);
+        used(499);
+        expect(await di()).toEqual({ allowed: true });
+        tenant(ENT);
+        used(500);
+        expect(await di()).toEqual({ allowed: false, reason: "quota" });
+    });
+});
+
+describe("peekAiFeature", () => {
+    it("decide igual que el gate sin gastar rate limit ni registrar telemetría", async () => {
+        logMock.mockClear();
+        rlMock.mockResolvedValue({ allowed: false, resetAt: new Date() });
+        tenant(BIZ);
+        used(0);
+        expect(await peekAiFeature("t1", "billing-csv-column-mapping")).toEqual({ allowed: true });
+        expect(rlMock).not.toHaveBeenCalled();
+        expect(logMock).not.toHaveBeenCalled();
+        tenant(BIZ);
+        used(150);
+        expect(await peekAiFeature("t1", "billing-csv-column-mapping")).toEqual({ allowed: false, reason: "quota" });
     });
 });
 

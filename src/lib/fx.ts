@@ -87,6 +87,29 @@ export async function getRate(target: CurrencyCode): Promise<Decimal> {
 }
 
 /**
+ * Tasa para un importe con fecha (`YYYY-MM-DD`): la última cargada hasta ese
+ * día y, si no hay ninguna anterior, la más cercana después. Sin filas, el
+ * seed estático con `rateDate: null`. Devuelve la fecha para dejar constancia
+ * de qué tasa se usó (gasto externo). Sin caché: se llama al aprobar.
+ */
+export async function getRateOn(target: CurrencyCode, date: string): Promise<{ rate: Decimal; rateDate: string | null }> {
+    if (target === "USD") return { rate: new Decimal(1), rateDate: date };
+    try {
+        const [rows] = await pool.query(
+            `SELECT rate, DATE_FORMAT(rate_date, '%Y-%m-%d') AS rate_date FROM FxRates
+             WHERE base_currency='USD' AND target_currency=?
+             ORDER BY (rate_date <= ?) DESC, ABS(DATEDIFF(rate_date, ?)) ASC LIMIT 1`,
+            [target, date, date]
+        );
+        const arr = rows as Array<{ rate: string | number; rate_date: string }>;
+        if (arr.length > 0) return { rate: new Decimal(arr[0].rate), rateDate: arr[0].rate_date };
+    } catch {
+        // tabla puede no existir si la migración no corrió en este entorno
+    }
+    return { rate: new Decimal(FALLBACK_RATES[target]), rateDate: null };
+}
+
+/**
  * Convierte `amountUSD` (number o Decimal) a la divisa objetivo.
  */
 export async function convertFromUSD(

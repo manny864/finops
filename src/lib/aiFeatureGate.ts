@@ -19,7 +19,8 @@ export type AiFeature =
     | "billing-csv-column-mapping"
     | "billing-upload-assessment"
     | "support-ticket-triage"
-    | "support-reply-draft";
+    | "support-reply-draft"
+    | "document-intelligence";
 
 export type AiGateDenyReason =
     | "global_disabled"
@@ -43,6 +44,11 @@ interface AiFeatureConfig {
     monthlyQuota: Record<string, number | null>;
     perMinute: number;
     maxOutputTokens: number;
+    /**
+     * La llamada va siempre a un recurso de la plataforma, sin BYOK posible: la
+     * cuota corre aunque el tenant tenga su propia clave de OpenAI.
+     */
+    platformOnly?: boolean;
 }
 
 // Mismas cuotas que el Copilot, pero contadas por feature.
@@ -94,6 +100,20 @@ export const AI_FEATURES: Record<AiFeature, AiFeatureConfig> = {
         perMinute: 5,
         maxOutputTokens: 800,
     },
+    // Apagada hasta validar demanda y ponerle precio de add-on (sección 6.7 de
+    // la propuesta). Business, como la página de upload. La cuota cuenta
+    // documentos analizados; las páginas por documento las topa
+    // `EXTERNAL_SPEND_MAX_PAGES` (externalSpend.types.ts). Enterprise también tiene
+    // techo: cada página cuesta y no hay add-on que lo pague.
+    "document-intelligence": {
+        defaultEnabled: false,
+        minTier: "Business",
+        monthlyQuota: { Business: 150, Enterprise: 500 },
+        perMinute: 5,
+        // No es un LLM: no hay tokens de salida que topar.
+        maxOutputTokens: 0,
+        platformOnly: true,
+    },
 };
 
 export const isAiFeature = (value: string): value is AiFeature => Object.hasOwn(AI_FEATURES, value);
@@ -111,7 +131,14 @@ export async function checkAiFeature(tenantId: string, feature: AiFeature, userK
     return result;
 }
 
-async function decide(tenantId: string, feature: AiFeature, userKey: string): Promise<AiGateResult> {
+/**
+ * El mismo veredicto sin gastar rate limit ni registrar telemetría: para que
+ * una pantalla avise antes de que el usuario intente algo que se va a negar.
+ */
+export const peekAiFeature = (tenantId: string, feature: AiFeature): Promise<AiGateResult> =>
+    decide(tenantId, feature, null);
+
+async function decide(tenantId: string, feature: AiFeature, userKey: string | null): Promise<AiGateResult> {
     if (!(await isAiGloballyEnabled())) return deny("global_disabled");
 
     const cfg = AI_FEATURES[feature];
@@ -129,10 +156,12 @@ async function decide(tenantId: string, feature: AiFeature, userKey: string): Pr
     const tier = normalizeTier(row.tier || "Professional");
     if (!tier || !hasAccess(tier, cfg.minTier)) return deny("tier");
 
-    const rl = await rateLimiter.checkByKeyDistributed(`ai:${feature}:${tenantId}:${userKey}`, cfg.perMinute, 60_000);
-    if (!rl.allowed) return deny("rate_limited");
+    if (userKey !== null) {
+        const rl = await rateLimiter.checkByKeyDistributed(`ai:${feature}:${tenantId}:${userKey}`, cfg.perMinute, 60_000);
+        if (!rl.allowed) return deny("rate_limited");
+    }
 
-    const byok = Boolean(row.ai_provider && row.ai_provider !== "system" && row.ai_api_key);
+    const byok = !cfg.platformOnly && Boolean(row.ai_provider && row.ai_provider !== "system" && row.ai_api_key);
     const quota = byok ? null : (cfg.monthlyQuota[tier] ?? null);
     if (quota !== null) {
         // Sólo lo que pagó la plataforma este mes calendario (UTC), como el Copilot.
