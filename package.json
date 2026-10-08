@@ -16,6 +16,7 @@
     "test:e2e:demo": "playwright test --project=demo-setup --project=demo",
     "test:e2e:report": "playwright show-report",
     "typecheck": "tsc --noEmit",
+    "support:index": "node scripts/generate-support-manual-index.mjs",
     "db:delete-admin": "node scripts/delete-admin-user.js",
     "migrate": "tsx scripts/migrate.ts",
     "migrate:local": "bash -c 'set -a; source .env.development; set +a; npx tsx scripts/migrate.ts'",
