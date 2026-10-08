@@ -1,7 +1,6 @@
 import pool, { insertPlatformAiUsage } from '@/modules/storage/db';
 import crypto from 'crypto';
-import { generateText, generateObject } from 'ai';
-import { z } from 'zod';
+import { generateText } from 'ai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAzure } from '@ai-sdk/azure';
@@ -562,16 +561,6 @@ ${reportSample}`,
     return text.replace(/\s+/g, " ").trim();
 }
 
-export const focusCostEntrySchema = z.object({
-    ProviderName: z.string().describe("E.g., Azure, AWS, GCP"),
-    SubAccountId: z.string().describe("E.g., Subscription ID or AWS Account ID"),
-    ServiceName: z.string(),
-    ChargeCategory: z.string(),
-    UsageDate: z.string(),
-    BilledCost: z.number(),
-    EffectiveCost: z.number()
-});
-
 /** Campos que definen el schema destino; si el CSV ya los trae, no hace falta IA. */
 const FOCUS_REQUIRED_COLUMNS = ['BilledCost', 'EffectiveCost', 'ChargeCategory', 'ProviderName', 'ServiceName'];
 
@@ -597,7 +586,7 @@ function focusDate(row: Record<string, unknown>): string {
  * las primeras 50 filas de 256 y podía fallar por schema, deployment o 429. El
  * atajo determinista es instantáneo, gratis, cubre el archivo completo y no
  * puede fallar. La IA queda para lo que realmente la necesita: exports con
- * columnas propias de cada proveedor.
+ * columnas propias de cada proveedor (`billingCsvMapping.service.ts`).
  */
 export function isAlreadyFocusFormat(rawCsvData: any[]): boolean {
     const first = rawCsvData?.[0];
@@ -620,62 +609,4 @@ export function mapNativeFocusRows(rawCsvData: any[]): any[] {
             ? num(row.BilledCost)
             : num(row.EffectiveCost),
     }));
-}
-
-export async function normalizeBillingCsv(rawCsvData: any[], tenantId?: string): Promise<any[]> {
-    // Atajo: si ya es FOCUS, se mapea sin IA (ver isAlreadyFocusFormat).
-    if (isAlreadyFocusFormat(rawCsvData)) {
-        console.log(`[normalizeBillingCsv] CSV ya en formato FOCUS: ${rawCsvData.length} filas mapeadas sin IA.`);
-        return mapNativeFocusRows(rawCsvData);
-    }
-
-    // Usa la configuración de IA DEL TENANT (BYOK) y cae a la global sólo si el
-    // tenant no tiene la suya, igual que el resto de los caminos de IA.
-    //
-    // Antes llamaba a getGeminiModel() sin tenantId y forzaba la key global.
-    // Con una config global apuntando a un deployment inexistente, la ingesta
-    // de CSV devolvía 404 DeploymentNotFound -> 500 "Internal server error
-    // processing CSV", aunque el tenant tuviera un proveedor válido cargado.
-    // Además hacía que el upload lo pagara siempre la plataforma.
-    const { model, modelName, config } = await AIProviderFactory.getGeminiModel(tenantId);
-    const systemPrompt = `You are a universal multi-cloud FinOps mapper.
-Identify the cloud provider (AWS, Azure, GCP, etc.) from the raw JSON billing rows.
-Map the diverse column names to the standard FOCUS specification.
-Return an array of the mapped FocusCostEntry objects.`;
-
-    // DLP (IA-5): el CSV lleva nombres de recursos y sale hacia el proveedor de
-    // IA. Este camino tampoco aplicaba las preferencias del tenant. Se redacta
-    // por clave, que no afecta al mapeo: lo que se infiere son los NOMBRES DE
-    // COLUMNA, no los valores.
-    const sample = tenantId
-        ? await redactForTenant(tenantId, rawCsvData.slice(0, 50))
-        : rawCsvData.slice(0, 50);
-    const dataString = JSON.stringify(sample);
-
-    // El schema raíz va envuelto en un objeto y no como z.array(...).
-    // Structured outputs de OpenAI/Azure OpenAI rechaza un array en la raíz:
-    // "schema must be a JSON Schema of type object, got type array" (400).
-    // Se desenvuelve abajo para conservar el contrato de la función.
-    const { object, usage } = await aiQueue.add(() =>
-        withExponentialBackoff(() =>
-            generateObject({
-                model: model as any,
-                schema: z.object({ entries: z.array(focusCostEntrySchema) }),
-                system: systemPrompt,
-                prompt: `Map these billing records to FOCUS format:\n\n${dataString}`
-            })
-        )
-    );
-
-    insertPlatformAiUsage({
-        tenantId,
-        source: config.source,
-        provider: config.provider,
-        modelName,
-        feature: 'billing-csv-normalize',
-        inputTokens: usage.inputTokens || 0,
-        outputTokens: usage.outputTokens || 0,
-    });
-
-    return object.entries ?? [];
 }

@@ -7656,7 +7656,13 @@
     "processFailed": "Fallo al procesar los datos con el proveedor de IA.",
     "networkError": "Error de red al conectar con la API.",
     "criticalParseError": "Error crítico al procesar el archivo localmente.",
-    "sessionNotReady": "Esperá a que termine de iniciar la sesión antes de analizar."
+    "sessionNotReady": "Esperá a que termine de iniciar la sesión antes de analizar.",
+    "mappingError_global_disabled": "Este CSV no está en formato FOCUS y mapear sus columnas requiere IA, que está desactivada en la plataforma.",
+    "mappingError_tenant_disabled": "Este CSV no está en formato FOCUS y mapear sus columnas requiere IA, que está desactivada para tu organización.",
+    "mappingError_tier": "Mapear con IA un CSV que no está en formato FOCUS requiere el plan Business o superior.",
+    "mappingError_quota": "Se agotó la cuota mensual de mapeos de CSV con IA. Subí el archivo en formato FOCUS o esperá al mes que viene.",
+    "mappingError_rate_limited": "Demasiados mapeos de CSV seguidos. Esperá un minuto y volvé a intentar.",
+    "mappingError_invalid_mapping": "No pudimos identificar las columnas de costo y de servicio del archivo. Revisá que el CSV las tenga o exportalo en formato FOCUS."
   },
   "IntelligenceZeroCost": {
     "allReasons": "Todos los motivos",

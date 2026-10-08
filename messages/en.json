@@ -7656,7 +7656,13 @@
     "processFailed": "Failed to process the data with the AI provider.",
     "networkError": "Network error connecting to the API.",
     "criticalParseError": "Critical error processing the file locally.",
-    "sessionNotReady": "Wait for the session to finish loading before analyzing."
+    "sessionNotReady": "Wait for the session to finish loading before analyzing.",
+    "mappingError_global_disabled": "This CSV is not in FOCUS format and mapping its columns requires AI, which is disabled on the platform.",
+    "mappingError_tenant_disabled": "This CSV is not in FOCUS format and mapping its columns requires AI, which is disabled for your organization.",
+    "mappingError_tier": "Mapping a non-FOCUS CSV with AI requires the Business plan or higher.",
+    "mappingError_quota": "The monthly quota of AI CSV mappings is used up. Upload the file in FOCUS format or wait until next month.",
+    "mappingError_rate_limited": "Too many CSV mappings in a row. Wait a minute and try again.",
+    "mappingError_invalid_mapping": "We couldn't identify the cost and service columns in the file. Check that the CSV has them or export it in FOCUS format."
   },
   "IntelligenceZeroCost": {
     "allReasons": "All reasons",

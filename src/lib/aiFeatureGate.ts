@@ -31,7 +31,8 @@ const QUOTA = { Professional: 50, Business: 150, Enterprise: null };
 
 export const AI_FEATURES: Record<AiFeature, AiFeatureConfig> = {
     "anomaly-explanation": { minTier: "Professional", monthlyQuota: QUOTA, perMinute: 10, maxOutputTokens: 600 },
-    "billing-csv-column-mapping": { minTier: "Professional", monthlyQuota: QUOTA, perMinute: 5, maxOutputTokens: 800 },
+    // Business, como la página de upload (routeTiers).
+    "billing-csv-column-mapping": { minTier: "Business", monthlyQuota: QUOTA, perMinute: 5, maxOutputTokens: 800 },
 };
 
 const deny = (reason: AiGateDenyReason): AiGateResult => ({ allowed: false, reason });

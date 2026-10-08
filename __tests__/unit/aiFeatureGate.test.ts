@@ -44,6 +44,15 @@ describe("checkAiFeature", () => {
         expect(await check()).toEqual({ allowed: false, reason: "tier" });
     });
 
+    it("el mapeo de CSV pide Business, como la página de upload", async () => {
+        const csv = () => checkAiFeature("t1", "billing-csv-column-mapping", "ana@x.com");
+        tenant(PRO);
+        expect(await csv()).toEqual({ allowed: false, reason: "tier" });
+        tenant({ ...PRO, tier: "Business" });
+        used(0);
+        expect(await csv()).toEqual({ allowed: true });
+    });
+
     it("rate limit por feature, tenant y usuario, antes de contar la cuota", async () => {
         tenant(PRO);
         rlMock.mockResolvedValue({ allowed: false, resetAt: new Date() });

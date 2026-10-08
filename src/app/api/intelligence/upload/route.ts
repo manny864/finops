@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAssessment, normalizeBillingCsv, extractAiErrorMessage } from "@/modules/core/aiProvider";
+import { getAssessment, extractAiErrorMessage } from "@/modules/core/aiProvider";
+import { CsvMappingError, normalizeBillingCsv } from "@/services/billingCsvMapping.service";
 import { FocusCostEntry } from "@/modules/core/focusMapper";
 import { requireRequestIdentity, AuthError } from "@/lib/requestAuth";
 import rateLimiter from "@/lib/rateLimiter";
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const focusData = await normalizeBillingCsv(rawData, tenantId);
+        const focusData = await normalizeBillingCsv(rawData, tenantId, email);
 
         // Aggregate by ServiceName and ChargeCategory to keep the payload sent to the
         // tenant's configured AI provider small (getAssessment -> AIProviderFactory).
@@ -73,6 +74,11 @@ export async function POST(request: NextRequest) {
 
     } catch (error) {
         if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
+        if (error instanceof CsvMappingError) {
+            // La UI traduce `reason`; `error` queda para quien llame a la API directo.
+            const status = error.reason === "invalid_mapping" ? 422 : error.reason === "quota" || error.reason === "rate_limited" ? 429 : 403;
+            return NextResponse.json({ error: error.message, reason: error.reason }, { status });
+        }
         console.error("Error processing CSV upload:", error);
 
         // Un fallo del proveedor de IA (deployment inexistente, credencial

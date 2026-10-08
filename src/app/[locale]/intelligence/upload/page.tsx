@@ -111,7 +111,7 @@ export default function CSVUploadPage() {
                         toast.success(t('analysisComplete'));
                         setAssessmentResult(json.assessment);
                     } else {
-                        toast.error(json.error || t('processFailed'));
+                        toast.error(json.reason ? t(`mappingError_${json.reason}`) : json.error || t('processFailed'));
                     }
                 } catch (error) {
                     console.error("Upload API Error:", error);
