@@ -14,6 +14,7 @@ import { isMockTenant } from '@/lib/mockData';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import AnomalyRootCause from './AnomalyRootCause';
+import AnomalyAiExplanation from './AnomalyAiExplanation';
 import type { RootCauseFact } from '@/types/anomalyRootCause.types';
 
 type AnomalyStatus = 'New' | 'Investigating' | 'Resolved' | 'False Positive';
@@ -523,6 +524,8 @@ export default function AnomalyDashboard() {
                                         </div>
                                     )}
                                     <AnomalyRootCause facts={anomaly.root_cause_facts} hasOwner={!!anomaly.assigned_to} />
+                                    {/* Sin hechos no hay nada que la IA pueda citar. */}
+                                    {!!anomaly.root_cause_facts?.length && <AnomalyAiExplanation tenantId={selectedTenant.id} anomalyId={anomaly.id} />}
                                 </div>
                                 <div className="text-right space-y-2">
                                     <div>

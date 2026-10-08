@@ -9,6 +9,9 @@
  * la ruta de sync por API, y `CostMeterSnapshots` no tiene resource group.
  */
 
+/** Ventana base, en días, de los contribuyentes y de los hechos. */
+export const ROOT_CAUSE_BASELINE_DAYS = 30;
+
 export const ROOT_CAUSE_FACT_TYPES = [
     "NEW_METER",
     "USAGE_INCREASE",
@@ -67,3 +70,28 @@ export function suggestedActions(facts: RootCauseFact[] | null | undefined, hasO
     if (!hasOwner) set.add("ASSIGN_OWNER");
     return ROOT_CAUSE_ACTIONS.filter((a) => set.has(a));
 }
+
+/** Explicación redactada por la IA (Fase 1b): cita hechos por id, sin montos ni acciones. */
+export interface AnomalyExplanation {
+    summary: string;
+    causes: { factId: string; text: string }[];
+}
+
+// Por qué no hay explicación con IA. Los cinco primeros los decide el gate.
+export const EXPLANATION_UNAVAILABLE_REASONS = [
+    "global_disabled",
+    "tenant_disabled",
+    "tier",
+    "quota",
+    "rate_limited",
+    "not_configured",
+    "error",
+    "validation",
+    "no_facts",
+    "demo",
+] as const;
+export type ExplanationUnavailableReason = (typeof EXPLANATION_UNAVAILABLE_REASONS)[number];
+
+export type AnomalyExplanationResult =
+    | { aiAvailable: true; explanation: AnomalyExplanation; factsHash: string; feedback: "up" | "down" | null }
+    | { aiAvailable: false; reason: ExplanationUnavailableReason };

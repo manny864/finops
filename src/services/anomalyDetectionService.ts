@@ -20,7 +20,7 @@ import { createNotification } from "@/lib/notify";
 import { resolveAnomalyOwner, type AssignmentVia } from "@/services/anomalyOwnerResolver";
 import { buildRootCauseFacts, MAX_CONTRIBUTORS, type MeterRow } from "@/services/anomalyRootCause.service";
 import type { RowDataPacket } from "mysql2";
-import type { RootCauseFact } from "@/types/anomalyRootCause.types";
+import { ROOT_CAUSE_BASELINE_DAYS, type RootCauseFact } from "@/types/anomalyRootCause.types";
 import { recordDailySnapshotAsync } from "@/services/snapshotService";
 import { getHistoricalDailyCosts, AZURE_COST_HISTORY_MAX_MONTHS } from "@/modules/collectors/azure/billingService";
 import { tenantUsesAzure } from "@/lib/tenantProviderContext";
@@ -142,7 +142,7 @@ export function detectAnomalies(
         }));
 }
 
-const CONTRIBUTORS_BASELINE_DAYS = 30;
+const CONTRIBUTORS_BASELINE_DAYS = ROOT_CAUSE_BASELINE_DAYS;
 const CONTRIBUTORS_LIMIT = 5;
 
 /** Filtro por suscripción de las consultas de causa raíz. "All" no filtra. */

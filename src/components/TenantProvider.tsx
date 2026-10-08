@@ -567,6 +567,10 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   return new Response(JSON.stringify({ success: true, mock: true, data: { eligibleResources, totalPotentialSavings } }), {status: 200});
               }
               if (url.includes('/api/intelligence/rightsizing')) return new Response(JSON.stringify(getMockDataForRoute('rightsizing', mockKey)), {status: 200});
+              // Antes del match general de anomalías, que si no devolvería el listado.
+              // La explicación con IA no se simula: un texto fijo con la etiqueta
+              // "Generado con IA" mostraría como IA algo que no lo es.
+              if (url.includes('/api/intelligence/anomalies/') && url.includes('/explanation')) return new Response(JSON.stringify({ success: true, aiAvailable: false, reason: 'demo' }), {status: 200});
               if (url.includes('/api/intelligence/anomalies')) return new Response(JSON.stringify(getMockDataForRoute('anomalies', mockKey)), {status: 200});
               if (url.includes('/api/intelligence/kpis/coin')) {
                   if (init?.method === 'POST') return new Response(JSON.stringify({ success: true, mock: true, expiresAt: null }), {status: 200});

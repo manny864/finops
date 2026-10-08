@@ -24,7 +24,7 @@ import { FOUNDRY_REMEDIATION_CATEGORIES } from "@/types/azureAiFoundry.types";
 import { DOC_INTELLIGENCE_REMEDIATION_CATEGORIES } from "@/types/azureDocumentIntelligence.types";
 import { ALLOCATION_REMEDIATION_CATEGORIES } from "@/types/azureCostAllocation.types";
 import { WATERFALL_STEP_KEYS } from "@/types/azureWhatIf.types";
-import { ROOT_CAUSE_FACT_TYPES, ROOT_CAUSE_ACTIONS } from "@/types/anomalyRootCause.types";
+import { ROOT_CAUSE_FACT_TYPES, ROOT_CAUSE_ACTIONS, EXPLANATION_UNAVAILABLE_REASONS } from "@/types/anomalyRootCause.types";
 import { REDIS_RULE_I18N } from "@/types/redisCache";
 import { MONGO_RULE_I18N } from "@/types/azureMongoDb";
 import { MYSQL_RULE_I18N } from "@/types/azureMySQL";
@@ -808,6 +808,11 @@ describe("i18n · capa 2: los dominios que se pueden enumerar de verdad", () => 
                 ...ROOT_CAUSE_FACT_TYPES.map((k) => `factType_${k}`),
                 ...ROOT_CAUSE_ACTIONS.map((k) => `action_${k}`),
             ],
+        },
+        {
+            que: "motivos por los que no hay explicación con IA de una anomalía (EXPLANATION_UNAVAILABLE_REASONS)",
+            ns: "Anomalies",
+            claves: EXPLANATION_UNAVAILABLE_REASONS.map((k) => `aiReason_${k}`),
         },
     ];
 
