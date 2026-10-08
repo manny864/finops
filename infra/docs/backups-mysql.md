@@ -19,13 +19,22 @@ el PITR sólo te devuelve el servidor entero a un punto en el tiempo.
 ```
 schedule "daily-backup" (Hour/2)
   └─> Orchestrator-Start-Backup-Stop   (sandbox de Azure Automation)
-        ├─ prende vm-mysql-worker
-        ├─ espera a que el Hybrid Worker vuelva a hacer polling
+        ├─ se asegura de que vm-mysql-worker esté encendida (Start-AzVM)
+        ├─ espera a que el Hybrid Worker haga polling
         ├─ lanza Backup-MySQL-Smart    (en la VM, grupo hwg-mysql-worker)
         │     └─ mysqldump | gzip  →  azcopy con SAS  →  db-backups/
-        ├─ monitorea con tope de tiempo
-        └─ apaga la VM SIEMPRE (finally, con fallback por REST)
+        └─ monitorea con tope de tiempo
 ```
+
+**La VM queda encendida las 24 h** (decisión del 2026-10-08). Antes el
+orquestador la apagaba al terminar, siempre, con `Stop-AzVM` y un fallback por
+REST (`deallocate`); esa fase se sacó. Consecuencia: la VM factura cómputo todo
+el mes (`Standard_D2s_v5` en el ejemplo de `terraform.tfvars.example`) y ya no
+hay alerta de "VM posiblemente encendida", porque encendida es lo esperado.
+
+El `content` del runbook está en `ignore_changes` (ver `modules/mysql_backup/main.tf`):
+cambiar el heredoc **no** lo publica. Hay que publicarlo en Azure por la API del
+runbook (`PUT .../draft/content` + `POST .../publish`).
 
 El nombre del schedule es `daily-backup` pero la frecuencia es **cada 2 horas**.
 Quedó así a propósito: `name` es ForceNew en `azurerm_automation_schedule` y
