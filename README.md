@@ -136,6 +136,7 @@ src/
 │   └── remediation/              # Modales de confirmación de acciones
 ├── context/                      # React Context Providers (ViewMode, Tenant, etc.)
 ├── db/                           # Conexiones y utilidades de Base de Datos
+├── generated/                    # Índice de manuales de la IA de soporte (npm run support:index)
 ├── hooks/                        # Hooks reutilizables (useMfaChallenge, etc.)
 ├── i18n/                         # Routing y configuración de next-intl
 ├── lib/                          # Utilidades: requestAuth, tierLogic, money/fx, mockData, secrets
@@ -444,10 +445,37 @@ segundo.
 - **El private endpoint de Azure AI necesita tres zonas DNS**
   (`cognitiveservices`, `openai` y `services.ai`). Con una de menos, ese nombre
   resuelve a la IP pública y, sin acceso público, la llamada falla con 403.
+- **Si cambiás el manual de usuario o el del partner, corré
+  `npm run support:index`.** Los borradores de soporte buscan en
+  `src/generated/supportManualIndex.json`, y `supportManualIndex.test.ts` falla
+  si no corresponde a los manuales.
 
 ---
 
 ## 📈 Recent Major Updates
+
+### 2026-10-08 — IA de soporte: triaje y borradores con citas, apagados hasta medir
+
+Detalle técnico en `docs/lld/00-lld-completo.md` §42, arquitectónico en
+`docs/hld/00-hld-completo.md` §19.7 y decisiones en la propuesta de IA, sección
+10.7. Las dos funciones arrancan apagadas en *IA — Configuración global*: antes
+hay que medir si el volumen de tickets las justifica.
+
+- **Triaje.** Al crear un ticket, después de responder, la IA de plataforma
+  sugiere prioridad, categoría, módulo e impacto productivo. Queda en
+  `SupportTicketAiTriage` y nunca cambia el ticket: el operador acepta (con el
+  PATCH de siempre) o descarta en `/superadmin/support`.
+- **Borradores.** *Sugerir respuesta* busca con BM25 en los manuales de usuario
+  y del partner, en el idioma del ticket, y guarda un borrador con citas como
+  nota interna. Si cita una sección que no se recuperó, no se guarda. *Usar como
+  respuesta* lo pasa al compositor; nunca se envía solo.
+- **KPIs de 30 días en la cola:** primera respuesta, SLA incumplido y borradores
+  usados.
+- **Migraciones nuevas:** `20261008-020-support-ai-triage.sql` y
+  `20261008-021-support-ai-drafts.sql`.
+- **Comando nuevo:** `npm run support:index` regenera
+  `src/generated/supportManualIndex.json`, que se commitea porque la imagen no
+  lleva los `.md`.
 
 ### 2026-10-08 — IA de plataforma sin keys: Managed Identity y módulo `ai_services`
 

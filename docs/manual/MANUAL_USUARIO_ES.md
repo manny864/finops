@@ -966,6 +966,11 @@ respuesta, tampoco corre: la pelota está de tu lado.
 Recursos zombis, Prorrateo, Alertas, Horarios de apagado, Gobernanza de tags). No es obligatorio, pero
 acelera la derivación al equipo correcto.
 
+**IA en la atención:** si tu organización tiene la IA habilitada, el equipo puede usarla para
+clasificar el ticket y preparar un borrador de respuesta a partir de este manual. Una persona lo revisa
+siempre antes de enviarlo. Si desactivás la IA de tu organización, o no compartís nombres de recursos
+ni etiquetas con la IA (*Configuración → IA*), tus tickets no pasan por la IA.
+
 ### 8.2. Usuarios y Accesos (`/admin/access`)
 
 El hub tiene cinco pestañas: **Usuarios y Permisos** (lo que describe esta sección), **Seguridad (2FA)** (sección 10), **SSO SAML** (11.1), **Onboarding de Clientes** (1.2 y 1.3) y **Onboarding Lighthouse** (Enterprise, para delegar el acceso de un cliente sin pedirle credenciales).

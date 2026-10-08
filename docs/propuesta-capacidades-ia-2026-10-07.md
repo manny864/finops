@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Fecha** | 2026-10-07 |
-| **Estado** | **Implementada en parte** (ramas `feat/ia-fase1-anomalias` y `feat/ia-fase0-managed-identity`, 2026-10-07 y 2026-10-08): gate único con interruptor por feature y telemetría (0.1 y 6.8), Managed Identity y módulo Terraform `ai_services`, apagados hasta el rollout (0.2 y 0.3), hardening de `tags/suggest` (0.4), subencargados (0.5; legal decide si exige el aviso de 30 días), hechos de causa raíz (1a), explicación de anomalías (1b), mapeo de CSV (6.4) y el reporte de la carga bajo el gate. Pendientes: el rollout de 0.2 y 0.3 y las fases 2 a 4. Qué se hizo y en qué se apartó de este documento: [sección 10](#10-implementación-qué-se-hizo-y-en-qué-se-apartó). |
+| **Estado** | **Implementada en parte** (ramas `feat/ia-fase1-anomalias`, `feat/ia-fase0-managed-identity` y `feat/ia-fase3-soporte`, 2026-10-07 y 2026-10-08): gate único con interruptor por feature y telemetría (0.1 y 6.8), Managed Identity y módulo Terraform `ai_services`, apagados hasta el rollout (0.2 y 0.3), hardening de `tags/suggest` (0.4), subencargados (0.5; legal decide si exige el aviso de 30 días), hechos de causa raíz (1a), explicación de anomalías (1b), mapeo de CSV (6.4), el reporte de la carga bajo el gate, y triaje y borradores de soporte, apagados hasta medir el volumen (3a y 3b). Pendientes: el rollout de 0.2 y 0.3 y las fases 2 y 4. Qué se hizo y en qué se apartó de este documento: [sección 10](#10-implementación-qué-se-hizo-y-en-qué-se-apartó). |
 | **Base analizada** | `main` @ `057287c9` |
 | **Origen** | Propuesta generada con Gemini (texto completo en el [Anexo A](#anexo-a-texto-original-de-la-propuesta)), verificada contra el código, la IaC (Terraform) y la documentación oficial de Microsoft. |
 | **Alcance** | Viabilidad de los cuatro módulos propuestos y de la infraestructura asociada; plan de implementación por fases. |
@@ -786,7 +786,7 @@ CREATE TABLE IF NOT EXISTS TagValueAliases (
 - **PRs 1 a 8:** entre 36 y 41 días hábiles, unas **7 a 8 semanas** de un desarrollador.
 - **PR 9:** **3 a 4 semanas** más.
 - **PR 2** no bloquea el desarrollo de los demás, porque la configuración actual con key funciona. Sí es recomendable antes de habilitar funciones nuevas en prod con la IA de plataforma.
-- **Estado:** los PRs 3, 4 y 5 y el código del PR 1 están hechos; faltan los subprocesadores del PR 1 y los PRs 2 y 6 a 9 (ver [10](#10-implementación-qué-se-hizo-y-en-qué-se-apartó)).
+- **Estado:** los PRs 1 a 5 y 8 están hechos (el 2 y el 8, apagados hasta su rollout); faltan los PRs 6, 7 y 9 (ver [10](#10-implementación-qué-se-hizo-y-en-qué-se-apartó)).
 
 | Semana | Trabajo | Notas |
 |---|---|---|
@@ -853,6 +853,7 @@ Con el deployment por defecto actual (`gpt-5.1`), el costo por llamada sería va
 5. **Subprocesadores.** ¿Legal considera que explicitar la inferencia en Azure es un cambio que requiere el aviso de 30 días?
 6. **Opt-out.** ¿Alcanza con `Tenants.ai_enabled` o hace falta un opt-out por feature?
 7. **Soporte.** ¿Qué umbral de volumen justifica la fase 3?
+   - **En la implementación:** el código está y las dos funciones arrancan apagadas. La cola muestra los tickets creados, la primera respuesta y los incumplimientos de SLA de los últimos 30 días, sin corte por tier, para hacer esa medición. El umbral sigue abierto (ver [10.7](#107-soporte-triaje-y-borradores-3a-y-3b)).
 8. **Document Intelligence.** Falta definir:
    - La demanda concreta.
    - El precio del add-on: por página, por documento o por plan.
@@ -899,7 +900,7 @@ Con el deployment por defecto actual (`gpt-5.1`), el costo por llamada sería va
 
 ## 10. Implementación: qué se hizo y en qué se apartó
 
-Rama `feat/ia-fase1-anomalias`, sobre `main` @ `ac55fe5`, con un commit por pieza. El PR 2 (Managed Identity y Terraform) está en `feat/ia-fase0-managed-identity`, encima de esa rama ([10.6](#106-managed-identity-y-terraform-02-y-03)). El detalle técnico está en el [LLD §40](lld/00-lld-completo.md) y el de arquitectura en el [HLD §19](hld/00-hld-completo.md).
+Rama `feat/ia-fase1-anomalias`, sobre `main` @ `ac55fe5`, con un commit por pieza. El PR 2 (Managed Identity y Terraform) está en `feat/ia-fase0-managed-identity`, encima de esa rama ([10.6](#106-managed-identity-y-terraform-02-y-03)), y el PR 8 (soporte) en `feat/ia-fase3-soporte`, encima del PR 2 ([10.7](#107-soporte-triaje-y-borradores-3a-y-3b)). El detalle técnico está en el [LLD §40](lld/00-lld-completo.md) y el de arquitectura en el [HLD §19](hld/00-hld-completo.md).
 
 | Commit | Pieza | Sección | PR del plan |
 |---|---|---|---|
@@ -919,8 +920,14 @@ Rama `feat/ia-fase1-anomalias`, sobre `main` @ `ac55fe5`, con un commit por piez
 | `6ce10b1` | Token de Entra ID con la identidad del stamp | 0.2 | 2 |
 | `3e6ef4e` | IA de plataforma con Managed Identity | 0.2 | 2 |
 | `9d1a148` | Módulo Terraform `ai_services` | 0.3 | 2 |
+| `3209fa5` | Features de soporte en el gate | 3 | 8 |
+| `e65f447` | Tablas de triaje y borradores | 3a y 3b | 8 |
+| `7d3e16c` | Triaje como sugerencia interna | 3a | 8 |
+| `b9ae105` | Índice de manuales | 3b | 8 |
+| `4d66161` | Borradores con citas | 3b | 8 |
+| `2af6fd3` | Triaje, borradores y KPIs en la cola | 3a y 3b | 8 |
 
-Las secciones 0.1 a 0.5, 1a, 1b, 6.4 y 6.8 conservan el diseño original. Donde difieren de lo construido, manda esta sección.
+Las secciones 0.1 a 0.5, 1a, 1b, 3a, 3b, 6.4 y 6.8 conservan el diseño original. Donde difieren de lo construido, manda esta sección.
 
 ### 10.1 Gate único (0.1)
 
@@ -1048,11 +1055,36 @@ Rama `feat/ia-fase0-managed-identity`. Queda todo apagado: sin el flag de Terraf
   - Una zona DNS faltante da un 403 sin más pistas.
   - El modelo se retira el 2027-09-21; el drift check de los lunes lo va a mostrar.
 
-### 10.7 Pendiente
+### 10.7 Soporte: triaje y borradores (3a y 3b)
+
+Rama `feat/ia-fase3-soporte`. Las dos funciones arrancan apagadas: la precondición de 6.6 es medir el volumen antes de prenderlas. El detalle está en el [LLD §42](lld/00-lld-completo.md) y la arquitectura en el [HLD §19.7](hld/00-hld-completo.md).
+
+- **Gate (`3209fa5`).** Dos features nuevas, `support-ticket-triage` y `support-reply-draft`, desde Professional (el plan que tiene soporte) y sin cupo mensual: las paga la plataforma y no consumen la cuota del tenant. Respetan `Tenants.ai_enabled` del tenant dueño del ticket y tienen su interruptor en *IA — Configuración global*, apagado por defecto.
+- **Triaje (3a, `e65f447` y `7d3e16c`).** Corre al crear el ticket, después de responderle al usuario (`after()`), y nunca falla la creación. Guarda una fila en `SupportTicketAiTriage` y nunca toca la prioridad ni el SLA.
+- **Borradores (3b, `b9ae105` y `4d66161`).** *Sugerir respuesta* busca con BM25 hasta cuatro secciones de los manuales en el idioma del ticket, pide un borrador con citas `[S1]`..`[S4]` y lo guarda como nota interna con sus fuentes. Si cita una sección que no se recuperó, el borrador no se guarda.
+- **Pantalla (`2af6fd3`).** En `/superadmin/support` el operador acepta o descarta la sugerencia, ve destacado el impacto productivo, pide el borrador y lo pasa a la caja de respuesta con *Usar como respuesta*. La cola suma tres KPIs de 30 días: primera respuesta, SLA incumplido y borradores usados. El cliente no ve nada de esto.
+- **En qué se apartó del boceto:**
+  - **El índice se commitea.** La imagen de Docker no lleva `docs/` ni los `.md` (`.dockerignore`), así que no se puede armar en el build. `npm run support:index` escribe `src/generated/supportManualIndex.json` y un test falla si no corresponde a los manuales. Quien cambie el manual de usuario o el del partner tiene que regenerarlo.
+  - **DLP.** El texto de un ticket es libre y no se puede redactar por clave. Si el tenant no comparte nombres de recursos o tags con la IA, el triaje no corre y el borrador responde con ese motivo.
+  - **Partner.** El manual del partner entra si quien abrió el ticket es afiliado o comercial activo (`Affiliates` o `SalesReps`). La regla está por confirmar.
+  - **Idioma.** Se detecta por palabras frecuentes del texto del cliente; ante la duda, español. El motivo del triaje va siempre en español, porque lo lee el equipo.
+  - **Sólo el hilo público.** Las notas internas, incluidos los borradores anteriores, no viajan al modelo. Si el hilo tiene más de 10 mensajes viajan el primero y los últimos nueve, de hasta 2000 caracteres cada uno.
+  - **Aceptar usa el mismo PATCH que el cambio manual.** El PATCH del ticket ahora también acepta categoría y módulo, sólo para el equipo. Además del aceptado se registra el descarte (`dismissed_by` y `dismissed_at`).
+  - **Usado = enviado.** Un borrador cuenta como usado cuando el operador lo manda como respuesta pública, editado o no. Si vacía la caja, lo que escriba después ya no cuenta.
+  - **Sin caché.** Cada pedido genera un borrador nuevo.
+- **Antes de prenderlo:**
+  1. Aplicar las migraciones `20261008-020` y `20261008-021`.
+  2. Medir el volumen con los KPIs de la cola y decidir el umbral (decisión 7).
+  3. Confirmar la regla del partner.
+  4. Recomendado: el rollout de 10.6 primero, para que el texto de los tickets se procese en la cuenta de Azure de la plataforma.
+  5. Prender los interruptores en *IA — Configuración global*.
+
+### 10.8 Pendiente
 
 - **Rollout de 0.2 y 0.3** (10.6). Lo corre el operador. Si Enterprise necesita un modelo mayor que el mini, hace falta un segundo deployment.
 - **0.5:** la decisión de legal sobre el aviso de 30 días a clientes. Si lo exige, va antes de habilitar las funciones a clientes.
-- **PRs 6 a 9:** fases 2 (tags), 3 (soporte) y 4 (Document Intelligence).
+- **Fase 3** (10.7): las migraciones, la medición y los interruptores.
+- **PRs 6, 7 y 9:** fases 2 (tags) y 4 (Document Intelligence).
 - Lo encontrado de paso y no corregido está en MEJ-42 ([`MEJORAS-FUTURAS.md`](MEJORAS-FUTURAS.md)): el servicio y la suscripción de los exports FOCUS, y `getAssessment` sin plan ni cupo en `ai-report`, `assessment` y `executive-report`.
 
 ---

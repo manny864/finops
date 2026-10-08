@@ -1009,6 +1009,11 @@ either — the ball is on your side.
 (Defender, Zombie resources, Cost allocation, Alerts, Power schedules, Tag governance). It is not
 required, but it speeds up routing to the right team.
 
+**AI in support:** if your organization has AI enabled, the team may use it to classify the ticket and
+to prepare a draft reply based on this manual. A person always reviews it before sending it. If you
+turn off AI for your organization, or don't share resource names or tags with the AI
+(*Configuration → AI*), your tickets don't go through the AI.
+
 
 #### Global support queue (`/superadmin/support`) — CSCloudSolutions team only
 
@@ -1039,6 +1044,28 @@ for the team (diagnosis, steps taken, who to escalate to) that **the customer ne
 server-side, not on screen: the note does not leave the backend toward a tenant user. An internal note
 also does not move the ticket status or count as a first response — the customer saw nothing, and the SLA
 reflects that.
+
+**AI assistance (off by default).** The support switches in *AI — Global configuration* (25) turn it
+on. It uses the platform's AI, doesn't consume the customer's quota and respects the AI switch of the
+ticket's organization.
+
+- **Triage suggestion.** When a ticket is created, the AI suggests priority, category, module and
+  production impact, with a rationale and its confidence. It shows in the conversation panel and **never
+  changes the ticket on its own**: *Accept* applies the suggested priority, category and module, as if you
+  changed them by hand, and *Dismiss* only files it. The SLA deadline never changes.
+- **Production impact.** If the AI detects that the issue affects production, the queue row turns pink
+  and the panel shows the *Production impact* badge until you dismiss the suggestion.
+- **Suggest reply.** Drafts a reply from the user manuals (and the partner manual, if whoever opened the
+  ticket is an affiliate or sales rep), in the ticket's language. It is saved as an **internal note**,
+  tagged *AI draft*, with a *Sources:* list of the cited sections. The customer doesn't see it.
+- **Use as reply.** Moves the draft to the reply box as a public reply. You review it, edit it and send
+  it yourself: it is never sent on its own.
+- **When there is no draft**, the panel says why. For example: AI is off for that organization, the
+  organization doesn't share resource names or tags with the AI, the manuals don't cover the question,
+  or the draft cited a section it shouldn't have and was discarded.
+- **Three 30-day indicators** below the queue's: *First response* (average, with the tickets created),
+  *SLA breached* (answered late or past due with no answer) and *AI drafts used* (the ones sent as a
+  reply, edited or not). They help measure the volume before turning the assistance on.
 
 ### 8.2. Users & Access (`/admin/access`)
 
@@ -2182,8 +2209,10 @@ If the cost spikes because of an incident with the provider, the AI **master swi
 | `billing-csv-column-mapping`, CSV column mapping (5.1.7) | Business | A CSV that isn't FOCUS isn't loaded |
 | `billing-upload-assessment`, CSV upload report (5.1.7) | Business | The summary by service calculated by the platform is shown |
 | `anomaly-explanation`, anomaly explanation (18.4) | Enterprise, no quota | The facts and the steps are shown, without the AI text |
+| `support-ticket-triage`, support ticket triage (8.1) | Professional, no quota | The ticket is handled without a suggestion |
+| `support-reply-draft`, support reply drafts (8.1) | Professional, no quota | The team replies by hand |
 
-Today no feature starts at Professional, so that quota goes unused.
+The two support features are used by the team, not the client: they have no quota and their usage is recorded under the tenant that owns the ticket. No feature with a quota starts at Professional, so that quota still goes unused.
 
 **Telemetry.** Each AI feature request leaves a JSON line `evt: "ai_feature"` in the application logs (Log Analytics, table `ContainerAppConsoleLogs_CL`), with the feature, the stage (`gate`, `model` or `output`), the outcome and, for the model call, the latency. Use it to see why a feature is denied, how long the provider takes, or how many responses are discarded for not meeting the format.
 
@@ -2232,10 +2261,10 @@ The **history** keeps the previous runs so you can compare before and after a ch
 
 **Route:** `/superadmin/ai-global-config` · **Menu:** Administration → AI — Global Configuration
 
-The AI provider and key used **as a fallback** for any tenant that has not configured its own (per-tenant BYOK, in *Configuration → AI*). It feeds the **FinOps Copilot**, the **AI-powered executive reports**, the **anomaly explanation** (18.4) and the CSV upload's **column mapping** and **report** (5.1.7). Only the SuperAdmin sees it.
+The AI provider and key used **as a fallback** for any tenant that has not configured its own (per-tenant BYOK, in *Configuration → AI*). It feeds the **FinOps Copilot**, the **AI-powered executive reports**, the **anomaly explanation** (18.4), the CSV upload's **column mapping** and **report** (5.1.7), and the support **triage** and **drafts** (8.1). Only the SuperAdmin sees it.
 
 - **Master switch** *"Enable AI features (platform)"*: if turned off, AI is disabled for **all** tenants, regardless of their own switch. It is meant for incidents with the provider or runaway costs.
-- **AI features (per-feature switch):** turns off a single feature for all tenants without touching the rest: the anomaly explanation, the CSV column mapping or the AI analysis of CSV uploads. All three start on. The master switch takes precedence. With a feature off, the screen keeps the non-AI version and shows the client the reason. The Copilot and the executive reports have no switch of their own: the master switch or the tenant's switch turns them off.
+- **AI features (per-feature switch):** turns off a single feature for all tenants without touching the rest: the anomaly explanation, the CSV column mapping, the AI analysis of CSV uploads, the support ticket triage or the support reply drafts. The first three start on; the two support ones start off until the ticket volume is measured (8.1). The master switch takes precedence. With a feature off, the screen keeps the non-AI version and shows the client the reason (in support, the operator). The Copilot and the executive reports have no switch of their own: the master switch or the tenant's switch turns them off.
 - **Provider:** Google Gemini (Flash, free on the free tier), OpenAI (GPT-4o), **Azure AI** (Azure OpenAI), Anthropic (Claude) or DeepSeek. The configuration is **split by plan**: *Non-Enterprise plans* (the fallback for Professional and Business) and *Enterprise plans* (the exclusive provider for that plan). With Azure AI you need the **API Key**, the **Endpoint URL** and the **Deployment** (model).
 - **API Key:** stored **encrypted**. **Test connection** makes a real call to the saved provider. **Delete API Key** leaves tenants without their own key **without AI** until you load a new one.
 - **Azure AI with managed identity:** when the infrastructure turns on the platform's own AI account, the app connects to Azure AI with its identity, without a key. It applies only if the provider is **Azure AI**. In that mode, the Azure AI **API Key**, **Endpoint URL** and **Deployment** you enter here are not used, every plan uses the same model and deleting the key leaves no one without AI. **Test connection** with no key typed tests the connection with the identity; with a key typed, it tests that key. The other providers keep using their key.
