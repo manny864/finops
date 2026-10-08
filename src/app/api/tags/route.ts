@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
-import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+import { AuthError, requireTenantAccess, requireTenantRole } from "@/lib/requestAuth";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 
 export async function GET(req: NextRequest) {
@@ -18,7 +18,11 @@ export async function GET(req: NextRequest) {
         }
 
 
-        const [rows] = await pool.query("SELECT * FROM TaggingPolicies WHERE tenant_id = ?", [tenantId]);
+        // La tabla quedó en snake_case canónico (20261008-010); la respuesta mantiene tag_key/required.
+        const [rows] = await pool.query(
+            "SELECT id, tenant_id, policy_name AS tag_key, is_required AS required, created_at FROM TaggingPolicies WHERE tenant_id = ?",
+            [tenantId]
+        );
         return NextResponse.json({ policies: rows });
     } catch (e: unknown) {
         if (e instanceof AuthError) {
@@ -35,11 +39,12 @@ export async function POST(req: NextRequest) {
         
         if (!tenantId || !tagKey) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
 
-        await requireTenantAccess(req, tenantId, { allowSuperAdmin: true });
+        // Las políticas definen el cumplimiento de Tag Governance: escribirlas pide Admin/Owner.
+        await requireTenantRole(req, tenantId, ["Admin", "Owner"]);
 
         await pool.query(
-            "INSERT INTO TaggingPolicies (tenant_id, tag_key, required) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE required = VALUES(required)",
-            [tenantId, tagKey, required]
+            "INSERT INTO TaggingPolicies (tenant_id, policy_name, is_required) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE is_required = VALUES(is_required)",
+            [tenantId, tagKey, required === undefined || required ? 1 : 0]
         );
         return NextResponse.json({ success: true });
     } catch (e: unknown) {
@@ -69,7 +74,7 @@ export async function DELETE(req: NextRequest) {
             return NextResponse.json({ error: "Policy tenant inválido" }, { status: 400 });
         }
 
-        await requireTenantAccess(req, tenantId, { allowSuperAdmin: true });
+        await requireTenantRole(req, tenantId, ["Admin", "Owner"]);
         await pool.query("DELETE FROM TaggingPolicies WHERE id = ? AND tenant_id = ?", [id, tenantId]);
         return NextResponse.json({ success: true });
     } catch (e: unknown) {
