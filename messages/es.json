@@ -452,6 +452,14 @@
           "label": "Mapeo de columnas de CSV con IA",
           "description": "Propone a qué columna FOCUS corresponde cada columna de un CSV de facturación que no viene en formato FOCUS. Business en adelante."
         },
+        "support-ticket-triage": {
+          "label": "Triaje de tickets de soporte con IA",
+          "description": "Al crearse un ticket, sugiere prioridad, categoría, módulo e impacto productivo para el operador, que la acepta o la descarta. Nunca cambia la prioridad ni el SLA por su cuenta. La paga la plataforma y no consume cuota del tenant; respeta la IA apagada del tenant."
+        },
+        "support-reply-draft": {
+          "label": "Borradores de respuesta de soporte con IA",
+          "description": "A pedido del operador, redacta un borrador citando secciones del manual de usuario y lo guarda como nota interna editable del ticket. Nunca se envía solo. La paga la plataforma y no consume cuota del tenant; respeta la IA apagada del tenant."
+        },
         "billing-upload-assessment": {
           "label": "Análisis con IA de la carga de CSV",
           "description": "Redacta el reporte ejecutivo del CSV de facturación cargado. Apagado, la carga muestra el resumen por servicio sin IA. Business en adelante."

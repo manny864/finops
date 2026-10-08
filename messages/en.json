@@ -452,6 +452,14 @@
           "label": "AI CSV column mapping",
           "description": "Suggests which FOCUS column matches each column of a billing CSV that is not in FOCUS format. Business and above."
         },
+        "support-ticket-triage": {
+          "label": "AI support ticket triage",
+          "description": "When a ticket is created, suggests priority, category, module and production impact for the operator, who accepts or dismisses it. It never changes the priority or the SLA on its own. Paid by the platform and does not use the tenant's quota; honors the tenant's AI opt-out."
+        },
+        "support-reply-draft": {
+          "label": "AI support reply drafts",
+          "description": "On the operator's request, writes a draft citing sections of the user manual and saves it as an editable internal note on the ticket. It is never sent on its own. Paid by the platform and does not use the tenant's quota; honors the tenant's AI opt-out."
+        },
         "billing-upload-assessment": {
           "label": "AI analysis of CSV uploads",
           "description": "Writes the executive report for an uploaded billing CSV. When off, the upload shows the per-service summary without AI. Business and above."

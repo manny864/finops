@@ -14,7 +14,12 @@ import { getAiFeatureSwitch, isAiGloballyEnabled } from "@/services/aiService";
  * Un denegado no es un error: la ruta sigue con la versión determinista y
  * devuelve el motivo.
  */
-export type AiFeature = "anomaly-explanation" | "billing-csv-column-mapping" | "billing-upload-assessment";
+export type AiFeature =
+    | "anomaly-explanation"
+    | "billing-csv-column-mapping"
+    | "billing-upload-assessment"
+    | "support-ticket-triage"
+    | "support-reply-draft";
 
 export type AiGateDenyReason =
     | "global_disabled"
@@ -42,6 +47,8 @@ interface AiFeatureConfig {
 
 // Mismas cuotas que el Copilot, pero contadas por feature.
 const QUOTA = { Professional: 50, Business: 150, Enterprise: null };
+// Funciones internas de la plataforma: no consumen la cuota del tenant.
+const NO_QUOTA = { Professional: null, Business: null, Enterprise: null };
 
 export const AI_FEATURES: Record<AiFeature, AiFeatureConfig> = {
     "anomaly-explanation": {
@@ -70,6 +77,22 @@ export const AI_FEATURES: Record<AiFeature, AiFeatureConfig> = {
         perMinute: 5,
         // Seis secciones con tablas; sin tope corría hasta el máximo del modelo.
         maxOutputTokens: 4000,
+    },
+    // Soporte (Fase 3): todos los tenants abren tickets y la IA la paga la
+    // plataforma. Apagadas hasta medir el volumen de tickets (sección 6.6).
+    "support-ticket-triage": {
+        defaultEnabled: false,
+        minTier: "Professional",
+        monthlyQuota: NO_QUOTA,
+        perMinute: 10,
+        maxOutputTokens: 300,
+    },
+    "support-reply-draft": {
+        defaultEnabled: false,
+        minTier: "Professional",
+        monthlyQuota: NO_QUOTA,
+        perMinute: 5,
+        maxOutputTokens: 800,
     },
 };
 
