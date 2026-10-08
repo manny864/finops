@@ -5,6 +5,7 @@ import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import pool, { insertPlatformAiUsage } from "@/modules/storage/db";
 import { AIProviderFactory, aiQueue, redactForTenant, withExponentialBackoff } from "@/modules/core/aiProvider";
 import { AI_FEATURES, checkAiFeature } from "@/lib/aiFeatureGate";
+import { logAiEvent, timeAiCall } from "@/lib/aiTelemetry";
 import { errorMessage } from "@/lib/apiErrors";
 import type { AnomalyContributor } from "@/services/anomalyDetectionService";
 import {
@@ -222,15 +223,17 @@ export async function getAnomalyExplanation(p: {
 
     let explanation: AnomalyExplanation;
     try {
-        const { object, usage } = await aiQueue.add(() =>
-            withExponentialBackoff(() =>
-                generateObject({
-                    model: ai.model,
-                    schema: explanationSchema,
-                    system: systemPrompt(p.locale),
-                    prompt: `<context_data>\n${JSON.stringify(context)}\n</context_data>`,
-                    maxOutputTokens: AI_FEATURES[FEATURE].maxOutputTokens,
-                })
+        const { object, usage } = await timeAiCall(FEATURE, () =>
+            aiQueue.add(() =>
+                withExponentialBackoff(() =>
+                    generateObject({
+                        model: ai.model,
+                        schema: explanationSchema,
+                        system: systemPrompt(p.locale),
+                        prompt: `<context_data>\n${JSON.stringify(context)}\n</context_data>`,
+                        maxOutputTokens: AI_FEATURES[FEATURE].maxOutputTokens,
+                    })
+                )
             )
         );
         insertPlatformAiUsage({
@@ -249,6 +252,7 @@ export async function getAnomalyExplanation(p: {
     }
 
     const rejection = validateExplanation(explanation, context);
+    if (rejection) logAiEvent(FEATURE, { stage: "output", outcome: "rejected" });
     try {
         // id = id: dos pedidos simultáneos no rompen por la clave única; queda el primero.
         await pool.query(

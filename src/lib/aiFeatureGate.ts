@@ -2,6 +2,7 @@ import type { RowDataPacket } from "mysql2";
 import pool from "@/modules/storage/db";
 import rateLimiter from "@/lib/rateLimiter";
 import { hasAccess, normalizeTier } from "@/lib/tierLogic";
+import { logAiEvent } from "@/lib/aiTelemetry";
 import { getAiFeatureSwitch, isAiGloballyEnabled } from "@/services/aiService";
 
 /**
@@ -72,6 +73,12 @@ const deny = (reason: AiGateDenyReason): AiGateResult => ({ allowed: false, reas
  * rate limit.
  */
 export async function checkAiFeature(tenantId: string, feature: AiFeature, userKey: string): Promise<AiGateResult> {
+    const result = await decide(tenantId, feature, userKey);
+    logAiEvent(feature, { stage: "gate", outcome: result.allowed ? "allowed" : result.reason });
+    return result;
+}
+
+async function decide(tenantId: string, feature: AiFeature, userKey: string): Promise<AiGateResult> {
     if (!(await isAiGloballyEnabled())) return deny("global_disabled");
 
     const cfg = AI_FEATURES[feature];

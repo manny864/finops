@@ -1,15 +1,17 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { queryMock, globalMock, switchMock, rlMock } = vi.hoisted(() => ({
+const { queryMock, globalMock, switchMock, rlMock, logMock } = vi.hoisted(() => ({
     queryMock: vi.fn(),
     globalMock: vi.fn(),
     switchMock: vi.fn(),
     rlMock: vi.fn(),
+    logMock: vi.fn(),
 }));
 vi.mock("@/modules/storage/db", () => ({ default: { query: queryMock } }));
 vi.mock("@/services/aiService", () => ({ isAiGloballyEnabled: globalMock, getAiFeatureSwitch: switchMock }));
 vi.mock("@/lib/rateLimiter", () => ({ default: { checkByKeyDistributed: rlMock } }));
+vi.mock("@/lib/aiTelemetry", () => ({ logAiEvent: logMock }));
 
 import { AI_FEATURES, checkAiFeature } from "@/lib/aiFeatureGate";
 
@@ -32,6 +34,16 @@ beforeEach(() => {
 });
 
 describe("checkAiFeature", () => {
+    it("registra cada decisión con su feature", async () => {
+        switchMock.mockResolvedValue(false);
+        await check();
+        expect(logMock).toHaveBeenLastCalledWith("anomaly-explanation", { stage: "gate", outcome: "feature_disabled" });
+        switchMock.mockResolvedValue(null);
+        tenant(ENT);
+        await check();
+        expect(logMock).toHaveBeenLastCalledWith("anomaly-explanation", { stage: "gate", outcome: "allowed" });
+    });
+
     it("el interruptor global corta antes de leer el tenant", async () => {
         globalMock.mockResolvedValue(false);
         expect(await check()).toEqual({ allowed: false, reason: "global_disabled" });

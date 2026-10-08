@@ -13,6 +13,7 @@ import {
 } from "@/modules/core/aiProvider";
 import type { FocusCostEntry } from "@/modules/core/focusMapper";
 import { AI_FEATURES, checkAiFeature } from "@/lib/aiFeatureGate";
+import { logAiEvent, timeAiCall } from "@/lib/aiTelemetry";
 import { errorMessage } from "@/lib/apiErrors";
 import type { CsvMappingErrorReason } from "@/types/billingCsvMapping.types";
 
@@ -191,15 +192,17 @@ export async function normalizeBillingCsv(
     const ai = await AIProviderFactory.getGeminiModel(tenantId);
     // DLP (IA-5): redacta valores, no claves; el mapeo sólo necesita los nombres de columna.
     const sample = await redactForTenant(tenantId, rows.slice(0, SAMPLE_ROWS));
-    const { object, usage } = await aiQueue.add(() =>
-        withExponentialBackoff(() =>
-            generateObject({
-                model: ai.model,
-                schema: csvMappingSchema,
-                system: SYSTEM_PROMPT,
-                prompt: `<context_data>\n${JSON.stringify({ headers, sample })}\n</context_data>`,
-                maxOutputTokens: AI_FEATURES[FEATURE].maxOutputTokens,
-            })
+    const { object, usage } = await timeAiCall(FEATURE, () =>
+        aiQueue.add(() =>
+            withExponentialBackoff(() =>
+                generateObject({
+                    model: ai.model,
+                    schema: csvMappingSchema,
+                    system: SYSTEM_PROMPT,
+                    prompt: `<context_data>\n${JSON.stringify({ headers, sample })}\n</context_data>`,
+                    maxOutputTokens: AI_FEATURES[FEATURE].maxOutputTokens,
+                })
+            )
         )
     );
     insertPlatformAiUsage({
@@ -214,6 +217,7 @@ export async function normalizeBillingCsv(
 
     const rejection = validateCsvMapping(object, headers);
     if (rejection) {
+        logAiEvent(FEATURE, { stage: "output", outcome: "rejected" });
         console.warn(`[normalizeBillingCsv] mapeo rechazado para ${tenantId}: ${rejection}`);
         throw new CsvMappingError("invalid_mapping");
     }
