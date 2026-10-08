@@ -10,7 +10,7 @@ import type { AnomalyExplanationResult } from '@/types/anomalyRootCause.types';
 type Feedback = 'up' | 'down';
 
 /** Explicación con IA de una anomalía (Fase 1b). Se pide con un clic: cada una puede costar una llamada. */
-export default function AnomalyAiExplanation({ tenantId, anomalyId }: { tenantId: string; anomalyId: number }) {
+export default function AnomalyAiExplanation({ tenantId, anomalyId }: { tenantId: string; anomalyId: number | string }) {
     const t = useProviderTranslations('Anomalies');
     const locale = useLocale();
     const { instance, accounts } = useMsal();

@@ -3,6 +3,8 @@
  * Statistical Z-Score, 3-Sigma Confidence Bands, Root Cause Attribution & Lifecycle Management
  */
 
+import type { RootCauseFact } from "@/types/anomalyRootCause.types";
+
 export type AnomalyState = "OPEN" | "SNOOZED" | "DISMISSED" | "RESOLVED";
 
 export type AnomalySeverity = "CRITICAL" | "HIGH" | "MEDIUM";
@@ -31,6 +33,10 @@ export interface CostAnomalyItem {
    */
   titleService: string;
   rootCauses: AnomalyRootCauseItem[];
+  /** Detalle por medidor de `Anomalies.root_cause_facts`; lo único que puede citar la IA. */
+  rootCauseFacts?: RootCauseFact[];
+  /** `Anomalies.assigned_to` no es null. Sin responsable se sugiere asignarlo. */
+  hasOwner?: boolean;
   snoozedUntilDate?: string;
   resolutionNotes?: string;
   resolvedAtDate?: string;

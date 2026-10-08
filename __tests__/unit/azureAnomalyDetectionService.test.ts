@@ -188,4 +188,44 @@ describe("Anomaly Detection — Dataset Demo y Ensamblado Vivo", () => {
       deltaSpendUSD: 0,
     });
   });
+
+  it("los hechos por medidor y el responsable llegan al panel", () => {
+    // El panel que se ve es este. Los hechos se calculaban y se guardaban, pero
+    // esta consulta no los leía: el bloque «Qué cambió» no aparecía nunca.
+    const hecho = {
+      id: "f1", type: "USAGE_INCREASE" as const, serviceName: "Virtual Machines",
+      meterName: "D4s v3", baseline: 10, actual: 40, delta: 30,
+    };
+    const fila = { date: "2026-08-15", amount: 40, expected_amount: 10, z_score: 3.5, status: "open" };
+    const live = assembleLiveAnomalies({
+      dailyCosts: [],
+      dbAnomalies: [
+        // mysql2 entrega la columna JSON ya parseada...
+        { ...fila, id: 1, root_cause_facts: [hecho], assigned_to: "ana@contoso.com" },
+        // ...pero el texto también vale, y uno roto no tumba la lista.
+        { ...fila, id: 2, root_cause_facts: JSON.stringify([hecho]), assigned_to: null },
+        { ...fila, id: 3, root_cause_facts: "{roto" },
+      ],
+    });
+    const [a, b, c] = live.summary.anomalies;
+    expect(a.rootCauseFacts).toEqual([hecho]);
+    expect(a.hasOwner).toBe(true);
+    expect(b.rootCauseFacts).toEqual([hecho]);
+    expect(b.hasOwner).toBe(false);
+    expect(c.rootCauseFacts).toEqual([]);
+  });
+
+  it("la demo trae hechos calculados con la función de producción", () => {
+    const [abierta, resuelta] = getMockAnomalyPayload("demo-tenant-4444").summary.anomalies;
+    expect(abierta.rootCauseFacts?.[0]).toMatchObject({
+      id: "f1",
+      type: "USAGE_INCREASE",
+      serviceName: "Foundry Models (Azure OpenAI)",
+      meterName: "gpt-4o-mini Input Tokens",
+    });
+    // Abierta y sin responsable: se sugiere asignarlo. La resuelta ya lo tiene.
+    expect(abierta.hasOwner).toBeFalsy();
+    expect(resuelta.rootCauseFacts?.map((f) => f.serviceName)).toEqual(["Azure Databricks", "Storage Accounts"]);
+    expect(resuelta.hasOwner).toBe(true);
+  });
 });

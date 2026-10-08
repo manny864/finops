@@ -441,6 +441,9 @@ const DEMO_METERS: Record<string, [meter: string, pattern: 'usage' | 'price' | '
     'App Service': ['P1 v3', 'new'],
     'Azure Kubernetes Service': ['Uptime SLA', 'new'],
     'Azure OpenAI': ['gpt-4o-mini Input Tokens', 'usage'],
+    // Los dos que dibuja el panel de anomalías (getMockAnomalyPayload).
+    'Foundry Models (Azure OpenAI)': ['gpt-4o-mini Input Tokens', 'usage'],
+    'Azure Databricks': ['Premium All-purpose Compute DBU', 'usage'],
 };
 
 /**

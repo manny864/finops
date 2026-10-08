@@ -43,6 +43,8 @@ import { isMockTenant } from "@/lib/mockData";
 import { getFreshIdToken } from "@/lib/msalToken";
 import Pagination, { usePagination } from "@/components/Pagination";
 import InfoTooltip from "@/components/InfoTooltip";
+import AnomalyRootCause from "@/components/dashboard/AnomalyRootCause";
+import AnomalyAiExplanation from "@/components/dashboard/AnomalyAiExplanation";
 import {
   type AnomalyPayload,
   type AnomalyState,
@@ -94,10 +96,11 @@ function buildFetcher(
 // ─── Drawer Lateral de Causa Raíz ───
 interface RootCauseDrawerProps {
   anomaly: CostAnomalyItem | null;
+  tenantId: string;
   onClose: () => void;
 }
 
-function RootCauseDrawer({ anomaly, onClose }: RootCauseDrawerProps) {
+function RootCauseDrawer({ anomaly, tenantId, onClose }: RootCauseDrawerProps) {
   const t = useTranslations("AnomalyPanel");
   const [copied, setCopied] = useState(false);
 
@@ -193,6 +196,14 @@ function RootCauseDrawer({ anomaly, onClose }: RootCauseDrawerProps) {
             ))}
           </div>
         </div>
+
+        {/* Qué cambió por medidor. Sin hechos no hay nada que la IA pueda citar. */}
+        {!!anomaly.rootCauseFacts?.length && (
+          <div>
+            <AnomalyRootCause facts={anomaly.rootCauseFacts} hasOwner={!!anomaly.hasOwner} />
+            <AnomalyAiExplanation tenantId={tenantId} anomalyId={anomaly.id} />
+          </div>
+        )}
 
         {/* Telemetría y Cuotas */}
         <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/40 dark:bg-slate-800/40 space-y-2">
@@ -827,6 +838,7 @@ export default function AnomalyDetectionPanel() {
       {/* Drawer Lateral de Causa Raíz */}
       <RootCauseDrawer
         anomaly={selectedAnomalyForDrawer}
+        tenantId={tenantId}
         onClose={() => setSelectedAnomalyForDrawer(null)}
       />
     </div>

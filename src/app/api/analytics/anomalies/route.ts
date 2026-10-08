@@ -32,13 +32,14 @@ export async function GET(request: NextRequest) {
     await requireTenantAccess(request, tenantId);
 
     const payload = await getWithStaleWhileRevalidate(
-      `anomalies:v2:${tenantId}`,
+      // v3: el payload trae rootCauseFacts y hasOwner.
+      `anomalies:v3:${tenantId}`,
       async () => {
         try {
           const dailyCosts = await getDailyCostsForTenant(tenantId, "All");
 
           const [dbRows]: any = await pool.query(
-            `SELECT id, subscription_id, date, amount, expected_amount, z_score, top_contributors, status, detected_at, resolved_at, resolution_notes
+            `SELECT id, subscription_id, date, amount, expected_amount, z_score, top_contributors, root_cause_facts, assigned_to, status, detected_at, resolved_at, resolution_notes
              FROM Anomalies
              WHERE tenant_id = ?
              ORDER BY date DESC
