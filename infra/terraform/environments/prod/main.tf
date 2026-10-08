@@ -243,6 +243,8 @@ module "stamp" {
   ai_services_location   = each.value.ai_services_location
   ai_services_entra_auth = each.value.ai_services_entra_auth
 
+  document_intelligence_enabled = each.value.document_intelligence_enabled
+
   tags = merge(local.tags, { DataRegion = upper(each.key) })
 
   # Garantiza que el role AcrPull propagó en AAD antes de que Container Apps

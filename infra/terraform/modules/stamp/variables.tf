@@ -366,6 +366,13 @@ variable "ai_services_entra_auth" {
   default     = true
 }
 
+# --- Document Intelligence (modules/ai_services, kind FormRecognizer) ---
+variable "document_intelligence_enabled" {
+  description = "Cuenta de Document Intelligence del stamp, sólo con Entra ID, y el cron external-spend-poll que la usa."
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   type = map(string)
 }

@@ -46,13 +46,14 @@ module "network" {
 }
 
 module "private_dns" {
-  source              = "../private_dns"
-  name_base           = local.name_base
-  resource_group_name = module.network.resource_group_name
-  vnet_id             = module.network.vnet_id
-  redis_enabled       = true
-  ai_services_enabled = var.ai_services_enabled
-  tags                = var.tags
+  source                        = "../private_dns"
+  name_base                     = local.name_base
+  resource_group_name           = module.network.resource_group_name
+  vnet_id                       = module.network.vnet_id
+  redis_enabled                 = true
+  ai_services_enabled           = var.ai_services_enabled
+  document_intelligence_enabled = var.document_intelligence_enabled
+  tags                          = var.tags
 }
 
 module "monitoring" {
@@ -344,6 +345,32 @@ module "ai_services" {
   tags             = var.tags
 }
 
+# Document Intelligence (fase 4 de la propuesta de IA): la misma receta, sin
+# deployment y sin keys, porque la app usa sólo Entra ID. En la región del
+# stamp, que sí lo ofrece.
+module "document_intelligence" {
+  source = "../ai_services"
+  count  = var.document_intelligence_enabled ? 1 : 0
+
+  name                      = "${local.name_base}-di"
+  short_name                = "di"
+  kind                      = "FormRecognizer"
+  chat_model_name           = null
+  local_auth_enabled        = false
+  role_definition_name      = "Cognitive Services User"
+  name_base                 = local.name_base
+  location                  = var.location
+  private_endpoint_location = var.location
+  resource_group_name       = module.network.resource_group_name
+  resource_group_id         = module.network.resource_group_id
+  subnet_id                 = module.network.private_endpoint_subnet_id
+  private_dns_zone_ids      = [module.private_dns.cognitiveservices_zone_id]
+  app_principal_id          = azurerm_user_assigned_identity.app.principal_id
+  workspace_id              = module.monitoring.workspace_id
+  alert_email               = var.alert_email
+  tags                      = var.tags
+}
+
 resource "azurerm_container_app_environment" "this" {
   name                       = "${local.name_base}-cae"
   location                   = var.location
@@ -377,6 +404,11 @@ locals {
     AZURE_OPENAI_RESOURCE_NAME = module.ai_services[0].resource_name
     AZURE_OPENAI_DEPLOYMENT    = module.ai_services[0].deployment_name
     AZURE_OPENAI_AUTH          = "entra"
+  } : {}
+
+  # Mismo motivo para ir después de extra_env_vars.
+  document_intelligence_env = var.document_intelligence_enabled ? {
+    AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT = module.document_intelligence[0].endpoint
   } : {}
 
   app_env = merge({
@@ -414,7 +446,7 @@ locals {
     OTEL_SERVICE_NAME                           = "finops-web"
     OTEL_RESOURCE_ATTRIBUTES                    = "service.namespace=${var.data_region},deployment.environment=${var.environment}"
     AZURE_SENDER_EMAIL_ALERTS                   = "alerts@cscloudsolutions.com.ar"
-  }, var.extra_env_vars, local.ai_services_env)
+  }, var.extra_env_vars, local.ai_services_env, local.document_intelligence_env)
 
   app_secrets = {
     db-password                   = random_password.mysql.result
@@ -481,9 +513,14 @@ module "cronjobs" {
   # Sin image_tag: los jobs no corren la app, corren `finops:cron`
   # (node:22-alpine). El tag lo fija el modulo, no el deploy. Ver
   # cronjobs/variables.tf.
-  app_url               = module.app.internal_url
-  cron_secret_id        = local.cron_secret_id
-  jobs                  = var.cron_jobs
+  app_url        = module.app.internal_url
+  cron_secret_id = local.cron_secret_id
+  # external-spend-poll analiza documentos con Document Intelligence: sólo en
+  # los stamps con la cuenta.
+  jobs = {
+    for k, v in var.cron_jobs : k => v
+    if k != "external-spend-poll" || var.document_intelligence_enabled
+  }
   timezone_offset_hours = var.cron_timezone_offset_hours
   action_group_id       = module.monitoring.action_group_id
   tags                  = var.tags

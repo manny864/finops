@@ -21,6 +21,11 @@ variable "ai_services_enabled" {
   default = false
 }
 
+variable "document_intelligence_enabled" {
+  type    = bool
+  default = false
+}
+
 variable "tags" {
   type = map(string)
 }
