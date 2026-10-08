@@ -139,6 +139,11 @@ describe("Soporte — normalización de filas", () => {
         expect(mapMessage({ id: 3, author_role: "system" }).senderRole).toBe("SYSTEM");
     });
 
+    it("una nota que es un borrador de IA trae el id del borrador (LEFT JOIN)", () => {
+        expect(mapMessage({ id: 4, is_internal_note: 1, author_role: "support", ai_draft_id: 9 }).aiDraftId).toBe("9");
+        expect(mapMessage({ id: 5, is_internal_note: 1, author_role: "support", ai_draft_id: null }).aiDraftId).toBeUndefined();
+    });
+
     it("stripInternalNotes deja fuera exactamente las notas internas", () => {
         const msgs = [
             mapMessage({ id: 1, author_role: "user", body: "hola" }),

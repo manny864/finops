@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { RowDataPacket } from "mysql2";
 import pool from "@/modules/storage/db";
 import { requireSuperAdmin, AuthError } from "@/lib/requestAuth";
-import { serverError } from "@/lib/apiErrors";
+import { errorMessage, serverError } from "@/lib/apiErrors";
 import { getSupportConfig, SUPPORT_TICKET_PRIORITIES } from "@/lib/supportConfig";
 import {
     buildGlobalSupportSummary,
@@ -13,7 +14,7 @@ import {
     type RawAiTriageRow,
     type RawTicketRow,
 } from "@/services/supportTickets.service";
-import type { GlobalSupportPayload, TicketStatus } from "@/types/supportTickets.types";
+import type { GlobalSupportPayload, SupportWindowKpis, TicketStatus } from "@/types/supportTickets.types";
 
 // RBAC: vista global de tickets de TODOS los tenants — exclusiva del equipo
 // de CSCloudSolutions (requireSuperAdmin). Las respuestas y cambios de estado
@@ -96,11 +97,53 @@ export async function GET(request: NextRequest) {
             statusCounts,
             source: "live",
             lastUpdated: now.toISOString(),
+            kpis: await loadWindowKpis(),
         };
         return NextResponse.json(payload);
     } catch (e: unknown) {
         if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
         return serverError(e, { context: "GET /api/admin/support/tickets" });
+    }
+}
+
+const KPI_WINDOW_DAYS = 30;
+
+/**
+ * KPIs de la IA de soporte (Fase 3): primera respuesta e incumplimientos del SLA
+ * de los tickets creados en la ventana, y borradores de IA generados y usados.
+ * Incumplido = respondido después del vencimiento, o vencido y todavía sin
+ * respuesta (abierto o en curso, como el riesgo de SLA de la cola).
+ * Best-effort: si falla, la cola sale igual sin la fila de KPIs.
+ */
+async function loadWindowKpis(): Promise<SupportWindowKpis | undefined> {
+    try {
+        const [rows] = await pool.query<RowDataPacket[]>(
+            `SELECT COUNT(*) AS tickets_created,
+                    AVG(TIMESTAMPDIFF(MINUTE, t.created_at, t.first_responded_at)) AS avg_first_response_minutes,
+                    COALESCE(SUM(t.first_responded_at > t.sla_deadline
+                        OR (t.first_responded_at IS NULL AND t.sla_deadline < UTC_TIMESTAMP()
+                            AND t.status IN ('open', 'in_progress'))), 0) AS sla_breaches,
+                    (SELECT COUNT(*) FROM SupportTicketAiDrafts d
+                      WHERE d.created_at >= UTC_TIMESTAMP() - INTERVAL ? DAY) AS ai_drafts_generated,
+                    (SELECT COUNT(*) FROM SupportTicketAiDrafts d
+                      WHERE d.created_at >= UTC_TIMESTAMP() - INTERVAL ? DAY AND d.used_at IS NOT NULL) AS ai_drafts_used
+               FROM SupportTickets t
+              WHERE t.created_at >= UTC_TIMESTAMP() - INTERVAL ? DAY`,
+            [KPI_WINDOW_DAYS, KPI_WINDOW_DAYS, KPI_WINDOW_DAYS]
+        );
+        const r = rows[0] ?? {};
+        const avgMinutes = r.avg_first_response_minutes == null ? null : Number(r.avg_first_response_minutes);
+        return {
+            windowDays: KPI_WINDOW_DAYS,
+            ticketsCreated: Number(r.tickets_created || 0),
+            avgFirstResponseHours: avgMinutes == null ? null : Math.round((avgMinutes / 60) * 10) / 10,
+            slaBreaches: Number(r.sla_breaches || 0),
+            aiDraftsGenerated: Number(r.ai_drafts_generated || 0),
+            aiDraftsUsed: Number(r.ai_drafts_used || 0),
+        };
+    } catch (e) {
+        console.error(`[support] no se pudieron calcular los KPIs de soporte: ${errorMessage(e)}`);
+        return undefined;
     }
 }
 

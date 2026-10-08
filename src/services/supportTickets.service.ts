@@ -201,6 +201,7 @@ export interface RawMessageRow {
     body?: unknown;
     is_internal_note?: unknown;
     created_at?: unknown;
+    ai_draft_id?: unknown;
 }
 
 export interface RawAttachmentRow {
@@ -246,6 +247,7 @@ export function mapMessage(row: RawMessageRow, attachments: TicketAttachmentItem
         senderRole: toSenderRole(row.author_role),
         messageText: String(row.body || ""),
         isInternalNote: Boolean(Number(row.is_internal_note || 0)),
+        aiDraftId: row.ai_draft_id ? String(row.ai_draft_id) : undefined,
         attachments: attachments.length > 0 ? attachments : undefined,
         createdAt: iso(row.created_at),
     };

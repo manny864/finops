@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { requireTenantAccess, hasSystemRole, AuthError, type RequestIdentity } from "@/lib/requestAuth";
-import { serverError } from "@/lib/apiErrors";
+import { errorMessage, serverError } from "@/lib/apiErrors";
 import rateLimiter from "@/lib/rateLimiter";
 import { SUPPORT_TICKET_CATEGORIES, SUPPORT_TICKET_PRIORITIES, SUPPORT_TICKET_STATUSES, SUPPORT_BODY_MAX, getSupportConfig } from "@/lib/supportConfig";
 import {
@@ -54,9 +54,13 @@ export async function GET(
             return NextResponse.json({ error: "Ticket no encontrado." }, { status: 404 });
         }
 
+        // `ai_draft_id`: la nota interna es un borrador de "Sugerir respuesta" (Fase 3b).
         const [messageRows]: any = await pool.query(
-            `SELECT id, ticket_id, author_email, author_name, author_role, body, is_internal_note, created_at
-             FROM SupportTicketMessages WHERE ticket_id = ? ORDER BY created_at ASC`,
+            `SELECT m.id, m.ticket_id, m.author_email, m.author_name, m.author_role, m.body, m.is_internal_note, m.created_at,
+                    d.id AS ai_draft_id
+             FROM SupportTicketMessages m
+             LEFT JOIN SupportTicketAiDrafts d ON d.message_id = m.id
+             WHERE m.ticket_id = ? ORDER BY m.created_at ASC`,
             [ticketId]
         );
 
@@ -172,6 +176,21 @@ export async function POST(
             [newStatus, asSupport && !isInternalNote ? 1 : 0, ticketId, tenantId]
         );
         const messageId = inserted?.insertId ?? null;
+
+        // KPI de la Fase 3b: el operador mandó como respuesta pública un borrador
+        // de IA (lo cargó con "Usar como respuesta"). Best-effort: la respuesta ya
+        // quedó guardada y un KPI no la puede romper.
+        const aiDraftId = Number(body.aiDraftId);
+        if (asSupport && !isInternalNote && Number.isInteger(aiDraftId) && aiDraftId > 0) {
+            try {
+                await pool.query(
+                    "UPDATE SupportTicketAiDrafts SET used_at = UTC_TIMESTAMP() WHERE id = ? AND ticket_id = ? AND used_at IS NULL",
+                    [aiDraftId, ticketId]
+                );
+            } catch (e) {
+                console.error(`[support] no se pudo marcar como usado el borrador ${aiDraftId}: ${errorMessage(e)}`);
+            }
+        }
 
         return NextResponse.json({ success: true, status: newStatus, messageId, isInternalNote }, { status: 201 });
     } catch (e: unknown) {
