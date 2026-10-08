@@ -9,7 +9,7 @@ naturales a revisar primero cuando algo del dominio no cierra.
 
 Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI directamente.
 
-157 archivos.
+160 archivos.
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
@@ -57,6 +57,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureAutoBlockPolicies.service.ts` | 546 | `normalizeEffect`, `deriveScopeType`, `deriveScopeName`, `toCategoryDisplayName`, `calcCompliancePercentage`, `deriveInitiativeStatus`, … |
 | `src/services/azureEventHubs.service.ts` | 544 | `EVENTHUBS_SKU_BASE_COST`, `EVENTHUBS_SKU_COLORS`, `calculateEventHubsSummary`, `generateEventHubsRecommendations`, `generateMockEventHubsData`, `fetchEventHubsData`, … |
 | `src/services/azureVmPowerManagement.service.ts` | 543 | `RawScheduleRow`, `toDbAction`, `fromDbAction`, `fromDbStatus`, `parseDaysOfWeek`, `serializeDaysOfWeek`, … |
+| `src/services/anomalyDetectionService.ts` | 528 | `DETECTION_WINDOW_DAYS`, `SENSITIVITY_Z_SCORE`, `DailyCost`, `DetectedAnomaly`, `AnomalyContributor`, `computeStats`, … |
 | `src/services/azureGovernanceReporting.service.ts` | 528 | `toResourceTypeLabel`, `normalizePrincipalType`, `isOrphanedPrincipal`, `isPrivilegedRole`, `calcPercentage`, `buildResourceTypeBreakdown`, … |
 | `src/services/azureTagGovernance.service.ts` | 522 | `DEFAULT_MANDATORY_TAG_POLICIES`, `formatResourceTypeDisplay`, `evaluateResourceMissingTags`, `getLocalCachedTags`, `saveLocalCachedTags`, `scanTagGovernanceLive`, … |
 | `src/services/azureZombieHunting.service.ts` | 502 | `AzureZombieHuntingService` |
@@ -66,7 +67,6 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureTenantHealth.service.ts` | 485 | `scoreToGrade`, `calcBudgetComplianceScore`, `calcCredentialExpiryScore`, `calcCoinOptimizationScore`, `calcMfaSecurityScore`, `generateTenantHealthActionPlan`, … |
 | `src/services/commissions.service.ts` | 471 | `TipoBeneficiario`, `EstadoComision`, `CUOTAS_MENSUALES`, `MESES_DE_RETENCION`, `sqlPrimerPagoDelTenant`, `sqlFechaDeVentaDelTenant`, … |
 | `src/services/azureNetworkAnalytics.service.ts` | 470 | `fetchLiveNetworkInventory`, `fetchLiveNetworkCosts`, `computeLiveNetworkAnalytics` |
-| `src/services/anomalyDetectionService.ts` | 468 | `DETECTION_WINDOW_DAYS`, `SENSITIVITY_Z_SCORE`, `DailyCost`, `DetectedAnomaly`, `AnomalyContributor`, `computeStats`, … |
 | `src/services/perspectivesData.service.ts` | 468 | `Perspectiva`, `etiquetasDeColumna`, `DIMENSIONES_DE_ALCANCE`, `FilaConDimensiones`, `comoFilaDeCosto`, `filasDeCosto`, … |
 | `src/services/auditTrail.service.ts` | 464 | `getAuditTrailLogs`, `serializeAuditTrailCsv` |
 | `src/services/azureZombieAudit.service.ts` | 452 | `formatResourceType`, `computeZombieSummaryMetrics`, `getMockZombieAuditPayload`, `getZombieExemptions`, `getLocalTagsCache`, `saveZombieExemption`, … |
@@ -106,6 +106,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureDataLakeGen2.service.ts` | 301 | `ADLS_RATES`, `detectDataLakeRedundancy`, `detectDataLakeEnvironment`, `buildDataLakeRemediations`, `computeDataLakeKpis`, `aggregateDataLakeStorage`, … |
 | `src/services/m365UserActivity.service.ts` | 301 | `getEnrichedUserActivity`, `getUserSignInHistory` |
 | `src/services/azureWhatIfSimulator.service.ts` | 297 | `simulateScenario`, `getMockWhatIfPayload`, `assembleLiveWhatIf` |
+| `src/services/anomalyExplanation.service.ts` | 294 | `ExplanationLocale`, `normalizeExplanationLocale`, `ExplainableAnomaly`, `ExplanationContext`, `buildExplanationContext`, `explanationFactsHash`, … |
 | `src/services/azureSustainability.service.ts` | 293 | `AzureSustainabilityService` |
 | `src/services/cosmosMetrics.service.ts` | 288 | `MetricasCosmos`, `ParticionCosmos`, `VENTANA_DIAS`, `metricasVacias`, `percentil95`, `leerSeries`, … |
 | `src/services/aiService.ts` | 282 | `isAiGloballyEnabled`, `getAIConfig`, `generateFinOpsReport` |
@@ -124,6 +125,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/tenantAddons.service.ts` | 236 | `ActiveTenantAddon`, `TenantAddonsService` |
 | `src/services/remediationService.ts` | 234 | `logAction`, `deleteResource`, `deallocateVirtualMachine`, `startVirtualMachine`, `restartVirtualMachine`, `downgradeVirtualMachine` |
 | `src/services/storageRetentionCleaner.service.ts` | 234 | `BLOB_CONTAINER_REPORTS`, `TIER_RETENTION_DAYS`, `getRetentionDaysForTier`, `executeStorageRetentionCleanup` |
+| `src/services/billingCsvMapping.service.ts` | 231 | `CsvColumnMapping`, `CsvMappingError`, `validateCsvMapping`, `decimalSeparatorOf`, `parseCsvAmount`, `toIsoDate`, … |
 | `src/services/azureLighthouse.service.ts` | 230 | `LIGHTHOUSE_DELEGATIONS_KQL`, `toDelegationStatus`, `toDelegationStatusFromDb`, `roleNamesFromAuthorizations`, `RawArgDelegationRow`, `mapArgDelegation`, … |
 | `src/services/azureStorageAccounts.service.ts` | 226 | `TIER_RATES`, `BENCHMARK_LRS_RATE`, `detectRedundancyType`, `detectEnvironment`, `generateLifecyclePolicyJson`, `buildStorageRemediations` |
 | `src/services/invoicingAggregationService.ts` | 215 | `MarkupOverride`, `buildInvoicingPayload` |
@@ -157,6 +159,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/reservationExpiryAlerts.service.ts` | 108 | `ESCALONES`, `Escalon`, `AvisoDeVencimiento`, `diasHastaVencer`, `escalonPara`, `avisosDeVencimiento`, … |
 | `src/services/workbookService.ts` | 107 | `deployFinOpsWorkbook` |
 | `src/services/userScope.service.ts` | 105 | `AlcanceAsignado`, `ROLES_SIN_ALCANCE`, `alcanceDelUsuario`, `listarAlcances`, `rolDelUsuario`, `asignarAlcance`, … |
+| `src/services/anomalyRootCause.service.ts` | 98 | `MAX_CONTRIBUTORS`, `MeterRow`, `buildRootCauseFacts` |
 | `src/services/azureCommitmentSimulator.service.ts` | 96 | `ExchangeQuotaResult`, `AzureCommitmentSimulatorService` |
 | `src/services/reportDispatch.service.ts` | 96 | `SuscripcionAEnviar`, `ResultadoEnvio`, `enviarSuscripcion` |
 | `src/services/providerLifecycleService.ts` | 90 | `TenantProviderState`, `getTenantProviderState`, `TierChangeResult`, `applyTierChange`, `ProviderDisabledError`, `assertProviderIngestable` |
@@ -180,7 +183,7 @@ Integración con SDKs de Azure (`collectors/`), motores agnósticos (`core/`) y 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
 | `src/modules/collectors/azure/avdService.ts` | 701 | `AvdSessionHost`, `AvdApplicationGroup`, `AvdWorkspace`, `AvdHostPool`, `AvdStorageResource`, `AvdInventory`, … |
-| `src/modules/core/aiProvider.ts` | 682 | `invalidateAIConfigCache`, `redactForDataSharing`, `getDataSharingPrefs`, `redactForTenant`, `redactSerializedForTenant`, `aiQueue`, … |
+| `src/modules/core/aiProvider.ts` | 613 | `invalidateAIConfigCache`, `redactForDataSharing`, `getDataSharingPrefs`, `redactForTenant`, `redactSerializedForTenant`, `aiQueue`, … |
 | `src/modules/collectors/azure/foundryCollector.ts` | 578 | `getFoundryResourceCost`, `FoundryMeterUsage`, `FoundryModelAgg`, `parseFoundryMeter`, `normalizeFoundryModelName`, `aggregateFoundryMeters`, … |
 | `src/modules/collectors/azure/containerAppsCostService.ts` | 479 | `ContainerAppCostRow`, `ContainerRegistryCostRow`, `ContainerEnvironmentCostRow`, `ContainerAppsCostResult`, `getContainerAppsCost` |
 | `src/modules/collectors/azure/aiServiceCollectors.ts` | 439 | `getAiServiceRealCost`, `getSpeechLanguageResources`, `syncSpeechLanguageSnapshots`, `getVisionVideoResources`, `syncVisionVideoSnapshots`, `getContentSafetyResources`, … |

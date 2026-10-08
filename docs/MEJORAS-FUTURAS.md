@@ -57,6 +57,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-39](#mej-39--fin-de-soporte-eoleos-de-la-plataforma-azure) | Fin de soporte (EOL/EOS) con el costo de lo afectado — **fase 1 hecha**: catálogo curado de AKS + PostgreSQL + MySQL Flexible, semáforo y costo mensual; fase 2 (licencias en la nube) sin empezar | Gobernanza / Riesgo | Alto | Medio | Parcial |
 | [MEJ-40](#mej-40--esr-y-riesgo-de-la-cartera-de-compromisos) | Concentración de vencimientos + ESR; se desbloqueó poblando `ListCost` de verdad | Compromisos | Alto | Medio | Hecha |
 | [MEJ-41](#mej-41--whiteboard-selector-de-rango-temporal-30d90d-y-persistencia-en-base-de-datos) | Whiteboard: selector temporal (30D/90D) y persistencia/consulta de costos históricos en BD | Whiteboard / Resumen Ejecutivo | Alto | Medio | Hecha |
+| [MEJ-42](#mej-42--capacidades-de-ia-fase-1-hecha-y-lo-encontrado-de-paso) | Capacidades de IA (propuesta 2026-10-07): fase 1 hecha; quedan Managed Identity, legal y fases 2 a 4, más tres huecos encontrados de paso | IA | Alto | Alto | En curso |
 
 ---
 
@@ -4730,3 +4731,32 @@ Esto garantiza que la Pizarra Ejecutiva responda en menos de 50 ms sin depender 
 5. **Directiva (`directivas/whiteboard_overview_sop.md`):**
    - Se actualizó el SOP con las especificaciones de persistencia y rango temporal.
 
+---
+
+## MEJ-42 — Capacidades de IA: fase 1 hecha y lo encontrado de paso
+
+**Módulo:** IA · **Impacto:** Alto · **Esfuerzo:** Alto · **Estado:** En curso (fase 1 hecha el 2026-10-07)
+
+El análisis, el plan por PRs, lo implementado y lo que queda están en
+[`propuesta-capacidades-ia-2026-10-07.md`](propuesta-capacidades-ia-2026-10-07.md), secciones 6.9 y 10.
+Esta entrada no lo repite: guarda sólo lo que apareció de paso y quedó sin corregir, porque no era parte
+de la fase.
+
+**Hecho**, en la rama `feat/ia-fase1-anomalias`: la sugerencia de etiquetas endurecida (`41dbe9e`), los
+hechos de causa raíz por medidor (`b11beda`), la explicación con IA bajo el gate único (`c98e3ea`) y el
+mapeo de columnas de CSV con IA (`7ebbb71`).
+
+### Encontrado de paso
+
+1. **`/api/intelligence/upload` no valida el plan.** Toma el tenant del token y limita los uploads por
+   usuario, pero el Business+ lo impone sólo la página (`src/lib/routeTiers.ts`). El mapeo con IA exige
+   Business por el gate; un CSV que ya está en formato FOCUS, en cambio, se carga por API desde cualquier
+   plan.
+2. **`getAssessment` no pasa por el gate.** Corre en cada upload, después del mapeo, con DLP y caché de
+   24 h, pero sin interruptor maestro, sin `Tenants.ai_enabled` y sin cupo. Su prompt está en español y
+   pide las cifras en USD, sea cual sea el idioma o la moneda del tenant. Sumado al punto 1, un tenant de
+   cualquier plan puede disparar esa llamada.
+3. **Sin detalle por medidor para los tenants que cargan sólo por exports.** El ingestor
+   (`costExportIngestionService.ts`) no lee el medidor ni la cantidad, y `CostMeterSnapshots` sólo lo
+   llena el sync diario. Sus anomalías muestran "Sin detalle por medidor". Se corrige leyendo esas columnas
+   del export y agregando por medidor, como hace el sync.

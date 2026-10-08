@@ -205,6 +205,9 @@ mindmap
 * **What-If Simulator:** Simulador de escenarios que proyecta el impacto económico de migraciones, apagados de cargas o compras de reservas antes de ejecutarlos en Azure.
 * **AI Cost Analytics (Enterprise):** Vista de costo por modelo y tendencia de tokens para **Microsoft Foundry / Azure OpenAI**, priorizando tokens desde Azure Monitor (`ProcessedPromptTokens`, `GeneratedTokens`, `ProcessedInferenceTokens`) y fallback a costo agregado desde Cost Management cuando no hay desglose de tokens.
 * **RBAC mínimo para AI Cost Analytics:** no introduce roles nuevos; reutiliza `Reader`, `Cost Management Reader`, `Monitoring Reader` y `Billing Reader` bajo principio de menor privilegio.
+* **Explicación de anomalías:** el código calcula qué cambió dentro del servicio que empujó el desvío (medidor nuevo, más consumo, más precio), para todos los tiers. Desde Professional, la IA lo redacta a pedido, citando sólo esos hechos, y la salida se valida antes de mostrarse (§19).
+* **Mapeo de CSV con IA (Business+):** la IA infiere qué columna corresponde a cada campo FOCUS y el código convierte todas las filas (§19).
+* **Gate único de IA:** kill switch global, `Tenants.ai_enabled`, tier, rate limit y cuota mensual por feature para las funciones de IA nuevas. El Copilot conserva el suyo (§19).
 
 ### 3.5 Módulo Integration Services (iPaaS)
 
@@ -653,7 +656,7 @@ compartidas entre servidor y cliente viven en los archivos de tipos o en `src/li
 
 ### 12.7 Gobernanza de Etiquetas y Hardening de Secretos de Infraestructura
 
-- **Gobernanza de Etiquetas (Azure Tag Governance Engine).** Auditoría automatizada de políticas obligatorias (`Environment`, `Role`, `CostCenter`, `Department`), propagación de etiquetas desde Grupos de Recursos con Merge Seguro e inferencia basada en IA para autocompletar metadatos faltantes.
+- **Gobernanza de Etiquetas (Azure Tag Governance Engine).** Auditoría automatizada de políticas obligatorias (`Environment`, `Role`, `CostCenter`, `Department`), propagación de etiquetas desde Grupos de Recursos con Merge Seguro y sugerencia de etiquetas faltantes por convención de nombres (una heurística, sin IA: §19.4).
 - **Key Vault Network Isolation.** Aislamiento perimetral completo del almacén de secretos (`cscs-finops-prod-wus2-kv`) mediante Private Endpoint (`privatelink.vaultcore.azure.net`) y directiva `default_action = Deny`, eliminando vectores de acceso público y protegiendo credenciales de tenants en tránsito y reposo.
 
 *© 2026 CSCloudSolutions. Todos los derechos reservados. — CONFIDENCIAL*
@@ -1157,3 +1160,111 @@ explotable**: el Service Principal de Lighthouse no tiene permisos de aplicació
 de Graph, ni roles de directorio, ni pertenece a grupos asignables a roles. El
 corte no depende de eso: si mañana esa identidad recibe un permiso de Graph por
 otro motivo, la plataforma igual no lo usa para un tenant delegado.
+
+## 19. Addendum 2026-10-07 — La IA redacta, el código decide
+
+Primera parte de la propuesta de capacidades de IA
+([`docs/propuesta-capacidades-ia-2026-10-07.md`](../propuesta-capacidades-ia-2026-10-07.md),
+sección 10). La regla de fondo: cifras, causas y acciones salen de lógica
+determinista; el modelo sólo pone en palabras lo que el código ya verificó, o
+elige entre opciones cerradas. El detalle técnico está en el LLD §40.
+
+### 19.1 Un solo lugar decide si se gasta IA
+
+Hasta ahora cada función de IA traía sus propios controles, o ninguno. El
+Copilot tiene su gate en `copilotConfig.ts`, pero la normalización de CSV llamaba
+al modelo sin mirar el kill switch, `Tenants.ai_enabled` ni una cuota.
+
+Las funciones nuevas pasan por `checkAiFeature` (`src/lib/aiFeatureGate.ts`), que
+aplica cinco controles en orden: kill switch global, `Tenants.ai_enabled`, tier,
+rate limit por usuario y por minuto, y cuota mensual **por feature**. La cuota
+cuenta en `PlatformAiUsage` sólo lo que paga la plataforma, así que BYOK no la
+consume. Un denegado no es un error: la pantalla sigue con la versión
+determinista y dice por qué no hay IA.
+
+El gate no autentica. La ruta ya validó el acceso con `requireTenantAccess`, y el
+gate sólo decide si se puede gastar. El Copilot conserva el suyo por ahora.
+
+### 19.2 Anomalías: primero los hechos, después el texto
+
+La anomalía ya decía cuánto se desvió (z-score) y qué resource group y servicio
+lo empujaron. Faltaba **qué cambió dentro del servicio**.
+
+Al guardar la anomalía, el código compara el día contra los 30 anteriores, medidor
+por medidor, y clasifica: medidor nuevo, más consumo, más precio unitario (con la
+descomposición precio-volumen) o más costo sin cantidades para separar uno de
+otro. Esos hechos y las acciones que se derivan de ellos se muestran a **todos
+los tiers**, sin IA.
+
+La propuesta suponía que `CostSnapshots` traía recurso y medidor, y no es así: el
+sync lo escribe por servicio y resource group. El detalle por medidor está en
+`CostMeterSnapshots`, que no tiene resource group y sólo escribe el sync por API.
+Un tenant que sólo carga exports ve "sin detalle" en lugar de una causa
+inventada.
+
+```mermaid
+flowchart LR
+    CRON["Detección de anomalías<br/>persistAndNotifyAnomalies"] --> FACTS["Hechos calculados por código<br/>Anomalies.root_cause_facts"]
+    FACTS --> UI["Qué cambió · Qué revisar<br/>(todos los tiers)"]
+    UI -->|"Explicar con IA"| GATE["Gate único"]
+    GATE -->|"denegado: motivo"| UI
+    GATE --> CACHE["AnomalyExplanations<br/>(anomalía, idioma, hash)"]
+    CACHE -->|"ya existe"| UI
+    CACHE -->|"no existe"| LLM["El modelo redacta<br/>sobre hechos con DLP"]
+    LLM --> VAL["Validadores: factId,<br/>números, moneda, links"]
+    VAL -->|"source = ai / template"| CACHE
+```
+
+La explicación con IA se pide desde la pantalla, nunca en el cron, y sigue tres
+reglas:
+
+- **Cita hechos por id.** No puede nombrar una causa que no esté en la lista.
+- **No ve montos.** Recibe porcentajes, z-score y nombres, porque la pantalla
+  convierte la moneda y una cifra en USD dentro del texto la contradiría. Todo
+  número del texto tiene que existir en los hechos.
+- **Si no valida, no se muestra.** Quedan los hechos, y el rechazo se guarda
+  para no pagar dos veces por los mismos datos.
+
+La caché es por anomalía, idioma y hash del contexto ya redactado, es decir, por
+lo que de verdad vio el modelo. La tabla cuelga de `Anomalies` y se borra con el
+tenant en cascada. En modo demo no se simula: un texto fijo con la etiqueta
+"Generado con IA" mostraría como IA algo que no lo es.
+
+> **El principio:** la IA no decide nada que el código pueda calcular. Si el
+> modelo no puede decirlo sin inventar, la pantalla muestra los datos y nada
+> más.
+
+### 19.3 CSV: la IA mapea columnas, el código convierte filas
+
+La normalización anterior le mandaba al modelo las primeras 50 filas y devolvía
+las que el modelo reescribía. Un archivo de 10.000 filas se procesaba sobre 50,
+sin aviso, y los montos salían del modelo.
+
+Ahora el modelo recibe los encabezados y 20 filas redactadas, y devuelve qué
+columna corresponde a cada campo FOCUS y en qué orden vienen las fechas. El
+código valida ese mapeo (las columnas existen, no hay campos repetidos, y están
+el costo y el servicio) y lo aplica a **todas** las filas. Los montos y las
+fechas los interpreta el código: una fecha ambigua queda vacía, no adivinada.
+
+El mapeo se guarda por tenant y conjunto de encabezados, y se consulta **antes**
+del gate: el mismo formato no vuelve a enviar datos ni a consumir cuota. Si no
+hay IA disponible, el upload falla con el motivo en lugar de cargar datos a
+medias. Los archivos FOCUS siguen sin pasar por la IA.
+
+### 19.4 Lo que no es IA no se llama IA
+
+El botón "Autocompletar con IA" de Gobernanza de Etiquetas era una heurística sobre la
+convención de nombres, con una confianza fija de 0,94. Ahora se llama **Sugerir
+por convención de nombres**, la respuesta declara `method: "heuristic"` y la
+confianza inventada desapareció. De paso, el endpoint exige `tenantId` y acceso
+al tenant: se quitaron el bypass `?mock=true` y la caída al tenant `"default"`.
+
+### 19.5 Lo que queda
+
+- La IA de plataforma sigue con key: faltan Managed Identity y el módulo
+  Terraform `ai_services`.
+- Actualizar los subprocesadores, que depende de legal, antes de habilitar las
+  funciones a clientes.
+- `getAssessment`, que corre después del upload, todavía no pasa por el gate, y la
+  API de upload no valida el tier (MEJ-42).
+- Las fases 2 a 4 de la propuesta: tags, soporte y Document Intelligence.

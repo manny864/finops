@@ -34,6 +34,8 @@
 - **FinOps Copilot con conversación continua** entre páginas y botón **Nueva conversación** (9).
 - **App móvil (PWA)** con Resumen, Alertas, Aprobaciones, Soporte y Perfil (11.12).
 - **Anomalías con responsable y seguimiento** (14) y **suscripciones fuera del tope de tu plan** (15).
+- **Anomalías: qué cambió y explicación con IA.** Cada anomalía muestra qué medidor del servicio subió y si fue por consumo, por precio o por algo nuevo, con los pasos a revisar. Desde Professional, la IA puede contarlo en palabras (14.4).
+- **CSV que no está en formato FOCUS:** ahora se procesan **todas** las filas. La IA sólo identifica las columnas y la plataforma lee los montos (5.1.7).
 
 **Novedades de agosto 2026**
 
@@ -388,6 +390,13 @@ Hay una tarjeta resumen de esto mismo en el Dashboard con el link **"Ver detalle
 
 Importación manual o programada de archivos de costos bajo el estándar **FOCUS** y de exports de Azure: subís el CSV de facturación de terceros y lo analizás junto a tus datos de Azure.
 
+Si el archivo ya está en formato FOCUS, se carga directo. Si no, la IA mira los encabezados y una muestra de 20 filas, con los datos sensibles ocultos, y decide qué columna es el costo, el servicio, la fecha, etc. Después la plataforma aplica ese mapeo a **todas** las filas:
+
+- **Los montos y las fechas los lee la plataforma, nunca la IA.** Una fecha que no se puede leer sin adivinar queda vacía.
+- **El mapeo se recuerda.** Si volvés a subir un archivo con las mismas columnas, no se usa la IA ni se consume cupo.
+- **Cupo mensual de la organización:** 150 formatos nuevos en Business. Es ilimitado en Enterprise o con tu propia clave de IA (BYOK).
+- **Si la IA no está disponible** (desactivada, sin cupo o con demasiados pedidos seguidos), el archivo no se carga y la pantalla te dice por qué. Subirlo en formato FOCUS evita la IA.
+
 ### 5.2. Leaderboard de equipos (`/intelligence/leaderboard`, Enterprise)
 
 **Quién mejoró, no quién gasta menos.** El tablero compara los **grupos de una Perspective** (3.3 y 5.3) y los ordena por mejora, que es el comportamiento que se busca premiar: un ranking por gasto absoluto castigaría al equipo que corre producción y premiaría al chico.
@@ -674,7 +683,7 @@ Gestión de almacenamiento, costos devengados y cumplimiento legal de copias de 
 
 ### 7.1. Gobernanza de Etiquetas — Azure Tag Governance Engine (`/governance/tags`, Professional+)
 
-Panel integral de auditoría, inferencia inteligente y propagación de metadatos corporativos en Azure.
+Panel integral de auditoría, sugerencia y propagación de metadatos corporativos en Azure.
 
 **Capacidades principales:**
 - **Auditoría Dual de Cumplimiento:** Dos vistas especializadas para auditar tanto **Recursos Individuales** como **Grupos de Recursos (Resource Groups)**.
@@ -683,7 +692,7 @@ Panel integral de auditoría, inferencia inteligente y propagación de metadatos
   - `Role` (Función o rol arquitectónico del recurso)
   - `CostCenter` (Centro de costos contable)
   - `Department` (Área o unidad de negocio responsable)
-- **Inferencia Inteligente con IA (1-clic):** Motor que analiza la tipología, el nombre del recurso y el contexto de la suscripción para sugerir etiquetas faltantes automáticamente. Al presionar el botón "IA Sugerir", las recomendaciones se completan al instante en modo borrador.
+- **Sugerencia por convención de nombres (1-clic):** El botón **Sugerir por convención de nombres** completa las etiquetas faltantes del formulario de edición a partir del nombre del recurso, su grupo de recursos y su tipo. Por ejemplo, `dev` en el nombre sugiere `Environment = dev`. Es una regla fija, no IA: revisá la propuesta, que no se aplica hasta que guardes.
 - **Herencia Masiva desde RG (Merge Seguro):** Con el botón "Heredar de RG", los recursos hijos adoptan los tags presentes en su Grupo de Recursos contenedor sin sobreescribir ni borrar los tags existentes.
 - **Edición y Caché Optimista:** Modificación en línea de tags individuales con persistencia inmediata en caché local y sincronización asíncrona hacia Azure Resource Manager.
 - **Estándar CMP y Personalización:** Tablas con redimensionamiento dinámico de columnas (`col-resize`, 100px - 600px), selector desplegable de visibilidad de columnas en `z-[100]` y persistencia automática por tenant en `localStorage`.
@@ -1460,6 +1469,39 @@ Los cambios los ve todo tu equipo, así que dos personas no trabajan sobre lo mi
 ### 14.3 El aviso
 
 Si la anomalía tiene responsable, la notificación **le llega a esa persona**. Si no lo tiene, le llega a todo el equipo — un desvío sin dueño igual tiene que verlo alguien.
+
+### 14.4 Qué cambió, y la explicación con IA
+
+Al abrir una anomalía, el bloque **Qué cambió** muestra qué se movió dentro del servicio que la empujó. Compara el día contra el promedio de los 30 días anteriores:
+
+| Hecho | Qué significa |
+|---|---|
+| **Medidor nuevo** | Algo que en los últimos 30 días no costaba nada |
+| **Más consumo** | El aumento se explica sobre todo porque se usó más |
+| **Costo unitario más alto** | El aumento se explica sobre todo porque cada unidad salió más cara, por ejemplo porque dejó de cubrirla una reserva |
+| **Más costo** | Subió el costo, pero no hay cantidades para saber si fue por consumo o por precio |
+| **Sin detalle por medidor** | No hay detalle de ese servicio: la plataforma lo dice en lugar de adivinar |
+
+El detalle es a nivel servicio: suma todas las regiones y grupos de recursos. Si tu organización carga los costos sólo por exports, vas a ver **Sin detalle por medidor**, porque ese detalle hoy llega únicamente con la sincronización por API.
+
+Debajo, **Qué revisar** lista los próximos pasos. Salen de los hechos, no de la IA:
+
+- Confirmar que un medidor nuevo sea un uso esperado.
+- Ver si se puede apagar fuera de horario.
+- Revisar la cobertura de reservas y savings plans.
+- Asignar un responsable, si la anomalía no lo tiene.
+
+Los hechos y los pasos están en todos los planes.
+
+**Explicar con IA (Professional+).** El botón **Explicar con IA** le pide a la IA que cuente lo mismo en palabras. La IA sólo puede usar los hechos de arriba:
+
+- No ve montos, y no puede nombrar una causa que no esté en la lista.
+- Si escribe un número que no está en los hechos, la explicación se descarta y quedan los hechos.
+- Por eso lleva la etiqueta **Generado con IA · verificá los datos**.
+
+Con **Me sirvió** o **No me sirvió** nos ayudás a medir si la explicación es útil.
+
+El cupo es mensual y para toda la organización: 50 explicaciones en Professional y 150 en Business. Es ilimitado en Enterprise o con tu propia clave de IA (BYOK). Volver a abrir una explicación ya generada no consume cupo. Si no está disponible (IA desactivada, sin cupo o en la demo), la pantalla te dice por qué.
 
 ---
 

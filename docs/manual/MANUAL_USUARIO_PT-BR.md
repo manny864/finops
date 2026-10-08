@@ -34,6 +34,8 @@
 - **FinOps Copilot com conversa contínua** entre páginas e botão **Nova conversa** (9).
 - **App móvel (PWA)** com Resumo, Alertas, Aprovações, Suporte e Perfil (11.12).
 - **Anomalias com responsável e acompanhamento** (14) e **assinaturas fora do limite do seu plano** (15).
+- **Anomalias: o que mudou e explicação com IA.** Cada anomalia mostra qual medidor do serviço subiu e se foi por consumo, por preço ou por algo novo, com os passos a verificar. A partir do Professional, a IA pode contar isso em palavras (14.4).
+- **CSV que não está no formato FOCUS:** agora **todas** as linhas são processadas. A IA só identifica as colunas e a plataforma lê os valores (5.1.7).
 
 **Novidades de agosto 2026**
 
@@ -388,6 +390,13 @@ Há um cartão-resumo disso no Dashboard com o link **"Ver detalhe completo"**. 
 
 Importação manual ou programada de arquivos de custos no padrão **FOCUS** e de exports do Azure: você sobe o CSV de faturamento de terceiros e o analisa junto com os seus dados do Azure.
 
+Se o arquivo já está no formato FOCUS, ele é carregado direto. Se não, a IA olha os cabeçalhos e uma amostra de 20 linhas, com os dados sensíveis ocultos, e decide qual coluna é o custo, o serviço, a data etc. Depois a plataforma aplica esse mapeamento a **todas** as linhas:
+
+- **Os valores e as datas são lidos pela plataforma, nunca pela IA.** Uma data que não dá para ler sem adivinhar fica vazia.
+- **O mapeamento fica guardado.** Se você subir de novo um arquivo com as mesmas colunas, a IA não é usada e não se consome cota.
+- **Cota mensal da organização:** 150 formatos novos no Business. É ilimitada no Enterprise ou com a sua própria chave de IA (BYOK).
+- **Se a IA não estiver disponível** (desativada, sem cota ou com pedidos demais em sequência), o arquivo não é carregado e a tela diz por quê. Subir no formato FOCUS evita a IA.
+
 ### 5.2. Leaderboard de times (`/intelligence/leaderboard`, Enterprise)
 
 **Quem melhorou, não quem gasta menos.** O painel compara os **grupos de uma Perspective** (3.3 e 5.3) e os ordena por melhoria, que é o comportamento que se quer premiar: um ranking por gasto absoluto puniria o time que roda produção e premiaria o pequeno.
@@ -674,7 +683,7 @@ Gestão de armazenamento, custos acumulados e conformidade legal de cópias de s
 
 ### 7.1. Governança de Etiquetas — Azure Tag Governance Engine (`/governance/tags`, Professional+)
 
-Painel abrangente de auditoria, inferência inteligente e propagação de metadados corporativos no Azure.
+Painel abrangente de auditoria, sugestão e propagação de metadados corporativos no Azure.
 
 **Principais capacidades:**
 - **Auditoria Dupla de Conformidade:** Telas dedicadas para auditar tanto **Recursos Individuais** quanto **Grupos de Recursos (Resource Groups)**.
@@ -683,7 +692,7 @@ Painel abrangente de auditoria, inferência inteligente e propagação de metada
   - `Role` (função ou perfil arquitetônico)
   - `CostCenter` (centro de custo contábil)
   - `Department` (área ou unidade de negócio responsável)
-- **Sugestão Inteligente com IA (1-clique):** Motor que analisa o tipo do recurso, convenções de nomenclatura e contexto da assinatura para preencher tags faltantes instantaneamente em modo rascunho.
+- **Sugestão pela convenção de nomes (1-clique):** O botão **Sugerir pela convenção de nomes** preenche as tags faltantes do formulário de edição a partir do nome do recurso, do seu grupo de recursos e do seu tipo. Por exemplo, `dev` no nome sugere `Environment = dev`. É uma regra fixa, não IA: revise a sugestão, que só é aplicada quando você salvar.
 - **Herança em Lote do RG (Merge Seguro):** Com o botão "Herdar do RG", recursos filhos adotam as tags do Resource Group pai sem sobrescrever nem apagar tags preexistentes.
 - **Edición e Cache Otimista:** Edição em linha com persistência imediata em cache local e sincronização assíncrona com o Azure Resource Manager.
 - **Padrão CMP e Personalização:** Tabelas com redimensionamento de colunas (`col-resize`, 100px - 600px), seletor de colunas visíveis em `z-[100]` e persistência automática por tenant em `localStorage`.
@@ -1456,6 +1465,39 @@ As mudanças são vistas por toda a equipe, então duas pessoas não trabalham n
 ### 14.3 O aviso
 
 Se a anomalia tem responsável, a notificação **chega a essa pessoa**. Se não tem, chega a toda a equipe — um desvio sem dono ainda precisa ser visto por alguém.
+
+### 14.4 O que mudou, e a explicação com IA
+
+Ao abrir uma anomalia, o bloco **O que mudou** mostra o que se moveu dentro do serviço que a puxou. Ele compara o dia com a média dos 30 dias anteriores:
+
+| Fato | O que significa |
+|---|---|
+| **Medidor novo** | Algo que nos últimos 30 dias não custava nada |
+| **Maior consumo** | O aumento vem sobretudo de se usar mais |
+| **Custo unitário maior** | O aumento vem sobretudo de cada unidade sair mais cara, por exemplo porque uma reserva deixou de cobri-la |
+| **Custo maior** | O custo subiu, mas não há quantidades para saber se foi por consumo ou por preço |
+| **Sem detalhe por medidor** | Não há detalhe desse serviço: a plataforma diz isso em vez de adivinhar |
+
+O detalhe é no nível do serviço: soma todas as regiões e grupos de recursos. Se a sua organização carrega os custos só por exports, você vai ver **Sem detalhe por medidor**, porque hoje esse detalhe chega apenas com a sincronização por API.
+
+Abaixo, **O que verificar** lista os próximos passos. Eles saem dos fatos, não da IA:
+
+- Confirmar que um medidor novo é um uso esperado.
+- Ver se dá para desligar fora do horário.
+- Revisar a cobertura de reservas e savings plans.
+- Atribuir um responsável, se a anomalia não tiver.
+
+Os fatos e os passos estão em todos os planos.
+
+**Explicar com IA (Professional+).** O botão **Explicar com IA** pede à IA que conte o mesmo em palavras. A IA só pode usar os fatos acima:
+
+- Ela não vê valores e não pode citar uma causa que não esteja na lista.
+- Se escrever um número que não está nos fatos, a explicação é descartada e ficam os fatos.
+- Por isso ela leva a etiqueta **Gerado com IA · verifique os dados**.
+
+Com **Ajudou** ou **Não ajudou** você nos ajuda a medir se a explicação é útil.
+
+A cota é mensal e da organização inteira: 50 explicações no Professional e 150 no Business. É ilimitada no Enterprise ou com a sua própria chave de IA (BYOK). Abrir de novo uma explicação já gerada não consome cota. Se não estiver disponível (IA desativada, sem cota ou na demo), a tela diz por quê.
 
 ---
 

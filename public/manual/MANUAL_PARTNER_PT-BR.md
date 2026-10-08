@@ -293,7 +293,7 @@ Este é o mapa do que o cliente vai usar todos os dias. Para cada tela: **o prob
 
 | Tela | Problema que resolve | O que o usuário vê | Plano |
 |---|---|---|---|
-| **Conformidade de Tags** | Sem tags não há rateio de custos | Auditoria das 4 tags estruturais, **sugestão com IA** das que faltam e herança do grupo de recursos | P+ (autocorreção B+) |
+| **Conformidade de Tags** | Sem tags não há rateio de custos | Auditoria das 4 tags estruturais, **sugestão pela convenção de nomes** das que faltam e herança do grupo de recursos | P+ (autocorreção B+) |
 | **Alertas Self-Service** | Saber de um desvio quando já aconteceu | Regras por orçamento, limite fixo, anomalia ou forecast, com entrega para Teams, Slack, e-mail, webhook ou ServiceNow | P+ |
 | **Agendas de Desligamento** | Máquinas ligadas à noite e nos fins de semana | Programação de ligar e desligar com **Smart Shutdown** (não desliga uma VM que está trabalhando) e economia calculada | B+ |
 | **Alta Disponibilidade** | Não saber quão exposto está o crítico | Lacunas de redundância, SLA atual vs alcançável em minutos de queda por mês | B+ |
@@ -513,7 +513,7 @@ Não venda funções: **escute a dor** e mostre a tela que a resolve. Estas perg
 | 2-5 | **White Board** | Custo do período (alterne entre mês, 30 e 90 dias), forecast, **Economia Potencial**, zumbis, Quick Wins | «Esta é a visão da Diretoria. E este número é dinheiro que se pode recuperar.» |
 | 5-9 | **Limpeza → Recursos Zumbi** | Os 25 tipos, desperdício duro vs mole, o botão de remediação com snapshot prévio, e **Aprovações** | «Cada recurso sem uso, com o seu custo mensal. E nada é excluído sem que outra pessoa aprove.» |
 | 9-11 | **Governança → Agendas de Desligamento** | Uma regra de desligamento e o **Smart Shutdown** (não desliga uma VM que está trabalhando) | «Desligar os ambientes de testes à noite e nos fins de semana é das coisas mais rentáveis que há.» |
-| 11-13 | **Governança → Tags** e **Cost Groups** | A sugestão de tags com IA e o rateio por unidade de negócio | «Sem tags não há rateio justo. Isto organiza quase sozinho.» |
+| 11-13 | **Governança → Tags** e **Cost Groups** | A sugestão de tags pela convenção de nomes e o rateio por unidade de negócio | «Sem tags não há rateio justo. Isto organiza quase sozinho.» |
 | 13-15 | **Consumo e Orçamento** e **Alertas Self-Service** | Um orçamento com limite, um alerta que chega ao Teams ou Slack | «Você fica sabendo do desvio quando acontece, não quando chega a fatura.» |
 | 15-17 | **Copilot** | Uma pergunta ao vivo sobre a tela atual | «Você pergunta no seu idioma e ele analisa o que você está vendo.» |
 | 17-19 | **Relatórios** | O relatório executivo e as **assinaturas por e-mail** | «A Diretoria e o Financeiro recebem sozinhos, toda segunda.» |
@@ -525,7 +525,7 @@ Não venda funções: **escute a dor** e mostre a tela que a resolve. Estas perg
 
 | Objeção | O que há por trás | Como responder |
 |---|---|---|
-| «Já temos Azure Cost Management / Advisor» | Acha que já está coberto | «São o ponto de partida, e os usamos como fonte. O que acrescentamos é dizer o que fazer, quem faz e quanto se economizou: zumbis com remediação e aprovação, tags com IA, desligamentos, rateio por time, orçamentos com alertas e relatórios que chegam sozinhos.» |
+| «Já temos Azure Cost Management / Advisor» | Acha que já está coberto | «São o ponto de partida, e os usamos como fonte. O que acrescentamos é dizer o que fazer, quem faz e quanto se economizou: zumbis com remediação e aprovação, sugestão de tags, desligamentos, rateio por time, orçamentos com alertas e relatórios que chegam sozinhos.» |
 | «É caro» | Não vê o retorno | «Façamos a conta com o seu gasto» (7.6). «E o preço é fixo: não sobe quando cresce o seu consumo.» |
 | «Não queremos dar permissões a um terceiro» | Risco de segurança | 3.2: papéis **somente leitura** no Professional, sem Contributor nem Owner em nenhum plano, revogáveis, e com o Lighthouse sem credenciais. «Você pode começar só com leitura.» |
 | «E se executar algo e quebrar a produção?» | Medo da automação | As mudanças passam por **aprovação de quatro olhos**, com snapshot prévio e auditoria; o papel é restrito de propósito; **o Copilot não executa**. |

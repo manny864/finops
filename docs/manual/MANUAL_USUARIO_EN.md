@@ -34,6 +34,8 @@
 - **FinOps Copilot with a continuous conversation** across pages and a **New conversation** button (9).
 - **Mobile app (PWA)** with Summary, Alerts, Approvals, Support and Profile (11.12).
 - **Anomalies with an owner and follow-up** (14) and **subscriptions beyond your plan's limit** (15).
+- **Anomalies: what changed, and an AI explanation.** Each anomaly shows which meter in the service went up and whether it was usage, price or something new, with the steps to check. From Professional, AI can put it into words (14.4).
+- **CSV files that aren't in FOCUS format:** **every** row is now processed. AI only identifies the columns, and the platform reads the amounts (5.1.7).
 
 **August 2026 updates**
 
@@ -388,6 +390,13 @@ There is a summary card of the same data on the Dashboard with the **"See full d
 
 Manual or scheduled import of cost files in the **FOCUS** standard and of Azure exports: you upload the third-party billing CSV and analyze it alongside your Azure data.
 
+If the file is already in FOCUS format, it loads directly. If not, AI looks at the headers and a sample of 20 rows, with sensitive data hidden, and works out which column is the cost, the service, the date, and so on. The platform then applies that mapping to **every** row:
+
+- **The platform reads the amounts and dates, never the AI.** A date that can't be read without guessing is left empty.
+- **The mapping is remembered.** If you upload a file with the same columns again, AI isn't used and no quota is spent.
+- **Monthly quota for the organization:** 150 new formats on Business. It's unlimited on Enterprise or with your own AI key (BYOK).
+- **If AI isn't available** (turned off, out of quota, or too many requests in a row), the file isn't loaded and the screen tells you why. Uploading it in FOCUS format avoids AI.
+
 ### 5.2. Team leaderboard (`/intelligence/leaderboard`, Enterprise)
 
 **Who improved, not who spends least.** The dashboard compares the **groups of a Perspective** (3.3 and 5.3) and sorts them by improvement, which is the behavior you want to reward: a ranking by absolute spend would punish the team that runs production and reward the small one.
@@ -674,7 +683,7 @@ Management of storage, accrued costs and legal compliance of backups in **Recove
 
 ### 7.1. Tag Governance — Azure Tag Governance Engine (`/governance/tags`, Professional+)
 
-Comprehensive audit, AI suggestion, and metadata propagation panel in Azure.
+Comprehensive audit, suggestion, and metadata propagation panel in Azure.
 
 **Key capabilities:**
 - **Dual Compliance Audit:** Dedicated views to audit both **Individual Resources** and **Resource Groups (RGs)**.
@@ -683,7 +692,7 @@ Comprehensive audit, AI suggestion, and metadata propagation panel in Azure.
   - `Role` (architectural or operational role)
   - `CostCenter` (accounting cost centre)
   - `Department` (owning business unit)
-- **AI-Powered Tag Suggestions (1-click):** Engine analyzing resource type, name conventions, and subscription context to draft recommended missing tags instantly.
+- **Suggestions from naming conventions (1-click):** The **Suggest from naming conventions** button fills in the missing tags of the edit form from the resource's name, resource group and type. For example, `dev` in the name suggests `Environment = dev`. It's a fixed rule, not AI: review the suggestion, which isn't applied until you save.
 - **Bulk RG Tag Inheritance (Safe Merge):** Propagate tags from the parent Resource Group to child resources without overwriting or deleting pre-existing tags.
 - **Optimistic Editing & Local Cache:** In-line editing with immediate persistence in local cache and asynchronous background sync to Azure Resource Manager.
 - **CMP Table Standard & Customization:** Resizable column headers (`col-resize`, 100px - 600px), column visibility popover in `z-[100]`, and automatic tenant persistence in `localStorage`.
@@ -1456,6 +1465,39 @@ Changes are visible to your whole team, so two people don't work the same item u
 ### 14.3 The alert
 
 If the anomaly has an owner, the notification **goes to that person**. If it doesn't, it goes to the whole team — an unowned deviation still needs someone to see it.
+
+### 14.4 What changed, and the AI explanation
+
+When you open an anomaly, the **What changed** block shows what moved inside the service that drove it. It compares the day against the average of the previous 30 days:
+
+| Fact | What it means |
+|---|---|
+| **New meter** | Something that cost nothing in the last 30 days |
+| **Higher usage** | The increase comes mostly from using more |
+| **Higher unit cost** | The increase comes mostly from each unit costing more, for example because a reservation stopped covering it |
+| **Higher cost** | The cost went up, but there are no quantities to tell usage from price |
+| **No meter detail** | There's no detail for that service: the platform says so instead of guessing |
+
+The detail is at service level: it adds up all regions and resource groups. If your organization loads costs only through exports, you'll see **No meter detail**, because that detail currently arrives only with the API sync.
+
+Below it, **What to check** lists the next steps. They come from the facts, not from AI:
+
+- Confirm that a new meter is expected usage.
+- Check whether it can be shut down off-hours.
+- Review reservation and savings plan coverage.
+- Assign an owner, if the anomaly doesn't have one.
+
+The facts and the steps are available on every plan.
+
+**Explain with AI (Professional+).** The **Explain with AI** button asks AI to tell the same story in words. AI can only use the facts above:
+
+- It doesn't see amounts, and it can't name a cause that isn't on the list.
+- If it writes a number that isn't in the facts, the explanation is discarded and the facts remain.
+- That's why it carries the **AI-generated · verify the data** label.
+
+**Helpful** or **Not helpful** lets us measure whether the explanation is useful.
+
+The quota is monthly and shared by the whole organization: 50 explanations on Professional and 150 on Business. It's unlimited on Enterprise or with your own AI key (BYOK). Reopening an explanation that was already generated doesn't use quota. If it isn't available (AI turned off, out of quota, or in the demo), the screen tells you why.
 
 ---
 

@@ -28,6 +28,7 @@ Everything that changed for a tenant's user is in the **User Manual** and is inc
 - **Platform usage (22):** AI tokens absorbed by the house and calls to Azure APIs, with the throttling percentage per service and per tenant.
 - **Signup funnel (21), Pricing units (23), Load testing (24) and AI — Global configuration (25):** documented for the first time in this manual.
 - **Anomalies with an owner and follow-up (18) and subscriptions beyond a plan's limit (19):** what the client sees and how to explain it.
+- **Anomalies that say what changed, AI explanation and AI CSV mapping (5.1.7, 18.4, 22.1 and 25):** what the client sees, each feature's monthly quota and which switches turn it off.
 - **Links that leave the platform:** the partner-panel link and the other links we email use the configured public URL (`NEXT_PUBLIC_APP_URL`), not the host the requester came in through.
 - **Reservation expiry notices (MEJ-16):** a new daily cron, `reservation-expiry-alerts` (09:03 UTC), notifies each tenant 90, 60 and 30 days before its reservations expire, through the bell and its notification channels (5.4.4). What it has already notified is recorded in `ReservationExpiryNotices`, so it is not repeated. It runs since 10/06, after the 10/05 CI `terraform apply`.
 - **What was API-only now has a screen:** per-user scope (8.2), shared and default views (3.4), COGS/OpEx classification (5.2), budget rollover and fiscal year (5.1.5), and the maturity score policy (MEJ-08, 4.4). Shift-Left has a menu entry, and a scoped user sees the hubs that apply to them instead of only the Whiteboard.
@@ -436,6 +437,13 @@ There is a summary card of the same data on the Dashboard with the **"See full d
 
 Manual or scheduled import of cost files in the **FOCUS** standard and of Azure exports: you upload the third-party billing CSV and analyze it alongside your Azure data.
 
+If the file is already in FOCUS format, it loads directly. If not, AI looks at the headers and a sample of 20 rows, with sensitive data hidden, and works out which column is the cost, the service, the date, and so on. The platform then applies that mapping to **every** row:
+
+- **The platform reads the amounts and dates, never the AI.** A date that can't be read without guessing is left empty.
+- **The mapping is remembered.** If you upload a file with the same columns again, AI isn't used and no quota is spent.
+- **Monthly quota for the organization:** 150 new formats on Business. It's unlimited on Enterprise or with your own AI key (BYOK).
+- **If AI isn't available** (turned off, out of quota, or too many requests in a row), the file isn't loaded and the screen tells you why. Uploading it in FOCUS format avoids AI.
+
 ### 5.2. Team leaderboard (`/intelligence/leaderboard`, Enterprise)
 
 **Who improved, not who spends least.** The dashboard compares the **groups of a Perspective** (3.3 and 5.3) and sorts them by improvement, which is the behavior you want to reward: a ranking by absolute spend would punish the team that runs production and reward the small one.
@@ -720,7 +728,7 @@ Management of storage, accrued costs and legal compliance of backups in **Recove
 
 ### 7.1. Tag Governance — Azure Tag Governance Engine (`/governance/tags`, Professional+)
 
-Comprehensive audit, AI suggestion, and metadata propagation panel in Azure.
+Comprehensive audit, suggestion, and metadata propagation panel in Azure.
 
 **Key capabilities:**
 - **Dual Compliance Audit:** Dedicated views to audit both **Individual Resources** and **Resource Groups (RGs)**.
@@ -729,7 +737,7 @@ Comprehensive audit, AI suggestion, and metadata propagation panel in Azure.
   - `Role` (architectural or operational role)
   - `CostCenter` (accounting cost centre)
   - `Department` (owning business unit)
-- **AI-Powered Tag Suggestions (1-click):** Engine analyzing resource type, name conventions, and subscription context to draft recommended missing tags instantly.
+- **Suggestions from naming conventions (1-click):** The **Suggest from naming conventions** button fills in the missing tags of the edit form from the resource's name, resource group and type. For example, `dev` in the name suggests `Environment = dev`. It's a fixed rule, not AI: review the suggestion, which isn't applied until you save.
 - **Bulk RG Tag Inheritance (Safe Merge):** Propagate tags from the parent Resource Group to child resources without overwriting or deleting pre-existing tags.
 - **Optimistic Editing & Local Cache:** In-line editing with immediate persistence in local cache and asynchronous background sync to Azure Resource Manager.
 - **CMP Table Standard & Customization:** Resizable column headers (`col-resize`, 100px - 600px), column visibility popover in `z-[100]`, and automatic tenant persistence in `localStorage`.
@@ -1964,6 +1972,41 @@ Changes are visible to your whole team, so two people don't work the same item u
 
 If the anomaly has an owner, the notification **goes to that person**. If it doesn't, it goes to the whole team — an unowned deviation still needs someone to see it.
 
+### 18.4 What changed, and the AI explanation
+
+When you open an anomaly, the **What changed** block shows what moved inside the service that drove it. It compares the day against the average of the previous 30 days:
+
+| Fact | What it means |
+|---|---|
+| **New meter** | Something that cost nothing in the last 30 days |
+| **Higher usage** | The increase comes mostly from using more |
+| **Higher unit cost** | The increase comes mostly from each unit costing more, for example because a reservation stopped covering it |
+| **Higher cost** | The cost went up, but there are no quantities to tell usage from price |
+| **No meter detail** | There's no detail for that service: the platform says so instead of guessing |
+
+The detail is at service level: it adds up all regions and resource groups. If the tenant loads costs only through exports, it will see **No meter detail**, because that detail currently arrives only with the API sync.
+
+Below it, **What to check** lists the next steps. They come from the facts, not from AI:
+
+- Confirm that a new meter is expected usage.
+- Check whether it can be shut down off-hours.
+- Review reservation and savings plan coverage.
+- Assign an owner, if the anomaly doesn't have one.
+
+The facts and the steps are available on every plan.
+
+**Explain with AI (Professional+).** The **Explain with AI** button asks AI to tell the same story in words. AI can only use the facts above:
+
+- It doesn't see amounts, and it can't name a cause that isn't on the list.
+- If it writes a number that isn't in the facts, the explanation is discarded and the facts remain.
+- That's why it carries the **AI-generated · verify the data** label.
+
+With **Helpful** or **Not helpful**, the client tells us whether the explanation was useful.
+
+The quota is monthly and shared by the whole organization: 50 explanations on Professional and 150 on Business. It's unlimited on Enterprise or with the tenant's own key (BYOK). Reopening an explanation that was already generated doesn't use quota. If it isn't available (AI turned off, out of quota, or in the demo), the screen tells the client why.
+
+> **For support:** each generated explanation shows up in **Platform Usage** (22.1) as the `anomaly-explanation` feature. The master switch (25) or the tenant's own AI switch turns it off; the facts and the steps remain visible.
+
 ---
 
 ## 19. Subscriptions beyond your plan's limit
@@ -2122,6 +2165,8 @@ The detail is shown **by tenant** (calls, input and output tokens) and **by feat
 
 If the cost spikes because of an incident with the provider, the AI **master switch** (25) turns AI off for all tenants.
 
+**Monthly quota per feature.** The anomaly explanation (`anomaly-explanation`, 18.4) and the CSV column mapping (`billing-csv-column-mapping`, 5.1.7) have a quota per tenant and per calendar month (UTC). It counts that feature's calls with `source = platform`: 50 on Professional and 150 on Business. Enterprise and BYOK tenants have no quota, although each user still has a per-minute request limit. When the quota runs out, the client sees the reason on screen and the feature comes back on the 1st.
+
 ### 22.2 Azure API calls
 
 It counts the calls in the limiter that all queries to Azure go through. **The throttling percentage is the actionable number**: a few stray 429s say nothing without knowing how many calls they were out of. The table brings, per service, the calls, the **throttled (429)**, the **% throttled** and the **time waiting**.
@@ -2167,7 +2212,7 @@ The **history** keeps the previous runs so you can compare before and after a ch
 
 **Route:** `/superadmin/ai-global-config` · **Menu:** Administration → AI — Global Configuration
 
-The AI provider and key used **as a fallback** for any tenant that has not configured its own (per-tenant BYOK, in *Configuration → AI*). It feeds the **FinOps Copilot** and the **AI-powered executive reports**. Only the SuperAdmin sees it.
+The AI provider and key used **as a fallback** for any tenant that has not configured its own (per-tenant BYOK, in *Configuration → AI*). It feeds the **FinOps Copilot**, the **AI-powered executive reports**, the **anomaly explanation** (18.4) and the **CSV column mapping** (5.1.7). Only the SuperAdmin sees it.
 
 - **Master switch** *"Enable AI features (platform)"*: if turned off, AI is disabled for **all** tenants, regardless of their own switch. It is meant for incidents with the provider or runaway costs.
 - **Provider:** Google Gemini (Flash, free on the free tier), OpenAI (GPT-4o), **Azure AI** (Azure OpenAI), Anthropic (Claude) or DeepSeek. The configuration is **split by plan**: *Non-Enterprise plans* (the fallback for Professional and Business) and *Enterprise plans* (the exclusive provider for that plan). With Azure AI you need the **API Key**, the **Endpoint URL** and the **Deployment** (model).

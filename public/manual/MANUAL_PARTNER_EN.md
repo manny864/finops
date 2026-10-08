@@ -293,7 +293,7 @@ This is the map of what the customer will use every day. For each screen: **the 
 
 | Screen | Problem it solves | What the user sees | Plan |
 |---|---|---|---|
-| **Tag Compliance** | Without tags there is no cost allocation | Audit of the 4 structural tags, **AI suggestion** of the missing ones and inheritance from the resource group | P+ (auto-fix B+) |
+| **Tag Compliance** | Without tags there is no cost allocation | Audit of the 4 structural tags, **suggestions from naming conventions** for the missing ones and inheritance from the resource group | P+ (auto-fix B+) |
 | **Self-Service Alerts** | Finding out about a deviation after it has happened | Rules by budget, fixed threshold, anomaly or forecast, delivered to Teams, Slack, email, webhook or ServiceNow | P+ |
 | **Power Schedules** | Machines on at night and on weekends | Scheduling of power on and off with **Smart Shutdown** (it does not shut down a VM that is working) and calculated savings | B+ |
 | **High Availability** | Not knowing how exposed the critical things are | Redundancy gaps, current vs achievable SLA in minutes of downtime per month | B+ |
@@ -513,7 +513,7 @@ Do not sell features: **listen for the pain** and show the screen that solves it
 | 2-5 | **White Board** | Cost for the period (switch between month, 30 and 90 days), forecast, **Potential Savings**, zombies, Quick Wins | "This is the Management view. And this number is money that can be recovered." |
 | 5-9 | **Cleanup → Zombie Resources** | The 25 types, hard vs soft waste, the remediation button with a prior snapshot, and **Approvals** | "Every unused resource, with its monthly cost. And nothing is deleted without another person approving it." |
 | 9-11 | **Governance → Power Schedules** | A shutdown rule and **Smart Shutdown** (it does not shut down a VM that is working) | "Turning off test environments at night and on weekends is about the most profitable thing there is." |
-| 11-13 | **Governance → Tags** and **Cost Groups** | The AI tag suggestion and the allocation by business unit | "Without tags there is no fair allocation. This sorts it almost on its own." |
+| 11-13 | **Governance → Tags** and **Cost Groups** | Tag suggestions from naming conventions and the allocation by business unit | "Without tags there is no fair allocation. This sorts it almost on its own." |
 | 13-15 | **Consumption & Budget** and **Self-Service Alerts** | A budget with a threshold, an alert that reaches Teams or Slack | "You find out about the deviation when it happens, not when the invoice arrives." |
 | 15-17 | **Copilot** | A live question about the current screen | "You ask it in your language and it analyzes what you are looking at." |
 | 17-19 | **Reports** | The executive report and the **email subscriptions** | "Management and Finance get it on their own, every Monday." |
@@ -525,7 +525,7 @@ Do not sell features: **listen for the pain** and show the screen that solves it
 
 | Objection | What is behind it | How to answer |
 |---|---|---|
-| "We already have Azure Cost Management / Advisor" | They think it is already covered | "They are the starting point, and we use them as a source. What we add is saying what to do, who does it and how much was saved: zombies with remediation and approval, tags with AI, shutdowns, allocation by team, budgets with alerts and reports that arrive on their own." |
+| "We already have Azure Cost Management / Advisor" | They think it is already covered | "They are the starting point, and we use them as a source. What we add is saying what to do, who does it and how much was saved: zombies with remediation and approval, tag suggestions, shutdowns, allocation by team, budgets with alerts and reports that arrive on their own." |
 | "It's expensive" | They do not see the return | "Let's do the math with your spend" (7.6). "And the price is fixed: it does not rise when your consumption grows." |
 | "We don't want to give a third party permissions" | Security risk | 3.2: **read-only** roles on Professional, no Contributor or Owner on any plan, revocable, and with Lighthouse no credentials. "You can start with read-only." |
 | "What if it executes something and breaks production?" | Fear of automation | Changes go through **four-eyes approval**, with a prior snapshot and audit; the role is narrow on purpose; **the Copilot does not execute**. |

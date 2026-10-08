@@ -3267,3 +3267,322 @@ decir "Azure Lighthouse" en los tres idiomas.
   roles de directorio, y su único grupo no es asignable a roles. Con control
   positivo: la misma consulta devuelve los 8 principals que sí tienen app roles
   de Graph en ese directorio.
+
+## 40. Addendum 2026-10-07 — IA fase 1: gate único, causa raíz de anomalías y mapeo de CSV
+
+Primera parte de la propuesta de IA
+([`docs/propuesta-capacidades-ia-2026-10-07.md`](../propuesta-capacidades-ia-2026-10-07.md)):
+lo construido y en qué se apartó del diseño está en su sección 10. Contexto
+arquitectónico en el HLD §19. Rama `feat/ia-fase1-anomalias`: `41dbe9e` (tags),
+`b11beda` (hechos), `c98e3ea` (gate y explicación) y `7ebbb71` (CSV).
+
+### 40.1 Gate único — `src/lib/aiFeatureGate.ts`
+
+```ts
+export type AiFeature = "anomaly-explanation" | "billing-csv-column-mapping";
+export type AiGateDenyReason = "global_disabled" | "tenant_disabled" | "tier" | "quota" | "rate_limited";
+export type AiGateResult = { allowed: true } | { allowed: false; reason: AiGateDenyReason };
+export const AI_FEATURES: Record<AiFeature, AiFeatureConfig>;
+export async function checkAiFeature(tenantId: string, feature: AiFeature, userKey: string): Promise<AiGateResult>;
+```
+
+| Feature | Tier mínimo | Rate limit | `maxOutputTokens` | Cuota mensual de plataforma |
+|---|---|---|---|---|
+| `anomaly-explanation` | Professional | 10 por minuto | 600 | Professional 50, Business 150, Enterprise sin límite |
+| `billing-csv-column-mapping` | Business | 5 por minuto | 800 | Igual |
+
+El primer control que niega corta:
+
+1. `isAiGloballyEnabled()`, si no `global_disabled`.
+2. `Tenants.ai_enabled`, si no `tenant_disabled`. Un tenant sin fila también se niega.
+3. `hasAccess(normalizeTier(tier), minTier)`, si no `tier`. Un tier desconocido no abre.
+4. `rateLimiter.checkByKeyDistributed("ai:{feature}:{tenantId}:{userKey}", perMinute, 60_000)`, si no `rate_limited`.
+5. `COUNT(*)` de `PlatformAiUsage` por `tenant_id`, `feature` y `source = 'platform'` desde el día 1 del mes UTC, si llega a la cuota `quota`.
+
+Decisiones que el tipo no muestra:
+
+- **No autentica.** La ruta llama antes a `requireTenantAccess`. `userKey` es el
+  email y sólo arma la clave del rate limit.
+- **El tier sale de `Tenants`**, sin pase de SuperAdmin: quien da soporte a un
+  tenant Professional ve lo mismo que el tenant.
+- **BYOK** (`ai_provider` distinto de `system` y con `ai_api_key`) no tiene
+  cuota, pero sí rate limit.
+- **El rate limit va antes que la cuota**: una ráfaga corta en Redis sin llegar
+  al `COUNT(*)`.
+- Las cuotas son las del Copilot, contadas por feature. El Copilot conserva
+  `copilotConfig.ts`.
+
+### 40.2 Hechos de causa raíz
+
+**`src/types/anomalyRootCause.types.ts`** (puro, lo importa el cliente):
+
+```ts
+export const ROOT_CAUSE_BASELINE_DAYS = 30;
+export const ROOT_CAUSE_FACT_TYPES = ["NEW_METER", "USAGE_INCREASE", "PRICE_INCREASE", "COST_INCREASE", "INSUFFICIENT_DETAIL"] as const;
+export interface RootCauseFact {
+  id: string;                // "f1", "f2"…: la explicación cita por este id
+  type: RootCauseFactType;
+  serviceName: string;
+  resourceGroup?: string;    // sólo en INSUFFICIENT_DETAIL
+  meterName?: string;
+  baseline: number;          // promedio diario de la ventana base, USD
+  actual: number;            // costo del día, USD
+  delta: number;
+  costChangePct?: number;    // faltan si la base es 0 o no hay cantidades
+  quantityChangePct?: number;
+  unitCostChangePct?: number;
+}
+export const ROOT_CAUSE_ACTIONS = ["REVIEW_NEW_USAGE", "CHECK_SCHEDULING", "REVIEW_COMMITMENT_COVERAGE", "ASSIGN_OWNER"] as const;
+export function suggestedActions(facts: RootCauseFact[] | null | undefined, hasOwner: boolean): RootCauseAction[];
+```
+
+**`src/services/anomalyRootCause.service.ts`** (puro) y el loader en
+`anomalyDetectionService.ts`:
+
+```ts
+export function buildRootCauseFacts(contributors: AnomalyContributor[], rows: MeterRow[], baselineDays: number): RootCauseFact[];
+export async function getAnomalyRootCauseFacts(tenantId: string, subscriptionId: string, date: string,
+  contributors: AnomalyContributor[], baselineDays?: number): Promise<RootCauseFact[]>;
+```
+
+**Lectura.** `getAnomalyRootCauseFacts` hace dos consultas a
+`CostMeterSnapshots`, filtradas por tenant, suscripción y los servicios de los 3
+primeros contribuyentes:
+
+- Por `service_name` y `MeterName`: costo y cantidad del día D, y su suma en la
+  ventana base `[D − 30, D)`.
+- `COUNT(DISTINCT date)` de la ventana base, es decir, los días con dato.
+
+Si fallan, devuelve `[]` y la anomalía se guarda igual. El grano es servicio y
+medidor porque `CostSnapshots` no tiene medidor en el sync (lo escribe por
+servicio y resource group) y `CostMeterSnapshots` no tiene resource group. Sólo
+el sync por API escribe `CostMeterSnapshots`.
+
+**Clasificación** de cada medidor. `días` son los días con dato, `baseline =
+base_cost / días`, `q0 = base_qty / días`, `q1` es la cantidad del día y `u =
+costo / cantidad`:
+
+| Condición | Resultado |
+|---|---|
+| `actual − baseline < 0,005` | Se descarta |
+| `baseline = 0` | `NEW_METER` |
+| `baseline`, `q0` y `q1` mayores que 0, y `q1·(u1 − u0) > (q1 − q0)·u0` | `PRICE_INCREASE` |
+| `baseline`, `q0` y `q1` mayores que 0, en otro caso | `USAGE_INCREASE` |
+| `baseline > 0` sin cantidades | `COST_INCREASE` |
+
+Se recorren los 3 primeros contribuyentes:
+
+- Si el servicio no tiene un medidor que haya subido, o no hay días de base, se
+  emite `INSUFFICIENT_DETAIL` con el resource group y los números del
+  contribuyente.
+- Si lo tiene, se emiten sus 3 medidores de mayor delta, **una sola vez por
+  servicio**, aunque el servicio aparezca en dos resource groups.
+- Los ids se asignan al final, en orden.
+
+**Acciones** (`suggestedActions`), en el orden de `ROOT_CAUSE_ACTIONS` y sin
+repetir:
+
+| Hecho | Acción |
+|---|---|
+| `NEW_METER` | `REVIEW_NEW_USAGE` |
+| `USAGE_INCREASE` | `CHECK_SCHEDULING` |
+| `PRICE_INCREASE` | `REVIEW_COMMITMENT_COVERAGE`: sin `CommitmentDiscountId` en ninguna ruta de ingesta, es la mejor señal disponible |
+| Anomalía sin responsable | `ASSIGN_OWNER` |
+
+**Persistencia y UI.**
+
+- `persistAndNotifyAnomalies` calcula los hechos junto a `top_contributors` y los
+  guarda en `Anomalies.root_cause_facts`.
+- `GET /api/intelligence/anomalies` los devuelve. En demo los arma
+  `demoRootCauseFacts(top_contributors)` (`mockData.ts`) con la misma
+  clasificación.
+- `AnomalyRootCause.tsx` los muestra en la fila expandida de `AnomalyDashboard`,
+  para todos los tiers: "Qué cambió", con montos en la moneda del usuario
+  (`useCurrency`), y "Qué revisar".
+- La línea "Principal causa" de la notificación no cambió.
+
+### 40.3 Explicación con IA — `src/services/anomalyExplanation.service.ts`
+
+```ts
+export function buildExplanationContext(a: ExplainableAnomaly): ExplanationContext;
+export function explanationFactsHash(context: ExplanationContext): string; // sha256(PROMPT_VERSION + JSON)
+export function validateExplanation(e: AnomalyExplanation, ctx: ExplanationContext): ExplanationRejection | null;
+export function normalizeExplanationLocale(raw: string | null | undefined): ExplanationLocale; // es | en | pt-BR
+export async function getAnomalyExplanation(p: { tenantId: string; userEmail: string; locale: ExplanationLocale;
+  anomaly: ExplainableAnomaly }): Promise<AnomalyExplanationResult>;
+export async function saveExplanationFeedback(p: { tenantId: string; anomalyId: number; locale: ExplanationLocale;
+  factsHash: string; feedback: "up" | "down"; userEmail: string }): Promise<boolean>;
+```
+
+**Lo que ve el modelo** (`ExplanationContext`):
+
+- Fecha, `zScore`, `pctAboveExpected` y `baselineDays`.
+- Contribuyentes: servicio, resource group y `delta_pct_of_total`.
+- Hechos **sin** `baseline`, `actual` ni `delta`.
+
+No hay montos porque la pantalla los muestra convertidos a la moneda del
+usuario, y uno escrito por el modelo estaría en USD.
+
+**`getAnomalyExplanation`**, en orden:
+
+1. Sin hechos, `no_facts`: no llama al gate ni al modelo.
+2. `checkAiFeature`. Si niega, devuelve el motivo y no guarda nada.
+3. `redactForTenant` sobre el contexto, y después el hash. La caché es por lo
+   que de verdad ve el modelo.
+4. Busca en `AnomalyExplanations` por `(anomaly_id, locale, facts_hash)`. Con
+   `source = 'ai'` devuelve la explicación y su feedback; con `template`,
+   `validation`.
+5. Si `getGeminiModel` falla, `not_configured`.
+6. `generateObject` con `{ summary, causes: [{ factId, text }] }` y el
+   `maxOutputTokens` del gate, dentro de `aiQueue` con backoff. Un error devuelve
+   `error`, sin guardar ni medir.
+7. `insertPlatformAiUsage` (fire-and-forget) y `validateExplanation`.
+8. `INSERT … ON DUPLICATE KEY UPDATE id = id`: `ai` con la explicación, o
+   `template` con `{ reason }`. Si el insert falla, la explicación ya pagada se
+   devuelve igual.
+
+**Validadores**, en orden (`ExplanationRejection`):
+
+| Motivo | Rechaza |
+|---|---|
+| `empty` | `summary` vacío |
+| `length` | `summary` de más de 400 caracteres, más de 5 causas o una causa de más de 300 |
+| `unknown_fact` | Un `factId` que no está en los hechos |
+| `link` | `<`, `>`, `](`, `http://`, `https://` o `www.` |
+| `currency` | `$`, `€`, `£` o los códigos `USD`, `EUR`, `BRL`, `GBP`, `ARS`, `MXN`, `CLP` y `COP` |
+| `number` | Una cifra que no coincide con ningún valor permitido |
+
+Cómo se valida `number`:
+
+- Primero se borran del texto los nombres de servicios, medidores y resource
+  groups: "Premium SSD P30" no es un 30 inventado. Un número pegado a una letra
+  también cuenta como parte de un nombre.
+- Cada cifra se lee con coma y con punto decimal ("12,5" y "1.250").
+- Tiene que quedar a ±max(0,51; 1 %) de un valor permitido: los porcentajes de
+  hechos y contribuyentes, el z-score, `pctAboveExpected`, los 30 días de base,
+  el año, el mes y el día de la fecha, y la cantidad de hechos y de
+  contribuyentes.
+
+### 40.4 Rutas
+
+| Método | Ruta | Contrato |
+|---|---|---|
+| `GET` | `/api/intelligence/anomalies/[id]/explanation?tenantId=&locale=` | 200 `{ success, aiAvailable: true, explanation, factsHash, feedback }` o 200 `{ success, aiAvailable: false, reason }`. 400 sin `tenantId` o con id inválido; 404 si la anomalía no es del tenant |
+| `POST` | `/api/intelligence/anomalies/[id]/explanation` | Body `{ tenantId, locale, factsHash, feedback: "up" \| "down" }`. 200 `{ success }`; 400 si el payload no valida (`factsHash` son 64 caracteres hexadecimales); 404 si no hay una explicación con `source = 'ai'` que coincida |
+| `POST` | `/api/intelligence/upload` | `CsvMappingError` responde 422 (`invalid_mapping`), 429 (`quota` o `rate_limited`) o 403 (el resto), con `{ error, reason }` |
+| `POST` | `/api/governance/tags/suggest` | 400 sin `tenantId`, con JSON inválido o sin `resourceName`; `AuthError` con su status. Ya no devuelve `confidence` ni `reasoning`: devuelve `method: "heuristic"` |
+
+- Las dos rutas de explicación usan `requireTenantAccess(…, { allowSuperAdmin:
+  true })`, responden un `AuthError` con su status y tienen `maxDuration = 60`.
+- El idioma sale de `?locale`, después de `accept-language`, y si no hay, `es`.
+- El feedback guarda el email autenticado en `feedback_by` y controla el tenant
+  con un `JOIN` a `Anomalies`, porque la tabla no tiene `tenant_id`.
+- En demo, `TenantProvider` responde `{ aiAvailable: false, reason: "demo" }`.
+- `tags/suggest` ya no cae al tenant `"default"` ni saltea la autenticación con
+  `?mock=true`: sólo `isMockTenant` evita `requireTenantAccess`.
+
+### 40.5 Mapeo de CSV — `src/services/billingCsvMapping.service.ts`
+
+```ts
+export class CsvMappingError extends Error { readonly reason: CsvMappingErrorReason } // gate + "invalid_mapping"
+export function validateCsvMapping(m: CsvColumnMapping, headers: string[]): string | null;
+export function decimalSeparatorOf(values: unknown[]): "," | ".";
+export function parseCsvAmount(value: unknown, decimal?: "," | "."): number;
+export function toIsoDate(raw: string, order: "YMD" | "DMY" | "MDY"): string;
+export function applyCsvMapping(rows: Record<string, unknown>[], m: CsvColumnMapping): FocusCostEntry[];
+export async function normalizeBillingCsv(rows: Record<string, unknown>[], tenantId: string, userKey: string): Promise<FocusCostEntry[]>;
+```
+
+`normalizeBillingCsv`, en orden:
+
+1. Un CSV FOCUS va por `mapNativeFocusRows`, sin IA.
+2. Sin encabezados, `[]`.
+3. **Caché, antes del gate.** Clave `AiCache.hash_prompt = sha256("csv-mapping:v1:{tenantId}:{encabezados ordenados en JSON}")`,
+   hasheada porque la columna es `VARCHAR(64)`. Un mapeo cacheado que no parsea
+   o no valida contra estos encabezados cuenta como vacío.
+4. `checkAiFeature(tenantId, "billing-csv-column-mapping", email)`. Si niega,
+   `CsvMappingError(reason)`.
+5. `getGeminiModel` (BYOK con caída a la global), `redactForTenant` sobre 20
+   filas y `generateObject` con `{ provider, mappings: [{ sourceColumn,
+   focusField }], dateFormat: "YMD" | "DMY" | "MDY" }`. `focusField` es un enum
+   de 7 campos: `ProviderName`, `SubAccountId`, `ServiceName`, `ChargeCategory`,
+   `UsageDate`, `BilledCost` y `EffectiveCost`.
+6. `insertPlatformAiUsage` y `validateCsvMapping`. Una columna inexistente, un
+   campo destino repetido o que falten `BilledCost` o `ServiceName` lanzan
+   `CsvMappingError("invalid_mapping")`, sin cachear.
+7. `REPLACE INTO AiCache`. Si falla, lo loguea y sigue.
+8. `applyCsvMapping` sobre **todas** las filas.
+
+**`applyCsvMapping`:**
+
+- **Separador decimal:** se detecta una vez por archivo sobre los valores de
+  `BilledCost` y `EffectiveCost`. Decide el primer valor no ambiguo ("1,234" y
+  "1.234" lo son); si ninguno decide, punto.
+- **Fechas:** `toIsoDate` devuelve `YYYY-MM-DD`, o `""` si la fecha es ilegible o
+  inválida.
+- **Defaults FOCUS:**
+  - `ProviderName` sale de la columna, si no del `provider` del modelo, y si no
+    `"Unknown"`.
+  - `ServiceName` es `"Unknown"` y `ChargeCategory`, `"Usage"`.
+  - `EffectiveCost` cae a `BilledCost`.
+
+El upload llama a `normalizeBillingCsv(rawData, tenantId, email)` y la página
+muestra `IntelligenceUpload.mappingError_{reason}`. Se borraron
+`normalizeBillingCsv` y `focusCostEntrySchema` de `aiProvider.ts`: la versión
+anterior le mandaba al modelo `slice(0, 50)` y devolvía las filas que el modelo
+reescribía.
+
+### 40.6 Esquema
+
+| Migración | Cambio |
+|---|---|
+| `20261007-001-anomalies-root-cause-facts.sql` | `ALTER TABLE Anomalies ADD COLUMN root_cause_facts JSON NULL AFTER top_contributors`. Idempotente: el runner ignora `ER_DUP_FIELDNAME` |
+| `20261007-002-anomaly-explanations.sql` | Tabla nueva `AnomalyExplanations` |
+
+```sql
+CREATE TABLE IF NOT EXISTS AnomalyExplanations (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    anomaly_id INT NOT NULL,
+    locale VARCHAR(10) NOT NULL,
+    facts_hash CHAR(64) CHARACTER SET ascii NOT NULL,
+    explanation_json JSON NOT NULL,          -- la explicación, o { reason } si source = 'template'
+    source ENUM('ai', 'template') NOT NULL,
+    model_name VARCHAR(100) NULL,
+    feedback ENUM('up', 'down') NULL,
+    feedback_by VARCHAR(320) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_anomaly_explanations (anomaly_id, locale, facts_hash),
+    CONSTRAINT fk_anomaly_explanations_anomaly
+        FOREIGN KEY (anomaly_id) REFERENCES Anomalies(id) ON DELETE CASCADE
+);
+```
+
+**Sin `tenant_id`, a diferencia de la propuesta.** El tenant se alcanza por
+`Anomalies`, que ya cuelga de `Tenants` con `ON DELETE CASCADE`. Una columna
+`tenant_id` exigiría su propia FK a `Tenants` (`cascadaBorradoTenant.test`) para
+repetir un dato que la fila padre ya tiene.
+
+### 40.7 i18n
+
+- **Claves dinámicas nuevas**, cubiertas por `i18nClavesDinamicas`:
+  `Anomalies.factType_*`, `Anomalies.action_*`, `Anomalies.aiReason_*` e
+  `IntelligenceUpload.mappingError_*`.
+- **Tags:** `aiTagsInferred`, `aiAutocomplete`, `aiInferring` y `aiSuggestError`
+  ya no dicen "IA" en ningún idioma. El botón ahora es "Sugerir por convención
+  de nombres".
+
+### 40.8 Verificación
+
+| Test | Cubre |
+|---|---|
+| `__tests__/unit/aiFeatureGate.test.ts` | Orden de los controles, tenant sin fila, tier desconocido, Business para CSV, clave del rate limit, cuota contada sólo con `source = 'platform'` y sin consulta para BYOK y Enterprise |
+| `__tests__/unit/anomalyRootCause.test.ts` | Los cinco tipos, descarte de medidores que bajaron, un servicio en dos resource groups, sin días de base, acciones, parámetros del SQL, `[]` si la base falla y la demo con la clasificación de producción |
+| `__tests__/unit/anomalyExplanation.test.ts` | Contexto sin montos; cada validador; cifras con coma y punto y nombres con dígitos; sin hechos, gate denegado, caché, rechazo guardado, DLP, `not_configured`, error sin guardar y guardado fallido; feedback filtrado por tenant; idioma |
+| `__tests__/unit/anomalyExplanationRoute.test.ts` | 400 antes de autenticar, `AuthError`, 404 para otro tenant, denegado como 200 con motivo, feedback con el usuario autenticado y 404 sin explicación de IA |
+| `__tests__/unit/billingCsvMapping.test.ts` | Formatos de montos, separador por archivo, fechas, validación del mapeo, todas las filas, atajo FOCUS, caché antes del gate e independiente del orden de columnas, caché ilegible, gate denegado, mapeo inválido sin cachear y caché que no se puede escribir |
+| `__tests__/unit/billingCsvUploadRoute.test.ts` | El upload pasa tenant y usuario del token |
+| `__tests__/unit/tagsSuggestRoute.test.ts` | `tenantId` obligatorio, sin bypass por `?mock=true`, `AuthError`, 400 por JSON, sin confianza inventada y tenant demo |
+| `__tests__/unit/i18nClavesDinamicas.test.ts` | Las claves dinámicas nuevas existen en `es`, `en` y `pt-BR` |
+
+Con las suites que importan `aiProvider` y las de i18n: 634 tests en 13 archivos
+en verde, `tsc` limpio y sin warnings nuevos de ESLint.
