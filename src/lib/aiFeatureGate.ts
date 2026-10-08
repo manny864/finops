@@ -14,7 +14,7 @@ import { getAiFeatureSwitch, isAiGloballyEnabled } from "@/services/aiService";
  * Un denegado no es un error: la ruta sigue con la versión determinista y
  * devuelve el motivo.
  */
-export type AiFeature = "anomaly-explanation" | "billing-csv-column-mapping";
+export type AiFeature = "anomaly-explanation" | "billing-csv-column-mapping" | "billing-upload-assessment";
 
 export type AiGateDenyReason =
     | "global_disabled"
@@ -60,6 +60,16 @@ export const AI_FEATURES: Record<AiFeature, AiFeatureConfig> = {
         monthlyQuota: QUOTA,
         perMinute: 5,
         maxOutputTokens: 800,
+    },
+    // El reporte que sigue a la carga (getAssessment). Ya corría en cada carga:
+    // arranca prendido para no quitarle nada a quien lo usa.
+    "billing-upload-assessment": {
+        defaultEnabled: true,
+        minTier: "Business",
+        monthlyQuota: QUOTA,
+        perMinute: 5,
+        // Seis secciones con tablas; sin tope corría hasta el máximo del modelo.
+        maxOutputTokens: 4000,
     },
 };
 

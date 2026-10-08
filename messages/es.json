@@ -451,6 +451,10 @@
         "billing-csv-column-mapping": {
           "label": "Mapeo de columnas de CSV con IA",
           "description": "Propone a qué columna FOCUS corresponde cada columna de un CSV de facturación que no viene en formato FOCUS. Business en adelante."
+        },
+        "billing-upload-assessment": {
+          "label": "Análisis con IA de la carga de CSV",
+          "description": "Redacta el reporte ejecutivo del CSV de facturación cargado. Apagado, la carga muestra el resumen por servicio sin IA. Business en adelante."
         }
       }
     },
@@ -7668,7 +7672,18 @@
     "mappingError_tier": "Mapear con IA un CSV que no está en formato FOCUS requiere el plan Business o superior.",
     "mappingError_quota": "Se agotó la cuota mensual de mapeos de CSV con IA. Subí el archivo en formato FOCUS o esperá al mes que viene.",
     "mappingError_rate_limited": "Demasiados mapeos de CSV seguidos. Esperá un minuto y volvé a intentar.",
-    "mappingError_invalid_mapping": "No pudimos identificar las columnas de costo y de servicio del archivo. Revisá que el CSV las tenga o exportalo en formato FOCUS."
+    "mappingError_invalid_mapping": "No pudimos identificar las columnas de costo y de servicio del archivo. Revisá que el CSV las tenga o exportalo en formato FOCUS.",
+    "summaryTitle": "Resumen del archivo",
+    "colService": "Servicio",
+    "colCategory": "Categoría",
+    "colBilled": "Costo facturado",
+    "colEffective": "Costo efectivo",
+    "aiUnavailable_global_disabled": "El análisis con IA no está disponible porque la IA está desactivada en la plataforma. Abajo, el costo por servicio calculado del archivo.",
+    "aiUnavailable_feature_disabled": "El análisis con IA de la carga está desactivado en la plataforma. Abajo, el costo por servicio calculado del archivo.",
+    "aiUnavailable_tenant_disabled": "El análisis con IA no está disponible porque la IA está desactivada para tu organización; un administrador puede activarla en Configuración de IA. Abajo, el costo por servicio calculado del archivo.",
+    "aiUnavailable_tier": "El análisis con IA de la carga requiere el plan Business o superior. Abajo, el costo por servicio calculado del archivo.",
+    "aiUnavailable_quota": "Se agotó la cuota mensual de análisis con IA de la carga; se renueva el mes que viene. Abajo, el costo por servicio calculado del archivo.",
+    "aiUnavailable_rate_limited": "Demasiados análisis con IA seguidos. Esperá un minuto y volvé a cargar el archivo. Abajo, el costo por servicio calculado del archivo."
   },
   "IntelligenceZeroCost": {
     "allReasons": "Todos los motivos",

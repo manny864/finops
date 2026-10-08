@@ -14,6 +14,9 @@ vi.mock("@/lib/rateLimiter", () => ({ default: { checkByKeyDistributed: rlMock }
 vi.mock("@/lib/aiTelemetry", () => ({ logAiEvent: logMock }));
 
 import { AI_FEATURES, checkAiFeature } from "@/lib/aiFeatureGate";
+import es from "../../messages/es.json";
+import en from "../../messages/en.json";
+import ptBR from "../../messages/pt-BR.json";
 
 const PRO = { tier: "Professional", ai_enabled: 1, ai_provider: "system", ai_api_key: null };
 const BIZ = { ...PRO, tier: "Business" };
@@ -127,5 +130,16 @@ describe("checkAiFeature", () => {
         tenant(ENT);
         expect(await csv()).toEqual({ allowed: true });
         expect(queryMock).toHaveBeenCalledTimes(2);
+    });
+});
+
+// El panel del superadmin lista AI_FEATURES y rotula cada interruptor con su clave.
+describe("rótulos de los interruptores por función", () => {
+    it.each([["es", es], ["en", en], ["pt-BR", ptBR]] as const)("cada feature tiene nombre y descripción en %s", (_, msgs) => {
+        const features = msgs.AdminAiConfigGlobal.featureSwitches.features as Record<string, { label?: string; description?: string }>;
+        for (const id of Object.keys(AI_FEATURES)) {
+            expect(features[id]?.label, id).toBeTruthy();
+            expect(features[id]?.description, id).toBeTruthy();
+        }
     });
 });

@@ -11,10 +11,26 @@ import { UploadCloud, FileText, CheckCircle2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
+
+/** Una fila del resumen que calcula el servidor (agregado por servicio y categoría). */
+interface SummaryRow {
+    ServiceName: string;
+    ChargeCategory: string;
+    BilledCost: number;
+    EffectiveCost: number;
+}
+
+/** La carga sin análisis con IA: el resumen calculado y el motivo del gate. */
+interface UploadFallback {
+    reason: string;
+    summary: SummaryRow[];
+    currency: string | null;
+}
 
 export default function CSVUploadPage() {
     const t = useTranslations('IntelligenceUpload');
+    const locale = useLocale();
     const { instance, accounts, inProgress } = useMsal();
     const { selectedTenant } = useTenant();
     const isMock = isMockTenant(selectedTenant?.id || '');
@@ -23,6 +39,7 @@ export default function CSVUploadPage() {
     const [file, setFile] = useState<File | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [assessmentResult, setAssessmentResult] = useState<string | null>(null);
+    const [fallback, setFallback] = useState<UploadFallback | null>(null);
 
     const buildAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
         if (isMock || accounts.length === 0) return {};
@@ -63,6 +80,7 @@ export default function CSVUploadPage() {
         }
         setFile(selectedFile);
         setAssessmentResult(null); // Reset previous results
+        setFallback(null);
     };
 
     const processFile = () => {
@@ -102,7 +120,7 @@ export default function CSVUploadPage() {
                             'Content-Type': 'application/json',
                             ...authHeaders,
                         },
-                        body: JSON.stringify({ data: results.data })
+                        body: JSON.stringify({ data: results.data, locale })
                     });
 
                     const json = await res.json();
@@ -110,6 +128,8 @@ export default function CSVUploadPage() {
                     if (res.ok && json.assessment) {
                         toast.success(t('analysisComplete'));
                         setAssessmentResult(json.assessment);
+                    } else if (res.ok && json.aiUnavailable) {
+                        setFallback({ reason: json.aiUnavailable, summary: json.summary ?? [], currency: json.currency ?? null });
                     } else {
                         toast.error(json.reason ? t(`mappingError_${json.reason}`) : json.error || t('processFailed'));
                     }
@@ -131,6 +151,7 @@ export default function CSVUploadPage() {
     const resetState = () => {
         setFile(null);
         setAssessmentResult(null);
+        setFallback(null);
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
@@ -147,7 +168,7 @@ export default function CSVUploadPage() {
                 </p>
             </div>
 
-            {!assessmentResult && (
+            {!assessmentResult && !fallback && (
                 <div 
                     className={`relative border-2 border-dashed rounded-xl p-12 flex flex-col items-center justify-center transition-all bg-white dark:bg-slate-900 shadow-sm
                         ${isDragging ? 'border-[#0054A6] dark:border-[#00AEEF] bg-[#0054A6]/5 dark:bg-[#00AEEF]/10 scale-[1.01]' : 'border-gray-300 dark:border-slate-700 hover:border-gray-400 dark:hover:border-slate-600'}`}
@@ -302,6 +323,58 @@ export default function CSVUploadPage() {
                     </div>
                 </div>
             )}
+
+            {fallback && (
+                <UploadSummary fallback={fallback} locale={locale} onReset={resetState} />
+            )}
+        </div>
+    );
+}
+
+function UploadSummary({ fallback, locale, onReset }: { fallback: UploadFallback; locale: string; onReset: () => void }) {
+    const t = useTranslations('IntelligenceUpload');
+    const fmt = new Intl.NumberFormat(
+        locale,
+        fallback.currency
+            ? { style: 'currency', currency: fallback.currency }
+            : { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+    );
+    return (
+        <div className="mt-8 space-y-4">
+            <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{t('summaryTitle')}</h2>
+                <button
+                    onClick={onReset}
+                    className="text-sm font-medium text-[#0054A6] hover:text-[#004080] dark:text-[#00AEEF] dark:hover:text-[#66CFFF]"
+                >
+                    {t('uploadAnotherButton')}
+                </button>
+            </div>
+            <p role="status" className="p-3.5 rounded-xl border border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-900 text-sm text-amber-800 dark:text-amber-300">
+                {t(`aiUnavailable_${fallback.reason}`)}
+            </p>
+            <div className="w-full overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+                <table className="w-full text-sm">
+                    <thead className="bg-slate-50 dark:bg-slate-800/60">
+                        <tr className="text-left text-[11px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                            <th className="px-3.5 py-2.5">{t('colService')}</th>
+                            <th className="px-3.5 py-2.5">{t('colCategory')}</th>
+                            <th className="px-3.5 py-2.5 text-right">{t('colBilled')}</th>
+                            <th className="px-3.5 py-2.5 text-right">{t('colEffective')}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {fallback.summary.map((row) => (
+                            <tr key={`${row.ServiceName}-${row.ChargeCategory}`} className="border-t border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300">
+                                <td className="px-3.5 py-2">{row.ServiceName}</td>
+                                <td className="px-3.5 py-2">{row.ChargeCategory}</td>
+                                <td className="px-3.5 py-2 text-right tabular-nums">{fmt.format(row.BilledCost)}</td>
+                                <td className="px-3.5 py-2 text-right tabular-nums">{fmt.format(row.EffectiveCost)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 }

@@ -32,6 +32,7 @@ vi.mock("@/lib/aiFeatureGate", () => ({
 
 import {
     applyCsvMapping,
+    csvCurrency,
     CsvMappingError,
     decimalSeparatorOf,
     normalizeBillingCsv,
@@ -237,5 +238,23 @@ describe("normalizeBillingCsv", () => {
     it("si no se puede cachear, el archivo se procesa igual", async () => {
         queryMock.mockResolvedValueOnce([[]]).mockRejectedValueOnce(new Error("db down"));
         expect(await normalizeBillingCsv(ROWS, "t1", "ana@x.com")).toHaveLength(60);
+    });
+});
+
+// Sin esto el análisis rotulaba en USD los montos de un archivo en EUR.
+describe("csvCurrency", () => {
+    it("lee la moneda de las columnas de FOCUS y de los exports de Azure", () => {
+        expect(csvCurrency([{ BillingCurrency: "eur" }])).toBe("EUR");
+        expect(csvCurrency([{ billingCurrency: "MXN" }])).toBe("MXN");
+        expect(csvCurrency([{ BillingCurrencyCode: "BRL" }])).toBe("BRL");
+        expect(csvCurrency([{ Currency: " usd " }])).toBe("USD");
+    });
+
+    it("sin columna de moneda, o con un valor que no es un código, no inventa una", () => {
+        expect(csvCurrency([{ Service: "VM", Cost: "1" }])).toBeNull();
+        expect(csvCurrency([{ BillingCurrency: "" }])).toBeNull();
+        expect(csvCurrency([{ BillingCurrency: "Euro" }])).toBeNull();
+        expect(csvCurrency([{ CurrencyRate: "EUR" }])).toBeNull();
+        expect(csvCurrency([])).toBeNull();
     });
 });

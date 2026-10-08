@@ -50,6 +50,19 @@ export class CsvMappingError extends Error {
     }
 }
 
+/**
+ * La moneda de los montos, si el archivo la trae: `BillingCurrency` (FOCUS),
+ * `billingCurrency` o `BillingCurrencyCode` (exports de Azure), `Currency`.
+ */
+export function csvCurrency(rows: Record<string, unknown>[]): string | null {
+    for (const [col, value] of Object.entries(rows[0] ?? {})) {
+        if (!/^(billing_?)?currency(_?code)?$/i.test(col)) continue;
+        const code = String(value ?? "").trim();
+        if (/^[A-Za-z]{3}$/.test(code)) return code.toUpperCase();
+    }
+    return null;
+}
+
 /** null = el mapeo se puede aplicar. Si no, el motivo, para el log. */
 export function validateCsvMapping(m: CsvColumnMapping, headers: string[]): string | null {
     const columns = new Set(headers);

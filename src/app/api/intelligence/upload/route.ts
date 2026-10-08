@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAssessment, extractAiErrorMessage } from "@/modules/core/aiProvider";
-import { CsvMappingError, normalizeBillingCsv } from "@/services/billingCsvMapping.service";
+import { CsvMappingError, csvCurrency, normalizeBillingCsv } from "@/services/billingCsvMapping.service";
 import { FocusCostEntry } from "@/modules/core/focusMapper";
 import { requireRequestIdentity, assertTenantTier, AuthError } from "@/lib/requestAuth";
 import rateLimiter from "@/lib/rateLimiter";
 import { errorMessage, errorStatus, serverError } from '@/lib/apiErrors';
+import { AI_FEATURES, checkAiFeature } from "@/lib/aiFeatureGate";
 
 /** Max rows accepted to prevent CPU/memory abuse and AI token drain. */
 const MAX_ROWS = 10_000;
 /** Rate limit: 5 uploads per user per 5 minutes (Denial-of-Wallet). */
 const RL_LIMIT = 5;
 const RL_WINDOW_MS = 5 * 60_000;
+const ASSESSMENT_FEATURE = "billing-upload-assessment";
 
 export async function POST(request: NextRequest) {
     try {
@@ -70,8 +72,27 @@ export async function POST(request: NextRequest) {
 
         const summaryData = Object.values(aggregated).sort((a, b) => b.BilledCost - a.BilledCost).slice(0, 50);
 
-        // Call AI Provider
-        const assessmentMarkdown = await getAssessment(summaryData, tenantId);
+        const currency = csvCurrency(rawData);
+
+        // Sin IA, la carga igual sirve: devuelve el resumen calculado y el motivo.
+        const gate = await checkAiFeature(tenantId, ASSESSMENT_FEATURE, email);
+        if (!gate.allowed) {
+            return NextResponse.json({
+                success: true,
+                assessment: null,
+                aiUnavailable: gate.reason,
+                summary: summaryData,
+                currency,
+                mappedEntries: summaryData.length,
+            });
+        }
+
+        const assessmentMarkdown = await getAssessment(summaryData, tenantId, {
+            feature: ASSESSMENT_FEATURE,
+            maxOutputTokens: AI_FEATURES[ASSESSMENT_FEATURE].maxOutputTokens,
+            locale: typeof body.locale === "string" ? body.locale : undefined,
+            currency,
+        });
 
         return NextResponse.json({ success: true, assessment: assessmentMarkdown, mappedEntries: summaryData.length });
 

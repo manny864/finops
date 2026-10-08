@@ -451,6 +451,10 @@
         "billing-csv-column-mapping": {
           "label": "AI CSV column mapping",
           "description": "Suggests which FOCUS column matches each column of a billing CSV that is not in FOCUS format. Business and above."
+        },
+        "billing-upload-assessment": {
+          "label": "AI analysis of CSV uploads",
+          "description": "Writes the executive report for an uploaded billing CSV. When off, the upload shows the per-service summary without AI. Business and above."
         }
       }
     },
@@ -7668,7 +7672,18 @@
     "mappingError_tier": "Mapping a non-FOCUS CSV with AI requires the Business plan or higher.",
     "mappingError_quota": "The monthly quota of AI CSV mappings is used up. Upload the file in FOCUS format or wait until next month.",
     "mappingError_rate_limited": "Too many CSV mappings in a row. Wait a minute and try again.",
-    "mappingError_invalid_mapping": "We couldn't identify the cost and service columns in the file. Check that the CSV has them or export it in FOCUS format."
+    "mappingError_invalid_mapping": "We couldn't identify the cost and service columns in the file. Check that the CSV has them or export it in FOCUS format.",
+    "summaryTitle": "File summary",
+    "colService": "Service",
+    "colCategory": "Category",
+    "colBilled": "Billed cost",
+    "colEffective": "Effective cost",
+    "aiUnavailable_global_disabled": "AI analysis is unavailable because AI is disabled on the platform. Below is the cost per service calculated from the file.",
+    "aiUnavailable_feature_disabled": "AI analysis of uploads is disabled on the platform. Below is the cost per service calculated from the file.",
+    "aiUnavailable_tenant_disabled": "AI analysis is unavailable because AI is disabled for your organization; an administrator can enable it in AI Settings. Below is the cost per service calculated from the file.",
+    "aiUnavailable_tier": "AI analysis of uploads requires the Business plan or higher. Below is the cost per service calculated from the file.",
+    "aiUnavailable_quota": "The monthly quota of AI upload analyses is used up; it renews next month. Below is the cost per service calculated from the file.",
+    "aiUnavailable_rate_limited": "Too many AI analyses in a row. Wait a minute and upload the file again. Below is the cost per service calculated from the file."
   },
   "IntelligenceZeroCost": {
     "allReasons": "All reasons",
