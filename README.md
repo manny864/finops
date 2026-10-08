@@ -394,14 +394,16 @@ Dentro de un stamp:
 | MySQL Flexible Server | VNet injection, sin acceso público, backups con PITR |
 | Azure Managed Redis | Private endpoint, cache SWR compartido entre réplicas |
 | Key Vault | Secretos de infra (`infra-*`) y credenciales por tenant; private endpoint; leído con **Managed Identity** |
-| Blob Storage | Adjuntos de soporte, logos de tenant y backups (el filesystem del contenedor es efímero) |
+| Blob Storage | Adjuntos de soporte, originales de gasto externo, logos de tenant y backups (el filesystem del contenedor es efímero) |
 | Log Analytics + Application Insights | Con diagnostic settings de Key Vault, MySQL, Redis y Blob |
 | Budget + alertas | Presupuesto mensual por resource group con aviso por email |
 | Azure AI Services (opcional) | IA de plataforma sin keys: `gpt-5.4-mini` Data Zone en West US 3, por private endpoint y con la identidad de la app. Apagada hasta el rollout (`ai_services_enabled`, ver [`infra/README.md`](infra/README.md)) |
+| Document Intelligence (opcional) | Lectura de facturas y contratos de gasto externo, sin keys: cuenta `FormRecognizer` en la región del stamp, por private endpoint y con la identidad de la app. Apagada hasta validar demanda y precio (`document_intelligence_enabled`) |
 
 La identidad de la app es una **user-assigned managed identity**: se usa para el
 `AcrPull` de la imagen, para leer Key Vault y, con la cuenta de IA prendida,
-para pedir inferencias a Azure OpenAI. Ver la advertencia de nombres en
+para pedir inferencias a Azure OpenAI. Con Document Intelligence prendido,
+también para analizar documentos. Ver la advertencia de nombres en
 `infra/terraform/modules/stamp/main.tf` — la variable es
 `AZURE_KEYVAULT_MI_CLIENT_ID`, **nunca** `AZURE_CLIENT_ID` (esa ya tiene dueño:
 es el app registration con el que se piden tokens contra el tenant del cliente).
@@ -453,6 +455,42 @@ segundo.
 ---
 
 ## 📈 Recent Major Updates
+
+### 2026-10-08 — Document Intelligence: gasto externo, apagado hasta validar demanda y precio
+
+Detalle técnico en `docs/lld/00-lld-completo.md` §43, arquitectónico en
+`docs/hld/00-hld-completo.md` §19.8 y decisiones en la propuesta de IA, sección
+10.8. Arranca apagado en *IA — Configuración global*: antes hay que validar la
+demanda y ponerle precio al add-on.
+
+- **Pantalla.** `/intelligence/external-spend` (Business), también como pestaña
+  *Gasto externo* de Consumo y Presupuesto. Se suben facturas y contratos de
+  proveedores que no pasan por la facturación de Azure: PDF, JPEG, PNG o TIFF,
+  hasta 10 MB, y se analizan hasta 20 páginas.
+- **La IA lee, una persona aprueba.** Document Intelligence
+  (`prebuilt-invoice`, `prebuilt-contract` y `prebuilt-layout` de respaldo)
+  extrae la cabecera y las líneas, y validaciones deterministas marcan lo que
+  no cierra. Un Admin u Owner corrige y aprueba. Sólo lo aprobado suma, en un
+  resumen aparte del costo de Azure: nunca entra en `CostSnapshots` ni en la
+  detección de anomalías.
+- **Contratos y compromisos.** Un contrato revisado se carga como compromiso
+  (`Commitments`); también se cargan a mano. El cron avisa a 90, 60 y 30 días
+  de la fecha límite de preaviso.
+- **Cuota:** 150 documentos por mes en Business y 500 en Enterprise, aunque el
+  tenant tenga clave propia (BYOK).
+- **Migraciones nuevas:** `20261008-030-gasto-externo-documentos.sql`,
+  `20261008-031-compromisos.sql` y
+  `20261008-032-avisos-renovacion-compromisos.sql`.
+- **Cron nuevo:** `external-spend-poll`, cada 5 minutos, sólo en los stamps con
+  `document_intelligence_enabled`. La app con la ruta va desplegada antes de
+  prender el flag.
+- **Variables de entorno nuevas:** `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT` (la
+  pone Terraform), `AZURE_STORAGE_CONTAINER_EXTERNAL_SPEND` (default
+  `external-spend-documents`) y `EXTERNAL_SPEND_UPLOAD_DIR` (default
+  `./data/external-spend`, sólo sin Blob Storage).
+- **Terraform.** `document_intelligence_enabled` (default `false`): cuenta
+  `FormRecognizer` sin keys, con private endpoint, el rol *Cognitive Services
+  User* para la identidad de la app y presupuesto propio.
 
 ### 2026-10-08 — IA de soporte: triaje y borradores con citas, apagados hasta medir
 
@@ -1935,6 +1973,7 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Los in
 | `GET /api/cron/trial-expiry`         | Diaria                  | Pasa a `EXPIRED` los tenants en `TRIAL` cuyo `trial_ends_at` ya venció y notifica por email. |
 | `GET /api/cron/support-attachments-cleanup` | Diaria           | Borra archivo + fila de los adjuntos de soporte con más de `SUPPORT_ATTACHMENT_RETENTION_DAYS` (60) días. |
 | `GET /api/cron/status-snapshot`      | Cada 5 min              | Chequea DB/Azure Sync/AI Provider/Paddle y persiste una fila en `PlatformStatusSnapshots`, de donde `/api/status` calcula `uptime_30d_pct` — sin él la página pública de estado no tiene datos de uptime. Auth vía `?secret=` (query param), no header `Authorization`, a diferencia del resto de los crons de esta tabla — mismo `CRON_SECRET`. |
+| `GET /api/cron/external-spend-poll`  | Cada 5 min              | Gasto externo (2026-10-08): retoma los documentos que la subida dejó en análisis en Document Intelligence y los deja para revisión; borra el original de los documentos cerrados (aprobados, rechazados o fallidos) subidos hace más de 365 días; avisa a 90, 60 y 30 días de la fecha límite de preaviso de cada compromiso (`Commitments`), una vez por escalón (`CommitmentRenewalNotices`). Sólo existe en los stamps con `document_intelligence_enabled`. |
 
 ### Por qué un job puede terminar bien y figurar fallido
 
@@ -2025,6 +2064,7 @@ por eso no coinciden literalmente con la columna UTC de la tabla de arriba:
 | `power-schedules` | `*/2 * * * *` | cada 2 min | 120s |
 | `anomaly-detection` | `*/5 * * * *` | cada 5 min | 300s |
 | `status-snapshot` | `*/5 * * * *` | cada 5 min | 120s (`auth_mode = "query"`) |
+| `external-spend-poll` | `*/5 * * * *` | cada 5 min | 240s (sólo con `document_intelligence_enabled`) |
 | `open-data` | `0 1 * * 1` | lunes 04:00 | 1800s |
 | `support-attachments-cleanup` | `0 2 * * *` | 05:00 | default |
 | `cost-sync-staleness-check` | `0 5 * * *` | 08:00 | default |

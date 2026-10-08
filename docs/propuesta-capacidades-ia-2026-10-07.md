@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Fecha** | 2026-10-07 |
-| **Estado** | **Implementada en parte** (ramas `feat/ia-fase1-anomalias`, `feat/ia-fase0-managed-identity` y `feat/ia-fase3-soporte`, 2026-10-07 y 2026-10-08): gate único con interruptor por feature y telemetría (0.1 y 6.8), Managed Identity y módulo Terraform `ai_services`, apagados hasta el rollout (0.2 y 0.3), hardening de `tags/suggest` (0.4), subencargados (0.5; legal decide si exige el aviso de 30 días), hechos de causa raíz (1a), explicación de anomalías (1b), mapeo de CSV (6.4), el reporte de la carga bajo el gate, y triaje y borradores de soporte, apagados hasta medir el volumen (3a y 3b). Pendientes: el rollout de 0.2 y 0.3 y las fases 2 y 4. Qué se hizo y en qué se apartó de este documento: [sección 10](#10-implementación-qué-se-hizo-y-en-qué-se-apartó). |
+| **Estado** | **Implementada en parte** (ramas `feat/ia-fase1-anomalias`, `feat/ia-fase0-managed-identity`, `feat/ia-fase3-soporte` y `feat/ia-fase4-document-intelligence`, 2026-10-07 y 2026-10-08): gate único con interruptor por feature y telemetría (0.1 y 6.8), Managed Identity y módulo Terraform `ai_services`, apagados hasta el rollout (0.2 y 0.3), hardening de `tags/suggest` (0.4), subencargados (0.5; legal decide si exige el aviso de 30 días), hechos de causa raíz (1a), explicación de anomalías (1b), mapeo de CSV (6.4), el reporte de la carga bajo el gate, triaje y borradores de soporte, apagados hasta medir el volumen (3a y 3b), y Document Intelligence para gasto externo (fase 4), apagado hasta validar demanda y precio. Pendientes: el rollout de 0.2 y 0.3 y la fase 2. Qué se hizo y en qué se apartó de este documento: [sección 10](#10-implementación-qué-se-hizo-y-en-qué-se-apartó). |
 | **Base analizada** | `main` @ `057287c9` |
 | **Origen** | Propuesta generada con Gemini (texto completo en el [Anexo A](#anexo-a-texto-original-de-la-propuesta)), verificada contra el código, la IaC (Terraform) y la documentación oficial de Microsoft. |
 | **Alcance** | Viabilidad de los cuatro módulos propuestos y de la infraestructura asociada; plan de implementación por fases. |
@@ -786,7 +786,7 @@ CREATE TABLE IF NOT EXISTS TagValueAliases (
 - **PRs 1 a 8:** entre 36 y 41 días hábiles, unas **7 a 8 semanas** de un desarrollador.
 - **PR 9:** **3 a 4 semanas** más.
 - **PR 2** no bloquea el desarrollo de los demás, porque la configuración actual con key funciona. Sí es recomendable antes de habilitar funciones nuevas en prod con la IA de plataforma.
-- **Estado:** los PRs 1 a 5 y 8 están hechos (el 2 y el 8, apagados hasta su rollout); faltan los PRs 6, 7 y 9 (ver [10](#10-implementación-qué-se-hizo-y-en-qué-se-apartó)).
+- **Estado:** los PRs 1 a 5, 8 y 9 están hechos (el 2, el 8 y el 9, apagados hasta su rollout); faltan los PRs 6 y 7 (ver [10](#10-implementación-qué-se-hizo-y-en-qué-se-apartó)).
 
 | Semana | Trabajo | Notas |
 |---|---|---|
@@ -858,6 +858,7 @@ Con el deployment por defecto actual (`gpt-5.1`), el costo por llamada sería va
    - La demanda concreta.
    - El precio del add-on: por página, por documento o por plan.
    - La fuente de tipo de cambio para multimoneda.
+   - **En la implementación:** el código está y arranca apagado. Siguen abiertos la demanda, el precio del add-on (hoy el gate mira sólo el plan), la fuente de tipo de cambio (hoy `FxRates` o, si está vacía, la tabla fija sin fecha) y el límite de páginas por plan. Hoy el tope es de 20 páginas por documento; en el peor caso son 3.000 páginas por mes en Business y 10.000 en Enterprise (ver [10.8](#108-document-intelligence-gasto-externo-fase-4)).
 
 ---
 
@@ -900,7 +901,7 @@ Con el deployment por defecto actual (`gpt-5.1`), el costo por llamada sería va
 
 ## 10. Implementación: qué se hizo y en qué se apartó
 
-Rama `feat/ia-fase1-anomalias`, sobre `main` @ `ac55fe5`, con un commit por pieza. El PR 2 (Managed Identity y Terraform) está en `feat/ia-fase0-managed-identity`, encima de esa rama ([10.6](#106-managed-identity-y-terraform-02-y-03)), y el PR 8 (soporte) en `feat/ia-fase3-soporte`, encima del PR 2 ([10.7](#107-soporte-triaje-y-borradores-3a-y-3b)). El detalle técnico está en el [LLD §40](lld/00-lld-completo.md) y el de arquitectura en el [HLD §19](hld/00-hld-completo.md).
+Rama `feat/ia-fase1-anomalias`, sobre `main` @ `ac55fe5`, con un commit por pieza. El PR 2 (Managed Identity y Terraform) está en `feat/ia-fase0-managed-identity`, encima de esa rama ([10.6](#106-managed-identity-y-terraform-02-y-03)); el PR 8 (soporte), en `feat/ia-fase3-soporte`, encima del PR 2 ([10.7](#107-soporte-triaje-y-borradores-3a-y-3b)), y el PR 9 (Document Intelligence), en `feat/ia-fase4-document-intelligence`, encima del PR 8 ([10.8](#108-document-intelligence-gasto-externo-fase-4)). El detalle técnico está en el [LLD §40](lld/00-lld-completo.md) y el de arquitectura en el [HLD §19](hld/00-hld-completo.md).
 
 | Commit | Pieza | Sección | PR del plan |
 |---|---|---|---|
@@ -926,8 +927,13 @@ Rama `feat/ia-fase1-anomalias`, sobre `main` @ `ac55fe5`, con un commit por piez
 | `b9ae105` | Índice de manuales | 3b | 8 |
 | `4d66161` | Borradores con citas | 3b | 8 |
 | `2af6fd3` | Triaje, borradores y KPIs en la cola | 3a y 3b | 8 |
+| `8e1fca8` | Tablas, cliente REST, mapeo y validaciones | 4 y 6.7 | 9 |
+| `55a3a87` | Servicio, cron y avisos de renovación | 6.7 | 9 |
+| `93f40c8` | Pantalla de gasto externo | 6.7 | 9 |
+| `5d10a75` | Cuenta de Document Intelligence y cron en Terraform | 6.7 | 9 |
+| `191f61b` | Contratos aprobados y errores del storage | 6.7 | 9 |
 
-Las secciones 0.1 a 0.5, 1a, 1b, 3a, 3b, 6.4 y 6.8 conservan el diseño original. Donde difieren de lo construido, manda esta sección.
+Las secciones 0.1 a 0.5, 1a, 1b, 3a, 3b, 6.4, 6.7 y 6.8 conservan el diseño original. Donde difieren de lo construido, manda esta sección.
 
 ### 10.1 Gate único (0.1)
 
@@ -1079,12 +1085,63 @@ Rama `feat/ia-fase3-soporte`. Las dos funciones arrancan apagadas: la precondici
   4. Recomendado: el rollout de 10.6 primero, para que el texto de los tickets se procese en la cuenta de Azure de la plataforma.
   5. Prender los interruptores en *IA — Configuración global*.
 
-### 10.8 Pendiente
+### 10.8 Document Intelligence: gasto externo (fase 4)
+
+Rama `feat/ia-fase4-document-intelligence`. Arranca apagada: la precondición de 6.7 es validar la demanda y ponerle precio al add-on. El detalle está en el [LLD §43](lld/00-lld-completo.md) y la arquitectura en el [HLD §19.8](hld/00-hld-completo.md).
+
+- **Gate (`8e1fca8`).** Feature `document-intelligence`, desde Business (como la carga de CSV), con interruptor en *IA — Configuración global*, apagado por defecto.
+  - La cuota cuenta documentos: 150 por mes en Business y 500 en Enterprise. Enterprise también tiene techo porque cada página se paga y todavía no hay add-on.
+  - Es la primera feature `platformOnly`: corre siempre en la cuenta de Document Intelligence de la plataforma, así que la clave propia (BYOK) no exime de la cuota.
+  - `peekAiFeature` da el mismo veredicto sin gastar rate limit ni registrar telemetría. Lo usa la pantalla para avisar antes de que el usuario suba algo.
+- **Tablas (`8e1fca8`).** `ExternalSpendDocuments`, `ExternalSpendLines`, `Commitments` y `CommitmentRenewalNotices`, con FK al tenant y `ON DELETE CASCADE` y DECIMAL para el dinero. El `sha256` del archivo es único por tenant.
+- **Cliente, mapeo y validaciones (`8e1fca8`).** Cliente REST contra la API `2024-11-30`, con token de Entra ID de la identidad del stamp y un tope de 20 páginas por documento (`pages=1-20`). El mapeo pasa la respuesta de `prebuilt-invoice`, `prebuilt-contract` o `prebuilt-layout` a cabecera y líneas. Las validaciones son las de 6.7; impiden aprobar el total o la fecha faltantes y la moneda inválida.
+- **Servicio, cron y avisos (`55a3a87`).**
+  - La subida valida el archivo (PDF, JPEG, PNG o TIFF por magic bytes, hasta 10 MB), descarta duplicados, pasa el gate, guarda el original en Blob privado y espera el análisis hasta 20 segundos.
+  - Lo que no termina en ese tiempo lo sigue el cron `external-spend-poll`, cada 5 minutos.
+  - El mismo cron borra los originales revisados de más de 365 días y avisa las fechas límite de preaviso de los compromisos a 90, 60 y 30 días.
+- **Pantalla (`93f40c8`).** `/intelligence/external-spend`, también como pestaña *Gasto externo* de Consumo y Presupuesto.
+  - Subida, lista con estados y revisión: campos, líneas, confianza y observaciones; editar, aprobar y rechazar.
+  - Resumen de lo aprobado en USD, aparte del costo de Azure, y compromisos con alta manual.
+  - Escriben Admin y Owner; el resto mira. En demo muestra datos de ejemplo y no guarda nada.
+- **Terraform (`5d10a75`).** Detrás de `document_intelligence_enabled` (default `false`), con el módulo `ai_services`:
+  - Cuenta `kind = "FormRecognizer"` en la región del stamp, sin keys (`local_auth_enabled = false`), con private endpoint y el rol *Cognitive Services User* para la identidad de la app.
+  - La app recibe `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT`.
+  - El job `external-spend-poll` corre cada 5 minutos y sólo existe en los stamps con la cuenta.
+- **Correcciones (`191f61b`).** Un contrato aprobado ya no se rechaza, y un error transitorio del storage ya no falla el documento para siempre: lo reintenta el cron.
+- **En qué se apartó del boceto:**
+  - **REST con `fetch` en vez del SDK.** `@azure-rest/ai-document-intelligence` sumaba una dependencia para tres llamadas: mandar a analizar, consultar la operación y leer el resultado. La API es la misma, `2024-11-30`.
+  - **Sin cola aparte.** La cola es la tabla: el cron toma lo que está `uploaded` o `extracting` hace más de un minuto.
+  - **Los contratos se aprueban al cargar su compromiso.** Un contrato no suma gasto; lo que importa son sus fechas. El alta del compromiso y la aprobación van en la misma transacción.
+  - **`prebuilt-contract` no extrae montos y sólo lee inglés.** El monto del compromiso se carga a mano. Si el análisis falla, se reintenta con `prebuilt-layout`, que trae al menos el texto. Si el modelo no reconoció campos, se guarda el texto que ya vino en la respuesta, sin una segunda llamada que se pague.
+  - **«Entra en los reportes» es el resumen de la pantalla.** Total en USD, por proveedor y por mes, siempre con la etiqueta *Fuera del costo de Azure*. No entra en el reporte ejecutivo ni en las exportaciones, y nunca en `CostSnapshots` ni en la detección de anomalías.
+  - **El tipo de cambio se fija al aprobar.** Se usa la tasa de `FxRates` para la fecha de la factura (la última hasta ese día o, si no hay, la más cercana después) y se guardan la tasa y su fecha. Si la tabla está vacía, se usa la tabla fija, sin fecha. Una moneda fuera de las 15 que maneja `fx.ts` se aprueba sin USD y el resumen la cuenta aparte.
+  - **Los avisos de renovación van en el mismo cron.** No suman un job en Terraform. Reusan la escalera de las reservas (90, 60 y 30 días), pero sobre la fecha límite del preaviso y no sobre el fin: pasada esa fecha ya no se puede cancelar.
+  - **La cuota cuenta documentos, no páginas.** Cada documento analizado deja una fila en `PlatformAiUsage` con las páginas en `input_tokens`, para poder cobrar por página si se decide así.
+  - **Sin escaneo de malware.** El servidor no interpreta el archivo: lo valida por magic bytes, lo manda a Document Intelligence y lo devuelve sólo como adjunto, con `nosniff`. Defender for Storage queda pendiente.
+  - **Sin private endpoint de Blob.** Los originales van a la cuenta de Storage que ya usa la app, como los adjuntos de soporte.
+  - **Un contrato aprobado no se rechaza.** Su compromiso seguiría avisando y, si se volvía a subir el PDF, quedaban dos. Para deshacerlo se borra el compromiso. Una factura aprobada sí se puede rechazar: sale del resumen.
+- **Antes de prenderlo:**
+  1. Aplicar las migraciones `20261008-030` a `20261008-032`.
+  2. Desplegar la app con la ruta del cron antes de aplicar `document_intelligence_enabled = true`. El job pega a `/api/cron/external-spend-poll` y, sin la ruta, falla cada 5 minutos.
+  3. Verificar desde el contenedor que `<cuenta>.cognitiveservices.azure.com` resuelve a una IP privada. Si resuelve a la pública, el análisis falla con 403.
+  4. Decidir el precio del add-on, el límite de páginas por plan y la fuente de tipo de cambio (decisión 8).
+  5. Prender el interruptor en *IA — Configuración global*.
+
+### 10.9 Pendiente
 
 - **Rollout de 0.2 y 0.3** (10.6). Lo corre el operador. Si Enterprise necesita un modelo mayor que el mini, hace falta un segundo deployment.
 - **0.5:** la decisión de legal sobre el aviso de 30 días a clientes. Si lo exige, va antes de habilitar las funciones a clientes.
 - **Fase 3** (10.7): las migraciones, la medición y los interruptores.
-- **PRs 6, 7 y 9:** fases 2 (tags) y 4 (Document Intelligence).
+- **Fase 4** (10.8): lo de *Antes de prenderlo*, y además:
+  - Escaneo de malware con Defender for Storage y evaluar el private endpoint de Blob.
+  - Borrar los originales del Blob cuando se borra un tenant: la cascada borra las filas, no los archivos.
+  - El add-on en el gate: hoy mira sólo el plan.
+  - Borrar documentos y editar compromisos. Hoy un compromiso se borra y se vuelve a cargar, y borrarlo no devuelve su contrato a revisión.
+  - El gasto externo en el reporte ejecutivo y en las exportaciones.
+  - Paginar las listas: hoy muestran los últimos 200 documentos y hasta 500 compromisos.
+  - Un cron que cargue tipos de cambio históricos en `FxRates`, si esa es la fuente que se elige.
+  - Precargar el tipo de compromiso desde el contrato: hoy arranca en *Otro*.
+- **PRs 6 y 7:** fase 2 (tags).
 - Lo encontrado de paso y no corregido está en MEJ-42 ([`MEJORAS-FUTURAS.md`](MEJORAS-FUTURAS.md)): el servicio y la suscripción de los exports FOCUS, y `getAssessment` sin plan ni cupo en `ai-report`, `assessment` y `executive-report`.
 
 ---

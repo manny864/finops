@@ -1171,8 +1171,8 @@ Primera parte de la propuesta de capacidades de IA
 sección 10). La regla de fondo: cifras, causas y acciones salen de lógica
 determinista; el modelo sólo pone en palabras lo que el código ya verificó, o
 elige entre opciones cerradas. El detalle técnico está en el LLD §40; para la
-IA de plataforma sin keys (19.6), en el §41, y para la IA de soporte (19.7), en
-el §42.
+IA de plataforma sin keys (19.6), en el §41; para la IA de soporte (19.7), en el
+§42, y para el gasto externo (19.8), en el §43.
 
 ### 19.1 Un solo lugar decide si se gasta IA
 
@@ -1369,7 +1369,55 @@ flowchart LR
 - **Cómo se mide.** La cola muestra la primera respuesta, los SLA incumplidos y
   el porcentaje de borradores que se enviaron, en una ventana de 30 días.
 
-### 19.8 Lo que queda
+### 19.8 Gasto externo: la IA lee, una persona aprueba
+
+Facturas y contratos de proveedores que no pasan por la facturación de Azure,
+en `/intelligence/external-spend` (Business). Document Intelligence los lee, una
+persona revisa lo extraído y sólo lo aprobado se reporta, aparte y etiquetado
+como gasto externo. Arranca apagado: falta validar la demanda y ponerle precio
+al add-on.
+
+```mermaid
+flowchart TD
+    UP["Subida (Admin u Owner)"] --> CHK{"¿Tipo por magic bytes,<br/>≤ 10 MB, sha256 nuevo?"}
+    CHK -->|"no"| ERR["Error con motivo<br/>(sin gastar cuota)"]
+    CHK -->|"sí"| GATE{"Gate: interruptor, plan,<br/>rate limit y cuota"}
+    GATE -->|"niega"| ERR
+    GATE -->|"permite"| SAVE["Original en Blob privado<br/>+ fila uploaded"]
+    SAVE --> DI["Document Intelligence<br/>invoice o contract, ≤ 20 páginas"]
+    DI -->|"termina en ≤ 20 s"| REV["needs_review:<br/>validaciones deterministas"]
+    DI -->|"no termina"| CRON["Cron external-spend-poll<br/>cada 5 min"]
+    CRON --> REV
+    REV --> HUM{"Revisión humana"}
+    HUM -->|"Rechazar"| REJ["rejected"]
+    HUM -->|"Aprobar factura"| SUM["Resumen en USD,<br/>aparte del costo de Azure"]
+    HUM -->|"Cargar contrato<br/>como compromiso"| COM["Commitments"]
+    COM --> ALR["Avisos 90 / 60 / 30 días<br/>antes del límite de preaviso"]
+```
+
+- **Sin keys y por red privada.** Una cuenta de Document Intelligence por
+  stamp, sin acceso público y con las keys apagadas. La app la alcanza por un
+  private endpoint en la zona `cognitiveservices`, con la misma identidad
+  administrada que la IA de plataforma (19.6) y el rol *Cognitive Services
+  User*. Corre siempre en la cuenta de la plataforma: la BYOK del tenant no
+  aplica y no lo exime de la cuota.
+- **La operación vuelve a la misma cuenta.** El análisis es asíncrono: Azure
+  responde con la URL de la operación (`Operation-Location`), que queda en la
+  fila para que la siga el cron. Antes de consultarla, la app verifica que tenga
+  el mismo origen que el endpoint configurado: la consulta lleva el token y no
+  puede ir a otro host.
+- **Tablas propias.** Documentos, líneas, compromisos y avisos van en sus
+  tablas, con cascada al borrar el tenant. **Nunca** en `CostSnapshots` ni en
+  la detección de anomalías: una factura de otro proveedor no es costo de
+  Azure, daría falsas anomalías y contaría dos veces lo que ya trae la
+  facturación.
+- **Una persona aprueba.** Lo extraído pasa por validaciones deterministas
+  (sumas, fechas, moneda, duplicados); las que impiden aprobar son el total, la
+  fecha y la moneda. El modelo nunca aprueba nada.
+- **Retención.** El original se borra a los 365 días si ya se revisó; lo
+  extraído y lo revisado quedan. Los avisos de renovación salen del mismo cron.
+
+### 19.9 Lo que queda
 
 - El rollout de 19.6: confirmar la cuota del modelo en West US 3, actualizar el
   centro de confianza, aplicar con la app todavía en la key, verificar el DNS
@@ -1386,4 +1434,9 @@ flowchart LR
 - La IA de soporte (19.7): aplicar las migraciones, medir el volumen, confirmar
   qué tickets usan el manual del partner y recién después prender los
   interruptores.
-- Las fases 2 y 4 de la propuesta: tags y Document Intelligence.
+- Document Intelligence (19.8): aplicar las migraciones, desplegar la app con la
+  ruta del cron antes de prender el flag de Terraform, verificar el DNS privado
+  desde el contenedor, decidir el precio del add-on, el límite de páginas por
+  plan y la fuente de tipo de cambio, y recién después prender el interruptor.
+  Quedan pendientes el escaneo de malware y el private endpoint de Blob.
+- La fase 2 de la propuesta: tags.

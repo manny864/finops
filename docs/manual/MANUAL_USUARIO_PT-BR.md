@@ -323,7 +323,7 @@ Aqui está a análise de custos e de otimização do Azure. Quase toda entrada d
 
 ### 5.1. Consumo e Orçamento (`/intelligence/consumo-y-presupuesto`)
 
-Sete abas: **Consumo Real**, **Por Categoria**, **Orçamentos**, **Grupos de Custos**, **Orçamento por Grupos de Custos**, **Gastos e Projeção** e **Ingestão CSV**.
+Oito abas: **Consumo Real**, **Por Categoria**, **Orçamentos**, **Grupos de Custos**, **Orçamento por Grupos de Custos**, **Gastos e Projeção**, **Ingestão CSV** e **Gastos externos**.
 
 #### 5.1.1. Consumo Real (Professional+)
 
@@ -398,6 +398,47 @@ Se o arquivo já está no formato FOCUS, ele é carregado direto. Se não, a IA 
 - **Se a IA não estiver disponível** (desativada, sem cota ou com pedidos demais em sequência), o arquivo não é carregado e a tela diz por quê. Subir no formato FOCUS evita a IA.
 
 **O relatório com IA.** Depois de ler o arquivo, a IA redige um relatório no idioma da tela e na moeda que o arquivo indica; se o arquivo não indica a moeda, o relatório não a supõe. Ele tem a sua própria cota mensal: 150 relatórios no Business, sem limite no Enterprise ou com BYOK. Se a IA estiver desativada, sem cota ou com pedidos demais em sequência, em vez do relatório você vê o **Resumo do arquivo**: o custo por serviço e categoria calculado pela plataforma, com o motivo.
+
+#### 5.1.8. Gastos externos (Business+)
+
+Faturas e contratos de fornecedores que não passam pelo faturamento do Azure: licenças, SaaS, consultoria. O Document Intelligence os lê, você revisa o que foi extraído e o que você aprova é reportado à parte, com a etiqueta **Fora do custo do Azure**. Nunca se mistura com o custo do Azure nem com a detecção de anomalias (14): é outra fonte, com outra precisão.
+
+Todos veem a tela. Enviar, revisar e cadastrar compromissos cabe a um **Admin** ou **Owner**, porque o que é aprovado entra nos relatórios.
+
+**Enviar.** Em **Enviar fatura ou contrato** você escolhe o **Tipo de documento** (**Fatura** ou **Contrato**), clica em **Escolher arquivo** e depois em **Enviar e analisar**.
+
+- PDF, JPEG, PNG ou TIFF de até **10 MB**. São lidas as primeiras **20 páginas**.
+- **Cota mensal da organização:** 150 documentos no Business e 500 no Enterprise. Vale mesmo que você tenha a sua própria chave de IA (BYOK), porque a análise roda na conta da plataforma.
+- O mesmo arquivo não entra duas vezes: se já está na lista, a tela avisa. Um documento **Rejeitado** ou que **Falhou** pode ser enviado de novo, por exemplo com o tipo correto, e substitui o anterior.
+
+**Status.** **Enviado** → **Analisando** → **A revisar** → **Aprovado** ou **Rejeitado**. **Falhou** se não foi possível analisar. Uma fatura de uma ou duas páginas costuma ficar pronta em segundos. Se demorar mais, a análise continua em segundo plano e a lista se atualiza sozinha.
+
+**Revisar.** **Revisar** abre o que a IA extraiu, com **Baixar original** à mão:
+
+- **Dados da fatura:** fornecedor, número, data, vencimento, período, moeda, subtotal, impostos e total.
+- **Linhas:** descrição, quantidade, preço unitário, valor, **Categoria** e **Centro de custo**. Elas são corrigidas no lugar, e há **Adicionar linha** e **Remover linha**.
+- O que foi lido com **confiança baixa** (menos de 80%) fica marcado: confira com o original.
+- Se o modelo não reconhece campos, você vê o **Texto do documento** para copiar o que precisar.
+
+**Observações da validação.** Quem as calcula é a plataforma, não a IA: que a soma das linhas dê o subtotal e que subtotal mais impostos dê o total (com 0,5% de margem por arredondamento), que as datas sejam coerentes e que não haja outra fatura do mesmo fornecedor com o mesmo número. São avisos, porque quem revisa conhece o documento melhor do que a regra. As marcadas **Impede a aprovação** são quatro: falta o total, falta a data, a moeda não é um código ISO 4217 (USD, EUR…) ou essa mesma fatura já está aprovada em outro documento. Sem total, data e moeda não há como reportá-la, e aprová-la duas vezes a contaria em dobro.
+
+**Aprovar ou rejeitar.** **Salvar alterações** salva e valida de novo. **Aprovar** salva o que estiver pendente e, a partir desse momento, a fatura entra no gasto externo. **Rejeitar** a deixa de fora. Uma fatura aprovada também pode ser rejeitada, com confirmação, e deixa de entrar. Um contrato aprovado não: o compromisso dele continuaria avisando. Para desfazer, exclua o compromisso.
+
+**Taxa de câmbio.** Ao aprovar, a plataforma fixa o equivalente em USD com a taxa da data da fatura (ou a mais próxima que tiver) e a mostra: *Equivalente em USD: … (1 USD = …, taxa de …)*. Ela fica fixa, para que um relatório fechado não mude sozinho. Se a plataforma não tiver taxas carregadas, usa uma de referência sem data e avisa. As moedas conversíveis são USD, EUR, GBP, ARS, BRL, MXN, CLP, COP, PEN, CAD, AUD, JPY, CHF, CNY e INR. Uma fatura em outra moeda é aprovada do mesmo jeito, mas não entra no total em USD, e o resumo a conta à parte.
+
+**Contratos e compromissos.** O modelo de contratos lê partes, datas, renovação e duração (**Termos do contrato**), mas não valores. Ao revisar um contrato, você preenche **Cadastrar como compromisso** com o valor comprometido; ao salvá-lo, o contrato fica aprovado. Um compromisso sem documento é cadastrado com **Novo compromisso**: fornecedor, tipo (Enterprise Agreement, MACC, Savings plan, Reserva, Assinatura SaaS ou Outro), valor, moeda, início, fim, renovação (opcional), dias de aviso prévio e se tem renovação automática. Os compromissos não são editados: se algo mudou, exclua e cadastre de novo.
+
+**Avisos de renovação (90, 60 e 30 dias).** O **Prazo de aviso prévio** é a renovação (ou o fim, se não houver renovação) menos os dias de aviso prévio: o último dia para cancelar ou renegociar. A plataforma avisa quando um compromisso entra na janela de **90 dias** antes desse prazo, de novo aos **60** e de novo aos **30**: uma vez por degrau. Chega ao **sino** de todo o tenant e aos **canais de Notificações** (8.5), com o fornecedor, a data e se ele se renova sozinho. A 30 dias ou menos é **crítico**, com ou sem renovação automática: a data para cancelar não muda. **Excluir compromisso** corta os avisos dele.
+
+**Resumo.** **Gasto externo aprovado (USD)** soma só as faturas aprovadas, **Por fornecedor** e **Por mês** (o do período faturado ou, se a fatura não o traz, o da data dela; os últimos 12). Ao lado você vê quantos documentos estão **A revisar**, os compromissos e o próximo prazo de aviso prévio.
+
+**O original.** É excluído **365 dias** após o envio; os dados extraídos e revisados ficam. Um documento que continua **A revisar** mantém o arquivo.
+
+**Se a análise não estiver disponível** (desativada na plataforma ou para a sua organização, sem cota ou com documentos demais em sequência), não dá para enviar e a tela diz por quê. Você ainda pode revisar o que já enviou e cadastrar compromissos manualmente. Se a instalação não tem Document Intelligence, a tela diz que a análise de documentos não está configurada.
+
+**Na demo** você vê faturas e um contrato de exemplo em status diferentes, e três compromissos. Nenhum arquivo é enviado e nenhuma alteração é salva.
+
+> Não é o mesmo que *Azure AI → Document Intelligence* (4.3.1). Lá você vê quanto custam as suas próprias contas de Document Intelligence no Azure. Aqui a plataforma usa a dela para ler os seus documentos, sem custo na sua assinatura.
 
 ### 5.2. Leaderboard de times (`/intelligence/leaderboard`, Enterprise)
 

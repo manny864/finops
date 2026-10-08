@@ -165,6 +165,7 @@ El sistema está dividido en cinco (5) pilares estratégicos en el menú lateral
   - Haz clic sobre cualquiera de los **porcentajes de utilización** para abrir el modal con la utilización de **último día / 7 días / 30 días** y la **tendencia diaria** de la reserva.
 - **Licencias M365:** Identificación de licencias de Microsoft 365 asignadas pero inactivas en los últimos 30 días, promoviendo su reasignación o cancelación.
 - **Ingesta CSV:** Herramienta para cargar facturación histórica de nubes de terceros bajo el estándar FOCUS.
+- **Gasto externo (Business, `/intelligence/external-spend`):** facturas y contratos de proveedores fuera de Azure, leídos con IA, revisados por una persona y reportados aparte del costo de Azure. Los contratos se cargan como compromisos, con avisos a 90, 60 y 30 días del límite de preaviso.
 - **Simulador What-If (`/intelligence/simulator`):** simulá el impacto de escalar cómputo/storage, variar tráfico de red o activar Azure Hybrid Benefit sobre tu costo actual. Podés **guardar escenarios**, **compararlos lado a lado** (hasta 4 a la vez) y **descargarlos en CSV o PDF** (elegís el formato con el selector junto a los botones de descarga) — un escenario individual, todos los guardados, o la comparación completa con el delta de cada uno contra la línea base.
 
 ### 3.3. Limpieza de Nube (Hygiene)
