@@ -2,13 +2,23 @@
  * Tipos y contratos TypeScript estrictos para la API Pública REST v1.
  */
 
-export type PublicApiScope =
-    | "read:cost"
-    | "read:resources"
-    | "read:budgets"
-    | "read:recommendations"
-    | "read:anomalies"
-    | "write:metrics";
+/**
+ * Fuente única de los scopes que se pueden otorgar. El tipo se deriva de acá, y
+ * el panel de claves y la validación del alta leen la misma lista: un scope que
+ * una ruta exige con `requireScope` pero que no está acá no se puede otorgar
+ * desde ningún lado (le pasó a `write:shift-left`).
+ */
+export const PUBLIC_API_SCOPES = [
+    "read:cost",
+    "read:resources",
+    "read:budgets",
+    "read:recommendations",
+    "read:anomalies",
+    "write:metrics",
+    "write:shift-left",
+] as const;
+
+export type PublicApiScope = (typeof PUBLIC_API_SCOPES)[number];
 
 export interface PublicApiKeyItem {
     id: string;

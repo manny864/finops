@@ -63,6 +63,7 @@ const SCOPE_DEFINITIONS: { id: PublicApiScope; label: string; desc: string }[] =
     { id: "read:recommendations", label: "read:recommendations", desc: "Recomendaciones de optimización" },
     { id: "read:anomalies", label: "read:anomalies", desc: "Detección de anomalías de gasto" },
     { id: "write:metrics", label: "write:metrics", desc: "Ingesta de telemetría y métricas externas" },
+    { id: "write:shift-left", label: "write:shift-left", desc: "Estimación de costo de Pull Requests (GitHub Action de Shift-Left)" },
 ];
 
 export default function ApiKeysPanel() {

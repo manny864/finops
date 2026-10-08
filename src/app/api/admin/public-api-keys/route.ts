@@ -14,7 +14,7 @@ import {
     listPublicApiKeys,
     createPublicApiKey,
 } from "@/services/publicApiKey.service";
-import { PublicApiScope } from "@/types/publicApiKey.types";
+import { PUBLIC_API_SCOPES, PublicApiScope } from "@/types/publicApiKey.types";
 
 export async function GET(request: NextRequest) {
     try {
@@ -58,6 +58,16 @@ export async function POST(request: NextRequest) {
 
         if (!tenantId || !name) {
             return NextResponse.json({ success: false, error: "Falta tenantId o nombre descriptivo" }, { status: 400 });
+        }
+
+        // Una clave con un scope inventado quedaba guardada y nunca autorizaba
+        // nada, sin que el que la creó se enterara.
+        const invalidos = Array.isArray(scopes) ? scopes.filter((s) => !PUBLIC_API_SCOPES.includes(s)) : [String(scopes)];
+        if (invalidos.length > 0) {
+            return NextResponse.json(
+                { success: false, error: `Scope no válido: ${invalidos.join(", ")}` },
+                { status: 400 }
+            );
         }
 
         // Directiva 1: Mock tenant primero
