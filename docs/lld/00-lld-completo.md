@@ -3396,9 +3396,16 @@ repetir:
 - `GET /api/intelligence/anomalies` los devuelve. En demo los arma
   `demoRootCauseFacts(top_contributors)` (`mockData.ts`) con la misma
   clasificación.
-- `AnomalyRootCause.tsx` los muestra en la fila expandida de `AnomalyDashboard`,
-  para todos los tiers: "Qué cambió", con montos en la moneda del usuario
-  (`useCurrency`), y "Qué revisar".
+- `GET /api/analytics/anomalies`, la ruta de la pantalla, lee
+  `root_cause_facts` y `assigned_to`; `assembleLiveAnomalies` los entrega como
+  `CostAnomalyItem.rootCauseFacts` y `hasOwner` (caché `anomalies:v3`). En demo,
+  `getMockAnomalyPayload` arma los hechos con `demoRootCauseFacts` desde los
+  contribuyentes que dibuja el panel.
+- `AnomalyRootCause.tsx` los muestra en el drawer **Ver Causa Raíz** de
+  `AnomalyDetectionPanel`, debajo del desglose por servicio: "Qué cambió", con
+  montos en la moneda del usuario (`useCurrency`), y "Qué revisar". La página es
+  Enterprise (`routeTiers`). `AnomalyDashboard` también los monta, pero ninguna
+  página lo renderiza desde `9d6b323` (MEJ-42).
 - La línea "Principal causa" de la notificación no cambió.
 
 ### 40.3 Explicación con IA — `src/services/anomalyExplanation.service.ts`

@@ -1966,7 +1966,7 @@ Si la anomalía tiene responsable, la notificación **le llega a esa persona**. 
 
 ### 18.4 Qué cambió, y la explicación con IA
 
-Al abrir una anomalía, el bloque **Qué cambió** muestra qué se movió dentro del servicio que la empujó. Compara el día contra el promedio de los 30 días anteriores:
+En **Analítica Avanzada → Detección de Anomalías** (Enterprise, 5.14), el botón **Ver Causa Raíz** de cada anomalía abre el panel lateral. Debajo del desglose por servicio, el bloque **Qué cambió** muestra qué se movió dentro del servicio que la empujó. Compara el día contra el promedio de los 30 días anteriores:
 
 | Hecho | Qué significa |
 |---|---|
@@ -1985,9 +1985,9 @@ Debajo, **Qué revisar** lista los próximos pasos. Salen de los hechos, no de l
 - Revisar la cobertura de reservas y savings plans.
 - Asignar un responsable, si la anomalía no lo tiene.
 
-Los hechos y los pasos están en todos los planes.
+Los hechos y los pasos no usan IA: se ven aunque la IA esté apagada.
 
-**Explicar con IA (Professional+).** El botón **Explicar con IA** le pide a la IA que cuente lo mismo en palabras. La IA sólo puede usar los hechos de arriba:
+**Explicar con IA.** El botón **Explicar con IA** le pide a la IA que cuente lo mismo en palabras. La IA sólo puede usar los hechos de arriba:
 
 - No ve montos, y no puede nombrar una causa que no esté en la lista.
 - Si escribe un número que no está en los hechos, la explicación se descarta y quedan los hechos.
@@ -1995,9 +1995,9 @@ Los hechos y los pasos están en todos los planes.
 
 Con **Me sirvió** o **No me sirvió**, el cliente nos dice si la explicación le resultó útil.
 
-El cupo es mensual y para toda la organización: 50 explicaciones en Professional y 150 en Business. Es ilimitado en Enterprise o con clave propia (BYOK). Volver a abrir una explicación ya generada no consume cupo. Si no está disponible (IA desactivada, sin cupo o en la demo), la pantalla le dice al cliente por qué.
+En Enterprise las explicaciones no tienen cupo mensual. Si no está disponible (IA desactivada o en la demo), la pantalla le dice al cliente por qué.
 
-> **Para el soporte:** cada explicación generada figura en **Consumo de Plataforma** (22.1) como la función `anomaly-explanation`. La apagan el interruptor maestro (25) o el interruptor de IA del propio tenant; los hechos y los pasos se siguen viendo.
+> **Para el soporte:** cada explicación generada figura en **Consumo de Plataforma** (22.1) como la función `anomaly-explanation`. La apagan el interruptor maestro (25) o el interruptor de IA del propio tenant; los hechos y los pasos se siguen viendo. La función admite desde Professional, con el cupo de 22.1, pero la pantalla de anomalías hoy es sólo de Enterprise: un cliente Professional o Business no la ve.
 
 ---
 
@@ -2157,7 +2157,7 @@ El detalle se ve **por tenant** (llamadas, tokens de entrada y de salida) y **po
 
 Si el costo se dispara por un incidente con el proveedor, el **interruptor maestro** de IA (25) apaga la IA para todos los tenants.
 
-**Cupo mensual por función.** La explicación de anomalías (`anomaly-explanation`, 18.4) y el mapeo de columnas de CSV (`billing-csv-column-mapping`, 5.1.7) tienen un cupo por tenant y por mes calendario (UTC). Cuenta las llamadas de esa función con `source = platform`: 50 en Professional y 150 en Business. Enterprise y los tenants con BYOK no tienen cupo, aunque cada usuario sigue teniendo un límite de pedidos por minuto. Al agotarse el cupo, el cliente ve el motivo en pantalla y la función vuelve el día 1.
+**Cupo mensual por función.** La explicación de anomalías (`anomaly-explanation`, 18.4) y el mapeo de columnas de CSV (`billing-csv-column-mapping`, 5.1.7) tienen un cupo por tenant y por mes calendario (UTC). Cuenta las llamadas de esa función con `source = platform`: 50 en Professional y 150 en Business. Enterprise y los tenants con BYOK no tienen cupo, aunque cada usuario sigue teniendo un límite de pedidos por minuto. Al agotarse el cupo, el cliente ve el motivo en pantalla y la función vuelve el día 1. Hoy ninguna pantalla de Professional consume ese cupo: el mapeo de CSV arranca en Business y la pantalla de anomalías es de Enterprise.
 
 ### 22.2 Llamadas a APIs de Azure
 

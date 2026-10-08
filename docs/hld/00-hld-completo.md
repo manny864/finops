@@ -205,7 +205,7 @@ mindmap
 * **What-If Simulator:** Simulador de escenarios que proyecta el impacto económico de migraciones, apagados de cargas o compras de reservas antes de ejecutarlos en Azure.
 * **AI Cost Analytics (Enterprise):** Vista de costo por modelo y tendencia de tokens para **Microsoft Foundry / Azure OpenAI**, priorizando tokens desde Azure Monitor (`ProcessedPromptTokens`, `GeneratedTokens`, `ProcessedInferenceTokens`) y fallback a costo agregado desde Cost Management cuando no hay desglose de tokens.
 * **RBAC mínimo para AI Cost Analytics:** no introduce roles nuevos; reutiliza `Reader`, `Cost Management Reader`, `Monitoring Reader` y `Billing Reader` bajo principio de menor privilegio.
-* **Explicación de anomalías:** el código calcula qué cambió dentro del servicio que empujó el desvío (medidor nuevo, más consumo, más precio), para todos los tiers. Desde Professional, la IA lo redacta a pedido, citando sólo esos hechos, y la salida se valida antes de mostrarse (§19).
+* **Explicación de anomalías:** el código calcula qué cambió dentro del servicio que empujó el desvío (medidor nuevo, más consumo, más precio), sin IA. La IA lo redacta a pedido, citando sólo esos hechos, y la salida se valida antes de mostrarse. Se ve en Detección de Anomalías, que hoy es Enterprise (§19).
 * **Mapeo de CSV con IA (Business+):** la IA infiere qué columna corresponde a cada campo FOCUS y el código convierte todas las filas (§19).
 * **Gate único de IA:** kill switch global, `Tenants.ai_enabled`, tier, rate limit y cuota mensual por feature para las funciones de IA nuevas. El Copilot conserva el suyo (§19).
 
@@ -1193,8 +1193,9 @@ lo empujaron. Faltaba **qué cambió dentro del servicio**.
 Al guardar la anomalía, el código compara el día contra los 30 anteriores, medidor
 por medidor, y clasifica: medidor nuevo, más consumo, más precio unitario (con la
 descomposición precio-volumen) o más costo sin cantidades para separar uno de
-otro. Esos hechos y las acciones que se derivan de ellos se muestran a **todos
-los tiers**, sin IA.
+otro. Esos hechos y las acciones que se derivan de ellos se muestran sin IA, en
+el panel de causa raíz de Detección de Anomalías. Esa pantalla hoy es
+**Enterprise**, aunque el cron calcula los hechos desde Professional.
 
 La propuesta suponía que `CostSnapshots` traía recurso y medidor, y no es así: el
 sync lo escribe por servicio y resource group. El detalle por medidor está en
@@ -1205,7 +1206,7 @@ inventada.
 ```mermaid
 flowchart LR
     CRON["Detección de anomalías<br/>persistAndNotifyAnomalies"] --> FACTS["Hechos calculados por código<br/>Anomalies.root_cause_facts"]
-    FACTS --> UI["Qué cambió · Qué revisar<br/>(todos los tiers)"]
+    FACTS --> UI["Qué cambió · Qué revisar<br/>(panel Ver Causa Raíz)"]
     UI -->|"Explicar con IA"| GATE["Gate único"]
     GATE -->|"denegado: motivo"| UI
     GATE --> CACHE["AnomalyExplanations<br/>(anomalía, idioma, hash)"]

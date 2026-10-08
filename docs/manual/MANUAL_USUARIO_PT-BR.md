@@ -34,7 +34,7 @@
 - **FinOps Copilot com conversa contínua** entre páginas e botão **Nova conversa** (9).
 - **App móvel (PWA)** com Resumo, Alertas, Aprovações, Suporte e Perfil (11.12).
 - **Anomalias com responsável e acompanhamento** (14) e **assinaturas fora do limite do seu plano** (15).
-- **Anomalias: o que mudou e explicação com IA.** Cada anomalia mostra qual medidor do serviço subiu e se foi por consumo, por preço ou por algo novo, com os passos a verificar. A partir do Professional, a IA pode contar isso em palavras (14.4).
+- **Anomalias: o que mudou e explicação com IA.** Em **Detecção de Anomalias** (Enterprise), **Ver Causa Raiz** mostra qual medidor do serviço subiu e se foi por consumo, por preço ou por algo novo, com os passos a verificar. A IA pode contar isso em palavras (14.4).
 - **CSV que não está no formato FOCUS:** agora **todas** as linhas são processadas. A IA só identifica as colunas e a plataforma lê os valores (5.1.7).
 
 **Novidades de agosto 2026**
@@ -1468,7 +1468,7 @@ Se a anomalia tem responsável, a notificação **chega a essa pessoa**. Se não
 
 ### 14.4 O que mudou, e a explicação com IA
 
-Ao abrir uma anomalia, o bloco **O que mudou** mostra o que se moveu dentro do serviço que a puxou. Ele compara o dia com a média dos 30 dias anteriores:
+Em **Analítica Avançada → Detecção de Anomalias** (Enterprise, 5.14), o botão **Ver Causa Raiz** de cada anomalia abre o painel lateral. Abaixo do detalhamento por serviço, o bloco **O que mudou** mostra o que se moveu dentro do serviço que a puxou. Ele compara o dia com a média dos 30 dias anteriores:
 
 | Fato | O que significa |
 |---|---|
@@ -1487,9 +1487,9 @@ Abaixo, **O que verificar** lista os próximos passos. Eles saem dos fatos, não
 - Revisar a cobertura de reservas e savings plans.
 - Atribuir um responsável, se a anomalia não tiver.
 
-Os fatos e os passos estão em todos os planos.
+Os fatos e os passos não usam IA: aparecem mesmo com a IA desligada.
 
-**Explicar com IA (Professional+).** O botão **Explicar com IA** pede à IA que conte o mesmo em palavras. A IA só pode usar os fatos acima:
+**Explicar com IA.** O botão **Explicar com IA** pede à IA que conte o mesmo em palavras. A IA só pode usar os fatos acima:
 
 - Ela não vê valores e não pode citar uma causa que não esteja na lista.
 - Se escrever um número que não está nos fatos, a explicação é descartada e ficam os fatos.
@@ -1497,7 +1497,7 @@ Os fatos e os passos estão em todos os planos.
 
 Com **Ajudou** ou **Não ajudou** você nos ajuda a medir se a explicação é útil.
 
-A cota é mensal e da organização inteira: 50 explicações no Professional e 150 no Business. É ilimitada no Enterprise ou com a sua própria chave de IA (BYOK). Abrir de novo uma explicação já gerada não consome cota. Se não estiver disponível (IA desativada, sem cota ou na demo), a tela diz por quê.
+No Enterprise as explicações não têm cota mensal. Se não estiver disponível (IA desativada ou na demo), a tela diz por quê.
 
 ---
 

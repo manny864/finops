@@ -1974,7 +1974,7 @@ If the anomaly has an owner, the notification **goes to that person**. If it doe
 
 ### 18.4 What changed, and the AI explanation
 
-When you open an anomaly, the **What changed** block shows what moved inside the service that drove it. It compares the day against the average of the previous 30 days:
+In **Advanced Analytics → Anomaly Detection** (Enterprise, 5.14), each anomaly's **View Root Cause** button opens the side panel. Below the breakdown by service, the **What changed** block shows what moved inside the service that drove it. It compares the day against the average of the previous 30 days:
 
 | Fact | What it means |
 |---|---|
@@ -1993,9 +1993,9 @@ Below it, **What to check** lists the next steps. They come from the facts, not 
 - Review reservation and savings plan coverage.
 - Assign an owner, if the anomaly doesn't have one.
 
-The facts and the steps are available on every plan.
+The facts and the steps don't use AI: they show up even with AI turned off.
 
-**Explain with AI (Professional+).** The **Explain with AI** button asks AI to tell the same story in words. AI can only use the facts above:
+**Explain with AI.** The **Explain with AI** button asks AI to tell the same story in words. AI can only use the facts above:
 
 - It doesn't see amounts, and it can't name a cause that isn't on the list.
 - If it writes a number that isn't in the facts, the explanation is discarded and the facts remain.
@@ -2003,9 +2003,9 @@ The facts and the steps are available on every plan.
 
 With **Helpful** or **Not helpful**, the client tells us whether the explanation was useful.
 
-The quota is monthly and shared by the whole organization: 50 explanations on Professional and 150 on Business. It's unlimited on Enterprise or with the tenant's own key (BYOK). Reopening an explanation that was already generated doesn't use quota. If it isn't available (AI turned off, out of quota, or in the demo), the screen tells the client why.
+On Enterprise there's no monthly quota for explanations. If it isn't available (AI turned off, or in the demo), the screen tells the client why.
 
-> **For support:** each generated explanation shows up in **Platform Usage** (22.1) as the `anomaly-explanation` feature. The master switch (25) or the tenant's own AI switch turns it off; the facts and the steps remain visible.
+> **For support:** each generated explanation shows up in **Platform Usage** (22.1) as the `anomaly-explanation` feature. The master switch (25) or the tenant's own AI switch turns it off; the facts and the steps remain visible. The feature accepts Professional and up, with the 22.1 quota, but the anomalies screen is Enterprise-only today: a Professional or Business client doesn't see it.
 
 ---
 
@@ -2165,7 +2165,7 @@ The detail is shown **by tenant** (calls, input and output tokens) and **by feat
 
 If the cost spikes because of an incident with the provider, the AI **master switch** (25) turns AI off for all tenants.
 
-**Monthly quota per feature.** The anomaly explanation (`anomaly-explanation`, 18.4) and the CSV column mapping (`billing-csv-column-mapping`, 5.1.7) have a quota per tenant and per calendar month (UTC). It counts that feature's calls with `source = platform`: 50 on Professional and 150 on Business. Enterprise and BYOK tenants have no quota, although each user still has a per-minute request limit. When the quota runs out, the client sees the reason on screen and the feature comes back on the 1st.
+**Monthly quota per feature.** The anomaly explanation (`anomaly-explanation`, 18.4) and the CSV column mapping (`billing-csv-column-mapping`, 5.1.7) have a quota per tenant and per calendar month (UTC). It counts that feature's calls with `source = platform`: 50 on Professional and 150 on Business. Enterprise and BYOK tenants have no quota, although each user still has a per-minute request limit. When the quota runs out, the client sees the reason on screen and the feature comes back on the 1st. Today no Professional screen uses that quota: the CSV mapping starts at Business and the anomalies screen is Enterprise.
 
 ### 22.2 Azure API calls
 

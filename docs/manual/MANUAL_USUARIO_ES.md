@@ -34,7 +34,7 @@
 - **FinOps Copilot con conversación continua** entre páginas y botón **Nueva conversación** (9).
 - **App móvil (PWA)** con Resumen, Alertas, Aprobaciones, Soporte y Perfil (11.12).
 - **Anomalías con responsable y seguimiento** (14) y **suscripciones fuera del tope de tu plan** (15).
-- **Anomalías: qué cambió y explicación con IA.** Cada anomalía muestra qué medidor del servicio subió y si fue por consumo, por precio o por algo nuevo, con los pasos a revisar. Desde Professional, la IA puede contarlo en palabras (14.4).
+- **Anomalías: qué cambió y explicación con IA.** En **Detección de Anomalías** (Enterprise), **Ver Causa Raíz** muestra qué medidor del servicio subió y si fue por consumo, por precio o por algo nuevo, con los pasos a revisar. La IA puede contarlo en palabras (14.4).
 - **CSV que no está en formato FOCUS:** ahora se procesan **todas** las filas. La IA sólo identifica las columnas y la plataforma lee los montos (5.1.7).
 
 **Novedades de agosto 2026**
@@ -1472,7 +1472,7 @@ Si la anomalía tiene responsable, la notificación **le llega a esa persona**. 
 
 ### 14.4 Qué cambió, y la explicación con IA
 
-Al abrir una anomalía, el bloque **Qué cambió** muestra qué se movió dentro del servicio que la empujó. Compara el día contra el promedio de los 30 días anteriores:
+En **Analítica Avanzada → Detección de Anomalías** (Enterprise, 5.14), el botón **Ver Causa Raíz** de cada anomalía abre el panel lateral. Debajo del desglose por servicio, el bloque **Qué cambió** muestra qué se movió dentro del servicio que la empujó. Compara el día contra el promedio de los 30 días anteriores:
 
 | Hecho | Qué significa |
 |---|---|
@@ -1491,9 +1491,9 @@ Debajo, **Qué revisar** lista los próximos pasos. Salen de los hechos, no de l
 - Revisar la cobertura de reservas y savings plans.
 - Asignar un responsable, si la anomalía no lo tiene.
 
-Los hechos y los pasos están en todos los planes.
+Los hechos y los pasos no usan IA: se ven aunque la IA esté apagada.
 
-**Explicar con IA (Professional+).** El botón **Explicar con IA** le pide a la IA que cuente lo mismo en palabras. La IA sólo puede usar los hechos de arriba:
+**Explicar con IA.** El botón **Explicar con IA** le pide a la IA que cuente lo mismo en palabras. La IA sólo puede usar los hechos de arriba:
 
 - No ve montos, y no puede nombrar una causa que no esté en la lista.
 - Si escribe un número que no está en los hechos, la explicación se descarta y quedan los hechos.
@@ -1501,7 +1501,7 @@ Los hechos y los pasos están en todos los planes.
 
 Con **Me sirvió** o **No me sirvió** nos ayudás a medir si la explicación es útil.
 
-El cupo es mensual y para toda la organización: 50 explicaciones en Professional y 150 en Business. Es ilimitado en Enterprise o con tu propia clave de IA (BYOK). Volver a abrir una explicación ya generada no consume cupo. Si no está disponible (IA desactivada, sin cupo o en la demo), la pantalla te dice por qué.
+En Enterprise las explicaciones no tienen cupo mensual. Si no está disponible (IA desactivada o en la demo), la pantalla te dice por qué.
 
 ---
 

@@ -904,6 +904,7 @@ Rama `feat/ia-fase1-anomalias`, sobre `main` @ `ac55fe5`, con un commit por piez
 | `b11beda` | Hechos de causa raíz | 1a | 3 |
 | `c98e3ea` | Gate único y explicación con IA | 0.1 y 1b | 1 (parte) y 4 |
 | `7ebbb71` | Mapeo de CSV por columnas | 6.4 | 5 |
+| `16276bc` | Hechos y explicación en el panel que se ve | 1a y 1b | 3 y 4 |
 
 Las secciones 0.1, 0.4, 1a, 1b y 6.4 conservan el diseño original. Donde difieren de lo construido, manda esta sección.
 
@@ -942,7 +943,10 @@ Las secciones 0.1, 0.4, 1a, 1b y 6.4 conservan el diseño original. Donde difier
   - `USAGE_INCREASE`: revisar horarios.
   - `PRICE_INCREASE`: revisar la cobertura de compromisos, que es la mejor señal disponible sin `CommitmentDiscountId`.
   - Sin responsable: asignar uno.
-- **UI:** los bloques "Qué cambió" y "Qué revisar", para todos los tiers.
+- **UI:** los bloques "Qué cambió" y "Qué revisar", sin IA, en el panel **Ver Causa Raíz** de `AnomalyDetectionPanel`, debajo del desglose por servicio.
+  - La propuesta decía `AnomalyDashboard.tsx`, pero ninguna página lo renderiza desde `9d6b323`. Los bloques quedaron montados ahí, sin verse, hasta `16276bc`.
+  - Los lee `GET /api/analytics/anomalies`, que es la ruta de esa pantalla.
+  - La página de anomalías es Enterprise (`routeTiers`): el cron calcula los hechos desde Professional, pero hoy sólo Enterprise los ve.
 - La línea "Principal causa" del aviso no cambió.
 
 ### 10.3 1b: explicación con IA
@@ -961,7 +965,8 @@ Las secciones 0.1, 0.4, 1a, 1b y 6.4 conservan el diseño original. Donde difier
   - Se consulta después del gate: si se apaga la IA, deja de mostrarse también lo generado antes.
 - **La tabla no tiene `tenant_id`.** El tenant se alcanza por `Anomalies`, que es desde donde cascadea el borrado.
 - **Modo demo:** devuelve `aiAvailable: false` con motivo `demo`. Nunca muestra un texto fijo como si fuera de la IA.
-- **UI:** botón "Explicar con IA" (carga lazy), etiqueta "Generado con IA · verificá los datos" y botones de feedback.
+- **UI:** botón "Explicar con IA" (carga lazy), etiqueta "Generado con IA · verificá los datos" y botones de feedback, en el mismo panel y sólo si hay hechos.
+  - El gate admite Professional, pero la página es Enterprise, así que hoy no se usa el cupo de Professional ni el de Business. Abrirla a más planes es cambiar una línea de `routeTiers`, y es una decisión de producto.
 
 ### 10.4 Mapeo de CSV por columnas (6.4)
 

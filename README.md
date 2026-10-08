@@ -449,14 +449,16 @@ propuesta, en `docs/propuesta-capacidades-ia-2026-10-07.md` §10.
 
 - **Cada anomalía dice qué cambió dentro del servicio.** El código compara el
   día contra los 30 anteriores, medidor por medidor, y clasifica: medidor nuevo,
-  más consumo, costo unitario más alto o más costo sin cantidades. Lo muestra en
-  "Qué cambió" y "Qué revisar", para todos los tiers y sin IA. El detalle sale de
+  más consumo, costo unitario más alto o más costo sin cantidades. Lo muestra sin
+  IA en "Qué cambió" y "Qué revisar", dentro del panel **Ver Causa Raíz** de
+  Detección de Anomalías, que es Enterprise. El detalle sale de
   `CostMeterSnapshots`, que sólo escribe el sync por API: un tenant que sólo
   carga exports ve "Sin detalle por medidor".
-- **"Explicar con IA" (Professional+).** El modelo redacta sobre esos hechos, a
-  pedido. Cita cada hecho por id, no ve montos y todo número del texto tiene que
-  estar en los hechos; si no valida, no se muestra. Se guarda por anomalía,
-  idioma y hash en `AnomalyExplanations`, con feedback.
+- **"Explicar con IA".** El modelo redacta sobre esos hechos, a pedido. Cita
+  cada hecho por id, no ve montos y todo número del texto tiene que estar en los
+  hechos; si no valida, no se muestra. Se guarda por anomalía, idioma y hash en
+  `AnomalyExplanations`, con feedback. El gate lo admite desde Professional, pero
+  hoy la pantalla es sólo Enterprise.
 - **Gate único de IA (`checkAiFeature`).** Kill switch global,
   `Tenants.ai_enabled`, tier, rate limit y cuota mensual por feature
   (Professional 50, Business 150; Enterprise y BYOK sin límite). El Copilot

@@ -34,7 +34,7 @@
 - **FinOps Copilot with a continuous conversation** across pages and a **New conversation** button (9).
 - **Mobile app (PWA)** with Summary, Alerts, Approvals, Support and Profile (11.12).
 - **Anomalies with an owner and follow-up** (14) and **subscriptions beyond your plan's limit** (15).
-- **Anomalies: what changed, and an AI explanation.** Each anomaly shows which meter in the service went up and whether it was usage, price or something new, with the steps to check. From Professional, AI can put it into words (14.4).
+- **Anomalies: what changed, and an AI explanation.** In **Anomaly Detection** (Enterprise), **View Root Cause** shows which meter in the service went up and whether it was usage, price or something new, with the steps to check. AI can put it into words (14.4).
 - **CSV files that aren't in FOCUS format:** **every** row is now processed. AI only identifies the columns, and the platform reads the amounts (5.1.7).
 
 **August 2026 updates**
@@ -1468,7 +1468,7 @@ If the anomaly has an owner, the notification **goes to that person**. If it doe
 
 ### 14.4 What changed, and the AI explanation
 
-When you open an anomaly, the **What changed** block shows what moved inside the service that drove it. It compares the day against the average of the previous 30 days:
+In **Advanced Analytics → Anomaly Detection** (Enterprise, 5.14), each anomaly's **View Root Cause** button opens the side panel. Below the breakdown by service, the **What changed** block shows what moved inside the service that drove it. It compares the day against the average of the previous 30 days:
 
 | Fact | What it means |
 |---|---|
@@ -1487,9 +1487,9 @@ Below it, **What to check** lists the next steps. They come from the facts, not 
 - Review reservation and savings plan coverage.
 - Assign an owner, if the anomaly doesn't have one.
 
-The facts and the steps are available on every plan.
+The facts and the steps don't use AI: you see them even with AI turned off.
 
-**Explain with AI (Professional+).** The **Explain with AI** button asks AI to tell the same story in words. AI can only use the facts above:
+**Explain with AI.** The **Explain with AI** button asks AI to tell the same story in words. AI can only use the facts above:
 
 - It doesn't see amounts, and it can't name a cause that isn't on the list.
 - If it writes a number that isn't in the facts, the explanation is discarded and the facts remain.
@@ -1497,7 +1497,7 @@ The facts and the steps are available on every plan.
 
 **Helpful** or **Not helpful** lets us measure whether the explanation is useful.
 
-The quota is monthly and shared by the whole organization: 50 explanations on Professional and 150 on Business. It's unlimited on Enterprise or with your own AI key (BYOK). Reopening an explanation that was already generated doesn't use quota. If it isn't available (AI turned off, out of quota, or in the demo), the screen tells you why.
+On Enterprise there's no monthly quota for explanations. If it isn't available (AI turned off, or in the demo), the screen tells you why.
 
 ---
 

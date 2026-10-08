@@ -1964,7 +1964,7 @@ Se a anomalia tem responsável, a notificação **chega a essa pessoa**. Se não
 
 ### 18.4 O que mudou, e a explicação com IA
 
-Ao abrir uma anomalia, o bloco **O que mudou** mostra o que se moveu dentro do serviço que a puxou. Ele compara o dia com a média dos 30 dias anteriores:
+Em **Analítica Avançada → Detecção de Anomalias** (Enterprise, 5.14), o botão **Ver Causa Raiz** de cada anomalia abre o painel lateral. Abaixo do detalhamento por serviço, o bloco **O que mudou** mostra o que se moveu dentro do serviço que a puxou. Ele compara o dia com a média dos 30 dias anteriores:
 
 | Fato | O que significa |
 |---|---|
@@ -1983,9 +1983,9 @@ Abaixo, **O que verificar** lista os próximos passos. Eles saem dos fatos, não
 - Revisar a cobertura de reservas e savings plans.
 - Atribuir um responsável, se a anomalia não tiver.
 
-Os fatos e os passos estão em todos os planos.
+Os fatos e os passos não usam IA: aparecem mesmo com a IA desligada.
 
-**Explicar com IA (Professional+).** O botão **Explicar com IA** pede à IA que conte o mesmo em palavras. A IA só pode usar os fatos acima:
+**Explicar com IA.** O botão **Explicar com IA** pede à IA que conte o mesmo em palavras. A IA só pode usar os fatos acima:
 
 - Ela não vê valores e não pode citar uma causa que não esteja na lista.
 - Se escrever um número que não está nos fatos, a explicação é descartada e ficam os fatos.
@@ -1993,9 +1993,9 @@ Os fatos e os passos estão em todos os planos.
 
 Com **Ajudou** ou **Não ajudou**, o cliente nos diz se a explicação foi útil.
 
-A cota é mensal e da organização inteira: 50 explicações no Professional e 150 no Business. É ilimitada no Enterprise ou com chave própria (BYOK). Abrir de novo uma explicação já gerada não consome cota. Se não estiver disponível (IA desativada, sem cota ou na demo), a tela diz ao cliente por quê.
+No Enterprise as explicações não têm cota mensal. Se não estiver disponível (IA desativada ou na demo), a tela diz ao cliente por quê.
 
-> **Para o suporte:** cada explicação gerada aparece em **Consumo da Plataforma** (22.1) como o recurso `anomaly-explanation`. O interruptor mestre (25) ou o interruptor de IA do próprio tenant a desligam; os fatos e os passos continuam visíveis.
+> **Para o suporte:** cada explicação gerada aparece em **Consumo da Plataforma** (22.1) como o recurso `anomaly-explanation`. O interruptor mestre (25) ou o interruptor de IA do próprio tenant a desligam; os fatos e os passos continuam visíveis. O recurso aceita a partir do Professional, com a cota de 22.1, mas a tela de anomalias hoje é só do Enterprise: um cliente Professional ou Business não a vê.
 
 ---
 
@@ -2155,7 +2155,7 @@ O detalhe é visto **por tenant** (chamadas, tokens de entrada e de saída) e **
 
 Se o custo dispara por um incidente com o provedor, o **interruptor mestre** de IA (25) desliga a IA para todos os tenants.
 
-**Cota mensal por recurso.** A explicação de anomalias (`anomaly-explanation`, 18.4) e o mapeamento de colunas de CSV (`billing-csv-column-mapping`, 5.1.7) têm uma cota por tenant e por mês calendário (UTC). Ela conta as chamadas desse recurso com `source = platform`: 50 no Professional e 150 no Business. Enterprise e os tenants com BYOK não têm cota, embora cada usuário continue com um limite de pedidos por minuto. Quando a cota acaba, o cliente vê o motivo na tela e o recurso volta no dia 1.
+**Cota mensal por recurso.** A explicação de anomalias (`anomaly-explanation`, 18.4) e o mapeamento de colunas de CSV (`billing-csv-column-mapping`, 5.1.7) têm uma cota por tenant e por mês calendário (UTC). Ela conta as chamadas desse recurso com `source = platform`: 50 no Professional e 150 no Business. Enterprise e os tenants com BYOK não têm cota, embora cada usuário continue com um limite de pedidos por minuto. Quando a cota acaba, o cliente vê o motivo na tela e o recurso volta no dia 1. Hoje nenhuma tela do Professional consome essa cota: o mapeamento de CSV começa no Business e a tela de anomalias é do Enterprise.
 
 ### 22.2 Chamadas às APIs do Azure
 
