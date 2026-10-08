@@ -28,6 +28,7 @@ export const SNAPSHOT_DOMAINS = [
     "anomalies",
     "budgets",
     "governance",
+    "tag_compliance",
     "sustainability",
     "zombies",
 ] as const;

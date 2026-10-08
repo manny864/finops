@@ -5,6 +5,7 @@ import TagGovernancePanel from "@/components/governance/TagGovernancePanel";
 import PageHeaderTierBadge from "@/components/dashboard/PageHeaderTierBadge";
 import { IconTags } from "@tabler/icons-react";
 import InfoTooltip from "@/components/InfoTooltip";
+import HistoryButton from "@/components/history/HistoryButton";
 
 export default async function TagsPage() {
   const t = await getTranslations("GovernanceTags");
@@ -28,6 +29,7 @@ export default async function TagsPage() {
             <PageHeaderTierBadge tier="Professional" />
           </div>
         </div>
+        <HistoryButton domain="tag_compliance" title={t("title")} />
       </div>
 
       <div className="w-full">
