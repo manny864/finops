@@ -15,13 +15,21 @@
  * una clave de lectura de costos no debería poder escribir filas de estimación.
  */
 import { NextRequest, NextResponse } from "next/server";
-import type { RowDataPacket } from "mysql2";
 import { v4 as uuidv4 } from "uuid";
 import { verifyApiKey, requireScope } from "@/lib/publicApiAuth";
 import rateLimiter from "@/lib/rateLimiter";
 import pool from "@/modules/storage/db";
 import { errorMessage } from "@/lib/apiErrors";
-import { estimarPlan } from "@/services/iacCostEstimator.service";
+import { estimarPlan, estimarWhatIf } from "@/services/iacCostEstimator.service";
+import {
+    avisarGateSuperado,
+    contextoDePresupuesto,
+    evaluarGate,
+    leerDescuento,
+    leerEstimacionPrevia,
+    leerGate,
+    presupuestoDelCentro,
+} from "@/services/iacGate.service";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +37,8 @@ export const dynamic = "force-dynamic";
  * Un plan de terraform de un monorepo grande puede pesar varios MB. Se corta en
  * 6 MB: por encima de eso el parseo bloquea el event loop lo suficiente como
  * para afectar a las pantallas interactivas, y un plan de ese tamaño ya no es un
- * PR que alguien vaya a revisar.
+ * PR que alguien vaya a revisar. (El script de CI sólo envía los atributos que el
+ * catálogo lee, así que un plan reducido pesa una fracción de esto.)
  */
 const MAX_BYTES = 6 * 1024 * 1024;
 
@@ -40,40 +49,8 @@ function error(code: string, message: string, status: number, requestId: string)
     );
 }
 
-type Gate = { status: "NOT_EVALUATED" | "OK" | "EXCEEDED"; threshold: number | null };
-
-/**
- * Budget Gate del repo, si tiene uno configurado en la plataforma
- * (`IacBudgetGates`). Sin fila no hay gate: se informa el costo y no se bloquea
- * nada, que es lo que significa 'NOT_EVALUATED'.
- *
- * FALLA ABIERTO a propósito. Si MySQL no responde, el gate queda sin evaluar en
- * vez de bloquear: esto corre en el CI de otra gente, y voltearle un PR por un
- * problema de nuestra base —cuando el umbral podría no existir siquiera— es
- * peor que dejar pasar un PR caro. Es un control de costo, no de seguridad.
- */
-async function evaluarGate(tenantId: string, repository: string, delta: number): Promise<Gate> {
-    if (!repository) return { status: "NOT_EVALUATED", threshold: null };
-    try {
-        const [filas] = await pool.query<RowDataPacket[]>(
-            `SELECT threshold_usd FROM IacBudgetGates
-              WHERE tenant_id = ? AND repository = ?
-              LIMIT 1`,
-            [tenantId, repository]
-        );
-        const crudo = filas?.[0]?.threshold_usd;
-        if (crudo === undefined || crudo === null) return { status: "NOT_EVALUATED", threshold: null };
-
-        // DECIMAL vuelve como string desde mysql2; sin Number() la comparación
-        // sería lexicográfica y "9" > "10".
-        const umbral = Number(crudo);
-        if (!Number.isFinite(umbral)) return { status: "NOT_EVALUATED", threshold: null };
-        return { status: delta > umbral ? "EXCEEDED" : "OK", threshold: umbral };
-    } catch (e) {
-        console.error("[shift-left] no se pudo leer el Budget Gate:", errorMessage(e));
-        return { status: "NOT_EVALUATED", threshold: null };
-    }
-}
+/** OpenTofu usa el mismo formato de plan que Terraform; se guarda cuál fue para el historial. */
+const HERRAMIENTAS = new Set(["terraform", "tofu"]);
 
 export async function POST(request: NextRequest) {
     const requestId = uuidv4();
@@ -116,9 +93,21 @@ export async function POST(request: NextRequest) {
 
         // Se acepta el plan pelado o envuelto en {plan, repository, ...}. La CLI
         // de terraform escupe el plan directo, y obligar a envolverlo seria
-        // pedirle a cada usuario que escriba un jq en su pipeline.
+        // pedirle a cada usuario que escriba un jq en su pipeline. Lo mismo para el
+        // what-if de Bicep, que viaja como `what_if` o pelado (`changes` al tope).
+        const hayChanges = (o: any) => Array.isArray(o?.changes) || Array.isArray(o?.properties?.changes);
+        const whatIf = cuerpo?.what_if ?? (hayChanges(cuerpo) ? cuerpo : null);
         const plan = cuerpo?.plan ?? cuerpo;
-        if (!plan || !Array.isArray(plan.resource_changes)) {
+        if (whatIf) {
+            if (!hayChanges(whatIf)) {
+                return error(
+                    "invalid_what_if",
+                    "Falta `changes`. Se espera la salida de `az deployment group what-if --no-pretty-print`.",
+                    400,
+                    requestId
+                );
+            }
+        } else if (!plan || !Array.isArray(plan.resource_changes)) {
             return error(
                 "invalid_plan",
                 "Falta `resource_changes`. Se espera la salida de `terraform show -json <planfile>`.",
@@ -127,10 +116,28 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const estimacion = await estimarPlan(plan);
-
         const repository = String(cuerpo?.repository || "").slice(0, 255);
-        const gate = await evaluarGate(authResult.tenantId, repository, estimacion.delta);
+        const prNumber = Number.isFinite(Number(cuerpo?.pr_number)) && cuerpo?.pr_number !== null ? Number(cuerpo.pr_number) : null;
+        const herramienta = whatIf ? "bicep" : HERRAMIENTAS.has(String(cuerpo?.tool)) ? String(cuerpo.tool) : "terraform";
+        const tenantId = authResult.tenantId;
+
+        // Las tres lecturas son independientes y cada una FALLA ABIERTO: si MySQL no
+        // responde, el estimador sigue con precio de lista y sin gate. Esto corre en
+        // el CI de otra gente, y voltearle un PR por un problema de nuestra base es
+        // peor que dejar pasar uno caro. Es un control de costo, no de seguridad.
+        const [descuentoPct, filaGate, previa] = await Promise.all([
+            leerDescuento(tenantId),
+            leerGate(tenantId, repository),
+            leerEstimacionPrevia(tenantId, repository, prNumber),
+        ]);
+
+        const estimacion = whatIf ? await estimarWhatIf(whatIf, { descuentoPct }) : await estimarPlan(plan, { descuentoPct });
+
+        const presupuesto = filaGate?.cost_center_name
+            ? await presupuestoDelCentro(tenantId, filaGate.cost_center_name)
+            : null;
+        const contexto = presupuesto ? contextoDePresupuesto(presupuesto, estimacion.delta) : null;
+        const gate = evaluarGate(filaGate, estimacion.delta, contexto);
 
         // El registro es best-effort: la estimación ya está calculada y es lo que
         // el CI está esperando para comentar el PR. Si MySQL no está, se pierde
@@ -141,26 +148,40 @@ export async function POST(request: NextRequest) {
                     `INSERT INTO IacCostEstimations
                        (tenant_id, repository, pr_number, commit_sha, author,
                         current_monthly_cost_usd, projected_monthly_cost_usd, delta_cost_usd,
-                        resources_priced, resources_unpriced, gate_status, detail_json)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                        resources_priced, resources_unpriced, gate_status, detail_json, meta_json)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
-                        authResult.tenantId,
+                        tenantId,
                         repository,
-                        Number.isFinite(Number(cuerpo?.pr_number)) ? Number(cuerpo.pr_number) : null,
+                        prNumber,
                         String(cuerpo?.commit_sha || "").slice(0, 64) || null,
                         String(cuerpo?.author || "").slice(0, 255) || null,
                         estimacion.mensualActual,
                         estimacion.mensualProyectado,
                         estimacion.delta,
-                        estimacion.lineas.length - estimacion.sinTarifar - estimacion.sinCosto,
-                        estimacion.sinTarifar,
+                        estimacion.lineas.length - estimacion.sinTarifar - estimacion.porUso - estimacion.sinCosto,
+                        estimacion.sinTarifar + estimacion.porUso,
                         gate.status,
                         JSON.stringify(estimacion.lineas),
+                        JSON.stringify({
+                            tool: herramienta,
+                            discount_pct: estimacion.descuentoPct,
+                            list_delta_cost_usd: estimacion.listaDelta,
+                            resources_by_use: estimacion.porUso,
+                            gate_reason: gate.reason,
+                            budget: contexto,
+                        }),
                     ]
                 );
             } catch (e) {
                 console.error(`[shift-left] no se pudo registrar la estimación (${requestId}):`, errorMessage(e));
             }
+        }
+
+        // Sólo en la transición a EXCEEDED, y sin esperarlo: un Teams lento no puede
+        // demorar el comentario del PR.
+        if (repository && gate.status === "EXCEEDED" && previa?.gate_status !== "EXCEEDED") {
+            void avisarGateSuperado(tenantId, { repository, prNumber, delta: estimacion.delta, gate }).catch(() => {});
         }
 
         return NextResponse.json(
@@ -169,10 +190,24 @@ export async function POST(request: NextRequest) {
                     current_monthly_cost_usd: estimacion.mensualActual,
                     projected_monthly_cost_usd: estimacion.mensualProyectado,
                     delta_cost_usd: estimacion.delta,
+                    // Con descuento configurado los tres montos de arriba ya lo tienen
+                    // aplicado; el de lista viaja aparte para poder mostrar los dos.
+                    list_delta_cost_usd: estimacion.listaDelta,
+                    discount_pct: estimacion.descuentoPct,
                     currency: "USD",
-                    resources_unpriced: estimacion.sinTarifar,
+                    // `resources_unpriced` incluye lo que se cobra por consumo: ninguno
+                    // de los dos está en el número, y quien lo lee necesita saber que es un piso.
+                    resources_unpriced: estimacion.sinTarifar + estimacion.porUso,
+                    resources_by_use: estimacion.porUso,
                     resources_free: estimacion.sinCosto,
-                    budget_gate: { status: gate.status, threshold_usd: gate.threshold },
+                    budget_gate: {
+                        status: gate.status,
+                        threshold_usd: gate.threshold_usd,
+                        threshold_pct_of_remaining: gate.threshold_pct_of_remaining,
+                        reason: gate.reason,
+                    },
+                    budget: contexto,
+                    previous: previa,
                     lines: estimacion.lineas,
                 },
                 request_id: requestId,

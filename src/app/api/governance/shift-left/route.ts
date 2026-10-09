@@ -13,6 +13,7 @@ import pool from "@/modules/storage/db";
 import { AuthError, requireTenantAccess, requireTenantTier } from "@/lib/requestAuth";
 import { errorMessage, errorStatus, serverError } from "@/lib/apiErrors";
 import { isMockTenant } from "@/lib/mockData";
+import { CENTROS_DEMO, GATES_DEMO, itemsDemo } from "@/lib/shiftLeftDemo";
 
 export const dynamic = "force-dynamic";
 
@@ -20,14 +21,11 @@ const MAX_FILAS = 100;
 
 /** Demo: sin esto la pantalla queda vacía y parece rota, no vacía. */
 function datosDemo() {
-    const ahora = Date.now();
-    const items = [
-        { id: 3, repository: "acme/infra-azure", pr_number: 412, author: "lucia", delta_cost_usd: -184.32, current_monthly_cost_usd: 612.5, projected_monthly_cost_usd: 428.18, resources_priced: 9, resources_unpriced: 0, gate_status: "OK", created_at: new Date(ahora - 3600e3).toISOString() },
-        { id: 2, repository: "acme/infra-azure", pr_number: 409, author: "martin", delta_cost_usd: 1240.0, current_monthly_cost_usd: 612.5, projected_monthly_cost_usd: 1852.5, resources_priced: 4, resources_unpriced: 1, gate_status: "EXCEEDED", created_at: new Date(ahora - 26 * 3600e3).toISOString() },
-        { id: 1, repository: "acme/plataforma", pr_number: 77, author: "sofia", delta_cost_usd: 19.71, current_monthly_cost_usd: 0, projected_monthly_cost_usd: 19.71, resources_priced: 1, resources_unpriced: 0, gate_status: "NOT_EVALUATED", created_at: new Date(ahora - 5 * 24 * 3600e3).toISOString() },
-    ];
-    const gates = [{ repository: "acme/infra-azure", threshold_usd: 500 }];
-    return NextResponse.json({ items, kpis: kpisDe(items), gates, mock: true });
+    const items = itemsDemo();
+    return NextResponse.json({
+        items, kpis: kpisDe(items), gates: GATES_DEMO, costCenters: CENTROS_DEMO,
+        pricing: { discount_pct: 0 }, mock: true,
+    });
 }
 
 function kpisDe(items: any[]) {
@@ -55,7 +53,7 @@ export async function GET(request: NextRequest) {
         const [filas] = await pool.query<any[]>(
             `SELECT id, repository, pr_number, author, commit_sha,
                     current_monthly_cost_usd, projected_monthly_cost_usd, delta_cost_usd,
-                    resources_priced, resources_unpriced, gate_status, created_at
+                    resources_priced, resources_unpriced, gate_status, meta_json, created_at
                FROM IacCostEstimations
               WHERE tenant_id = ?
               ORDER BY created_at DESC
@@ -63,18 +61,44 @@ export async function GET(request: NextRequest) {
             [tenantId, MAX_FILAS]
         );
 
-        // Los umbrales viajan con el historial y no en un fetch aparte: la
-        // pantalla pinta las dos cosas juntas y son dos SELECT chicos.
+        // Lo que no depende de la lista viaja con ella y no en fetches aparte: la
+        // pantalla pinta todo junto y son SELECT chicos.
         const [gates] = await pool.query<any[]>(
-            `SELECT repository, threshold_usd
+            `SELECT repository, cost_center_name, threshold_usd, threshold_pct_of_remaining
                FROM IacBudgetGates
               WHERE tenant_id = ?
               ORDER BY repository`,
             [tenantId]
         );
+        const [centros] = await pool.query<any[]>(
+            `SELECT cost_center_name, monthly_budget_usd
+               FROM CostCenterBudgets
+              WHERE tenant_id = ?
+              ORDER BY cost_center_name`,
+            [tenantId]
+        );
+        const [precios] = await pool.query<any[]>(
+            `SELECT discount_pct FROM IacPricingSettings WHERE tenant_id = ? LIMIT 1`,
+            [tenantId]
+        );
 
-        const items = Array.isArray(filas) ? filas : [];
-        return NextResponse.json({ items, kpis: kpisDe(items), gates: Array.isArray(gates) ? gates : [] });
+        // `meta_json` es JSON nativo de MySQL: mysql2 lo entrega ya parseado, pero un
+        // driver o una versión distinta puede devolver el texto.
+        const items = (Array.isArray(filas) ? filas : []).map(({ meta_json, ...f }) => {
+            let meta: unknown = meta_json ?? null;
+            if (typeof meta === "string") {
+                try { meta = JSON.parse(meta); } catch { meta = null; }
+            }
+            return { ...f, meta };
+        });
+
+        return NextResponse.json({
+            items,
+            kpis: kpisDe(items),
+            gates: Array.isArray(gates) ? gates : [],
+            costCenters: Array.isArray(centros) ? centros : [],
+            pricing: { discount_pct: Number(precios?.[0]?.discount_pct) || 0 },
+        });
     } catch (e) {
         if (e instanceof AuthError) {
             return NextResponse.json({ error: errorMessage(e) }, { status: errorStatus(e) });

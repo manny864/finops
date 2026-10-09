@@ -10793,7 +10793,10 @@
     "tabReports": "Reportes",
     "tabSecurity": "Seguridad",
     "title": "Notificaciones",
-    "viewAll": "Ver todas las notificaciones"
+    "viewAll": "Ver todas las notificaciones",
+    "notif_shift_left_gate_title": "Shift-Left: {repo} superó su Budget Gate",
+    "notif_shift_left_gate_pct_msg": "El Pull Request agrega {delta} USD/mes, más que el {value}% del presupuesto restante del centro de costos.",
+    "notif_shift_left_gate_usd_msg": "El Pull Request agrega {delta} USD/mes y el umbral del repositorio es {value} USD/mes."
   },
   "OnboardingWizard": {
     "headerTitle": "Bienvenido a CSCloudSolutions FinOps",
