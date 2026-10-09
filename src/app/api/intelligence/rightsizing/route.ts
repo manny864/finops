@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getResourceGraphClient, getAzureCredential, getSubscriptionsForTenant } from '@/lib/azure';
 import { getVmUtilization } from '@/modules/collectors/azure/metricsService';
 import { analyzeVmEfficiency } from '@/modules/core/rightsizingEngine';
-import { getMonthlyCostEstimate } from '@/services/pricingService';
+import { precioMensualDisco } from '@/services/precioRecursoAzure';
 import { requireTenantRole, AuthError } from '@/lib/requestAuth';
 import { getWithStaleWhileRevalidate } from '@/lib/cache';
 import { withArgLimit } from '@/lib/argConcurrency';
@@ -209,8 +209,10 @@ export async function GET(request: NextRequest) {
             for (const diskId of attachedDiskIds) {
                 const diskInfo = disksMap.get(diskId);
                 if (diskInfo) {
-                    const cost = await getMonthlyCostEstimate("Storage", diskInfo.sku, diskInfo.location || vm.location || "eastus");
-                    storageCost += cost || (diskInfo.sizeGB * 0.15); // Fallback: $0.15 per GB
+                    // `diskInfo.sku` es el `sku.name` de ARM (`Premium_LRS`): la Retail API publica los
+                    // discos por tier y tamaño (`P10 LRS`), y por eso este precio valía SIEMPRE el respaldo.
+                    const cost = await precioMensualDisco(diskInfo.sku, diskInfo.sizeGB, diskInfo.location || vm.location || "eastus");
+                    storageCost += cost ?? (diskInfo.sizeGB * 0.15); // Fallback: $0.15 per GB
                 }
             }
 
