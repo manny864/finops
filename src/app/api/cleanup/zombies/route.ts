@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import { runGraphAudits } from "@/services/auditService";
 import { getMonthlyCostEstimate } from "@/services/pricingService";
+import { precioMensualDisco } from "@/services/precioRecursoAzure";
 import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { getWithStaleWhileRevalidate, invalidateCache } from "@/lib/cache";
@@ -123,8 +124,10 @@ async function scanLiveZombiesFromARG(tenantId: string, subscriptionId?: string 
               case "unattachedDisks": {
                 const sku = res.sku || "Standard_HDD";
                 const loc = res.location || "eastus";
-                const price = await getMonthlyCostEstimate("Storage", sku, loc);
-                cost = price || (res.diskSizeGB ? res.diskSizeGB * 0.15 : 15.0);
+                // `sku` es el `sku.name` de ARM (`Premium_LRS`): la Retail API publica los discos por
+                // tier y tamaño (`P10 LRS`), y por eso este precio valía SIEMPRE el respaldo.
+                const price = await precioMensualDisco(sku, res.diskSizeGB, loc);
+                cost = price ?? (res.diskSizeGB ? res.diskSizeGB * 0.15 : 15.0);
                 typeLabel = "microsoft.compute/disks";
                 break;
               }
