@@ -5670,7 +5670,8 @@ O sea que `price` es 0 siempre y el monto sale del respaldo de 70 USD por vCore.
 `'armSkuName'` no lo arregla: hace falta un mapeo propio (`GP_Gen5_n` →
 `SQLDB_GP_Compute_Gen5_n`, y otra forma para FSv2, DC y Serverless) y decidir cuál de
 las filas `vCore` / `Zone Redundancy vCore` se cobra. No se hizo; queda comentado en el
-código y en 46.4.
+código y en 46.4. **Hecho en 47.3**, donde además resulta que la fila `vCore` no incluye
+la licencia de SQL Server.
 
 ### 46.3 Los demás callers, revisados
 
@@ -5687,6 +5688,10 @@ comprueba: un disco sigue eligiendo su medidor de capacidad):
 | `lib/realizedSavings.ts` | — | No es un caller: el comentario nombra la función, pero `retail_catalog` sólo existe como valor del tipo `BaselineSource` y nada la llama desde ahí |
 
 ### 46.4 Lo que queda
+
+> **Actualización, mismo día (addendum 47):** los cinco primeros puntos de esta lista
+> —discos, App Service, Application Gateway, IP pública y SQL Database— se corrigieron,
+> cada uno en su commit. Siguen abiertos `getRetailPricing` y la verificación pendiente.
 
 Revisar los otros callers contra la API real (2026-10-09) mostró el mismo tipo de error
 —un identificador que la API no conoce, `200` con `Items: []`, precio 0 y el respaldo
@@ -5734,3 +5739,240 @@ Suite completa (`env -u DB_HOST REDIS_PORT=1 npx vitest run`): 4662 tests en ver
 40 omitidos, en 445 archivos (5 omitidos); `tsc` limpio y ESLint sin errores ni
 warnings nuevos. Sin migraciones ni variables de entorno nuevas: el despliegue es sólo
 el código, y se revierte con el commit.
+
+## 47. Addendum 2026-10-09 — Precios de recursos existentes: discos, IP pública, App Service, Application Gateway y SQL Database
+
+Cierra 46.4. Zombies, Auditoría completa, Rightsizing, Fugas financieras y Licencias le
+mandaban a `getMonthlyCostEstimate` el identificador que da Azure Resource Manager
+(`Premium_LRS`, `Standard_v2`, `GP_Gen5_2`, el servicio `App Service`), y la Retail API
+publica esos recursos con otros nombres: contesta `200` con `Items: []`, el helper lo
+vuelve 0 y cada llamador cae a su respaldo fijo sin que nadie se entere. Ahora esos
+precios salen de `src/services/precioRecursoAzure.ts`, que reutiliza el catálogo de
+Shift-Left y el estimador **sin editarlos** (`iacCostCatalog.ts` y
+`iacCostEstimator.service.ts` no se tocaron). Se hizo sobre `d8d9135`, todavía fuera de
+`main`, igual que 45 y 46, y **cada llamador está en su propio commit** para poder
+revertir un número sin los demás (47.6).
+
+**Este cambio mueve números que ve el usuario** en seis pantallas (47.5) y **hace
+aparecer** filas que nunca aparecían: los planes de App Service vacíos (47.4).
+
+### 47.1 Módulo — `src/services/precioRecursoAzure.ts`
+
+| Función | Recibe | Reutiliza |
+|---|---|---|
+| `precioMensualDisco(tipo, sizeGb, region)` | `sku.name` de ARM (`Premium_LRS`) y `diskSizeGB` | `azurerm_managed_disk` del catálogo: `skuDeDisco` + `elegirDisco` |
+| `precioMensualIpPublica(sku, region)` | `Basic` / `Standard` | `azurerm_public_ip`: `elegirIp` |
+| `precioMensualPlanAppService(sku, region, reserved)` | `sku.name` (`S1`, `P1v3`) y `properties.reserved` | `azurerm_service_plan`: `elegirPlanAppService` |
+| `precioMensualAppGateway(sku, region)` | `properties.sku.name` (`Standard_v2`, `WAF_v2`…) | `azurerm_application_gateway` |
+| `precioMensualSqlDatabase(sku, region)` | `sku.name` (`GP_Gen5_2`) | Mapeo propio (47.3), con `precioRetail` y `masReciente` |
+
+Las cuatro primeras tarifan el recurso como si se estuviera creando, con
+`estimarRecursos` del estimador: el servicio, el filtro y el medidor de cada una viven
+en el catálogo y no se repiten. Todas devuelven USD por mes o **`null`**, que **no es 0**
+sino «usá tu respaldo» (falta un dato, el recurso no tiene precio fijo, la API no
+publica el medidor o no contestó). Los llamadores lo escriben con `??` para no confundir
+`null` con un precio real de 0 (un plan Free). Ninguna lanza: una página de zombis no
+puede caerse por un precio. Lo que ARM no trae se asume en cada función, siempre lo más
+barato: informar de menos y decirlo.
+
+### 47.2 Lo que se midió contra la Retail API (2026-10-09)
+
+| Recurso | Lo que publica la API | Precio |
+|---|---|---|
+| Disco P10 LRS, `eastus` | producto `Premium SSD Managed Disks`, medidor `P10 LRS Disk` (hay otro igual en `Premium Page Blob` y un `Disk Mount`) | 19,71 / mes (`westus2`: 17,92) |
+| Plan App Service S1, `eastus` | servicio **`Azure App Service`**; productos `Standard Plan` y `Standard Plan - Linux` | 0,10 / h Windows, 0,095 / h Linux |
+| Application Gateway Standard v2 | servicio `Application Gateway`, producto `Application Gateway Standard v2`, medidor `Standard Fixed Cost` | 0,20 / h = 146,00 / mes |
+| IP pública, `westus2` | `skuName eq 'Standard'` trae `IP Addresses` (0,005/h) y `Public IP Prefix` (0,006/h); `Basic` trae la dinámica (0,004/h) y la estática (0,0036/h) | ver 47.5 |
+| SQL Database `SQLDB_GP_Compute_Gen5_2`, `eastus` y `westus2` | `vCore` 0,304434 / h por **tamaño** (2 × 0,152217) y `Zone Redundancy vCore` 0,18266 / h; todas las filas llegan duplicadas con el mismo precio | ver 47.3 |
+| SQL, licencia | **otro** medidor, región `Global`: `SQL Database Single/Elastic Pool General Purpose - SQL License` 0,099966 / vCore·h; `Business Critical - SQL License` 0,375; `Hyperscale - SQL License` 0,099966 | ver 47.3 |
+
+Los contratos se verificaron en Learn: `Microsoft.Compute/disks` (el `sku.name` es
+`Premium_LRS`, `StandardSSD_LRS`, `Standard_LRS`, `UltraSSD_LRS`, `Premium_ZRS`,
+`StandardSSD_ZRS` o `PremiumV2_LRS`, las mismas cadenas que espera `skuDeDisco`),
+`Microsoft.Network/publicIPAddresses` (`publicIPAllocationMethod` es `Dynamic` o
+`Static`), `Microsoft.Network/applicationGateways` (el `sku.name` coincide con los que
+maneja el adaptador del catálogo), `Microsoft.Web/serverfarms` (`reserved`: «If Linux app
+service plan true, false otherwise»; `isXenon` figura como obsoleto y `kind` es texto
+libre) y la página *Single database vCore resource limits* (las familias vigentes son
+`GP_Gen5`, `BC_Gen5`, `HS_Gen5`, `GP_DC`, `BC_DC`, `HS_DC`, `HS_PRMS`, `HS_MOPRMS` y las
+serverless `GP_S_Gen5` y `HS_S_Gen5`: FSv2 y M-series ya no figuran).
+
+### 47.3 SQL Database: qué fila se cobra
+
+En 46.2 quedó pendiente «decidir cuál de las filas `vCore` / `Zone Redundancy vCore` se
+cobra». La respuesta es más amplia, porque la fila `vCore` **no es el precio con
+licencia incluida**. Learn (*Azure Hybrid Benefit*): «License Included pricing is made up
+of base compute and SQL license components; Azure Hybrid Benefit pricing is made up of
+base compute and software assurance components». La API publica las dos partes por
+separado: el cómputo base por tamaño, en la región, y la licencia de SQL Server por vCore,
+en `Global`.
+
+```
+costo con licencia incluida = (vCore del tamaño  +  licencia × N)  ×  730
+GP Gen5 2 vCore :  (0,304434 + 2 × 0,099966) × 730  =    368,19 / mes
+GP Gen5 4 vCore :  (0,608868 + 4 × 0,099966) × 730  =    736,36 / mes
+BC Gen5 2 vCore :  (0,60887  + 2 × 0,375)    × 730  =    991,98 / mes
+```
+
+La comprobación de que la partición es la correcta: la licencia es el 39,6% del precio
+con licencia en GP (0,099966 de 0,252183 por vCore·hora) y el **55,2% en BC** (0,375 de
+0,679435), que es el «hasta 55%» que Microsoft anuncia para Business Critical.
+
+Decisiones que el tipo no muestra:
+
+- **Se cobra cómputo + licencia, no sólo `vCore`.** Las bases de esta lista salen de
+  `missingAhubSql` (`licenseType != BasePrice`): pagan licencia incluida, y la licencia
+  es justamente lo que Hybrid Benefit recorta. Con sólo la fila `vCore` el costo sería la
+  mitad y el ahorro, aplicado el 30% / 55%, también.
+- **El 30% (GP) y el 55% (BC) no se tocaron.** Se aplican ahora sobre el costo con
+  licencia: en BC coinciden con el 55,2% real; en GP el real es 39,6%, así que sigue
+  siendo conservador. Calcular el ahorro como el medidor de licencia × vCores sería exacto
+  y no necesitaría los porcentajes, pero cambia el 30% que muestra la pantalla: queda como
+  decisión de producto.
+- **`Zone Redundancy vCore` no se cobra.** Es una tercera fila que se suma si la base es
+  zonalmente redundante, y `missingAhubSql` no proyecta `zoneRedundant`. Se informa de menos.
+- **Sólo `GP_Gen5_n` y `BC_Gen5_n`.** Pools (`sku.name = ElasticPool`: el tamaño real es del
+  pool y no de la base), serverless (`GP_S_`; Hybrid Benefit no aplica a serverless),
+  Hyperscale (otra forma: 2 filas por vCore y no por tamaño), DC, `HS_PRMS` y `HS_MOPRMS`
+  devuelven `null` y siguen con el respaldo de 70 por vCore. Cada familia es una fila más
+  del mapeo, pero cada una exige verificar su forma en la API.
+- **Un mapeo propio y no un adaptador.** El catálogo no tiene SQL. Cuando gane
+  `azurerm_mssql_database`, los dos `Componente` de `precioMensualSqlDatabase` (cómputo y
+  licencia) se mudan allá tal cual.
+- **Dos consultas, no una por base.** El cómputo se pide por `armSkuName`
+  (`SQLDB_GP_Compute_Gen5_2`, una vez por tamaño y región) y la licencia a `Global` (una
+  vez por proceso), con la caché de `obtenerItemsRetail`.
+
+### 47.4 La KQL de planes vacíos nunca devolvió un plan
+
+Al verificar contra Resource Graph real, `emptyAppServicePlans` resultó **inválida**:
+
+```
+InvalidQuery: Summarize group key 'sku' is of a 'dynamic' type. Please use an explicit
+cast (for example, 'summarize ... by tostring(sku)')
+```
+
+`sku=sku.name` es un `dynamic` y el `summarize` agrupa por ella. Falla igual con la
+`api-version` del SDK (`2021-03-01`) y con `2022-10-01`. `runGraphAudits` corre **todo el
+catálogo** (63 consultas) y, ante una consulta inválida, sólo hace `console.warn` y
+devuelve `[]` para esa clave: los planes de App Service vacíos **nunca aparecieron** en
+Zombis ni en la auditoría de un tenant real. De las 63 consultas era la única inválida
+(62 corrían); con el cast corren las 63.
+
+- `f3a620b` castea `sku=tostring(sku.name)`.
+- `3007262` proyecta `reserved` para saber el sistema operativo del plan, con
+  `tostring(properties.reserved)` y **no** `tobool`: medido contra un plan Linux real
+  (`P0v3`, `kind: linux`), `tobool` llega como el número `1`, no como `true`, y un
+  `reserved === true` en la ruta habría tomado todos los planes Linux por Windows sin
+  ningún error. Con `tostring` llega `"true"` / `"false"`. Hay que conservarla en el `by`
+  del `summarize`, que descarta toda columna que no esté ahí. `precioMensualPlanAppService`
+  acepta `"true"`, `true` y `1`, y toma Windows (el defecto de la plataforma) si falta.
+
+**Consecuencia visible:** desde este cambio los planes vacíos aparecen en las pantallas, con
+su costo, y suman al total de desperdicio. No es un número que cambia sino una detección
+que se enciende.
+
+### 47.5 Números que cambian
+
+Precios de `westus2` salvo que se diga; USD por mes.
+
+| Pantalla (llamador) | Recurso | Antes | Ahora |
+|---|---|---|---|
+| Zombis, Fugas financieras | Disco sin asociar Premium 64 GB (P6) | 9,60 | 9,28 |
+| | Disco sin asociar Standard SSD 128 GB (E10) | 19,20 | 9,60 |
+| | Disco sin asociar Standard HDD 128 GB (S10) | 19,20 | 5,89 |
+| | Disco sin asociar Premium 128 GB (P10) | 19,20 | 17,92 (`eastus`: 19,71) |
+| Auditoría completa | Cualquier disco sin asociar | **0** (esa ruta no tenía respaldo) | el precio del tier (los de arriba) |
+| Zombis, Auditoría completa, Rightsizing | VM detenida: OS P6 + datos E10 | 28,80 | 18,88 |
+| | VM detenida: OS S10 + datos P10 | 38,40 | 23,81 |
+| Zombis, Auditoría completa | IP pública Standard | 3,65 o 4,38, según el orden de la API | 3,65 |
+| | IP pública Basic | 2,92 (la dinámica) | 2,63 (la estática) |
+| Zombis, Auditoría completa | Plan App Service S1 Linux | 75,00 | 58,40 (`eastus`: 69,35) |
+| | Plan App Service S1 Windows | 75,00 | 73,00 |
+| | Plan App Service P1v3 Linux | 150,00 | 113,15 |
+| | Plan App Service P1v3 Windows | 150,00 | 229,95 |
+| Zombis de red | Application Gateway Standard_v2 | 125,00 | 146,00 |
+| | Application Gateway WAF_v2 | 125,00 | 262,80 |
+| | Application Gateway Standard_Medium (v1) | 125,00 | 51,10 |
+| Licencias | Ahorro de Hybrid Benefit, SQL GP Gen5 2 vCore | 42,00 | 110,46 |
+| | SQL GP Gen5 4 vCore | 84,00 | 220,91 |
+| | SQL BC Gen5 2 vCore | 77,00 | 545,59 |
+
+Los discos Standard bajan mucho porque el respaldo de 0,15 por GB le pega mal: un HDD de
+128 GB cuesta 5,89 y no 19,20. Cada fila se cotiza con el mismo medidor que usa el
+estimador de Shift-Left, así que el número de un recurso existente coincide con el que
+daría el mismo recurso en un PR. Lo que no se puede tarifar sigue con el respaldo que ya
+tenía cada ruta (47.7).
+
+Los números nuevos aparecen cuando vence la caché de cada ruta (TTL de 10 minutos en la
+auditoría completa, 15 en zombis, 30 en zombis de red y 60 en rightsizing, más la ventana
+de gracia del *stale-while-revalidate*). No hace falta limpiar nada.
+
+### 47.6 Commits y cómo revertir un número
+
+| Commit | Qué cambia |
+|---|---|
+| `a72eb81` | El módulo y sus tests. No cambia ningún número: sin él no compila nada de lo que sigue |
+| `1630fa9` | Licencias: SQL |
+| `d61a5f7` | Zombis de red: Application Gateway |
+| `3f99826` | Rightsizing: discos de VMs detenidas |
+| `00a46e6` | Fugas financieras: discos sin asociar |
+| `76d55f8`, `b396fd6`, `b6b4356`, `b2d7009` | Zombis: discos sin asociar, VMs detenidas, IP pública, plan App Service |
+| `064187b`, `c472080`, `c445516`, `b8452d7` | Auditoría completa: discos sin asociar, VMs detenidas, IP pública, plan App Service |
+| `f3a620b` | KQL de planes vacíos: la hace válida (los planes aparecen) |
+| `3007262` | KQL de planes vacíos: proyecta `reserved` |
+
+Cada uno se revierte solo, salvo dos dependencias: los de plan App Service
+(`b2d7009`, `b8452d7`) usan `reserved` de `3007262`, y sin él cotizarían todo como
+Windows; y todos usan el módulo de `a72eb81`. Sin migraciones ni variables de entorno:
+el despliegue es sólo el código.
+
+### 47.7 Lo que queda
+
+- **Tablas fijas que nunca consultan la API.** `cleanup/zombies/route.ts` valúa los
+  `unusedAppGateways` con una tabla por SKU (130 / 200 / 250 / 330), sin pasar por
+  `precioMensualAppGateway`, y `azureZombieHunting.service.ts` usa tablas propias para las
+  VMs desasignadas (30), las IP (3,65) y los planes App Service (140 / 73 / 54 / 45). Por eso
+  **el mismo recurso puede mostrar ahorros distintos en Zombis y en Fugas financieras**:
+  es la duplicación de catálogos de precios de MEJ-32.
+- **Un plan App Service cotiza una instancia.** `sku.capacity` no se proyecta, así que un
+  plan escalado a varias instancias queda subestimado. Un Application Gateway v1 tampoco
+  proyecta `capacity`.
+- **IP pública.** Se asume IPv4 estática: la consulta no trae la versión ni la asignación.
+  Una Basic dinámica se cotiza 0,29 por debajo.
+- **Discos Ultra y PremiumV2** se cobran por GiB, IOPS y rendimiento aprovisionados: no hay
+  tier y siguen con el respaldo (0 en la auditoría completa, que no tiene).
+- **SQL:** pools, serverless, Hyperscale, DC y `HS_PRMS`/`HS_MOPRMS` (47.3), y la zona
+  redundante. Además, `missingAhubSql` excluye `GP_S_` pero no `HS_S_`: una base Hyperscale
+  serverless entraría a la lista de candidatas a Hybrid Benefit, que no aplica a serverless.
+- **`getRetailPricing`** (46.4) sigue con su propia copia de la regla de VMs.
+- **Verificación pendiente.** El tenant donde se verificó no tiene recursos huérfanos (las
+  seis consultas que alimentan estos cambios devolvieron 0 filas), así que las rutas se
+  ejercitaron con filas con la forma de Resource Graph y no con filas reales. Lo medido en
+  ese tenant sí fue real: un plan Linux (`reserved` llega `"true"`), un disco
+  `StandardSSD_LRS` de 127 GB (el redondeo al tier siguiente importa) y una IP
+  `Standard` / `Static` / `IPv4`. Las pantallas no se vieron en un navegador.
+
+### 47.8 Verificación
+
+- `__tests__/unit/precioRecursoAzure.test.ts` (31 tests): las cinco funciones contra el
+  fixture, incluida la independencia del orden de las filas, las SKU sin tier, los
+  `Items: []`, la licencia de SQL ausente y que no se pregunta lo que no se mapea.
+- Un test por llamador, con un `fetch` que contesta como la API (`fetchDeFixture()`, y
+  `conOrdenInvertido()` para el orden de las filas): `zombisPrecios`,
+  `auditoriaCompletaPrecios`, `zombisNetworkingPrecioAppGateway`, `rightsizingPrecioDiscos`,
+  `zombieHuntingPrecioDiscos` y `licenciasAhubPrecioSql`, más `kqlPlanesAppServiceVacios`.
+- **Cada commit de arreglo falla sin su arreglo**, comprobado con el `src` del padre y los
+  tests del commit (p. ej. `expected 75 to be close to 58.4`, `expected 4.38 to be close to
+  3.65`, `expected 42 to be 110.46`).
+- `__tests__/unit/precioRecursoAzureLive.test.ts` (13 casos, opt-in con
+  `npm run test:retail-live`): vuelve a preguntarle a la API y falla con el nombre del
+  recurso si Azure renombra un medidor. Corrido contra la API real: 13 de 13.
+- Fixture `retail-prices-2026-10-08.json`: 5 consultas nuevas capturadas el 2026-10-09 (SQL y
+  el disco P10), anotadas en la clave `ampliaciones`; las 22 anteriores no cambiaron.
+- Resource Graph real: las 63 consultas del catálogo corren (antes, 62), con
+  `az rest` sobre la API de consultas, sólo lectura.
+
+Suite completa (`env -u DB_HOST REDIS_PORT=1 npx vitest run`): 4740 tests en verde y 53
+omitidos, en 448 archivos (6 omitidos), contra 4662 y 440 antes; `tsc` limpio y ESLint sin
+errores y sin warnings nuevos.

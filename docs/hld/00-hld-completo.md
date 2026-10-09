@@ -1665,10 +1665,13 @@ producción y sólo se saltea la persistencia.
   auditorías de zombies, rightsizing y licencias, elige desde el 2026-10-09 el
   medidor de una VM con la misma regla que el estimador (`elegirVm`: nunca Spot ni
   Low Priority y, sin información del SO, Linux), y la auditoría de licencias ya
-  le pide los tamaños por `armSkuName` y como Windows (LLD 46). Lo que sigue sin
-  resolverse son los identificadores que otros callers le mandan para discos,
-  App Service, Application Gateway y SQL Database, que la API contesta con
-  `Items: []` y los deja en sus valores de respaldo (LLD 46.4).
+  le pide los tamaños por `armSkuName` y como Windows (LLD 46). Los identificadores
+  que otros callers le mandaban para discos, IP pública, App Service, Application
+  Gateway y SQL Database, que la API contestaba con `Items: []` y dejaba en sus valores
+  de respaldo, se corrigieron el mismo día con `precioRecursoAzure.ts`, que reutiliza el
+  catálogo de Shift-Left (LLD 47). Lo que sigue sin resolverse son las tablas fijas de
+  zombis y fugas financieras que nunca consultan la API, y SQL fuera de Gen5 provisionada
+  (LLD 47.7).
 - **Despliegue:** las migraciones `20261008-033` y `20261008-034` van antes que el
   código, como ya hace el pipeline, y después hay que verificarlas en producción
   (job `migrate` y Log Analytics, no el ✅ del log del workflow).

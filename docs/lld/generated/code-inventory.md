@@ -9,7 +9,7 @@ naturales a revisar primero cuando algo del dominio no cierra.
 
 Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI directamente.
 
-169 archivos.
+170 archivos.
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
@@ -62,7 +62,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureVmPowerManagement.service.ts` | 543 | `RawScheduleRow`, `toDbAction`, `fromDbAction`, `fromDbStatus`, `parseDaysOfWeek`, `serializeDaysOfWeek`, … |
 | `src/services/anomalyDetectionService.ts` | 530 | `DETECTION_WINDOW_DAYS`, `SENSITIVITY_Z_SCORE`, `DailyCost`, `DetectedAnomaly`, `AnomalyContributor`, `computeStats`, … |
 | `src/services/azureGovernanceReporting.service.ts` | 528 | `toResourceTypeLabel`, `normalizePrincipalType`, `isOrphanedPrincipal`, `isPrivilegedRole`, `calcPercentage`, `buildResourceTypeBreakdown`, … |
-| `src/services/azureZombieHunting.service.ts` | 502 | `AzureZombieHuntingService` |
+| `src/services/azureZombieHunting.service.ts` | 504 | `AzureZombieHuntingService` |
 | `src/services/costExportIngestionService.ts` | 502 | `IngestionResult`, `splitCsvLine`, `parseExportTags`, `importeDeColumna`, `agruparPorEjecucion`, `ingestCostExportsForTenant` |
 | `src/services/azureAppInsights.service.ts` | 496 | `APP_INSIGHTS_RATE_PER_GB`, `TELEMETRY_TYPE_COLORS`, `calculateAppInsightsSummary`, `generateAppInsightsRecommendations`, `generateMockAppInsightsData`, `fetchAppInsightsData`, … |
 | `src/services/executiveReportHistory.service.ts` | 490 | `BLOB_CONTAINER_REPORTS`, `getTierRetentionDays`, `getTenantPlanTier`, `getExecutiveReportHistory`, `generateDownloadSas`, `rehydrateReportData`, … |
@@ -115,7 +115,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureWhatIfSimulator.service.ts` | 297 | `simulateScenario`, `getMockWhatIfPayload`, `assembleLiveWhatIf` |
 | `src/services/azureSustainability.service.ts` | 293 | `AzureSustainabilityService` |
 | `src/services/cosmosMetrics.service.ts` | 288 | `MetricasCosmos`, `ParticionCosmos`, `VENTANA_DIAS`, `metricasVacias`, `percentil95`, `leerSeries`, … |
-| `src/services/azureLicenseOptimization.service.ts` | 278 | `getLicenseOptimizationData` |
+| `src/services/azureLicenseOptimization.service.ts` | 279 | `getLicenseOptimizationData` |
 | `src/services/iacGate.service.ts` | 276 | `EstadoGate`, `FilaGate`, `PresupuestoCentro`, `ContextoPresupuesto`, `ResultadoGate`, `contextoDePresupuesto`, … |
 | `src/services/superAdminAiConfig.service.ts` | 276 | `getPlatformGlobalAiSettings`, `savePlatformGlobalAiSettings`, `deletePlatformAiApiKey`, `testPlatformAiConnection` |
 | `src/services/iacCostCatalogArm.ts` | 273 | `AccionArm`, `ParRecursoArm`, `tipoDeResourceId`, `CATALOGO_ARM`, `SIN_COSTO_ARM`, `POR_USO_ARM`, … |
@@ -159,6 +159,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/rateService.ts` | 146 | `RateRecommendation`, `calculateReservationSavings` |
 | `src/services/anomalyOwnerResolver.ts` | 144 | `AssignmentVia`, `OwnerResolution`, `ContributorLike`, `resolveAnomalyOwner` |
 | `src/services/ttlService.ts` | 137 | `TTL_RESOURCE_TYPES`, `TtlResourceType`, `findExpiredResources`, `getUnlabeledResources` |
+| `src/services/precioRecursoAzure.ts` | 130 | `precioMensualDisco`, `precioMensualIpPublica`, `precioMensualPlanAppService`, `precioMensualAppGateway`, `precioMensualSqlDatabase` |
 | `src/services/advisorRemediationNarration.ts` | 129 | `narrateAdvisorRecommendations` |
 | `src/services/auditService.ts` | 126 | `runGraphAudits`, `runMonitorAudits`, `runM365Audits` |
 | `src/services/reportSubscriptions.service.ts` | 124 | `Frecuencia`, `Suscripcion`, `FechaLocal`, `enZona`, `diasDelMes`, `diaEfectivoDelMes`, … |
