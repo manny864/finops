@@ -157,6 +157,8 @@ infra/                            # Infraestructura como código (Terraform)
 └── docs/                         # Guía de despliegue, residencia de datos, costos
 
 migrations/                       # SQL idempotente YYYYMMDD-NNN-descripcion.sql
+integrations/                     # Shift-Left: Action de GitHub, plantilla de Azure DevOps y job de GitLab CI
+public/integrations/shift-left/   # finops-estimate.sh: el script único que descargan los tres CI
 docs/                             # Guías técnicas profundas + auditorías de seguridad
 ```
 
@@ -455,6 +457,44 @@ segundo.
 ---
 
 ## 📈 Recent Major Updates
+
+### 2026-10-08 — Shift-Left: el costo de un Pull Request, con 18 tipos de recurso, Bicep y presupuesto
+
+Detalle técnico en `docs/lld/00-lld-completo.md` §45, arquitectónico en
+`docs/hld/00-hld-completo.md` §20 y el plan en
+`docs/plan-ampliar-shift-left-2026-10-08.md`. Tres commits (`1f8ea61`, `cc56e98` y
+`2b523ab`) cierran las fases 0 a 6 de MEJ-20. Antes, Shift-Left tarifaba cuatro tipos de
+Terraform desde una GitHub Action contra un umbral fijo en USD.
+
+- **Cobertura.** 18 tipos de Terraform y sus equivalentes ARM en Bicep: VMs Linux y Windows,
+  VMSS, AKS, App Service Plan, Redis, Firewall, Bastion, VPN Gateway, Application Gateway,
+  Container Registry, NAT Gateway, Load Balancer, IPs públicas y discos. Lo que se cobra por
+  consumo, lo que no se pudo tarifar y lo que el número no incluye salen aparte, con su motivo.
+  Una falla de la Retail API **nunca** se toma como precio cero.
+- **Un script, tres CI.** `public/integrations/shift-left/finops-estimate.sh` (bash, `curl` y
+  `jq`) reduce el plan a una lista de atributos permitidos —los secretos no salen del
+  runner—, lo estima y comenta el PR **editando** el comentario anterior. Lo usan GitHub,
+  Azure DevOps y GitLab; el workflow que entrega la pantalla fija su SHA-256, así que si el
+  archivo cambia el paso falla antes de ejecutarlo. Falla abierto si la plataforma no
+  responde y cerrado ante un error de configuración.
+- **Budget Gate por presupuesto.** Por monto, por % de lo que queda del presupuesto del
+  centro de costos del repositorio, o los dos; falla el **más estricto** entre la plataforma y
+  el workflow. Un PR que ahorra nunca lo dispara. Usa el presupuesto base: no suma el arrastre.
+- **Descuento del cliente.** Un porcentaje por tenant sobre el precio de lista; el comentario
+  muestra los dos números y el gate se mide contra el que tiene descuento.
+- **Pantalla** (`/governance/shift-left`, Enterprise): *Conectar tu pipeline*, *Precios*,
+  desglose por recurso, evolución por repositorio, exportación a CSV, y aviso (campanita y
+  canales) la primera vez que un PR supera el gate.
+- **Comando nuevo:** `npm run test:retail-live` vuelve a consultar la Retail API real y falla
+  si Azure cambió el nombre de un medidor. No corre con `npm test`.
+- **Migraciones nuevas:** `20261008-033-shift-left-descuento-del-cliente.sql` y
+  `20261008-034-shift-left-presupuesto-por-repo.sql`. Van antes que el código, como ya hace el
+  pipeline; después verificarlas en producción (job `migrate` y Log Analytics, no el ✅ del
+  log del workflow).
+- **Fuera de esta entrega:** bases de datos administradas, Pulumi, descuento derivado de la
+  facturación y precios de reserva. **Sin verificar:** el what-if de Bicep contra una corrida
+  real, los endpoints de comentarios de GitHub contra su documentación y la pantalla en un
+  navegador.
 
 ### 2026-10-08 — Normalización de valores de etiquetas (fase 2), encendida
 

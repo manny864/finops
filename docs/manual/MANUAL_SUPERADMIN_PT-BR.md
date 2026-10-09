@@ -1027,24 +1027,61 @@ Esta tela não é mostrada a usuários com alcance atribuído: é o inventário 
 
 ### 7.10. Shift-Left FinOps (`/governance/shift-left`, Enterprise)
 
-**O custo se decide quando alguém escreve o `.tf`, não quando chega a fatura.** O Shift-Left leva o impacto econômico de uma mudança de infraestrutura para a revisão do **Pull Request**, que é onde ainda é barato corrigi-lo. Funciona sobre Terraform. No menu, fica em **Governança → Shift-Left (PRs)**.
+**O custo se decide quando alguém escreve o `.tf`, não quando chega a fatura.** O Shift-Left leva o impacto econômico de uma mudança de infraestrutura para a revisão do **Pull Request**, que é onde ainda é barato corrigi-lo. Funciona sobre **Terraform, OpenTofu e Bicep**, e se conecta ao **GitHub, Azure DevOps e GitLab**. No menu, fica em **Governança → Shift-Left (PRs)**.
 
-**Como funciona.** No pipeline do PR gera-se o plano (`terraform plan`), uma action do GitHub o envia à plataforma, e a plataforma estima o **delta de custo mensal** com os **preços de tabela do Azure**. O resultado volta como comentário no Pull Request (que é editado a cada push, não se acumula) e pode **fazer o check falhar** se o aumento superar um limite. A action e o seu exemplo de workflow são descritos em 11.10, e ela precisa de uma API Key com a permissão `write:shift-left`.
+**Como funciona.** No pipeline do PR gera-se o plano (`terraform plan` ou `tofu plan`) ou a simulação do Bicep (`az deployment group what-if`), um script da plataforma o reduz aos atributos que importam para o preço e o envia, e a plataforma estima o **delta de custo mensal** com os **preços de tabela do Azure**. O resultado volta como comentário no Pull Request (que é editado a cada push, não se acumula) e pode **fazer o check falhar** se o aumento superar um limite. Precisa de uma API Key com a permissão `write:shift-left`; o detalhe técnico está em 11.10.
 
-**Como ler o número.** O delta é um **piso, não um total**: precifica-se o que a plataforma sabe mapear a um medidor da Azure Retail Prices API —hoje **máquinas virtuais Linux e Windows, discos gerenciados e IPs públicos**—; o resto é contado à parte como *sem precificar* e aparece no comentário, e se esse número não é zero o custo real é maior. São **preços de tabela**: não incluem as suas reservas, Savings Plans, descontos EA/CSP nem markup. Serve para comparar o antes contra o depois de um PR, não substitui o custo real que a plataforma mostra.
+**Conectar seu pipeline.** O painel **Conectar seu pipeline** monta o arquivo para o seu caso, pronto para copiar:
+
+1. Escolha a **ferramenta** (Terraform, OpenTofu ou Bicep) e a plataforma (**GitHub Actions**, **Azure DevOps** ou **GitLab CI**).
+2. Gere uma API Key com a permissão `write:shift-left` (o painel tem um link para **API Keys**) e guarde-a como segredo do pipeline com o nome `FINOPS_API_KEY`. Ela nunca vai escrita no arquivo.
+3. Copie o arquivo para o seu repositório. Ele já traz a URL da plataforma e o **SHA-256 do script**: o pipeline baixa o script, verifica esse hash e só então o executa, de modo que, se o arquivo mudasse, o passo falha em vez de rodar algo diferente do que publicamos.
+4. Abra um Pull Request que toque infraestrutura: o comentário aparece sozinho e é atualizado a cada push.
+
+O script fica **só com os atributos que o estimador lê** (tipo de recurso, região, SKU, quantidades): senhas, chaves, `custom_data` e tags não saem do seu runner.
+
+**Como ler o número.** O delta é um **piso, não um total**. Cada recurso é avaliado *antes* e *depois* conforme seja criado, modificado, substituído ou apagado, e o delta é a diferença; um PR que só apaga recursos mostra uma **economia**. Só se precifica o que a plataforma sabe mapear a um medidor da Azure Retail Prices API, e o resto é contado à parte. Há quatro situações:
+
+- **Precificado**: máquinas virtuais Linux e Windows (com *Azure Hybrid Benefit*), conjuntos de escala (VMSS), AKS (cluster, *node pools* e o SLA pago), planos do App Service, Azure Cache for Redis, Azure Firewall, Bastion, VPN Gateway, Application Gateway (v1 e v2), Container Registry, NAT Gateway, Load Balancer, IPs públicos e discos gerenciados.
+- **Sem custo próprio**: grupos de recursos, redes, sub-redes, interfaces de rede, grupos e regras de segurança, atribuições de função, identidades etc. Não somam e não contam como sem precificar.
+- **Cobrado por consumo**: Storage, Log Analytics, Key Vault, Service Bus, Event Hubs, Cosmos DB, Functions e similares. Não há um preço fixo a estimar —depende de GB, transações ou execuções—, mas o gasto vai existir.
+- **Sem precificar**: tipos que a plataforma ainda não cobre (por exemplo, os bancos de dados gerenciados), ou recursos aos quais faltam o SKU, a região ou um valor que o Azure só define ao aplicar. A tela mostra o **motivo** de cada um.
+
+Se a quantidade de recursos *por consumo* ou *sem precificar* não é zero, o custo real é maior que o delta. Além disso, vários recursos precificados trazem uma **nota** que esclarece o que o número **não inclui**: o disco do sistema operacional de uma VM ou dos nós do AKS, os dados processados por um NAT Gateway, um Firewall ou um Load Balancer, a transferência de dados de um VPN Gateway ou de um Bastion, as unidades de capacidade de um Application Gateway, o armazenamento de um Container Registry ou o suporte estendido (LTS) do AKS Premium. Com autoescalonamento toma-se o **mínimo** de nós, um preço *Spot* varia com a demanda e uma região inferida do resto do plano é marcada como tal.
+
+São **preços de tabela**: não incluem as suas reservas, Savings Plans, descontos EA/CSP nem markup, exceto o desconto que você carregar no painel *Preços* (próximo ponto). Serve para comparar o antes contra o depois de um PR, não substitui o custo real que a plataforma mostra.
+
+**Preços (desconto do cliente).** Se o seu contrato ou as suas reservas dão desconto, carregue no painel **Preços** uma **porcentagem média sobre o preço de tabela** (de 0 a 100). Ela é aplicada a cada estimativa e o comentário do PR mostra os dois números —com e sem desconto—, assim o time vê quanto pesa a mudança a preço de tabela e a preço do seu contrato. É uma única porcentagem para todo o tenant, não por serviço; 0 ou vazio a remove.
 
 **O que você vê na tela.**
 - Quatro KPIs: **Planos analisados**, **Aumento detectado**, **Economia detectada** e **Bloqueados por limite**.
-- O **histórico**: uma linha para cada `terraform plan` analisado, com repositório, autor, custo *antes* e *depois*, **delta mensal**, estado do limite (*Dentro do limite*, *Limite superado* ou *Sem limite*) e data. Se há recursos que não puderam ser precificados, a tela avisa que **o delta é um piso, não o total**.
+- Os painéis **Conectar seu pipeline** e **Preços**, descritos acima.
+- O **histórico**: uma linha para cada plano analisado, com repositório, autor, custo *antes* e *depois*, **delta mensal**, **orçamento** (quanto pesa a mudança sobre o mensal do centro de custo, se o repositório tiver um), estado do limite (*Dentro do limite*, *Limite excedido* ou *Sem limite*, com o motivo —*Superou o valor* ou *Superou o % do orçamento*—) e data. Se há recursos sem precificar ou por consumo, a tela avisa que **o delta é um piso, não o total**, e um selo indica quando a estimativa tem o desconto aplicado.
+- O **detalhamento por recurso**: ao expandir uma linha (*Ver detalhamento*) vê-se cada recurso com sua ação (*Criar*, *Modificar*, *Excluir*, *Substituir* ou *Sem mudanças*), o custo antes e depois, o delta a preço de tabela, o motivo pelo qual não pôde ser precificado e as notas.
+- **Evolução por repositório**: um gráfico com o delta mensal de cada estimativa do repositório, em ordem e contra o limite. Um PR que é corrigido depois do primeiro comentário aparece como uma queda. São necessárias pelo menos duas estimativas do repositório.
+- **Exportar CSV** do histórico.
 
-**Budget Gates.** Você define, por repositório, quantos USD por mês um Pull Request pode adicionar. Se superar, o check do GitHub falha. Como os limites se combinam:
+**Budget Gates.** Você define, por repositório, quanto um Pull Request pode adicionar, de duas maneiras que podem ser usadas juntas:
 
-- O `threshold-usd` do workflow, se existir, **vence** sobre o da plataforma: um time pode ser mais estrito no seu próprio pipeline, não mais frouxo.
+- **Por valor**: USD por mês. Se o PR adicionar mais, o check falha.
+- **Por % do orçamento**: você escolhe o **centro de custo** do repositório e uma porcentagem do que **resta** do seu orçamento mensal (orçamento menos o gasto do mês até hoje). Se o PR adicionar mais que essa porcentagem, o check falha. Precisa de um centro de custo com orçamento carregado (5.1.5). Usa-se o orçamento mensal **base**: o valor transferido não é somado. Se o orçamento do mês já se esgotou, qualquer aumento supera o gate.
+
+Como se combinam:
+
+- Se há um limite na plataforma e outro no workflow (`threshold-usd`), **falha o mais estrito**: um time pode apertar o controle no seu próprio pipeline, não afrouxá-lo.
+- Os limites são medidos contra o delta **com** o desconto aplicado, que é o que você vai pagar.
+- Um PR que **economiza** nunca dispara o gate.
 - Sem nenhum limite o gate fica *não avaliado*: informa e não bloqueia.
-- Se a plataforma não responde, **também não bloqueia**: é um controle de custo, e parar o trabalho de um time por uma queda nossa é pior do que deixar passar uma mudança cara.
-- Só um **Admin ou Owner** pode alterar os limites.
+- Se a plataforma não responde (sem rede, erro 5xx ou 429, depois de tentar de novo), **também não bloqueia**: é um controle de custo, e parar o trabalho de um time por uma queda nossa é pior do que deixar passar uma mudança cara. Já uma chave inválida ou sem a permissão `write:shift-left`, ou um plano que não pode ser lido, **fazem o passo falhar**: são erros de configuração que precisam ser vistos.
+- Só um **Admin ou Owner** pode alterar os limites e o desconto.
 
-**Limites atuais.** Apenas Terraform (não Bicep) e apenas GitHub (não Azure DevOps). O limite é em USD absolutos —não percentual—, e o desbloqueio de um PR bloqueado se resolve com os mecanismos do próprio repositório (outro commit, ou as regras de proteção de branches): a plataforma não tem um fluxo de aprovação próprio.
+**Aviso quando é superado.** Na primeira vez que um PR passa a *Limite excedido*, a plataforma cria uma **notificação** (o sininho, com link para esta tela) e a envia aos canais de notificação do tenant (Slack, Teams ou e-mail) com severidade *warning*. Os pushes seguintes do mesmo PR não repetem o aviso enquanto continuar superado.
+
+**Limites atuais.**
+- Não cobre os **bancos de dados gerenciados** (SQL Database, MySQL, PostgreSQL, Cosmos DB): o preço deles depende de combinações que ainda não são mapeadas de forma confiável, então aparecem como *sem precificar* ou *por consumo*.
+- Também não lê **Pulumi**, e o desconto é uma porcentagem única: não é derivado da sua cobrança nem modela reservas.
+- As **instâncias adicionais de um Bastion** e o suporte estendido do AKS Premium não são somados: o número é um piso e a nota avisa.
+- O desbloqueio de um PR bloqueado se resolve com os mecanismos do próprio repositório (outro commit, ou as regras de proteção de branches): a plataforma não tem um fluxo de aprovação próprio.
 
 ---
 
@@ -1556,20 +1593,67 @@ Você pode fazer upgrade para um plano pago a qualquer momento em **Faturamento*
 - **Redis de produção:** Azure Managed Redis com HA habilitada.
 - **Edge/CDN:** usamos Cloudflare na frente da origem no Azure.
 
-### 11.10. Shift-Left FinOps: API e GitHub Action (Enterprise)
+### 11.10. Shift-Left FinOps: API, script de CI e Budget Gates (Enterprise)
 
 O que faz e como ler o resultado: veja 7.10. Aqui, a parte técnica.
 
 **A permissão.** O escopo **`write:shift-left`** não vem nas chaves existentes: é preciso concedê-lo explicitamente ao gerar a key em **Integrações e API → API Pública** (11.3). É de propósito: uma chave de leitura de custos não deveria poder escrever estimativas.
 
-**A API.** `POST /api/v1/shift-left/estimate`, com a API Key no header `X-API-Key`. Recebe o plano do Terraform em JSON (a saída de `terraform show -json`, até 6 MB) e devolve o delta de custo mensal, o custo projetado, a quantidade de recursos sem precificar e o estado do Budget Gate do repositório (`OK`, `EXCEEDED` ou `NOT_EVALUATED`).
+**A API.** `POST /api/v1/shift-left/estimate`, com a API Key no header `X-API-Key` (o script usa `Authorization: Bearer`, que também é aceito). Recebe, até 6 MB, **uma** destas duas entradas, pura ou envolvida em `{ "plan": … }` / `{ "what_if": … }`:
 
-**A GitHub Action** *FinOps PR Cost Estimator* envolve essa chamada em um passo do workflow do Pull Request:
+- o plano do **Terraform ou OpenTofu** em JSON (a saída de `terraform show -json`, com `resource_changes`), ou
+- a saída do what-if do **Bicep** (`az deployment group what-if --no-pretty-print`, com `changes`).
+
+Campos opcionais do corpo: `repository`, `pr_number`, `commit_sha`, `author` e `tool` (`terraform` ou `tofu`; o Bicep é reconhecido pela sua forma). Sem `repository` a estimativa é calculada, mas não fica no histórico. A resposta (`data`) traz:
+
+| Campo | O que é |
+|---|---|
+| `current_monthly_cost_usd`, `projected_monthly_cost_usd`, `delta_cost_usd` | Custo antes, depois e a diferença, com o desconto do tenant já aplicado |
+| `list_delta_cost_usd`, `discount_pct` | O delta a preço de tabela e o desconto aplicado |
+| `resources_unpriced` | Recursos sem precificar **mais** os cobrados por consumo: nenhum está no número |
+| `resources_by_use` | Desses, os cobrados por consumo |
+| `budget_gate` | `status` (`OK`, `EXCEEDED` ou `NOT_EVALUATED`), os limites e `reason` (`usd` ou `pct`) |
+| `budget` | Se o repositório tem centro de custo: seu orçamento, o gasto do mês, o que resta e quanto pesa o delta |
+| `previous` | A estimativa anterior do mesmo PR (alimenta o «push anterior» do comentário) |
+| `lines` | O detalhamento por recurso: ação, região, custo antes e depois, componentes, notas e motivo |
+
+Erros: `401` chave inválida, `403` sem o escopo, `400` corpo que não é JSON ou sem `resource_changes` / `changes`, `413` mais de 6 MB e `429` limite da chave.
+
+**O que estima e como.** O estimador avalia cada recurso *antes* e *depois* segundo sua ação (`create`, `update`, `delete`, `replace` ou sem alteração) e soma a diferença. Cobre **18 tipos de recurso do Terraform** (e seus equivalentes ARM no Bicep) com preços da **Azure Retail Prices API**, que é consultada com cache de 6 horas, novas tentativas diante de `429` e um teto de páginas. Se essa API não responde, o recurso fica *sem precificar* com o motivo «A API de preços não respondeu» e **nunca é tomado como preço zero**; já um medidor com preço 0 (por exemplo, um plano Free) é válido. A região padrão só é inferida se o plano declara uma única.
+
+**O script.** `public/integrations/shift-left/finops-estimate.sh` (bash, `curl` e `jq`) faz o trabalho de ponta a ponta e os três CI o usam da mesma forma: obtém o plano, **o reduz a uma lista de atributos permitidos** (senhas, chaves, `custom_data` e tags não saem do runner), o envia, escreve o comentário e devolve o resultado do gate. É configurado por variáveis de ambiente:
+
+| Variável | Para quê |
+|---|---|
+| `FINOPS_API_KEY` | A API Key com `write:shift-left`. Sempre a partir de um segredo |
+| `FINOPS_API_URL` | Base da plataforma |
+| `FINOPS_TOOL` | `terraform` (padrão), `tofu` ou `bicep` |
+| `FINOPS_PLAN_FILE`, `FINOPS_PLAN_JSON` | O plano binário (padrão `tfplan.bin`) ou um JSON já gerado; para o Bicep, o what-if |
+| `FINOPS_THRESHOLD_USD` | Limite deste workflow, em USD por mês (opcional) |
+| `FINOPS_REPOSITORY`, `FINOPS_PR_NUMBER`, `FINOPS_COMMIT_SHA`, `FINOPS_AUTHOR` | O contexto do PR; os arquivos do painel os preenchem sozinhos |
+| `FINOPS_COMMENT` | `auto` (padrão), `true` ou `false`: comentar no PR |
+| `FINOPS_OUTPUT_DIR` | Onde escrever `finops-comment.md`, `finops-result.json` e `finops.env` |
+
+**Código de saída.** `0` é correto ou sem avaliar; `1`, o Budget Gate foi superado; `2`, erro de configuração (chave inválida, sem o escopo, plano ilegível). Se a plataforma responde `429` ou `5xx`, ou não há rede, o script **tenta de novo com espera crescente e, se continuar falhando, sai com `0` e um aviso**: não se bloqueia um PR por uma queda alheia. Já `401`, `403`, `400` e `413` são erros de configuração e **fazem o passo falhar**.
+
+**Como cada plataforma comenta.** O comentário leva uma marca oculta (`<!-- finops-shift-left -->`): a cada push o script procura o da execução anterior e o **edita** em vez de criar outro. Se não consegue listar os comentários, não publica às cegas.
+
+| Plataforma | Token para comentar | Disparador |
+|---|---|---|
+| GitHub | `GITHUB_TOKEN`, com a permissão `pull-requests: write` | `pull_request` |
+| Azure DevOps | `SYSTEM_ACCESSTOKEN` (`$(System.AccessToken)`); a identidade do build precisa de *Contribute to pull requests* | Política de branch (*Build validation*) no Azure Repos |
+| GitLab | `FINOPS_GITLAB_TOKEN` ou `GITLAB_TOKEN`, um token com escopo `api` (`CI_JOB_TOKEN` não basta para escrever notas) | Pipeline de *merge request* |
+
+Além disso escreve o resumo do passo (`GITHUB_STEP_SUMMARY`), as saídas (`GITHUB_OUTPUT`) e as variáveis do Azure DevOps, para encadear outros passos.
+
+**Como se instala.** Os três arquivos, ajustados à ferramenta escolhida, saem do painel **Conectar seu pipeline** (`GET /api/governance/shift-left/setup`, Enterprise); no repositório da plataforma estão em `integrations/`: a **GitHub Action** *FinOps PR Cost Estimator* (`integrations/github-action`, uma *composite action* que envolve o script), o template do Azure DevOps e o *job* base do GitLab CI. Os três baixam o script da plataforma e **fixam seu SHA-256**: o hash é calculado lendo o arquivo que é servido, então não pode ficar defasado, e se o arquivo muda o passo falha antes de executá-lo.
+
+Um workflow do GitHub com a action:
 
 ```yaml
 permissions:
   contents: read
-  pull-requests: write   # sem isto não consegue comentar
+  pull-requests: write   # sem isso não consegue comentar
 
 steps:
   - uses: actions/checkout@v4
@@ -1580,10 +1664,15 @@ steps:
     with:
       api-key: ${{ secrets.FINOPS_API_KEY }} # sempre por secrets, nunca literal
       plan-file: tfplan.bin
-      threshold-usd: '200'                   # opcional: Budget Gate local
+      threshold-usd: '200'                   # opcional: limite deste workflow
+      script-sha256: <o hash que a tela mostra>
 ```
 
-Entradas: `api-key` (obrigatória), `plan-file` (padrão `tfplan.bin`), `plan-json` (um plano já convertido, para não precisar do Terraform no runner), `threshold-usd`, `comment` e `api-url`. Saídas, para encadear com outros passos: `delta-usd`, `projected-usd`, `unpriced` e `gate-status`. Precisa de `jq`, `curl` e `bc`, que já vêm nos runners do GitHub.
+Entradas: `api-key` (obrigatória), `tool`, `plan-file` (padrão `tfplan.bin`), `plan-json` (um plano já convertido, para não precisar do Terraform no runner), `threshold-usd`, `comment`, `api-url` e `script-sha256` (recomendado). Saídas, para encadear com outros passos: `delta-usd`, `projected-usd`, `unpriced` e `gate-status`. Precisa de `bash`, `curl` e `jq`, que já vêm nos runners do GitHub e do Azure DevOps.
+
+**As telas de gestão** usam rotas próprias, todas no tier Enterprise e as de escrita só para Admin e Owner: `GET /api/governance/shift-left` (histórico, gates, centros de custo e desconto), `GET /api/governance/shift-left/[id]` (detalhamento de uma estimativa), `PUT .../gates` (por valor, por % do orçamento e centro de custo; sem nenhum valor apaga o gate do repositório) e `PUT .../pricing` (desconto de 0 a 100).
+
+**Aviso do gate.** Quando um PR passa a `EXCEEDED` pela primeira vez, `avisarGateSuperado` cria a notificação do sininho (chaves `notif_shift_left_gate_*`) e chama `notifyTenant`, que respeita o interruptor mestre de notificações e o filtro de severidade de cada canal. O envio não é aguardado: um canal lento não atrasa o comentário do PR.
 
 ### 11.11. Ingestão de métricas de negócio por API (receita e volume)
 

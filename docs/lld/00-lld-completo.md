@@ -5106,3 +5106,471 @@ registra que `normalization/ai` no escribe en Azure.
 Suite completa (`env -u DB_HOST REDIS_PORT=1 npx vitest run`): 4372 tests en
 verde y 39 omitidos, en 432 archivos; `tsc` limpio y sin warnings nuevos de
 ESLint. Falta probarlo con un tenant real y las migraciones aplicadas.
+
+## 45. Addendum 2026-10-08 — Shift-Left: estimador de 18 tipos, Bicep, Budget Gate por presupuesto y script único de CI
+
+MEJ-20, fases 0 a 6 del plan
+([`docs/plan-ampliar-shift-left-2026-10-08.md`](../plan-ampliar-shift-left-2026-10-08.md)).
+Contexto arquitectónico en el HLD §20. Tres commits sobre `main`: `1f8ea61` (el
+estimador cubre 18 tipos de recurso, elige bien el medidor y lee Bicep), `cc56e98`
+(descuento del cliente, Budget Gate por presupuesto y aviso al superarlo) y `2b523ab`
+(un script único de CI para GitHub, Azure DevOps y GitLab, y la pantalla que lo
+explica). Antes el estimador tarifaba VM, disco e IP pública de Terraform, con una
+GitHub Action, contra un umbral fijo en USD.
+
+### 45.1 Precios — `src/services/pricingService.ts`
+
+| Símbolo | Contrato |
+|---|---|
+| `precioMensualDesdeUnidad(precio, unidad)` | Ahora acepta también `1/Hour` y `1/Day`, además de `1 Hour`, `N Hours`, `1/Month` y `N Days`. Devuelve `null` si la unidad necesita una cantidad que el helper no recibe (por GB, por 10.000 operaciones) |
+| `obtenerItemsRetail(c: ConsultaItems, deps?: DepsRetail): Promise<ResultadoItems>` | Consulta la Retail API. `ConsultaItems` es `{ serviceName, region, filtro?: { campo: 'skuName' \| 'armSkuName', valor } }`; sin `filtro` trae todo el servicio de esa región. Devuelve `{ items: ItemRetail[] }` o `{ error: 'limite' \| 'api' \| 'filtro-invalido' }` y **nunca lanza** |
+| `limpiarCacheItemsRetail()` | Vacía la caché y las consultas en vuelo (para los tests) |
+| `DepsRetail` | `{ fetch?, esperar?, ahora? }`: se inyectan para probar sin red ni relojes reales |
+
+Contrato de la API, verificado en Learn y contra la API real el 2026-10-08:
+máximo 1000 ítems por página (`NextPageLink`), el `$filter` distingue mayúsculas
+desde `2023-01-01-preview`, los campos filtrables incluyen `serviceName`,
+`armRegionName`, `skuName`, `armSkuName`, `productName` y `meterName`, y responde
+`429` si se la consulta seguido. Spot y Low Priority vienen como `Consumption`, y
+Load Balancer y NAT Gateway se publican con `armRegionName = Global`.
+
+- **Páginas y reintentos.** Siempre filtra `priceType eq 'Consumption'`. Lee hasta
+  `MAX_PAGINAS = 10` por consulta (10.000 ítems; lo que exceda no se lee y **no da
+  error**) y reintenta hasta `MAX_INTENTOS = 3` por página, con espera `500 · 2ⁿ` ms o el
+  `Retry-After` de la respuesta con tope de 5 s. `error: 'limite'` es un `429` que
+  persiste tras los tres intentos; `error: 'api'`, un `5xx`, una falla de red o
+  cualquier respuesta que no sea `ok`.
+- **Caché.** `TTL_ITEMS_MS` de 6 h (`TTL_VACIO_MS` de 10 min si la respuesta vino vacía,
+  para no fijar un error), hasta `MAX_ENTRADAS_ITEMS = 300` (sale la más antigua) y
+  deduplicación de consultas en vuelo: dos recursos del mismo plan que piden lo mismo
+  hacen una sola llamada. Un `error` no se guarda en la caché.
+- **Entrada validada.** Cada valor del `$filter` tiene que cumplir
+  `/^[A-Za-z0-9 ._()+\-]+$/`: sale del plan de un cliente y una comilla simple lo
+  rompería o inyectaría otra condición. Si no cumple, `error: 'filtro-invalido'`.
+- **No se tocó `getMonthlyCostEstimate`.** Sigue con la selección vieja que usan
+  otros módulos (45.12).
+
+### 45.2 Catálogo de Terraform — `src/services/iacCostCatalog.ts`
+
+Todo mapeo nace de dos comprobaciones y no de la analogía con otro servicio, porque
+la Retail API contesta `200` con `Items: []` o con el medidor de otro recurso, y el
+síntoma es un costo equivocado y no un error: los nombres de atributo salen del
+esquema del provider `azurerm` 4.81.0 (`terraform providers schema -json`) y de un
+`terraform plan` real, y los medidores, de consultas reales a la API. Ambos quedaron
+como fixtures (45.11).
+
+**Tipos.** `Attrs = Record<string, any>`; `MotivoSinTarifar = 'tipo-no-soportado' |
+'sin-sku' | 'sin-region' | 'sin-precio' | 'por-uso' | 'valor-al-aplicar' |
+'precio-no-disponible'`; `Componente { etiqueta, consulta: ConsultaItems, elegir(items)
+→ ItemRetail | null, cantidad }`; `Resultado = { componentes, notas } | { motivo, nota? }`;
+`ContextoLinea { desconocidos, regionPorDefecto }`; `EntradaTf { familia, campos,
+camposAnidados?, construir(attrs, ctx) → Resultado }`.
+
+**Estructura.** Una *familia* sabe qué se cobra y qué medidor mirar; un *adaptador*
+(uno por IaC) sabe de qué atributo sale cada dato. Terraform y Bicep comparten las
+reglas de precio y sólo difieren en cómo leen el recurso.
+
+**Selectores de medidor** (ninguno usa `Items[0]`: el orden de la API no está
+garantizado y el primero de una VM era la fila Spot de Windows):
+
+| Selector | Regla |
+|---|---|
+| `masReciente(items)` | Entre equivalentes, el de `effectiveStartDate` más reciente que ya esté vigente |
+| `elegirVm(items, { windows, spot })` | Por hora, primer nivel, excluye Low Priority; Spot sólo si `priority = Spot`; Windows se reconoce por `productName` |
+| `elegirDisco(items, sku)` | `meterName = '<sku> Disk'` y `productName` de *Managed Disks* (`P20 ZRS` tiene otro medidor igual en *Page Blob*) |
+| `skuDeDisco(storage_account_type, disk_size_gb)` | `Premium_LRS` y 200 GiB → `P15 LRS`: el primer tier **mayor o igual** al tamaño, como factura Azure. PremiumV2 y Ultra no tienen tier: `sin-sku` |
+| `elegirIp(items, { sku, ipv, estatica })` | `productName` *IP Addresses* y medidor `<sku> IPv4 Static Public IP` (el `skuName` Standard también trae *Public IP Prefix*) |
+| `elegirPlanAppService(items, { sku, linux })` | Compara el SKU sin espacios (`P1v3` = `P1 v3`) y distingue Linux por `productName` terminado en `- Linux`; excluye contenedores, aislados y workflows |
+| `porMedidor(nombre, extra?)` | Medidor exacto, convertible a mensual y de primer nivel |
+| `normalizarRegion(v)` | Minúsculas y sin espacios ni guiones: `West US 2` → `westus2` |
+
+**Los 18 tipos de `CATALOGO_TF`:**
+
+| Tipo | Qué se cobra | Notas que emite |
+|---|---|---|
+| `azurerm_linux_virtual_machine`, `azurerm_windows_virtual_machine` | Cómputo por hora + disco del SO. Con `license_type` `Windows_Server` o `Windows_Client` (AHB) cobra como Linux | `disco-os-no-incluido` si el plan no trae el disco, `spot-variable` |
+| `azurerm_linux_virtual_machine_scale_set`, `azurerm_windows_…`, `azurerm_orchestrated_…` | Lo mismo × `instances` (el orquestado lee `sku_name`) | Las mismas |
+| `azurerm_kubernetes_cluster` | Nodos del pool del sistema + SLA *Standard Uptime* para `Standard` y `Premium` | `discos-os-no-incluidos`, `autoescalado-minimo`, `lts-no-incluido` (Premium) |
+| `azurerm_kubernetes_cluster_node_pool` | Nodos del pool (sin `location`: región del plan) | `region-inferida`, `discos-os-no-incluidos`, `autoescalado-minimo` |
+| `azurerm_service_plan` | Plan × `worker_count`. D1 se publica como *Shared*. Y1 es `por-uso`; EP, WS, FC e I son `sin-sku` | |
+| `azurerm_redis_cache` | Medidor `<familia><capacidad> Cache` del producto `Azure Redis Cache <sku>` × `shard_count` (no *Cache Instance*, que es un solo nodo) | |
+| `azurerm_firewall` | `<tier> Deployment`. El de Virtual Hub es `sin-sku` | `datos-procesados-no-incluidos` |
+| `azurerm_bastion_host` | `<sku> Gateway` | `transferencia-no-incluida`, `instancias-adicionales-no-incluidas` (más de 2 `scale_units`) |
+| `azurerm_virtual_network_gateway` | Medidor del SKU; ExpressRoute es `sin-sku` | `transferencia-no-incluida` |
+| `azurerm_application_gateway` | v2: costo fijo (*Standard Fixed Cost* o *Basic Fixed Cost*). v1: `<tamaño> Gateway` × capacidad | `unidades-de-capacidad-no-incluidas` (v2), `datos-procesados-no-incluidos` (v1) |
+| `azurerm_container_registry` | Unidad de registro (diaria) + una unidad por réplica geográfica Premium, en la región de la réplica | `almacenamiento-no-incluido` |
+| `azurerm_nat_gateway` | `Standard Gateway`, región `Global` | `datos-procesados-no-incluidos` |
+| `azurerm_lb` | `<sku> Included LB Rules and Outbound Rules`, región `Global`. El Basic es `sin-sku` | `reglas-adicionales-y-datos-no-incluidos` |
+| `azurerm_public_ip` | Medidor según SKU, versión de IP y asignación | |
+| `azurerm_managed_disk` | Tier del disco según `skuDeDisco` | |
+
+- **`SIN_COSTO`** (no suman ni cuentan como sin tarifar): resource group, subnet,
+  virtual network, NIC, NSG y sus reglas, route table y rutas, las asociaciones,
+  los recursos hijos de Load Balancer, role assignment, user assigned identity,
+  management lock, las web apps (viven en el plan que sí cobra), extensiones de VM,
+  data disk attachment y los `random_*`.
+- **`POR_USO`** (motivo `por-uso`): storage account, Log Analytics, Application
+  Insights, Key Vault, Service Bus, Event Hubs, Cosmos DB, function apps, cognitive
+  account, data factory y diagnostic setting.
+- **`camposDelCatalogo()`** devuelve la unión de `campos` y `camposAnidados`: es lo
+  que compara `iacEstimateScript.test` con las allowlists del script (45.8).
+- Las **bases de datos administradas no están**: los medidores no son consistentes entre
+  SKUs y SQL Database no trae `location` en el recurso (45.12).
+
+### 45.3 Adaptadores de Bicep — `src/services/iacCostCatalogArm.ts`
+
+El what-if de ARM (`az deployment group what-if --no-pretty-print`, o la REST con
+`properties.changes`) trae `changes[]` con `resourceId`, `changeType` (`Create`,
+`Delete`, `Ignore`, `Deploy`, `NoChange`, `NoEffect`, `Modify`, `Unsupported`),
+`before` y `after`. Cada adaptador traduce el recurso ARM a los atributos con nombre de
+Terraform y lo entrega al mismo `CATALOGO_TF`:
+
+| Símbolo | Contrato |
+|---|---|
+| `tipoDeResourceId(id)` | Tipo ARM en minúsculas a partir del `resourceId` |
+| `accionDeCambio(changeType)` | `create`, `delete`, `update`, `no-op` o `'no-soportado'` |
+| `CATALOGO_ARM` | 14 tipos: `virtualmachines`, `virtualmachinescalesets`, `disks`, `managedclusters`, `serverfarms`, `redis`, `azurefirewalls`, `bastionhosts`, `virtualnetworkgateways`, `applicationgateways`, `registries`, `natgateways`, `loadbalancers` y `publicipaddresses`. Un adaptador devuelve `ParRecursoArm[]`: `{ sufijo, tipoTf, antes, despues }` |
+| `SIN_COSTO_ARM`, `POR_USO_ARM` | Los equivalentes de 45.2 |
+| `camposArm()` | Las 34 claves que el script de CI conserva del what-if |
+
+- **VM:** el sistema operativo sale de `storageProfile.osDisk.osType`, no del nombre.
+- **AKS:** un recurso ARM da el clúster y un par por pool, con sufijo `#pool/<nombre>`.
+- **`Deploy`** llega con `ResourceIdOnly`, sin `before` ni `after`: el recurso sale
+  *sin tarifar* con la acción del cambio, en vez de desaparecer.
+- **Contrato de entrada.** Las propiedades se verificaron contra los esquemas
+  oficiales, las definiciones AAZ del Azure CLI y Learn. El fixture
+  `arm-whatif-completo.json` se construyó a mano con esa forma: **no** se capturó de
+  una corrida real (45.12).
+
+### 45.4 Estimador — `src/services/iacCostEstimator.service.ts`
+
+| Símbolo | Contrato |
+|---|---|
+| `leerPlan(plan)` | `RecursoPlaneado[]` desde `resource_changes`; clasifica cada tipo en `ClaseRecurso = 'costo' \| 'sin-costo' \| 'por-uso' \| 'no-soportado'` |
+| `leerWhatIf(whatIf)` | Lo mismo desde `changes` (o `properties.changes`) |
+| `accionDe(actions)` | `AccionPlan = 'create' \| 'delete' \| 'update' \| 'replace' \| 'no-op'`. `["delete","create"]` y `["create","delete"]` son `replace` |
+| `estimarPlan(plan, opciones?)`, `estimarWhatIf(whatIf, opciones?)`, `estimarRecursos(recursos, opciones?)` | → `Promise<Estimacion>` |
+| `resumir(lineas, descuentoPct)` | Suma las líneas y aplica el descuento |
+| `precioRetail: FuncionPrecio` | El precio por defecto: pregunta a `obtenerItemsRetail`, elige con `c.elegir` y convierte a mensual |
+| `OpcionesEstimacion` | `{ precio?, descuentoPct?, concurrencia? }`. El primero se inyecta para probar sin red |
+
+**Algoritmo por recurso (`tarifarRecurso`).**
+
+1. `sin-costo` → línea en cero; `por-uso` → motivo `por-uso`; `no-soportado` → motivo
+   `tipo-no-soportado`; `no-op` → línea en cero sin llamar a la API.
+2. Se valúa el estado **antes** si la acción es `delete`, `update` o `replace`, y el
+   **después** si es `create`, `update` o `replace`. El delta es `después − antes`.
+3. Si cualquiera de los dos estados no se puede valuar, el recurso sale con su
+   motivo y **sin número**: un delta a medias no es confiable.
+4. Cada componente se pide a `precio(c)` y se multiplica por su `cantidad`.
+5. **Un fallo de precio nunca es cero.** `precioRetail` distingue `sin-precio` (la API
+   contestó y el medidor no existe: no sirve reintentar) de `precio-no-disponible`
+   (429 o caída: reintentar sí sirve). Un medidor encontrado con precio 0 es válido.
+6. La región de los recursos que no la traen (node pools, bases SQL) sale de
+   `regionUnica`: sólo si todos los que la declaran coinciden en una. Con dos no se
+   adivina y queda `sin-region`.
+7. `conLimite` evalúa 4 recursos a la vez (`concurrencia`), conserva el orden y
+   evita castigar la API.
+
+**`resumir`.** Con `descuentoPct` entre 0 y 100 (se recorta), cada línea conserva su
+monto de lista (`listaAntes`, `listaDespues`) y el principal lleva el descuento.
+`Estimacion` trae `lineas`, `mensualActual`, `mensualProyectado`, `delta`,
+`listaActual`, `listaProyectada`, `listaDelta`, `descuentoPct`, `sinTarifar` (sin
+contar los de consumo), `porUso` y `sinCosto`. Ningún total incluye lo que no se
+tarifó.
+
+### 45.5 Gate, descuento y aviso — `src/services/iacGate.service.ts`
+
+| Símbolo | Contrato |
+|---|---|
+| `evaluarGate(fila, delta, ctx)` | → `ResultadoGate { status: 'NOT_EVALUATED' \| 'OK' \| 'EXCEEDED', threshold_usd, threshold_pct_of_remaining, reason: 'usd' \| 'pct' \| null }` |
+| `contextoDePresupuesto(p, delta)` | → `ContextoPresupuesto { cost_center, monthly_usd, spent_usd, remaining_usd, delta_pct_of_budget, delta_pct_of_remaining }` |
+| `leerGate(tenantId, repo)` | `FilaGate { threshold_usd, threshold_pct_of_remaining, cost_center_name }` o `null`; una falla de lectura no bloquea |
+| `presupuestoDelCentro(tenantId, centro)` | `PresupuestoCentro { centro, mensual, gastado }` o `null` |
+| `leerDescuento(tenantId)` | 0–100; sin fila o ante una falla, 0 |
+| `leerEstimacionPrevia(tenantId, repo, pr)` | La última estimación del mismo PR: `{ delta_cost_usd, commit_sha, gate_status, created_at }` |
+| `avisarGateSuperado(tenantId, d)` | Notificación de campanita y `notifyTenant` |
+
+**`evaluarGate`.** Recibe `Estimacion.delta`, o sea el delta **con** el descuento del
+cliente: se mide contra lo que el cliente va a pagar, no contra el precio de lista.
+
+- Sin fila, o sin ningún umbral, `NOT_EVALUATED`.
+- Un PR con `delta ≤ 0` **nunca** dispara el gate: con un umbral de 0 USD el gate
+  significa «no se permite agregar costo», y ahorrar no es agregar.
+- `pasaUsd = threshold_usd !== null && delta > threshold_usd`.
+- `pasaPct` sólo si hay porcentaje **y** contexto de presupuesto; si `remaining_usd ≤ 0`,
+  cualquier `delta > 0` lo supera; si no, `delta > remaining_usd × pct / 100`.
+- Si pasa el monto, `reason = 'usd'`; si no, y pasa el porcentaje, `reason = 'pct'`.
+  Si hay umbral por monto o el porcentaje se pudo evaluar, `OK`; si el porcentaje no
+  se pudo evaluar (sin presupuesto) y no hay monto, `NOT_EVALUATED`.
+
+**`presupuestoDelCentro`.** `mensual` es `CostCenterBudgets.monthly_budget_usd`, el
+presupuesto **base**: no suma el arrastre de 5.1.5. `gastado` es
+`SUM(COALESCE(EffectiveCost, cost_usd, 0))` de `CostSnapshots` del mes en curso con
+`JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')) = centro`.
+
+**El más estricto manda.** La plataforma devuelve su `budget_gate`; el script
+compara además contra `FINOPS_THRESHOLD_USD` y marca `EXCEEDED` (razón `local`) si el
+delta lo supera (45.8). Un workflow puede apretar el control, no aflojarlo. Antes, el
+código dejaba pasar el más laxo y la documentación decía que el del workflow «ganaba».
+
+**`avisarGateSuperado`.** Dos *call sites* literales de `createNotification`, uno por
+motivo, con `titleKey: "notif_shift_left_gate_title"`, `messageKey:
+"notif_shift_left_gate_pct_msg"` o `"notif_shift_left_gate_usd_msg"` y `params: { repo,
+delta, value }` con nombres sueltos. No es una limitación arbitraria: el escáner de i18n
+lee las claves y los params **del fuente con una regex que corta en la primera llave**,
+así que no admite un mensaje ICU con ramas `select`, atajos de objeto ni plantillas
+con `${}`. `href: "/governance/shift-left"`, `severity: "warning"`, `source:
+"shift-left"`. Además `notifyTenant` (Slack, Teams y correo), que respeta el
+interruptor maestro y el filtro de severidad de cada canal. El título y el mensaje en
+castellano son el respaldo de los canales que no usan la UI localizada.
+
+### 45.6 Tablas — migraciones `20261008-033` y `20261008-034`
+
+Idempotentes (`INFORMATION_SCHEMA` + `PREPARE`) y probadas dos veces seguidas contra un
+MySQL 8.0.46. Van antes que el código.
+
+**`IacPricingSettings`** (`033`). Una fila por tenant; sin fila, sin descuento.
+
+| Columna | Tipo | Nota |
+|---|---|---|
+| `tenant_id` | `VARCHAR(255)` PK | FK `fk_iac_pricing_tenant` → `Tenants` `ON DELETE CASCADE` |
+| `discount_pct` | `DECIMAL(5,2) NOT NULL DEFAULT 0.00` | `DECIMAL` y no `FLOAT`: 12,50 % tiene que dar siempre el mismo delta |
+| `updated_by` | `VARCHAR(255)` NULL | |
+| `updated_at` | `TIMESTAMP` | `ON UPDATE CURRENT_TIMESTAMP` |
+
+**`IacBudgetGates`** (`034`):
+- `cost_center_name VARCHAR(255) NULL` — el valor del tag `CostCenter`.
+- `threshold_pct_of_remaining DECIMAL(6,2) NULL` — porcentaje de lo que queda del mes.
+- `threshold_usd` pasa a `DECIMAL(12,4) NULL`: un repositorio puede tener sólo el gate
+  por porcentaje, o sólo el centro de costos sin umbral.
+
+**`IacCostEstimations`** (`034`): `meta_json JSON NULL` después de `detail_json`, con lo
+que se calculó al estimar y no tiene columna propia: `{ tool, discount_pct,
+list_delta_cost_usd, resources_by_use, gate_reason, budget }`. JSON y no columnas porque
+son datos de lectura que cambian con el producto; lo que se filtra o suma sigue teniendo
+columna. `detail_json` guarda `lineas`.
+
+La FK de `IacPricingSettings` la exige `cascadaBorradoTenant.test`. Ni
+`src/db/schema.sql` ni `src/modules/storage/schema.sql` nombran las tablas `Iac*`: viven
+sólo en las migraciones.
+
+### 45.7 Endpoints
+
+Todos en tier **Enterprise**; los de escritura, sólo **Admin** y **Owner**. El tenant de
+demo se atiende sin sesión; en las escrituras valida igual y sólo se saltea la
+persistencia.
+
+| Endpoint | Autenticación | Contrato |
+|---|---|---|
+| `POST /api/v1/shift-left/estimate` | API Key (`X-API-Key` o `Authorization: Bearer`) con scope `write:shift-left`, más rate limit por clave | Cuerpo de hasta 6 MB: el plan pelado, `{ plan }` o `{ what_if }` (también pelado, con `changes`), más `repository`, `pr_number`, `commit_sha`, `author` y `tool`. Respuesta en `data`: `current_monthly_cost_usd`, `projected_monthly_cost_usd`, `delta_cost_usd`, `list_delta_cost_usd`, `discount_pct`, `currency`, `resources_unpriced` (sin tarifar **más** por consumo), `resources_by_use`, `budget_gate`, `budget`, `previous` y `lines`. Errores: `401 unauthorized`, `403 insufficient_scope`, `429 rate_limit_exceeded`, `413 payload_too_large`, `400 invalid_json`, `invalid_what_if` o `invalid_plan` |
+| `GET /api/governance/shift-left` | Sesión del tenant | Historial con `meta` parseado, `gates` con centro y porcentaje, `costCenters` con presupuesto y `pricing` |
+| `GET /api/governance/shift-left/[id]` | Sesión del tenant | El desglose por recurso de una estimación; `404` si es de otro tenant |
+| `PUT /api/governance/shift-left/gates` | Admin u Owner | `{ repository, threshold_usd?, threshold_pct_of_remaining?, cost_center_name? }`. El porcentaje va de 0 a 1000 y **exige** centro; el centro exige un presupuesto en `CostCenterBudgets`. Sin ninguno de los tres, borra la fila |
+| `PUT /api/governance/shift-left/pricing` | Admin u Owner | `{ discount_pct }` de 0 a 100; `0` o vacío borra la fila |
+| `GET /api/governance/shift-left/setup` | Sesión del tenant | `{ apiUrl, scriptUrl, sha256, tool, snippets }`. `?tool=terraform\|tofu\|bicep`; `400` con otra herramienta o sin `tenantId` |
+
+**Detalles de `estimate`:**
+- Las tres lecturas (`leerDescuento`, `leerGate`, `leerEstimacionPrevia`) corren en
+  paralelo con `Promise.all` y **cada una falla abierta**: si MySQL no responde, el
+  estimador sigue con precio de lista y sin gate.
+- Una entrada con `what_if` o con `changes` al tope se trata como Bicep (`tool = 'bicep'`).
+- El `INSERT` en `IacCostEstimations` es *best-effort* y sólo si hay `repository`: la
+  estimación ya está calculada y es lo que el CI espera. `resources_priced` es el total
+  de líneas menos sin tarifar, por consumo y sin costo; `resources_unpriced`, sin tarifar
+  más por consumo.
+- El aviso sale con `void avisarGateSuperado(...).catch(() => {})`, sin esperarlo, y
+  **sólo en la transición**: `gate.status === 'EXCEEDED'` y la estimación previa del
+  mismo PR no estaba en `EXCEEDED`.
+
+### 45.8 Script de CI — `public/integrations/shift-left/finops-estimate.sh`
+
+Un solo bash con `curl` y `jq`, servido como archivo estático. Lo usan igual GitHub,
+Azure DevOps, GitLab y cualquier otro CI.
+
+**Flujo:**
+1. **El plan.** Con `terraform` o `tofu`, `FINOPS_PLAN_JSON` si se da; si no,
+   `$TOOL show -json $FINOPS_PLAN_FILE` (por defecto `tfplan.bin`). Con `bicep`,
+   `FINOPS_PLAN_JSON` es obligatorio. Se valida que sea JSON.
+2. **Reducir.** `jq` conserva sólo `CAMPOS_TF` y `ANIDADOS_TF` (Terraform) o `CAMPOS_ARM`
+   (Bicep, en cualquier nivel). Es una **allowlist**: lo que no está nombrado no sale
+   del runner. `terraform show -json` trae las contraseñas en claro. El plan reducido se
+   estima exactamente igual que el completo (verificado con el plan real de 25
+   recursos). Un test falla si las listas se desfasan de `camposDelCatalogo()` o
+   `camposArm()`.
+3. **Estimar.** `POST /api/v1/shift-left/estimate` con `curl -K -`: el encabezado
+   `Authorization: Bearer` viaja por stdin y no en la línea de comandos, donde se vería
+   en la lista de procesos. Hasta 3 intentos ante `429`, `5xx` o sin red, con espera
+   `intento × FINOPS_RETRY_DELAY` (4 s por defecto).
+4. **El gate.** El más estricto entre `budget_gate.status` y `FINOPS_THRESHOLD_USD`
+   (razón `local`). Un umbral local que no se supera, con el gate de la plataforma sin
+   evaluar, deja `OK`.
+5. **El comentario.** Se arma con `jq` en `finops-comment.md`: tabla antes, después y
+   delta; el delta a precio de lista si hay descuento; el «push anterior»; el
+   presupuesto del centro; el estado del gate; la advertencia de sin tarifar; y un
+   `<details>` con el desglose por recurso y sus motivos y notas, traducidos.
+6. **Publicar** (45.8.1) y escribir las salidas.
+
+**Código de salida:** `0` correcto o sin evaluar; `1` el gate se superó; `2`
+configuración o entrada inválida. **Falla abierto** (`exit 0` con una advertencia
+`anotar warning` y `FINOPS_GATE=NOT_EVALUATED`) ante `429` sostenido, `5xx` o sin red;
+**falla cerrado** (`exit 2`) ante `401`, `403`, `400`, `413` y `422`, y si faltan
+`jq`, `curl` o `FINOPS_API_KEY`, o `FINOPS_THRESHOLD_USD` no es un número.
+
+**Variables de entorno:** `FINOPS_API_KEY`, `FINOPS_API_URL` (por defecto
+`https://finops.cscloudsolutions.com.ar`), `FINOPS_TOOL`, `FINOPS_PLAN_FILE`,
+`FINOPS_PLAN_JSON`, `FINOPS_THRESHOLD_USD`, `FINOPS_REPOSITORY`, `FINOPS_PR_NUMBER`,
+`FINOPS_COMMIT_SHA`, `FINOPS_AUTHOR`, `FINOPS_OUTPUT_DIR`, `FINOPS_RETRY_DELAY` y
+`FINOPS_COMMENT` (`auto`, `true` o `false`).
+
+**Salidas:** `finops-comment.md`, `finops-result.json`, `finops.env` (`KEY=VALUE`),
+`GITHUB_OUTPUT` y `GITHUB_STEP_SUMMARY` si existen, y las variables de Azure DevOps.
+Las anotaciones de error o advertencia usan la sintaxis de cada CI (`::error::`,
+`##vso[task.logissue]` o texto plano).
+
+#### 45.8.1 Publicar el comentario
+
+El comentario empieza con la marca `<!-- finops-shift-left -->`. En cada corrida el
+script lista los comentarios, busca el que la lleva y lo **edita**; si no hay, lo
+crea. Si ni siquiera puede **listar**, no hace `POST` a ciegas.
+
+| Plataforma | Token | Endpoints |
+|---|---|---|
+| GitHub | `GITHUB_TOKEN` (permiso `pull-requests: write`) | Sobre `${GITHUB_API_URL}/repos/<repo>`: `GET issues/<pr>/comments?per_page=100&page=N` (recorre las páginas), `POST issues/<pr>/comments` y `PATCH issues/comments/<id>` |
+| Azure DevOps | `SYSTEM_ACCESSTOKEN` (la identidad del build necesita *Contribute to pull requests*) | `POST` y `GET .../pullRequests/{id}/threads` y `PATCH .../threads/{tid}/comments/{cid}`, con `commentType` 1 y `status` 1, api-version 7.1. Lee `System.PullRequest.PullRequestId`, `SourceCommitId` (sólo con política de rama), `System.CollectionUri` (con barra final) y `Build.Repository.ID` |
+| GitLab | `FINOPS_GITLAB_TOKEN` o `GITLAB_TOKEN` con scope `api` (`CI_JOB_TOKEN` no alcanza para escribir notas) | `GET` y `POST /projects/:id/merge_requests/:iid/notes` y `PUT .../notes/:note_id`, con el header `PRIVATE-TOKEN` |
+
+Los contratos de Azure DevOps y GitLab se verificaron contra su documentación. Los de
+GitHub son los estándar y **no** se verificaron contra la documentación (45.12). El
+comentario sólo se publica si hay un PR detectado y un token; con `FINOPS_COMMENT=false`
+nunca.
+
+#### 45.8.2 Wrappers — `integrations/`
+
+| Archivo | Qué es |
+|---|---|
+| `integrations/README.md` | Visión general y cómo elegir |
+| `integrations/github-action/action.yml` | *Composite action* «FinOps PR Cost Estimator». Entradas: `api-key` (obligatoria), `tool`, `plan-file`, `plan-json`, `threshold-usd`, `comment`, `api-url` y `script-sha256`. Salidas: `delta-usd`, `projected-usd`, `unpriced` y `gate-status`. Descarga el script, verifica el hash si se lo dan y lo ejecuta. Pasa todo por `env`, no interpolado en el `run`: un `${{ }}` con el secreto queda escrito en el script del runner, y una entrada con comillas rompería el shell |
+| `integrations/azure-devops/finops-shift-left.yml` | Plantilla de pasos |
+| `integrations/gitlab-ci/finops-shift-left.yml` | *Job* base `.finops-shift-left` |
+
+Es *composite* y no una action de JavaScript a propósito: una de JavaScript obliga a
+empaquetar con `ncc` y a commitear `dist/`, que se desactualiza en silencio. Acá no
+hay *build* y toda la lógica vive en **un** script.
+
+### 45.9 Instalación — `src/lib/shiftLeftSetup.ts`
+
+| Símbolo | Contrato |
+|---|---|
+| `RUTA_SCRIPT` | `/integrations/shift-left/finops-estimate.sh` |
+| `sha256DelScript()` | SHA-256 del archivo servido, con caché por `mtime`. **Es la única fuente del hash**: se calcula leyendo el archivo, no se copia a mano |
+| `snippets({ apiUrl, sha256, tool })` | `Record<'github' \| 'azuredevops' \| 'gitlab', string>`: los tres archivos listos |
+| `HERRAMIENTAS`, `Herramienta`, `Plataforma` | `terraform`, `tofu` y `bicep`; `github`, `azuredevops` y `gitlab` |
+
+Cada snippet descarga el script, escribe `<sha256>  finops-estimate.sh` y ejecuta
+`sha256sum -c -` **antes** de `bash finops-estimate.sh`: si el archivo cambia, el paso
+falla sin ejecutar nada. Los snippets no llevan la clave: GitHub la toma de
+`${{ secrets.FINOPS_API_KEY }}`, Azure DevOps de `$(FINOPS_API_KEY)` y GitLab de una
+variable de CI/CD enmascarada.
+
+- **GitHub:** `on: pull_request`, `permissions: contents: read` y `pull-requests: write`;
+  `hashicorp/setup-terraform@v3` u `opentofu/setup-opentofu@v1`, o `azure/login@v2` para
+  Bicep (el what-if consulta la suscripción).
+- **Azure DevOps:** `trigger: none` y un aviso: el disparador de un PR en Azure Repos
+  es una **política de rama** (*Build validation*); la clave `pr:` sólo funciona con
+  GitHub o Bitbucket.
+- **GitLab:** dos *jobs* (`generar-plan` y `finops-shift-left`, con `needs`) que pasan
+  `plan.json` o `whatif.json` como artefacto, ambos con `rules: merge_request_event`.
+
+### 45.10 UI
+
+`src/components/dashboard/ShiftLeftGovernanceBoard.tsx` (reescrito) más los
+subcomponentes de `src/components/dashboard/shiftLeft/`:
+
+| Archivo | Qué hace |
+|---|---|
+| `common.ts` | Tipos y utilidades compartidas |
+| `SetupPanel.tsx` | *Conectar tu pipeline*: herramienta, plataforma, el archivo para copiar, el hash y el enlace a API Keys |
+| `PricingEditor.tsx` | *Precios*: el descuento del tenant |
+| `GatesEditor.tsx` | *Budget Gates*: repositorio, monto, centro de costos y % del presupuesto restante |
+| `EstimationTable.tsx` | El historial, con la fila expandible del desglose por recurso |
+| `TrendChart.tsx` | *Evolución por repositorio* contra el umbral |
+
+`src/lib/shiftLeftBoard.ts` concentra la lógica sin React: `claveDeMotivo`,
+`claveDeNota`, `claveDeAccion`, `repositoriosDe`, `serieDeTendencia`, `celdaDeTexto` y
+`construirCsv`. **`celdaDeTexto` neutraliza fórmulas**: si un campo empieza con `=`, `+`, `-`, `@`,
+tabulación o retorno (un repositorio o un autor vienen de afuera) le antepone `'`, para
+que una hoja de cálculo no lo ejecute. Los montos no pasan por ahí: son números, y un
+delta negativo legítimo empieza con `-`. `src/lib/shiftLeftDemo.ts` trae los datos de la
+demo y `detalleDemo`.
+
+- **i18n:** namespace `ShiftLeft` con 113 claves en es, en y pt-BR; los textos `help`,
+  `emptyHint`, `unpricedWarning` y `gatesHelp` se actualizaron (este último ya no
+  dice que el del workflow «gana»). Claves nuevas en `Notifications`:
+  `notif_shift_left_gate_title`, `notif_shift_left_gate_pct_msg` y
+  `notif_shift_left_gate_usd_msg`.
+- La pantalla no se verificó a ojo en un navegador: sólo con tests de componentes,
+  `tsc` y ESLint.
+
+### 45.11 Verificación
+
+| Test | Cubre |
+|---|---|
+| `__tests__/unit/iacCostCatalog.test.ts` (43) | Los 18 tipos y sus selectores, AHB, Spot, tiers de disco, motivos sin tarifar, notas, `SIN_COSTO` y `POR_USO` |
+| `__tests__/unit/iacCostEstimator.test.ts` (25) | Antes y después por acción, descuento, reemplazos, precio 0 válido, fallo de precio sin cero mudo, región única |
+| `__tests__/unit/retailPricesFetch.test.ts` (18) | Páginas, reintentos y `Retry-After`, caché y deduplicación, `$filter` inválido, unidades `1/Hour` y `1/Day` |
+| `__tests__/unit/iacBicepWhatIf.test.ts` (17) | `changeType`, `Deploy` sin payload, adaptadores ARM, AKS con pools y el fixture completo |
+| `__tests__/unit/iacCostCatalogLive.test.ts` (1, opt-in) | Vuelve a consultar la Retail API real y falla si Azure cambió un nombre: `npm run test:retail-live`. Pasó en vivo |
+| `__tests__/unit/iacEstimateScript.test.ts` (53) | El script de punta a punta contra un servidor local. Lo que sale del runner: el plan reducido sin contraseñas, claves ni etiquetas, que se estima **igual** que el completo, y la clave por header y no por línea de comandos. Bicep (también la forma REST). El comentario: antes, después, delta, descuento, push anterior y presupuesto. Su publicación en GitHub (crea, edita, busca la marca en varias páginas), Azure DevOps (hilo nuevo con `commentType` 1 y `status` 1, actualiza, ignora borrados) y GitLab (nota nueva, `PUT`, no confunde una nota del sistema); y qué pasa cuando no se puede comentar. El Budget Gate: OK, monto, porcentaje, un umbral local más estricto gana y uno más laxo no afloja, y el borde exacto. Errores (falla cerrado y abierto, reintento) y salidas. Paridad de las listas con el catálogo, en las dos direcciones |
+| `__tests__/unit/iacGate.test.ts` (12) | `evaluarGate` por monto y por porcentaje, ahorro, presupuesto agotado, sin presupuesto, `contextoDePresupuesto` |
+| `__tests__/unit/shiftLeftEstimateRuta.test.ts` (39) | Auth, scope y rate limit; un plan real de 25 recursos; el plan pelado o envuelto y el registro con sus metadatos; 413 y 400 (JSON roto contra plan que no es plan); `X-Request-Id` también en los errores; el descuento (**el gate se mide contra el número con descuento**); el gate por monto y por presupuesto del centro de costos (borde exacto, centro ya pasado, sin presupuesto cargado, basta con que se cumpla uno); el push anterior y el aviso sólo en la transición; Bicep |
+| `__tests__/unit/shiftLeftGatesRuta.test.ts` (15) | Rol y tier, límites del porcentaje, centro con y sin presupuesto, borrado, demo |
+| `__tests__/unit/shiftLeftGobernanzaRutas.test.ts` (16) | GET de historial y desglose (404 de otro tenant) y PUT de descuento |
+| `__tests__/unit/shiftLeftSetup.test.ts` (23) | Hash real del archivo, YAML válido de los 9 snippets, hash fijado antes de ejecutar, la clave nunca escrita y el snippet de GitHub **ejecutado** (con el script adulterado, no corre nada) |
+| `__tests__/unit/integracionesCI.test.ts` (16) | `action.yml` y las plantillas de `integrations/`: YAML válido, que toda `FINOPS_*` que pasan la lee el script, que descargan el script de la ruta servida y verifican el hash antes de ejecutar, las cuatro salidas de la Action, el token y el contexto del PR, el *job* base de GitLab y las variables predefinidas de Azure DevOps |
+| `__tests__/unit/shiftLeftBoard.test.ts` (11) | Claves de motivo y nota, tendencia, CSV y neutralización de fórmulas |
+| `__tests__/components/ShiftLeftBudgetGates.test.tsx` (19) | La pantalla: gates por monto y porcentaje, descuento, setup, desglose y vacíos |
+
+Fixtures: `retail-prices-2026-10-08.json` (capturado de la API real),
+`terraform-plan-azurerm-completo.json` (un `terraform plan` real de 25 recursos, con
+contraseñas falsas), `arm-whatif-completo.json` (**construido a mano**) y
+`__tests__/helpers/retailFixture.ts`.
+
+Con los precios capturados, el plan real da **3176,9149 USD/mes, 0 sin tarifar, 1 por
+consumo y 8 sin costo**; el mismo plan reducido por el script da lo mismo. El fixture de
+Bicep da 2915,9825 USD/mes.
+
+Además, `cascadaBorradoTenant.test` cubre la FK de `IacPricingSettings` y las pruebas de
+i18n leen las claves de `avisarGateSuperado`.
+
+Suite completa (`env -u DB_HOST REDIS_PORT=1 npx vitest run`): 4645 tests en verde y 40
+omitidos, en 438 archivos (5 omitidos); `tsc` limpio. Los 14 archivos de arriba suman 308
+tests, 307 en verde y el opt-in de la Retail API omitido. Falta probarlo con un tenant real
+y las migraciones aplicadas.
+
+### 45.12 Lo que queda
+
+- **Tope de páginas.** La consulta a la Retail API se corta en 10 páginas sin error: si el
+  medidor buscado estuviera más allá, el recurso saldría como `sin-precio`. En la captura
+  del 2026-10-08, las consultas que traen un servicio entero devolvieron 133 ítems
+  (App Service en `westus2`), 23 (Application Gateway), 12 (Load Balancer, `Global`) y 3
+  (NAT Gateway, `Global`): muy por debajo del tope, pero conviene saberlo.
+- **Callers del helper viejo.** `getMonthlyCostEstimate` (zombies, rightsizing y
+  auditoría de licencias) sigue con la selección que, para
+  `getMonthlyCostEstimate('Virtual Machines', 'Standard_D2s_v3', 'westus2', 'armSkuName')`,
+  devuelve 25,36 (la fila Spot de Windows) en lugar de 70,08.
+  `azureLicenseOptimization.service.ts:176` además le pasa un `armSkuName` como
+  `skuName`, así que siempre cae a su valor de respaldo de 150.
+- **Bases de datos administradas** (MySQL, PostgreSQL flexible, SQL Database, Cosmos
+  DB): medidores inconsistentes entre SKUs; SQL Database no tiene `location`.
+- **Descuento B y C** (derivado de la facturación, precios de reserva) y **Pulumi**.
+- **Ranking de tipos por gasto real.** No se pudo medir: los datos de producción no
+  son accesibles desde el entorno de desarrollo.
+- **Bastion** (instancias adicionales) y **AKS Premium** (LTS) no se suman.
+- **Presupuesto con arrastre.** El gate usa el presupuesto base y no suma lo
+  arrastrado (5.1.5).
+- **Verificación pendiente.** El fixture de Bicep no viene de una corrida real: correr un
+  `what-if` real antes de anunciarlo. Los endpoints de comentarios de GitHub no se
+  contrastaron con su documentación. La pantalla no se vio en un navegador.
+- **Despliegue.** Aplicar las migraciones `033` y `034` antes que el código y verificarlas
+  en producción con el job `migrate` y Log Analytics.

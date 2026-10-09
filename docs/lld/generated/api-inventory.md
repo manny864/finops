@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **485** rutas.
+Total: **488** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -55,8 +55,8 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/admin/onboarding` | POST | requireTenantAccess | — | sí |
 | `/api/admin/payments` | GET, POST | requireSuperAdmin | — | — |
 | `/api/admin/pricing-units` | GET, POST | requireSuperAdmin | — | — |
-| `/api/admin/public-api-keys` | GET, POST | requireTenantRole, requireTenantTier | Business | sí |
-| `/api/admin/public-api-keys/[id]` | PUT, DELETE | requireTenantRole, requireTenantTier | Business | sí |
+| `/api/admin/public-api-keys` | GET, POST | requireTenantRole, requireTenantTier | Enterprise | sí |
+| `/api/admin/public-api-keys/[id]` | PUT, DELETE | requireTenantRole, requireTenantTier | Enterprise | sí |
 | `/api/admin/report/invoicing` | GET | requireTenantRole | — | sí |
 | `/api/admin/report/invoicing/email` | POST | requireTenantRole | — | — |
 | `/api/admin/sso` | GET, PUT | requireTenantRole | — | sí |
@@ -195,8 +195,11 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/governance/policies` | GET, POST, PUT, DELETE | requireTenantRole, requireTenantAccess | — | sí |
 | `/api/governance/power-management` | GET | requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/governance/reporting` | GET | requireTenantTier | Enterprise | sí |
-| `/api/governance/shift-left` | GET | requireTenantTier, requireTenantAccess | Business | sí |
-| `/api/governance/shift-left/gates` | PUT | requireTenantRole, requireTenantTier | Business | sí |
+| `/api/governance/shift-left` | GET | requireTenantTier, requireTenantAccess | Enterprise | sí |
+| `/api/governance/shift-left/[id]` | GET | requireTenantTier, requireTenantAccess | Enterprise | sí |
+| `/api/governance/shift-left/gates` | PUT | requireTenantRole, requireTenantTier | Enterprise | sí |
+| `/api/governance/shift-left/pricing` | PUT | requireTenantRole, requireTenantTier | Enterprise | sí |
+| `/api/governance/shift-left/setup` | GET | requireTenantTier, requireTenantAccess | Enterprise | sí |
 | `/api/governance/tags` | GET, POST | requireTenantRole, requireTenantTier, requireTenantAccess | Business | sí |
 | `/api/governance/tags/apply-inheritance` | POST | requireTenantRole, requireTenantTier | Business | sí |
 | `/api/governance/tags/inherit-rg` | POST | requireTenantRole, requireTenantTier, requireTenantAccess | Business | sí |

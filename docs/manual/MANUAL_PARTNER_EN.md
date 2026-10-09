@@ -310,7 +310,7 @@ This is the map of what the customer will use every day. For each screen: **the 
 | **Approvals** | Changes without control | **Four-eyes** flow over the changes the engines propose, with an auditable history | B+ |
 | **Auto-Block Policies** | Preventing the cost before it exists | Azure Policy with templates (restrict sizes, regions, require tags) | E |
 | **Governance Reporting** | "How secure and orderly are we?" | **Financial Security Score** 0-100, policy compliance, RBAC and zombie resources | E |
-| **Shift-Left FinOps** | Cost is decided when someone writes the code | The cost of a `terraform plan` **inside the Pull Request**, with per-repository thresholds | B+ |
+| **Shift-Left FinOps** | Cost is decided when someone writes the code | The cost of a Terraform, OpenTofu or Bicep plan **inside the Pull Request**, with thresholds by amount or by budget | B+ |
 
 ### 5.5. Administration and cross-cutting
 

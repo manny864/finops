@@ -302,7 +302,7 @@ Este é o mapa do que o cliente vai usar todos os dias. Para cada tela: **o prob
 | **Aprovações** | Mudanças sem controle | Fluxo de **quatro olhos** sobre as mudanças que os motores propõem, com histórico auditável | B+ |
 | **Políticas Auto-Block** | Prevenir o custo antes que exista | Azure Policy com modelos (restringir tamanhos, regiões, exigir tags) | E |
 | **Relatórios de Governança** | «Quão seguros e ordenados estamos?» | **Score de Segurança Financeira** 0-100, conformidade de políticas, RBAC e recursos zumbi | E |
-| **Shift-Left FinOps** | O custo se decide quando alguém escreve o código | O custo de um `terraform plan` **dentro do Pull Request**, com limites por repositório | B+ |
+| **Shift-Left FinOps** | O custo se decide quando alguém escreve o código | O custo de um plano do Terraform, OpenTofu ou Bicep **dentro do Pull Request**, com limites por valor ou por orçamento | B+ |
 
 ### 5.5. Administração e transversais
 

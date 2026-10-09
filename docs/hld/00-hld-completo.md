@@ -174,6 +174,7 @@ mindmap
       Tag Compliance & Inheritance
       TTL Life-Cycle Governance
       Acciones de Remediación Guiada
+      Shift-Left Costo en el Pull Request
     AI & COPILOT
       Global Copilot Vercel AI SDK
       Informes Ejecutivos Automáticos
@@ -202,6 +203,7 @@ mindmap
 * **Tag Governance & Inheritance:** Motor de verificación y heredado de etiquetas desde Resource Groups hacia Recursos hijo, con alertas de incumplimiento de política.
 * **TTL Policy Enforcement:** Asignación de tiempo de vida máximo (*Time-To-Live*) a recursos temporales o de prueba, con flujo de notificación previa y eliminación automática o solicitada.
 * **Remediation Actions Framework:** Sistema de acciones con aprobación (Delete, Deallocate, Downgrade, Retag) respaldado por `RemediationRequests` y registro auditables en `ActionLogs`.
+* **Shift-Left FinOps (Enterprise):** Estimación del delta de costo mensual de un cambio de infraestructura **dentro del Pull Request**, antes del merge. Lee planes de Terraform y OpenTofu y el what-if de Bicep (18 tipos de recurso, con los precios de lista de la Azure Retail Prices API y el descuento que declare el cliente), comenta el PR en GitHub, Azure DevOps o GitLab y puede hacer fallar el check con un Budget Gate por monto o por porcentaje del presupuesto restante del centro de costos (§20).
 
 ### 3.4 Módulo AI & Copilot Assistant
 * **Global Copilot Integrado:** Asistente conversacional basado en **Vercel AI SDK** y **Google Gemini**, capaz de interpretar consultas en lenguaje natural sobre costos y recursos ("¿Por qué subió el costo en la suscripción X este fin de semana?").
@@ -1521,3 +1523,151 @@ flowchart TD
   y *Fugas Financieras* siguen mirando sólo presencia. Faltan un editor de
   políticas, paginar el escáner y lo que ve la IA, una lista de excepciones para
   *Descartar* y que la caché local venza.
+
+## 20. Addendum 2026-10-08 — Shift-Left: el costo se decide en el Pull Request
+
+MEJ-20, según el plan de ampliación
+([`docs/plan-ampliar-shift-left-2026-10-08.md`](../plan-ampliar-shift-left-2026-10-08.md)).
+Hasta acá Shift-Left estimaba el costo de un plan de Terraform con tres tipos de
+recurso (VM, disco e IP pública), desde una GitHub Action, contra un umbral fijo en
+USD. Ahora estima Terraform, OpenTofu y Bicep con 18 tipos de recurso, se conecta a
+GitHub, Azure DevOps y GitLab, y el gate mira el presupuesto del centro de costos
+además de un monto. El detalle técnico está en el LLD §45. Commits `1f8ea61`
+(estimador), `cc56e98` (descuento, gate por presupuesto y aviso) y `2b523ab` (script
+único de CI y pantalla).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Dev as Autor del PR
+    participant CI as Runner de CI (GitHub / Azure DevOps / GitLab)
+    participant Sh as finops-estimate.sh
+    participant API as POST /api/v1/shift-left/estimate
+    participant Retail as Azure Retail Prices API
+    participant DB as MySQL (IacBudgetGates, CostCenterBudgets, IacCostEstimations)
+    participant N as Notificaciones (campanita, Slack, Teams, correo)
+
+    Dev->>CI: Abre o actualiza el Pull Request
+    CI->>CI: terraform / tofu plan, o az deployment group what-if
+    CI->>Sh: Plan completo (con secretos en claro)
+    Sh->>Sh: Se queda sólo con la lista de atributos permitidos
+    Sh->>API: Plan reducido + X-API-Key (scope write:shift-left)
+    API->>DB: Descuento, gate y estimación previa del mismo PR (en paralelo, fallan abiertas)
+    API->>Retail: Medidores de cada tipo y región (caché de 6 h, reintentos ante 429)
+    Retail-->>API: Precios de lista
+    API->>API: Valúa cada recurso antes y después, aplica el descuento y evalúa el gate
+    API->>DB: Registra la estimación (best-effort)
+    opt El gate pasó a EXCEEDED por primera vez
+        API-->>N: Aviso sin esperar la entrega
+    end
+    API-->>Sh: Delta, desglose por recurso, estado del gate y presupuesto
+    Sh->>CI: Crea o edita el comentario del PR (marca oculta)
+    Sh-->>CI: Código de salida 0, 1 (gate superado) o 2 (configuración)
+```
+
+### 20.1 El número es un piso, y dice por qué
+
+Un control de costo que da una cifra con falsa precisión es peor que no darla. El
+estimador separa cuatro situaciones y las muestra por separado: lo **tarifado**, lo
+que **no cuesta por sí mismo** (grupos de recursos, subredes, asignaciones de rol),
+lo que **se cobra por consumo** (Storage, Log Analytics, Key Vault, Functions: hay
+un gasto futuro, pero no existe un precio fijo que estimar) y lo **sin tarifar**,
+con el motivo de cada recurso. Lo tarifado lleva además **notas** de lo que el
+número no incluye (disco del sistema operativo, datos procesados, transferencia,
+instancias adicionales, soporte extendido). La regla que lo sostiene: **una falla
+al consultar el precio nunca se toma como precio cero**. Si la Retail API no
+responde, el recurso queda sin tarifar con ese motivo; en cambio un medidor que de
+verdad cuesta 0, como un plan Free, es un precio válido.
+
+### 20.2 Un catálogo, dos lenguajes
+
+Terraform y Bicep comparten las familias de costo. Los recursos de Bicep llegan
+como cambios del what-if de ARM (`changes[]` con `before`, `after` y `changeType`),
+y un adaptador por tipo los traduce a los atributos con nombre de Terraform; el
+resto del cálculo no sabe de qué herramienta vino. Los precios salen siempre de la
+Retail API a través de `pricingService`, que cachea, pagina y reintenta: no hay un
+catálogo de precios propio, que es la duplicación que MEJ-32 documenta como bug
+recurrente. La selección del medidor es la parte delicada, porque la API devuelve
+varios por SKU (Spot, Low Priority, Windows y Linux; el disco y su montaje; una IP
+Basic y una Standard), y quedarse con el primero tarifó una VM a 25,36 USD cuando
+costaba 70,08. Por eso cada familia tiene su propio selector.
+
+### 20.3 Lo que sale del runner
+
+El plan que produce `terraform show -json` trae las contraseñas en texto claro, y
+el comentario de un PR lo lee cualquiera con acceso al repositorio. Por eso el
+script reduce el plan **antes** de enviarlo a una lista de atributos permitidos
+(tipo, región, SKU, cantidades): contraseñas, claves, `custom_data` y etiquetas
+nunca salen del runner, y el plan reducido se estima igual que el completo. Hay un
+único script para los tres CI en vez de una lógica por plataforma. Se descarga de
+la plataforma, y el workflow que se le entrega al cliente **fija su SHA-256**, que
+se calcula leyendo el archivo que se sirve: si cambia —por un error nuestro o algo
+peor—, el paso falla antes de ejecutarlo. Eso reemplaza a una Action publicada en
+un marketplace, que hoy no existe.
+
+### 20.4 El gate falla abierto en lo que no controla y cerrado en lo que sí
+
+Es un control de costo, no de seguridad, y corre en el CI de otra gente. Si la
+plataforma no responde (sin red, 5xx o 429 después de reintentar), el PR **no se
+bloquea**: frenar el trabajo de un equipo por una caída nuestra es peor que dejar
+pasar un cambio caro. Lo que sí hace fallar el paso son los errores de
+configuración que alguien tiene que ver: una clave inválida o sin el scope, un plan
+ilegible o un cuerpo de más de 6 MB. Las tres lecturas del endpoint (descuento,
+gate y estimación previa) son independientes y cada una falla abierta por su lado.
+
+El gate admite dos umbrales que se pueden combinar: un monto en USD por mes y un
+porcentaje de lo que **queda** del presupuesto mensual del centro de costos del
+repositorio (presupuesto base menos el gasto del mes, por el tag `CostCenter`).
+Si además el workflow define el suyo, **falla el más estricto**: un equipo puede
+apretar el control en su pipeline, no aflojarlo. Antes de esta versión la
+documentación decía que el del workflow «ganaba» y el código dejaba pasar el más
+laxo; se corrigieron las dos cosas. Un PR que ahorra nunca dispara el gate, y el
+aviso sólo sale en la **transición** a `EXCEEDED`, para que un PR que sigue
+superado no avise en cada push.
+
+### 20.5 Precios de lista y el descuento del cliente
+
+La Retail API publica precios de lista, y un cliente con contrato o reservas paga
+menos. Se eligió el camino más simple y honesto: **un porcentaje por tenant** que el
+cliente declara, que el estimador aplica a cada línea y que el comentario muestra
+junto al número de lista, para que no se confundan. El gate se mide contra el número
+**con** descuento, porque es lo que el cliente va a pagar. No se deriva de la facturación
+—que mezcla reservas puntuales con descuentos permanentes— ni modela precios de
+reserva; quedan como mejoras posibles.
+
+### 20.6 Aislamiento y permisos
+
+Todo está en tier Enterprise. La API pública exige el scope `write:shift-left`, que
+no tiene ninguna clave existente: arranca cerrada y se otorga a propósito. Las
+pantallas de gestión validan el acceso al tenant, y cambiar umbrales y descuento es
+sólo para Admin y Owner. El desglose de una estimación de otro tenant da 404, no
+403. La demo se atiende con datos de ejemplo; en las escrituras valida igual que
+producción y sólo se saltea la persistencia.
+
+### 20.7 Lo que queda
+
+- **Bases de datos administradas** (SQL Database, MySQL, PostgreSQL, Cosmos DB):
+  los medidores no son consistentes entre SKUs y SQL Database ni siquiera tiene
+  `location` en el recurso. Aparecen como sin tarifar o por consumo.
+- **Pulumi**, el descuento derivado de la facturación y los precios de reserva.
+- **El orden por gasto real** de los tipos a cubrir: los 18 salen del plan de
+  ampliación, no de un ranking de lo que más gastan los tenants, que no se pudo
+  medir desde acá porque los datos de producción no son accesibles.
+- **Las instancias adicionales de un Bastion** y el soporte extendido (LTS) de AKS
+  Premium no se suman: no se pudo verificar en la documentación cómo se cobran, y el
+  número queda como piso con una nota.
+- **El fixture de Bicep** (`arm-whatif-completo.json`) se armó a mano con la forma
+  documentada del what-if, no se capturó de una corrida real. Antes de anunciar
+  Bicep conviene correr un `what-if` real y compararlo. Los endpoints de
+  comentarios de GitHub son los estándar y no se verificaron contra la
+  documentación (los de Azure DevOps y GitLab sí).
+- **`getMonthlyCostEstimate`**, el helper viejo de `pricingService`, sigue con la
+  selección que tarifa mal (la fila Spot de una VM) y lo usan las auditorías de
+  zombies, rightsizing y licencias. Además `azureLicenseOptimization.service.ts`
+  le pasa un `armSkuName` como `skuName`, así que siempre cae a su valor de
+  respaldo. No se tocó para no mover números de otros módulos.
+- **Despliegue:** las migraciones `20261008-033` y `20261008-034` van antes que el
+  código, como ya hace el pipeline, y después hay que verificarlas en producción
+  (job `migrate` y Log Analytics, no el ✅ del log del workflow).
+- **La pantalla** se verificó con tests de componentes, `tsc` y ESLint, pero no a
+  ojo en un navegador.

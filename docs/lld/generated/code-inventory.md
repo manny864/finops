@@ -9,7 +9,7 @@ naturales a revisar primero cuando algo del dominio no cierra.
 
 Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI directamente.
 
-166 archivos.
+169 archivos.
 
 | Archivo | Líneas | Exports principales |
 |---|---|---|
@@ -31,6 +31,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureTagGovernance.service.ts` | 813 | `DEFAULT_MANDATORY_TAG_POLICIES`, `formatResourceTypeDisplay`, `evaluateResourceMissingTags`, `getTenantTagPolicies`, `getTagValueAliases`, `getLocalCachedTags`, … |
 | `src/services/azureActionGroups.service.ts` | 811 | `ACTION_TYPE_COLORS`, `redactReceiverUri`, `deriveActionType`, `calculateActionGroupsSummary`, `generateActionGroupsRecommendations`, `getMockActionGroupsPayload`, … |
 | `src/services/azureLoadBalancing.service.ts` | 783 | `getAzureLoadBalancing`, `getMockLoadBalancingData` |
+| `src/services/iacCostCatalog.ts` | 781 | `Attrs`, `MotivoSinTarifar`, `Componente`, `Resultado`, `ContextoLinea`, `EntradaTf`, … |
 | `src/services/azureInternetAccess.service.ts` | 758 | `getAzureInternetAccess`, `getMockInternetAccessData` |
 | `src/services/azureNetworkWatcher.service.ts` | 738 | `isDevOrTestScope`, `normalizeTrafficAnalyticsInterval`, `deriveFlowLogTargetKind`, `calcTrafficAnalyticsCost`, `processedGBAtInterval`, `calcConnectionMonitorCost`, … |
 | `src/services/azureWaf.service.ts` | 715 | `normalizeHostPlatform`, `normalizeMode`, `isPublicIp`, `isGeoFilterRule`, `isRateLimitRule`, `looksProduction`, … |
@@ -83,6 +84,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/supportTickets.service.ts` | 413 | `toCategory`, `toPriority`, `toStatus`, `toSenderRole`, `categoryToDb`, `priorityToDb`, … |
 | `src/services/azureMachineLearning.service.ts` | 410 | `generateMockAmlData`, `calculateAmlSummary`, `generateAmlRecommendations`, `buildAmlRemediationCommand`, `getLiveAmlData` |
 | `src/services/managedDisks.service.ts` | 407 | `DISK_TIER_RATES`, `extractVmNameFromManagedBy`, `detectDiskRedundancy`, `detectDiskEnvironment`, `resolveDiskTierCode`, `estimateMonthlyDiskCost`, … |
+| `src/services/iacCostEstimator.service.ts` | 403 | `AccionPlan`, `ClaseRecurso`, `RecursoPlaneado`, `ComponenteLinea`, `LineaEstimacion`, `Estimacion`, … |
 | `src/services/azureContentSafety.service.ts` | 398 | `generateMockContentSafetyData`, `calculateContentSafetySummary`, `generateContentSafetyRecommendations`, `buildContentSafetyRemediationCommand`, `getLiveContentSafetyData` |
 | `src/services/whiteboard.service.ts` | 396 | `CurrentMonthCostAggregation`, `readCostCenter`, `getCurrentMonthCostAggregation`, `extractReadableResourceName`, `extractSavings`, `buildQuickWinCliCommand`, … |
 | `src/services/azureAnomalyDetection.service.ts` | 392 | `ANOMALY_Z_SCORE_THRESHOLD`, `DEFAULT_BASELINE_WINDOW_DAYS`, `computeZScoreStats`, `buildConfidenceTrend`, `buildAnomalySummary`, `getMockAnomalyPayload`, … |
@@ -90,6 +92,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/affiliatePortal.service.ts` | 369 | `hashTokenDePanel`, `generarTokenDePanel`, `pareceTokenDePanel`, `urlDelPanel`, `emitirEnlaceDePanel`, `revocarEnlaceDePanel`, … |
 | `src/services/reservationService.ts` | 367 | `ActiveReservationDetail`, `ReservationUtilizationTrend`, `parseReservationResourceId`, `getActiveReservations`, `getReservationUtilizationTrend`, `setReservationRenew`, … |
 | `src/services/copilotM365Integration.service.ts` | 364 | `GraphPermissionError`, `getSettings`, `provisionConnection`, `reindex`, `revokeConnection`, `getIndexLogs` |
+| `src/services/pricingService.ts` | 363 | `precioMensualDesdeUnidad`, `elegirMedidor`, `getMonthlyCostEstimate`, `getRetailPricing`, `ItemRetail`, `ConsultaItems`, … |
 | `src/services/commitmentRecommendations.service.ts` | 362 | `CommitmentSimulationResponse`, `getSavingsPlanVsReservationComparison` |
 | `src/services/azureBackups.service.ts` | 356 | `BACKUP_RATES`, `detectVaultEnvironment`, `normalizeRedundancy`, `estimateMonthlyVaultCost`, `buildBackupRemediations`, `computeBackupsKpis`, … |
 | `src/services/powerScheduleService.ts` | 347 | `PowerScheduleAction`, `PowerScheduleInput`, `PowerScheduleRow`, `upsertPowerSchedule`, `listPowerSchedules`, `deletePowerSchedule`, … |
@@ -112,8 +115,9 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureWhatIfSimulator.service.ts` | 297 | `simulateScenario`, `getMockWhatIfPayload`, `assembleLiveWhatIf` |
 | `src/services/azureSustainability.service.ts` | 293 | `AzureSustainabilityService` |
 | `src/services/cosmosMetrics.service.ts` | 288 | `MetricasCosmos`, `ParticionCosmos`, `VENTANA_DIAS`, `metricasVacias`, `percentil95`, `leerSeries`, … |
+| `src/services/iacGate.service.ts` | 276 | `EstadoGate`, `FilaGate`, `PresupuestoCentro`, `ContextoPresupuesto`, `ResultadoGate`, `contextoDePresupuesto`, … |
 | `src/services/superAdminAiConfig.service.ts` | 276 | `getPlatformGlobalAiSettings`, `savePlatformGlobalAiSettings`, `deletePlatformAiApiKey`, `testPlatformAiConnection` |
-| `src/services/iacCostEstimator.service.ts` | 270 | `AccionPlan`, `RecursoPlaneado`, `LineaEstimacion`, `Estimacion`, `skuDeDisco`, `accionDe`, … |
+| `src/services/iacCostCatalogArm.ts` | 273 | `AccionArm`, `ParRecursoArm`, `tipoDeResourceId`, `CATALOGO_ARM`, `SIN_COSTO_ARM`, `POR_USO_ARM`, … |
 | `src/services/systemAnnouncements.service.ts` | 270 | `resolveAnnouncementContent`, `listAnnouncements`, `createAnnouncement`, `updateAnnouncement`, `deleteAnnouncement`, `getActiveAnnouncementsForTenant`, … |
 | `src/services/azureLicenseOptimization.service.ts` | 266 | `getLicenseOptimizationData` |
 | `src/services/tenantUsers.service.ts` | 264 | `toRole`, `roleToDb`, `toAccountStatus`, `modulesToRoleTags`, `roleTagsToModules`, `parseModules`, … |
@@ -136,7 +140,6 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/reportRenderers.service.ts` | 209 | `AlcanceDelReporte`, `ReporteGenerado`, `Periodo`, `periodosDelReporte`, `Contexto`, `Generador`, … |
 | `src/services/tenantConfiguration.service.ts` | 208 | `POWERBI_FEED_PATH`, `getPowerBiExportUrl`, `getTenantConfiguration`, `isMaturityScorePolicy`, `saveMaturityScorePolicy`, `saveThemePreference`, … |
 | `src/services/user2fa.service.ts` | 198 | `toMethod`, `deviceLabelFromUserAgent`, `RawAuthAuditRow`, `mapAuditEvent`, `RawWebAuthnRow`, `mapSecurityKey`, … |
-| `src/services/pricingService.ts` | 197 | `precioMensualDesdeUnidad`, `elegirMedidor`, `getMonthlyCostEstimate`, `getRetailPricing` |
 | `src/services/pricingUnitsNormalizer.service.ts` | 194 | `SEED_CATALOG_ITEMS`, `getPricingUnitsCatalog`, `testNormalization`, `reseedPricingUnitsCatalog` |
 | `src/services/leaderboard.service.ts` | 191 | `UMBRAL_MATERIALIDAD_PCT`, `Clasificacion`, `EntradaDeGrupo`, `MotivoSinRanking`, `FilaDelRanking`, `Leaderboard`, … |
 | `src/services/governanceReportingService.ts` | 185 | `PolicyComplianceDetail`, `GovernanceReport`, `getGovernanceReport` |

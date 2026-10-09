@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **153** tablas. Migraciones aplicables: **154**.
+Total: **154** tablas. Migraciones aplicables: **156**.
 
 `schema.sql` es el baseline de referencia y **no se ejecuta**; `migrations/` es la
 fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.md`).
@@ -69,6 +69,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `HARecommendations` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `IacBudgetGates` | — | `20260922-002-budget-gates.sql` |
 | `IacCostEstimations` | — | `20260922-001-shift-left-estimaciones.sql` |
+| `IacPricingSettings` | — | `20261008-033-shift-left-descuento-del-cliente.sql` |
 | `LegalAcceptances` | — | `20260728-003-sincronizar-esquema-vps.sql` |
 | `LoadTestRuns` | — | `20260714-001-create-load-test-alerts.sql` |
 | `LocalResourceTagsCache` | — | `20260821-003-zombie-exemptions-tag-cache.sql` |
@@ -319,3 +320,5 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 - `migrations/20261008-030-gasto-externo-documentos.sql`
 - `migrations/20261008-031-compromisos.sql`
 - `migrations/20261008-032-avisos-renovacion-compromisos.sql`
+- `migrations/20261008-033-shift-left-descuento-del-cliente.sql`
+- `migrations/20261008-034-shift-left-presupuesto-por-repo.sql`

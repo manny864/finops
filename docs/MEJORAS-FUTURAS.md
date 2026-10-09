@@ -2071,7 +2071,7 @@ Tests: `__tests__/unit/capacidadDeRed.test.ts` (20).
 
 ## MEJ-20 — Shift-Left FinOps: Integración CI/CD y Gatekeeper de IaC
 
-**Módulo:** Shift-Left / DevOps · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Hecha (2026-09)
+**Módulo:** Shift-Left / DevOps · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Hecha (2026-09), ampliada el 2026-10-08
 
 ### Contexto
 
@@ -2117,25 +2117,62 @@ GitHub Action composite en `integrations/github-action`; panel
 `/governance/shift-left` (tier Enterprise) con el historial y el editor de umbrales,
 que escribe por `PUT /api/governance/shift-left/gates` (rol Admin/Owner).
 
-**Precedencia de los umbrales:** el `threshold-usd` del workflow gana sobre el de
-la plataforma. Un equipo puede ser más estricto con su propio repo; aflojar el
-umbral que fijó la plataforma exige pasar por ella. Sin ninguno de los dos el
-gate queda en `NOT_EVALUATED`: informa y no bloquea. Si la plataforma no
+**Precedencia de los umbrales** *(corregida el 2026-10-08)*: falla el **más
+estricto** de los dos. Esta entrada decía que el `threshold-usd` del workflow
+«gana», y el código dejaba pasar el más laxo. Un equipo puede ser más estricto con
+su propio repo; aflojar el umbral que fijó la plataforma exige pasar por ella. Sin
+ninguno de los dos el gate queda en `NOT_EVALUATED`: informa y no bloquea. Si la plataforma no
 responde, tampoco bloquea — es un control de costo, y voltear el PR de un
 tercero por una caída nuestra es peor que dejar pasar uno caro.
 
 **Lo que quedó fuera de la propuesta original**, y por qué no se hizo de una:
 
-- **Umbral porcentual (+Y%).** Sobre un repo que hoy cuesta $0 —cualquier repo
-  nuevo— un porcentaje no tiene denominador y no significa nada. Con el absoluto
-  andando, agregarlo es una columna más si alguien lo pide.
+- **Umbral porcentual (+Y%).** *Hecho el 2026-10-08, con otro denominador.* Sobre un
+  repo que hoy cuesta $0 —cualquier repo nuevo— un porcentaje de su propio costo no
+  significa nada. Se resolvió como porcentaje de lo que **queda** del presupuesto
+  mensual del centro de costos del repositorio.
 - **Aprobación explícita de un FinOps Champion.** Hoy el gate falla el check y
   el desbloqueo es el del repo (otro commit, o un override de quien administre
   las branch protection rules de GitHub). Un flujo de aprobación propio duplica
   algo que GitHub ya hace mejor.
-- **Bicep.** Sólo `terraform show -json`. Bicep necesita otro parser; el motor de
-  tarificación ya está separado y se reusa.
-- **Azure DevOps extension.** Sólo GitHub Action.
+- **Bicep.** *Hecho el 2026-10-08*, a partir del what-if de ARM
+  (`az deployment group what-if`), con un lector aparte y el mismo motor de tarificación.
+- **Azure DevOps extension.** *Hecho el 2026-10-08, sin extensión del Marketplace:* una
+  plantilla de pasos que usa el mismo script que GitHub y GitLab.
+
+
+### Ampliación (2026-10-08)
+
+Plan: [`docs/plan-ampliar-shift-left-2026-10-08.md`](plan-ampliar-shift-left-2026-10-08.md).
+Commits `1f8ea61`, `cc56e98` y `2b523ab`. Técnico: LLD §45; arquitectónico: HLD §20.
+
+**Lo que se hizo.**
+- **Cobertura:** de 4 a **18 tipos de recurso** (VMs Linux y Windows, VMSS, AKS, App Service
+  Plan, Redis, Firewall, Bastion, VPN Gateway, Application Gateway, Container Registry, NAT
+  Gateway, Load Balancer, IPs públicas y discos), con lo que se cobra por consumo y lo no
+  tarifable informado aparte, con su motivo, y notas de lo que el número no incluye.
+- **Medidor correcto:** el estimador anterior usaba `getMonthlyCostEstimate`, que toma el
+  primer medidor y, para una `Standard_D2s_v3` en `westus2`, devuelve la fila Spot de
+  Windows (25,36 en lugar de 70,08). El estimador nuevo elige el medidor por reglas
+  verificadas contra la API real. El helper **sigue igual** para sus otros usuarios
+  (zombies, rightsizing y licencias).
+- **Lenguajes y CI:** Terraform, OpenTofu y Bicep; GitHub, Azure DevOps y GitLab, con **un
+  solo script** que se descarga de la plataforma con su SHA-256 fijado, reduce el plan a
+  una lista de atributos permitidos (los secretos no salen del runner) y comenta el PR
+  editando el comentario anterior.
+- **Precio del cliente:** descuento por tenant sobre el precio de lista, con los dos números
+  en el comentario. El gate se mide contra el número con descuento.
+- **Budget Gate por presupuesto:** por monto, por % de lo que queda del presupuesto del
+  centro de costos, o los dos; falla el más estricto, y un PR que ahorra nunca lo dispara.
+- **Pantalla:** panel *Conectar tu pipeline*, desglose por recurso, evolución por repositorio,
+  exportación a CSV y aviso (campanita y canales) al superar el gate, sólo en la transición.
+
+**Lo que quedó fuera, y por qué:** las bases de datos administradas (medidores inconsistentes
+entre SKUs), Pulumi, el descuento derivado de la facturación y los precios de reserva, el ranking
+de gasto por tipo (los datos de producción no son accesibles desde desarrollo) y las instancias
+adicionales de Bastion y el LTS de AKS Premium (no se pudo verificar cómo se cobran). **Sin
+verificar:** el what-if de Bicep contra una corrida real, los endpoints de comentarios de
+GitHub contra su documentación y la pantalla en un navegador.
 
 ---
 
