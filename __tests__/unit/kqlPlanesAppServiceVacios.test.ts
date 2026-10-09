@@ -31,3 +31,28 @@ describe("kqlCatalog.emptyAppServicePlans — válida en Resource Graph", () => 
         expect(q).toContain("siteCount == 0");
     });
 });
+
+/**
+ * Un plan de App Service cuesta distinto en Linux y en Windows (S1: 0,095/h contra 0,10/h en
+ * eastus): son medidores y productos separados en la Retail API. ARM lo dice en
+ * `properties.reserved` (Learn, Microsoft.Web/serverfarms: "If Linux app service plan true,
+ * false otherwise"); `kind` es texto libre y `isXenon` figura como obsoleto.
+ *
+ * Se proyecta con `tostring`, no con `tobool`: medido el 2026-10-09 contra un plan Linux
+ * real, `tobool(properties.reserved)` llega como el NÚMERO 1 y no como `true`, y un
+ * `reserved === true` en la ruta habría tomado todos los planes Linux por Windows sin
+ * ningún error. `tostring` llega como "true"/"false". Y como la query termina en un
+ * `summarize`, que descarta toda columna que no esté en el `by`, hay que conservarla ahí.
+ */
+describe("kqlCatalog.emptyAppServicePlans — sistema operativo del plan", () => {
+    const q = kqlCatalog.emptyAppServicePlans;
+
+    it("proyecta properties.reserved como string, no como booleano", () => {
+        expect(q).toMatch(/project[^|]*\breserved\s*=\s*tostring\(properties\.reserved\)/);
+        expect(q).not.toMatch(/tobool\(properties\.reserved\)/);
+    });
+
+    it("la conserva en el summarize: sin estar en el `by` no llega a la ruta", () => {
+        expect(q).toMatch(/summarize[^|]*\bby\b[^|]*\breserved\b/);
+    });
+});

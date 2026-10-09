@@ -156,6 +156,15 @@ describe("precioMensualPlanAppService", () => {
         expect(await precioMensualPlanAppService("S1", "westus2", false)).toBeCloseTo(mensual(0.1), 4);
     });
 
+    it("acepta `reserved` tal como lo devuelve Resource Graph: 'true' es Linux, 'false' o ausente es Windows", async () => {
+        conFetch(fetchDeFixture());
+        const { precioMensualPlanAppService } = await precios();
+        const linux = mensual(0.08);
+        const windows = mensual(0.1);
+        for (const reserved of [true, "true", "True", 1, "1"]) expect(await precioMensualPlanAppService("S1", "westus2", reserved)).toBeCloseTo(linux, 4);
+        for (const reserved of [false, "false", "", 0, null, undefined]) expect(await precioMensualPlanAppService("S1", "westus2", reserved)).toBeCloseTo(windows, 4);
+    });
+
     it("`P1v3` de ARM es `P1 v3` en la API", async () => {
         conFetch(fetchDeFixture());
         const { precioMensualPlanAppService } = await precios();

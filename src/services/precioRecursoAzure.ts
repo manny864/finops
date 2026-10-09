@@ -54,12 +54,19 @@ export const precioMensualIpPublica = (sku: unknown, region: string) =>
     precioDe("azurerm_public_ip", { location: region, sku, allocation_method: "Static" });
 
 /**
- * `sku` es el `sku.name` del plan en ARM (`S1`, `P1v3`) y `linux` sale de
- * `properties.reserved`: Linux y Windows tienen medidores y precios distintos. Cotiza UNA
- * instancia: `sku.capacity` no entra, así que un plan escalado a varias queda subestimado.
+ * `sku` es el `sku.name` del plan en ARM (`S1`, `P1v3`) y `reserved` su `properties.reserved`
+ * tal como lo devuelve `emptyAppServicePlans` (Learn: "If Linux app service plan true, false
+ * otherwise"): Linux y Windows tienen medidores y precios distintos. Resource Graph lo entrega
+ * como el string "true"/"false" (con `tobool` llegaba como el número 1), y se acepta cualquiera
+ * de las formas; ausente es Windows, la plataforma por defecto. Cotiza UNA instancia:
+ * `sku.capacity` no entra, así que un plan escalado a varias queda subestimado.
  */
-export const precioMensualPlanAppService = (sku: unknown, region: string, linux: boolean) =>
-    precioDe("azurerm_service_plan", { location: region, sku_name: sku, os_type: linux ? "Linux" : "Windows" });
+export const precioMensualPlanAppService = (sku: unknown, region: string, reserved: unknown) =>
+    precioDe("azurerm_service_plan", {
+        location: region,
+        sku_name: sku,
+        os_type: ["true", "1"].includes(String(reserved).toLowerCase()) ? "Linux" : "Windows",
+    });
 
 /**
  * `sku` es `properties.sku.name` (`Standard_v2`, `WAF_v2`...). Cobra el costo fijo del
