@@ -172,3 +172,48 @@ describe("GET /api/cleanup/zombies — VMs detenidas: el costo de los discos que
         expect(de("vm-c")).toBe(24.28); // P6 9,2801 + Ultra 100 × 0,15
     });
 });
+
+/** La API no garantiza el orden de las filas: este fetch las devuelve invertidas. */
+function conOrdenInvertido(f: typeof fetch): typeof fetch {
+    return (async (url: RequestInfo | URL, init?: RequestInit) => {
+        const j = await (await f(url, init)).json();
+        return { ok: true, status: 200, json: async () => ({ ...j, Items: [...j.Items].reverse() }) } as Response;
+    }) as typeof fetch;
+}
+
+describe("GET /api/cleanup/zombies — IPs públicas sin asociar", () => {
+    const ip = (name: string, sku: string) => base("Microsoft.Network/publicIPAddresses", name, { sku });
+
+    beforeEach(() => {
+        graph.resultados = {
+            unattachedPublicIps: [ip("ip-std", "Standard"), ip("ip-basic", "Basic"), ip("ip-rara", "StandardV2")],
+        };
+    });
+
+    it("una Standard cuesta lo que la IP (3,65) aunque la API devuelva primero el Public IP Prefix (4,38)", async () => {
+        // `skuName eq 'Standard'` trae la IP (0,005/h) y el Public IP Prefix (0,006/h): el helper
+        // viejo se quedaba con la primera fila, o sea que el número dependía del orden de la API.
+        fetchEspia = vi.fn(conOrdenInvertido(fetchDeFixture()));
+        vi.stubGlobal("fetch", fetchEspia);
+        const de = await costos();
+        expect(de("ip-std")).toBeCloseTo(0.005 * 730, 4);
+        expect(de("ip-std")).not.toBeCloseTo(0.006 * 730, 2);
+    });
+
+    it("una Basic se cotiza estática (2,63): ARM no dice la asignación y se informa de menos", async () => {
+        const de = await costos();
+        expect(de("ip-basic")).toBeCloseTo(0.0036 * 730, 4);
+        // La primera fila de la API es la dinámica (0,004/h = 2,92): el helper viejo la tomaba.
+        expect(de("ip-basic")).not.toBeCloseTo(0.004 * 730, 2);
+    });
+
+    it("una SKU que no se tarifa sigue con el respaldo de 3,50", async () => {
+        const de = await costos();
+        expect(de("ip-rara")).toBe(3.5);
+    });
+
+    it("consulta `Virtual Network` por la SKU de la IP", async () => {
+        await costos();
+        expect(urlsDePrecios().some((u) => u.includes("serviceName eq 'Virtual Network'") && u.includes("skuName eq 'Standard'"))).toBe(true);
+    });
+});

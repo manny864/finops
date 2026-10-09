@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import { runGraphAudits } from "@/services/auditService";
 import { getMonthlyCostEstimate } from "@/services/pricingService";
-import { precioMensualDisco } from "@/services/precioRecursoAzure";
+import { precioMensualDisco, precioMensualIpPublica } from "@/services/precioRecursoAzure";
 import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { getWithStaleWhileRevalidate, invalidateCache } from "@/lib/cache";
@@ -134,8 +134,11 @@ async function scanLiveZombiesFromARG(tenantId: string, subscriptionId?: string 
               case "unattachedPublicIps": {
                 const sku = res.sku || "Standard";
                 const loc = res.location || "eastus";
-                const price = await getMonthlyCostEstimate("Virtual Network", sku, loc);
-                cost = price || 3.5;
+                // `skuName eq 'Standard'` trae la IP (0,005/h) y también el Public IP Prefix (0,006/h):
+                // el helper viejo se quedaba con la primera fila, o sea que el número dependía del
+                // orden en que contestaba la API.
+                const price = await precioMensualIpPublica(sku, loc);
+                cost = price ?? 3.5;
                 typeLabel = "microsoft.network/publicipaddresses";
                 break;
               }
