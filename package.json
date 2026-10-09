@@ -16,7 +16,7 @@
     "test:e2e:demo": "playwright test --project=demo-setup --project=demo",
     "test:e2e:report": "playwright show-report",
     "typecheck": "tsc --noEmit",
-    "test:retail-live": "RETAIL_PRICES_LIVE=1 vitest run __tests__/unit/iacCostCatalogLive.test.ts",
+    "test:retail-live": "RETAIL_PRICES_LIVE=1 vitest run __tests__/unit/iacCostCatalogLive.test.ts __tests__/unit/precioRecursoAzureLive.test.ts",
     "support:index": "node scripts/generate-support-manual-index.mjs",
     "db:delete-admin": "node scripts/delete-admin-user.js",
     "migrate": "tsx scripts/migrate.ts",
