@@ -17,6 +17,7 @@
 import { getAzureCredential, getResourceGraphClient, getSubscriptionsForTenant } from "@/lib/azure";
 import { kqlCatalog } from "@/modules/core/kqlCatalog";
 import { getMonthlyCostEstimate } from "@/services/pricingService";
+import { precioMensualSqlDatabase } from "@/services/precioRecursoAzure";
 import { resolveSkuName, resolveSkuPrice } from "@/lib/m365SkuCatalog";
 import {
     classifySkuCategory,
@@ -215,17 +216,17 @@ export async function getLicenseOptimizationData(tenantId: string) {
                 const isPool = groupKey.startsWith("pool::");
                 const sku = rep.sku || "GP_Gen5_2";
                 const loc = rep.location || "eastus";
-                // OJO: este precio es 0 SIEMPRE. `sku` es el `sku.name` de ARM (`GP_Gen5_2`)
-                // y la Retail API no lo conoce ni como `skuName` ni como `armSkuName`
-                // (verificado el 2026-10-09: 200 con `Items: []` en los dos). Azure publica
-                // el vCore Gen5 como `armSkuName = SQLDB_GP_Compute_Gen5_2` o
-                // `SQLDB_BC_Compute_Gen5_2`, con una fila de Zone Redundancy aparte, y las
-                // otras familias (FSv2, DC, Serverless) con otra forma. Arreglarlo es un
-                // mapeo propio y no un argumento: mientras tanto vale el respaldo por vCore.
-                const price = await getMonthlyCostEstimate("SQL Database", sku, loc);
+                // `sku` es el `sku.name` de ARM (`GP_Gen5_2`), que la Retail API no conoce ni como
+                // `skuName` ni como `armSkuName`: con `getMonthlyCostEstimate` el precio daba 0
+                // SIEMPRE (verificado el 2026-10-09) y valía el respaldo. `precioMensualSqlDatabase`
+                // lo traduce y suma la licencia de SQL Server: estas bases pagan licencia incluida
+                // (`licenseType != BasePrice`), y el 30%/55% de abajo se aplica sobre esa suma.
+                // Devuelve null para lo que no mapea (pools, serverless, Hyperscale, DC): esas
+                // siguen con el respaldo por vCore.
+                const price = await precioMensualSqlDatabase(sku, loc);
                 const vCores = Number(rep.capacity) || 2;
                 const fallbackPerVCore = 70;
-                const monthlyCost = price || (fallbackPerVCore * vCores);
+                const monthlyCost = price ?? (fallbackPerVCore * vCores);
                 // AHUB SQL: 30% for GP, up to 55% for BC
                 const tier = (rep.tier || "").toLowerCase();
                 const ahubRate = tier.includes("businesscritical") ? 0.55 : 0.30;
