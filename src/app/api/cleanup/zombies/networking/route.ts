@@ -12,7 +12,7 @@ import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { isMockTenant } from "@/lib/mockData";
 import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
 import { runGraphAudits } from "@/services/auditService";
-import { getMonthlyCostEstimate } from "@/services/pricingService";
+import { precioMensualAppGateway } from "@/services/precioRecursoAzure";
 import { getWithStaleWhileRevalidate, invalidateCache } from "@/lib/cache";
 import { getExemptionsForTenant, upsertExemption, deleteExemption } from "@/modules/storage/recommendationExemptions";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
@@ -66,8 +66,9 @@ async function fetchLiveNetworkingZombies(
   for (const agw of unusedAppGateways || []) {
     const sku = agw.sku || "Standard_v2";
     const loc = agw.location || "eastus";
-    let cost = await getMonthlyCostEstimate("Application Gateway", sku, loc).catch(() => 0);
-    if (!cost) cost = 125.0;
+    // `sku` es `properties.sku.name` de ARM: la Retail API no lo tiene como `skuName`
+    // (200 con `Items: []`) y por eso valía SIEMPRE este 125. El costo fijo se busca por producto.
+    const cost = (await precioMensualAppGateway(sku, loc)) ?? 125.0;
     const subId = agw.subscriptionId || (agw.id?.split("/subscriptions/")[1] || "").split("/")[0] || "";
 
     zombies.push({
