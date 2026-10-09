@@ -207,12 +207,13 @@ async function scanLiveZombiesFromARG(tenantId: string, subscriptionId?: string 
                 for (const diskId of attachedDiskIds) {
                   const diskInfo = disksMap.get(diskId);
                   if (diskInfo) {
-                    const price = await getMonthlyCostEstimate(
-                      "Storage",
+                    // `diskInfo.sku` es el `sku.name` de ARM: ver el caso unattachedDisks.
+                    const price = await precioMensualDisco(
                       diskInfo.sku,
+                      diskInfo.sizeGB,
                       diskInfo.location || res.location || "eastus"
                     );
-                    storageCost += price || diskInfo.sizeGB * 0.15;
+                    storageCost += price ?? diskInfo.sizeGB * 0.15;
                   }
                 }
                 cost = parseFloat(storageCost.toFixed(2));

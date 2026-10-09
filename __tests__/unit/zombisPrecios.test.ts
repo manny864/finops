@@ -129,3 +129,46 @@ describe("GET /api/cleanup/zombies — discos sin asociar", () => {
         expect(urls.some((u) => /_(LRS|ZRS)'/.test(u))).toBe(false);
     });
 });
+
+describe("GET /api/cleanup/zombies — VMs detenidas: el costo de los discos que conservan", () => {
+    const idDisco = (n: string) => rid("Microsoft.Compute/disks", n);
+    // La ruta los lee de Resource Graph con el id en minúsculas.
+    const discoArg = (n: string, sku: string, diskSizeGB: number) => ({ id: idDisco(n).toLowerCase(), diskSizeGB, sku, location: "westus2" });
+    const vmDetenida = (name: string, os: string, datos: string[] = []) =>
+        base("Microsoft.Compute/virtualMachines", name, {
+            sku: "Standard_D2s_v3",
+            osDiskId: idDisco(os),
+            dataDisks: datos.map((d) => ({ managedDisk: { id: idDisco(d) } })),
+        });
+
+    beforeEach(() => {
+        graph.discos = [
+            discoArg("os-p6", "Premium_LRS", 64),
+            discoArg("datos-e10", "StandardSSD_LRS", 128),
+            discoArg("os-s10", "Standard_LRS", 128),
+            discoArg("datos-p10", "Premium_LRS", 128),
+            discoArg("datos-ultra", "UltraSSD_LRS", 100),
+        ];
+        graph.resultados = {
+            longStoppedVMs: [
+                vmDetenida("vm-a", "os-p6", ["datos-e10"]),
+                vmDetenida("vm-b", "os-s10", ["datos-p10"]),
+                vmDetenida("vm-c", "os-p6", ["datos-ultra"]),
+            ],
+        };
+    });
+
+    it("suma lo que cuesta cada disco por su tier, no tamaño × 0,15", async () => {
+        const de = await costos();
+        expect(de("vm-a")).toBe(18.88); // P6 9,2801 + E10 9,60
+        expect(de("vm-b")).toBe(23.81); // S10 5,888 + P10 17,92
+        // El comportamiento viejo: 64 × 0,15 + 128 × 0,15 = 28,80 y 38,40.
+        expect(de("vm-a")).not.toBe(28.8);
+        expect(de("vm-b")).not.toBe(38.4);
+    });
+
+    it("un disco sin tier (Ultra) sigue con el respaldo y el resto se cotiza", async () => {
+        const de = await costos();
+        expect(de("vm-c")).toBe(24.28); // P6 9,2801 + Ultra 100 × 0,15
+    });
+});
