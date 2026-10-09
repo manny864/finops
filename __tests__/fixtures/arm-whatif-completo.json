@@ -1,0 +1,366 @@
+{
+ "changes": [
+  {
+   "resourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Network/virtualNetworks/vnet",
+   "changeType": "Create",
+   "after": {
+    "name": "vnet",
+    "type": "Microsoft.Network/virtualNetworks",
+    "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Network/virtualNetworks/vnet",
+    "location": "westus2",
+    "properties": {
+     "addressSpace": {
+      "addressPrefixes": [
+       "10.0.0.0/16"
+      ]
+     }
+    }
+   }
+  },
+  {
+   "resourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Network/networkInterfaces/nic",
+   "changeType": "Create",
+   "after": {
+    "name": "nic",
+    "type": "Microsoft.Network/networkInterfaces",
+    "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Network/networkInterfaces/nic",
+    "location": "westus2",
+    "properties": {
+     "ipConfigurations": [
+      {
+       "name": "ipconfig1",
+       "properties": {
+        "privateIPAllocationMethod": "Dynamic"
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "resourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Compute/virtualMachines/vm-linux",
+   "changeType": "Create",
+   "after": {
+    "name": "vm-linux",
+    "type": "Microsoft.Compute/virtualMachines",
+    "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Compute/virtualMachines/vm-linux",
+    "location": "westus2",
+    "properties": {
+     "hardwareProfile": {
+      "vmSize": "Standard_D2s_v3"
+     },
+     "osProfile": {
+      "computerName": "vm-linux",
+      "adminUsername": "azureuser",
+      "adminPassword": "NoEsUnaClaveReal-1234",
+      "customData": "c2VjcmV0bw=="
+     },
+     "storageProfile": {
+      "imageReference": {
+       "publisher": "Canonical",
+       "offer": "0001-com-ubuntu-server-jammy",
+       "sku": "22_04-lts",
+       "version": "latest"
+      },
+      "osDisk": {
+       "osType": "Linux",
+       "createOption": "FromImage",
+       "diskSizeGB": 64,
+       "managedDisk": {
+        "storageAccountType": "Premium_LRS"
+       }
+      }
+     }
+    }
+   }
+  },
+  {
+   "resourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Compute/virtualMachineScaleSets/vmss-win",
+   "changeType": "Create",
+   "after": {
+    "name": "vmss-win",
+    "type": "Microsoft.Compute/virtualMachineScaleSets",
+    "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Compute/virtualMachineScaleSets/vmss-win",
+    "location": "westus2",
+    "sku": {
+     "name": "Standard_D4s_v3",
+     "tier": "Standard",
+     "capacity": 2
+    },
+    "properties": {
+     "virtualMachineProfile": {
+      "licenseType": "Windows_Server",
+      "osProfile": {
+       "adminPassword": "NoEsUnaClaveReal-1234"
+      },
+      "storageProfile": {
+       "osDisk": {
+        "osType": "Windows",
+        "createOption": "FromImage",
+        "managedDisk": {
+         "storageAccountType": "StandardSSD_LRS"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  {
+   "resourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Compute/disks/disk-datos",
+   "changeType": "Create",
+   "after": {
+    "name": "disk-datos",
+    "type": "Microsoft.Compute/disks",
+    "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Compute/disks/disk-datos",
+    "location": "westus2",
+    "sku": {
+     "name": "Premium_LRS"
+    },
+    "properties": {
+     "diskSizeGB": 200,
+     "creationData": {
+      "createOption": "Empty"
+     }
+    }
+   }
+  },
+  {
+   "resourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Network/publicIPAddresses/pip",
+   "changeType": "Create",
+   "after": {
+    "name": "pip",
+    "type": "Microsoft.Network/publicIPAddresses",
+    "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Network/publicIPAddresses/pip",
+    "location": "westus2",
+    "sku": {
+     "name": "Standard",
+     "tier": "Regional"
+    },
+    "properties": {
+     "publicIPAllocationMethod": "Static",
+     "publicIPAddressVersion": "IPv4"
+    }
+   }
+  },
+  {
+   "resourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.ContainerService/managedClusters/aks",
+   "changeType": "Create",
+   "after": {
+    "name": "aks",
+    "type": "Microsoft.ContainerService/managedClusters",
+    "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.ContainerService/managedClusters/aks",
+    "location": "westus2",
+    "sku": {
+     "name": "Base",
+     "tier": "Standard"
+    },
+    "properties": {
+     "dnsPrefix": "aks",
+     "servicePrincipalProfile": {
+      "clientId": "msi",
+      "secret": "tampoco-esto"
+     },
+     "agentPoolProfiles": [
+      {
+       "name": "system",
+       "vmSize": "Standard_D2s_v3",
+       "count": 3,
+       "osType": "Linux",
+       "mode": "System"
+      },
+      {
+       "name": "user",
+       "vmSize": "Standard_D4s_v3",
+       "count": 2,
+       "osType": "Linux",
+       "mode": "User"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "resourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Web/serverfarms/plan",
+   "changeType": "Create",
+   "after": {
+    "name": "plan",
+    "type": "Microsoft.Web/serverfarms",
+    "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Web/serverfarms/plan",
+    "location": "westus2",
+    "kind": "linux",
+    "sku": {
+     "name": "P1v3",
+     "tier": "PremiumV3",
+     "capacity": 2
+    },
+    "properties": {
+     "reserved": true
+    }
+   }
+  },
+  {
+   "resourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Web/sites/app",
+   "changeType": "Create",
+   "after": {
+    "name": "app",
+    "type": "Microsoft.Web/sites",
+    "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Web/sites/app",
+    "location": "westus2",
+    "properties": {
+     "serverFarmId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Web/serverfarms/plan"
+    }
+   }
+  },
+  {
+   "resourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Cache/redis/redis",
+   "changeType": "Create",
+   "after": {
+    "name": "redis",
+    "type": "Microsoft.Cache/redis",
+    "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Cache/redis/redis",
+    "location": "westus2",
+    "properties": {
+     "sku": {
+      "name": "Standard",
+      "family": "C",
+      "capacity": 1
+     },
+     "redisConfiguration": {
+      "secret": "x"
+     }
+    }
+   }
+  },
+  {
+   "resourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Network/azureFirewalls/fw",
+   "changeType": "Create",
+   "after": {
+    "name": "fw",
+    "type": "Microsoft.Network/azureFirewalls",
+    "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Network/azureFirewalls/fw",
+    "location": "westus2",
+    "properties": {
+     "sku": {
+      "name": "AZFW_VNet",
+      "tier": "Standard"
+     }
+    }
+   }
+  },
+  {
+   "resourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Network/bastionHosts/bastion",
+   "changeType": "Create",
+   "after": {
+    "name": "bastion",
+    "type": "Microsoft.Network/bastionHosts",
+    "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Network/bastionHosts/bastion",
+    "location": "westus2",
+    "sku": {
+     "name": "Standard"
+    },
+    "properties": {
+     "scaleUnits": 4
+    }
+   }
+  },
+  {
+   "resourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Network/virtualNetworkGateways/vpn",
+   "changeType": "Create",
+   "after": {
+    "name": "vpn",
+    "type": "Microsoft.Network/virtualNetworkGateways",
+    "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Network/virtualNetworkGateways/vpn",
+    "location": "westus2",
+    "properties": {
+     "gatewayType": "Vpn",
+     "vpnType": "RouteBased",
+     "sku": {
+      "name": "VpnGw1",
+      "tier": "VpnGw1"
+     }
+    }
+   }
+  },
+  {
+   "resourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Network/applicationGateways/agw",
+   "changeType": "Create",
+   "after": {
+    "name": "agw",
+    "type": "Microsoft.Network/applicationGateways",
+    "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Network/applicationGateways/agw",
+    "location": "westus2",
+    "properties": {
+     "sku": {
+      "name": "WAF_v2",
+      "tier": "WAF_v2"
+     },
+     "autoscaleConfiguration": {
+      "minCapacity": 2,
+      "maxCapacity": 5
+     }
+    }
+   }
+  },
+  {
+   "resourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.ContainerRegistry/registries/acrdemo",
+   "changeType": "Create",
+   "after": {
+    "name": "acrdemo",
+    "type": "Microsoft.ContainerRegistry/registries",
+    "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.ContainerRegistry/registries/acrdemo",
+    "location": "westus2",
+    "sku": {
+     "name": "Premium"
+    },
+    "properties": {
+     "adminUserEnabled": false
+    }
+   }
+  },
+  {
+   "resourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Network/natGateways/nat",
+   "changeType": "Create",
+   "after": {
+    "name": "nat",
+    "type": "Microsoft.Network/natGateways",
+    "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Network/natGateways/nat",
+    "location": "westus2",
+    "sku": {
+     "name": "Standard"
+    }
+   }
+  },
+  {
+   "resourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Network/loadBalancers/lb",
+   "changeType": "Create",
+   "after": {
+    "name": "lb",
+    "type": "Microsoft.Network/loadBalancers",
+    "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Network/loadBalancers/lb",
+    "location": "westus2",
+    "sku": {
+     "name": "Standard",
+     "tier": "Regional"
+    }
+   }
+  },
+  {
+   "resourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Storage/storageAccounts/sademo",
+   "changeType": "Create",
+   "after": {
+    "name": "sademo",
+    "type": "Microsoft.Storage/storageAccounts",
+    "id": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.Storage/storageAccounts/sademo",
+    "location": "westus2",
+    "kind": "StorageV2",
+    "sku": {
+     "name": "Standard_LRS"
+    }
+   }
+  }
+ ],
+ "diagnostics": [],
+ "error": null,
+ "status": "Succeeded"
+}

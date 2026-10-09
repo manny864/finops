@@ -27,16 +27,17 @@ export function precioMensualDesdeUnidad(
     const u = (unitOfMeasure || "").trim().toLowerCase();
     if (!u || !Number.isFinite(retailPrice)) return null;
 
-    // "1 Hour", "10 Hours"
-    const horas = u.match(/^(\d+(?:\.\d+)?)\s*hours?$/);
+    // "1 Hour", "10 Hours" y "1/Hour" (Application Gateway, reglas de Load
+    // Balancer): la barra aparece en algunos medidores y no en otros.
+    const horas = u.match(/^(\d+(?:\.\d+)?)\s*\/?\s*hours?$/);
     if (horas && Number(horas[1]) > 0) return (retailPrice / Number(horas[1])) * HOURS_PER_MONTH;
 
     // "1/Month", "1 Month"
     const meses = u.match(/^(\d+(?:\.\d+)?)\s*\/?\s*months?$/);
     if (meses && Number(meses[1]) > 0) return retailPrice / Number(meses[1]);
 
-    // "1 Day", "30 Days"
-    const dias = u.match(/^(\d+(?:\.\d+)?)\s*days?$/);
+    // "1 Day", "30 Days" y "1/Day" (Container Registry)
+    const dias = u.match(/^(\d+(?:\.\d+)?)\s*\/?\s*days?$/);
     if (dias && Number(dias[1]) > 0) return (retailPrice / Number(dias[1])) * (HOURS_PER_MONTH / 24);
 
     return null;
@@ -193,4 +194,169 @@ export async function getRetailPricing(region: string, sku: string, serviceName:
     }
 
     return { payg, paygWithLicense, res1y, res3y };
+}
+
+// ---------------------------------------------------------------------------
+// Items de la Retail API para el estimador de IaC (MEJ-20)
+//
+// `getMonthlyCostEstimate` devuelve 0 ante cualquier falla y se queda con el
+// primer medidor convertible, lo que alcanza para un disco pero no para una VM:
+// verificado contra la API el 2026-10-08, `armSkuName eq 'Standard_D2s_v3'` en
+// westus2 devuelve seis filas y la primera es "D2s v3 Spot" de Windows, que se
+// cotizaba a 25 USD/mes cuando la VM Linux a demanda cuesta 70.
+//
+// Acá se separan las dos cosas que ese helper mezcla:
+//  1. traer los items (con paginación, reintentos y caché), y
+//  2. elegir cuál es el medidor del recurso, que depende del tipo de recurso y
+//     por eso lo hace quien llama.
+//
+// Contrato (Learn, "Azure Retail Prices REST API overview", 2026-01): máximo 1000
+// registros por página con `NextPageLink`; el valor del $filter distingue
+// mayúsculas; los campos filtrables incluyen serviceName, armRegionName,
+// skuName, armSkuName, productName, meterName y priceType. Y la API responde
+// 429 "Too many requests" cuando se la consulta seguido, que es lo que pasó al
+// explorarla el 2026-10-08.
+// ---------------------------------------------------------------------------
+
+export interface ItemRetail {
+    retailPrice: number;
+    unitPrice?: number;
+    unitOfMeasure: string;
+    armRegionName?: string;
+    meterId?: string;
+    meterName: string;
+    productName: string;
+    skuName: string;
+    armSkuName?: string;
+    serviceName?: string;
+    type?: string;
+    tierMinimumUnits?: number;
+    isPrimaryMeterRegion?: boolean;
+    effectiveStartDate?: string;
+}
+
+export interface ConsultaItems {
+    serviceName: string;
+    /** `armRegionName`. Load Balancer y NAT Gateway se publican como `Global`. */
+    region: string;
+    /** Un filtro exacto extra. Sin él se trae todo el servicio de esa región. */
+    filtro?: { campo: "skuName" | "armSkuName"; valor: string };
+}
+
+export type ResultadoItems =
+    | { items: ItemRetail[] }
+    | { error: "limite" | "api" | "filtro-invalido" };
+
+export interface DepsRetail {
+    fetch?: typeof fetch;
+    esperar?: (ms: number) => Promise<void>;
+    ahora?: () => number;
+}
+
+const TTL_ITEMS_MS = 6 * 60 * 60 * 1000;
+const TTL_VACIO_MS = 10 * 60 * 1000;
+const MAX_PAGINAS = 10;
+const MAX_INTENTOS = 3;
+const MAX_ENTRADAS_ITEMS = 300;
+/**
+ * Lo que puede viajar dentro de un valor del $filter. Los valores salen del plan
+ * de un cliente, y una comilla simple los rompería (o inyectaría otra condición).
+ * Ningún nombre de servicio, región o SKU de Azure usa otros caracteres.
+ */
+const VALOR_SEGURO = /^[A-Za-z0-9 ._()+\-]+$/;
+
+const cacheItems = new Map<string, { vence: number; items: ItemRetail[] }>();
+const itemsEnVuelo = new Map<string, Promise<ResultadoItems>>();
+
+export function limpiarCacheItemsRetail(): void {
+    cacheItems.clear();
+    itemsEnVuelo.clear();
+}
+
+function claveItems(c: ConsultaItems): string {
+    return [c.serviceName, c.region, c.filtro?.campo ?? "", c.filtro?.valor ?? ""].join("|");
+}
+
+async function pedirPagina(
+    url: string,
+    f: typeof fetch,
+    esperar: (ms: number) => Promise<void>
+): Promise<{ items: ItemRetail[]; siguiente: string | null } | { error: "limite" | "api" }> {
+    let ultimo: "limite" | "api" = "api";
+    for (let intento = 0; intento < MAX_INTENTOS; intento++) {
+        try {
+            const res = await f(url);
+            if (res.status === 429 || res.status >= 500) {
+                ultimo = res.status === 429 ? "limite" : "api";
+                const retryAfter = Number(res.headers?.get?.("retry-after"));
+                const espera = Number.isFinite(retryAfter) && retryAfter > 0
+                    ? Math.min(retryAfter * 1000, 5000)
+                    : 500 * 2 ** intento;
+                if (intento < MAX_INTENTOS - 1) await esperar(espera);
+                continue;
+            }
+            if (!res.ok) return { error: "api" };
+            const json: any = await res.json();
+            return {
+                items: Array.isArray(json?.Items) ? (json.Items as ItemRetail[]) : [],
+                siguiente: typeof json?.NextPageLink === "string" && json.NextPageLink ? json.NextPageLink : null,
+            };
+        } catch {
+            ultimo = "api";
+            if (intento < MAX_INTENTOS - 1) await esperar(500 * 2 ** intento);
+        }
+    }
+    return { error: ultimo };
+}
+
+/**
+ * Trae los items `Consumption` de un servicio en una región, con paginación,
+ * reintentos ante 429/5xx y caché. Nunca lanza: una falla de la API vuelve como
+ * `error`, para que quien llama distinga "no hay precio" (la API contestó y no
+ * existe el medidor) de "no pude preguntar" (reintentar más tarde sí sirve).
+ */
+export function obtenerItemsRetail(c: ConsultaItems, deps: DepsRetail = {}): Promise<ResultadoItems> {
+    const valores = [c.serviceName, c.region, c.filtro?.valor];
+    if (!valores.every((v) => v === undefined || VALOR_SEGURO.test(v))) {
+        return Promise.resolve({ error: "filtro-invalido" });
+    }
+
+    const ahora = deps.ahora ?? Date.now;
+    const clave = claveItems(c);
+
+    const guardado = cacheItems.get(clave);
+    if (guardado && guardado.vence > ahora()) return Promise.resolve({ items: guardado.items });
+
+    // Dos líneas del mismo plan piden el mismo medidor al mismo tiempo: sin esto
+    // la segunda sale a la red antes de que la primera llene la caché.
+    const enVuelo = itemsEnVuelo.get(clave);
+    if (enVuelo) return enVuelo;
+
+    const f = deps.fetch ?? fetch;
+    const esperar = deps.esperar ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+
+    const filtro =
+        `serviceName eq '${c.serviceName}' and armRegionName eq '${c.region}' and priceType eq 'Consumption'` +
+        (c.filtro ? ` and ${c.filtro.campo} eq '${c.filtro.valor}'` : "");
+
+    const carga = (async (): Promise<ResultadoItems> => {
+        let url: string | null = `https://prices.azure.com/api/retail/prices?$filter=${encodeURIComponent(filtro)}`;
+        const todos: ItemRetail[] = [];
+        for (let pagina = 0; url && pagina < MAX_PAGINAS; pagina++) {
+            const r = await pedirPagina(url, f, esperar);
+            if ("error" in r) return { error: r.error };
+            todos.push(...r.items);
+            url = r.siguiente;
+        }
+        cacheItems.set(clave, { vence: ahora() + (todos.length ? TTL_ITEMS_MS : TTL_VACIO_MS), items: todos });
+        while (cacheItems.size > MAX_ENTRADAS_ITEMS) {
+            const primera = cacheItems.keys().next().value;
+            if (primera === undefined) break;
+            cacheItems.delete(primera);
+        }
+        return { items: todos };
+    })().finally(() => itemsEnVuelo.delete(clave));
+
+    itemsEnVuelo.set(clave, carga);
+    return carga;
 }
