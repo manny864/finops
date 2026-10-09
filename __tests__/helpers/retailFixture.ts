@@ -23,6 +23,23 @@ export function claveDeConsulta(c: Componente["consulta"]): string {
 /** Las consultas que el fixture sabe contestar. */
 export const CONSULTAS_CAPTURADAS = Object.keys(DATOS.consultas);
 
+/**
+ * Un `fetch` que contesta como la Retail API real sobre el fixture: filtra por el
+ * campo que dice el `$filter` (`skuName` o `armSkuName`) y, cuando nada coincide,
+ * responde 200 con `Items: []` y no un error. Ese silencio es lo que esconde pasar
+ * un `armSkuName` como `skuName` (medido el 2026-10-09). Devuelve las filas en el
+ * orden capturado; los tests que necesitan otro lo cambian ellos.
+ */
+export function fetchDeFixture(): typeof fetch {
+    return (async (input: RequestInfo | URL) => {
+        const filtro = decodeURIComponent(String(input).split("$filter=")[1] ?? "");
+        const valor = (campo: string) => filtro.match(new RegExp(`(?:^| )${campo} eq '([^']*)'`))?.[1] ?? "";
+        const sku = filtro.match(/(?:^| )(armSkuName|skuName) eq '([^']*)'/);
+        const clave = [valor("serviceName"), valor("armRegionName"), sku?.[1] ?? "", sku?.[2] ?? ""].join("|");
+        return { ok: true, status: 200, json: async () => ({ Items: DATOS.consultas[clave] ?? [], NextPageLink: null }) } as Response;
+    }) as typeof fetch;
+}
+
 export const precioDeFixture: FuncionPrecio = async (c) => {
     const items = DATOS.consultas[claveDeConsulta(c.consulta)];
     // Una consulta fuera del fixture es un error del test, no "sin precio": se

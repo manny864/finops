@@ -1661,11 +1661,14 @@ producción y sólo se saltea la persistencia.
   Bicep conviene correr un `what-if` real y compararlo. Los endpoints de
   comentarios de GitHub son los estándar y no se verificaron contra la
   documentación (los de Azure DevOps y GitLab sí).
-- **`getMonthlyCostEstimate`**, el helper viejo de `pricingService`, sigue con la
-  selección que tarifa mal (la fila Spot de una VM) y lo usan las auditorías de
-  zombies, rightsizing y licencias. Además `azureLicenseOptimization.service.ts`
-  le pasa un `armSkuName` como `skuName`, así que siempre cae a su valor de
-  respaldo. No se tocó para no mover números de otros módulos.
+- **`getMonthlyCostEstimate`**, el helper de `pricingService` que usan las
+  auditorías de zombies, rightsizing y licencias, elige desde el 2026-10-09 el
+  medidor de una VM con la misma regla que el estimador (`elegirVm`: nunca Spot ni
+  Low Priority y, sin información del SO, Linux), y la auditoría de licencias ya
+  le pide los tamaños por `armSkuName` y como Windows (LLD 46). Lo que sigue sin
+  resolverse son los identificadores que otros callers le mandan para discos,
+  App Service, Application Gateway y SQL Database, que la API contesta con
+  `Items: []` y los deja en sus valores de respaldo (LLD 46.4).
 - **Despliegue:** las migraciones `20261008-033` y `20261008-034` van antes que el
   código, como ya hace el pipeline, y después hay que verificarlas en producción
   (job `migrate` y Log Analytics, no el ✅ del log del workflow).

@@ -173,7 +173,12 @@ export async function getLicenseOptimizationData(tenantId: string) {
             for (const vm of vms) {
                 const sku = vm.sku || "Standard_D2s_v3";
                 const loc = vm.location || "eastus";
-                const price = await getMonthlyCostEstimate("Virtual Machines", sku, loc);
+                // `sku` es el `vmSize` de ARM (Standard_D2s_v3): la Retail API lo conoce
+                // como `armSkuName`, no como `skuName`. Con el campo por defecto contesta
+                // 200 con `Items: []` y esto caia SIEMPRE al respaldo de 150. La lista
+                // sale de `missingAhubWindowsVMs`, o sea que son VMs Windows: se cotiza
+                // el medidor con la licencia incluida, que es lo que Hybrid Benefit quita.
+                const price = await getMonthlyCostEstimate("Virtual Machines", sku, loc, "armSkuName", { windows: true });
                 const monthlyCost = price || 150;
                 const savings = Number((monthlyCost * 0.4).toFixed(2));
                 ahubResources.push({
@@ -210,6 +215,13 @@ export async function getLicenseOptimizationData(tenantId: string) {
                 const isPool = groupKey.startsWith("pool::");
                 const sku = rep.sku || "GP_Gen5_2";
                 const loc = rep.location || "eastus";
+                // OJO: este precio es 0 SIEMPRE. `sku` es el `sku.name` de ARM (`GP_Gen5_2`)
+                // y la Retail API no lo conoce ni como `skuName` ni como `armSkuName`
+                // (verificado el 2026-10-09: 200 con `Items: []` en los dos). Azure publica
+                // el vCore Gen5 como `armSkuName = SQLDB_GP_Compute_Gen5_2` o
+                // `SQLDB_BC_Compute_Gen5_2`, con una fila de Zone Redundancy aparte, y las
+                // otras familias (FSv2, DC, Serverless) con otra forma. Arreglarlo es un
+                // mapeo propio y no un argumento: mientras tanto vale el respaldo por vCore.
                 const price = await getMonthlyCostEstimate("SQL Database", sku, loc);
                 const vCores = Number(rep.capacity) || 2;
                 const fallbackPerVCore = 70;

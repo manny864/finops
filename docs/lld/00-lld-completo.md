@@ -5148,7 +5148,7 @@ Load Balancer y NAT Gateway se publican con `armRegionName = Global`.
   `/^[A-Za-z0-9 ._()+\-]+$/`: sale del plan de un cliente y una comilla simple lo
   rompería o inyectaría otra condición. Si no cumple, `error: 'filtro-invalido'`.
 - **No se tocó `getMonthlyCostEstimate`.** Sigue con la selección vieja que usan
-  otros módulos (45.12).
+  otros módulos (45.12). *Corregido el 2026-10-09: ver 46.*
 
 ### 45.2 Catálogo de Terraform — `src/services/iacCostCatalog.ts`
 
@@ -5560,7 +5560,9 @@ y las migraciones aplicadas.
   `getMonthlyCostEstimate('Virtual Machines', 'Standard_D2s_v3', 'westus2', 'armSkuName')`,
   devuelve 25,36 (la fila Spot de Windows) en lugar de 70,08.
   `azureLicenseOptimization.service.ts:176` además le pasa un `armSkuName` como
-  `skuName`, así que siempre cae a su valor de respaldo de 150.
+  `skuName`, así que siempre cae a su valor de respaldo de 150. *Corregido el
+  2026-10-09 (46.1 y 46.2); lo que se encontró de más en los otros callers está
+  en 46.4.*
 - **Bases de datos administradas** (MySQL, PostgreSQL flexible, SQL Database, Cosmos
   DB): medidores inconsistentes entre SKUs; SQL Database no tiene `location`.
 - **Descuento B y C** (derivado de la facturación, precios de reserva) y **Pulumi**.
@@ -5574,3 +5576,161 @@ y las migraciones aplicadas.
   contrastaron con su documentación. La pantalla no se vio en un navegador.
 - **Despliegue.** Aplicar las migraciones `033` y `034` antes que el código y verificarlas
   en producción con el job `migrate` y Log Analytics.
+
+## 46. Addendum 2026-10-09 — `getMonthlyCostEstimate`: el medidor de las VMs y el caller de licencias
+
+Cierra los dos puntos que 45.12 dejó anotados como «Callers del helper viejo»: el
+helper cotizaba una VM con la primera fila que devolvía la Retail API, y la auditoría
+de licencias le pedía los tamaños por el campo equivocado. Contexto arquitectónico en
+el HLD §20. Se hizo sobre los commits de Shift-Left (45), que todavía no estaban en
+`main`, porque traen `iacCostCatalog.ts`: acá se reutiliza sin tocarlo, igual que el
+estimador.
+
+**Este cambio mueve números que ve el usuario**: el ahorro estimado de Hybrid Benefit
+por VM en la pestaña Optimización de Licencias (46.2). Los demás callers no cambian de
+valor (46.3).
+
+### 46.1 Contrato — `src/services/pricingService.ts`
+
+| Símbolo | Contrato |
+|---|---|
+| `getMonthlyCostEstimate(serviceName, skuName, region, campoSku = 'skuName', opciones = {})` | Nuevo quinto parámetro `opciones: { windows?: boolean }`. Para `serviceName === 'Virtual Machines'` elige el medidor con `elegirVm(items, { windows, spot: false })`; para cualquier otro servicio sigue con `elegirMedidor` y `opciones` se ignora |
+
+Una VM suele publicarse en seis filas, todas `Consumption`. Medido contra la API el
+2026-10-09 (`armSkuName eq 'Standard_D2s_v3'` en `westus2`; son las mismas seis que
+capturó el fixture del 2026-10-08), en el orden en que las devolvió:
+
+| Fila | USD/h | USD/mes (× 730) | ¿Se elige? |
+|---|---|---|---|
+| D2s v3 **Spot**, Windows | 0,034742 | 25,36 | Nunca. Era la primera, y la que cotizaba el helper |
+| D2s v3, Linux | 0,096 | 70,08 | Sí, sin información del SO |
+| D2s v3 **Low Priority**, Linux | 0,019 | 13,87 | Nunca |
+| D2s v3 **Spot**, Linux | 0,017741 | 12,95 | Nunca |
+| D2s v3 **Low Priority**, Windows | 0,075 | 54,75 | Nunca |
+| D2s v3, Windows | 0,188 | 137,24 | Sí, con `{ windows: true }` |
+
+Decisiones que el tipo no muestra:
+
+- **Sin información del SO, Linux.** Es el precio base, sin licencia del sistema
+  operativo: la cota inferior. En un producto de ahorros subestimar es preferible a
+  inflar (la regla de oro del catálogo de Shift-Left: informar de menos y decirlo), y
+  una VM Windows con Hybrid Benefit cuesta lo mismo que la Linux. Quien sabe que la VM
+  es Windows tiene que decirlo.
+- **Spot y Low Priority, nunca.** Vienen como `Consumption`: ningún `priceType` los
+  separa. Si un tamaño sólo tiene esas filas, el resultado es 0 y el llamador usa su
+  respaldo.
+- **Si falta el medidor del SO pedido, 0** y no el del otro SO: un Windows cotizado
+  como Linux sería un número equivocado y callado.
+- **Reutiliza `elegirVm`** y no copia la regla: MEJ-32 documenta la duplicación de
+  catálogos de precios como bug recurrente. Se importa de forma dinámica porque
+  `iacCostCatalog.ts` ya importa de este módulo y uno estático cerraría el ciclo; es el
+  modismo del repo (`commitmentCoverageService`, `tenantAddons.service`).
+  `iacCostCatalog.ts` y el estimador no se tocaron.
+- **Clave de caché.** Una VM Windows agrega `-windows`; las claves de los demás
+  servicios no cambian.
+- **Contrato.** Learn (*Azure Retail Prices REST API overview*, actualizada 2026-01)
+  documenta los campos filtrables y `type`, pero **no** cómo distinguir Windows de
+  Linux ni Spot: sólo lo muestra en sus ejemplos (`productName` con sufijo `Windows`;
+  `meterName: "F16s Spot"` con `type: "Consumption"`). Las reglas se verificaron
+  contra la API real.
+
+### 46.2 Caller de licencias — `src/services/azureLicenseOptimization.service.ts`
+
+**VMs (línea 176).** Llamaba `getMonthlyCostEstimate('Virtual Machines', sku, loc)` con
+el `vmSize` de ARM (`Standard_D2s_v3`) y el campo por defecto, así que filtraba por
+`skuName eq 'Standard_D2s_v3'`: ese nombre no existe, la API contesta `200` con
+`Items: []`, el precio daba 0 y `price || 150` mostraba **el mismo ahorro de 60,00 USD
+(150 × 40%) para toda VM**, fuera cual fuera su tamaño. Ahora llama
+`(…, 'armSkuName', { windows: true })`: la lista sale de `missingAhubWindowsVMs`
+(`osType =~ 'Windows'`) y el ahorro es el 40% del cómputo Windows, o sea del medidor
+con la licencia incluida, que es lo que Hybrid Benefit quita.
+
+| VM (`westus2`) | Antes | Ahora |
+|---|---|---|
+| `Standard_D2s_v3` | 60,00 | 54,90 (0,188 × 730 × 40%) |
+| `Standard_D4s_v3` | 60,00 | 109,79 (0,376 × 730 × 40%) |
+| Tamaño sin medidor, API caída o con `429` | 60,00 | 60,00 (el respaldo de 150) |
+
+Cambian el ahorro de cada fila, su `impactSummary` y `totalAhubSavingsUSD`, sin cambio
+de esquema: las VMs chicas bajan y las grandes suben. El 40% no se tocó (la diferencia
+real Windows − Linux de una D2s_v3 es el 48,9% del precio Windows, así que el factor
+sigue siendo conservador).
+
+**SQL (línea 213): el mismo tipo de problema, pero otro arreglo.** Pasa el `sku.name`
+de ARM (`GP_Gen5_2`) como `skuName`. Medido el 2026-10-09 en `eastus`:
+
+| `SQL Database`, `eastus` | Ítems |
+|---|---|
+| `skuName eq 'GP_Gen5_2'` | 0 |
+| `armSkuName eq 'GP_Gen5_2'` | 0 |
+| `armSkuName eq 'SQLDB_GP_Compute_Gen5_2'` | 4, entre ellos `vCore` a 0,304434/h y `Zone Redundancy vCore` a 0,18266/h |
+| `armSkuName eq 'SQLDB_BC_Compute_Gen5_2'` | 2, entre ellos `vCore` a 0,60887/h |
+
+O sea que `price` es 0 siempre y el monto sale del respaldo de 70 USD por vCore. Pasar
+`'armSkuName'` no lo arregla: hace falta un mapeo propio (`GP_Gen5_n` →
+`SQLDB_GP_Compute_Gen5_n`, y otra forma para FSv2, DC y Serverless) y decidir cuál de
+las filas `vCore` / `Zone Redundancy vCore` se cobra. No se hizo; queda comentado en el
+código y en 46.4.
+
+### 46.3 Los demás callers, revisados
+
+Sólo `azureLicenseOptimization.service.ts` pide `'Virtual Machines'`. Los otros callers
+anotados en 45.12 piden otros servicios, a los que este cambio no llega (un test lo
+comprueba: un disco sigue eligiendo su medidor de capacidad):
+
+| Caller | Pide | ¿Cambia su número? |
+|---|---|---|
+| `azureLicenseOptimization.service.ts:176` | `Virtual Machines` | **Sí** (46.2) |
+| `azureLicenseOptimization.service.ts:213` | `SQL Database` | No: sigue en 0 y cae al respaldo (46.2) |
+| `app/api/cleanup/zombies/route.ts`, `app/api/audit/full/route.ts`, `app/api/intelligence/rightsizing/route.ts`, `services/azureZombieHunting.service.ts` | `Storage` (discos), `Virtual Network` (IPs), `App Service` | No (46.4) |
+| `app/api/cleanup/zombies/networking/route.ts` | `Application Gateway` | No (46.4) |
+| `lib/realizedSavings.ts` | — | No es un caller: el comentario nombra la función, pero `retail_catalog` sólo existe como valor del tipo `BaselineSource` y nada la llama desde ahí |
+
+### 46.4 Lo que queda
+
+Revisar los otros callers contra la API real (2026-10-09) mostró el mismo tipo de error
+—un identificador que la API no conoce, `200` con `Items: []`, precio 0 y el respaldo
+del llamador— en casi todos. No se corrigieron: no estaban en el pedido y cambian
+números de las pantallas de zombies y rightsizing.
+
+- **Discos** (zombies, auditoría completa, rightsizing, zombieHunting): mandan el
+  `sku.name` de ARM (`Premium_LRS`) y la API publica los discos por tier y tamaño
+  (`P10 LRS`, 19,71 por mes). `skuName eq 'Premium_LRS'` da 0 ítems, así que todos usan
+  `sizeGB × 0,15`. `skuDeDisco(storage_account_type, tamaño)` de `iacCostCatalog.ts`
+  ya hace ese mapeo.
+- **App Service** (zombies, auditoría completa): piden `serviceName eq 'App Service'` y
+  en la API se llama `Azure App Service`. Da 0 ítems y siempre rige la tabla fija
+  150/75/55/0/45. Además un plan puede ser Linux o Windows, con medidores y precios
+  distintos (`S1`: 0,10/h y 0,095/h); `elegirPlanAppService` ya lo resuelve.
+- **Application Gateway** (zombies de red): `skuName eq 'Standard_v2'` da 0 ítems y
+  siempre vale 125. El adaptador `appGateway` del catálogo ya encuentra el medidor.
+- **IP pública** (zombies, auditoría completa): `skuName eq 'Standard'` trae la IP
+  (0,005/h) y el *Public IP Prefix* (0,006/h), y `elegirMedidor` toma la primera: 3,65
+  o 4,38 según el orden que devuelva la API. `elegirIp` ya lo resuelve.
+- **SQL Database**: el mapeo de 46.2.
+- **`getRetailPricing`** (el mismo archivo) también descarta Spot y Low Priority y
+  separa Windows por `productName`, pero con su propia copia de la regla y sin elegir
+  por fecha: una tercera selección de VM (MEJ-32).
+- **Verificación pendiente.** La pestaña no se vio con un tenant real.
+
+### 46.5 Verificación
+
+- `__tests__/unit/precioMensualDeVm.test.ts` (13 tests): las seis filas del fixture
+  `retail-prices-2026-10-08.json` a través de `getMonthlyCostEstimate`, con un `fetch`
+  que contesta como la API (`fetchDeFixture()` en `__tests__/helpers/retailFixture.ts`:
+  filtra por `skuName` / `armSkuName` y, si nada coincide, `200` con `Items: []`).
+  Cubre Linux por defecto, Windows, otro tamaño, independencia del orden de las filas,
+  Spot y Low Priority nunca elegidos, caché por SO, la URL que se pide y que un disco
+  no cambia.
+- `__tests__/unit/licenciasAhubPrecioVm.test.ts` (4 tests): `getLicenseOptimizationData`
+  de punta a punta con cuatro VMs Windows (dos tamaños, uno repetido y uno sin precio).
+- Se comprobó que fallan sin el arreglo: con el `pricingService.ts` anterior fallan 8
+  de 13 (`expected 25.36166 to be close to 70.08`); con el caller anterior, `expected 60
+  to be 54.9`; y con `armSkuName` pero sin `windows`, `expected 28.03 to be 54.9`.
+- La consulta de las seis filas se repitió contra la API real el 2026-10-09 y coincide
+  con el fixture.
+
+Suite completa (`env -u DB_HOST REDIS_PORT=1 npx vitest run`): 4662 tests en verde y
+40 omitidos, en 445 archivos (5 omitidos); `tsc` limpio y ESLint sin errores ni
+warnings nuevos. Sin migraciones ni variables de entorno nuevas: el despliegue es sólo
+el código, y se revierte con el commit.

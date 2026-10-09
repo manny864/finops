@@ -66,6 +66,10 @@ export function precioMensualDesdeUnidad(
  * Reglas, en orden: el medidor de capacidad se llama exactamente
  * `"<skuName> Disk"`; si no está, el primero cuya unidad sí se pueda llevar a
  * mensual (eso descarta los de operaciones y transferencia).
+ *
+ * NO ES PARA VMs: un tamaño trae filas Linux, Windows, Spot y Low Priority, y "el
+ * primero convertible" puede ser cualquiera de las seis. Las VMs las resuelve
+ * `elegirVm` desde `getMonthlyCostEstimate`.
  */
 export function elegirMedidor(items: any[], skuName: string): any | null {
     if (!Array.isArray(items) || items.length === 0) return null;
@@ -97,16 +101,36 @@ function evictPriceCacheIfFull(): void {
  * (`Standard_D2s_v3`), mientras que un disco o una IP se buscan por `skuName`
  * (`P10 LRS`, `Standard`). Buscar una VM por `skuName` no devuelve nada --y como
  * la API contesta 200 con `Items: []`, el sintoma es un precio 0, no un error.
+ *
+ * MAQUINAS VIRTUALES. Un tamaño suele publicarse en seis filas, todas `Consumption`:
+ * Linux, Windows, Spot y Low Priority (verificado contra la API el 2026-10-09,
+ * `armSkuName eq 'Standard_D2s_v3'` en westus2). El orden no esta garantizado y la
+ * primera era la Spot de Windows, que se cotizaba a 25,36 por mes cuando la VM
+ * Linux a demanda cuesta 70,08. Por eso una VM no pasa por `elegirMedidor` (que es
+ * de discos) sino por `elegirVm`, la misma regla del estimador de Shift-Left para
+ * que no existan dos: descarta Spot y Low Priority siempre y separa Windows de
+ * Linux por `productName`.
+ *
+ * `opciones.windows` pide la VM con la licencia de Windows incluida. SIN ELLA SE
+ * COTIZA LINUX: el precio base, sin licencia de SO, que es la cota inferior --y en
+ * un producto de ahorros subestimar es preferible a inflar--. Quien sabe que la VM
+ * es Windows (la auditoria de licencias) tiene que decirlo. Si el tamaño no tiene
+ * medidor del SO pedido el resultado es 0, no el del otro SO. Cualquier servicio
+ * que no sea `Virtual Machines` ignora `opciones`.
  */
 export async function getMonthlyCostEstimate(
     serviceName: string,
     skuName: string,
     region: string,
-    campoSku: "skuName" | "armSkuName" = "skuName"
+    campoSku: "skuName" | "armSkuName" = "skuName",
+    opciones: { windows?: boolean } = {}
 ): Promise<number> {
     if (!skuName || !region || !serviceName) return 0;
 
-    const cacheKey = `${serviceName}-${campoSku}-${skuName}-${region}`.toLowerCase();
+    const esVm = serviceName === "Virtual Machines";
+    const windows = esVm && opciones.windows === true;
+    // El SO entra en la clave: la misma VM cuesta distinto en Linux y en Windows.
+    const cacheKey = `${serviceName}-${campoSku}-${skuName}-${region}${windows ? "-windows" : ""}`.toLowerCase();
 
     if (priceCache.has(cacheKey)) {
         return priceCache.get(cacheKey)!;
@@ -124,7 +148,11 @@ export async function getMonthlyCostEstimate(
 
         const data = await res.json();
         if (data && data.Items && data.Items.length > 0) {
-            const item = elegirMedidor(data.Items, skuName);
+            // Import dinamico: `iacCostCatalog` ya importa de este modulo y uno
+            // estatico cerraria el ciclo (es el modismo del repo para estos casos).
+            const item = esVm
+                ? (await import("@/services/iacCostCatalog")).elegirVm(data.Items, { windows, spot: false })
+                : elegirMedidor(data.Items, skuName);
             const monthlyCost = item ? precioMensualDesdeUnidad(item.retailPrice || 0, item.unitOfMeasure) : null;
             // Unidad que pide una cantidad que no tenemos: se cachea 0 para que
             // el llamador use su propia estimacion en vez de un numero inventado.
@@ -199,11 +227,13 @@ export async function getRetailPricing(region: string, sku: string, serviceName:
 // ---------------------------------------------------------------------------
 // Items de la Retail API para el estimador de IaC (MEJ-20)
 //
-// `getMonthlyCostEstimate` devuelve 0 ante cualquier falla y se queda con el
-// primer medidor convertible, lo que alcanza para un disco pero no para una VM:
-// verificado contra la API el 2026-10-08, `armSkuName eq 'Standard_D2s_v3'` en
-// westus2 devuelve seis filas y la primera es "D2s v3 Spot" de Windows, que se
-// cotizaba a 25 USD/mes cuando la VM Linux a demanda cuesta 70.
+// `getMonthlyCostEstimate` devuelve 0 ante cualquier falla y, para lo que no es
+// una VM, se queda con el primer medidor convertible, lo que alcanza para un
+// disco pero no para una VM: verificado contra la API el 2026-10-08,
+// `armSkuName eq 'Standard_D2s_v3'` en westus2 devuelve seis filas y la primera es
+// "D2s v3 Spot" de Windows, que se cotizaba a 25 USD/mes cuando la VM Linux a
+// demanda cuesta 70. Desde el 2026-10-09 las VMs de ese helper tambien pasan por
+// `elegirVm`.
 //
 // Acá se separan las dos cosas que ese helper mezcla:
 //  1. traer los items (con paginación, reintentos y caché), y
