@@ -201,8 +201,9 @@ async function computeAuditPayload(tenantId: string, subscriptionId: string | nu
             for (const diskId of attachedDiskIds) {
                 const diskInfo = disksMap.get(diskId);
                 if (diskInfo) {
-                    const price = await getMonthlyCostEstimate("Storage", diskInfo.sku, diskInfo.location || res.location || "eastus");
-                    storageCost += price || (diskInfo.sizeGB * 0.15);
+                    // `diskInfo.sku` es el `sku.name` de ARM: ver el chequeo unattachedDisks.
+                    const price = await precioMensualDisco(diskInfo.sku, diskInfo.sizeGB, diskInfo.location || res.location || "eastus");
+                    storageCost += price ?? (diskInfo.sizeGB * 0.15);
                 }
             }
             const cost = parseFloat(storageCost.toFixed(2));
