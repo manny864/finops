@@ -1,0 +1,37 @@
+# Plantilla de job para GitLab CI: FinOps Shift-Left.
+#
+# Uso, con un job anterior que deje el plan como artefacto (`plan.json`, de `terraform show -json`,
+# o `whatif.json` para Bicep):
+#
+#   include:
+#     - local: integrations/gitlab-ci/finops-shift-left.yml
+#
+#   finops-shift-left:
+#     extends: .finops-shift-left
+#     needs: [generar-plan]
+#     variables:
+#       FINOPS_PLAN_JSON: plan.json
+#       FINOPS_SCRIPT_SHA256: '<hash que muestra Gobernanza → Shift-Left>'
+#
+# Variables de CI/CD (enmascaradas):
+#   FINOPS_API_KEY       API Key con el permiso write:shift-left.
+#   FINOPS_GITLAB_TOKEN  Token de proyecto con scope `api`, para comentar en el MR. CI_JOB_TOKEN no
+#                        alcanza para escribir notas.
+.finops-shift-left:
+  stage: test
+  image: alpine:3.20
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  variables:
+    FINOPS_API_URL: https://finops.cscloudsolutions.com.ar
+    FINOPS_TOOL: terraform
+    FINOPS_REPOSITORY: $CI_PROJECT_PATH
+    FINOPS_PR_NUMBER: $CI_MERGE_REQUEST_IID
+    FINOPS_COMMIT_SHA: $CI_COMMIT_SHA
+    FINOPS_AUTHOR: $GITLAB_USER_LOGIN
+  before_script:
+    - apk add --no-cache bash curl jq
+  script:
+    - curl -fsSL "${FINOPS_API_URL%/}/integrations/shift-left/finops-estimate.sh" -o finops-estimate.sh
+    - if [ -n "${FINOPS_SCRIPT_SHA256:-}" ]; then echo "$FINOPS_SCRIPT_SHA256  finops-estimate.sh" | sha256sum -c -; fi
+    - bash finops-estimate.sh

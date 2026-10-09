@@ -1,14 +1,11 @@
 # FinOps PR Cost Estimator — GitHub Action
 
-Calcula cuánto cambia la factura mensual de Azure un `terraform plan`, lo comenta
-en el Pull Request y —si querés— falla el check cuando el aumento supera un
-umbral.
+Action *composite*. No hay una publicada: copiá esta carpeta a tu repositorio y referenciala con
+`uses: ./integrations/github-action`. La forma más directa, sin copiar nada, es el workflow que
+genera **Gobernanza → Shift-Left (PRs) → Configurar**.
 
-La idea de Shift-Left es simple: el costo se decide cuando alguien escribe el
-`.tf`, no cuando llega la factura. Esta action mueve la conversación a la
-revisión del PR, que es donde todavía es barata.
-
-## Uso
+La explicación completa (cómo funciona, seguridad, variables, qué incluye el número) está en
+[`integrations/README.md`](../README.md).
 
 ```yaml
 name: costo
@@ -16,7 +13,7 @@ on: pull_request
 
 permissions:
   contents: read
-  pull-requests: write   # sin esto no puede comentar
+  pull-requests: write   # para comentar
 
 jobs:
   estimar:
@@ -24,15 +21,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
-
-      - run: terraform init
-      - run: terraform plan -out=tfplan.bin
+      - run: terraform init -input=false
+      - run: terraform plan -input=false -out=tfplan.bin
 
       - uses: ./integrations/github-action
         with:
           api-key: ${{ secrets.FINOPS_API_KEY }}
-          plan-file: tfplan.bin
-          threshold-usd: '200'   # opcional: ver "Budget Gates" más abajo
+          script-sha256: '<hash que muestra la pantalla de Shift-Left>'
+          # threshold-usd: '200'   # opcional
 ```
 
 ## Entradas
@@ -40,68 +36,22 @@ jobs:
 | Nombre | Requerida | Default | Para qué |
 |---|---|---|---|
 | `api-key` | sí | — | API Key con el scope `write:shift-left`. **Siempre por `secrets`.** |
-| `plan-file` | no | `tfplan.bin` | Plan binario de `terraform plan -out=...`. |
-| `plan-json` | no | — | Plan ya convertido a JSON. Si se pasa, no hace falta terraform en el runner. |
-| `api-url` | no | `https://finops.cscloudsolutions.com.ar` | Sólo para apuntar a otro entorno. |
-| `threshold-usd` | no | — | Budget Gate local. Vacío = usa el configurado en la plataforma para este repo. |
-| `comment` | no | `true` | Comentar en el PR. |
+| `tool` | no | `terraform` | `terraform`, `tofu` o `bicep`. |
+| `plan-file` | no | `tfplan.bin` | Plan binario. |
+| `plan-json` | no | — | Plan ya en JSON, o el what-if de Bicep. |
+| `threshold-usd` | no | — | Umbral del workflow. Con uno en la plataforma, manda el **más estricto**. |
+| `comment` | no | `true` | Comentar en el PR (se edita en cada push). |
+| `api-url` | no | `https://finops.cscloudsolutions.com.ar` | Sólo para otro entorno. |
+| `script-sha256` | no | — | Hash esperado del script. Recomendado. |
 
 ## Salidas
 
-`delta-usd`, `projected-usd`, `unpriced` y `gate-status` (`OK`, `EXCEEDED` o
-`NOT_EVALUATED`), para encadenar con otros steps.
+`delta-usd`, `projected-usd`, `unpriced` y `gate-status` (`OK`, `EXCEEDED` o `NOT_EVALUATED`).
 
-## Budget Gates
+## Cambios respecto de la versión anterior
 
-Si el PR agrega más que el umbral, el step falla y el check queda en rojo. El
-umbral puede venir de dos lados:
-
-1. **`threshold-usd` en el workflow.** Vive en el repo que se está gobernando.
-2. **La plataforma**, en *Gobernanza → Shift-Left*, por repositorio. No hace
-   falta tocar el workflow para cambiarlo ni para ver qué umbral tiene cada uno.
-
-**El del workflow gana.** Un equipo puede ser más estricto con su propio repo;
-lo que no puede es aflojar el umbral que fijó la plataforma sin pasar por ella.
-
-Sin ninguno de los dos, `gate-status` queda en `NOT_EVALUATED`: se comenta el
-costo y no se bloquea nada. Y si la plataforma no responde el gate tampoco
-bloquea — es un control de costo, y voltear un PR por una caída nuestra sería
-peor que dejar pasar uno caro.
-
-## Lo que conviene saber antes de confiar en el número
-
-**El delta es un piso, no un total.** Se tarifa lo que la plataforma sabe mapear
-a un medidor de la Azure Retail Prices API. Lo que no, se cuenta aparte y sale en
-`unpriced` y en el comentario: si ese número no es cero, el costo real es mayor
-que el informado. Se eligió informar de menos y decirlo, antes que estimar de más
-en silencio.
-
-**Son precios de lista.** No incluye tus reservas, savings plans, descuentos EA/CSP
-ni el markup. Sirve para comparar el antes contra el después de un PR, que es lo
-que importa acá; no reemplaza al costo real que muestra la plataforma.
-
-**Recursos cubiertos hoy:** máquinas virtuales Linux y Windows, discos
-administrados e IPs públicas. Los que no cuestan nada por definición —resource
-groups, subredes, VNets, NICs— se reconocen y no ensucian el contador de "sin
-tarifar". Cualquier otro tipo aparece marcado como no soportado.
-
-**El comentario se edita, no se acumula.** Cada push actualiza el mismo
-comentario (`--edit-last`): un hilo con seis estimaciones contradictorias es peor
-que ninguna.
-
-## Permisos
-
-El scope `write:shift-left` **no viene** en las claves existentes: hay que
-otorgarlo explícitamente desde Configuración → API Keys. Es a propósito — una
-clave de lectura de costos no debería poder escribir filas de estimación.
-
-El historial queda en **Gobernanza → Shift-Left** (tier Business).
-
-## Por qué es una action `composite` y no una de JavaScript
-
-Una action JS obliga a bundlear con `ncc` y a commitear `dist/`. Ese directorio
-es un artefacto generado que hay que acordarse de regenerar en cada cambio, y
-cuando alguien se olvida la action sigue corriendo el código viejo sin avisar.
-Acá lo que se lee en `action.yml` es exactamente lo que corre.
-
-Necesita `jq`, `curl` y `bc`, que vienen en los runners de GitHub.
+- El umbral del workflow ya **no puede aflojar** el de la plataforma: falla el más estricto. Antes
+  el del workflow ganaba aunque fuera más laxo, al revés de lo que decía este README.
+- Si la plataforma no responde, el PR **no se bloquea** (antes el paso fallaba).
+- Sólo sale del runner lo que el estimador necesita: antes viajaba el plan completo.
+- Soporta OpenTofu y Bicep, y la lógica es la misma que usan Azure DevOps y GitLab.

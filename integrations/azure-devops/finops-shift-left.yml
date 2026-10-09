@@ -1,0 +1,57 @@
+# Plantilla de pasos para Azure DevOps: FinOps Shift-Left.
+#
+# Uso, después de generar el plan en un paso anterior:
+#
+#   steps:
+#     - checkout: self
+#     - bash: terraform init -input=false && terraform plan -input=false -out=tfplan.bin
+#     - template: integrations/azure-devops/finops-shift-left.yml
+#       parameters:
+#         scriptSha256: '<hash que muestra Gobernanza → Shift-Left>'
+#
+# Requisitos:
+#   - Variable secreta del pipeline FINOPS_API_KEY, con el permiso write:shift-left.
+#   - Para comentar en el PR: la identidad del servicio de build necesita "Contribute to pull
+#     requests" en el repositorio.
+#   - En Azure Repos el pipeline se dispara con una política de rama (Build validation): la clave
+#     `pr:` del YAML sólo aplica a repositorios de GitHub o Bitbucket.
+parameters:
+  - name: apiUrl
+    type: string
+    default: https://finops.cscloudsolutions.com.ar
+  - name: tool            # terraform | tofu | bicep
+    type: string
+    default: terraform
+  - name: planFile
+    type: string
+    default: tfplan.bin
+  - name: planJson        # plan ya en JSON, o la salida de `az deployment group what-if --no-pretty-print`
+    type: string
+    default: ''
+  - name: thresholdUsd    # umbral de este pipeline; si hay otro en la plataforma falla el más estricto
+    type: string
+    default: ''
+  - name: scriptSha256    # recomendado: el paso falla antes de ejecutar un script que no coincide
+    type: string
+    default: ''
+
+steps:
+  - bash: |
+      set -euo pipefail
+      curl -fsSL "${FINOPS_API_URL%/}/integrations/shift-left/finops-estimate.sh" -o finops-estimate.sh
+      if [ -n "${SCRIPT_SHA256:-}" ]; then echo "$SCRIPT_SHA256  finops-estimate.sh" | sha256sum -c -; fi
+      bash finops-estimate.sh
+    displayName: Estimar el costo (FinOps Shift-Left)
+    env:
+      FINOPS_API_KEY: $(FINOPS_API_KEY)
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+      FINOPS_REPOSITORY: $(Build.Repository.Name)
+      FINOPS_PR_NUMBER: $(System.PullRequest.PullRequestId)
+      FINOPS_COMMIT_SHA: $(System.PullRequest.SourceCommitId)
+      FINOPS_AUTHOR: $(Build.RequestedFor)
+      FINOPS_API_URL: ${{ parameters.apiUrl }}
+      FINOPS_TOOL: ${{ parameters.tool }}
+      FINOPS_PLAN_FILE: ${{ parameters.planFile }}
+      FINOPS_PLAN_JSON: ${{ parameters.planJson }}
+      FINOPS_THRESHOLD_USD: ${{ parameters.thresholdUsd }}
+      SCRIPT_SHA256: ${{ parameters.scriptSha256 }}

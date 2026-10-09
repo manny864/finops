@@ -1,8 +1,8 @@
 name: FinOps PR Cost Estimator
 description: >-
-  Calcula el impacto en el costo mensual de Azure de un `terraform plan` y lo
-  comenta en el Pull Request. Opcionalmente falla el check si el aumento supera
-  un umbral (Budget Gate).
+  Calcula el impacto en el costo mensual de Azure de un cambio de infraestructura
+  (Terraform, OpenTofu o Bicep) y lo comenta en el Pull Request. Opcionalmente falla
+  el check si el aumento supera un umbral (Budget Gate).
 author: CSCloudSolutions
 
 branding:
@@ -13,30 +13,40 @@ inputs:
   api-key:
     description: 'API Key de la plataforma FinOps con el scope `write:shift-left`. Pasala por secrets, nunca literal.'
     required: true
+  tool:
+    description: '`terraform` (por defecto), `tofu` o `bicep`.'
+    required: false
+    default: terraform
   plan-file:
-    description: 'Ruta al plan binario de terraform (la salida de `terraform plan -out=...`).'
+    description: 'Plan binario de `terraform|tofu plan -out=...`. Ignorado si se pasa `plan-json`.'
     required: false
     default: tfplan.bin
   plan-json:
-    description: 'Ruta a un plan YA convertido a JSON. Si se pasa, `plan-file` se ignora y no hace falta terraform en el runner.'
+    description: >-
+      Plan ya en JSON (`terraform show -json`), o la salida de
+      `az deployment group what-if --no-pretty-print` si `tool` es `bicep`.
     required: false
     default: ''
-  api-url:
-    description: 'Base de la API. Sólo se cambia para apuntar a un entorno propio.'
-    required: false
-    default: https://finops.cscloudsolutions.com.ar
   threshold-usd:
     description: >-
-      Budget Gate local: si el delta mensual supera este monto en USD, el step
-      falla. Vacío = manda el umbral configurado para este repo en la plataforma
-      (Gobernanza > Shift-Left); si tampoco hay, no bloquea. Lo que se ponga acá
-      GANA sobre el de la plataforma: sirve para ser más estricto, no más laxo.
+      Umbral de este workflow, en USD por mes. Si la plataforma también tiene uno para el
+      repositorio, falla el MÁS ESTRICTO de los dos: un workflow puede apretar el gate, no aflojarlo.
     required: false
     default: ''
   comment:
-    description: 'Comentar el resultado en el PR. Necesita `permissions: pull-requests: write`.'
+    description: 'Comentar el resultado en el PR (se edita en cada push). Necesita `permissions: pull-requests: write`.'
     required: false
     default: 'true'
+  api-url:
+    description: 'Base de la plataforma. Sólo se cambia para apuntar a un entorno propio.'
+    required: false
+    default: https://finops.cscloudsolutions.com.ar
+  script-sha256:
+    description: >-
+      SHA-256 esperado del script de estimación (lo muestra Gobernanza → Shift-Left). Recomendado:
+      si el archivo que se descarga no coincide, el paso falla antes de ejecutarlo.
+    required: false
+    default: ''
 
 outputs:
   delta-usd:
@@ -46,145 +56,42 @@ outputs:
     description: 'Costo mensual proyectado en USD.'
     value: ${{ steps.estimar.outputs.projected }}
   unpriced:
-    description: 'Cantidad de recursos que no se pudieron tarifar.'
+    description: 'Cantidad de recursos que no se pudieron tarifar o se cobran por consumo.'
     value: ${{ steps.estimar.outputs.unpriced }}
   gate-status:
-    description: 'Budget Gate de la plataforma para este repo: OK, EXCEEDED o NOT_EVALUATED.'
+    description: 'Budget Gate: OK, EXCEEDED o NOT_EVALUATED.'
     value: ${{ steps.estimar.outputs.gate }}
 
-# Composite y no una action de JavaScript a propósito: una action JS obliga a
-# bundlear con ncc y a commitear `dist/`, que es un artefacto generado que hay
-# que acordarse de regenerar en cada cambio --y cuando alguien se olvida, la
-# action sigue corriendo el código viejo sin avisar. Acá no hay build: lo que se
-# lee es lo que corre.
+# Composite y no una action de JavaScript a propósito: una action JS obliga a bundlear con
+# ncc y a commitear `dist/`, que se desactualiza en silencio. Acá no hay build, y toda la
+# lógica vive en UN script (el mismo que usan Azure DevOps y GitLab) que se descarga de la
+# plataforma, se verifica por hash y está probado de punta a punta.
 runs:
   using: composite
   steps:
-    - name: Convertir el plan a JSON
-      id: preparar
-      shell: bash
-      run: |
-        set -euo pipefail
-        if [ -n "${{ inputs.plan-json }}" ]; then
-          echo "archivo=${{ inputs.plan-json }}" >> "$GITHUB_OUTPUT"
-          exit 0
-        fi
-        if [ ! -f "${{ inputs.plan-file }}" ]; then
-          echo "::error::No existe el plan '${{ inputs.plan-file }}'. Generalo con 'terraform plan -out=${{ inputs.plan-file }}' antes de este step, o pasá plan-json."
-          exit 1
-        fi
-        terraform show -json "${{ inputs.plan-file }}" > /tmp/finops-plan.json
-        echo "archivo=/tmp/finops-plan.json" >> "$GITHUB_OUTPUT"
-
-    - name: Estimar el costo
-      id: estimar
+    - id: estimar
       shell: bash
       env:
-        # Por env y no interpolado en el `run`: un ${{ }} con el secreto queda
-        # escrito en el script que el runner arma en disco.
+        # Por env y no interpolado en el `run`: un ${{ }} con el secreto queda escrito en el
+        # script que el runner arma en disco, y un input con comillas rompería el shell.
         FINOPS_API_KEY: ${{ inputs.api-key }}
+        GITHUB_TOKEN: ${{ github.token }}
+        FINOPS_REPOSITORY: ${{ github.repository }}
+        FINOPS_PR_NUMBER: ${{ github.event.pull_request.number }}
+        FINOPS_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        FINOPS_AUTHOR: ${{ github.event.pull_request.user.login || github.actor }}
+        FINOPS_API_URL: ${{ inputs.api-url }}
+        FINOPS_TOOL: ${{ inputs.tool }}
+        FINOPS_PLAN_FILE: ${{ inputs.plan-file }}
+        FINOPS_PLAN_JSON: ${{ inputs.plan-json }}
+        FINOPS_THRESHOLD_USD: ${{ inputs.threshold-usd }}
+        FINOPS_COMMENT: ${{ inputs.comment }}
+        SCRIPT_SHA256: ${{ inputs.script-sha256 }}
       run: |
         set -euo pipefail
-
-        cuerpo=$(jq -n \
-          --slurpfile plan "${{ steps.preparar.outputs.archivo }}" \
-          --arg repo "${{ github.repository }}" \
-          --arg sha "${{ github.event.pull_request.head.sha || github.sha }}" \
-          --arg autor "${{ github.event.pull_request.user.login || github.actor }}" \
-          --argjson pr "${{ github.event.pull_request.number || 'null' }}" \
-          '{plan: $plan[0], repository: $repo, commit_sha: $sha, author: $autor, pr_number: $pr}')
-
-        codigo=$(printf '%s' "$cuerpo" | curl -sS -o /tmp/finops-resp.json -w '%{http_code}' \
-          -X POST "${{ inputs.api-url }}/api/v1/shift-left/estimate" \
-          -H "Authorization: Bearer $FINOPS_API_KEY" \
-          -H 'Content-Type: application/json' \
-          --data-binary @-)
-
-        if [ "$codigo" != "200" ]; then
-          echo "::error::La estimación falló (HTTP $codigo): $(jq -r '.error.message // "sin detalle"' /tmp/finops-resp.json)"
-          exit 1
+        script="$RUNNER_TEMP/finops-estimate.sh"
+        curl -fsSL "${FINOPS_API_URL%/}/integrations/shift-left/finops-estimate.sh" -o "$script"
+        if [ -n "$SCRIPT_SHA256" ]; then
+          echo "$SCRIPT_SHA256  $script" | sha256sum -c -
         fi
-
-        jq -r '.data | "delta=\(.delta_cost_usd)\nprojected=\(.projected_monthly_cost_usd)\ncurrent=\(.current_monthly_cost_usd)\nunpriced=\(.resources_unpriced)\ngate=\(.budget_gate.status // "NOT_EVALUATED")\ngate_threshold=\(.budget_gate.threshold_usd // "")"' \
-          /tmp/finops-resp.json >> "$GITHUB_OUTPUT"
-
-    - name: Armar el comentario
-      id: cuerpo
-      shell: bash
-      run: |
-        set -euo pipefail
-        {
-          echo 'texto<<FINOPS_EOF'
-          jq -r '
-            .data as $d |
-            (if $d.delta_cost_usd > 0 then "🔺" elif $d.delta_cost_usd < 0 then "🟢" else "⚪" end) as $icono |
-            "## \($icono) Impacto en el costo mensual de Azure\n",
-            "| | USD/mes |",
-            "|---|---:|",
-            "| Antes | $\($d.current_monthly_cost_usd) |",
-            "| Después | $\($d.projected_monthly_cost_usd) |",
-            "| **Delta** | **$\($d.delta_cost_usd)** |",
-            "",
-            (if $d.resources_unpriced > 0 then
-              "> ⚠️ \($d.resources_unpriced) recurso(s) no se pudieron tarifar, así que el delta es un piso y no el total.\n"
-             else "" end),
-            "<details><summary>Desglose por recurso</summary>\n",
-            "| Recurso | Acción | Antes | Después |",
-            "|---|---|---:|---:|",
-            ($d.lines[] | select(.mensualAntes != 0 or .mensualDespues != 0 or .motivo != null) |
-              "| `\(.direccion)` | \(.accion) | $\(.mensualAntes) | $\(.mensualDespues)\(if .motivo then " ⚠️ \(.motivo)" else "" end) |"),
-            "\n</details>"
-          ' /tmp/finops-resp.json
-          echo FINOPS_EOF
-        } >> "$GITHUB_OUTPUT"
-
-    - name: Comentar en el PR
-      if: ${{ inputs.comment == 'true' && github.event_name == 'pull_request' }}
-      shell: bash
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: |
-        set -euo pipefail
-        # --edit-last para no dejar un comentario nuevo por cada push del PR: la
-        # conversación se vuelve ilegible y el número viejo sigue ahí arriba,
-        # contradiciendo al nuevo.
-        printf '%s' "${{ steps.cuerpo.outputs.texto }}" > /tmp/finops-comentario.md
-        gh pr comment "${{ github.event.pull_request.number }}" \
-          --body-file /tmp/finops-comentario.md --edit-last --create-if-none
-
-    - name: Budget Gate
-      shell: bash
-      run: |
-        set -euo pipefail
-        delta='${{ steps.estimar.outputs.delta }}'
-        umbral='${{ inputs.threshold-usd }}'
-
-        # El umbral del workflow GANA sobre el de la plataforma. Es deliberado:
-        # un equipo puede querer ser mas estricto con su propio repo, y no
-        # tendria como si el de la plataforma pisara al local.
-        if [ -n "$umbral" ]; then
-          # bc y no bash: los montos son decimales y (( )) los trunca a entero, o
-          # sea que un umbral de 0.50 con un delta de 0.90 pasaria.
-          if [ "$(echo "$delta > $umbral" | bc -l)" -eq 1 ]; then
-            echo "::error::Budget Gate: el PR agrega \$$delta/mes y el umbral del workflow es \$$umbral."
-            exit 1
-          fi
-          echo "Budget Gate OK: \$$delta/mes contra un umbral de \$$umbral (definido en el workflow)."
-          exit 0
-        fi
-
-        # Sin umbral local manda el de la plataforma, que ya lo evaluo y lo
-        # devolvio junto con la estimacion. NOT_EVALUATED significa que este repo
-        # no tiene umbral configurado: se informa el costo y no se bloquea nada.
-        case '${{ steps.estimar.outputs.gate }}' in
-          EXCEEDED)
-            echo "::error::Budget Gate: el PR agrega \$$delta/mes y el umbral configurado para este repositorio es \$${{ steps.estimar.outputs.gate_threshold }}."
-            exit 1
-            ;;
-          OK)
-            echo "Budget Gate OK: \$$delta/mes contra un umbral de \$${{ steps.estimar.outputs.gate_threshold }} (configurado en la plataforma)."
-            ;;
-          *)
-            echo "Este repositorio no tiene Budget Gate configurado: se informa el costo y no se bloquea."
-            ;;
-        esac
+        bash "$script"
