@@ -50,3 +50,15 @@ export const precioDeFixture: FuncionPrecio = async (c) => {
     const mensual = precioMensualDesdeUnidad(item.retailPrice, item.unitOfMeasure);
     return mensual === null ? { ok: false, motivo: "sin-precio" } : { ok: true, mensual };
 };
+
+/**
+ * La API no garantiza el orden de las filas: este fetch contesta lo mismo que `f` con las
+ * filas invertidas. Sirve para probar que un precio no depende de cuál viene primero
+ * (`skuName eq 'Standard'` trae la IP pública y el Public IP Prefix, y el segundo puede ir antes).
+ */
+export function conOrdenInvertido(f: typeof fetch): typeof fetch {
+    return (async (url: RequestInfo | URL, init?: RequestInit) => {
+        const j = await (await f(url, init)).json();
+        return { ok: true, status: 200, json: async () => ({ ...j, Items: [...j.Items].reverse() }) } as Response;
+    }) as typeof fetch;
+}

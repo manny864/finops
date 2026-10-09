@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
-import { fetchDeFixture } from "../helpers/retailFixture";
+import { conOrdenInvertido, fetchDeFixture } from "../helpers/retailFixture";
 
 /**
  * Zombis: lo que se ahorraría borrando cada recurso huérfano de /api/cleanup/zombies.
@@ -172,14 +172,6 @@ describe("GET /api/cleanup/zombies — VMs detenidas: el costo de los discos que
         expect(de("vm-c")).toBe(24.28); // P6 9,2801 + Ultra 100 × 0,15
     });
 });
-
-/** La API no garantiza el orden de las filas: este fetch las devuelve invertidas. */
-function conOrdenInvertido(f: typeof fetch): typeof fetch {
-    return (async (url: RequestInfo | URL, init?: RequestInit) => {
-        const j = await (await f(url, init)).json();
-        return { ok: true, status: 200, json: async () => ({ ...j, Items: [...j.Items].reverse() }) } as Response;
-    }) as typeof fetch;
-}
 
 describe("GET /api/cleanup/zombies — IPs públicas sin asociar", () => {
     const ip = (name: string, sku: string) => base("Microsoft.Network/publicIPAddresses", name, { sku });

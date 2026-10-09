@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import { runGraphAudits } from "@/services/auditService";
 import { getMonthlyCostEstimate } from "@/services/pricingService";
-import { precioMensualDisco } from "@/services/precioRecursoAzure";
+import { precioMensualDisco, precioMensualIpPublica } from "@/services/precioRecursoAzure";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
@@ -54,7 +54,9 @@ async function computeAuditPayload(tenantId: string, subscriptionId: string | nu
         await Promise.all(graphResults.unusedIps.map(async (ip: any) => {
             const sku = ip.sku || "Standard";
             const loc = ip.location || "eastus";
-            const cost = await getMonthlyCostEstimate("Virtual Network", sku, loc);
+            // `skuName eq 'Standard'` trae la IP (0,005/h) y también el Public IP Prefix (0,006/h): el
+            // helper viejo se quedaba con la primera fila, o sea que el número dependía del orden de la API.
+            const cost = (await precioMensualIpPublica(sku, loc)) ?? 0;
             ip.estimatedMonthlyCost = cost;
         }));
     }
@@ -120,7 +122,8 @@ async function computeAuditPayload(tenantId: string, subscriptionId: string | nu
         await Promise.all(graphResults.unattachedPublicIps.map(async (ip: any) => {
             const sku = ip.sku || "Standard";
             const loc = ip.location || "eastus";
-            const cost = await getMonthlyCostEstimate("Virtual Network", sku, loc);
+            // Misma consulta que `unusedIps`, ver arriba.
+            const cost = (await precioMensualIpPublica(sku, loc)) ?? 0;
             ip.estimatedMonthlyCost = cost;
             ip.resourceId = ip.id;
             ip.resourceType = ip.type || "microsoft.network/publicipaddresses";

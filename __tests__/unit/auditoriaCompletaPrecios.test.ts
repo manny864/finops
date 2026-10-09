@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
-import { fetchDeFixture } from "../helpers/retailFixture";
+import { conOrdenInvertido, fetchDeFixture } from "../helpers/retailFixture";
 
 /**
  * Auditoría completa: el costo estimado de cada recurso huérfano de /api/audit/full.
@@ -149,5 +149,48 @@ describe("GET /api/audit/full — VMs detenidas: el costo de los discos que cons
     it("un disco sin tier (Ultra) sigue con el respaldo y el resto se cotiza", async () => {
         const de = await costos("longStoppedVMs");
         expect(de("vm-c")).toBe(24.28); // P6 9,2801 + Ultra 100 × 0,15
+    });
+});
+
+describe("GET /api/audit/full — IPs públicas sin asociar", () => {
+    const ip = (name: string, sku: string) => base("Microsoft.Network/publicIPAddresses", name, { sku });
+
+    // Dos chequeos distintos (`unusedIps` y `unattachedPublicIps`) que cotizan igual.
+    beforeEach(() => {
+        graph.resultados = {
+            unusedIps: [ip("uso-std", "Standard"), ip("uso-basic", "Basic")],
+            unattachedPublicIps: [ip("huerfana-std", "Standard"), ip("huerfana-basic", "Basic"), ip("huerfana-rara", "StandardV2")],
+        };
+    });
+
+    it("una Standard cuesta lo que la IP (3,65) aunque la API devuelva primero el Public IP Prefix (4,38)", async () => {
+        // `skuName eq 'Standard'` trae la IP (0,005/h) y el Public IP Prefix (0,006/h): el helper
+        // viejo se quedaba con la primera fila, o sea que el número dependía del orden de la API.
+        fetchEspia = vi.fn(conOrdenInvertido(fetchDeFixture()));
+        vi.stubGlobal("fetch", fetchEspia);
+        const { GET } = await import("@/app/api/audit/full/route");
+        const { auditResults } = await (await GET(new NextRequest(`http://localhost/api/audit/full?tenantId=${TENANT}`))).json();
+        const de = (chequeo: string, nombre: string) => auditResults[chequeo].find((x: any) => x.name === nombre).estimatedMonthlyCost as number;
+        for (const [chequeo, nombre] of [["unusedIps", "uso-std"], ["unattachedPublicIps", "huerfana-std"]]) {
+            expect(de(chequeo, nombre)).toBeCloseTo(0.005 * 730, 4);
+            expect(de(chequeo, nombre)).not.toBeCloseTo(0.006 * 730, 2);
+        }
+    });
+
+    it("una Basic se cotiza estática (2,63): ARM no dice la asignación y se informa de menos", async () => {
+        const deUso = await costos("unusedIps");
+        expect(deUso("uso-basic")).toBeCloseTo(0.0036 * 730, 4);
+        // La primera fila de la API es la dinámica (0,004/h = 2,92): el helper viejo la tomaba.
+        expect(deUso("uso-basic")).not.toBeCloseTo(0.004 * 730, 2);
+        expect((await costos("unattachedPublicIps"))("huerfana-basic")).toBeCloseTo(0.0036 * 730, 4);
+    });
+
+    it("una SKU que no se tarifa sigue en 0: esta ruta no tiene respaldo", async () => {
+        expect((await costos("unattachedPublicIps"))("huerfana-rara")).toBe(0);
+    });
+
+    it("consulta `Virtual Network` por la SKU de la IP", async () => {
+        await costos("unusedIps");
+        expect(urlsDePrecios().some((u) => u.includes("serviceName eq 'Virtual Network'") && u.includes("skuName eq 'Standard'"))).toBe(true);
     });
 });
