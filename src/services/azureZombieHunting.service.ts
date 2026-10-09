@@ -2,7 +2,7 @@ import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient }
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import { isMockTenant } from "@/lib/mockData";
 import { withArgLimit } from "@/lib/argConcurrency";
-import { getMonthlyCostEstimate } from "@/services/pricingService";
+import { precioMensualDisco } from "@/services/precioRecursoAzure";
 import { getExemptionsForTenant } from "@/modules/storage/recommendationExemptions";
 import { kqlCatalog } from "@/modules/core/kqlCatalog";
 import type {
@@ -356,8 +356,10 @@ export class AzureZombieHuntingService {
             const loc = d.location || "eastus";
             let cost = 15.0;
             try {
-                const estimate = await getMonthlyCostEstimate("Storage", sku, loc);
-                if (estimate && estimate > 0) cost = estimate;
+                // `sku` es el `sku.name` de ARM (`Premium_LRS`): la Retail API publica los discos por
+                // tier y tamaño (`P10 LRS`), y por eso este precio valía SIEMPRE el respaldo.
+                const estimate = await precioMensualDisco(sku, sizeGB, loc);
+                if (estimate !== null && estimate > 0) cost = estimate;
                 else cost = sizeGB * 0.15;
             } catch {}
 
