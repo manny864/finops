@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import { runGraphAudits } from "@/services/auditService";
 import { getMonthlyCostEstimate } from "@/services/pricingService";
+import { precioMensualDisco } from "@/services/precioRecursoAzure";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
@@ -42,8 +43,10 @@ async function computeAuditPayload(tenantId: string, subscriptionId: string | nu
         await Promise.all(graphResults.unattachedDisks.map(async (disk: any) => {
             const sku = disk.sku || "Standard_HDD";
             const loc = disk.location || "eastus";
-            const cost = await getMonthlyCostEstimate("Storage", sku, loc);
-            disk.estimatedMonthlyCost = cost;
+            // `sku` es el `sku.name` de ARM (`Premium_LRS`): la Retail API publica los discos por tier
+            // y tamaño (`P10 LRS`), y por eso esto daba SIEMPRE 0 (acá no hay respaldo).
+            const cost = await precioMensualDisco(sku, disk.diskSizeGB, loc);
+            disk.estimatedMonthlyCost = cost ?? 0;
         }));
     }
 
