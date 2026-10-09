@@ -217,3 +217,47 @@ describe("GET /api/cleanup/zombies — IPs públicas sin asociar", () => {
         expect(urlsDePrecios().some((u) => u.includes("serviceName eq 'Virtual Network'") && u.includes("skuName eq 'Standard'"))).toBe(true);
     });
 });
+
+describe("GET /api/cleanup/zombies — planes de App Service vacíos", () => {
+    // `reserved` es el `properties.reserved` que ahora proyecta `emptyAppServicePlans`: "true" es Linux.
+    const plan = (name: string, sku: string, reserved: string) => base("Microsoft.Web/serverfarms", name, { sku, reserved });
+
+    beforeEach(() => {
+        graph.resultados = {
+            emptyAppServicePlans: [
+                plan("s1-linux", "S1", "true"),
+                plan("s1-windows", "S1", "false"),
+                plan("p1v3-linux", "P1v3", "true"),
+                // Consumo (Y1): no hay precio fijo, sigue en la tabla de respaldo.
+                plan("y1", "Y1", "false"),
+            ],
+        };
+    });
+
+    it("cada plan se cotiza por su SKU y su sistema operativo, no por la tabla fija de 150/75/55", async () => {
+        const de = await costos();
+        expect(de("s1-linux")).toBeCloseTo(0.08 * 730, 4);
+        expect(de("s1-windows")).toBeCloseTo(0.1 * 730, 4);
+        expect(de("p1v3-linux")).toBeCloseTo(0.155 * 730, 4);
+        // El comportamiento viejo: toda S valía 75 y toda P 150.
+        expect(de("s1-linux")).not.toBe(75);
+        expect(de("p1v3-linux")).not.toBe(150);
+    });
+
+    it("el mismo S1 cuesta distinto en Linux y en Windows", async () => {
+        const de = await costos();
+        expect(de("s1-windows")).toBeGreaterThan(de("s1-linux"));
+    });
+
+    it("un plan sin precio fijo (Y1) sigue con la tabla de respaldo: 45", async () => {
+        const de = await costos();
+        expect(de("y1")).toBe(45);
+    });
+
+    it("el servicio se llama `Azure App Service` en la API: con `App Service` contesta Items: []", async () => {
+        await costos();
+        const urls = urlsDePrecios();
+        expect(urls.some((u) => u.includes("serviceName eq 'Azure App Service'") && u.includes("armRegionName eq 'westus2'"))).toBe(true);
+        expect(urls.some((u) => u.includes("serviceName eq 'App Service'"))).toBe(false);
+    });
+});

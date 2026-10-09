@@ -9,8 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
 import { runGraphAudits } from "@/services/auditService";
-import { getMonthlyCostEstimate } from "@/services/pricingService";
-import { precioMensualDisco, precioMensualIpPublica } from "@/services/precioRecursoAzure";
+import { precioMensualDisco, precioMensualIpPublica, precioMensualPlanAppService } from "@/services/precioRecursoAzure";
 import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
 import { getWithStaleWhileRevalidate, invalidateCache } from "@/lib/cache";
@@ -149,8 +148,11 @@ async function scanLiveZombiesFromARG(tenantId: string, subscriptionId?: string 
               case "emptyAppServicePlans": {
                 const sku = res.sku || "S1";
                 const loc = res.location || "eastus";
-                const price = await getMonthlyCostEstimate("App Service", sku, loc);
-                if (price) {
+                // En la Retail API el servicio se llama `Azure App Service` (con `App Service` contesta
+                // `Items: []`, y por eso regía SIEMPRE la tabla de abajo) y Linux y Windows son
+                // medidores distintos: `reserved` sale de la KQL del plan.
+                const price = await precioMensualPlanAppService(sku, loc, res.reserved);
+                if (price !== null) {
                   cost = price;
                 } else {
                   const skuUpper = sku.toUpperCase();
