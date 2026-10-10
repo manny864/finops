@@ -3,9 +3,11 @@
  * (montado como volumen Docker) para los adjuntos de soporte y los logos de
  * tenant, cada uno en su propio container.
  *
- * Env var requerida: AZURE_STORAGE_CONNECTION_STRING (ver
- * src/lib/secrets/infraSecrets.ts para la resolución híbrida vía Key
- * Vault). Si no está configurada, isBlobStorageEnabled() devuelve false y
+ * Env var requerida: AZURE_STORAGE_ACCOUNT_NAME (acceso por Entra ID con la
+ * identidad administrada, ver blobCredential) o AZURE_STORAGE_CONNECTION_STRING
+ * (clave de cuenta; ver src/lib/secrets/infraSecrets.ts para la resolución
+ * híbrida vía Key Vault). Si hay las dos gana la cuenta. Si no hay ninguna,
+ * isBlobStorageEnabled() devuelve false y
  * los callers (src/lib/tenantLogo.ts, src/lib/supportAttachments.ts) caen
  * a filesystem local — mismo patrón híbrido que ya usa el resto del código
  * (Key Vault -> env var, DefaultAzureCredential -> fallback, etc.), para no

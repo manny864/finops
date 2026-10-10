@@ -72,11 +72,19 @@ columna ni endpoint. `tenant-settings` es el lugar natural para agregarlo.
 
 ### 5. Blob Storage con managed identity
 
-`src/lib/azureBlobStorage.ts` usa `BlobServiceClient.fromConnectionString`, o
-sea la clave de la cuenta. Cambiándolo a `DefaultAzureCredential` con
-`AZURE_STORAGE_ACCOUNT_NAME` se puede poner
-`shared_access_key_enabled = false` en el módulo `storage` y dejar de tener una
-clave de cuenta dando vueltas como variable de entorno.
+`src/lib/azureBlobStorage.ts` usa la connection string (la clave de la cuenta)
+mientras no esté `AZURE_STORAGE_ACCOUNT_NAME`. Con esa variable usa
+`ManagedIdentityCredential` con `AZURE_KEYVAULT_MI_CLIENT_ID` (y NO
+`DefaultAzureCredential`: su cadena prueba primero el app registration de CSCS y
+nunca llega a la identidad administrada, como ya documentan `keyvault.ts` y
+`azureAiCredential.ts`).
+
+**Estado (2026-10-10): el código está, falta activarlo.** `blob_managed_identity_enabled`
+(Terraform, default `false`) agrega la variable al app. Para poder poner
+`shared_access_key_enabled = false` falta además migrar los backups lógicos (AzCopy con
+una SAS firmada con la clave) y el provider de Terraform (`storage_use_azuread`).
+La secuencia completa, con la medición de quién usa la clave hoy, está en
+`docs/security/endurecimiento-infraestructura-saas-2026-10-09.md` (7.6).
 
 ### 6. Redis con TLS — HECHO
 

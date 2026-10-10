@@ -2,206 +2,298 @@
 
 | **Fecha** | 9 de octubre de 2026 |
 | **Alcance** | revisión de configuración versionada de Azure, Terraform y GitHub Actions, más consultas de sólo lectura a GitHub y Azure (sección 1.1) |
-| **Actualizado** | 10 de octubre de 2026: verificación en vivo parcial y correcciones |
-| **Estado** | evaluación con verificación en vivo parcial; las recomendaciones requieren validación y priorización operativa |
+| **Actualizado** | 10 de octubre de 2026 (noche): verificación en vivo, cambios en el repositorio y estado de cierre por ítem (sección 6) |
+| **Estado** | lo verificable está cerrado; los cambios de infraestructura quedaron preparados y apagados; lo que exige a una persona (Entra, GitHub, Azure, Cloudflare) está en la sección 7 |
 
 ## Resumen ejecutivo
 
-La infraestructura ya aplica controles importantes: MySQL privado con TLS obligatorio, Redis privado con protocolo cifrado, secretos en Key Vault con identidades administradas, contenedores Blob privados y ACR sin usuario administrador. Los riesgos prioritarios son la exposición directa del origen de Container Apps (confirmada en Azure el 10 de octubre), la amplitud de la autenticación OIDC del workflow de Terraform (el principal tiene `Contributor` y `User Access Administrator` sobre toda la suscripción) y la dependencia de Storage en acceso de red público y claves compartidas.
+La infraestructura ya aplica controles importantes: MySQL privado con TLS obligatorio, Redis privado con protocolo cifrado, secretos en Key Vault con identidades administradas, contenedores Blob privados, ACR sin usuario administrador, Defender for Cloud con siete planes en Standard y dos locks contra borrado. Los riesgos prioritarios eran la exposición directa del origen de Container Apps, la amplitud de la autenticación OIDC del workflow de Terraform (el principal tiene `Contributor` y `User Access Administrator` sobre toda la suscripción) y la dependencia de Storage en acceso de red público y claves compartidas.
 
-Los valores de producción se generan en el runner desde el secreto `TF_VARS_PROD`; los valores predeterminados de Terraform no prueban qué valores contiene ese secreto. El 10 de octubre se contrastaron puntos concretos con GitHub y Azure (sección 1.1); todo lo que no figura ahí sigue sin verificar.
+**Estado al cierre del 10 de octubre de 2026** (detalle por ítem en la sección 6):
+
+- **Cerrado con evidencia:** Defender for Cloud, diagnósticos y logs (P1), y el TLS de MySQL y Redis (P2, salvo la rotación de claves de Redis).
+- **Preparado y apagado** (interruptor en Terraform, sin efecto hasta activarlo): restringir el origen a Cloudflare, Blob por identidad administrada, alertas de Activity Log y Azure Policy en modo auditoría.
+- **Hecho en CI:** `id-token` sólo en los jobs que hacen login (los tres workflows), las 25 referencias a Actions fijadas por SHA con Dependabot, `drift` con el mismo sujeto OIDC que el resto, y un health check de deploy que tolera un origen filtrado.
+- **Abierto, con motivo:** cerrar el origen (hay tres consumidores que no vienen de Cloudflare), identidades y usuario de MySQL (hay DDL en runtime), recuperación (el script de backup no comprueba a `mysqldump`), MySQL 8.0 (el soporte estándar termina el 31 de enero de 2027 y Azure cobra Extended Support desde el 1 de febrero) y el certificado gestionado del dominio (vence el 29 de enero de 2027).
+
+Todo lo que cambia la seguridad de Entra, GitHub o Azure (credenciales federadas, roles, protección de ramas) lo ejecuta una persona: los comandos están en la sección 7. Los valores de producción se generan en el runner desde el secreto `TF_VARS_PROD`; los valores predeterminados de Terraform no prueban qué valores contiene ese secreto, y su contenido no se inspeccionó.
 
 ### Validación de las sugerencias recibidas
 
-| Sugerencia | Resultado al contrastarla con el código | Precisión importante |
+| Sugerencia | Resultado al contrastarla con el código y con Azure | Precisión importante |
 |---|---|---|
-| Cerrar el origen web | **Confirmada en Azure (10-oct-2026).** Container Apps declara ingress externo y `allowed_ip_ranges` tiene default vacío; la app `cscs-finops-prod-westus2-web` tiene ingress externo y 0 restricciones de IP. | Front Door está desactivado por defecto y hoy su módulo sólo implementa geo-routing; el WAF requiere Premium y sólo configura el ruleset administrado OWASP. El módulo no implementa rate limiting, protección de bots ni Private Link al origen. Permitir sólo las IP de Cloudflare no basta por sí solo (ver P0). |
-| Revisar OIDC y tfstate | **Confirmada y más grave de lo estimado.** El workflow ejecuta login y plan de producción también en `pull_request`; el apply sólo ocurre en `workflow_dispatch` con confirmación manual. El principal `cscs-finops-terraform` tiene `Contributor` y `User Access Administrator` sobre la suscripción y 5 credenciales federadas. | El job asigna `environment: prod` también en PR, por lo que el sujeto OIDC efectivo es `environment:prod`, no `pull_request`. El job de PR tampoco es de sólo lectura: abre y cierra la IP del runner en el firewall del Key Vault. El bootstrap no declara red privada/firewall para tfstate. |
-| Privatizar Storage y retirar claves | **Confirmada.** El Storage de la app tiene acceso público habilitado, Shared Key activa, connection string para la app y `Storage Blob Data Contributor` a nivel de cuenta. | El bootstrap de tfstate sí deshabilita Shared Key, pero no declara cierre de red; además, concede RBAC al operador por defecto hasta que se cambie `grant_bootstrap_operator_access`. Deshabilitar Shared Key en la cuenta de la app también afecta al módulo `mysql_backup`, que recibe la connection string. |
-| Separar identidades y reducir privilegios | **Confirmada.** Web, cron y migraciones comparten la identidad asignada; la app usa el login administrador de MySQL y recibe `Key Vault Secrets Officer`. | El rol de Key Vault responde a la función actual de escribir y borrar credenciales de tenants; reducirlo requiere rediseñar/separar ese flujo, no sólo cambiar el rol por uno de lectura. |
-| Desactivar auth local de Azure AI | **Confirmada, si el recurso está habilitado.** La cuenta `ai_services` hereda `local_auth_enabled = true`; Document Intelligence sí lo fija explícitamente en `false`. | `ai_services_enabled` tiene default `false`, por lo que esto no implica que exista o esté desplegada una cuenta AI en producción. |
-| Defender, backups, políticas y supply chain | **Mayormente confirmada.** Defender, locks y los módulos opcionales de backup tienen defaults desactivados; ACR usa Basic por defecto y sin admin. | La instancia del Backup Vault de MySQL tiene `count = 0` fijo (el código lo atribuye a un HTTP 406 de la API de Azure, sin re-verificar); `security_policy` administra locks y alertas, no Azure Policy. El pipeline etiqueta imágenes con el SHA de Git, pero no las despliega por digest y las Actions usan tags, no SHA fijados. |
+| Cerrar el origen web | **Confirmada con prueba externa (10-oct-2026).** Ingress externo y 0 restricciones de IP; un GET directo a `/api/health` del FQDN de Azure desde una red externa responde 200. | El dominio propio ya pasa por Cloudflare. Cerrar el origen exige resolver antes los cron jobs, el certificado gestionado y el health check del deploy (P0). Front Door está desactivado y su módulo sólo hace geo-routing. |
+| Revisar OIDC y tfstate | **Confirmada y más grave de lo estimado.** El principal `cscs-finops-terraform` tiene `Contributor` y `User Access Administrator` sobre la suscripción, 5 credenciales federadas, y es **el mismo** que usa el workflow de despliegue. | El job de plan usa `environment: prod` también en PR, así que su sujeto OIDC es `environment:prod`. El bootstrap no declara red privada ni firewall para tfstate. |
+| Privatizar Storage y retirar claves | **Confirmada, y medida.** Shared Key activa, red pública abierta, connection string en la app. En 14 días hubo 74 accesos de la app con clave de cuenta, 360 de AzCopy con SAS (los backups) y 26 de Terraform con clave. | Apagar Shared Key rompe a esos tres clientes; la secuencia está en la sección 7. |
+| Separar identidades y reducir privilegios | **Confirmada.** Web, cron y migraciones comparten la identidad asignada; la app usa el login administrador de MySQL y recibe `Key Vault Secrets Officer`. | Reducir el usuario de MySQL no es un cambio de configuración: la app ejecuta DDL en runtime (P1). El rol de Key Vault responde a la función actual de escribir y borrar credenciales de tenants. |
+| Desactivar auth local de Azure AI | **Confirmada, si el recurso está habilitado.** La cuenta `ai_services` hereda `local_auth_enabled = true`; Document Intelligence sí lo fija en `false`. | `ai_services_enabled` tiene default `false`: no implica que exista una cuenta AI desplegada. |
+| Defender, backups, políticas y supply chain | **Matizada.** Defender **sí está activo** en producción (7 planes) aunque el default del módulo sea `false`; los locks existen; el Backup Vault de MySQL no protege nada (`count = 0`). | `security_policy` administraba locks y una alerta de salud; ahora también puede crear alertas de Activity Log y Azure Policy en auditoría, apagadas. Las Actions pasaron a SHA fijados. |
 
 ## 1. Alcance, supuestos y limitaciones
 
 - Se revisó configuración y documentación del repositorio. El 10 de octubre se añadieron consultas de sólo lectura a GitHub y Azure (sección 1.1); no se inspeccionaron los valores de `TF_VARS_PROD`. El archivo `infra/terraform/environments/prod/terraform.tfvars` no está versionado: `.github/workflows/terraform.yml` lo materializa desde el secreto de GitHub durante el plan y el apply.
-- Los valores opcionales predeterminados en `infra/terraform/environments/prod/variables.tf` describen el comportamiento si no se proporciona un valor. No prueban la configuración de producción, que puede sobrescribirlos.
-- `infra/docs/keyvault-network-hardening.md` documenta el endurecimiento del Key Vault como aplicado y verificado el 7 de septiembre de 2026 (ACL `Deny`, Private Endpoint y allowlist vacía en esa observación). Es evidencia documental fechada, no una confirmación del estado actual; confirmar en Azure.
-- **Visibilidad del repositorio, resuelta el 10 de octubre de 2026:** es privado (`gh repo view` devuelve `visibility: PRIVATE`). Los comentarios de `.github/workflows/terraform.yml` coinciden; el desactualizado era `infra/docs/keyvault-network-hardening.md`, que lo describía como público (sección "El repositorio es público, y por qué" y el escenario de PR desde forks); se actualizó el 10 de octubre, incluido su razonamiento sobre runners de red privada, que se apoyaba en esa premisa. El repositorio fue público al menos hasta el 7 de septiembre: volver a privado no retira lo que se publicó, y no se revisó el historial en busca de secretos.
-- Es una revisión de configuración, no una prueba de penetración, evaluación de vulnerabilidades en ejecución, auditoría de Azure en vivo ni certificación de cumplimiento. Salvo lo indicado en 1.1, no se verificaron los permisos efectivos, las reglas activas, la cobertura de logs, las alertas ni la capacidad real de restauración.
-- Los hallazgos y las prioridades reflejan el código, la documentación y las consultas de 1.1; no se infieren valores secretos ni se afirma que una recomendación ya esté desplegada.
+- Los valores opcionales predeterminados en `infra/terraform/environments/prod/variables.tf` describen el comportamiento si no se proporciona un valor. No prueban la configuración de producción, que puede sobrescribirlos; por eso lo que importa se contrastó con Azure.
+- `infra/docs/keyvault-network-hardening.md` documenta el endurecimiento del Key Vault como aplicado el 7 de septiembre de 2026. El 10 de octubre se confirmó en Azure: ACL `Deny`, Private Endpoint, RBAC y purge protection.
+- **Visibilidad del repositorio:** es privado (`gh repo view` devuelve `visibility: PRIVATE`). Ese documento lo describía como público y se actualizó. El repositorio fue público al menos hasta el 7 de septiembre: volver a privado no retira lo que se publicó, y no se revisó el historial en busca de secretos.
+- Es una revisión de configuración, no una prueba de penetración, evaluación de vulnerabilidades en ejecución ni certificación de cumplimiento. Salvo lo indicado en 1.1, no se verificaron las reglas activas de Cloudflare, la atención operativa de las alertas ni la capacidad real de restauración.
+- Los hallazgos reflejan el código, la documentación y las consultas de 1.1; no se infieren valores secretos. Lo que se infiere sin haberlo medido está marcado como tal.
 
 ### 1.1 Verificación en vivo (10 de octubre de 2026)
 
-Consultas de sólo lectura con `gh` y `az`. No se modificó nada en GitHub ni en Azure.
+Consultas de sólo lectura con `gh`, `az`, `curl`, `dig`, KQL contra Log Analytics y la Retail Prices API. Hubo GET a `/api/health` por el dominio propio y directo al FQDN de Azure, y un apretón TLS al origen. No se modificó nada en GitHub ni en Azure.
 
-| Consulta | Resultado |
+| Área | Resultado |
 |---|---|
-| Visibilidad del repositorio | Privado. |
-| Colaboradores | Uno, con permisos de administrador. |
-| Workflows desde forks | Desactivados: no se ejecutan, y no se envían secretos ni tokens de escritura. |
-| Protección de `main` | No disponible en el plan actual: la API responde 403 ("Upgrade to GitHub Pro or make this repository public"). |
-| Ingress de Container Apps | `cscs-finops-prod-westus2-web`: externo, 0 restricciones de IP. `ca-linkedin-mcp`: también externo y sin restricciones; no se verificó si lo gestiona este repositorio. |
-| Credenciales federadas de `cscs-finops-terraform` | Cinco, todas del emisor de GitHub Actions: `gh-env-prod` (`environment:prod`), `gh-pr` (`pull_request`), `gh-main` (`ref:refs/heads/main`), `gh-actions-finops-env-staging` (`environment:staging`) y `gh-actions-finops-staging` (`ref:refs/heads/staging`). Ningún workflow ni entorno de Terraform usa `staging`. |
+| Repositorio | Privado, un colaborador (administrador), workflows de forks desactivados. La cuenta tiene plan **Pro** y autenticación en dos pasos activa. |
+| Protección de `main` | Disponible (la API responde "Branch not protected"), sin reglas ni rulesets. El environment `prod` no tiene reglas ni restricción de ramas. |
+| Secrets de GitHub | `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `TFSTATE_RG`, `TFSTATE_STORAGE` y `TF_VARS_PROD` son del repositorio, no del environment: Terraform y el deploy usan **el mismo principal**. |
+| Drift semanal | De las últimas 5 corridas, 3 pasaron y 2 fallaron. La del 5 de octubre cayó en el plan de `plan-apply` (que corría también por schedule) por `ForbiddenByFirewall` del Key Vault; el job `drift` pasó. |
+| Origen web | `cscs-finops-prod-westus2-web`: ingress externo, 0 restricciones de IP. GET directo a `/api/health` → 200. `ca-linkedin-mcp` también es externo y sin restricciones; no se verificó si lo gestiona este repositorio. |
+| Dominio propio | `finops.cscloudsolutions.com.ar` resuelve a IP de Cloudflare y responde `server: cloudflare`: el proxy está activo. |
+| Entorno de Container Apps | Workload profiles (perfil Consumption) en una VNet, **sin NAT Gateway, sin UDR y sin NSG**. IP de entrada pública `20.112.42.44`. El app lista unas 190 IPs de salida del pool regional. |
+| Jobs | 29: 27 cron, `sync-azure-ai` y la migración. `CRON_URL` es `https://<app>.internal.<dominio del entorno>/api/cron/<job>`, que por DNS público resuelve a la **misma IP pública** que el FQDN externo. |
+| Certificado del dominio | Gestionado por Azure, validación CNAME, emitido el 29-jul-2026, **vence el 29-ene-2027** (leído del certificado que sirve el origen). |
+| Credenciales federadas de `cscs-finops-terraform` | Cinco, del emisor de GitHub Actions: `gh-env-prod` (`environment:prod`), `gh-pr` (`pull_request`), `gh-main` (`ref:refs/heads/main`), `gh-actions-finops-env-staging` y `gh-actions-finops-staging`. Ningún workflow ni entorno de Terraform usa `staging`. |
 | Roles de ese principal | `Contributor` y `User Access Administrator` sobre la suscripción; `Storage Blob Data Contributor` sobre la cuenta de tfstate; `Key Vault Secrets User` y `Key Vault Secrets Officer` sobre el vault de producción. |
-| Precios de ACR (Retail Prices API, West US 2) | Basic 0,1666, Standard 0,6666 y Premium 1,6666 USD/día: unos USD 5, 20 y 50 al mes. |
-| Precios de Front Door (Retail Prices API) | Base de USD 35/mes (Standard) y USD 330/mes (Premium), sin tráfico. |
+| Defender for Cloud | En Standard: StorageAccounts (DefenderForStorageV2), KeyVaults, Arm, OpenSourceRelationalDatabases, Containers, Discovery y FoundationalCspm. Contacto de seguridad con alertas y notificación a administradores activas (un correo). |
+| Diagnósticos | Key Vault, MySQL, Blob y ACR envían todos los logs (`allLogs`) a Log Analytics; Redis sólo métricas; el entorno de Container Apps envía sus logs a Log Analytics. |
+| Log Analytics | Retención 30 días, tope de 1 GB por día. Ingesta de 0,08 a 0,11 GB por día en los últimos 14 días y ningún evento de tope alcanzado. |
+| Alertas | Una sola alerta de Activity Log en la suscripción (Service Health), ninguna regla de alerta de log y un action group con un receptor de correo. |
+| MySQL | Privado, `require_secure_transport = ON`, TLS 1.2 y 1.3, HA y backup geo-redundante desactivados, retención 14 días, `Standard_B2s`, versión 8.0.21. |
+| Redis | Acceso público deshabilitado, TLS mínimo 1.2, protocolo cifrado, autenticación por access key habilitada. |
+| Storage de la app | ZRS, TLS 1.2, HTTPS obligatorio, **Shared Key activa**, **red pública abierta (default Allow)**, acceso anónimo a blobs desactivado, soft delete de 30 días, versionado activo; el módulo no declara retención inmutable. |
+| Acceso a Blob (`StorageBlobLogs`, 14 días) | `TrustedAccessSas` 440 (servicios de Azure), `SAS` 360 (AzCopy 10.32.4: los backups), `TrustedAccess` 292 (Storage Resource Provider), `AccountKey` 74 (la app, `azsdk-js-azure-storage-blob`) y 28 más (Terraform: `HashiCorp/go-azure-sdk`, y una herramienta con `python-requests`), `OAuth` 2. |
+| ACR | Basic, admin deshabilitado, pull anónimo deshabilitado, acceso público habilitado, sin retención ni cuarentena. |
+| Key Vault | ACL `Deny`, un Private Endpoint, RBAC, purge protection, soft delete de 30 días; `publicNetworkAccess` habilitado a propósito para el firewall efímero del runner. |
+| Precios (Retail Prices API, West US 2) | ACR: Basic 0,1666, Standard 0,6666 y Premium 1,6666 USD/día (≈ USD 5, 20 y 50 al mes; cada región replicada suma ≈ USD 50). Front Door: base de USD 35 (Standard) y USD 330 (Premium) al mes. NAT Gateway: USD 0,045/hora (≈ USD 33/mes) más USD 0,005/hora de IP pública Standard (≈ USD 3,65/mes) y USD 0,045/GB procesado. MySQL Extended Support: USD 0,07 por vCore-hora. Reglas de Activity Log y Azure Policy en auditoría: sin medidor facturable. |
+| MySQL 8.0 | Según learn.microsoft.com (versión de la página del 16-sep-2026): retiro de la comunidad el 30-abr-2026, **fin del soporte estándar de Azure el 31-ene-2027**, Extended Support con cargo automático desde el 1-feb-2027. Con 2 vCores son ≈ USD 102 al mes. |
+| Cloudflare | Los 15 rangos IPv4 y los 7 IPv6 del catálogo del repositorio son idénticos a las listas oficiales de cloudflare.com/ips-v4 y /ips-v6. |
 
-### 1.2 Estado tras los cambios publicados el 10 de octubre (tarde)
+### 1.2 Cambios de la jornada
 
-Otra sesión (Copilot) publicó el PR #117 y varios commits en `main` (`c88a9ac` a `0512540`), que arrastran los tres commits de esta evaluación; el apply de producción (run 38087177000) terminó en success. Contraste con este documento, comprobado con `az`, `gh` y el código:
+- **Otra sesión (Copilot)** publicó el PR #117 y varios commits en `main` (`c88a9ac` a `0512540`), que arrastraron los tres commits previos de esta evaluación. Trajo: Checkov fijado por SHA, HTTPS obligatorio en Storage, el catálogo de rangos de Cloudflare, soporte de identidad administrada en `azureBlobStorage.ts`, dos locks `CanNotDelete` (flag `enable_delete_lock`), `concurrency` en el workflow de Terraform, `scripts/validate-terraform-apply-plan.mjs` (frena el apply ante destrucciones no pedidas o checks que no pasan) y el cierre del firewall del Key Vault que falla el job. El apply de producción (run 38087177000) terminó en success.
+- **Esta sesión** (commits locales hasta su publicación): `id-token` sólo en los jobs que hacen login en los tres workflows; las 24 referencias a Actions que quedaban por tag, fijadas por SHA, y `dependabot.yml`; health check del deploy que tolera un origen filtrado; validación de IPv4 antes de escribir en el firewall del vault; por schedule corre sólo `drift`, y `drift` usa `environment:prod`; interruptores de Terraform (origen, Blob por identidad administrada, alertas de Activity Log, Azure Policy en auditoría) con sus tests; corrección de `azureBlobStorage.ts` (ver P1 Storage); TLS explícito en el cliente de Redis; y la corrección de costos de ACR y de la premisa de repo público en `keyvault-network-hardening.md`.
 
-| Punto | Estado |
-|---|---|
-| Permisos por job en `terraform.yml` | Publicado y probado en CI (ver Avance en P0). El job `drift` aún no corrió con ellos. |
-| Checkov | Fijado por SHA. Las otras 7 Actions siguen por tag y no hay Dependabot. |
-| Guardas del pipeline | `concurrency: terraform-prod` y `scripts/validate-terraform-apply-plan.mjs` verificados en el workflow; el cierre del firewall del Key Vault que falla el job si no retira la regla figura en el handoff, sin re-verificar. |
-| Origen web | **Sigue abierto**: ingress externo, 0 restricciones. Existe el catálogo `cloudflare_ips.tf`, sin cablear a ninguna variable. |
-| Principal de Terraform | Sin cambios: `Contributor` y `User Access Administrator` sobre la suscripción, y las mismas 5 credenciales federadas. |
-| Storage | HTTPS obligatorio activo. Shared Key y red pública siguen activas, y la app sólo usa la connection string. |
-| Locks | Dos `CanNotDelete` (MySQL y Key Vault), activos. |
+### 1.3 Sigue sin verificar
 
-**Sigue sin verificar (1.1 y 1.2):** el contenido de `TF_VARS_PROD`; los planes de Defender contratados; el ACL actual del Key Vault; si el workflow de despliegue usa el mismo principal que Terraform (ambos leen `secrets.AZURE_CLIENT_ID`); una prueba de conexión directa al origen desde una red externa; el estado actual del HTTP 406 de Azure Backup para MySQL.
+El contenido de `TF_VARS_PROD`; la configuración de Cloudflare (modo SSL, reglas WAF, rate limiting, y si el CNAME estuvo en modo proxy cuando se emitió el certificado); a qué URL apuntan los webhooks de Paddle y cualquier monitor externo; qué IP de origen ve el ingress cuando un job llama al FQDN interno (la documentación no lo dice, y es lo primero que hay que medir al activar el filtro); el estado actual del HTTP 406 de Azure Backup para MySQL; el comportamiento real de la condición RBAC propuesta en la sección 7 (se tomó del ejemplo oficial, no se probó contra la suscripción); y la atención operativa del correo de alertas.
 
 ## 2. Controles existentes identificados en el repositorio
 
-Estos controles están declarados en Terraform o documentados. Su presencia en el código no confirma que estén aplicados correctamente en Azure.
+Estos controles están declarados en Terraform o documentados. Los que se contrastaron con Azure el 10 de octubre figuran en 1.1.
 
 | Área | Control identificado | Referencias |
 |---|---|---|
-| MySQL | Flexible Server con VNet injection (`delegated_subnet_id`) y acceso de red privado; `require_secure_transport = ON`. La aplicación debe validar el certificado TLS. | [`modules/mysql/main.tf`](../../infra/terraform/modules/mysql/main.tf), [`modules/stamp/main.tf`](../../infra/terraform/modules/stamp/main.tf) |
-| Redis | Azure Managed Redis con acceso público deshabilitado, Private Endpoint y protocolo `Encrypted`. La autenticación por access key está habilitada. | [`modules/redis/main.tf`](../../infra/terraform/modules/redis/main.tf), [`modules/stamp/main.tf`](../../infra/terraform/modules/stamp/main.tf) |
-| Key Vault | El módulo declara RBAC, soft delete de 30 días y purge protection. La documentación de producción describe firewall `Deny`, Private Endpoint y apertura temporal de la IP del runner durante Terraform. | [`modules/keyvault/main.tf`](../../infra/terraform/modules/keyvault/main.tf), [`keyvault-network-hardening.md`](../../infra/docs/keyvault-network-hardening.md), [workflow de Terraform](../../.github/workflows/terraform.yml) |
-| Blob Storage | Los contenedores de adjuntos, logos, exportaciones y backups son privados; no se permite acceso público anidado. | [`modules/storage/main.tf`](../../infra/terraform/modules/storage/main.tf) |
+| MySQL | Flexible Server con VNet injection (`delegated_subnet_id`) y acceso de red privado; `require_secure_transport = ON`. El cliente valida el certificado (`rejectUnauthorized: true` explícito en `src/modules/storage/db.ts`). | [`modules/mysql/main.tf`](../../infra/terraform/modules/mysql/main.tf), [`modules/stamp/main.tf`](../../infra/terraform/modules/stamp/main.tf) |
+| Redis | Azure Managed Redis con acceso público deshabilitado, Private Endpoint y protocolo `Encrypted`. La autenticación por access key está habilitada. El cliente valida el certificado y exige TLS 1.2 de forma explícita. | [`modules/redis/main.tf`](../../infra/terraform/modules/redis/main.tf), [`src/lib/redis.ts`](../../src/lib/redis.ts) |
+| Key Vault | El módulo declara RBAC, soft delete de 30 días y purge protection. En producción: firewall `Deny`, Private Endpoint y apertura temporal de la IP del runner durante Terraform. | [`modules/keyvault/main.tf`](../../infra/terraform/modules/keyvault/main.tf), [`keyvault-network-hardening.md`](../../infra/docs/keyvault-network-hardening.md), [workflow de Terraform](../../.github/workflows/terraform.yml) |
+| Blob Storage | Los contenedores de adjuntos, logos, exportaciones y backups son privados; no se permite acceso público anidado; HTTPS obligatorio. | [`modules/storage/main.tf`](../../infra/terraform/modules/storage/main.tf) |
 | ACR | `admin_enabled = false`; la identidad de la aplicación recibe `AcrPull`. | [`modules/acr/main.tf`](../../infra/terraform/modules/acr/main.tf), [`modules/stamp/main.tf`](../../infra/terraform/modules/stamp/main.tf) |
-| Identidades de cargas | Se usa una identidad administrada asignada por el usuario para Container Apps y jobs, pull desde ACR y acceso a recursos. La aplicación recibe roles de datos para Blob y Secrets Officer en Key Vault. | [`modules/stamp/main.tf`](../../infra/terraform/modules/stamp/main.tf), [`modules/containerapp/main.tf`](../../infra/terraform/modules/containerapp/main.tf), [`modules/cronjobs/main.tf`](../../infra/terraform/modules/cronjobs/main.tf) |
-| Estado Terraform | El bootstrap declara TLS 1.2, bloqueo del acceso público a contenedores, Shared Key deshabilitada y acceso de datos mediante RBAC para la cuenta de estado. No declara firewall, Private Endpoint ni `public_network_access_enabled = false`; el acceso de red público queda habilitado por defecto. También concede `Storage Blob Data Contributor` al operador mientras `grant_bootstrap_operator_access = true` (default). | [`bootstrap/main.tf`](../../infra/terraform/bootstrap/main.tf) |
+| Identidades de cargas | Una identidad administrada asignada por el usuario para Container Apps y jobs, pull desde ACR y acceso a recursos. La aplicación recibe roles de datos para Blob y Secrets Officer en Key Vault. | [`modules/stamp/main.tf`](../../infra/terraform/modules/stamp/main.tf), [`modules/containerapp/main.tf`](../../infra/terraform/modules/containerapp/main.tf), [`modules/cronjobs/main.tf`](../../infra/terraform/modules/cronjobs/main.tf) |
+| Estado Terraform | El bootstrap declara TLS 1.2, bloqueo del acceso público a contenedores, Shared Key deshabilitada y acceso de datos mediante RBAC. No declara firewall, Private Endpoint ni `public_network_access_enabled = false`. También concede `Storage Blob Data Contributor` al operador mientras `grant_bootstrap_operator_access = true` (default). | [`bootstrap/main.tf`](../../infra/terraform/bootstrap/main.tf) |
+| Pipeline | Locks `CanNotDelete` en MySQL y Key Vault, `concurrency` en el workflow de Terraform y una guarda que frena el apply ante destrucciones no pedidas. | [workflow de Terraform](../../.github/workflows/terraform.yml), [`validate-terraform-apply-plan.mjs`](../../scripts/validate-terraform-apply-plan.mjs) |
 
 ## 3. Recomendaciones priorizadas
 
 ### P0 — Cerrar el acceso directo al origen y reforzar la entrega web
 
-`modules/containerapp/main.tf` configura `external_enabled = true`. La restricción de IP se construye a partir de `allowed_ip_ranges`, cuyo valor predeterminado en producción es una lista vacía. **Confirmado en Azure el 10 de octubre de 2026:** `cscs-finops-prod-westus2-web` tiene ingress externo y ninguna restricción de IP, de modo que el FQDN del Container App acepta tráfico directo y permite eludir las protecciones del proxy o WAF frontal. El comentario del código describe el vacío como transitorio ("sólo mientras se valida el certificado del dominio propio"). Falta la prueba de conexión directa desde una red externa (paso 3).
+**Estado: preparado, no cerrado.** El origen sigue abierto; el cierre está a un interruptor de distancia, pero activarlo hoy rompería cosas.
 
-1. Elegir y aplicar una estrategia de origen:
-   - Si se conserva Cloudflare, permitir únicamente sus rangos de salida mantenidos en forma automatizada y bloquear cualquier otra conexión al origen; probar renovación de rangos y continuidad. Los rangos por sí solos no identifican a *este* sitio: según el comportamiento conocido de Cloudflare, otra cuenta de Cloudflare puede apuntar al FQDN del origen y llegar desde esos mismos rangos. Complementar con un secreto compartido en un encabezado, o con Authenticated Origin Pulls, validado en la aplicación (confirmar el mecanismo contra la documentación de Cloudflare al diseñarlo; no se verificó aquí). Además, definir si `ca-linkedin-mcp` debe seguir expuesto. Antes de aplicar cualquier lista hay que resolver a quién más se deja entrar: los cron jobs llaman a `${app_url}/api/cron/*` por la URL pública (`modules/cronjobs/main.tf`), con una IP de salida de Azure que no es de Cloudflare; una lista sólo con Cloudflare los dejaría fuera. Opciones a evaluar: añadir la IP de salida del entorno o llamar a los cron por la ruta interna del entorno. Y usar sólo los rangos IPv4 (`cloudflare_ipv4_cidrs`): Container Apps no admite los IPv6 del catálogo combinado.
-   - Evaluar Azure Front Door Premium con WAF y Private Link al origen como alternativa de arquitectura. Esto requiere ampliar el módulo actual: Front Door está desactivado por defecto, su módulo actual sirve para geo-routing, y no configura Private Link al origen.
-2. Añadir defensas en el borde: conjunto de reglas OWASP, límites de tasa y controles contra abuso adecuados a rutas sensibles. El WAF que existe en Terraform sólo se crea con Front Door Premium y asocia `Microsoft_DefaultRuleSet` 2.1; no declara rate limiting ni reglas de bots. Asegurar que la política se aplica antes de que las solicitudes lleguen a la aplicación.
-3. Probar desde una red externa que el FQDN del origen rechaza conexiones que no provienen del borde aprobado y que el tráfico legítimo sigue funcionando.
+Lo verificado el 10 de octubre:
 
-**Aceptación:** ningún origen público permite omitir el borde; solo se aceptan orígenes autorizados; las pruebas de acceso directo y reglas WAF/rate limit quedan registradas; el proceso de actualización de rangos tiene responsable y alerta.
+- El ingress es externo y no tiene restricciones; un GET directo al FQDN de Azure desde fuera responde 200. El comentario del código describe el vacío como transitorio ("sólo mientras se valida el certificado del dominio propio").
+- Con cualquier regla `Allow`, el resto del tráfico entrante recibe 403 "RBAC: Access Denied", y `ipAddressRange` sólo acepta IPv4 (learn.microsoft.com, "Set up IP ingress restrictions in Azure Container Apps"). Por eso el catálogo usa los rangos IPv4 de Cloudflare y nunca la lista combinada.
+- Hay **tres consumidores del origen que no vienen de Cloudflare**:
+  1. **Los 28 jobs de cron** (27 más `sync-azure-ai`; la migración no pasa por el ingress). Llaman a `https://<app>.internal.<dominio>/api/cron/<job>`, que resuelve a la IP pública del entorno. La documentación no dice si las reglas de IP aplican a llamadas del mismo entorno ni qué IP de origen ve el ingress; lo más probable es la IP de salida de Azure del job, que no es de Cloudflare y cambia (Microsoft advierte que las IP de salida pueden cambiar; el entorno no tiene NAT Gateway). Con sólo Cloudflare en la lista, cada cron podría recibir 403 y las sincronizaciones se pararían.
+  2. **El health check del deploy**, que pega al FQDN de Azure desde un runner de GitHub. Ya está resuelto: ante un 403 comprueba que la revisión nueva esté `Healthy` y `Running`.
+  3. **La validación del certificado gestionado.** Microsoft exige que el app sea accesible desde las IP de DigiCert y que el CNAME apunte directo al dominio generado del app; un valor intermedio, y la página cita a Cloudflare como ejemplo, bloquea la emisión y la renovación (learn.microsoft.com, "Custom domain names and free managed certificates in Container Apps"). El dominio hoy está detrás del proxy de Cloudflare y el certificado vigente **vence el 29 de enero de 2027**: la renovación ya está en riesgo con independencia del cierre del origen, y un filtro por IP la bloquearía del todo.
+- Permitir sólo los rangos de Cloudflare no identifica a *este* sitio: según el comportamiento conocido de Cloudflare, otra cuenta de Cloudflare puede apuntar al FQDN del origen y llegar desde esos mismos rangos. Complementar con un secreto compartido en un encabezado, o con Authenticated Origin Pulls, validado en la aplicación (confirmar el mecanismo contra la documentación de Cloudflare al diseñarlo; no se verificó aquí). `src/proxy.ts` excluye `/api` de su matcher a propósito, así que ese control no es un cambio de una línea.
+- Además, definir si `ca-linkedin-mcp` debe seguir expuesto.
+
+Lo que quedó preparado (en `infra/terraform/environments/prod`):
+
+- `origin_cloudflare_only` (default `false`) y `origin_extra_allowed_ip_ranges` (default `[]`) arman `allowed_ip_ranges` con el catálogo IPv4 de Cloudflare más los CIDR extra. Sin tocar nada el origen queda como hoy.
+- Un `check` impide encender el filtro sin declarar a los llamadores internos; el apply del workflow se frena ante un check que no pasa.
+- El health check del deploy tolera el 403.
+
+Opciones, con costo:
+
+| Opción | Resuelve | Costo | Notas |
+|---|---|---|---|
+| **A. NAT Gateway + certificado propio en el origen + lista de Cloudflare** | Cron con IP fija; sin dependencia de DigiCert ni del CNAME | ≈ USD 36,5/mes fijos (NAT Gateway y su IP) más USD 0,045/GB de salida | El entorno es *workload profiles*, que sí admite NAT Gateway (learn.microsoft.com, "Networking in an Azure Container Apps Environment"; el tipo "consumption only" no). Todo el tráfico de salida del entorno pasaría a salir por esa IP. El certificado propio (por ejemplo, un Origin CA de Cloudflare con modo SSL "Full (strict)") lo genera una persona en Cloudflare y exige adaptar `modules/custom_domain`, que hoy sólo sabe de certificados gestionados. |
+| B. Front Door Premium con WAF y Private Link al origen | Cierra el origen de verdad (ingress sin IP pública) | ≈ USD 330/mes de base, más tráfico | Hay que ampliar el módulo `frontdoor` (hoy sólo geo-routing) y rehacer el dominio y el certificado. Sólo conviene si se abandona Cloudflare. |
+| C. Aceptar la exposición y registrarlo | Nada; documenta el riesgo | USD 0 | Compensar con la autenticación de las rutas, las reglas WAF y el rate limiting de Cloudflare, y atender la renovación del certificado a mano. Es una decisión válida si queda escrita, con responsable y fecha de revisión. |
+
+Recomendación: la A si se quiere cerrar; la C si no. En ambos casos hay que resolver antes la renovación del certificado de enero. Los pasos de activación, la verificación y el rollback están en 7.3.
+
+**Aceptación:** ningún origen público permite omitir el borde, o la excepción queda aceptada por escrito; sólo se aceptan orígenes autorizados; las pruebas de acceso directo y reglas WAF/rate limit quedan registradas; el proceso de actualización de rangos tiene responsable y alerta; los cron y el certificado siguen funcionando después del cambio.
 
 ### P0 — Reducir el riesgo de OIDC y de los planes de Terraform
 
-`.github/workflows/terraform.yml` concedía `id-token: write` a nivel del workflow (acotado a dos jobs en `main`, ver Avance), se activa con `pull_request` y ejecuta `azure/login`, escribe `TF_VARS_PROD` y hace `terraform plan` contra el state de producción. El apply está condicionado a `workflow_dispatch` y al texto `APPLY-PROD`, pero plan y apply corren en el mismo job con la misma identidad. El job usa `environment: prod` también en PR: cuando un job declara un environment, el sujeto OIDC normalmente es `repo:<owner>/<repo>:environment:prod`; por eso el comentario que menciona un sujeto `pull_request` no demuestra que ese sujeto sea el que se usa en este job. La federación exacta, secretos disponibles según el tipo de PR y permisos Azure efectivos deben comprobarse en GitHub/Entra ID.
+**Estado: parcial. Lo que es código está hecho; lo que cambia Entra o GitHub lo hace una persona (sección 7).**
 
-**Verificado el 10 de octubre de 2026 (sección 1.1):**
+Lo verificado:
 
-- El principal tiene `Contributor` y `User Access Administrator` sobre toda la suscripción: quien obtenga un token de cualquiera de sus credenciales puede crear recursos y asignarse roles, incluido `Owner`, en toda la suscripción.
-- Sus cinco credenciales federadas incluyen `pull_request` y `ref:refs/heads/main`, que no llevan environment. `plan-apply` (siempre con `environment: prod`) usa `environment:prod`; `drift` corre por `schedule` sin environment y usa `ref:refs/heads/main`. `gh-pr` y las dos de `staging` no tienen uso identificado en el repositorio.
-- **Cadena concreta:** el workflow concedía `id-token: write` a todos los jobs, incluido `scan`, que no tiene environment y ejecuta `bridgecrewio/checkov-action@v12` (tag móvil). Esa action podía pedir un token con sujeto `pull_request` o `ref:refs/heads/main` y recibir, vía esas credenciales, los permisos de Terraform sobre la suscripción. Fijar Actions por SHA (punto 5) y restringir `id-token` (punto 3) son dos eslabones de una misma cadena, no mejoras sueltas.
-- El repositorio es privado, los workflows de forks están desactivados y hay un único colaborador. El modelo de amenaza realista no es un PR externo sino (a) el compromiso de la cuenta propietaria y (b) una Action de terceros comprometida. Sin protección de `main` ni revisores de environment, quien pueda escribir en el repositorio puede lanzar el workflow desde una rama modificada con `environment: prod`; `APPLY-PROD` no lo impide.
-- El job de PR no es de sólo lectura: `az keyvault network-rule add/remove` corre también en `pull_request` y escribe en Azure. Separar un plan de sólo lectura obliga a resolver antes cómo se abre el firewall del Key Vault.
+- El principal `cscs-finops-terraform` tiene `Contributor` y `User Access Administrator` sobre toda la suscripción: quien obtenga un token de cualquiera de sus credenciales puede crear recursos y asignarse roles, incluido `Owner`, en toda la suscripción. **El workflow de despliegue usa el mismo principal** (ambos leen `secrets.AZURE_CLIENT_ID`, que es un secret del repositorio).
+- Sus cinco credenciales federadas incluían `pull_request` y `ref:refs/heads/main`, que no llevan environment. Con los cambios de esta jornada, los tres jobs que hacen login (`plan-apply`, `drift` y `deploy`) usan `environment: prod`: la única credencial que hace falta es `gh-env-prod`.
+- **Cadenas de ataque cerradas.** (a) El job `scan` heredaba `id-token: write` y ejecuta `bridgecrewio/checkov-action`; esa Action podía pedir un token con sujeto `pull_request` o `ref:refs/heads/main`. (b) El job `verificacion` del deploy (`npm ci` y la suite de tests, código de cientos de dependencias de npm, en cada push a `main`) también heredaba `id-token: write` y podía pedir un token con sujeto `ref:refs/heads/main`. Ahora `id-token` sólo está en los jobs que hacen `azure/login`.
+- El repositorio es privado, los workflows de forks están desactivados y hay un único colaborador. El modelo de amenaza realista no es un PR externo sino (a) el compromiso de la cuenta propietaria y (b) una Action o una dependencia comprometida. La cuenta tiene autenticación en dos pasos activa; falta confirmar si usa llave de seguridad o passkey y revisar tokens personales.
+- Se hace push directo a `main` (así lo documenta `deploy-azure.yml`), de modo que exigir un PR para todo rompería el flujo. Y con un único colaborador, un PR sin revisor distinto no agrega aprobación de nadie.
+- El job de PR no es de sólo lectura: `az keyvault network-rule add/remove` corre también en `pull_request` y escribe en Azure. Separar un plan de sólo lectura obliga a resolver antes cómo se abre ese firewall.
 
-**Avance (10 de octubre de 2026, ya en `main`; lo publicó otra sesión, ver 1.2):** `terraform.yml` ya no concede `id-token: write` a nivel de workflow; sólo lo tienen `plan-apply` y `drift`. `scan` queda con `contents: read`, `actions: read` y `security-events: write`. Se quitó `pull-requests: write`, que ningún paso usa. `inputs.confirm` pasa por `env` en vez de interpolarse en el script. Probado en CI con un plan en PR (run 38058662398) y con plan y apply por `workflow_dispatch` (38086902781 y 38087177000), los tres en success; falta observar el job `drift` (lunes 07:00 UTC), que nunca ha corrido con los permisos nuevos.
+Hecho en el repositorio:
 
-1. Enumerar todas las credenciales federadas de Entra ID: audiencias, repositorio, sujeto exacto por evento/entorno/ref y principal asociado. Eliminar sujetos innecesarios o comodines; candidatas: `gh-pr` y las dos de `staging`. Confirmar con un plan en PR antes de borrar `gh-pr`.
-2. Reducir roles y ámbitos del principal: `Contributor` más `User Access Administrator` sobre la suscripción es el máximo posible. Terraform crea el resource group (`modules/network`), así que el `Contributor` necesita ámbito de suscripción mientras eso no cambie; el candidato a recortar es `User Access Administrator`, limitándolo a las asignaciones de rol que Terraform realmente crea (verificar en learn.microsoft.com el rol y las condiciones disponibles antes de elegir). Probar en un plan antes de aplicar. Crear identidades distintas para plan de sólo lectura (también para `drift`) y apply con escritura. No reutilizar el principal de deploy para tareas de PR.
-3. Restringir `id-token: write` al job que realmente lo necesita (hecho y en `main`, ver Avance). Mantener PRs sin permisos de escritura en Azure; separar plan de PR del plan de producción autenticado, o demostrar controles equivalentes con políticas de ramas protegidas y sujetos OIDC estrictos.
-4. Exigir protección de `main`: revisiones requeridas, checks obligatorios, bloqueo de force-push y reglas para cambios de workflow/infra. **En el plan actual no está disponible:** la API de protección de ramas responde 403 ("Upgrade to GitHub Pro"), y el comentario del workflow indica que los required reviewers de environments tampoco (verificado el 30 de julio de 2026). Son dos controles distintos con requisitos distintos. GitHub Pro (plan de cuenta personal, precio sin cotizar) habilita la protección de ramas en un repositorio privado. Los required reviewers y el wait timer, en cambio, **no** los ofrece Pro ni Team en repositorios privados: según la documentación de GitHub (consultada el 10 de octubre de 2026) esas reglas sólo existen allí con GitHub Enterprise. Por tanto el gate manual seguirá dependiendo de `APPLY-PROD` aunque se pague Pro, y la decisión real es: pagar Pro para proteger `main`, o aceptar el riesgo por escrito, compensando con el punto 7 y con la reducción del daño posible (puntos 1 a 3). No tratar `APPLY-PROD` como sustituto de una aprobación protegida.
-5. Fijar las Actions a SHA completo revisado, empezando por las de terceros o con acceso a credenciales: `bridgecrewio/checkov-action`, `hashicorp/setup-terraform`, `azure/login` y `github/codeql-action`. `bridgecrewio/checkov-action` ya está fijada por SHA (`c13aafd…`, v12, commit `c88a9ac`); las otras 7 Actions distintas (24 usos entre todos los workflows, incluidas `azure/login`, `hashicorp/setup-terraform` y `github/codeql-action`) siguen por tags móviles. No hay `.github/dependabot.yml`; Dependabot para `github-actions` mantendría los SHA al día. Limitar permisos `GITHUB_TOKEN` por job (hecho y en `main`).
-6. Tratar el plan binario, los logs y cualquier artefacto relacionado como sensibles: reducir su contenido, controlar quién puede leerlo, limitar la retención y no publicar secretos, valores de estado ni planes sin protección.
-7. Proteger la cuenta propietaria, que con un único colaborador y sin protección de ramas es hoy el límite de seguridad: autenticación en dos pasos con llave de seguridad o passkey, sin tokens personales de larga duración con alcance `repo` o `workflow`, y revisión periódica de tokens, claves SSH y aplicaciones OAuth autorizadas.
-8. No interpolar entradas ni salidas de pasos dentro de `run:`. `inputs.confirm` ya pasa por `env`; quedan los pasos "Cerrar el Key Vault", que interpolan `steps.kv_firewall.outputs.*` (derivados de `terraform output` y de `api.ipify.org`).
+1. `id-token: write` sólo en los jobs que hacen login; `contents: read` a nivel de workflow en los tres archivos; `scan` con `contents`, `actions` y `security-events`.
+2. Las 25 referencias a Actions por SHA completo con la versión en un comentario (la de Checkov la había fijado la otra sesión; la imagen que ejecuta esa Action sigue por tag de versión, `3.3.26`, no por digest). `dependabot.yml` abre un PR semanal agrupado para actualizarlos.
+3. `inputs.confirm` por `env`; los pasos "Cerrar el Key Vault" ya pasaban sus salidas por `env`; la IP que devuelve `api.ipify.org` se valida como IPv4 antes de escribirla en el firewall del vault y en `GITHUB_OUTPUT`.
+4. Por schedule corre sólo `drift` (antes corría también `plan-apply`, o sea dos planes de producción por lunes), y `drift` usa `environment: prod`.
+5. Probado en CI: plan en PR (run 38058662398) y plan y apply por `workflow_dispatch` (38086902781 y 38087177000), los tres en success con los permisos por job. Los cambios de `drift` y del deploy de esta jornada todavía no corrieron en CI: observar el primer lunes y el primer deploy.
 
-**Aceptación:** inventario de federaciones y roles aprobado; plan de PR no puede aplicar cambios de Terraform y su único write sobre Azure (el firewall del Key Vault) está acotado y documentado; apply requiere identidad distinta y condiciones protegidas, o la decisión de aceptar el riesgo por no contar con required reviewers (sólo Enterprise en repos privados) queda registrada; las Actions externas están fijadas por SHA; planes y logs sensibles tienen acceso y retención controlados.
+Pendiente, por quien tenga acceso a Entra y GitHub (comandos en 7.1 y 7.2):
+
+6. Borrar las credenciales federadas que ningún job usa: `gh-pr` y las dos de `staging` ya; `gh-main` después del primer `drift` con el workflow nuevo en `main`.
+7. Reducir `User Access Administrator`: se puede dejar en el mismo ámbito pero con una condición que sólo permita asignar y quitar los 9 roles que Terraform realmente asigna (no `Owner`, ni `User Access Administrator`, ni `Role Based Access Control Administrator`). La condición no afecta a otras acciones de `Microsoft.Authorization/*`, como los locks. `Contributor` necesita ámbito de suscripción mientras Terraform cree el resource group (`modules/network`).
+8. Activar `sha_pinning_required` en el repositorio y proteger `main` contra force-push y borrado (compatible con el push directo).
+9. Separar la identidad del plan de PR (principal de sólo lectura con credencial `pull_request`, sin acceso al Key Vault) y entonces restringir el environment `prod` a la rama `main`. Hoy no se puede restringir el environment: los planes de PR corren con `environment: prod` desde la rama del PR. Cuando exista el principal de plan, el workflow se parte en un job de PR sin firewall del vault (`-refresh=false`) y uno de apply.
+10. Los required reviewers y el wait timer del environment no los ofrece GitHub Pro en repositorios privados (según la documentación de GitHub, consultada el 10 de octubre de 2026, sólo Enterprise): el gate manual seguirá siendo el texto `APPLY-PROD`. No tratarlo como sustituto de una aprobación protegida.
+11. Tratar el plan binario, los logs y cualquier artefacto relacionado como sensibles: reducir su contenido, controlar quién puede leerlo, limitar la retención y no publicar secretos, valores de estado ni planes sin protección.
+
+**Aceptación:** inventario de federaciones y roles aprobado y reducido; el plan de PR no puede aplicar cambios y su único write sobre Azure (el firewall del Key Vault) está acotado y documentado, o ya no existe; el apply requiere una identidad y condiciones protegidas, o la decisión de aceptar el riesgo por no contar con required reviewers queda registrada; las Actions externas están fijadas por SHA y se actualizan por Dependabot; planes y logs sensibles tienen acceso y retención controlados.
 
 ### P1 — Eliminar claves compartidas de Storage y restringir su red
 
-`modules/storage/main.tf` declara acceso de red público y una variable `shared_access_key_enabled`; `modules/stamp/main.tf` la pasa como `true`. La aplicación recibe `AZURE_STORAGE_CONNECTION_STRING`, y `src/lib/azureBlobStorage.ts` consume esa conexión. La identidad tiene `Storage Blob Data Contributor` en el scope de toda la cuenta. Los contenedores son privados, pero eso no elimina el riesgo de acceso a la cuenta ni la exposición de una clave compartida.
+**Estado: preparado. La app puede pasar a identidad administrada con un interruptor; apagar Shared Key todavía rompe a dos clientes más.**
 
-1. Migrar `src/lib/azureBlobStorage.ts` y los consumidores a `DefaultAzureCredential`/identidad administrada (el código ya la usa si se define `AZURE_STORAGE_ACCOUNT_NAME`, pero producción sólo tiene `AZURE_STORAGE_CONNECTION_STRING`: la migración no está hecha, y la identidad a usar debe ser la asignada por el usuario, sin pisar `AZURE_CLIENT_ID`); conservar permisos mínimos de `Storage Blob Data Contributor` sólo donde la aplicación efectivamente necesita escribir o borrar.
-2. Deshabilitar Shared Key después de verificar todos los clientes y procesos de operación; retirar connection strings de secretos/configuración, reiniciar servicios y rotar/revocar credenciales antiguas. Entre esos clientes está el módulo opcional `mysql_backup`, que recibe `storage_account_primary_connection_string` (`modules/mysql_backup/variables.tf`): migrarlo antes de apagar Shared Key o los respaldos lógicos fallan. Con la migración, `CKV2_AZURE_40` sale de las exclusiones de Checkov.
-3. Incorporar Private Endpoint para Blob y DNS privado. Deshabilitar el acceso público una vez que aplicación, procesos administrativos y despliegue tengan rutas privadas funcionales.
-4. Aplicar la misma revisión de red y acceso de datos a la cuenta de **tfstate**. Aunque `bootstrap/main.tf` deshabilita Shared Key y asigna RBAC, confirmar acceso público, firewall/Private Endpoint, DNS, identidades CI y acceso humano temporal; no bloquear el pipeline antes de garantizar su conectividad. Mientras el pipeline corra en runners hospedados por GitHub (IP dinámica), un Private Endpoint o un firewall por IP sobre tfstate no es viable, como ya documenta el workflow; la opción realista hoy es mantener el acceso público con Shared Key apagada y acceso sólo por Entra ID, hasta contar con runners con red privada (según `keyvault-network-hardening.md`, los *larger runners* con Azure private networking exigen GitHub Team o Enterprise sobre una organización, y este repositorio es de una cuenta personal; sin re-verificar).
+`modules/storage/main.tf` declara acceso de red público y una variable `shared_access_key_enabled`; `modules/stamp/main.tf` la fija en `true`. La aplicación recibe `AZURE_STORAGE_CONNECTION_STRING`. La identidad tiene `Storage Blob Data Contributor` en el scope de toda la cuenta. Los contenedores son privados, pero eso no elimina el riesgo de la clave compartida.
 
-**Aceptación:** aplicación y procesos autorizados operan sin connection string ni Shared Key; blobs no aceptan tráfico desde redes no autorizadas; identidad y permisos se prueban; el pipeline puede leer/escribir el state únicamente con la identidad prevista y por la ruta aprobada.
+**Clientes de la cuenta, medidos con `StorageBlobLogs` en 14 días:**
+
+| Cliente | Cómo se autentica | Solicitudes | Qué pasa al apagar Shared Key |
+|---|---|---|---|
+| La aplicación (`azsdk-js-azure-storage-blob`) | Clave de cuenta (connection string) | 74 | Se rompe, salvo que ya use identidad administrada: **migrable hoy** con `blob_managed_identity_enabled`. |
+| Backups lógicos (AzCopy 10.32.4, en la VM del Hybrid Worker) | SAS firmada con la clave de la cuenta (`data.azurerm_storage_account_blob_container_sas`) | 360 | Se rompe: una SAS firmada con la clave deja de valer. Hay que pasar el runbook a AzCopy con identidad de la VM o a una SAS de delegación de usuario. |
+| Terraform (`HashiCorp/go-azure-sdk`, `GetBlobServiceProperties`) | Clave de cuenta | 26 | Se rompe el refresh de `azurerm_storage_account`: hace falta `storage_use_azuread = true` en el provider y un rol de datos para el principal de Terraform sobre la cuenta. El provider de producción no lo tiene (sólo el bootstrap). |
+| Servicios de Azure (`TrustedAccess`, `TrustedAccessSas`) | Acceso de confianza de servicios de Azure | 732 | No se sabe: `TrustedAccessSas` es un servicio de Azure leyendo con una SAS que este repositorio no emite. Confirmar el efecto con Azure antes de apagar la clave. |
+
+1. **La migración de la app tenía un defecto latente**, corregido en esta jornada: `azureBlobStorage.ts` usaba `DefaultAzureCredential` cuando hay `AZURE_STORAGE_ACCOUNT_NAME`. En Container Apps esa cadena prueba primero `EnvironmentCredential` con el app registration de CSCS (`AZURE_CLIENT_ID` y `AZURE_CLIENT_SECRET`) y nunca llega a la identidad administrada; es el mismo problema, verificado el 28 de julio de 2026, que ya resolvieron `src/lib/secrets/keyvault.ts` y `src/lib/azureAiCredential.ts`. Ahora usa `ManagedIdentityCredential` con `AZURE_KEYVAULT_MI_CLIENT_ID` y cae a la cadena por defecto sólo sin esa variable (desarrollo local). El test de la credencial falla contra el código anterior.
+2. `blob_managed_identity_enabled` (default `false`) agrega `AZURE_STORAGE_ACCOUNT_NAME` al app y deja la connection string: apagar el flag es el rollback.
+3. Deshabilitar Shared Key sólo después de migrar los tres clientes de la tabla; retirar la connection string de los secretos del app, reiniciar y rotar las claves de la cuenta. Con la migración, `CKV2_AZURE_40` sale de las exclusiones de Checkov. Hoy `shared_access_key_enabled` está fijo en `true` en el stamp: habrá que exponerlo como variable cuando llegue ese paso.
+4. Incorporar Private Endpoint para Blob y DNS privado, y deshabilitar el acceso público, una vez que aplicación, backups, despliegue y Terraform tengan rutas privadas funcionales. La VM de backups ya está en la VNet (`snet-backup-vm`); los runners de GitHub no.
+5. La cuenta de **tfstate** queda con acceso público y Shared Key apagada (acceso sólo por Entra ID). Mientras el pipeline corra en runners hospedados por GitHub (IP dinámica), un Private Endpoint o un firewall por IP no es viable, como ya documenta el workflow; los *larger runners* con red privada exigen, según `keyvault-network-hardening.md`, GitHub Team o Enterprise sobre una organización, y este repositorio es de una cuenta personal (sin re-verificar). Confirmar además que el acceso humano temporal (`grant_bootstrap_operator_access`) se retire.
+
+**Aceptación:** aplicación y procesos autorizados operan sin connection string ni Shared Key; los blobs no aceptan tráfico desde redes no autorizadas; identidad y permisos se prueban; el pipeline puede leer y escribir el state únicamente con la identidad prevista y por la ruta aprobada.
 
 ### P1 — Separar identidades de runtime y reducir privilegios de secretos
 
-La identidad administrada compartida aparece en Container Apps y cron jobs; revisar también la ruta de migraciones. El módulo de Key Vault asigna a la identidad de aplicación `Key Vault Secrets Officer`. Según `modules/keyvault/main.tf`, esto permite que la aplicación gestione secretos, incluida la escritura y eliminación de credenciales de tenants: no es un permiso de solo lectura y amplía el impacto potencial de un compromiso.
+**Estado: abierto. No es un cambio de configuración: la aplicación necesita privilegios de esquema en runtime.**
 
-1. Separar identidades para web, cron, migraciones y Terraform, con roles y ámbitos mínimos por recurso y función. Evitar que cron o migraciones hereden permisos de web sin necesidad demostrada.
-2. Revisar el usuario de runtime de MySQL: no usar el administrador de aprovisionamiento para consultas normales. Crear cuenta de aplicación con permisos mínimos sobre el esquema requerido; reservar administración de esquema para una identidad/job de migración.
-3. Revisar acceso de tenant credentials. Limitar qué proceso puede escribir/borrar secretos y por qué alcance; considerar separación de vaults o asignaciones de alcance reducido donde el modelo lo permita. Documentar el impacto de `Secrets Officer` y los controles compensatorios para evitar acceso cruzado entre tenants.
+La identidad administrada compartida aparece en Container Apps y cron jobs; revisar también la ruta de migraciones. El módulo de Key Vault asigna a la identidad de aplicación `Key Vault Secrets Officer`: la aplicación puede escribir y eliminar secretos, incluidas las credenciales de tenants. No es un permiso de solo lectura y amplía el impacto potencial de un compromiso.
 
-**Aceptación:** matriz identidad→recurso→rol→propósito aprobada; web/cron/migración/Terraform usan principales separados; las pruebas negativas confirman que cada principal no puede leer/escribir fuera de su función; credenciales de base de datos de runtime no son administrativas.
+Lo que bloquea el usuario de MySQL con privilegios mínimos (`DB_USER` es el administrador de aprovisionamiento):
+
+- La aplicación ejecuta `CREATE TABLE IF NOT EXISTS` en runtime en `src/services/tenantAddons.service.ts` (`ensureTableExists`) y en `src/services/superAdminAiConfig.service.ts` (`GlobalSettings`). MySQL comprueba el privilegio `CREATE` antes de saber si la tabla existe, así que un usuario sin él falla aunque la tabla esté.
+- `initializeDatabase()` (`src/modules/storage/db.ts`) ejecuta `runMigrations()` dentro del proceso web, y la llaman 87 archivos, entre ellos `tierLimitsGuard`. Además existe el endpoint `/api/admin/migrations/run`.
+
+Plan sugerido, en orden: (1) mover esos dos `CREATE TABLE` a migraciones; (2) que `initializeDatabase()` no migre en producción y que las migraciones sólo corran en el job `migrate` (el endpoint administrativo usaría credenciales aparte); (3) crear el usuario de aplicación en una migración, con `SELECT`, `INSERT`, `UPDATE`, `DELETE` sobre el esquema y su contraseña como secreto de Terraform; (4) cambiar `DB_USER` y `DB_PASSWORD` del app (no de la migración); (5) prueba en el MySQL local (puerto 3307) y luego en producción.
+
+1. Separar identidades para web, cron, migraciones y Terraform, con roles y ámbitos mínimos por función. Los cron y la migración no necesitan `Storage Blob Data Contributor` ni escribir secretos. Es un cambio de Terraform sobre unos 30 jobs: planificarlo con el paso anterior, no suelto.
+2. Revisar el acceso de tenant credentials: limitar qué proceso puede escribir o borrar secretos y con qué alcance; considerar separación de vaults o asignaciones de alcance reducido donde el modelo lo permita. Documentar el impacto de `Secrets Officer` y los controles compensatorios para evitar acceso cruzado entre tenants.
+
+**Aceptación:** matriz identidad→recurso→rol→propósito aprobada; web, cron, migración y Terraform usan principales separados; las pruebas negativas confirman que cada principal no puede leer ni escribir fuera de su función; las credenciales de base de datos de runtime no son administrativas.
 
 ### P1 — Confirmar Defender, auditoría, diagnósticos y alertas
 
-Defender for Cloud es opcional (`defender_enabled` tiene default `false`); no asumir que está habilitado por el mero hecho de que el módulo existe. Hay configuración de diagnósticos para Key Vault, MySQL, Redis (métricas) y Blob, además de monitorización de aplicación, pero no se verificaron recursos activos, destino, retención, alertas ni atención operativa.
+**Estado: lo verificable está cerrado; las alertas quedaron preparadas y apagadas.**
 
-1. Confirmar en la suscripción los planes Defender contratados/habilitados (incluidos Key Vault, Storage y contenedores), cobertura real de ACR y destinatarios de alertas.
-2. Validar diagnostic settings y eventos recibidos en Log Analytics, especialmente lecturas/escrituras/eliminaciones de secretos, operaciones Blob, cambios de red/IAM y actividad administrativa.
-3. Definir retención, alertas accionables, responsables y pruebas periódicas de extremo a extremo. Revisar si logs de control de acceso deben complementar los diagnósticos de datos.
+Verificado el 10 de octubre (1.1): Defender for Cloud en Standard para Storage, Key Vault, ARM, bases de datos relacionales de código abierto y contenedores, con contacto de seguridad; diagnósticos de Key Vault, MySQL, Blob y ACR con `allLogs`; el entorno de Container Apps en Log Analytics; retención de 30 días; y una ingesta de 0,11 GB por día contra un tope de 1 GB, sin eventos de tope (los logs de seguridad no se están perdiendo). Eso también sostiene la exclusión `CKV_AZURE_163` de Checkov (el escaneo de imágenes lo cubre Defender for Containers).
 
-**Aceptación:** inventario de cobertura y licencias vigente; evento de prueba visible para cada control crítico; alertas entregadas y atendidas por responsables designados; retención cumple objetivos operativos y regulatorios aplicables.
+Lo que faltaba, y era el hueco real: **no había alertas sobre cambios del plano de control**. La única alerta de Activity Log era la de Service Health y no había reglas de log.
+
+- `modules/security_policy/audit.tf` crea, con `security_activity_alerts_enabled` (default `false`, por stamp), 7 alertas de Activity Log a nivel de suscripción: altas y bajas de role assignments, escritura de role definitions, y borrado de locks, de Key Vault, de MySQL y de Storage. Los nombres de operación se verificaron contra `az provider operation show`; un nombre equivocado no da error, la alerta simplemente nunca salta. Sólo status `Succeeded`, para no recibir un aviso por cada fase. No se alerta sobre `Microsoft.KeyVault/vaults/write` a propósito: el workflow abre y cierra el firewall del vault en cada plan, apply y drift.
+- Un plan aislado contra la suscripción real con los dos interruptores encendidos da 17 recursos a crear, 0 a cambiar y 0 a destruir.
+- Las reglas son de la suscripción: encenderlas en **un solo** stamp.
+
+Falta: encenderlas, designar quién lee el correo del action group (hoy un solo receptor) y la prueba de extremo a extremo, creando y borrando un lock de prueba y viendo llegar el aviso. Las alertas de Entra (credenciales federadas, credenciales de service principals) viven en los logs de auditoría de Entra, no en el Activity Log, y quedan fuera de este cambio.
+
+**Aceptación:** inventario de cobertura y licencias vigente (hecho); un evento de prueba visible para cada control crítico; alertas entregadas y atendidas por responsables designados; la retención cumple los objetivos operativos y regulatorios aplicables.
 
 ### P1 — Asegurar capacidad de recuperación, no sólo existencia de backups
 
-En `environments/prod/variables.tf`, los defaults incluyen MySQL HA y backup geo-redundante desactivados y Backup Vault deshabilitado. El PITR nativo de MySQL sí se configura con 14 días por defecto. El módulo opcional `mysql_backup` usa `mysql_backup_enabled` (default `false`); además, aunque se habilite `mysql_backup_vault_enabled`, la instancia de backup de ese vault tiene `count = 0` fijo y no queda protegida por esa ruta. El comentario de `modules/stamp/main.tf` lo atribuye a que la API de Azure Data Protection respondía HTTP 406 para MySQL Flexible Server (observado el 30 de julio de 2026; no se re-verificó contra la documentación vigente). Habilitar el vault sin esa instancia crea el vault, la política y los permisos sin proteger nada. Storage define retención de blobs, pero no retención inmutable/WORM en este módulo. Los locks de `security_policy` están condicionados por `resource_lock_enabled` (default `false`). Aparte, desde el apply del 10 de octubre existen dos locks `CanNotDelete` (MySQL y Key Vault) gobernados por `enable_delete_lock` (default `true`), otro flag distinto; confirmados con `az lock list`. El secreto de producción puede cambiar estos defaults y habilitar otras rutas; no se conoce su valor ni se verificó el estado en vivo.
+**Estado: abierto.** Verificado en vivo: MySQL con retención nativa de 14 días, HA y backup geo-redundante desactivados; Storage con soft delete de 30 días y versionado, pero sin retención inmutable declarada en el módulo; dos locks `CanNotDelete` (MySQL y Key Vault) por `enable_delete_lock`, distinto de `resource_lock_enabled` de `security_policy`, que sigue en `false`.
 
-1. Confirmar el plan desplegado de MySQL, redundancia/retención, Backup Vault y locks; cotejarlo con RPO/RTO acordados y requisitos de disponibilidad y residencia.
-2. Ejecutar restauraciones de prueba de base de datos y Blob, medir tiempo de recuperación e integridad, y registrar pasos, responsables y dependencias (claves, DNS, identidades, red).
-3. Decidir explícitamente si se necesita HA de zona, backup geo-redundante y protección contra borrado. Azure Backup Vault queda bloqueado por el HTTP 406 hasta confirmar en learn.microsoft.com que MySQL Flexible Server sea hoy una carga de trabajo soportada; mientras tanto, la vía de respaldo adicional es `mysql_backup`. Validar compatibilidad/costo por región y SKU; habilitar por etapas, no por default ciego.
-4. Si los locks son necesarios, activarlos sólo en recursos con datos y probar antes el ciclo de mantenimiento y recuperación.
+- El módulo opcional `mysql_backup` usa `mysql_backup_enabled` (default `false`); aunque se habilite `mysql_backup_vault_enabled`, la instancia de backup de ese vault tiene `count = 0` fijo y no protege nada. El comentario de `modules/stamp/main.tf` lo atribuye a que la API de Azure Data Protection respondía HTTP 406 para MySQL Flexible Server (observado el 30 de julio de 2026; no se re-verificó). Habilitar el vault sin esa instancia crea el vault, la política y los permisos sin proteger nada.
+- **El script de backup no comprueba a `mysqldump`.** El runbook de la VM ejecuta `cmd /c "mysqldump … | gzip > archivo"` y sólo verifica que el archivo exista y no esté vacío. Si `mysqldump` muere a mitad de camino, `gzip` cierra un archivo comprimido válido pero truncado y el ciclo lo sube como bueno. Corrección propuesta, sin probar en la VM (por eso no se cambió el código): volcar a un `.sql` con `--result-file`, comprobar el código de salida de `mysqldump`, comprimir en un segundo paso y comprobar el de `gzip`. El `content` del runbook tiene `ignore_changes`: editar el HCL no lo publica, hace falta el input `replace` del workflow, y hay que ensayar en la VM antes. Un gzip no vacío no valida un backup.
+- Los backups lógicos dependen de Shared Key (ver Storage): migrarlos y hacer la prueba de restauración van juntos.
 
-**Aceptación:** RPO/RTO aprobados y alcanzables; restauraciones recientes exitosas documentadas; política de retención y redundancia verificadas contra configuración en vivo; eliminaciones accidentales prevenidas según riesgo sin bloquear operaciones legítimas.
+1. Ejecutar restauraciones de prueba de base de datos (point-in-time a un servidor nuevo, y desde un dump lógico) y de Blob; medir tiempo de recuperación e integridad, y registrar pasos, responsables y dependencias (claves, DNS, identidades, red). Crean recursos con costo: las ejecuta una persona (7.5).
+2. Decidir explícitamente si se necesita HA de zona, backup geo-redundante y retención inmutable de blobs. Azure Backup Vault queda bloqueado por el HTTP 406 hasta confirmar en learn.microsoft.com que MySQL Flexible Server sea hoy una carga de trabajo soportada; mientras tanto, la vía de respaldo adicional es `mysql_backup`. Validar compatibilidad y costo por región y SKU; habilitar por etapas.
+3. Mantener los locks sólo en recursos con datos y probar antes el ciclo de mantenimiento y recuperación.
+
+**Aceptación:** RPO y RTO aprobados y alcanzables; restauraciones recientes exitosas documentadas; la política de retención y redundancia verificada contra la configuración en vivo; eliminaciones accidentales prevenidas según el riesgo sin bloquear operaciones legítimas; el backup lógico falla de forma visible si `mysqldump` falla.
+
+### P1 — MySQL 8.0 sale del soporte estándar el 31 de enero de 2027
+
+**Estado: abierto, con fecha.** Hallazgo nuevo de esta jornada. El servidor de producción corre MySQL 8.0 (`8.0.21`, `Standard_B2s`, 2 vCores). Según la política de versiones de Azure Database for MySQL (learn.microsoft.com, página actualizada el 16 de septiembre de 2026): la comunidad retiró 8.0 el 30 de abril de 2026; el soporte estándar de Azure termina el 31 de enero de 2027; desde el 1 de febrero de 2027 el servidor se inscribe solo en Extended Support, que se factura por vCore-hora (USD 0,07 en West US 2: ≈ USD 102 al mes con 2 vCores, hoy sin cargo) y sólo recibe actualizaciones críticas de seguridad.
+
+La salida es una actualización de versión mayor en el lugar (la política describe la función Major Version Upgrade, con algo de downtime) a MySQL 8.4, que está en GA. Antes: probar la aplicación y las 157 migraciones contra 8.4 en un MySQL local; en 8.4 el plugin de autenticación por defecto pasa a `caching_sha2_password` (las cuentas existentes con `mysql_native_password` siguen funcionando; Azure mantiene ese plugin habilitado); y hacer un backup a demanda justo antes.
+
+**Aceptación:** el servidor corre una versión dentro de soporte estándar antes del 31 de enero de 2027, con el plan de reversión (restauración del backup previo) probado.
 
 ### P2 — Verificar autenticación y cifrado de MySQL y Redis
 
-Terraform requiere transporte seguro en MySQL y configura Redis con protocolo cifrado y autenticación por access key. Verificar el lado cliente y la operación real: MySQL debe validar certificados (`ssl.rejectUnauthorized = true`, según el comentario de `modules/mysql/main.tf`), y las claves de Redis deben manejarse y rotarse de forma segura. Revisar si puede sustituirse la autenticación por clave de Redis por una opción Entra ID/identidad administrada compatible con el servicio y cliente.
+**Estado: cerrado, salvo la rotación de claves de Redis.** Verificado en Azure el 10 de octubre (1.1): MySQL con `require_secure_transport = ON`, TLS 1.2 y 1.3, acceso público deshabilitado; Redis con acceso público deshabilitado, TLS mínimo 1.2 y protocolo cifrado. Del lado del cliente: MySQL fija `rejectUnauthorized: true` y TLS 1.2 mínimo (`src/modules/storage/db.ts`); el cliente de Redis pasaba sólo `{ servername }` y ahora también fija `minVersion: 'TLSv1.2'` y `rejectUnauthorized: true` (es el default de Node, pero la validación es un límite de confianza y no se deja librada a un default); el test falla contra el código anterior. Se buscaron logs que volcaran contraseñas, connection strings o el entorno completo en `src/`: no hay; los resultados nombran a la variable, no a su valor.
 
-**Aceptación:** pruebas de conexión insegura fallan; TLS/certificados y versiones negociadas se comprueban; claves de Redis no aparecen en logs/telemetría y existe ciclo de rotación probado.
+Falta: un ciclo de rotación de las claves de Redis probado, y evaluar la autenticación por Entra ID (Azure Managed Redis la admite; exige un cliente compatible y un cambio en `src/lib/redis.ts`, que hoy usa `REDIS_PASSWORD`).
+
+**Aceptación:** pruebas de conexión insegura fallan; TLS y versiones negociadas comprobados (hecho); las claves de Redis no aparecen en logs ni telemetría (hecho en el código) y existe un ciclo de rotación probado (falta).
 
 ### P2 — ACR: integridad de imágenes y decisión de SKU
 
-ACR deshabilita el usuario admin; la identidad administrada hace `AcrPull`. El valor predeterminado de acr_sku es Basic; los comentarios describen georreplicación, zona redundante, endpoints privados y content trust como funciones de Premium. El comentario de `terraform.yml` cifra la diferencia en "~USD 500/mes", pero la Retail Prices API (10 de octubre de 2026, West US 2) da 0,1666 USD/día para Basic y 1,6666 USD/día para Premium: unos USD 5 y USD 50 al mes, una diferencia de unos USD 45; cada región replicada suma otros ~USD 50 (medidor "Premium Registry Replication Unit"). La cifra se corrigió el 10 de octubre en `terraform.yml` y en `modules/acr/main.tf` (este último también decía "~USD 500/mes" para la geo-replicación) y debe usarse en el análisis de SKU. El SKU efectivo de producción no se conoce. El workflow de despliegue publica tanto `latest` como un tag basado en `github.sha` y actualiza Container Apps al tag SHA; esto mejora la trazabilidad frente a `latest`, pero no equivale a fijar el digest de la imagen. No subir SKU sólo para marcar un check sin validar el beneficio y el presupuesto.
+**Estado: recomendación de SKU hecha (mantener Basic); digest y firma abiertos.** ACR es Basic, con admin y pull anónimo deshabilitados, y Defender for Containers en Standard (escanea las imágenes que se suben, en cualquier SKU). La diferencia entre Basic y Premium es de unos USD 45 al mes (≈ USD 5 contra ≈ USD 50; cada región replicada suma otros ≈ USD 50), no los "~USD 500" que decían los comentarios de `terraform.yml` y `modules/acr/main.tf`, corregidos el 10 de octubre. Premium agregaría Private Link, retención automática, zona redundante y content trust, y con un solo stamp no hay geo-replicación que aprovechar: mantener Basic, y revisar la decisión si se necesita acceso privado al registry.
 
-1. Complementar los tags mutables con despliegue por digest; generar/proteger procedencia y firma de imágenes, y verificarla antes del despliegue.
-2. Confirmar escaneo de vulnerabilidades y política de remediación (Defender u otra herramienta), retención y bloqueo de imágenes vulnerables.
-3. Documentar el análisis Basic/Premium considerando volumen, replicación, acceso de red, firma/confiabilidad, disponibilidad y costo.
+El workflow de despliegue publica `latest` y un tag con `github.sha`, y actualiza Container Apps al tag SHA: mejora la trazabilidad pero no equivale a fijar el digest. **Desplegar por digest no es un cambio de una línea:** el paso "Restaurar APP_VERSION" de `terraform.yml` deriva el SHA de Git del tag de la imagen (`${IMG##*:}`); con una referencia `repo@sha256:…` ese comando devolvería el hash del digest y escribiría un `APP_VERSION` que miente. Hay que cambiarlo a la vez.
 
-**Aceptación:** despliegues identificados por digest verificable; escaneos bloquean o gestionan hallazgos según severidad; decisión de SKU y excepciones tiene responsable y fecha de revisión.
+1. Desplegar por digest, y generar y verificar procedencia y firma antes del despliegue.
+2. Documentar la política de remediación de las imágenes con vulnerabilidades (Defender escanea, pero nada bloquea hoy un despliegue).
+
+**Aceptación:** despliegues identificados por digest verificable; los escaneos bloquean o gestionan hallazgos según la severidad; la decisión de SKU y sus excepciones tienen responsable y fecha de revisión.
 
 ### P2 — Mantener al día las exclusiones de Checkov
 
-La lista `skip_check` del job `scan` en `terraform.yml` refleja decisiones de julio y agosto de 2026, y no todas siguen vigentes:
+**Estado: parcial.** La lista `skip_check` del job `scan` en `terraform.yml` refleja decisiones de julio y agosto de 2026:
 
-- `CKV_AZURE_109`, `CKV_AZURE_189` y `CKV2_AZURE_32` (Key Vault con acceso público): el vault se endureció el 7 de septiembre (ACL `Deny` y Private Endpoint, según `keyvault-network-hardening.md`). Mientras sigan excluidas, CI no detecta una regresión de esa red. Ojo: con ACL `Deny` el módulo deja `public_network_access_enabled = true`, que algunos checks siguen marcando; evaluar si Checkov puede validar el vault endurecido o si conviene una comprobación propia.
-- `CKV_AZURE_163` (escaneo de imágenes) se justifica por Defender for Containers, desactivado por defecto y no verificado.
+- `CKV_AZURE_163` (escaneo de imágenes): vigente, Defender for Containers está en Standard (verificado el 10 de octubre).
+- `CKV_AZURE_109`, `CKV_AZURE_189` y `CKV2_AZURE_32` (Key Vault con acceso público): el vault se endureció el 7 de septiembre (ACL `Deny` y Private Endpoint, confirmado en Azure). Mientras sigan excluidas, CI no detecta una regresión de esa red. Con ACL `Deny` el módulo deja `public_network_access_enabled = true`, que algunos checks siguen marcando: sin poder ejecutar Checkov localmente no se puede decidir si retirarlas, así que se mantienen. La política de Azure `keyvault-firewall` (audit.tf) cubre la regresión del lado de Azure.
 - `CKV2_AZURE_40` y `CKV_AZURE_236` tienen su salida prevista en la migración de Storage y en el paso 2 de AI Services.
 
 **Aceptación:** cada exclusión tiene un motivo vigente y una fecha de revisión; las que dependen de un control no verificado quedan marcadas hasta verificarlo.
 
 ### P2 — Introducir Azure Policy de forma gradual
 
-Usar Azure Policy para sostener controles de red, TLS, diagnóstico, identidades y recursos aprobados, evitando asignar de inmediato políticas `Deny` que rompan Terraform o recursos heredados.
+**Estado: preparado.** `modules/security_policy/audit.tf` asigna, con `policy_audit_enabled` (default `false`), 10 políticas integradas con `enforce = false` sobre el resource group del stamp: red restringida, Shared Key, HTTPS y acceso anónimo de Storage; deletion protection, firewall, modelo RBAC y logs de Key Vault; red privada de MySQL; y HTTPS de Container Apps. Todas tienen efecto por defecto `Audit` o `AuditIfNotExists`; los GUID y nombres se verificaron con `az policy definition list`. `enforce = false` mide el cumplimiento y no deniega ni modifica nada. Quedan fuera el ACR (vive en el resource group global) y Redis (las definiciones integradas son del Azure Cache for Redis clásico, no de Azure Managed Redis).
 
-1. Inventariar recursos y excepciones; probar políticas en modo auditoría (`Audit`/`AuditIfNotExists`) con alcance inicialmente acotado.
+Los resultados esperables, por lo medido: no cumplirían las de red y Shared Key de Storage (hoy abiertas); cumplirían las del Key Vault y MySQL.
+
+1. Encenderlo y esperar la primera evaluación de cumplimiento (`az policy state summarize`, o el portal).
 2. Corregir desviaciones, validar efectos sobre los pipelines y formalizar exclusiones con responsable y vencimiento.
-3. Pasar a `Deny`/remediación sólo para requisitos probados, con despliegue progresivo y procedimiento de rollback.
+3. Pasar a `Deny` o remediación sólo para requisitos probados, con despliegue progresivo y procedimiento de rollback.
 
 **Aceptación:** resultados de auditoría revisados; excepciones justificadas y con vencimiento; pipeline probado con políticas; las políticas de enforcement no bloquean recursos existentes ni recuperación.
+
+### P1 — Certificado gestionado del dominio (hallazgo nuevo)
+
+**Estado: abierto, con fecha.** El certificado del dominio propio lo emite y renueva Azure (validación CNAME), vence el 29 de enero de 2027 y el dominio está detrás del proxy de Cloudflare. Microsoft documenta que un CNAME intermedio (cita a Cloudflare como ejemplo) impide la emisión y la renovación. No se sabe si el proxy estaba activo cuando se emitió (julio) ni qué modo SSL usa Cloudflare. Si la renovación falla y Cloudflare usa "Full (strict)", los usuarios verían errores 526 a partir del vencimiento; con "Full" no se enteraría nadie, pero el origen quedaría con un certificado vencido.
+
+Acciones: (1) comprobar en el portal si Azure sigue marcando el certificado como renovable y el modo SSL de Cloudflare; (2) elegir una de dos salidas: poner el registro en modo "sólo DNS" durante la ventana de renovación (desde diciembre), o pasar a un certificado propio en el origen (opción A de P0, que además evita la dependencia de DigiCert); (3) dejar un recordatorio con fecha, antes del 1 de diciembre de 2026.
 
 ## 4. Plan de implementación por fases
 
 | Fase | Horizonte orientativo | Trabajo y salida requerida |
 |---|---|---|
-| 0 — Confirmación | Inmediata | Verificar valores efectivos sin imprimir secretos, estado Azure del Key Vault, rangos de origen, identidades OIDC/roles, visibilidad del repo y estado de backup/Defender. Guardar evidencia fechada y propietarios. **Avance (10-oct-2026):** visibilidad, ingress del origen, credenciales federadas y roles verificados (1.1). Pendiente: `TF_VARS_PROD`, Defender, ACL del Key Vault, configuración real de Storage, prueba de acceso directo al origen. |
-| 1 — P0 | Antes del próximo despliegue relevante | Cerrar bypass de origen y probar WAF/rate limits; reducir y separar OIDC plan/apply; fijar Actions y tratar planes como datos sensibles; decidir si se paga GitHub Pro para proteger `main` (los required reviewers de environments exigen Enterprise) o aceptar el riesgo por escrito. No conceder escrituras a PRs. |
-| 2 — P1 | Siguiente ciclo de cambio planificado | Migrar Storage a identidad administrada y red privada; separar identidades y usuario MySQL; confirmar telemetría y alertas; definir y probar restauración y protección contra borrado. |
-| 3 — P2 | 30–90 días, según riesgo/costo | Endurecer controles de autenticación/TLS; introducir firma, digest y escaneo de imágenes; probar Azure Policy en auditoría y hacer enforcement escalonado. |
+| 0 — Confirmación | Inmediata | **Hecha el 10 de octubre** (1.1), salvo lo listado en 1.3. |
+| 1 — P0 | Antes del próximo despliegue relevante | **Hecho en el repositorio:** permisos por job, Actions por SHA, Dependabot, health check del deploy. **Por una persona (7.1 y 7.2):** borrar credenciales sobrantes, condicionar `User Access Administrator`, proteger `main`, `sha_pinning_required`. **Decisión:** origen (opción A, B o C) y certificado del dominio, antes de diciembre. |
+| 2 — P1 | Siguiente ciclo de cambio planificado | Activar alertas de Activity Log y Azure Policy en auditoría (7.4); activar Blob por identidad administrada y migrar los backups antes de apagar Shared Key (7.6); corregir el backup lógico y probar la restauración (7.5); actualizar MySQL a 8.4 antes del 31 de enero de 2027; refactor del DDL en runtime y usuario de MySQL con privilegios mínimos. |
+| 3 — P2 | 30–90 días, según riesgo y costo | Rotación de claves de Redis o Entra ID; despliegue por digest y firma de imágenes; pasar Azure Policy a enforcement escalonado. |
 
 El orden y las fechas deben ajustarse al riesgo, dependencia de cambios y presupuesto. Mantener un plan Terraform revisado, aplicar en ventana controlada y disponer de rollback probado para cambios de red, identidad y políticas.
 
@@ -209,17 +301,183 @@ El orden y las fechas deben ajustarse al riesgo, dependencia de cambios y presup
 
 La evaluación se considera atendida cuando:
 
-- Los valores relevantes del despliegue productivo se verificaron desde fuentes autorizadas, sin incluir secretos en el documento, los logs o los artefactos.
+- Los valores relevantes del despliegue productivo se verificaron desde fuentes autorizadas, sin incluir secretos en el documento, los logs o los artefactos (hecho salvo 1.3).
 - Se cerró o aceptó formalmente cada P0 con evidencia de prueba y responsable.
 - Los P1 tienen propietario, fecha objetivo y criterios de aceptación completados; las excepciones remanentes son explícitas.
 - Las pruebas de acceso, restauración, telemetría y alertas se repitieron después de los cambios.
 - El estado de Azure y la documentación de este repositorio coinciden, incluidos los controles de red.
 
+## 6. Estado de cierre por ítem (10 de octubre de 2026)
+
+| Ítem | Estado | Hecho | Falta |
+|---|---|---|---|
+| P0 Origen | **Preparado, no cerrado** | Interruptores y check en Terraform; health check del deploy; catálogo de Cloudflare verificado; prueba de acceso directo (200) | Decidir A, B o C; resolver el certificado; activar con el runbook 7.3 |
+| P0 OIDC y planes | **Parcial** | `id-token` por job en 3 workflows; 25 Actions por SHA y Dependabot; `drift` con `environment:prod`; sin plan duplicado por schedule; IPv4 validada; 2FA verificado | Borrar credenciales, condicionar UAA, proteger `main`, `sha_pinning_required`, principal de plan separado (7.1 y 7.2) |
+| P1 Storage | **Preparado** | Credencial de identidad administrada corregida; interruptor; clientes de la cuenta medidos | Activar el interruptor; migrar backups y Terraform; apagar Shared Key (7.6) |
+| P1 Identidades y usuario MySQL | **Abierto** | Bloqueos identificados (DDL en runtime, migraciones en proceso) | Refactor en la aplicación; después, identidades separadas |
+| P1 Defender, auditoría y alertas | **Cerrado en lo verificable; alertas preparadas** | Defender, diagnósticos y logs verificados; alertas de Activity Log (7 reglas) listas | Encenderlas, designar responsable y probar de extremo a extremo (7.4) |
+| P1 Recuperación | **Abierto** | Configuración real medida; defecto del backup lógico identificado | Corregir el script y ensayarlo en la VM; restauración de prueba; decisión de HA y geo |
+| P1 MySQL 8.0 | **Abierto, con fecha** | Fechas y costo verificados | Actualizar a 8.4 antes del 31 de enero de 2027 |
+| P1 Certificado del dominio | **Abierto, con fecha** | Vencimiento y requisitos verificados | Elegir salida antes de diciembre |
+| P2 MySQL y Redis | **Cerrado, salvo rotación** | TLS verificado en Azure; cliente de Redis explícito, con test | Rotación de claves de Redis o Entra ID |
+| P2 ACR | **Recomendación hecha; digest abierto** | Basic confirmado y costo corregido | Despliegue por digest (con el cambio de `APP_VERSION`) y firma |
+| P2 Checkov | **Parcial** | Defender Containers verificado | Decidir las exclusiones de Key Vault con Checkov a mano |
+| P2 Azure Policy | **Preparado** | 10 asignaciones en auditoría, verificadas | Encenderlas y revisar el cumplimiento (7.4) |
+
+## 7. Runbook de pasos manuales
+
+Todo lo que sigue cambia la seguridad de Entra, de GitHub o de Azure, o requiere credenciales que no están en este repositorio: lo ejecuta una persona. Los comandos se verificaron contra la ayuda de `az` y la descripción OpenAPI oficial de GitHub; los de Azure no se ejecutaron contra la suscripción.
+
+### 7.1 GitHub
+
+1. Exigir que toda Action esté fijada por SHA (las 25 referencias ya lo están):
+
+```bash
+gh api -X PUT repos/manny864/finops/actions/permissions -F enabled=true -f allowed_actions=all -F sha_pinning_required=true
+```
+
+2. Proteger `main` contra force-push y borrado, sin exigir PR (se hace push directo a `main` y el deploy depende de ello). `enforce_admins` queda en `false` para no cerrar el flujo propio:
+
+```bash
+gh api -X PUT repos/manny864/finops/branches/main/protection --input - <<'JSON'
+{
+  "required_status_checks": null,
+  "enforce_admins": false,
+  "required_pull_request_reviews": null,
+  "restrictions": null,
+  "allow_force_pushes": false,
+  "allow_deletions": false
+}
+JSON
+```
+
+3. No se puede restringir el environment `prod` a la rama `main` hasta que exista el principal de plan separado (ver 7.2, paso 3): los planes de PR corren con `environment: prod`.
+
+### 7.2 Entra ID y Azure
+
+1. **Borrar las credenciales federadas sobrantes.** Las tres primeras ya no las usa ningún job. `gh-main` sólo después de que el workflow nuevo esté en `main` y haya pasado un `drift` (lunes) o un `workflow_dispatch` de prueba con la rama `main`:
+
+```bash
+APP=$(az ad app list --display-name cscs-finops-terraform --query "[0].id" -o tsv)
+az ad app federated-credential delete --id "$APP" --federated-credential-id gh-pr
+az ad app federated-credential delete --id "$APP" --federated-credential-id gh-actions-finops-env-staging
+az ad app federated-credential delete --id "$APP" --federated-credential-id gh-actions-finops-staging
+# Después del primer drift con environment:prod:
+az ad app federated-credential delete --id "$APP" --federated-credential-id gh-main
+```
+
+2. **Limitar `User Access Administrator` con una condición.** Se crea la asignación nueva con condición *antes* de borrar la vieja, para no quedarse sin permisos. Los GUID son los de los 9 roles que asigna Terraform, resueltos con `az role definition list` (Key Vault Secrets Officer, Storage Blob Data Contributor, AcrPull, Virtual Machine Contributor, Automation Operator, MySQL Backup And Export Operator, Reader, Cognitive Services User y Cognitive Services OpenAI User). La condición sale del ejemplo "Constrain roles" de learn.microsoft.com (`delegate-role-assignments-examples`) y no afecta a otras acciones como los locks. **Se archiva en un archivo** para evitar problemas con `!` en el shell:
+
+```bash
+cat > /tmp/uaa-condition.txt <<'EOF'
+((!(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})) OR (@Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {b86a8fe4-44ce-4948-aee5-eccb2c155cd7, ba92f5b4-2d11-453d-a403-e96b0029c9fe, 7f951dda-4ed3-4680-a7ca-43fe172d538d, 9980e02c-c2be-4d73-94e8-173b1dc7cf3c, d3881f73-407a-4167-8283-e981cbba0404, d18ad5f3-1baf-4119-b49b-d944edb1f9d0, acdd72a7-3385-48ef-bd42-f606fba81ae7, a97b65f3-24c7-4388-baec-2e87135dc908, 5e0bd9bd-7b93-4f28-af87-19fc36ad61bd})) AND ((!(ActionMatches{'Microsoft.Authorization/roleAssignments/delete'})) OR (@Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {b86a8fe4-44ce-4948-aee5-eccb2c155cd7, ba92f5b4-2d11-453d-a403-e96b0029c9fe, 7f951dda-4ed3-4680-a7ca-43fe172d538d, 9980e02c-c2be-4d73-94e8-173b1dc7cf3c, d3881f73-407a-4167-8283-e981cbba0404, d18ad5f3-1baf-4119-b49b-d944edb1f9d0, acdd72a7-3385-48ef-bd42-f606fba81ae7, a97b65f3-24c7-4388-baec-2e87135dc908, 5e0bd9bd-7b93-4f28-af87-19fc36ad61bd}))
+EOF
+SUB=$(az account show --query id -o tsv)
+SP=$(az ad sp list --display-name cscs-finops-terraform --query "[0].id" -o tsv)
+az role assignment create --assignee-object-id "$SP" --assignee-principal-type ServicePrincipal \
+  --role "User Access Administrator" --scope "/subscriptions/$SUB" \
+  --condition "$(cat /tmp/uaa-condition.txt)" --condition-version "2.0"
+# Identificar la asignación vieja (sin condición) y borrar SÓLO esa, por id:
+az role assignment list --assignee "$SP" --role "User Access Administrator" --scope "/subscriptions/$SUB" \
+  --query "[].{id:id, condicion:condition}" -o table
+az role assignment delete --ids "<id de la asignación SIN condición>"
+```
+
+   Después: un `workflow_dispatch` de Terraform con `confirm` vacío (sólo plan) tiene que dar el mismo resultado que antes. Si un módulo nuevo asigna otro rol, hay que agregar su GUID a la condición. No probado contra la suscripción.
+
+3. **Plan de PR de sólo lectura** (cuando se quiera cerrar el último hueco de OIDC): crear un segundo principal con `Reader` sobre la suscripción y `Storage Blob Data Reader` sobre la cuenta de tfstate, con una única credencial federada `pull_request`, sin acceso al Key Vault; guardar su client id como secret `AZURE_PLAN_CLIENT_ID`. Con eso el workflow se parte en un job de PR (`terraform plan -refresh=false -lock=false`, sin firewall del vault) y un job de apply; y recién entonces se puede restringir el environment `prod` a `main`. La partición del workflow se hace cuando exista ese principal.
+
+### 7.3 Cerrar el origen
+
+Antes de activar nada:
+
+1. Elegir la opción (A, B o C de P0) y resolver el certificado del dominio (P1). Con la A, crear el NAT Gateway y su IP pública en la subred de apps (`cscs-finops-prod-westus2-snet-apps`, `10.50.0.0/23`); anotar la IP.
+2. Comprobar en Cloudflare el modo SSL, y a qué URL apuntan los webhooks de Paddle y cualquier monitor externo: todo lo que le pegue al origen sin pasar por Cloudflare dejará de entrar.
+
+Activar (en `TF_VARS_PROD`, que se edita desde GitHub; no se puede desde el repositorio):
+
+```hcl
+origin_cloudflare_only         = true
+origin_extra_allowed_ip_ranges = ["<IP del NAT Gateway>/32"]
+```
+
+Después: `workflow_dispatch` con `confirm` vacío (sólo plan), leer el resumen del plan (tiene que mostrar sólo el cambio de `ipSecurityRestrictions` del app) y recién entonces `APPLY-PROD`.
+
+Verificar, en este orden:
+
+```bash
+# 1. Directo al origen: debe dar 403 (antes daba 200)
+curl -s -o /dev/null -w '%{http_code}\n' https://cscs-finops-prod-westus2-web.victoriousmoss-01886ec5.westus2.azurecontainerapps.io/api/health
+# 2. Por el dominio propio (Cloudflare): debe seguir en 200
+curl -s -o /dev/null -w '%{http_code}\n' https://finops.cscloudsolutions.com.ar/api/health
+# 3. Un cron manual debe terminar Succeeded (si da 403, el ingress ve otra IP de origen: revisar extras)
+az containerapp job start -g cscs-finops-prod-westus2-rg -n cron-prewarm-dashboard
+az containerapp job execution list -g cscs-finops-prod-westus2-rg -n cron-prewarm-dashboard --query "[0].properties.status" -o tsv
+```
+
+Rollback: `origin_cloudflare_only = false` y un apply. Atender la renovación del certificado antes de diciembre (P1).
+
+### 7.4 Alertas de Activity Log y Azure Policy en auditoría
+
+En `TF_VARS_PROD`, dentro del stamp `us` (las alertas son de la suscripción: sólo en un stamp):
+
+```hcl
+security_activity_alerts_enabled = true
+security_policy_audit_enabled    = true
+```
+
+Un `workflow_dispatch` de sólo plan tiene que mostrar 17 recursos a crear y ninguno a cambiar o destruir. Después del apply:
+
+```bash
+# Política: cumplimiento por asignación (tarda unos minutos en aparecer)
+az policy state summarize --resource-group cscs-finops-prod-westus2-rg --query "policyAssignments[].{n:policyAssignmentId, noCumple:results.nonCompliantResources}" -o table
+# Prueba de extremo a extremo de las alertas, en un resource group vacío y descartable
+# (un lock sobre el RG de producción cascadea y puede romper operaciones legítimas):
+# borrar el lock de prueba debe mandar el aviso "lock-delete"
+az group create --name rg-prueba-alertas --location westus2
+az lock create --name prueba --lock-type CanNotDelete --resource-group rg-prueba-alertas
+az lock delete --name prueba --resource-group rg-prueba-alertas
+az group delete --name rg-prueba-alertas --yes
+```
+
+Designar quién lee el correo del action group y revisar que llegue.
+
+### 7.5 Restauración de prueba
+
+Crea recursos con costo; hacerla en una ventana y borrar lo creado:
+
+```bash
+# MySQL: restauración point-in-time a un servidor NUEVO (no toca el de producción)
+az mysql flexible-server restore --resource-group cscs-finops-prod-westus2-rg \
+  --name cscs-finops-restore-prueba --source-server cscs-finops-prod-westus2-mysql \
+  --restore-time "$(date -u -v-30M +%Y-%m-%dT%H:%M:%SZ)"
+```
+
+El servidor de producción tiene acceso privado: la restauración puede pedir `--vnet` y `--subnet` (ver `az mysql flexible-server restore --help`). Medir el tiempo, comprobar el recuento de tablas y filas contra producción, y borrar el servidor de prueba. La restauración del dump lógico y la de Blob (versiones y soft delete) se registran con la misma plantilla: pasos, tiempo, responsable y dependencias.
+
+### 7.6 Storage: secuencia para apagar Shared Key
+
+1. `blob_managed_identity_enabled = true` en `TF_VARS_PROD`; plan y apply. Subir un logo o un adjunto de prueba y comprobar que sale sin errores `[blob]` en los logs del app.
+2. Comprobar que el acceso de la app pasó a OAuth:
+
+```kusto
+StorageBlobLogs
+| where TimeGenerated > ago(1h)
+| summarize Solicitudes = count() by AuthenticationType, Agente = substring(tostring(UserAgentHeader), 0, 28)
+```
+
+   Debe aparecer `azsdk-js-azure-storage-blob` con `OAuth` y dejar de aparecer con `AccountKey`.
+3. Migrar el runbook de backups (AzCopy con la identidad de la VM, o SAS de delegación de usuario) y ensayarlo (7.5).
+4. Agregar `storage_use_azuread = true` al provider de producción y un rol de datos para el principal de Terraform sobre la cuenta; comprobar un plan.
+5. Sólo entonces: exponer `shared_access_key_enabled` como variable del stamp, retirar la connection string del app, apagar Shared Key, y volver a correr la consulta de arriba: no debe quedar ningún `AccountKey` ni `SAS` firmado con clave.
+
 ## Referencias de configuración
 
 - [Terraform de producción](../../infra/terraform/environments/prod/)
 - [Módulos Terraform](../../infra/terraform/modules/)
+- [Auditoría: alertas de Activity Log y Azure Policy](../../infra/terraform/modules/security_policy/audit.tf)
 - [Workflow de Terraform](../../.github/workflows/terraform.yml)
 - [Workflow de despliegue de Azure](../../.github/workflows/deploy-azure.yml)
+- [Dependabot](../../.github/dependabot.yml)
 - [Hardening de red de Key Vault](../../infra/docs/keyvault-network-hardening.md)
 - [Pendientes de la aplicación](../../infra/docs/pendientes-de-app.md)

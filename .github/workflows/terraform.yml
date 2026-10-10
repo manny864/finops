@@ -118,10 +118,12 @@ jobs:
           #    ausencia de logging. Verificado 2026-07-29: sin el diagnostic
           #    setting Y sin el skip, sigue marcando FAILED igual.
           #  CKV2_AZURE_40 — Storage del stamp con Shared Key habilitada: la
-          #    app todavía usa AZURE_STORAGE_CONNECTION_STRING
-          #    (src/lib/azureBlobStorage.ts). Migrar a DefaultAzureCredential
-          #    es un cambio de código, no de infra — ver
-          #    infra/docs/pendientes-de-app.md.
+          #    app todavía usa AZURE_STORAGE_CONNECTION_STRING. El código para
+          #    pasar a identidad administrada ya existe
+          #    (src/lib/azureBlobStorage.ts, ManagedIdentityCredential) y se activa
+          #    con blob_managed_identity_enabled; faltan los backups (SAS firmada
+          #    con la clave) y el provider de Terraform. Ver
+          #    docs/security/endurecimiento-infraestructura-saas-2026-10-09.md.
           #  CKV2_AZURE_56 — MySQL Flexible sin private endpoint: usa VNet
           #    injection (delegated_subnet_id) en su lugar, que deja el
           #    servidor igual de privado sin pagar el PE — Checkov sólo

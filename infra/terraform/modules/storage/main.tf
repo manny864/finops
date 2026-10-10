@@ -19,9 +19,12 @@ resource "azurerm_storage_account" "this" {
   allow_nested_items_to_be_public = false
   public_network_access_enabled   = true
 
-  # La app usa connection string (clave de cuenta) porque así está escrito
-  # azureBlobStorage.ts. Para poder apagar esto hace falta migrarlo a
-  # DefaultAzureCredential — ver infra/docs/pendientes-de-app.md.
+  # La app todavía usa la connection string (clave de cuenta). El código para
+  # pasar a identidad administrada ya existe (azureBlobStorage.ts, con
+  # ManagedIdentityCredential y NO DefaultAzureCredential) y se activa con
+  # blob_managed_identity_enabled en el stamp. Antes de apagar esto también hay que
+  # migrar los backups (AzCopy con SAS firmada con la clave) y el provider de
+  # Terraform (storage_use_azuread): ver docs/security/endurecimiento-infraestructura-saas-2026-10-09.md.
   shared_access_key_enabled = var.shared_access_key_enabled
 
   # Una SAS emitida a mano y olvidada no vence sola. El límite es sobre la
