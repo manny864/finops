@@ -118,6 +118,19 @@ export function liveAnomaliesCacheKey(tenantId: string): string {
   return `anomalies:v4:${tenantId}`;
 }
 
+/**
+ * El payload de `GET /api/audit/full`, por suscripción (`all` sin filtro). La suscripción va en minúsculas y la
+ * purga (`POST /api/remediation`) también la baja: así coinciden sea cual sea el caso con que se abrió la pantalla.
+ */
+export function auditFullCacheKey(tenantId: string, subscriptionId?: string | null): string {
+  return `audit:full:v1:${tenantId}:${(subscriptionId || 'all').toLowerCase()}`;
+}
+
+/** El payload de `GET /api/audit/ttl`: uno por tenant, el escaneo TTL no filtra por suscripción. */
+export function auditTtlCacheKey(tenantId: string): string {
+  return `audit:ttl:v1:${tenantId}`;
+}
+
 // In-flight de revalidaciones para deduplicar refreshes concurrentes: si N
 // requests llegan mientras se está revalidando, todos comparten la misma
 // promesa de background y nadie dispara un fetch redundante.

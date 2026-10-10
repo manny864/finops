@@ -4,7 +4,7 @@ import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAu
 import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
 import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { getDeleteRemediationTier, DeleteResourceDomain } from "@/lib/tierLogic";
-import { invalidateCache, invalidateCachePattern } from "@/lib/cache";
+import { invalidateCache, invalidateCachePattern, auditFullCacheKey, auditTtlCacheKey } from "@/lib/cache";
 import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
 import { azureErrorResponse } from "@/lib/apiErrors";
@@ -97,17 +97,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Invalidar la caché (Redis SWR) de toda pantalla que liste el recurso recién borrado, para que no siga
-    // apareciendo hasta que expire el TTL. Las claves de zombis salen de la MISMA función que usa la pantalla
-    // que las lee: copiarlas acá a mano las dejó apuntando a versiones que ya nadie leía (zombis v2, red v1) y la
-    // purga no se veía hasta 15 min después. __tests__/unit/remediacionInvalidaCache.test.ts corre las pantallas
-    // reales y falla si alguna lista queda cacheada o si se pide borrar una clave que ninguna lee.
+    // apareciendo hasta que expire el TTL. Las claves salen de la MISMA función que usa la pantalla que las lee
+    // (el advisor, abajo, es la excepción): copiarlas acá a mano las dejó apuntando a versiones que ya nadie leía
+    // (zombis v2, red v1) y la purga no se veía hasta 15 min después.
+    // __tests__/unit/remediacionInvalidaCache.test.ts corre las pantallas reales y falla si alguna lista queda
+    // cacheada o si se pide borrar una clave que ninguna lee.
     const suscripciones: (string | undefined)[] = [undefined]; // undefined = la vista "todas"
     if (subscriptionId) suscripciones.push(String(subscriptionId).toLowerCase());
 
     await invalidateCache(
-      `audit:ttl:v1:${tenantId}`,
+      auditTtlCacheKey(tenantId),
       ...suscripciones.flatMap((sub) => [
-        `audit:full:v1:${tenantId}:${sub ?? "all"}`,
+        auditFullCacheKey(tenantId, sub),
         zombieScanCacheKey(tenantId, sub),
         networkingZombiesCacheKey(tenantId, sub),
       ])

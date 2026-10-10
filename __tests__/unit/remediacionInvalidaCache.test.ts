@@ -168,4 +168,17 @@ describe("POST /api/remediation invalida la caché que leen las pantallas", () =
 
         expect(clavesDe(OTRO)).toEqual(antes);
     });
+
+    // audit:full baja la suscripción a minúsculas en su clave y la purga también, así que coinciden aunque la
+    // pantalla se haya abierto con el GUID en mayúsculas. Si esa normalización se pierde, la lista queda cacheada.
+    it("invalida audit:full aunque la pantalla se haya abierto con la suscripción en mayúsculas", async () => {
+        await auditoriaCompleta(
+            new NextRequest(`http://localhost/api/audit/full?tenantId=${T}&subscriptionId=${SUB.toUpperCase()}`)
+        );
+        expect(clavesDe(T).length).toBeGreaterThan(0);
+
+        await purgarRecurso();
+
+        expect(clavesDe(T)).toEqual([]);
+    });
 });

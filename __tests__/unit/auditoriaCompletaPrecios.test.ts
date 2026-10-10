@@ -32,7 +32,11 @@ vi.mock("@/lib/requestAuth", () => ({
     },
 }));
 vi.mock("@/lib/scopeDelTenant", () => ({ exigirSuscripcionDelTenant: vi.fn(async () => undefined) }));
-vi.mock("@/lib/cache", () => ({ getWithStaleWhileRevalidate: async (_clave: string, f: () => unknown) => f() }));
+vi.mock("@/lib/cache", () => ({
+    // La clave no importa acá: el mock ejecuta el fetcher directo.
+    auditFullCacheKey: () => "clave-de-prueba",
+    getWithStaleWhileRevalidate: async (_clave: string, f: () => unknown) => f(),
+}));
 vi.mock("@/lib/argConcurrency", () => ({ withArgLimit: (f: () => unknown) => f() }));
 vi.mock("@/modules/storage/recommendationExemptions", () => ({ getExemptionsForTenant: vi.fn(async () => []) }));
 
