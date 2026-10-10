@@ -74,12 +74,31 @@ const tenantIdDe = (url: string) => new URL(url).searchParams.get("tenantId");
 let violaciones: string[];
 
 beforeEach(() => {
+    process.env.CRON_SECRET = "secreto-de-prueba";
     violaciones = [];
     poolQuery.mockReset().mockImplementation(baseDeTenants(violaciones));
     vi.unstubAllGlobals();
 });
 
 describe("GET /api/cron/sync-azure-ai: qué identificador manda", () => {
+    it.each([undefined, "", "unsafe-default", "short"])("rechaza un secreto no seguro: %s", async (secret) => {
+        if (secret === undefined) delete process.env.CRON_SECRET;
+        else process.env.CRON_SECRET = secret;
+        const response = await GET(new NextRequest("http://localhost/api/cron/sync-azure-ai", {
+            headers: { Authorization: "Bearer unsafe-default" },
+        }));
+        expect(response.status).toBe(401);
+        expect(poolQuery).not.toHaveBeenCalled();
+    });
+
+    it.each(["", "Bearer", "Bearer wrong-secret", "Bearer secreto-de-prueba extra"])("rechaza un header inválido: %s", async (authorization) => {
+        const response = await GET(new NextRequest("http://localhost/api/cron/sync-azure-ai", {
+            headers: { Authorization: authorization },
+        }));
+        expect(response.status).toBe(401);
+        expect(poolQuery).not.toHaveBeenCalled();
+    });
+
     it("llama a azure-ai con el tenant_id (GUID) de cada tenant Enterprise, no con el id de la fila", async () => {
         const urls = fetchAnotado();
 

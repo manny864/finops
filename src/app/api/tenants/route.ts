@@ -25,6 +25,9 @@ export async function GET(request: NextRequest) {
         await initializeDatabase();
         const identity = await requireRequestIdentity(request);
         const email = identity.email;
+        if (!email) {
+            throw new AuthError("Identidad de usuario incompleta.", 401);
+        }
 
         // Super-admin para EFECTOS DE LECTURA del listado:
         // 1) path estricto (dominio corporativo + Users.system_role='SUPERADMIN')

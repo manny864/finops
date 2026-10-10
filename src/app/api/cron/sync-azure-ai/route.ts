@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "node:crypto";
 import pool from "@/modules/storage/db";
 import { errorMessage } from '@/lib/apiErrors';
 import { mapWithConcurrency } from "@/modules/collectors/azure/billing/billingHelpers";
-
-const CRON_SECRET = process.env.CRON_SECRET || "unsafe-default";
 
 // Cuántos tenants se sincronizan a la vez: UNO. Cada uno es un fetch a la PROPIA web (`/api/intelligence/azure-ai`),
 // y esa ruta lanza 8 colectores en paralelo, cada uno con su primera consulta a MySQL. Antes iban todos juntos
@@ -15,21 +14,18 @@ const CRON_SECRET = process.env.CRON_SECRET || "unsafe-default";
 // autenticación, ver `tenant_id` abajo: con escaneos reales hay que volver a medir).
 const MAX_TENANTS_EN_PARALELO = 1;
 
-function timingSafeCompare(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return result === 0;
-}
-
 export async function GET(request: NextRequest) {
   try {
+    const cronSecret = process.env.CRON_SECRET;
     const authHeader = request.headers.get("Authorization") || "";
-    const [scheme, token] = authHeader.split(" ");
+    const [scheme, token, extra] = authHeader.split(" ");
 
-    if (scheme !== "Bearer" || !timingSafeCompare(token, CRON_SECRET)) {
+    if (!cronSecret || cronSecret.length < 16 || scheme !== "Bearer" || !token || extra !== undefined) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const providedHash = crypto.createHash("sha256").update(token).digest();
+    const secretHash = crypto.createHash("sha256").update(cronSecret).digest();
+    if (!crypto.timingSafeEqual(providedHash, secretHash)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -74,7 +70,7 @@ export async function GET(request: NextRequest) {
         try {
           const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
           const res = await fetch(`${baseUrl}/api/intelligence/azure-ai?tenantId=${tenant.id}`, {
-            headers: { "X-Cron-Auth": CRON_SECRET },
+            headers: { "X-Cron-Auth": cronSecret },
             cache: "no-store",
           });
 

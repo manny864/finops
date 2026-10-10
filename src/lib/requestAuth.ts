@@ -511,18 +511,7 @@ async function resolverAccesoAlTenant(
     if (superAdmin) {
       return identity;
     }
-    // Auto-bootstrap / autorización para dominio corporativo
-    try {
-      await pool.query(
-        `INSERT INTO Users (entra_oid, email, tenant_id, system_role, display_name)
-         VALUES (?, ?, ?, 'SUPERADMIN', ?)
-         ON DUPLICATE KEY UPDATE system_role = 'SUPERADMIN'`,
-        [identity.claims.oid || identity.email, identity.email, identity.tenantId, identity.email.split('@')[0]]
-      );
-      return identity;
-    } catch {
-      return identity;
-    }
+    throw new AuthError("Acceso denegado al tenant.", 403, "TENANT_ACCESS_MISSING_SUPERADMIN_ROLE");
   }
 
   if (!identity.isCorporateDomain) {

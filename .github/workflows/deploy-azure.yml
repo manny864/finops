@@ -268,24 +268,6 @@ jobs:
             --set-env-vars AZURE_SENDER_EMAIL_ALERTS="${{ vars.AZURE_SENDER_EMAIL_ALERTS || 'alerts@cscloudsolutions.com.ar' }}" \
                            APP_VERSION="${{ github.sha }}"
 
-      - name: Deploy de los cron jobs
-        run: |
-          JOBS=$(az containerapp job list -g "$RG" \
-              --query "[?properties.configuration.triggerType=='Schedule'].name" -o tsv)
-          if [ -n "$JOBS" ]; then
-            FAILED=""
-            for JOB in $JOBS; do
-              echo "-> $JOB"
-              az containerapp job update -g "$RG" -n "$JOB" --image "$ACR.azurecr.io/$IMAGE:${{ github.sha }}" \
-                || az containerapp job update -g "$RG" -n "$JOB" --image "$ACR.azurecr.io/$IMAGE:${{ github.sha }}" \
-                || FAILED="$FAILED $JOB"
-            done
-            if [ -n "$FAILED" ]; then
-              echo "No se pudieron actualizar estos cron jobs:$FAILED"
-              exit 1
-            fi
-          fi
-
       - name: Health check
         run: |
           FQDN=$(az containerapp show -g "$RG" -n "$APP" \

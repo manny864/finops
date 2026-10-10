@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ success: false, error: "Falta tenantId" }, { status: 400 });
         }
 
-        if (isMockTenant(tenantId) || searchParams.get("mock") === "true") {
+        if (isMockTenant(tenantId)) {
             const portal = await getCustomerPortalUrl(tenantId);
             return NextResponse.json({ url: portal.portalUrl, ...portal, mock: true });
         }

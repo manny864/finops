@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
         const page = parseInt(searchParams.get("page") || "1", 10);
         const pageSize = parseInt(searchParams.get("pageSize") || "1000", 10);
 
-        if (!isMockTenant(tenantId) && searchParams.get("mock") !== "true") {
+        if (!isMockTenant(tenantId)) {
             await requireTenantRole(request, tenantId, ["Admin", "ADMIN", "Owner", "FinOps Manager", "Reader"]);
         }
 

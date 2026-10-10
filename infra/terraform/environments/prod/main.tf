@@ -246,13 +246,6 @@ module "stamp" {
   document_intelligence_enabled = each.value.document_intelligence_enabled
 
   tags = merge(local.tags, { DataRegion = upper(each.key) })
-
-  # Garantiza que el role AcrPull propagó en AAD antes de que Container Apps
-  # y los cron jobs intenten hacer pull de la imagen. Sin este depends_on, el
-  # apply falla con "unable to pull image using Managed identity" en el
-  # primer despliegue de cada stamp.
-  # Restricción aprendida: 2026-07-28 — error ContainerAppOperationError en prod.
-  depends_on = [module.acr]
 }
 
 

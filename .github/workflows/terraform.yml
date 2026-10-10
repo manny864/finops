@@ -58,6 +58,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: terraform-prod
+  cancel-in-progress: false
+
 jobs:
   # Gate estático: corre en cada PR y es lo que evita repetir defectos como el
   # WAF creado pero no asociado, o un storage con acceso público.
@@ -394,6 +398,12 @@ jobs:
           echo "Para aplicar, re-lanzar el workflow escribiendo APPLY-PROD en el campo 'confirm'."
           echo "Recibido: '$CONFIRM'"
 
+      - name: Validar seguridad del apply
+        if: github.event_name == 'workflow_dispatch' && inputs.confirm == 'APPLY-PROD'
+        env:
+          REPLACE_ADDR: ${{ inputs.replace }}
+        run: node "$GITHUB_WORKSPACE/scripts/validate-terraform-apply-plan.mjs" plan.json
+
       - name: Terraform apply
         if: github.event_name == 'workflow_dispatch' && inputs.confirm == 'APPLY-PROD'
         run: terraform apply -auto-approve tfplan
@@ -446,12 +456,17 @@ jobs:
       # runner NO debe quedar en la allowlist del vault.
       - name: Cerrar el Key Vault
         if: always() && steps.kv_firewall.outputs.runner_ip != ''
+        env:
+          VAULTS: ${{ steps.kv_firewall.outputs.vaults }}
+          RUNNER_IP: ${{ steps.kv_firewall.outputs.runner_ip }}
         run: |
-          for V in ${{ steps.kv_firewall.outputs.vaults }}; do
+          FAILED=0
+          for V in $VAULTS; do
             az keyvault network-rule remove \
-              --name "$V" --ip-address "${{ steps.kv_firewall.outputs.runner_ip }}" \
-              --only-show-errors >/dev/null || echo "::warning::No se pudo quitar $IP de $V"
+              --name "$V" --ip-address "$RUNNER_IP" \
+              --only-show-errors >/dev/null || { echo "::error::No se pudo quitar $RUNNER_IP de $V"; FAILED=1; }
           done
+          exit "$FAILED"
 
   # Detecta cambios hechos a mano en el portal. Corre los lunes a la mañana.
   drift:
@@ -563,10 +578,15 @@ jobs:
       # runner NO debe quedar en la allowlist del vault.
       - name: Cerrar el Key Vault
         if: always() && steps.kv_firewall.outputs.runner_ip != ''
+        env:
+          VAULTS: ${{ steps.kv_firewall.outputs.vaults }}
+          RUNNER_IP: ${{ steps.kv_firewall.outputs.runner_ip }}
         run: |
-          for V in ${{ steps.kv_firewall.outputs.vaults }}; do
+          FAILED=0
+          for V in $VAULTS; do
             az keyvault network-rule remove \
-              --name "$V" --ip-address "${{ steps.kv_firewall.outputs.runner_ip }}" \
-              --only-show-errors >/dev/null || echo "::warning::No se pudo quitar $IP de $V"
+              --name "$V" --ip-address "$RUNNER_IP" \
+              --only-show-errors >/dev/null || { echo "::error::No se pudo quitar $RUNNER_IP de $V"; FAILED=1; }
           done
+          exit "$FAILED"
 
