@@ -91,25 +91,26 @@ export async function getDocIntelRealCost(
     console.warn(`[docIntelCollector] Cost query failed for ${resourceId}:`, err);
   }
 
-  // Fallback to CostMeterSnapshots for Document Intelligence / Form Recognizer
+  // Fallback to CostSnapshots for Document Intelligence / Form Recognizer. CostMeterSnapshots no tiene columna de
+  // recurso; ResourceId sólo está en las filas de un único recurso (costExportIngestionService).
   try {
-    const [meterRows]: any = await pool.query(
+    const [snapRows]: any = await pool.query(
       `
       SELECT COALESCE(SUM(cost_usd), 0) as totalCost
-      FROM CostMeterSnapshots
+      FROM CostSnapshots
       WHERE tenant_id = ?
-        AND LOWER(resource_id) = LOWER(?)
+        AND LOWER(ResourceId) = LOWER(?)
         AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
       `,
       [tenantId, resourceId]
     );
 
-    if (meterRows && meterRows.length > 0) {
-      const val = parseFloat(meterRows[0].totalCost || 0);
+    if (snapRows && snapRows.length > 0) {
+      const val = parseFloat(snapRows[0].totalCost || 0);
       if (val > 0) return val;
     }
-  } catch (meterErr) {
-    console.warn(`[docIntelCollector] CostMeterSnapshots query error:`, meterErr);
+  } catch (snapErr) {
+    console.warn(`[docIntelCollector] CostSnapshots query error:`, snapErr);
   }
 
   return 0;

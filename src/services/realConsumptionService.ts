@@ -626,7 +626,7 @@ export async function fetchTenantRealResourceInventory(tenantId: string): Promis
             }
 
             const [dbRegions]: any = await pool.query(
-                `SELECT DISTINCT region FROM CostMeterSnapshots WHERE tenant_id = ? AND region NOT IN ('', 'global', 'null') LIMIT 1`,
+                `SELECT DISTINCT resource_location AS region FROM CostMeterSnapshots WHERE tenant_id = ? AND resource_location NOT IN ('', 'global', 'null') LIMIT 1`,
                 [tenantId]
             );
             if (dbRegions?.[0]?.region) {

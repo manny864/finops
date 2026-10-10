@@ -124,7 +124,9 @@ export async function getAzureSearchRealCost(
     console.warn(`[azureSearchCollector] Cost Management query failed for ${resourceId}:`, err);
   }
 
-  // 2. Fallback a CostMeterSnapshots en DB con coincidencia flexible por ID, nombre, servicio y medidor standard-s1
+  // 2. Fallback a CostMeterSnapshots en DB con coincidencia flexible por servicio y medidor standard-s1.
+  // Esa tabla no tiene columna de recurso (una fila por suscripción, día, servicio, medidor y región): no se puede
+  // atribuir por ID ni por nombre, eso lo hace la estrategia 3 con CostSnapshots.ResourceId.
   try {
     const [meterRows]: any = await pool.query(
       `
@@ -132,9 +134,7 @@ export async function getAzureSearchRealCost(
       FROM CostMeterSnapshots
       WHERE tenant_id = ?
         AND (
-          LOWER(resource_id) = LOWER(?)
-          OR LOWER(resource_id) LIKE CONCAT('%', ?, '%')
-          OR LOWER(MeterName) LIKE '%standard-s1%'
+          LOWER(MeterName) LIKE '%standard-s1%'
           OR LOWER(MeterSubCategory) LIKE '%standard-s1%'
           OR (
             (
@@ -149,7 +149,7 @@ export async function getAzureSearchRealCost(
         )
         AND date >= DATE_SUB(CURDATE(), INTERVAL 35 DAY)
       `,
-      [tenantId, resourceId, resourceName, sub, sub]
+      [tenantId, sub, sub]
     );
 
     if (meterRows && meterRows.length > 0) {

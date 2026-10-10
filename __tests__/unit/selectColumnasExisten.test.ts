@@ -45,12 +45,6 @@ const DEUDA: Record<string, string[]> = {
     // CostSnapshots tampoco tiene ChargeType ni ChargeDescription.
     "src/services/azureCommitmentSimulator.service.ts": ["costsnapshots.chargedescription", "costsnapshots.chargetype"],
 
-    // CostMeterSnapshots no tiene `resource_id` ni `region` (hay `resource_location`).
-    "src/modules/collectors/azure/azureSearchCollector.ts": ["costmetersnapshots.resource_id"],
-    "src/modules/collectors/azure/docIntelCollector.ts": ["costmetersnapshots.resource_id"],
-    "src/modules/collectors/azure/foundryCollector.ts": ["costmetersnapshots.resource_id"],
-    "src/services/realConsumptionService.ts": ["costmetersnapshots.region"],
-
     // CostCategorySnapshots no tiene `resource_id` ni `resource_group` (tiene `resource_type`).
     "src/app/api/intelligence/storage/backups/route.ts": ["costcategorysnapshots.resource_group", "costcategorysnapshots.resource_id"],
     "src/app/api/intelligence/storage/data-lake-gen2/route.ts": ["costcategorysnapshots.resource_group", "costcategorysnapshots.resource_id"],
@@ -77,7 +71,6 @@ const DEUDA: Record<string, string[]> = {
         "tenantsubscriptions.subscription_id",
     ],
     "src/services/azureDocumentIntelligence.service.ts": [
-        "costmetersnapshots.resource_id",
         "subscriptions",
         "tenantsubscriptions.display_name",
         "tenantsubscriptions.subscription_id",

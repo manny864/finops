@@ -240,8 +240,9 @@ async function fetchActualCost(
     console.warn(`[azureDocumentIntelligence] Cost Management unavailable for ${resource.name}:`, error);
     try {
       const [rows]: any = await pool.query(
-        `SELECT COALESCE(SUM(cost_usd), 0) AS totalCost FROM CostMeterSnapshots
-         WHERE tenant_id = ? AND LOWER(resource_id) = LOWER(?)
+        // CostMeterSnapshots no tiene columna de recurso; ResourceId sólo está en CostSnapshots.
+        `SELECT COALESCE(SUM(cost_usd), 0) AS totalCost FROM CostSnapshots
+         WHERE tenant_id = ? AND LOWER(ResourceId) = LOWER(?)
            AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')`,
         [tenantId, resource.id]
       );
