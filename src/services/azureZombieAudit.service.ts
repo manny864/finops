@@ -17,6 +17,9 @@ import {
 import { resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import crypto from "crypto";
 
+/** El motivo con el que `assembleLiveZombieAudit` rotula un hallazgo cuyo tipo de recurso no tiene motivo propio. */
+export const GENERIC_ZOMBIE_ISSUE_NAME = "Recurso Zombi";
+
 export function formatResourceType(type: string): string {
   const t = type.toLowerCase();
   if (t.includes("microsoft.compute/disks")) return "Disco Administrado";
@@ -54,6 +57,28 @@ export function computeZombieSummaryMetrics(
     totalScannedResources: resources.length,
     resources,
   };
+}
+
+/**
+ * El desperdicio duro (`HARD_WASTE`, sin eximidos) agrupado por motivo y de mayor a menor: la distribución de
+ * ineficiencias del reporte ejecutivo. Un hallazgo con el motivo genérico se rotula por su tipo de recurso: bajo
+ * «Recurso Zombi» irían juntos gateways, balanceadores y pools, que son justo lo más caro.
+ */
+export function computeHardWasteByIssue(
+  resources: ZombieResourceItem[]
+): Array<{ reason: string; affected: number; wasteUsd: number }> {
+  const byReason = new Map<string, { affected: number; wasteUsd: number }>();
+  for (const r of resources) {
+    if (r.isExempted || r.category !== "HARD_WASTE") continue;
+    const reason = r.issueDisplayName === GENERIC_ZOMBIE_ISSUE_NAME ? r.typeDisplayName : r.issueDisplayName;
+    const acc = byReason.get(reason) ?? { affected: 0, wasteUsd: 0 };
+    acc.affected += 1;
+    acc.wasteUsd += r.monthlySavingsUSD;
+    byReason.set(reason, acc);
+  }
+  return [...byReason]
+    .map(([reason, v]) => ({ reason, affected: v.affected, wasteUsd: Number(v.wasteUsd.toFixed(2)) }))
+    .sort((a, b) => b.wasteUsd - a.wasteUsd);
 }
 
 /**
@@ -380,7 +405,7 @@ export function assembleLiveZombieAudit(input: {
 
     let category: ZombieCategory = "HARD_WASTE";
     let issueType: ZombieIssueType = "UNATTACHED_DISK";
-    let issueDisplayName = "Recurso Zombi";
+    let issueDisplayName = GENERIC_ZOMBIE_ISSUE_NAME;
     let severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" = "MEDIUM";
 
     const typeLower = (item.type || item.resourceType || "").toLowerCase();
