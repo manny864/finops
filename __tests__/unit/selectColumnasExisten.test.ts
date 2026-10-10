@@ -45,10 +45,6 @@ const DEUDA: Record<string, string[]> = {
     // CostSnapshots tampoco tiene ChargeType ni ChargeDescription.
     "src/services/azureCommitmentSimulator.service.ts": ["costsnapshots.chargedescription", "costsnapshots.chargetype"],
 
-    // CostCategorySnapshots no tiene `resource_id` ni `resource_group` (tiene `resource_type`).
-    "src/app/api/intelligence/storage/backups/route.ts": ["costcategorysnapshots.resource_group", "costcategorysnapshots.resource_id"],
-    "src/app/api/intelligence/storage/data-lake-gen2/route.ts": ["costcategorysnapshots.resource_group", "costcategorysnapshots.resource_id"],
-    "src/app/api/intelligence/storage/managed-disks/route.ts": ["costcategorysnapshots.resource_group", "costcategorysnapshots.resource_id"],
 
     // `Tenants` no tiene `azure_subscription_id` ni `deleted_at`. Son rutas de cron que la auditoría del 2026-10-10
     // declara "sin job ni referencias": hoy no corren. (sync-foundry pide además `tenantId`; la columna es `tenant_id`.)

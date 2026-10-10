@@ -405,23 +405,23 @@ export async function GET(request: NextRequest) {
                     };
                 }
 
-                // Query DB Cost Attribution for Disks
+                // Query DB Cost Attribution for Disks. CostCategorySnapshots agrupa por resource_type: no tiene recurso
+                // ni grupo. El costo por recurso sólo está en CostSnapshots.ResourceId, en las filas de un único
+                // recurso (costExportIngestionService).
                 const [costRows]: any = await pool.query(
-                    `SELECT resource_id, LOWER(resource_group) AS rg, SUM(cost_usd) AS cost
-                     FROM CostCategorySnapshots
+                    `SELECT LOWER(ResourceId) AS resource_id, SUM(cost_usd) AS cost
+                     FROM CostSnapshots
                      WHERE tenant_id = ?
-                       AND LOWER(resource_type) = 'microsoft.compute/disks'
+                       AND LOWER(ResourceId) LIKE '%/providers/microsoft.compute/disks/%'
                        AND date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-                     GROUP BY resource_id, LOWER(resource_group)`,
+                     GROUP BY LOWER(ResourceId)`,
                     [tenantId]
                 ).catch(() => [[], []]);
 
                 const costByResourceId = new Map<string, number>();
-                const costByRg = new Map<string, number>();
                 for (const row of costRows || []) {
                     const cost = parseFloat(row.cost) || 0;
                     if (row.resource_id) costByResourceId.set(String(row.resource_id).toLowerCase(), cost);
-                    if (row.rg) costByRg.set(row.rg, (costByRg.get(row.rg) || 0) + cost);
                 }
 
                 // Query Live Monitor Metrics Batch
@@ -449,9 +449,8 @@ export async function GET(request: NextRequest) {
 
                     const normId = id.toLowerCase();
                     const directCost = costByResourceId.get(normId) || 0;
-                    const groupCost = costByRg.get(rg.toLowerCase()) || 0;
                     const estimatedCost = estimateMonthlyDiskCost(skuName, sizeGb);
-                    const finalCost = directCost > 0 ? directCost : (groupCost > 0 ? groupCost : estimatedCost);
+                    const finalCost = directCost > 0 ? directCost : estimatedCost;
 
                     const metrics = metricsMap.get(id) || {
                         avgIops: diskState === "Unattached" ? 0 : 45,

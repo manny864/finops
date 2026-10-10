@@ -400,23 +400,24 @@ export async function GET(request: NextRequest) {
                     }
                 }
 
-                // 3. Query DB Cost Attribution for Backup Vaults
+                // 3. Query DB Cost Attribution for Backup Vaults. CostCategorySnapshots agrupa por resource_type: no
+                // tiene recurso ni grupo. El costo por recurso sólo está en CostSnapshots.ResourceId, en las filas de
+                // un único recurso (costExportIngestionService).
                 const [costRows]: any = await pool.query(
-                    `SELECT resource_id, LOWER(resource_group) AS rg, SUM(cost_usd) AS cost
-                     FROM CostCategorySnapshots
+                    `SELECT LOWER(ResourceId) AS resource_id, SUM(cost_usd) AS cost
+                     FROM CostSnapshots
                      WHERE tenant_id = ?
-                       AND LOWER(resource_type) IN ('microsoft.recoveryservices/vaults', 'microsoft.dataprotection/backupvaults')
+                       AND (LOWER(ResourceId) LIKE '%/providers/microsoft.recoveryservices/vaults/%'
+                            OR LOWER(ResourceId) LIKE '%/providers/microsoft.dataprotection/backupvaults/%')
                        AND date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-                     GROUP BY resource_id, LOWER(resource_group)`,
+                     GROUP BY LOWER(ResourceId)`,
                     [tenantId]
                 ).catch(() => [[], []]);
 
                 const costByResourceId = new Map<string, number>();
-                const costByRg = new Map<string, number>();
                 for (const row of costRows || []) {
                     const cost = parseFloat(row.cost) || 0;
                     if (row.resource_id) costByResourceId.set(String(row.resource_id).toLowerCase(), cost);
-                    if (row.rg) costByRg.set(row.rg, (costByRg.get(row.rg) || 0) + cost);
                 }
 
                 // 4. Map Vaults with real metrics
@@ -439,7 +440,6 @@ export async function GET(request: NextRequest) {
 
                     const normId = id.toLowerCase();
                     const directCost = costByResourceId.get(normId) || 0;
-                    const groupCost = costByRg.get(rg.toLowerCase()) || 0;
 
                     const vaultProtectedItems = (protectedItemsByVault.get(vKey) || []).map((item) => ({
                         ...item,
@@ -480,7 +480,7 @@ export async function GET(request: NextRequest) {
                         ? estimateMonthlyVaultCost(redundancy, storageBreakdown, vaultProtectedItems.length, asrCount)
                         : 0;
 
-                    const finalCost = directCost > 0 ? directCost : (groupCost > 0 ? groupCost : estimatedCost);
+                    const finalCost = directCost > 0 ? directCost : estimatedCost;
 
                     return {
                         id,
