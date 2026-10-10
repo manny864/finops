@@ -46,17 +46,29 @@ on:
     # Drift detection: lunes 07:00 UTC.
     - cron: '0 7 * * 1'
 
+# Mínimo a nivel de workflow; cada job pide sólo lo que usa. Un `permissions:`
+# a nivel de job REEMPLAZA a este (no se suma).
+#
+# `id-token: write` vive únicamente en los jobs que hacen `azure/login`. El
+# service principal tiene credenciales federadas para `pull_request` y
+# `ref:refs/heads/main`, que NO llevan environment: un job sin environment que
+# pueda pedir token OIDC y corra una action de terceros (el scan, con Checkov)
+# le entregaría a esa action un token con los permisos de Terraform sobre la
+# suscripción.
 permissions:
-  id-token: write
   contents: read
-  pull-requests: write
-  security-events: write
 
 jobs:
   # Gate estático: corre en cada PR y es lo que evita repetir defectos como el
   # WAF creado pero no asociado, o un storage con acceso público.
   scan:
     runs-on: ubuntu-latest
+    # Sin id-token: no hace login en Azure. `actions: read` lo pide la subida
+    # de SARIF en repos privados.
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
     steps:
       - uses: actions/checkout@v4
 
@@ -186,6 +198,9 @@ jobs:
   plan-apply:
     runs-on: ubuntu-latest
     needs: scan
+    permissions:
+      id-token: write
+      contents: read
     # En un pull_request no hay inputs, asi que cae al default: prod.
     #
     # Tiene que ser prod y no dev por dos razones. La primera es que es el
@@ -197,7 +212,10 @@ jobs:
     # azure/login fallaba con AADSTS700213 en cada PR que tocara infra.
     #
     # El apply sigue atado a workflow_dispatch (ver el paso al final), asi que
-    # un PR nunca escribe: planifica contra el state de prod en modo lectura.
+    # un PR nunca aplica cambios de Terraform: planifica contra el state de
+    # prod. Ojo que NO es de solo lectura: abrir y cerrar la IP del runner en
+    # el firewall del Key Vault (pasos `az keyvault network-rule` mas abajo) es
+    # una escritura en Azure y corre tambien en PR.
     #
     # El gate manual NO puede vivir en el GitHub environment: los protection
     # rules (required reviewers y wait timer) no estan disponibles para repos
@@ -365,10 +383,13 @@ jobs:
       # con la confirmación tipeada (ver el comentario del job).
       - name: Aviso — dispatch sin confirmar, no se aplica
         if: github.event_name == 'workflow_dispatch' && inputs.confirm != 'APPLY-PROD'
+        # Por env y no interpolado en el script: `confirm` es texto libre.
+        env:
+          CONFIRM: ${{ inputs.confirm }}
         run: |
           echo "::warning title=Plan sin aplicar::El plan de arriba NO se aplicó."
           echo "Para aplicar, re-lanzar el workflow escribiendo APPLY-PROD en el campo 'confirm'."
-          echo "Recibido: '${{ inputs.confirm }}'"
+          echo "Recibido: '$CONFIRM'"
 
       - name: Terraform apply
         if: github.event_name == 'workflow_dispatch' && inputs.confirm == 'APPLY-PROD'
@@ -433,6 +454,9 @@ jobs:
   drift:
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     strategy:
       matrix:
         # Solo prod, por el mismo motivo que en el input de arriba.
