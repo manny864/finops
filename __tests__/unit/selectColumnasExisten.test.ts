@@ -13,7 +13,7 @@
  * que dar un falso positivo. Queda fuera, a sabiendas, el SQL armado con `${...}` (~130 consultas): ahí un alias o
  * una lista de columnas puede venir de la interpolación y el chequeo no distingue una columna inexistente de eso.
  *
- * Al escribirla (2026-10-10) había 73 problemas en 40 archivos; abajo están como DEUDA. La guarda falla ante lo
+ * Al escribirla (2026-10-10) había 72 problemas en 39 archivos; abajo están como DEUDA. La guarda falla ante lo
  * NUEVO, no ante lo viejo.
  */
 import { describe, it, expect } from "vitest";
@@ -105,9 +105,6 @@ const DEUDA: Record<string, string[]> = {
         "tenantsubscriptions.display_name",
         "tenantsubscriptions.subscription_id",
     ],
-
-    // Ya corregida en refactor/auditoria-2026-10-10 (d298f7d): borrar la línea al mergear esa rama.
-    "src/services/azureAiSummary.service.ts": ["azuredocumentintelligencesnapshots.lastaccesseddaysago"],
 
     // Sueltas. La tabla se llama `recommendation_exemptions` (con guion bajo); `SaaSInvoices` no está en ninguna migración.
     "src/services/azureOrphanBackups.service.ts": ["recommendationexemptions"],
