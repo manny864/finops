@@ -40,9 +40,15 @@ const ESQUEMA = columnasPorTabla();
  * corregir una consulta, borrá su línea: la guarda no avisa de las saldadas, pero una línea vieja tapa una recaída.
  */
 const DEUDA: Record<string, string[]> = {
-    // CostSnapshots no tiene `resource_id` (la columna es `ResourceId`), `cost` (es `cost_usd`) ni `usage_date`:
-    // la misma clase de error que MEJ-29 corrigió en realConsumptionService. MySQL rechaza estas consultas.
-    // CostSnapshots tampoco tiene ChargeType ni ChargeDescription.
+    // La cuota de reembolsos de reservas pide `ChargeType` y `ChargeDescription` a CostSnapshots, que no los tiene, y NO
+    // hay columna correcta que ponerles: ninguna tabla local guarda el tipo de cargo (FocusLineItems sólo tiene
+    // ChargeCategory y nadie la escribe) y CostSnapshots agrega por (grupo, servicio, día), así que un reembolso se
+    // netea contra el resto. Tampoco es calculable desde el costo: el límite de 50.000 USD es de COMPROMISO CANCELADO en
+    // una ventana móvil de 12 meses por billing scope (enrollment EA, billing profile MCA, cliente CSP), y el reembolso
+    // de un intercambio no cuenta (learn.microsoft.com/azure/cost-management-billing/reservations/exchange-and-refund-azure-reservations).
+    // La fuente documentada de transacciones Refund/Cancel es Microsoft.Consumption/reservationTransactions, a nivel de
+    // billing account. Hoy `getExchangeQuota` cae SIEMPRE en su `catch` y muestra "0 usado, 50.000 restantes" en verde:
+    // un desconocido presentado como "queda todo". Decisión de producto pendiente, no de columnas.
     "src/services/azureCommitmentSimulator.service.ts": ["costsnapshots.chargedescription", "costsnapshots.chargetype"],
 
 
