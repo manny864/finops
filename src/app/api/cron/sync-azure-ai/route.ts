@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { errorMessage } from '@/lib/apiErrors';
+import { mapWithConcurrency } from "@/modules/collectors/azure/billing/billingHelpers";
 
 const CRON_SECRET = process.env.CRON_SECRET || "unsafe-default";
+
+// Cuántos tenants se sincronizan a la vez. Cada uno es un fetch HTTP a la PROPIA web (`/api/intelligence/azure-ai`,
+// una ruta de 1.5k líneas que llama a varias APIs de Azure), y esa web tiene 1 vCPU: antes se lanzaban todos
+// juntos con `Promise.allSettled` (hasta 100 tenants Enterprise = 100 requests pesadas simultáneas). Con
+// 5 o menos tenants, que es lo de hoy, el comportamiento es el mismo.
+const MAX_TENANTS_EN_PARALELO = 5;
 
 function timingSafeCompare(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -50,8 +57,12 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const results = await Promise.allSettled(
-      tenants.map(async (tenant: any) => {
+    // El mapeador no lanza (cada tenant atrapa su propio error y devuelve `{ error }`), así que un tenant
+    // que falla no frena a los demás, igual que con `allSettled`.
+    const results = await mapWithConcurrency(
+      tenants,
+      MAX_TENANTS_EN_PARALELO,
+      async (tenant: any) => {
         try {
           const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
           const res = await fetch(`${baseUrl}/api/intelligence/azure-ai?tenantId=${tenant.id}`, {
@@ -70,17 +81,17 @@ export async function GET(request: NextRequest) {
           console.error(`Azure AI sync error for tenant ${tenant.id}:`, err);
           return { tenantId: tenant.id, cached: false, error: String(err) };
         }
-      })
+      }
     );
 
-    const successful = results.filter((r) => r.status === "fulfilled" && r.value.cached).length;
+    const successful = results.filter((r) => r.cached).length;
 
     return NextResponse.json({
       success: true,
       message: "Azure AI sync completed",
       total: tenants.length,
       cached: successful,
-      results: results.map((r) => (r.status === "fulfilled" ? r.value : { error: r.reason })),
+      results,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
