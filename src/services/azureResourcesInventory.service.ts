@@ -21,6 +21,7 @@ import type {
 } from "@/types/azureResources.types";
 import { resolveParentResourceId, parseArmLeaf, subscriptionIdFromArmId } from "@/lib/armResourceId";
 import { errorMessage } from '@/lib/apiErrors';
+import { asyncOnce } from '@/lib/asyncOnce';
 
 const round2 = (x: number) => Math.round(x * 100) / 100;
 
@@ -745,6 +746,21 @@ export async function getLiveResourcesCostsByTag(tenantId: string): Promise<Reso
 
     const tags: TagCostSummary[] = [];
 
+    // Fallback de costo por tag desde MySQL. La consulta NO depende de la key (trae los Tags de todo el
+    // historial del tenant y cada key los filtra en memoria), así que corre UNA vez por request. Antes
+    // corría una vez por cada key cuyo costo en Cost Management daba 0: un GROUP BY idéntico sobre una
+    // columna JSON de toda la historia, repetido hasta N veces.
+    const filasDeCostoPorTags = asyncOnce(async () => {
+        const [dbRows]: any = await pool.query(
+            `SELECT Tags, SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS cost
+             FROM CostSnapshots
+             WHERE tenant_id = ? AND Tags IS NOT NULL
+             GROUP BY Tags`,
+            [tenantId]
+        );
+        return (dbRows || []) as any[];
+    });
+
     for (let i = 0; i < keys.length; i += 3) {
         const batch = keys.slice(i, i + 3);
         const batchResults = await Promise.all(
@@ -827,14 +843,8 @@ export async function getLiveResourcesCostsByTag(tenantId: string): Promise<Reso
                 const totalCostFromCM = Array.from(valuesMap.values()).reduce((s, v) => s + v.costUSD, 0);
                 if (totalCostFromCM === 0) {
                     try {
-                        const [dbRows]: any = await pool.query(
-                            `SELECT Tags, SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS cost
-                             FROM CostSnapshots
-                             WHERE tenant_id = ? AND Tags IS NOT NULL
-                             GROUP BY Tags`,
-                            [tenantId]
-                        );
-                        for (const row of dbRows || []) {
+                        const dbRows = await filasDeCostoPorTags();
+                        for (const row of dbRows) {
                             try {
                                 const parsed = typeof row.Tags === "string" ? JSON.parse(row.Tags) : row.Tags;
                                 if (parsed && parsed[key]) {
