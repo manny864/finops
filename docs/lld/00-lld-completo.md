@@ -6147,8 +6147,8 @@ exitoso en el estado anterior al arreglo del resumen de IA. Cada arreglo falla s
 de 5 en el cron, reintento de Redis, dedupe del miss, grafo de imports, tabla del README, los dos SELECT del cron con `tenant_id`, las cinco partes del resumen de
 IA). En un Chromium real el dataset no se pide en las páginas públicas ni en el login y se pide bajo demanda a los ~700 ms de
 entrar a la demo; los e2e de demo dan el mismo resultado que en el commit base (5 pasan, 96 fallan en ambos por el entorno de
-prueba, 0 tests de resultado distinto). **Sin verificar:** que `667529f` elimine los errores de pool en producción (se
-confirma tras el deploy con la consulta del informe), que el resumen muestre en producción las capacidades que antes
+prueba, 0 tests de resultado distinto). **Sin verificar:** que `667529f` elimine del todo los errores de pool en producción (las 3
+primeras corridas tras el deploy salieron sin errores, antes 4 de 9 los tenían; falta un día de corridas), que el resumen muestre en producción las capacidades que antes
 faltaban (no se sabe si algún tenant tiene recursos de esos servicios, porque el cron que lo mostraría no se autentica, 48.9:
 sólo se probó con el DDL real y datos de prueba), el
 `EXPLAIN` de las consultas con la ventana de fecha, y el efecto del `useMemo` en renders.

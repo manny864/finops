@@ -1750,5 +1750,6 @@ registra las 59 rutas de API, bajo pantallas Business o Enterprise, que no valid
   deploy el cron escanea de verdad, así que hay que mirar sus tiempos contra su timeout, su tope de concurrencia y los 429 de
   Cost Management, y decidir si se cachea el resultado vacío.
 - **i18n** manda ~300 KB gzip de traducciones en cada carga completa; la salida es por sección.
-- **Despliegue:** ningún cambio de esta auditoría incluye migraciones. Tras el deploy, confirmar con Log Analytics
-  que `Queue limit reached` cae a ~0 en los minutos :13, :33 y :53.
+- **Despliegue:** ningún cambio de esta auditoría incluye migraciones. Tras el deploy
+  (2026-10-10, revisión `0000309`), las 3 primeras corridas de `sync-azure-ai` no registraron `Queue limit reached`; falta un
+  día de corridas para confirmar que sigue en ~0 en los minutos :13, :33 y :53.

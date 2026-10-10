@@ -170,8 +170,11 @@ el error y devuelve `null`, o sea que **la capacidad desaparece de la respuesta 
 capacidad, la ruta cachea 2 h la lista incompleta. Un tenant tarda 1,9 s (p50; p95 3-4 s; máx 21 s), así que 5 son ~10 s de los 300 del job (medido sobre el camino que falla en la autenticación, Z0.2).
 **Corregido** en `667529f`: el cron va de a un tenant (8 consultas simultáneas, bajo el pool). Mi primer arreglo
 había puesto un tope de 5, que con exactamente 5 tenants no cambiaba nada: lo mostró el log, no el código.
-**Para confirmarlo tras el deploy**: la consulta del apéndice debe dar ~0 en esos tres minutos. La causa de fondo
-(pool de 10 frente a 40 requests concurrentes por réplica, `DB_POOL_LIMIT` sin definir en el tfvars) sigue: Fase 0b.
+**Verificado tras el deploy** (2026-10-10 12:16Z, revisión `0000309`, viva desde las 11:27Z): 3 corridas (11:33, 11:53, 12:13), los
+5 tenants en serie en 6-8 s cada una, 0 errores de pool y el job «Succeeded»; en las 3 horas anteriores, 4 de 9 corridas tenían
+errores (18 en total). Es consistente con el arreglo y el mecanismo está confirmado (tenants escalonados), pero 3 corridas limpias
+no bastan como prueba (con el comportamiento viejo una corrida limpia ocurría ~56% de las veces): lo confirma un día de corridas.
+La causa de fondo (pool de 10 frente a 40 requests concurrentes por réplica, `DB_POOL_LIMIT` sin definir en el tfvars) sigue: Fase 0b.
 
 **Z0.2 — `sync-azure-ai` nunca pudo autenticarse: manda el id de fila de `Tenants` en lugar del `tenant_id` de Entra.** MEDIDO
 (al verificar el deploy, 2026-10-10): en cada corrida, `Error fetching subscriptions for tenant 34: AADSTS90002: Tenant '34' not
@@ -395,7 +398,7 @@ Cada fase es independiente y reversible. «¿Cambia funcionalidad?» responde po
 **Fase 0 — Hecha en esta entrega** (sección 8).
 
 **Fase 0b — Defectos vivos que esperan una decisión** (antes que cualquier otra fase):
-1. Tras el deploy, confirmar con la consulta del apéndice que `Queue limit reached` cae a ~0 en :13/:33/:53.
+1. Confirmar con un día de corridas, con la consulta del apéndice, que `Queue limit reached` sigue en ~0 en :13/:33/:53 (3 corridas limpias al 2026-10-10 12:16Z).
 2. **Hecho (Z0.3):** el resumen de IA. Falta lo mismo en el reporte ejecutivo (`hardWaste`, `anomalies`, `budgets`):
    SQL contra lo que no existe y un `catch` que lo traga, igual que el bug latente de `azureDocumentIntelligence`
    (sección 6). Para no depender de que alguien lo mire en los logs: contrastar los `SELECT` con el DDL de las migraciones,
@@ -452,7 +455,7 @@ Rama `refactor/auditoria-2026-10-10`: 11 commits en `main` desde el 2026-10-10 (
 | `perf(inventario)` | El fallback por tag corre una vez por request (`asyncOnce`) | 3 consultas → 1; el resultado por clave no cambia |
 | `perf(cron)` | `sync-azure-ai` limita a 5 tenants en paralelo | 12 tenants: máximo 5 en vuelo (antes 12); forma de respuesta intacta. **Insuficiente**: hay 5 tenants, así que no cambiaba nada hoy |
 | `fix(cron)` | `sync-azure-ai` llama con el `tenant_id` y no con el id de la fila (`3dba8bf`) | Z0.2: ≈117.000 `AADSTS90002` en 30 días; `syncAzureAiTenantId.test.ts` (4); sin el arreglo llama con `tenantId=34` y `231`; mutación comprobada en cada SELECT y en la guarda del DDL. **Cambia el comportamiento**: a confirmar con las primeras corridas tras el deploy |
-| `fix(cron)` | `sync-azure-ai` corre de a un tenant | Z0.1: ≈9.900 errores de pool en 30 días, todos de este cron. Un tenant tarda ~2 s (el camino que falla en la autenticación, Z0.2). Con el tope viejo el test falla (`expected 5 to be 1`); a confirmar en producción tras el deploy |
+| `fix(cron)` | `sync-azure-ai` corre de a un tenant | Z0.1: ≈9.900 errores de pool en 30 días, todos de este cron. Un tenant tarda ~2 s (el camino que falla en la autenticación, Z0.2). Con el tope viejo el test falla (`expected 5 to be 1`); en producción: 3 corridas sin errores de pool tras el deploy (antes, 4 de 9 con errores); falta un día para confirmarlo |
 | `test(arquitectura)` | Rutas de cron sin job y APIs sin gate quedan registradas | 14 y 59 excepciones; mutación en ambas direcciones |
 | `perf(ui)` | `value` de `TenantProvider` memoizado | 223 consumidores; impacto en renders sin medir |
 | `fix(ia)` | El resumen de IA pide sólo columnas que existen, Databricks usa las suyas, `doc_intelligence` ya no cae en `foundry`, no se cachean capacidades vacías | `azureAiSummaryColumnas.test.ts` (6): base falsa con el DDL real de `migrations/`; reproduce los 6 errores de producción sin el arreglo; mutación comprobada en cada una de las 5 partes |
@@ -473,8 +476,8 @@ prioridad del sync; programar los crons; decidir el caché del vacío, Z0.2; arr
 mayor (i18n por sección, `apiClient`, repositorios). **No se aplicó ninguna migración**: el pipeline ejecuta
 cada `.sql` nuevo en el próximo deploy y hoy no hay presión de escala.
 
-**Sin verificar:** que `667529f` elimine los errores de pool en producción (tras el deploy, una corrida sin errores; faltan
-más); si algún tenant de producción tiene recursos de IA (el cron que lo mostraría no se autentica, Z0.2); por qué los errores
+**Sin verificar:** que `667529f` elimine del todo los errores de pool en producción (3 corridas limpias tras el deploy; falta un
+día de corridas); si algún tenant de producción tiene recursos de IA (el cron que lo mostraría no se autentica, Z0.2); por qué los errores
 de pool bajaron un 85% el 09-30; `EXPLAIN` de las consultas de la sección Z6; el efecto del `useMemo` en renders (haría falta el
 Profiler); el peso real de cada consulta en QPU; cuántos de los 5 tenants usan Lighthouse; el comportamiento
 de los e2e con una base y HTTPS reales.
