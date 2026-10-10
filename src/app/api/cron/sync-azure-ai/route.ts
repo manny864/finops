@@ -5,11 +5,14 @@ import { mapWithConcurrency } from "@/modules/collectors/azure/billing/billingHe
 
 const CRON_SECRET = process.env.CRON_SECRET || "unsafe-default";
 
-// Cuántos tenants se sincronizan a la vez. Cada uno es un fetch HTTP a la PROPIA web (`/api/intelligence/azure-ai`,
-// una ruta de 1.5k líneas que llama a varias APIs de Azure), y esa web tiene 1 vCPU: antes se lanzaban todos
-// juntos con `Promise.allSettled` (hasta 100 tenants Enterprise = 100 requests pesadas simultáneas). Con
-// 5 o menos tenants, que es lo de hoy, el comportamiento es el mismo.
-const MAX_TENANTS_EN_PARALELO = 5;
+// Cuántos tenants se sincronizan a la vez: UNO. Cada uno es un fetch a la PROPIA web (`/api/intelligence/azure-ai`),
+// y esa ruta lanza 8 colectores en paralelo, cada uno con su primera consulta a MySQL. Antes iban todos juntos
+// (`Promise.allSettled`): con los 5 tenants de hoy son 40 consultas simultáneas contra un pool de 10 conexiones
+// y una cola de 20, y las que sobran fallan con `Queue limit reached` (~9.900 veces en 30 días, todas en los
+// minutos :13/:33/:53 de este cron). Los colectores atrapan el error y devuelven null: la capability desaparece
+// sin ruido, y `getAccessModel` cae a `app_registration`. Un tenant tarda ~2 s (p50), así que de a uno son ~10 s
+// de los 300 del job. ponytail: en serie; con ~100 tenants Enterprise (≈200 s) subir a 2-3 y vigilar ese error.
+const MAX_TENANTS_EN_PARALELO = 1;
 
 function timingSafeCompare(a: string, b: string): boolean {
   if (a.length !== b.length) return false;

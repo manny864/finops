@@ -2,9 +2,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 /**
- * `cron/sync-azure-ai` hace un fetch a la propia web por cada tenant Enterprise (hasta 100). Se lanzaban
- * TODOS a la vez con `Promise.allSettled`: contra una web de 1 vCPU y una ruta de 1.5k líneas que llama
- * a varias APIs de Azure. Ahora van de a 5.
+ * `cron/sync-azure-ai` hace un fetch a la propia web por cada tenant Enterprise (hasta 100), y cada fetch
+ * lanza 8 colectores con su primera consulta a MySQL. Se lanzaban TODOS a la vez con `Promise.allSettled`:
+ * con 5 tenants son 40 consultas simultáneas contra un pool de 10 + cola de 20, y las que sobraban fallaban
+ * con `Queue limit reached` (~9.900 veces en 30 días en producción). Ahora va de a un tenant.
  */
 const { poolQuery } = vi.hoisted(() => {
     process.env.CRON_SECRET = "secreto-de-prueba"; // el módulo lo lee al importarse
@@ -42,7 +43,7 @@ beforeEach(() => {
 });
 
 describe("GET /api/cron/sync-azure-ai", () => {
-    it("12 tenants Enterprise: nunca hay más de 5 requests en vuelo", async () => {
+    it("12 tenants Enterprise: se llama a los 12 pero de a uno (nunca 2 requests en vuelo)", async () => {
         poolQuery.mockResolvedValue([tenantsEnterprise(12), []]);
         const f = fetchMedido(() => ({ ok: true, body: { mock: false, capabilities: [1, 2] } }));
 
@@ -50,8 +51,7 @@ describe("GET /api/cron/sync-azure-ai", () => {
         const j = await res.json();
 
         expect(f.llamadas).toHaveLength(12);
-        expect(f.maximo).toBeGreaterThan(1); // sigue siendo paralelo, no serie
-        expect(f.maximo).toBeLessThanOrEqual(5);
+        expect(f.maximo).toBe(1);
         expect(j).toMatchObject({ success: true, total: 12, cached: 12 });
     });
 
