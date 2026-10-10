@@ -44,17 +44,11 @@ const DEUDA: Record<string, string[]> = {
     // la misma clase de error que MEJ-29 corrigió en realConsumptionService. MySQL rechaza estas consultas.
     "src/services/azureApim.service.ts": ["costsnapshots.resource_id"],
     "src/services/azureAppInsights.service.ts": ["costsnapshots.cost", "costsnapshots.resource_id"],
-    "src/services/azureBasicNetworking.service.ts": ["costsnapshots.resource_id"],
     "src/services/azureDataFactory.service.ts": ["costsnapshots.cost", "costsnapshots.resource_id", "costsnapshots.usage_date"],
-    "src/services/azureDdosProtection.service.ts": ["costsnapshots.resource_id"],
     "src/services/azureEventGrid.service.ts": ["costsnapshots.resource_id"],
     "src/services/azureEventHubs.service.ts": ["costsnapshots.cost", "costsnapshots.resource_id", "costsnapshots.usage_date"],
-    "src/services/azureHybridConnectivity.service.ts": ["costsnapshots.resource_id"],
-    "src/services/azureInternetAccess.service.ts": ["costsnapshots.resource_id"],
-    "src/services/azureLoadBalancing.service.ts": ["costsnapshots.resource_id"],
     "src/services/azureLogAnalytics.service.ts": ["costsnapshots.resource_id"],
     "src/services/azureMonitor.service.ts": ["costsnapshots.resource_id"],
-    "src/services/azureNetworkAnalytics.service.ts": ["costsnapshots.resource_id"],
     "src/services/azureSentinelFinops.service.ts": ["costsnapshots.cost", "costsnapshots.resource_id"],
     "src/services/azureServiceBus.service.ts": ["costsnapshots.resource_id"],
     // CostSnapshots tampoco tiene ChargeType ni ChargeDescription.

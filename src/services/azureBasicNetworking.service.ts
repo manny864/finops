@@ -118,12 +118,12 @@ export async function fetchBasicNetworkCosts(tenantId: string, rawResources: any
     try {
         // 1. Direct costs from CostSnapshots
         const [resourceCostRows]: any = await pool.query(
-            `SELECT LOWER(COALESCE(ResourceId, resource_id, '')) AS resourceId, SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS total
+            `SELECT LOWER(COALESCE(ResourceId, '')) AS resourceId, SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS total
              FROM CostSnapshots
              WHERE tenant_id = ?
                AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-               AND COALESCE(ResourceId, resource_id, '') <> ''
-             GROUP BY LOWER(COALESCE(ResourceId, resource_id, ''))`,
+               AND COALESCE(ResourceId, '') <> ''
+             GROUP BY LOWER(COALESCE(ResourceId, ''))`,
             [tenantId]
         ).catch(() => [[]]);
 
@@ -149,10 +149,13 @@ export async function fetchBasicNetworkCosts(tenantId: string, rawResources: any
             costByResourceType.set(rt, Number(row.total || 0));
         }
 
-        // 3. Fallback: live Azure Cost Management if DB has no records for discovered resources
-        if (costByResourceId.size === 0 && rawResources.length > 0) {
+        // 3. Fallback: live Azure Cost Management for the discovered resources the DB has no cost for.
+        // Por recurso y no "si el mapa está vacío": `ResourceId` sólo se guarda en las filas de un único recurso
+        // (costExportIngestionService), así que la base puede cubrir a unos y a otros no.
+        const sinCostoEnBase = rawResources.filter((r) => !costByResourceId.has(String(r.id || "").toLowerCase()));
+        if (sinCostoEnBase.length > 0) {
             try {
-                const queryItems = rawResources
+                const queryItems = sinCostoEnBase
                     .map((r) => ({
                         id: String(r.id || ""),
                         subscriptionId: String(r.subscriptionId || ""),

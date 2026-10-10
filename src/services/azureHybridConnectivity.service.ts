@@ -100,12 +100,12 @@ export async function getAzureHybridConnectivity(tenantId: string): Promise<Hybr
         const costMap = new Map<string, number>();
         try {
             const [costRows]: any = await pool.query(
-                `SELECT LOWER(COALESCE(ResourceId, resource_id, '')) AS resourceId, SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS total
+                `SELECT LOWER(COALESCE(ResourceId, '')) AS resourceId, SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) AS total
                  FROM CostSnapshots
                  WHERE tenant_id = ?
                    AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-                   AND COALESCE(ResourceId, resource_id, '') <> ''
-                 GROUP BY LOWER(COALESCE(ResourceId, resource_id, ''))`,
+                   AND COALESCE(ResourceId, '') <> ''
+                 GROUP BY LOWER(COALESCE(ResourceId, ''))`,
                 [tenantId]
             ).catch(() => [[]]);
 
