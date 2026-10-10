@@ -363,10 +363,12 @@ export async function fetchAppInsightsData(tenantId: string): Promise<AppInsight
   const costMap = new Map<string, number>();
   try {
     const [costRows] = await pool.query<any[]>(
-      `SELECT resource_id, SUM(cost) as cost_mtd
-       FROM CostSnapshots 
+      `SELECT ResourceId AS resource_id, SUM(cost_usd) as cost_mtd
+       FROM CostSnapshots
        WHERE tenant_id = ? AND (service_name LIKE '%Application Insights%' OR service_name LIKE '%Log Analytics%')
-       GROUP BY resource_id`,
+         AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+         AND ResourceId IS NOT NULL
+       GROUP BY ResourceId`,
       [tenantId]
     );
 

@@ -528,12 +528,12 @@ export async function fetchAzureMonitorData(tenantId: string): Promise<AzureMoni
   const dbDailyTrend: AzureMonitorDailyTrendPoint[] = [];
   try {
     const [costRows]: any = await pool.query(
-      `SELECT resource_id, SUM(cost_usd) as totalCost
+      `SELECT ResourceId AS resource_id, SUM(cost_usd) as totalCost
        FROM CostSnapshots
        WHERE tenant_id = ?
          AND (LOWER(service_name) LIKE '%azure monitor%' OR LOWER(service_name) LIKE '%monitor%' OR LOWER(service_name) LIKE '%alerts%')
          AND date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-       GROUP BY resource_id`,
+       GROUP BY ResourceId`,
       [tenantId]
     );
     if (Array.isArray(costRows)) {

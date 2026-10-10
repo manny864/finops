@@ -305,12 +305,14 @@ export async function fetchAdfData(tenantId: string): Promise<AdfPayload> {
   const costMap = new Map<string, { costMtd: number; costPrev: number }>();
   try {
     const [costRows] = await pool.query<any[]>(
-      `SELECT resource_id, 
-              SUM(CASE WHEN usage_date >= DATE_FORMAT(NOW(), '%Y-%m-01') THEN cost ELSE 0 END) as cost_mtd,
-              SUM(CASE WHEN usage_date < DATE_FORMAT(NOW(), '%Y-%m-01') AND usage_date >= DATE_SUB(DATE_FORMAT(NOW(), '%Y-%m-01'), INTERVAL 1 MONTH) THEN cost ELSE 0 END) as cost_prev
-       FROM CostSnapshots 
+      `SELECT ResourceId AS resource_id,
+              SUM(CASE WHEN date >= DATE_FORMAT(NOW(), '%Y-%m-01') THEN cost_usd ELSE 0 END) as cost_mtd,
+              SUM(CASE WHEN date < DATE_FORMAT(NOW(), '%Y-%m-01') AND date >= DATE_SUB(DATE_FORMAT(NOW(), '%Y-%m-01'), INTERVAL 1 MONTH) THEN cost_usd ELSE 0 END) as cost_prev
+       FROM CostSnapshots
        WHERE tenant_id = ? AND (service_name LIKE '%Data Factory%' OR service_name LIKE '%DataFactory%')
-       GROUP BY resource_id`,
+         AND date >= DATE_SUB(DATE_FORMAT(NOW(), '%Y-%m-01'), INTERVAL 1 MONTH)
+         AND ResourceId IS NOT NULL
+       GROUP BY ResourceId`,
       [tenantId]
     );
 

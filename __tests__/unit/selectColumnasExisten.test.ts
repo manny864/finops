@@ -42,15 +42,6 @@ const ESQUEMA = columnasPorTabla();
 const DEUDA: Record<string, string[]> = {
     // CostSnapshots no tiene `resource_id` (la columna es `ResourceId`), `cost` (es `cost_usd`) ni `usage_date`:
     // la misma clase de error que MEJ-29 corrigió en realConsumptionService. MySQL rechaza estas consultas.
-    "src/services/azureApim.service.ts": ["costsnapshots.resource_id"],
-    "src/services/azureAppInsights.service.ts": ["costsnapshots.cost", "costsnapshots.resource_id"],
-    "src/services/azureDataFactory.service.ts": ["costsnapshots.cost", "costsnapshots.resource_id", "costsnapshots.usage_date"],
-    "src/services/azureEventGrid.service.ts": ["costsnapshots.resource_id"],
-    "src/services/azureEventHubs.service.ts": ["costsnapshots.cost", "costsnapshots.resource_id", "costsnapshots.usage_date"],
-    "src/services/azureLogAnalytics.service.ts": ["costsnapshots.resource_id"],
-    "src/services/azureMonitor.service.ts": ["costsnapshots.resource_id"],
-    "src/services/azureSentinelFinops.service.ts": ["costsnapshots.cost", "costsnapshots.resource_id"],
-    "src/services/azureServiceBus.service.ts": ["costsnapshots.resource_id"],
     // CostSnapshots tampoco tiene ChargeType ni ChargeDescription.
     "src/services/azureCommitmentSimulator.service.ts": ["costsnapshots.chargedescription", "costsnapshots.chargetype"],
 

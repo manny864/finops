@@ -499,10 +499,10 @@ export async function fetchSentinelData(tenantId: string): Promise<SentinelPaylo
   try {
     if (sentinelWorkspaces.length > 0) {
       const [rows]: any = await pool.query(
-        `SELECT resource_id, SUM(cost) as total_cost 
-         FROM CostSnapshots 
+        `SELECT ResourceId AS resource_id, SUM(cost_usd) as total_cost
+         FROM CostSnapshots
          WHERE tenant_id = ? AND date >= DATE_FORMAT(NOW(), '%Y-%m-01')
-         GROUP BY resource_id`,
+         GROUP BY ResourceId`,
         [tenantId]
       );
       if (Array.isArray(rows)) {
