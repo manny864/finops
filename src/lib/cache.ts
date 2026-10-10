@@ -268,3 +268,20 @@ export async function getWithStaleWhileRevalidate<T>(
     if (_missInFlight.get(key) === carga) _missInFlight.delete(key);
   }
 }
+
+/**
+ * Lo que `getWithStaleWhileRevalidate` dejó guardado bajo `key`, SIN disparar ningún fetch: `null` si la caché está
+ * fría, si Redis no está listo o si falla. Es para quien no puede esperar al origen: el buscador global se dispara en
+ * cada tecla y el escaneo de zombis en frío tarda 30 s o más. Una lista vacía guardada es un dato, no `null`.
+ */
+export async function peekSwr<T>(key: string): Promise<T | null> {
+  if (!isRedisReady()) return null;
+  try {
+    const cachedData = await redis.get(key);
+    if (!cachedData) return null;
+    const parsed = JSON.parse(cachedData);
+    return isEnvelope<T>(parsed) ? parsed.data : (parsed as T);
+  } catch {
+    return null;
+  }
+}
