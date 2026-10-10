@@ -56,3 +56,30 @@ it("passes the delete-lock maintenance control from production into both data mo
     expect(production).toMatch(/enable_delete_lock\s*=\s*var\.enable_delete_lock/);
     expect(stamp.match(/enable_delete_lock\s*=\s*var\.enable_delete_lock/g)).toHaveLength(2);
 });
+
+it.skipIf(spawnSync("terraform", ["version"], { encoding: "utf8" }).error !== undefined).each([
+    [1, 5, true],
+    [0, 100, true],
+    [5, 5, true],
+    [6, 5, false],
+    [-1, 5, false],
+    [0, 0, false],
+    [1, 5.5, false],
+    [1.5, 5, false],
+])("validates configured replica range %s..%s without an arbitrary cap", (minimum, maximum, expected) => {
+    const checks = readFileSync("infra/terraform/environments/prod/checks.tf", "utf8");
+    const block = checks.slice(checks.indexOf('check "replicas_web_acotadas"'));
+    const condition = block.match(/condition\s*=\s*(.+)/)?.[1];
+    expect(condition).toBeDefined();
+    const expression = condition!.replace("var.stamps", `[{web_min_replicas=${minimum},web_max_replicas=${maximum}}]`);
+    const directory = mkdtempSync(join(tmpdir(), "terraform-replicas-test-"));
+    try {
+        const result = spawnSync("terraform", [`-chdir=${directory}`, "console"], {
+            encoding: "utf8", input: `${expression}\n`,
+        });
+        expect(result.status, result.stderr).toBe(0);
+        expect(result.stdout.trim()).toBe(String(expected));
+    } finally {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});

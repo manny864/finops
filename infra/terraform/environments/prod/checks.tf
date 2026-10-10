@@ -67,10 +67,10 @@ check "prewarm_no_comparten_minuto" {
 
 check "replicas_web_acotadas" {
   assert {
-    condition = alltrue([for s in var.stamps : s.web_max_replicas <= 3])
+    condition = alltrue([for s in var.stamps : s.web_min_replicas >= 0 && s.web_max_replicas >= 1 && s.web_min_replicas <= s.web_max_replicas && floor(s.web_min_replicas) == s.web_min_replicas && floor(s.web_max_replicas) == s.web_max_replicas])
     error_message = format(
-      "Algun stamp tiene web_max_replicas > 3: %s. El limitador de concurrencia contra Cost Management (COST_MAX_CONCURRENT=2) es estado de modulo, o sea POR PROCESO: cada replica extra multiplica la concurrencia real contra una API que ya throttlea, asi que escalar horizontalmente empeora los 429. Si el valor viene del secret TF_VARS_PROD, hay que corregirlo ahi.",
-      jsonencode({ for k, s in var.stamps : k => s.web_max_replicas }),
+      "Configuracion de replicas invalida: %s. Minimo y maximo deben ser enteros, con minimo >= 0, maximo >= 1 y minimo <= maximo. El maximo se configura por stamp, sujeto a los limites y cuotas de Azure.",
+      jsonencode({ for k, s in var.stamps : k => { min = s.web_min_replicas, max = s.web_max_replicas } }),
     )
   }
 }

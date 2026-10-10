@@ -72,5 +72,10 @@ Existing-vault adoption uses a data source; a create-only lock will not protect 
 ## 8. Execution status
 
 No infrastructure apply has been authorized for unexplained drift or executed.
-Apply remains blocked by the replicas check; do not bypass it or silently reduce capacity.
+The user explicitly requested removing the fixed replica cap and Terraform apply.
+The replica check now validates integer min/max ranges without a fixed ceiling;
+the configured production maximum remains unchanged. Local Terraform validate/fmt,
+17 focused tests, typecheck and 4,921 full-suite tests passed on 2026-10-10.
+Obtain and review a current-commit remote plan before apply; destructive changes
+remain blocked. Do not change subscription or silently reduce capacity.
 No deployment success is claimed until the current commit and endpoint are verified.
