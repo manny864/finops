@@ -33,7 +33,13 @@ const redisClientFactory = () => {
     password: process.env.REDIS_PASSWORD || undefined,
     // `servername` explícito: sin él, la validación del certificado falla en
     // los casos donde ioredis no infiere el SNI del host.
-    tls: useTls ? { servername: host } : undefined,
+    //
+    // minVersion y rejectUnauthorized también explícitos, igual que en
+    // src/modules/storage/db.ts: rejectUnauthorized ya es true por defecto en Node,
+    // pero la validación del certificado es un límite de confianza y no se deja
+    // librada a un default que un cambio de librería podría mover. Azure Managed
+    // Redis exige TLS 1.2 como mínimo (verificado en prod el 2026-10-10).
+    tls: useTls ? { servername: host, minVersion: 'TLSv1.2', rejectUnauthorized: true } : undefined,
     maxRetriesPerRequest: null,
     // El handshake TLS suma un round-trip y Azure Cache está a más latencia
     // que un contenedor en el mismo host: 2s dejaba la conexión al borde.
