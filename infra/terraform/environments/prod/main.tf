@@ -215,7 +215,7 @@ module "stamp" {
   )
   key_vault_secret_ids = var.key_vault_secret_ids
   key_vault_secret_env = var.key_vault_secret_env
-  allowed_ip_ranges    = var.allowed_ip_ranges
+  allowed_ip_ranges    = local.origin_allowed_ip_ranges
 
   cron_secret_name           = var.cron_secret_name
   cron_jobs                  = var.cron_jobs
@@ -233,6 +233,7 @@ module "stamp" {
   appinsights_sampling_percentage = var.appinsights_sampling_percentage
   resource_lock_enabled           = var.resource_lock_enabled
   enable_delete_lock              = var.enable_delete_lock
+  blob_managed_identity_enabled   = var.blob_managed_identity_enabled
   alert_email                     = var.alert_email
   monthly_budget_amount           = each.value.monthly_budget_amount
   budget_start_date               = var.budget_start_date

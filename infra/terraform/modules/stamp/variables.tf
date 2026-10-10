@@ -311,6 +311,17 @@ variable "enable_delete_lock" {
   default = true
 }
 
+variable "blob_managed_identity_enabled" {
+  description = <<-DESC
+    true = el app le habla a Blob con la identidad administrada (le agrega
+    AZURE_STORAGE_ACCOUNT_NAME, que azureBlobStorage.ts prefiere sobre la connection
+    string). Hace falta el rol Storage Blob Data Contributor de la identidad sobre la
+    cuenta, que ya existe. La connection string no se saca: apagar el flag es el rollback.
+  DESC
+  type        = bool
+  default     = false
+}
+
 variable "resource_lock_enabled" {
   type    = bool
   default = false

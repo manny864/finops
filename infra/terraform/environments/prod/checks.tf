@@ -74,3 +74,22 @@ check "replicas_web_acotadas" {
     )
   }
 }
+
+# Cerrar el origen a Cloudflare corta a todo lo que le pega sin pasar por ahí. Los
+# cron jobs llaman a https://<app>.internal.<dominio del entorno>/api/cron/<job>, y
+# ese nombre resuelve a la IP pública del entorno (20.x). La documentación de
+# Container Apps no dice si las reglas de IP aplican a llamadas desde el mismo
+# entorno, ni qué IP de origen ve el ingress en ese caso; lo más probable es la IP
+# de salida de Azure del job, que no es de Cloudflare ni es fija (el entorno no
+# tiene NAT Gateway ni UDR; app.outboundIpAddresses lista unas 190 IPs del pool
+# regional). Si es así, con sólo Cloudflare en la lista cada cron recibiría 403 y
+# las sincronizaciones se pararían en silencio. Por eso activar el filtro exige
+# declarar a esos llamadores, y después comprobar con un cron manual. El apply del
+# workflow se frena ante cualquier check que no pase
+# (scripts/validate-terraform-apply-plan.mjs).
+check "origen_cloudflare_declara_llamadores_internos" {
+  assert {
+    condition     = !var.origin_cloudflare_only || length(var.origin_extra_allowed_ip_ranges) > 0
+    error_message = "origin_cloudflare_only = true filtra el origen a Cloudflare, pero los cron jobs llaman al app desde IPs de salida de Azure que no son de Cloudflare y podrían recibir 403. Declarar en origin_extra_allowed_ip_ranges la IP fija de salida del entorno (NAT Gateway), o la subred de apps si se comprobó que alcanza. Ver 'Cerrar el origen' en docs/security/endurecimiento-infraestructura-saas-2026-10-09.md."
+  }
+}

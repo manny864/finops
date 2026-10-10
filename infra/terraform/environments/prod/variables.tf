@@ -225,6 +225,38 @@ variable "allowed_ip_ranges" {
   default = []
 }
 
+# --- cierre del origen (ver locals.origin_allowed_ip_ranges en cloudflare_ips.tf) ---
+variable "origin_cloudflare_only" {
+  description = <<-DESC
+    true = el ingress del app sólo acepta los rangos IPv4 de Cloudflare (catálogo
+    cloudflare_ips.tf) más origin_extra_allowed_ip_ranges. false (default) deja el
+    origen como está hoy: abierto a cualquier IP.
+
+    NO activarlo sin recorrer el runbook "Cerrar el origen" de
+    docs/security/endurecimiento-infraestructura-saas-2026-10-09.md. Hay tres
+    consumidores que NO vienen de Cloudflare: los cron jobs (llaman a la URL del
+    entorno desde IPs de salida de Azure), el health check del deploy y la
+    validación del certificado gestionado (DigiCert).
+  DESC
+  type        = bool
+  default     = false
+}
+
+variable "origin_extra_allowed_ip_ranges" {
+  description = <<-DESC
+    CIDR IPv4 adicionales que pueden llegar al origen cuando origin_cloudflare_only
+    es true: típicamente la IP fija de salida del entorno (NAT Gateway) para que los
+    cron jobs no reciban 403. Se ignora si origin_cloudflare_only es false.
+  DESC
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for c in var.origin_extra_allowed_ip_ranges : can(cidrhost(c, 0)) && !strcontains(c, ":")])
+    error_message = "Sólo CIDR IPv4 válidos (ej. 203.0.113.7/32): Container Apps no admite IPv6 en ipAddressRange."
+  }
+}
+
 variable "log_retention_days" {
   type    = number
   default = 30
@@ -244,6 +276,12 @@ variable "enable_delete_lock" {
   description = "Enable MySQL and newly created Key Vault delete locks. Disable only for an approved maintenance operation."
   type        = bool
   default     = true
+}
+
+variable "blob_managed_identity_enabled" {
+  description = "true = la app usa Blob por identidad administrada (AZURE_STORAGE_ACCOUNT_NAME). Ver runbook de Storage en docs/security/endurecimiento-infraestructura-saas-2026-10-09.md."
+  type        = bool
+  default     = false
 }
 
 variable "resource_lock_enabled" {

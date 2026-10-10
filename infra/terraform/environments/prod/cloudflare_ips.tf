@@ -32,4 +32,16 @@ locals {
 
   # Lista unificada de todos los rangos oficiales de Cloudflare
   cloudflare_all_cidrs = concat(local.cloudflare_ipv4_cidrs, local.cloudflare_ipv6_cidrs)
+
+  # Lo que recibe el ingress del app (allowed_ip_ranges del stamp). Vacío = abierto.
+  #
+  # Se usa cloudflare_ipv4_cidrs y NO cloudflare_all_cidrs: la API de Container Apps
+  # sólo acepta IPv4 en ipAddressRange. Con cualquier regla Allow, el resto del
+  # tráfico entrante recibe 403 "RBAC: Access Denied" (learn.microsoft.com, "Set up
+  # IP ingress restrictions in Azure Container Apps").
+  origin_allowed_ip_ranges = distinct(concat(
+    var.allowed_ip_ranges,
+    var.origin_cloudflare_only ? local.cloudflare_ipv4_cidrs : [],
+    var.origin_cloudflare_only ? var.origin_extra_allowed_ip_ranges : [],
+  ))
 }

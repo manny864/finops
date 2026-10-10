@@ -15,7 +15,7 @@
  * través de nuestras propias API routes, nunca con una URL directa de blob.
  */
 import { BlobServiceClient, ContainerClient } from "@azure/storage-blob";
-import { DefaultAzureCredential } from "@azure/identity";
+import { DefaultAzureCredential, ManagedIdentityCredential, type TokenCredential } from "@azure/identity";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 let serviceClientSingleton: BlobServiceClient | null = null;
@@ -25,13 +25,33 @@ export function isBlobStorageEnabled(): boolean {
   return !!(process.env.AZURE_STORAGE_ACCOUNT_NAME || process.env.AZURE_STORAGE_CONNECTION_STRING);
 }
 
+/**
+ * Credencial para hablarle a Blob por Entra ID (cuando hay AZURE_STORAGE_ACCOUNT_NAME).
+ *
+ * En Container Apps: ManagedIdentityCredential DIRECTO con la identidad user-assigned
+ * del stamp (AZURE_KEYVAULT_MI_CLIENT_ID), la misma que ya tiene el rol Storage Blob
+ * Data Contributor sobre la cuenta. DefaultAzureCredential NO sirve acá: su cadena
+ * prueba EnvironmentCredential primero, y este proceso tiene AZURE_TENANT_ID /
+ * AZURE_CLIENT_ID / AZURE_CLIENT_SECRET del app registration de CSCS (no de esta
+ * cuenta), así que tomaría esas y fallaría sin llegar a la identidad administrada.
+ * Es el mismo problema, ya verificado el 2026-07-28, de src/lib/secrets/keyvault.ts y
+ * src/lib/azureAiCredential.ts.
+ *
+ * Sin AZURE_KEYVAULT_MI_CLIENT_ID (desarrollo local contra una cuenta real) no hay
+ * identidad administrada y se usa la cadena por defecto: `az login`, VS Code, etc.
+ */
+function blobCredential(): TokenCredential {
+  const clientId = process.env.AZURE_KEYVAULT_MI_CLIENT_ID;
+  return clientId ? new ManagedIdentityCredential({ clientId }) : new DefaultAzureCredential();
+}
+
 function getServiceClient(): BlobServiceClient {
   if (serviceClientSingleton) return serviceClientSingleton;
 
   const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME;
   if (accountName) {
     const url = `https://${accountName}.blob.core.windows.net`;
-    serviceClientSingleton = new BlobServiceClient(url, new DefaultAzureCredential());
+    serviceClientSingleton = new BlobServiceClient(url, blobCredential());
     return serviceClientSingleton;
   }
 

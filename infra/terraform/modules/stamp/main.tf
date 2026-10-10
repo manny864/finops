@@ -413,6 +413,14 @@ locals {
     AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT = module.document_intelligence[0].endpoint
   } : {}
 
+  # Blob por identidad administrada. Va después de extra_env_vars por el mismo motivo
+  # que ai_services_env: un AZURE_STORAGE_ACCOUNT_NAME heredado apuntaría a otra
+  # cuenta, donde la identidad no tiene rol. Sin el flag la app sigue con la
+  # connection string, como hasta ahora.
+  blob_managed_identity_env = var.blob_managed_identity_enabled ? {
+    AZURE_STORAGE_ACCOUNT_NAME = module.storage.account_name
+  } : {}
+
   app_env = merge({
     NODE_ENV               = "production"
     DB_HOST                = module.mysql.fqdn
@@ -448,7 +456,7 @@ locals {
     OTEL_SERVICE_NAME                           = "finops-web"
     OTEL_RESOURCE_ATTRIBUTES                    = "service.namespace=${var.data_region},deployment.environment=${var.environment}"
     AZURE_SENDER_EMAIL_ALERTS                   = "alerts@cscloudsolutions.com.ar"
-  }, var.extra_env_vars, local.ai_services_env, local.document_intelligence_env)
+  }, var.extra_env_vars, local.ai_services_env, local.document_intelligence_env, local.blob_managed_identity_env)
 
   app_secrets = {
     db-password                   = random_password.mysql.result
