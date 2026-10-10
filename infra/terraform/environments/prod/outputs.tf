@@ -3,8 +3,15 @@ output "stamp_hostnames" {
 }
 
 output "stamp_outbound_ips" {
-  description = "La IP que ven las ARM APIs de Azure y los webhooks de Paddle/marketplace."
+  # Pese al nombre, es la IP de ENTRADA del entorno (a donde apunta el DNS). La de salida es
+  # stamp_nat_gateway_ips.
+  description = "IP pública de ENTRADA de cada entorno de Container Apps. No es la de salida."
   value       = { for k, s in module.stamp : k => s.outbound_ip }
+}
+
+output "stamp_nat_gateway_ips" {
+  description = "IP pública fija de SALIDA de cada stamp (NAT Gateway); null si está apagado. Es la que va en origin_extra_allowed_ip_ranges."
+  value       = { for k, s in module.stamp : k => s.nat_gateway_public_ip }
 }
 
 output "cron_schedules" {
@@ -43,6 +50,12 @@ output "appinsights_ids" {
 
 output "frontdoor_hostname" {
   value = module.frontdoor.endpoint_hostname
+}
+
+output "frontdoor_custom_domain_validation_token" {
+  description = "Valor del TXT _dnsauth.<subdominio> con el que Front Door valida el dominio propio (null si no hay dominio configurado)."
+  value       = module.frontdoor.custom_domain_validation_token
+  sensitive   = true
 }
 
 output "custom_domain_dns_instructions" {

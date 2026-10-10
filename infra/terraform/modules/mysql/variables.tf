@@ -29,6 +29,17 @@ variable "sku_name" {
   type = string
 }
 
+variable "mysql_version" {
+  description = "Versión de MySQL con la que se CREA el servidor. En uno existente se ignora (lifecycle): la actualización de versión mayor es manual."
+  type        = string
+  default     = "8.0.21"
+
+  validation {
+    condition     = contains(["5.7", "8.0.21", "8.4"], var.mysql_version)
+    error_message = "El provider admite 5.7, 8.0.21 y 8.4."
+  }
+}
+
 variable "storage_gb" {
   type = number
 }

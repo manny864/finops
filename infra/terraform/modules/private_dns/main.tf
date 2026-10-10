@@ -32,6 +32,13 @@ locals {
     var.ai_services_enabled ? {
       openai     = "privatelink.openai.azure.com"
       aiservices = "privatelink.services.ai.azure.com"
+    } : {},
+    # Entorno de Container Apps con acceso sólo por endpoint privado (stamp:
+    # app_private_access_only). Zona verificada el 2026-10-10 con
+    # `az network private-link-resource list --id <entorno>`: requiredZoneNames es
+    # privatelink.<region>.azurecontainerapps.io y el groupId managedEnvironments.
+    var.containerapps_enabled ? {
+      containerapps = "privatelink.${var.containerapps_location}.azurecontainerapps.io"
     } : {}
   )
 }

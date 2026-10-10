@@ -43,6 +43,7 @@ variable "stamps" {
     mysql_database_name         = optional(string, "finops")
     mysql_admin_login           = optional(string, "finops_admin")
     mysql_sku_name              = optional(string, "B_Standard_B2s")
+    mysql_version               = optional(string, "8.0.21")
     mysql_storage_gb            = optional(number, 64)
     mysql_backup_retention_days = optional(number, 14)
     mysql_geo_redundant_backup  = optional(bool, false)
@@ -88,6 +89,11 @@ variable "stamps" {
     custom_domain_enabled          = optional(bool, false)
     custom_domain_name             = optional(string, "")
     custom_domain_certificate_name = optional(string, "")
+    # managed | byo_staged | byo (ver modules/custom_domain/main.tf). Con byo el .pfx y su
+    # contraseña salen de los secretos origin-cert-pfx y origin-cert-pfx-password del Key Vault
+    # del stamp.
+    custom_domain_certificate_source   = optional(string, "managed")
+    custom_domain_byo_certificate_name = optional(string, "")
 
     # IA de plataforma (modules/ai_services). Ver modules/stamp/variables.tf.
     ai_services_enabled    = optional(bool, false)
@@ -101,6 +107,14 @@ variable "stamps" {
     # nada. Las alertas son de la suscripción: encenderlas en un solo stamp.
     security_activity_alerts_enabled = optional(bool, false)
     security_policy_audit_enabled    = optional(bool, false)
+
+    # NAT Gateway con IP fija de salida (modules/network/main.tf). Cambia la salida de TODO el
+    # entorno: ver el runbook "Cerrar el origen" de docs/security/.
+    nat_gateway_enabled = optional(bool, false)
+
+    # El entorno de Container Apps deja de aceptar internet y sólo se llega por endpoint
+    # privado (modules/stamp/main.tf). Es el destino del Private Link de Front Door.
+    app_private_access_only = optional(bool, false)
   }))
 }
 
@@ -188,6 +202,45 @@ variable "frontdoor_enabled" {
 variable "frontdoor_sku" {
   type    = string
   default = "Standard_AzureFrontDoor"
+}
+
+# Cerrar el origen con Front Door Premium + Private Link (alternativa a la lista de IP de
+# Cloudflare: con el acceso público del entorno apagado, Cloudflare deja de llegar al origen).
+# Orden y runbook en docs/security/endurecimiento-infraestructura-saas-2026-10-09.md.
+variable "frontdoor_private_link_enabled" {
+  description = "El origin de Front Door se conecta por Private Link al entorno de Container Apps del stamp por defecto. Exige frontdoor_enabled y SKU Premium; después del apply hay que APROBAR la conexión de endpoint privado en el entorno."
+  type        = bool
+  default     = false
+}
+
+variable "frontdoor_custom_domain" {
+  description = "FQDN del dominio propio en Front Door (certificado gestionado de Front Door). Vacío = sólo el hostname *.azurefd.net."
+  type        = string
+  default     = ""
+}
+
+variable "frontdoor_waf_mode" {
+  description = "Detection (default) registra sin bloquear; Prevention bloquea. Revisar el log del WAF en Log Analytics antes de pasar a Prevention."
+  type        = string
+  default     = "Detection"
+}
+
+variable "frontdoor_waf_bot_action" {
+  description = "Acción del ruleset de bots: Log (default, sólo registra), Allow, Block o Redirect."
+  type        = string
+  default     = "Log"
+}
+
+variable "frontdoor_waf_rate_limit_action" {
+  description = "Acción al superar el límite de pedidos por IP: Log (default, sólo mide), Block, Redirect, JSChallenge o CAPTCHA."
+  type        = string
+  default     = "Log"
+}
+
+variable "frontdoor_waf_rate_limit_threshold" {
+  description = "Pedidos por minuto y por IP de cliente. Estimación sin datos de tráfico: medir antes de bloquear."
+  type        = number
+  default     = 1200
 }
 
 # --- defender for cloud (alcance suscripción) ---

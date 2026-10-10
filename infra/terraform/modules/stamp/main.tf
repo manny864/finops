@@ -43,6 +43,8 @@ module "network" {
   pe_subnet_prefix    = var.pe_subnet_prefix
   mysql_subnet_prefix = var.mysql_subnet_prefix
   tags                = var.tags
+
+  nat_gateway_enabled = var.nat_gateway_enabled
 }
 
 module "private_dns" {
@@ -50,6 +52,8 @@ module "private_dns" {
   name_base                     = local.name_base
   resource_group_name           = module.network.resource_group_name
   vnet_id                       = module.network.vnet_id
+  containerapps_enabled         = var.app_private_access_only
+  containerapps_location        = var.location
   redis_enabled                 = true
   ai_services_enabled           = var.ai_services_enabled
   document_intelligence_enabled = var.document_intelligence_enabled
@@ -185,6 +189,7 @@ module "mysql" {
   admin_login                  = var.mysql_admin_login
   admin_password               = random_password.mysql.result
   sku_name                     = var.mysql_sku_name
+  mysql_version                = var.mysql_version
   storage_gb                   = var.mysql_storage_gb
   backup_retention_days        = var.mysql_backup_retention_days
   geo_redundant_backup_enabled = var.mysql_geo_redundant_backup
@@ -383,6 +388,10 @@ resource "azurerm_container_app_environment" "this" {
   zone_redundancy_enabled = var.zone_redundant
   tags                    = var.tags
 
+  # Cambio en el lugar (la documentación del provider no lo marca como ForceNew). Disabled
+  # corta el acceso desde internet de inmediato: sólo con app_private_access_only.
+  public_network_access = var.app_private_access_only ? "Disabled" : "Enabled"
+
   lifecycle {
     # Azure genera solo el resource group de infraestructura del entorno
     # (ME_<cae>_<rg>_<region>) y lo devuelve en el state. La configuración no
@@ -473,6 +482,40 @@ locals {
   }
 }
 
+# Acceso al entorno sólo por endpoint privado. El endpoint se puede crear únicamente con el
+# acceso público deshabilitado (learn.microsoft.com, "Use a private endpoint with an Azure
+# Container Apps environment"): como depende del entorno, Terraform primero aplica el
+# cambio de publicNetworkAccess y después crea el endpoint.
+#
+# El A record se escribe a mano, como en el procedimiento de Microsoft: nombre = primera
+# etiqueta del dominio por defecto del entorno, valor = IP del endpoint. Lo necesitan los
+# clientes dentro de la VNet: los cron jobs llaman a https://<app>.internal.<dominio>, que
+# con el acceso público apagado sólo responde por el endpoint privado.
+resource "azurerm_private_endpoint" "app_env" {
+  count               = var.app_private_access_only ? 1 : 0
+  name                = "${local.name_base}-cae-pe"
+  location            = var.location
+  resource_group_name = module.network.resource_group_name
+  subnet_id           = module.network.private_endpoint_subnet_id
+  tags                = var.tags
+
+  private_service_connection {
+    name                           = "psc-cae"
+    private_connection_resource_id = azurerm_container_app_environment.this.id
+    subresource_names              = ["managedEnvironments"]
+    is_manual_connection           = false
+  }
+}
+
+resource "azurerm_private_dns_a_record" "app_env" {
+  count               = var.app_private_access_only ? 1 : 0
+  name                = split(".", azurerm_container_app_environment.this.default_domain)[0]
+  zone_name           = module.private_dns.containerapps_zone_name
+  resource_group_name = module.network.resource_group_name
+  ttl                 = 300
+  records             = [azurerm_private_endpoint.app_env[0].private_service_connection[0].private_ip_address]
+}
+
 module "app" {
   source                          = "../containerapp"
   name_base                       = local.name_base
@@ -505,6 +548,9 @@ module "custom_domain" {
   enabled                      = var.custom_domain_enabled
   domain_name                  = var.custom_domain_name
   certificate_name             = var.custom_domain_certificate_name
+  certificate_source           = var.custom_domain_certificate_source
+  byo_certificate_name         = var.custom_domain_byo_certificate_name
+  key_vault_id                 = module.keyvault.id
   container_app_id             = module.app.app_id
   container_app_environment_id = azurerm_container_app_environment.this.id
   tags                         = var.tags

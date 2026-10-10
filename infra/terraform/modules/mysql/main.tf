@@ -7,7 +7,7 @@ resource "azurerm_mysql_flexible_server" "this" {
   administrator_login          = var.admin_login
   administrator_password       = var.admin_password
   sku_name                     = var.sku_name
-  version                      = "8.0.21"
+  version                      = var.mysql_version
   backup_retention_days        = var.backup_retention_days
   geo_redundant_backup_enabled = var.geo_redundant_backup_enabled
   delegated_subnet_id          = var.subnet_id
@@ -33,7 +33,13 @@ resource "azurerm_mysql_flexible_server" "this" {
   }
 
   lifecycle {
-    ignore_changes = [zone, high_availability[0].standby_availability_zone]
+    # version: la actualización de versión mayor (8.0 -> 8.4) es IRREVERSIBLE, en un servidor
+    # Burstable tiene un flujo propio (compute tier General Purpose temporal) y se hace a mano,
+    # con backup a demanda y probada antes en una copia (docs/security/endurecimiento-infraestructura-saas-2026-10-09.md,
+    # "MySQL 8.0 a 8.4"). Ignorar el cambio impide que Terraform la dispare por un valor mal puesto
+    # en el tfvars, o que planee "volver" a 8.0.21 después de la actualización manual. La
+    # variable mysql_version sólo manda al CREAR un servidor.
+    ignore_changes = [zone, high_availability[0].standby_availability_zone, version]
   }
 
   tags = var.tags

@@ -170,6 +170,7 @@ module "stamp" {
   mysql_database_name         = each.value.mysql_database_name
   mysql_admin_login           = each.value.mysql_admin_login
   mysql_sku_name              = each.value.mysql_sku_name
+  mysql_version               = each.value.mysql_version
   mysql_storage_gb            = each.value.mysql_storage_gb
   mysql_backup_retention_days = each.value.mysql_backup_retention_days
   mysql_geo_redundant_backup  = each.value.mysql_geo_redundant_backup
@@ -228,20 +229,24 @@ module "stamp" {
   keyvault_network_acls_enabled     = each.value.keyvault_network_acls_enabled
   keyvault_allowed_ip_rules         = each.value.keyvault_allowed_ip_rules
 
-  log_retention_days               = var.log_retention_days
-  log_daily_quota_gb               = var.log_daily_quota_gb
-  appinsights_sampling_percentage  = var.appinsights_sampling_percentage
-  resource_lock_enabled            = var.resource_lock_enabled
-  enable_delete_lock               = var.enable_delete_lock
-  blob_managed_identity_enabled    = var.blob_managed_identity_enabled
-  security_activity_alerts_enabled = each.value.security_activity_alerts_enabled
-  security_policy_audit_enabled    = each.value.security_policy_audit_enabled
-  alert_email                      = var.alert_email
-  monthly_budget_amount            = each.value.monthly_budget_amount
-  budget_start_date                = var.budget_start_date
-  custom_domain_enabled            = each.value.custom_domain_enabled
-  custom_domain_name               = each.value.custom_domain_name
-  custom_domain_certificate_name   = each.value.custom_domain_certificate_name
+  log_retention_days                 = var.log_retention_days
+  log_daily_quota_gb                 = var.log_daily_quota_gb
+  appinsights_sampling_percentage    = var.appinsights_sampling_percentage
+  resource_lock_enabled              = var.resource_lock_enabled
+  enable_delete_lock                 = var.enable_delete_lock
+  blob_managed_identity_enabled      = var.blob_managed_identity_enabled
+  security_activity_alerts_enabled   = each.value.security_activity_alerts_enabled
+  security_policy_audit_enabled      = each.value.security_policy_audit_enabled
+  nat_gateway_enabled                = each.value.nat_gateway_enabled
+  app_private_access_only            = each.value.app_private_access_only
+  alert_email                        = var.alert_email
+  monthly_budget_amount              = each.value.monthly_budget_amount
+  budget_start_date                  = var.budget_start_date
+  custom_domain_enabled              = each.value.custom_domain_enabled
+  custom_domain_name                 = each.value.custom_domain_name
+  custom_domain_certificate_name     = each.value.custom_domain_certificate_name
+  custom_domain_certificate_source   = each.value.custom_domain_certificate_source
+  custom_domain_byo_certificate_name = each.value.custom_domain_byo_certificate_name
 
   ai_services_enabled    = each.value.ai_services_enabled
   ai_services_location   = each.value.ai_services_location
@@ -265,6 +270,18 @@ module "frontdoor" {
   resource_group_name = azurerm_resource_group.global.name
   sku_name            = var.frontdoor_sku
   origin_host_name    = local.stamp_hostnames[var.default_stamp]
+
+  # Private Link al entorno del stamp por defecto (null = el origin sigue siendo público).
+  origin_private_link = var.frontdoor_private_link_enabled ? {
+    target_id = module.stamp[var.default_stamp].container_app_environment_id
+    location  = var.stamps[var.default_stamp].location
+  } : null
+
+  custom_domain_host_name  = var.frontdoor_custom_domain
+  waf_mode                 = var.frontdoor_waf_mode
+  waf_bot_action           = var.frontdoor_waf_bot_action
+  waf_rate_limit_action    = var.frontdoor_waf_rate_limit_action
+  waf_rate_limit_threshold = var.frontdoor_waf_rate_limit_threshold
 
   extra_origins = [
     for k, v in var.stamp_geo_routing : {

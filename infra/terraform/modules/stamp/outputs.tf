@@ -90,11 +90,25 @@ output "appinsights_id" {
 }
 
 output "outbound_ip" {
-  description = "IP de salida: la que ven las ARM APIs de Azure y los webhooks de Paddle."
+  # OJO con el nombre: es la IP pública de ENTRADA del entorno (la de capp-svc-lb-ip, en
+  # el resource group ME_...), no la de salida. Se mantiene el nombre por compatibilidad.
+  # La de salida es nat_gateway_public_ip (null mientras el NAT Gateway esté apagado).
+  description = "IP pública de ENTRADA del entorno de Container Apps (a donde apunta el DNS). No es la de salida."
   value       = azurerm_container_app_environment.this.static_ip_address
+}
+
+output "nat_gateway_public_ip" {
+  description = "IP pública fija de SALIDA del entorno (NAT Gateway), o null si está apagado."
+  value       = module.network.nat_gateway_public_ip
 }
 
 output "custom_domain_verification_id" {
   value     = module.app.custom_domain_verification_id
   sensitive = true
 }
+
+output "container_app_environment_id" {
+  description = "ID del managed environment: destino del Private Link de Front Door."
+  value       = azurerm_container_app_environment.this.id
+}
+

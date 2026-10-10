@@ -21,3 +21,8 @@ output "openai_zone_id" {
 output "aiservices_zone_id" {
   value = try(azurerm_private_dns_zone.this["aiservices"].id, null)
 }
+
+output "containerapps_zone_name" {
+  value = try(azurerm_private_dns_zone.this["containerapps"].name, null)
+}
+

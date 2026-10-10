@@ -58,6 +58,12 @@ variable "mysql_sku_name" {
   type = string
 }
 
+variable "mysql_version" {
+  description = "Versión de MySQL con la que se crea el servidor (en uno existente se ignora). Ver modules/mysql."
+  type        = string
+  default     = "8.0.21"
+}
+
 variable "mysql_storage_gb" {
   type = number
 }
@@ -334,6 +340,25 @@ variable "security_policy_audit_enabled" {
   default     = false
 }
 
+variable "nat_gateway_enabled" {
+  description = "NAT Gateway con IP fija de salida para la subred de apps (modules/network/main.tf). Cambia la salida de TODO el entorno."
+  type        = bool
+  default     = false
+}
+
+variable "app_private_access_only" {
+  description = <<-DESC
+    true = el entorno de Container Apps deja de aceptar tráfico de internet
+    (publicNetworkAccess Disabled) y sólo se llega por endpoint privado: se crea el
+    endpoint en la subred de endpoints privados, la zona privatelink.<region>.azurecontainerapps.io
+    y el A record del entorno. Es el destino del Private Link de Front Door
+    (frontdoor_private_link_enabled). CORTA el acceso público de inmediato: Cloudflare
+    deja de llegar al origen. Ver el runbook "Cerrar el origen" de docs/security/.
+  DESC
+  type        = bool
+  default     = false
+}
+
 variable "resource_lock_enabled" {
   type    = bool
   default = false
@@ -366,6 +391,18 @@ variable "custom_domain_name" {
 
 variable "custom_domain_certificate_name" {
   description = "Nombre real del managed certificate cuando se importó uno creado a mano. Ver modules/custom_domain/variables.tf."
+  type        = string
+  default     = ""
+}
+
+variable "custom_domain_certificate_source" {
+  description = "managed (certificado gestionado de Azure), byo_staged (crea el propio y mantiene el gestionado) o byo (sólo el propio, desde Key Vault). Ver modules/custom_domain."
+  type        = string
+  default     = "managed"
+}
+
+variable "custom_domain_byo_certificate_name" {
+  description = "Nombre del certificado propio en el entorno; para rotarlo, uno nuevo. Vacío = el del módulo."
   type        = string
   default     = ""
 }

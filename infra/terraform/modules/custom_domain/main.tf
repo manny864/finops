@@ -7,9 +7,69 @@
 #
 # Con enabled=false (default) este módulo no crea nada — sirve para leer el
 # output con las instrucciones de DNS sin haber tocado el dominio todavía.
+#
+# TRES VALORES DE certificate_source:
+#
+#  - "managed" (default): certificado gestionado de Azure, validado por CNAME. Exige que
+#    el dominio apunte DIRECTO al app y que las IP de DigiCert lleguen al ingress.
+#    Microsoft documenta que un CNAME intermedio (cita a Cloudflare) impide la emisión y
+#    la renovación, y un filtro de IP en el ingress también.
+#  - "byo_staged": crea el certificado propio en el entorno y MANTIENE el gestionado. Es el
+#    paso intermedio: el dominio sigue con el gestionado hasta que una persona lo asocia al
+#    propio. Existe para no encadenar en un mismo apply "crear el nuevo" y "borrar el viejo
+#    mientras todavía está en uso", que Azure rechaza.
+#  - "byo": certificado propio y nada más, por ejemplo un Origin CA de Cloudflare (hasta 15
+#    años, modo SSL "Full (strict)"). No depende de DigiCert ni del CNAME, y es el que
+#    permite restringir el origen a Cloudflare. Borra el certificado gestionado.
+#
+# El .pfx y su contraseña salen de DOS secretos de Key Vault que carga una persona (la clave
+# privada nunca pasa por Terraform ni por el repositorio): ver "Cerrar el origen" en
+# docs/security/.
+#
+# CAMBIAR DE CERTIFICADO NO LO HACE TERRAFORM. El binding del dominio ignora
+# container_app_environment_certificate_id (ver el lifecycle de abajo: es ForceNew y de
+# sólo escritura, y recrearlo con el dominio en producción es downtime). La secuencia es:
+# byo_staged (Terraform crea el propio), `az containerapp hostname bind --certificate`
+# (una persona lo asocia), y recién entonces byo (Terraform borra el gestionado, que Azure
+# no deja borrar mientras esté en uso).
+locals {
+  use_byo = var.enabled && var.certificate_source != "managed"
+  # Sin nombre explícito: el del dominio con guiones. Para rotar el certificado hay que
+  # dar un nombre NUEVO (byo_certificate_name): el recurso ignora cambios de contenido.
+  byo_certificate_name = coalesce(var.byo_certificate_name != "" ? var.byo_certificate_name : null, "${replace(var.domain_name, ".", "-")}-byo")
+}
+
+# Los dos secretos los carga una persona antes de encender el modo byo. Si faltan, el
+# plan falla con "secret not found": eso es lo esperado.
+data "azurerm_key_vault_secret" "byo_pfx" {
+  count        = local.use_byo ? 1 : 0
+  name         = var.byo_pfx_secret_name
+  key_vault_id = var.key_vault_id
+}
+
+data "azurerm_key_vault_secret" "byo_password" {
+  count        = local.use_byo ? 1 : 0
+  name         = var.byo_password_secret_name
+  key_vault_id = var.key_vault_id
+}
+
+resource "azurerm_container_app_environment_certificate" "byo" {
+  count                        = local.use_byo ? 1 : 0
+  name                         = local.byo_certificate_name
+  container_app_environment_id = var.container_app_environment_id
+  certificate_blob_base64      = data.azurerm_key_vault_secret.byo_pfx[0].value
+  certificate_password         = data.azurerm_key_vault_secret.byo_password[0].value
+  tags                         = var.tags
+
+  lifecycle {
+    # El contenido no se puede releer de Azure y un cambio acá fuerza reemplazo, que
+    # falla mientras el certificado esté asociado a un hostname. Rotar = nombre nuevo.
+    ignore_changes = [certificate_blob_base64, certificate_password]
+  }
+}
 
 resource "azurerm_container_app_environment_managed_certificate" "this" {
-  count                        = var.enabled ? 1 : 0
+  count                        = var.enabled && var.certificate_source != "byo" ? 1 : 0
   name                         = coalesce(var.certificate_name != "" ? var.certificate_name : null, replace(var.domain_name, ".", "-"))
   container_app_environment_id = var.container_app_environment_id
   subject_name                 = var.domain_name
@@ -43,7 +103,7 @@ resource "azurerm_container_app_custom_domain" "this" {
   # Sin barras en el patrón: replace() trata un argumento delimitado por "/"
   # como regex, y "/managedCertificates/" calza justo con esa forma —
   # producía barras dobles en el resultado en vez de un reemplazo literal.
-  container_app_environment_certificate_id = replace(
+  container_app_environment_certificate_id = var.certificate_source == "byo" ? azurerm_container_app_environment_certificate.byo[0].id : replace(
     azurerm_container_app_environment_managed_certificate.this[0].id,
     "managedCertificates", "certificates"
   )
