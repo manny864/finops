@@ -14,7 +14,9 @@
  * Este test NO decide si esas 14 deben programarse (decisión de producto). Falla si:
  *  - aparece una ruta de cron nueva sin job y sin estar en `SIN_JOB`;
  *  - un job apunta a una ruta que no existe;
- *  - una ruta de `SIN_JOB` ya tiene job (excepción vieja: sacala de la lista).
+ *  - una ruta de `SIN_JOB` ya tiene job (excepción vieja: sacala de la lista);
+ *  - la tabla de horarios del README no coincide con el tfvars (la tabla vieja documentaba un cron de
+ *    `addon-expiry` que no existía y horarios que ya no eran los desplegados).
  */
 import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync, existsSync } from "node:fs";
@@ -47,6 +49,23 @@ function clavesDelTfvars(): string[] {
     return [...bloque.matchAll(/^ {2}([a-z0-9][a-z0-9-]*)\s*=\s*\{/gm)].map((m) => m[1]);
 }
 
+/** `{ job: cron }` tal cual está en el tfvars. */
+function cronsDelTfvars(): Record<string, string> {
+    const texto = readFileSync(path.join(RAIZ, TFVARS), "utf8");
+    const bloque = texto.slice(texto.indexOf("cron_jobs = {")).replace(/#[^\n]*/g, "");
+    return Object.fromEntries(
+        [...bloque.matchAll(/^ {2}([a-z0-9][a-z0-9-]*)\s*=\s*\{[^}]*?\bcron\s*=\s*"([^"]+)"/gm)].map((m) => [m[1], m[2]]),
+    );
+}
+
+/** `{ job: cron }` de la tabla «Schedule real» del README. */
+function cronsDelReadme(): Record<string, string> {
+    const md = readFileSync(path.join(RAIZ, "README.md"), "utf8");
+    const desde = md.indexOf("| Job | `cron` (tfvars, GMT-3)");
+    const tabla = desde < 0 ? "" : md.slice(desde, md.indexOf("\n\n", desde));
+    return Object.fromEntries([...tabla.matchAll(/^\| `([a-z0-9-]+)` \| `([^`]+)` \|/gm)].map((m) => [m[1], m[2]]));
+}
+
 function rutasDeCron(): string[] {
     const base = path.join(RAIZ, "src/app/api/cron");
     return readdirSync(base, { withFileTypes: true })
@@ -73,6 +92,13 @@ describe("rutas de cron vs jobs de producción", () => {
             sinJobNiExcepcion,
             "programala en infra/terraform/environments/prod/cron-jobs.tfvars o, si no debe correr sola, agregala a SIN_JOB con el motivo",
         ).toEqual([]);
+    });
+
+    it("la tabla de horarios del README lista los mismos jobs y los mismos cron que el tfvars", () => {
+        expect(
+            cronsDelReadme(),
+            "actualizá la tabla «Schedule real» del README con los jobs y los `cron` de infra/terraform/environments/prod/cron-jobs.tfvars",
+        ).toEqual(cronsDelTfvars());
     });
 
     it("SIN_JOB no tiene entradas viejas: ninguna de sus rutas tiene job ni falta en el código", () => {

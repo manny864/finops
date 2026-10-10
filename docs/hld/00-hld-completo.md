@@ -66,7 +66,7 @@ graph TB
             subgraph "Apps Subnet (10.0.1.0/24)"
                 CAE["Azure Container Apps Environment"]
                 WEB["Web App Service Container (Next.js 16 Standalone)"]
-                CRON["Container App Jobs (15 Cron Tasks Scheduled)"]
+                CRON["Container App Jobs (28 Cron Jobs Scheduled)"]
                 MIG["Container App Job (DB Auto-Migration Runner)"]
             end
 
@@ -78,7 +78,7 @@ graph TB
             end
 
             subgraph "Database Subnet (10.0.3.0/24)"
-                MYSQL[("Azure MySQL Flexible Server (B1ms, TLS 1.2)")]
+                MYSQL[("Azure MySQL Flexible Server (B2s, TLS 1.2)")]
             end
         end
 
@@ -137,17 +137,17 @@ graph TB
 * **Componentes Interactivos:** Recharts para gráficos de tendencias/forecast, React Grid Layout para widgets editables, cmdk para Command Palette (`Cmd+K`), y Tailwind CSS 4 para diseño responsivo y accesible.
 
 #### B. Capa de Aplicación y Backend (API & Business Logic)
-* **Next.js App Router API Routes:** 238 endpoints REST integrados con validación de tipos TypeScript.
+* **Next.js App Router API Routes:** 488 archivos `route.ts` (634 handlers REST) integrados con validación de tipos TypeScript.
 * **Services & Collectors Layer:** 26 servicios de negocio especializados (`anomalyDetectionService`, `reservationService`, `powerScheduleService`, `budgetService`, `governanceReportingService`, `remediationService`) y 29 módulos colectores agnósticos (`collectors/azure/billingService`, `resourceGraphService`, `advisorService`).
 * **Protección Middleware:** Control estricto de acceso basado en roles (RBAC) y Tenants vía `requestAuth.ts` (`requireTenantAccess`, `requireTenantRole`, `requireTenantTier`, `requireSuperAdmin`).
 
 #### C. Capa de Cómputo y Procesamiento Asíncrono (Workers & Cron Jobs)
 * **Azure Container Apps:** Despliegue de la aplicación principal como un contenedor inmutable (Node.js 22 Alpine, Next.js standalone).
-* **Container App Jobs:** 15 tareas programadas independientes (*cron jobs*) aisladas para ingesta de datos, precalentamiento de caché, evaluación de anomalías, backfill histórico, alertas de expiración y exportaciones estandarizadas.
+* **Container App Jobs:** 28 tareas programadas independientes (*cron jobs*), más el job `migrate`, aisladas para ingesta de datos, precalentamiento de caché, evaluación de anomalías, backfill histórico, alertas de expiración y exportaciones estandarizadas.
 
 #### D. Capa de Persistencia y Caché (Data & Security State)
 * **Azure MySQL Flexible Server:** Persistencia relacional primaria en MySQL Flexible Server con TLSv1.2, motor InnoDB, collation `utf8mb4_unicode_ci` y pool de conexiones optimizado (`mysql2`).
-* **Azure Managed Redis:** Caché de alto rendimiento (Balanced B3, HA) utilizando `ioredis` con patrón **Stale-While-Revalidate (SWR)** y locks distribuidos para deduplicación de consultas hacia Azure.
+* **Azure Managed Redis:** Caché de alto rendimiento (Balanced B3, HA) utilizando `ioredis` con patrón **Stale-While-Revalidate (SWR)**. La deduplicación de consultas hacia Azure es **por proceso** (un solo fetch por clave ante misses concurrentes y una sola revalidación en segundo plano); el único lock distribuido es el del barrido de costos (`cron:sync:lock:v1`).
 * **Azure Key Vault:** Custodia y aislamiento de secretos de infraestructura (credenciales DB/Redis/Cron) y Service Principals de los tenants de clientes (`tenant-{tenantId}-client-id` / `secret`).
 
 ---
@@ -1677,3 +1677,72 @@ producción y sólo se saltea la persistencia.
   (job `migrate` y Log Analytics, no el ✅ del log del workflow).
 - **La pantalla** se verificó con tests de componentes, `tsc` y ESLint, pero no a
   ojo en un navegador.
+
+---
+
+## 21. Addendum 2026-10-10 — Auditoría de arquitectura: lo que se midió
+
+El detalle, con las mediciones y los comandos para repetirlas, está en
+`docs/auditoria-arquitectura-2026-10-10.md`. Acá quedan las decisiones que cambian el
+modelo mental de la plataforma.
+
+### 21.1 Lo que este documento decía y producción no era
+
+MySQL es `Standard_B2s` (decía B1ms); los jobs de cron son 28 más `migrate` (decía 15);
+hay 488 rutas de API con 634 handlers (decía 238); el SWR no tiene locks distribuidos,
+deduplica por proceso (§21.3); y el recurso web desplegado escala hasta 5 réplicas, no 3 como
+asumían el runbook y `checks.tf`. Las cifras de arriba ya están corregidas.
+
+### 21.2 El pool de MySQL es un recurso compartido, y un cron puede agotarlo
+
+El pool (10 conexiones y una cola de 20) es de la réplica entera: lo usan igual las requests
+de los usuarios, el barrido de costos y los jobs, que llaman a la propia web. Se midieron ≈9.900
+errores `Queue limit reached` en 30 días, todos de un solo cron (`sync-azure-ai`): cinco tenants
+en paralelo × ocho colectores son 40 consultas simultáneas contra 30 lugares, con la base al 4% de CPU.
+
+Dos cosas lo hicieron difícil de ver. Los colectores atrapan el error y devuelven vacío: la
+capacidad desaparece de la respuesta sin ruido. Y `getAccessModel` convierte un error de pool en
+`app_registration` («ante cualquier duda, el de siempre»), un default seguro para una pregunta
+distinta de la que se hizo. La cola finita del pool (un error a los 200 ms en vez de un cuelgue de
+cuatro minutos) es lo que lo dejó a la vista.
+
+La regla que se registra: **un fan-out contra la propia web acota su concurrencia por lo que consume,
+no por lo que cabe en el tiempo.** Hoy `sync-azure-ai` va de a un tenant (8 consultas simultáneas, bajo el
+pool); con `DB_POOL_LIMIT=20` entrarían dos. La causa de fondo, un pool de 10 frente a 40 requests
+concurrentes por réplica, sigue abierta.
+
+### 21.3 Caché: un solo fetch por clave, y Redis no se rinde
+
+El miss de `getWithStaleWhileRevalidate` no deduplicaba: N requests concurrentes a una clave
+fría hacían N consultas a Azure. Ahora comparten una promesa por clave y por proceso (con varias
+réplicas, un miss simultáneo sigue haciendo una consulta por réplica). Además `retryStrategy` de Redis
+devolvía `null` tras 3 intentos y ioredis no reconecta después de eso: un failover dejaba a la réplica
+sin caché hasta reiniciarla. En producción ahora reintenta siempre.
+
+### 21.4 El dataset de la demo no viaja al navegador
+
+`isMockTenant` y las constantes de identidad de la demo viven en `lib/demoTenant.ts`, que no importa nada.
+El dataset (`lib/mockData.ts`, 292 KB) se carga con `import()` recién al entrar a la demo. Antes lo
+arrastraba el 96% de las páginas (194 KB gzip por carga) porque un componente de cliente importaba el
+archivo entero para evaluar un `if`. Lo vigila `mockDataFueraDelBundle.test.ts`, que sigue los imports
+desde cada archivo `'use client'` y nombra el camino si el dataset vuelve a ser alcanzable.
+
+### 21.5 Dos inventarios que antes no existían
+
+`cronRutasConJob.test.ts` concilia las rutas de `api/cron/*` con los jobs del tfvars y con la tabla de
+horarios del README: hay 14 rutas que ningún job invoca, registradas con su motivo. `apiSinGateDeTier.test.ts`
+registra las 59 rutas de API, bajo pantallas Business o Enterprise, que no validan el plan en el servidor
+(`ROUTE_TIERS` solo lo consulta la UI). Ninguno decide qué hacer con esas listas: hacen que crezcan solo a la vista.
+
+### 21.6 Lo que queda
+
+- **Cost Management** sigue siendo el primer techo: el barrido tarda 30-47 min con 5 tenants y el cálculo de §16.1
+  (N ≤ 6 con 10 min por tenant) se confirma, con ~7-8 como máximo realista. El limitador cuenta llamadas y Azure
+  cuenta QPU por tenant; según el conteo del análisis, solo 28 de ~66 sitios de Cost Management pasan por la cola.
+- **El resumen de IA** consulta columnas que no existen en cinco de sus tablas (`resourceGroup`,
+  `lastAccessedDaysAgo`): esas cinco capacidades no aparecen. Corregirlo cambia lo que ve el usuario.
+- **`azure-ai`** re-escanea cada 20 min a los 5 tenants Enterprise para devolver una lista vacía, porque la ruta
+  solo sirve del caché si la lista tiene elementos. Cachear el vacío es una decisión de frescura.
+- **i18n** manda ~300 KB gzip de traducciones en cada carga completa; la salida es por sección.
+- **Despliegue:** ningún cambio de esta auditoría incluye migraciones. Tras el deploy, confirmar con Log Analytics
+  que `Queue limit reached` cae a ~0 en los minutos :13, :33 y :53.

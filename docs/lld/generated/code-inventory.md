@@ -18,10 +18,10 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/realConsumptionService.ts` | 1167 | `getServiceRemediationRule`, `getServiceIconName`, `getMockRealConsumptionOverview`, `DiscoveredTenantResource`, `TenantInventoryContext`, `mapResourceTypeToServiceName`, … |
 | `src/services/azureAiSummary.service.ts` | 1138 | `getAzureAiSummary` |
 | `src/services/azureKeyVault.service.ts` | 997 | `normalizeSku`, `deriveAuthModel`, `isDevOrTestScope`, `deriveAccessMethod`, `calcTransactionCost`, `calcHsmKeyCost`, … |
+| `src/services/azureResourcesInventory.service.ts` | 902 | `generateMockResourcesSearch`, `generateMockResourcesInventory`, `generateMockResourcesCreatedBy`, `generateMockResourcesCostsByTag`, `getResourceCostsById`, `attributeResourceCost`, … |
 | `src/services/azureLogicApps.service.ts` | 899 | `generateMockLogicAppsData`, `calculateLogicAppsSummary`, `generateLogicAppsRecommendations`, `buildLogicAppsRemediationCommand`, `getLiveLogicAppsData` |
 | `src/services/azureDdosProtection.service.ts` | 898 | `getAzureDdosProtection` |
 | `src/services/categoryConsumptionService.ts` | 894 | `getCategoryColor`, `getCategoryIconName`, `mapServiceToCategory`, `getCategoryRemediationRule`, `getRealCategoryOverview`, `getMockCategoryOverview` |
-| `src/services/azureResourcesInventory.service.ts` | 892 | `generateMockResourcesSearch`, `generateMockResourcesInventory`, `generateMockResourcesCreatedBy`, `generateMockResourcesCostsByTag`, `getResourceCostsById`, `attributeResourceCost`, … |
 | `src/services/azureHybridConnectivity.service.ts` | 880 | `getAzureHybridConnectivity`, `getMockHybridConnectivityData` |
 | `src/services/azureAlertsRules.service.ts` | 870 | `METRIC_ALERT_BASE_RATE`, `SCHEDULED_QUERY_RATE_1M`, `SCHEDULED_QUERY_RATE_5M`, `SCHEDULED_QUERY_RATE_1H`, `WEB_TEST_BASE_RATE`, `ACTIVITY_LOG_BASE_RATE`, … |
 | `src/services/azureWorkbooks.service.ts` | 843 | `parseAutoRefreshSeconds`, `formatRefreshLabel`, `extractKqlTables`, `estimateQueryScanGB`, `derivePrimaryDataSource`, `ParsedWorkbookDefinition`, … |

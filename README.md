@@ -2028,22 +2028,22 @@ Endpoints internos protegidos por `Authorization: Bearer ${CRON_SECRET}`. Los in
 | `GET /api/cron/sync`                  | Diaria 06:00 UTC       | Snapshot diario de costos por tenant (Azure Cost Management). Contrato disparar-y-consultar (`async_poll`). |
 | `GET /api/cron/historical-gap-backfill` | Diaria 03:00 UTC     | Re-consulta los últimos 2 meses de `getHistoricalDetailedCosts`/`getHistoricalDailyCosts` para todos los tenants activos y upsertea (`ON DUPLICATE KEY UPDATE`, nunca `DELETE`) — cierra huecos que el backfill liviano de `/api/cron/sync` (ventana de 7 días) no alcanza a ver. Contrato `async_poll`, con **techo de 45 min** y orden rotado por día (`CRON_BACKFILL_BUDGET_MS`). |
 | `GET /api/cron/prewarm-daily`         | Diaria 07:00 UTC (04:00 GMT-3) | Pre-cálculo y calentamiento exhaustivo de caché Redis (TTL 26h): Dashboard General, Auditorías KQL (30+ reglas), Detección de Zombies, Whiteboard Ejecutivo, Facturación Histórica 13m, Inventario de Recursos, Costos por Tag, Madurez FinOps, Scorecard y Progreso Histórico. Contrato `async_poll`. |
-| `GET /api/cron/prewarm-dashboard`     | Cada 10 min            | Pre-calienta el cache SWR del Dashboard General (`/api/dashboard/summary`) por tenant activo.  |
-| `GET /api/cron/prewarm-databases`     | Cada 15 min            | Pre-calienta los cachés de diagnósticos y métricas de los 12 motores de BD (Cosmos DB, Azure SQL / MI, PostgreSQL, MySQL, MongoDB, Redis). Contrato `async_poll`. |
-| `GET /api/cron/prewarm-cosmos-finops` | Cada 20 min            | Pre-calienta el cockpit FinOps/CMP de Cosmos DB (`/api/intelligence/databases/cosmos-metrics`) para todos los tenants activos. |
-| `GET /api/cron/prewarm-mongo-finops`  | Cada 20 min            | Pre-calienta el cockpit FinOps/CMP de MongoDB (`/api/intelligence/databases/mongo-metrics`) para todos los tenants activos. |
-| `GET /api/cron/prewarm-sql-finops`    | Cada 20 min            | Pre-calienta el cockpit FinOps/CMP de Azure SQL / Managed Instance (`/api/intelligence/databases/sql-metrics`) para todos los tenants activos. |
-| `GET /api/cron/prewarm-mysql-finops`  | Cada 20 min            | Pre-calienta el cockpit FinOps/CMP de MySQL (`/api/intelligence/databases/mysql-metrics`) para todos los tenants activos. Contrato `async_poll` (2026-09-05). |
-| `GET /api/cron/prewarm-postgres-finops` | Cada 20 min          | Pre-calienta el cockpit FinOps/CMP de PostgreSQL (`/api/intelligence/databases/postgres-metrics`) para todos los tenants activos. |
-| `GET /api/cron/prewarm-compute`       | Cada 15 min            | Pre-calienta los cachés de workloads de cómputo (VMs, WebApps, Functions, VMSS, ARO). Contrato `async_poll`. |
-| `GET /api/cron/prewarm-storage-finops` | Cada 20 min          | Pre-calienta los cockpits FinOps/CMP de Almacenamiento (`/api/intelligence/storage-efficiency` + `/api/intelligence/storage/service-cost`) para todos los tenants activos. |
-| `GET /api/cron/prewarm-security-finops` | Cada 20 min         | Pre-calienta el módulo de Seguridad (`/api/intelligence/defender` + `/api/intelligence/security/service-cost`) para todos los tenants activos. |
+| `GET /api/cron/prewarm-dashboard`     | Cada 30 min (:00 y :30)            | Pre-calienta el cache SWR del Dashboard General (`/api/dashboard/summary`) por tenant activo.  |
+| `GET /api/cron/prewarm-databases`     | Cada 30 min (:10 y :40)            | Pre-calienta los cachés de diagnósticos y métricas de los 12 motores de BD (Cosmos DB, Azure SQL / MI, PostgreSQL, MySQL, MongoDB, Redis). Contrato `async_poll`. |
+| `GET /api/cron/prewarm-cosmos-finops` | Cada hora (:25)            | Pre-calienta el cockpit FinOps/CMP de Cosmos DB (`/api/intelligence/databases/cosmos-metrics`) para todos los tenants activos. |
+| `GET /api/cron/prewarm-mongo-finops`  | Cada hora (:35)            | Pre-calienta el cockpit FinOps/CMP de MongoDB (`/api/intelligence/databases/mongo-metrics`) para todos los tenants activos. |
+| `GET /api/cron/prewarm-sql-finops`    | Cada hora (:45)            | Pre-calienta el cockpit FinOps/CMP de Azure SQL / Managed Instance (`/api/intelligence/databases/sql-metrics`) para todos los tenants activos. |
+| `GET /api/cron/prewarm-mysql-finops`  | Cada hora (:15)            | Pre-calienta el cockpit FinOps/CMP de MySQL (`/api/intelligence/databases/mysql-metrics`) para todos los tenants activos. Contrato `async_poll` (2026-09-05). |
+| `GET /api/cron/prewarm-postgres-finops` | Cada hora (:55)          | Pre-calienta el cockpit FinOps/CMP de PostgreSQL (`/api/intelligence/databases/postgres-metrics`) para todos los tenants activos. |
+| `GET /api/cron/prewarm-compute`       | Cada 30 min (:20 y :50)            | Pre-calienta los cachés de workloads de cómputo (VMs, WebApps, Functions, VMSS, ARO). Contrato `async_poll`. |
+| `GET /api/cron/prewarm-storage-finops` | Cada 20 min (:07, :27, :47)          | Pre-calienta los cockpits FinOps/CMP de Almacenamiento (`/api/intelligence/storage-efficiency` + `/api/intelligence/storage/service-cost`) para todos los tenants activos. |
+| `GET /api/cron/prewarm-security-finops` | Cada 20 min (:19, :39, :59)         | Pre-calienta el módulo de Seguridad (`/api/intelligence/defender` + `/api/intelligence/security/service-cost`) para todos los tenants activos. |
 | `GET /api/cron/power-schedules`      | Cada 2 min              | Ejecuta los horarios de apagado programado de VMs (tabla `PowerSchedules`) cuyo horario local ya se cumplió (ventana de 8 min). También se dispara al instante desde `/api/power/schedule` (POST) al crear/editar un horario, sin esperar al próximo tick, para minimizar la latencia percibida. |
 | `GET /api/cron/open-data`            | Semanal (lunes 04:00)  | Sincroniza los Open Data Sets del Microsoft FinOps Toolkit (Regions/Services/ResourceTypes/PricingUnits/CommitmentEligibility) a las tablas `OpenData*`. Sin él, los lookups (nombre canónico de región, categoría de servicio, iconos) devuelven null. |
-| `GET /api/cron/anomaly-detection`    | Cada 5 min (mínimo)     | Corre Z-Score sobre `CostSnapshots` para todos los tenants Professional+, persiste en `Anomalies` con los hechos de causa raíz por medidor (`root_cause_facts`, desde `CostMeterSnapshots`; 2026-10-07) y notifica (Slack/Teams/email + alerta de navegador) — antes la detección era 100% on-demand (solo calculaba si alguien abría `/intelligence/anomalies`), sin ningún monitoreo proactivo. Contrato `async_poll` (2026-09-05). |
+| `GET /api/cron/anomaly-detection`    | Cada 30 min (:01 y :31)     | Corre Z-Score sobre `CostSnapshots` para todos los tenants Professional+, persiste en `Anomalies` con los hechos de causa raíz por medidor (`root_cause_facts`, desde `CostMeterSnapshots`; 2026-10-07) y notifica (Slack/Teams/email + alerta de navegador) — antes la detección era 100% on-demand (solo calculaba si alguien abría `/intelligence/anomalies`), sin ningún monitoreo proactivo. Contrato `async_poll` (2026-09-05). |
 | `GET /api/cron/cost-sync-staleness-check` | Diaria 08:00 UTC   | Verifica que `/api/cron/sync` haya escrito datos nuevos en `CostSnapshots` en las últimas 36h para cada tenant real con Azure conectado — Cost Groups y el resto de features basadas en `CostSnapshots` requieren refresco diario. Si el sync no corrió (0 tenants frescos) crea una alerta `critical` en `SystemAlerts` + email a soporte; si es parcial, `warning` sin email. Existe justamente para detectar automáticamente el escenario del incidente del 2026-07-05 (ver nota abajo) la próxima vez que pase, en vez de depender de que alguien lo note manualmente. |
 | `GET /api/cron/ttl-expiry-alerts`     | Diaria (o más seguido)  | Evalúa reglas `AlertRules` tipo `ttl_expiry` (Alertas Self-Service) contra los entornos con tag `ExpireOn`/`TTL` de cada tenant y notifica los que vencen dentro de N días (o ya vencidos) — paso 3 del flujo TTL Enforcement ("El sistema te alerta antes de la eliminación automática"), antes inexistente. Mismo patrón anti-spam que `credential-expiry-alerts` (`last_triggered_at`). |
-| `GET /api/cron/addon-expiry`          | Diaria 07:15 UTC        | Avisa (campanita + email al Admin/Owner) que un módulo comprado suelto vence dentro de 7 días, y marca como `expired` los pases de `TenantAddons` cuya fecha ya pasó. El corte de acceso no depende de este cron —`getActiveAddons` filtra por `expires_at` y `requireTenantTier` consulta esa lista—, pero sin él el corte era mudo: el cliente se enteraba cuando la pantalla dejaba de abrir. Anti-spam: un aviso por pase (`expiry_notified_at`). |
+| `GET /api/cron/addon-expiry`          | **Sin job**: la ruta existe y ningún job la invoca        | Avisa (campanita + email al Admin/Owner) que un módulo comprado suelto vence dentro de 7 días, y marca como `expired` los pases de `TenantAddons` cuya fecha ya pasó. El corte de acceso no depende de este cron —`getActiveAddons` filtra por `expires_at` y `requireTenantTier` consulta esa lista—, pero sin él el corte era mudo: el cliente se enteraba cuando la pantalla dejaba de abrir. Anti-spam: un aviso por pase (`expiry_notified_at`). |
 | `GET /api/cron/focus-export-daily`   | Diaria                  | Genera el export FOCUS 1.1 (CSV/JSON) del día anterior para cada tenant con `FocusExportSchedules.enabled = TRUE` (Administración → FOCUS 1.1 Export → "Programación diaria automática") y lo manda como adjunto por email — antes el export solo era manual, por rango de fechas. |
 | `GET /api/cron/credential-expiry-alerts` | Diaria             | Evalúa reglas `AlertRules` tipo `credential_expiry`: consulta Microsoft Graph por tenant y notifica (email/Slack/Teams/webhook) las App Registrations que vencen dentro del umbral configurado o ya vencieron. Anti-spam por `last_triggered_at`. |
 | `GET /api/cron/subscription-expiry`  | Diaria                  | Pasa a `EXPIRED` los tenants `CANCELED` cuyo período ya pagado (`access_until`, seteado por el webhook de Paddle) venció — corta el acceso sin cortarlo antes de tiempo. |
@@ -2117,9 +2117,12 @@ La salida de fondo es otra: un job por tenant, o una cola de trabajo con
 workers. Es un rediseño, no un ajuste.
 
 **Schedule real (Container Apps Jobs).** Cada entrada del mapa `cron_jobs` en
-`infra/terraform/environments/prod/terraform.tfvars` crea un Container Apps Job que
-hace un GET al endpoint correspondiente con el `CRON_SECRET` leído de Key Vault.
-Comentar una entrada apaga ese job; agregarla es una línea y un PR. Los `cron` de
+`infra/terraform/environments/prod/cron-jobs.tfvars` (la fuente de verdad versionada: pisa al
+`cron_jobs` del secret) crea un Container Apps Job que hace un GET al endpoint correspondiente
+con el `CRON_SECRET` leído de Key Vault. Comentar una entrada apaga ese job; agregarla es una línea
+y un PR. Esta tabla la vigila `__tests__/unit/cronRutasConJob.test.ts`: si cambia el tfvars y no
+ella, el test falla. Hay 28 jobs de cron en producción más el job `migrate`; las rutas de
+`api/cron/*` que ningún job invoca están listadas en ese mismo test. Los `cron` de
 tfvars están expresados en la **timezone del negocio** (`cron_timezone_offset_hours = -3`),
 por eso no coinciden literalmente con la columna UTC de la tabla de arriba:
 
@@ -2127,30 +2130,33 @@ por eso no coinciden literalmente con la columna UTC de la tabla de arriba:
 |---|---|---|---|
 | `sync` | `0 3 * * *` | 06:00 | 3600s (`async_poll = true`) |
 | `prewarm-daily` | `0 4 * * *` | 07:00 | 1800s (`async_poll = true`) |
-| `historical-gap-backfill` | `0 0 * * *` | 03:00 | 3600s (`async_poll = true`) |
-| `prewarm-dashboard` | `*/10 * * * *` | cada 10 min | 300s |
-| `prewarm-databases` | `*/15 * * * *` | cada 15 min | 1800s (`async_poll = true`) |
-| `prewarm-compute`   | `*/15 * * * *` | cada 15 min | 1800s (`async_poll = true`) |
-| `prewarm-cosmos-finops` | `*/20 * * * *` | cada 20 min | 300s |
-| `prewarm-mongo-finops` | `*/20 * * * *` | cada 20 min | 300s |
-| `prewarm-sql-finops` | `*/20 * * * *` | cada 20 min | 300s |
-| `prewarm-mysql-finops` | `*/20 * * * *` | cada 20 min | 300s |
-| `prewarm-postgres-finops` | `*/20 * * * *` | cada 20 min | 300s |
-| `prewarm-storage-finops` | `*/20 * * * *` | cada 20 min | 300s |
-| `prewarm-security-finops` | `*/20 * * * *` | cada 20 min | 300s |
+| `prewarm-dashboard` | `0,30 * * * *` | minutos :00, :30 de cada hora | 1800s (`async_poll = true`) |
+| `prewarm-databases` | `10,40 * * * *` | minutos :10, :40 de cada hora | 1800s (`async_poll = true`) |
+| `prewarm-compute` | `20,50 * * * *` | minutos :20, :50 de cada hora | 1800s (`async_poll = true`) |
+| `prewarm-mysql-finops` | `15 * * * *` | minuto :15 de cada hora | 300s |
+| `prewarm-cosmos-finops` | `25 * * * *` | minuto :25 de cada hora | 300s |
+| `prewarm-mongo-finops` | `35 * * * *` | minuto :35 de cada hora | 300s |
+| `prewarm-sql-finops` | `45 * * * *` | minuto :45 de cada hora | 300s |
+| `prewarm-postgres-finops` | `55 * * * *` | minuto :55 de cada hora | 300s |
+| `prewarm-storage-finops` | `7,27,47 * * * *` | minutos :07, :27, :47 de cada hora | 300s |
+| `sync-azure-ai` | `13,33,53 * * * *` | minutos :13, :33, :53 de cada hora | 300s (`auth_mode = "header"`) |
+| `prewarm-security-finops` | `19,39,59 * * * *` | minutos :19, :39, :59 de cada hora | 300s |
 | `power-schedules` | `*/2 * * * *` | cada 2 min | 120s |
-| `anomaly-detection` | `*/5 * * * *` | cada 5 min | 300s |
-| `status-snapshot` | `*/5 * * * *` | cada 5 min | 120s (`auth_mode = "query"`) |
-| `external-spend-poll` | `*/5 * * * *` | cada 5 min | 240s (sólo con `document_intelligence_enabled`) |
+| `anomaly-detection` | `1,31 * * * *` | minutos :01, :31 de cada hora | 900s (`async_poll = true`) |
+| `cost-sync-staleness-check` | `0 5 * * *` | 08:00 | default |
+| `historical-gap-backfill` | `0 0 * * *` | 03:00 | 3600s (`async_poll = true`) |
 | `open-data` | `0 1 * * 1` | lunes 04:00 | 1800s |
 | `support-attachments-cleanup` | `0 2 * * *` | 05:00 | default |
-| `cost-sync-staleness-check` | `0 5 * * *` | 08:00 | default |
 | `credential-expiry-alerts` | `0 4 * * *` | 07:00 | default |
-| `focus-export-daily` | `0 4 * * *` | 07:00 | 1800s |
 | `ttl-expiry-alerts` | `0 6 * * *` | 09:00 | default |
-| `addon-expiry` | `15 4 * * *` | 07:15 | default |
+| `reservation-expiry-alerts` | `3 6 * * *` | 09:03 | default |
 | `subscription-expiry` | `30 3 * * *` | 06:30 | default |
 | `trial-expiry` | `0 22 * * *` | 01:00 del día siguiente | default |
+| `focus-export-daily` | `0 4 * * *` | 07:00 | 1800s |
+| `report-subscriptions` | `17 * * * *` | minuto :17 de cada hora | 900s |
+| `status-snapshot` | `*/5 * * * *` | cada 5 min | 120s (`auth_mode = "query"`) |
+| `azure-api-usage-rollup` | `13 * * * *` | minuto :13 de cada hora | default |
+| `external-spend-poll` | `*/5 * * * *` | cada 5 min | 240s (sólo con `document_intelligence_enabled`) |
 
 **Local (dev) — prueba manual/cron del cockpit MySQL.**
 Con `npm run dev` activo y `CRON_SECRET` cargado en `.env.development`:

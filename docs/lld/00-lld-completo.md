@@ -5976,3 +5976,129 @@ el despliegue es sólo el código.
 Suite completa (`env -u DB_HOST REDIS_PORT=1 npx vitest run`): 4740 tests en verde y 53
 omitidos, en 448 archivos (6 omitidos), contra 4662 y 440 antes; `tsc` limpio y ESLint sin
 errores y sin warnings nuevos.
+
+---
+
+## 48. Addendum 2026-10-10 — Auditoría de arquitectura: refactores de bajo riesgo y defectos medidos
+
+Ingeniería inversa de la plataforma (arquitectura, flujo de datos, duplicación, cuellos de botella) con
+mediciones sobre producción, un build y un navegador. El informe con las cifras y los comandos está en
+`docs/auditoria-arquitectura-2026-10-10.md`; el nivel de arquitectura, en el HLD 21. Acá quedan los
+contratos de lo que se cambió y de lo que **se midió y no se tocó**. Todo se hizo en la rama
+`refactor/auditoria-2026-10-10`, sin migraciones y **sin cambiar lo que ve el usuario**.
+
+### 48.1 `src/lib/demoTenant.ts` (nuevo, sin imports)
+
+| Export | Contrato |
+|---|---|
+| `isMockTenant(tenantId)` | `false` para vacío; `true` para `demo`, `demo_tenant`, `demo-tenant`, cualquier id que empiece o contenga `demo` o `mock` (sin mayúsculas ni espacios) y los de `MOCK_AZURE_TENANTS` |
+| `MOCK_AZURE_TENANTS`, `MOCK_AZURE_SUBSCRIPTIONS`, `MOCK_ONBOARDING_CLIENT_TENANT` | Las constantes de identidad de la demo |
+
+`lib/mockData.ts` los re-exporta (misma identidad: `datos.isMockTenant === demo.isMockTenant`), así que los ~300
+archivos de servidor y los 30 tests que lo importan de ahí no cambian. 185 archivos (los componentes de cliente y
+`SubscriptionProvider`, entre ellos) lo importan de `@/lib/demoTenant`; 7 archivos cargan el dataset con
+`await import("@/lib/mockData")` en el momento de usarlo. En `TenantProvider.tsx`, `cargarDatasetDemo()`
+(`datasetDemo ??= import('@/lib/mockData')`) se llama **después** de dos salidas tempranas del interceptor: la de
+`__finopsDemoActive` (un tenant real nunca llega) y la de los endpoints reales, y se **revalida** la bandera
+tras el `await` (MEJ-03). Medido en el build: 241 de 250 páginas cargaban el chunk del dataset (676 KB, 194 KB
+gzip); ahora 0 de 252 (home: 458 → 288 KB gzip). `__tests__/unit/mockDataFueraDelBundle.test.ts` (5) arma el
+grafo de imports desde `git ls-files`, sin contar `import type` ni `import()`, y falla **nombrando el camino**
+si un archivo `'use client'` vuelve a alcanzar `mockData.ts`.
+
+### 48.2 Redis: `estrategiaDeReintento(times, enProduccion)`
+
+`src/lib/redis.ts` exporta la estrategia de reintento. Fuera de producción: `times > 3 ? null : min(times·200, 1000)`
+(un desarrollo sin Redis no se queda reintentando). En producción: `min(times·200, 2000)`, **nunca `null`**: ioredis
+no reconecta después de un `null`, y un failover dejaba a la réplica sin caché hasta reiniciarla. Test:
+`redisReintento.test.ts` (5).
+
+### 48.3 Caché: un solo fetch por clave ante misses concurrentes
+
+`src/lib/cache.ts` tiene `_missInFlight: Map<string, Promise<unknown>>`: el camino del miss comparte la promesa de la
+clave y la libera en `finally`. Es **por proceso**; con varias réplicas hay un fetch por réplica. Antes solo
+deduplicaba la revalidación en segundo plano (`_inFlight`). Test: `cacheSingleFlight.test.ts` (6; contra el código
+anterior fallan 3).
+
+### 48.4 `src/lib/asyncOnce.ts` y el fallback de costos por tag
+
+`asyncOnce<T>(fn: () => Promise<T>): () => Promise<T>` memoiza una ejecución; ante un rechazo se reinicia (el
+siguiente llamador reintenta) y un `throw` síncrono se convierte en rechazo. `azureResourcesInventory.service.ts`
+lo usa en `filasDeCostoPorTags`: el `SELECT Tags, SUM(COALESCE(EffectiveCost, BilledCost, cost_usd, 0)) … GROUP BY
+Tags` de toda la historia del tenant corre **una vez por request** y no una por clave de tag (3 consultas → 1; el
+resultado por clave no cambia). Tests: `asyncOnce.test.ts` (5), `costosPorTagUnaConsulta.test.ts` (3).
+
+### 48.5 `cron/sync-azure-ai`: un tenant a la vez
+
+`MAX_TENANTS_EN_PARALELO = 1` sobre `mapWithConcurrency` (`billingHelpers.ts`); antes `Promise.allSettled` sin tope.
+Cada tenant es un `fetch` a la propia web (`/api/intelligence/azure-ai`, `X-Cron-Auth`) y esa ruta lanza 8 colectores
+con `Promise.all`, cada uno con su primera consulta a MySQL. Con los 5 tenants Enterprise: 40 consultas simultáneas
+contra el pool de 10 y la cola de 20 (`DB_POOL_LIMIT`, `DB_QUEUE_LIMIT`, `db.ts`): **≈9.900 errores `Queue limit
+reached` en 30 días, todos en los minutos :13/:33/:53**, con una mediana de 10 por ráfaga (40 − 30). La forma de la
+respuesta no cambia (`results` en el orden de los tenants, un error por tenant no frena a los demás). Un tenant
+tarda ~2 s, así que 5 son ~10 s de los 300 del job; con ~100 tenants (≈200 s) hay que subirlo a 2-3. Test:
+`syncAzureAiConcurrencia.test.ts` (6; con el tope en 5 falla `expected 5 to be 1`). **No se tocó**
+`CRON_SECRET || "unsafe-default"`: es la única de 43 rutas de cron que acepta `Bearer unsafe-default` con la variable
+sin definir; fallar cerrado cambia el comportamiento ante una mala configuración.
+
+### 48.6 `TenantProvider`: `value` memoizado
+
+El `value` del contexto era un literal de 15 campos recreado en cada render, y lo leen 223 archivos. Ahora es un
+`useMemo` con las 13 dependencias que lo componen (`setSelectedTenant` y `setAcademyCertified` son los `set` de
+`useState`, estables). El impacto en renders **no se midió** (haría falta el Profiler). Los otros cinco providers
+(`Subscription`, `Currency`, `Metric`, `ViewMode`, `Auth`) pasan funciones definidas en el render: necesitan
+`useCallback` antes de poder memoizarse, y no se tocaron.
+
+### 48.7 Inventarios nuevos que fallan si crecen
+
+- `cronRutasConJob.test.ts` (5): cada `src/app/api/cron/*/route.ts` tiene clave en
+  `infra/terraform/environments/prod/cron-jobs.tfvars` o figura en `SIN_JOB` (14 rutas, con su motivo); ningún job
+  apunta a una ruta inexistente; `SIN_JOB` no conserva excepciones viejas; **la tabla «Schedule real» del README
+  coincide, job por job y `cron` por `cron`, con el tfvars**.
+- `apiSinGateDeTier.test.ts` (3): las rutas de `api/` bajo prefijos Business o Enterprise de `ROUTE_TIERS` deben
+  llamar a un gate de plan en el servidor (`requireTenantTier`, `assertTenantTier`, `requireSuperAdmin`, `hasAccess(`,
+  `tierLogic`, `verifyApiKey`, `X-Cron-Auth`, `CRON_SECRET`) o figurar en `SIN_GATE_DE_TIER`: hoy **59 rutas** (43
+  Enterprise, 16 Business). El servidor nunca consulta `ROUTE_TIERS`; solo la UI.
+
+### 48.8 Defectos medidos en producción y NO corregidos (cambian lo que ve el usuario)
+
+**`azureAiSummary.service.ts:699-716` consulta columnas que no existen.** `fetchGenericCapability` hace
+`SELECT resourceName, region, resourceGroup, monthlyCostUSD, utilizationPercent, lastAccessedDaysAgo, snapshotDate FROM
+\`<tabla>\` WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)` sobre
+`AzureSpeechLanguageSnapshots`, `AzureVisionVideoSnapshots`, `AzureContentSafetySnapshots`, `AzureMLSnapshots` y
+`AzureDatabricksSnapshots`. Las migraciones `20260812-004` a `-008` crean esas tablas sin `resourceGroup` ni
+`lastAccessedDaysAgo` (las de Search, DocIntel y Foundry sí las tienen: se copió el patrón). Producción:
+`Unknown column 'resourceGroup' in 'field list'` en las cinco, 9 días con el error en 30; el `catch` loguea y devuelve
+`null`, así que esas capacidades no aparecen en `/api/intelligence/azure-ai/summary`. Dos arreglos posibles: `NULL AS
+resourceGroup, NULL AS lastAccessedDaysAgo` en los dos SELECT (sin migración), o una migración que agregue las
+columnas con el patrón `INFORMATION_SCHEMA` + `PREPARE` (MySQL 8.0 no tiene `ADD COLUMN IF NOT EXISTS`) y que los
+colectores las llenen. El servicio no tiene ningún test.
+
+**`azure-ai/route.ts:1396` trata el resultado vacío como un miss.** Solo sirve del caché si `capabilities.length > 0`,
+pero `cacheCapabilities` guarda la lista vacía: los 5 tenants Enterprise cachean 0 capacidades en el 100% de las
+corridas (143 de 143 por tenant en 48 h) y se re-escanean completos cada 20 min (2.880 corridas de colectores por
+día). Cachear el vacío con un TTL propio alarga la detección de un recurso nuevo: decisión de frescura.
+
+**Un colector que falla devuelve `null`**, indistinguible de «el tenant no tiene ese servicio», y `fetchRealCapabilities`
+cachea 2 h la lista incompleta si el tenant tiene otras capacidades. `getAccessModel` (`lighthouseAccess.ts:50`)
+traduce **cualquier** error de la base en `app_registration`.
+
+### 48.9 SQL recomendado (sin aplicar)
+
+Para validar en el MySQL local y convertir después en migración idempotente (MySQL ≥ 8.0.13; producción 8.0.21). La
+expresión tiene que ser idéntica a la de las consultas (88 usos en 26 archivos):
+
+```sql
+CREATE INDEX idx_cs_tenant_chargedate ON CostSnapshots (tenant_id, ((DATE(COALESCE(ChargePeriodStart, `date`)))));
+CREATE INDEX idx_actionlogs_tenant_ts ON ActionLogs (tenant_id, `timestamp`);
+```
+
+### 48.10 Verificación
+
+Suite completa: 4.778 tests en verde (38 nuevos); `tsc` limpio; ESLint con `--quiet` sin errores; `next build`
+exitoso. Cada arreglo falla sin su arreglo (mutación comprobada: tope de 5 en el cron, reintento de Redis, dedupe del
+miss, grafo de imports, tabla del README). En un Chromium real el dataset no se pide en las páginas públicas ni en el
+login y se pide bajo demanda a los ~700 ms de entrar a la demo; los e2e de demo dan el mismo resultado que en el
+commit base (5 pasan, 96 fallan en ambos por el entorno de prueba, 0 tests de resultado distinto). **Sin verificar:**
+que `667529f` elimine los errores de pool en producción (se confirma tras el deploy con la consulta del informe), el
+`EXPLAIN` de las consultas con la ventana de fecha, y el efecto del `useMemo` en renders.
+
