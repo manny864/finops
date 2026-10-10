@@ -1,6 +1,6 @@
 # Production hardening deployment - 2026-10-10
 
-Status: Ready for Validation
+Status: Deployed
 Recipe: Terraform through the existing GitHub Actions workflows (no azd migration).
 
 ## 1. Scope and authorization
@@ -55,6 +55,15 @@ Existing-vault adoption uses a data source; a create-only lock will not protect 
 
 ## 7. Validation proof
 
+- 2026-10-10 current apply validation: Terraform validate/fmt succeeded,
+	typecheck and production build succeeded; full suite 4,921 passed, 50 skipped.
+- Plan run 38086902781, commit e4ea027: 2 lock creates, 89 in-place updates,
+	zero destroys/replacements and no failed replica check. Updates reconcile
+	tags (Environment prod -> PROD); app additionally removes APP_VERSION, which
+	the existing post-apply step restores from the unchanged container image.
+- Static RBAC review: stamp identity retains scoped AcrPull and Storage Blob
+	Data Contributor; no role replacement in the current plan. App health: ok.
+
 - requestAuthTenantAccess + authGuard: 17 tests passed.
 - adminMockAuthorization + requestAuthTenantAccess: 9 tests passed.
 - syncAzureAiTenantId: 12 tests passed.
@@ -71,11 +80,19 @@ Existing-vault adoption uses a data source; a create-only lock will not protect 
 
 ## 8. Execution status
 
-No infrastructure apply has been authorized for unexplained drift or executed.
+Terraform apply completed successfully on 2026-10-10 through run 38087177000
+at commit e4ea027: 2 added, 89 changed, 0 destroyed. MySQL and Key Vault
+CanNotDelete locks were created; the safety guard, APP_VERSION restoration
+and temporary Key Vault firewall cleanup steps all succeeded.
+Post-apply health is ok and status operational, app version
+0e0f0b103891eea5a26cb514b135b0439ca37bbc. Azure confirms revision 0000313,
+Running/Succeeded and scale min=1, max=5. The configured maximum is preserved.
+Inventory capture reported no new ordinary resources or cleanup concerns;
+authorization locks are evidenced by Terraform creation logs, not that inventory.
 The user explicitly requested removing the fixed replica cap and Terraform apply.
 The replica check now validates integer min/max ranges without a fixed ceiling;
 the configured production maximum remains unchanged. Local Terraform validate/fmt,
 17 focused tests, typecheck and 4,921 full-suite tests passed on 2026-10-10.
 Obtain and review a current-commit remote plan before apply; destructive changes
 remain blocked. Do not change subscription or silently reduce capacity.
-No deployment success is claimed until the current commit and endpoint are verified.
+Deployment and endpoint verification are complete for this apply.
