@@ -322,6 +322,18 @@ variable "blob_managed_identity_enabled" {
   default     = false
 }
 
+variable "security_activity_alerts_enabled" {
+  description = "Alertas de Activity Log a nivel de suscripción (modules/security_policy/audit.tf). Encender en UN solo stamp."
+  type        = bool
+  default     = false
+}
+
+variable "security_policy_audit_enabled" {
+  description = "Políticas integradas de Azure en modo auditoría sobre el resource group del stamp (modules/security_policy/audit.tf)."
+  type        = bool
+  default     = false
+}
+
 variable "resource_lock_enabled" {
   type    = bool
   default = false

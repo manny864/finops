@@ -31,6 +31,18 @@ variable "alerts_enabled" {
   default = true
 }
 
+variable "activity_alerts_enabled" {
+  description = "Alertas de Activity Log (cambios de privilegio y borrado de recursos con datos), a nivel de suscripción. Encender en UN solo stamp. Ver audit.tf."
+  type        = bool
+  default     = false
+}
+
+variable "policy_audit_enabled" {
+  description = "Asigna políticas integradas de Azure en modo auditoría (enforce = false) sobre el resource group del stamp. No bloquea nada. Ver audit.tf."
+  type        = bool
+  default     = false
+}
+
 variable "container_app_id" {
   type    = string
   default = null

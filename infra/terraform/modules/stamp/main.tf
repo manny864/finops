@@ -675,6 +675,9 @@ module "security_policy" {
   resource_group_name   = module.network.resource_group_name
   resource_group_id     = module.network.resource_group_id
 
+  activity_alerts_enabled = var.security_activity_alerts_enabled
+  policy_audit_enabled    = var.security_policy_audit_enabled
+
   # Sólo lo que tiene datos. La VNet queda deliberadamente afuera: un lock ahí
   # impide crear y operar MySQL Flexible con VNet injection.
   locked_resource_ids = {

@@ -96,6 +96,11 @@ variable "stamps" {
 
     # Document Intelligence (modules/ai_services). Ver modules/stamp/variables.tf.
     document_intelligence_enabled = optional(bool, false)
+
+    # Auditoría (modules/security_policy/audit.tf). Apagadas por defecto: no cambian ni bloquean
+    # nada. Las alertas son de la suscripción: encenderlas en un solo stamp.
+    security_activity_alerts_enabled = optional(bool, false)
+    security_policy_audit_enabled    = optional(bool, false)
   }))
 }
 
