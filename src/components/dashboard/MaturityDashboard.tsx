@@ -30,7 +30,7 @@ import {
 } from "recharts";
 import { toast } from "sonner";
 import { getFreshIdToken, fetchWithAuthRetry } from "@/lib/msalToken";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import PageHeaderTierBadge from "@/components/dashboard/PageHeaderTierBadge";
 import InfoTooltip from "@/components/InfoTooltip";
 import type {

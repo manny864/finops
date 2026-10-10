@@ -6,7 +6,7 @@ import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { ShieldCheck, DollarSign, Layers } from "lucide-react";
 import { toast } from "sonner";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useTranslations } from "next-intl";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";

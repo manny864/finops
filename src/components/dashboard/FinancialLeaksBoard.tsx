@@ -5,7 +5,7 @@ import { useTenant } from "@/components/TenantProvider";
 import { useSubscription } from "@/components/SubscriptionProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { useCurrency } from "@/components/CurrencyProvider";
 import CostPieChart from "@/components/CostPieChart";
 import ZombieResourcesTable from "@/components/ZombieResourcesTable";

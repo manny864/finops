@@ -28,7 +28,7 @@ import { fetchWithAuthRetry } from '@/lib/msalToken';
 import Pagination, { usePagination } from '@/components/Pagination';
 import { toast } from 'sonner';
 import { errorMessage } from '@/lib/apiErrors';
-import { isMockTenant, MOCK_AZURE_SUBSCRIPTIONS, MOCK_ONBOARDING_CLIENT_TENANT } from '@/lib/mockData';
+import { isMockTenant, MOCK_AZURE_SUBSCRIPTIONS, MOCK_ONBOARDING_CLIENT_TENANT } from '@/lib/demoTenant';
 
 export default function OnboardingPage() {
   const t = useTranslations('onboarding');

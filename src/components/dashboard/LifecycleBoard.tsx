@@ -14,7 +14,7 @@ import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { IconClockExclamation, IconExternalLink } from "@tabler/icons-react";
 
 type Ventana = "retirado" | "critico" | "proximo" | "soportado" | "sin-datos";

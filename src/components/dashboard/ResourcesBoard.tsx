@@ -12,7 +12,7 @@ import ResizableTh from "@/components/ResizableTh";
 import InfoTooltip from "@/components/InfoTooltip";
 import { useChartTheme } from "@/lib/chartTheme";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import {
     IconSearch,
     IconBox,

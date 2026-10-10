@@ -26,7 +26,7 @@ import { toast } from "sonner";
 import { useTenant } from "@/components/TenantProvider";
 import { usePerspectiveScope, useAlcanceAsignado } from "@/components/PerspectiveScopeSelector";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { IconBookmark, IconStar, IconStarFilled, IconTrash } from "@tabler/icons-react";
 
 interface Vista {

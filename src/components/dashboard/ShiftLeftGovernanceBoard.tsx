@@ -5,7 +5,7 @@ import React from "react";
 import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { errorMessage } from "@/lib/apiErrors";
 import InfoTooltip from "@/components/InfoTooltip";
 import { construirCsv, type FilaEstimacion } from "@/lib/shiftLeftBoard";

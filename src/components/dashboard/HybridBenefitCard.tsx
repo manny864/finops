@@ -6,7 +6,7 @@ import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Loader2, Server, Database, TrendingDown, Info, Cpu } from 'lucide-react';
 import Pagination, { usePagination } from '@/components/Pagination';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import { getFreshIdToken } from '@/lib/msalToken';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 

@@ -10,7 +10,7 @@ import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { generateOnboardingScript } from '@/lib/onboardingScriptTemplate';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { errorMessage } from '@/lib/apiErrors';
 

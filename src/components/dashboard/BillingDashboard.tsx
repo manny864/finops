@@ -7,7 +7,7 @@ import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { Loader2, AlertCircle } from "lucide-react";
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import CostByCategoryDashboard from "./CostByCategoryDashboard";
 import RealConsumptionDashboard from "./RealConsumptionDashboard";

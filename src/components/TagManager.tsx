@@ -7,7 +7,7 @@ import { Info, ShieldAlert, CheckCircle2, Download } from 'lucide-react';
 import { IconTag } from '@tabler/icons-react';
 import { useProviderTranslations } from '@/lib/useProviderTranslations';
 import Pagination, { usePagination } from './Pagination';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import { getFreshIdToken } from '@/lib/msalToken';
 import FeatureGuard from './FeatureGuard';
 import { csvEscape } from '@/lib/csvExport';

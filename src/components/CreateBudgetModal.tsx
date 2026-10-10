@@ -5,7 +5,7 @@ import { useMsal } from "@azure/msal-react";
 import { toast } from "sonner";
 import { Loader2, X } from "lucide-react";
 import KillSwitchConfig from "@/components/budgets/KillSwitchConfig";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import { errorMessage } from '@/lib/apiErrors';

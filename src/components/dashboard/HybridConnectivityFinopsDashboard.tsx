@@ -7,7 +7,7 @@ import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationT
 import { useTenant } from "@/components/TenantProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useMsal } from "@azure/msal-react";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import {
     HybridNetworkResource,
     HybridRemediationAction,

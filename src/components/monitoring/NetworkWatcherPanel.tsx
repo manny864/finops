@@ -39,7 +39,7 @@ import {
   Cell,
   Legend,
 } from "recharts";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { buildNetworkWatcherRemediationCommand } from "@/lib/aiRemediations";
 import Pagination, { usePagination } from "@/components/Pagination";

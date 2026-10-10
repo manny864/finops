@@ -41,7 +41,7 @@ import {
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useChartTheme } from "@/lib/chartTheme";
 import { safeSavingsPercentage, formatSavingsPercentage } from "@/lib/realizedSavings";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import PageHeaderTierBadge from "@/components/dashboard/PageHeaderTierBadge";
 import InfoTooltip from "@/components/InfoTooltip";
 import Pagination, { usePagination } from "@/components/Pagination";

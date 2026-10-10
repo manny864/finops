@@ -5,7 +5,7 @@ import { usePendingDeletionsStore } from '@/store/pendingDeletionsStore';
 import { useLocale } from 'next-intl';
 import { useMsal } from '@azure/msal-react';
 import { fetchWithAuthRetry } from '@/lib/msalToken';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import { Bell } from 'lucide-react';
 
 const DISMISSED_KEY = 'finops_browser_notifications_dismissed';

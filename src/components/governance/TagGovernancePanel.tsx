@@ -5,7 +5,7 @@ import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
 import { useSubscription } from "@/components/SubscriptionProvider";
 import { useMsal } from "@azure/msal-react";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { errorMessage } from "@/lib/apiErrors";
 import { csvEscape } from "@/lib/csvExport";

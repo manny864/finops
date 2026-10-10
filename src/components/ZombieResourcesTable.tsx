@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { useActionLogStore } from "@/store/actionLogStore";
 import { useTranslations } from "next-intl";
 import { useAIContext } from "@/hooks/useAIContext";
-import { getMockDataForRoute, isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { GLOBAL_MANDATORY_TAGS, TAG_SUGGESTED_VALUES } from "@/lib/tagConfig";
 
@@ -506,7 +506,7 @@ export default function ZombieResourcesTable({ forceFilterType }: { forceFilterT
 
         let json;
         if (isMockTenant(tenantId)) {
-          json = getMockDataForRoute("audit_full", tenantId);
+          json = (await import("@/lib/mockData")).getMockDataForRoute("audit_full", tenantId);
         } else {
           const res = await fetch(apiUrl, { headers });
           json = await res.json();

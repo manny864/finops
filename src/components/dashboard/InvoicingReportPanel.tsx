@@ -4,7 +4,7 @@ import useSWR from 'swr';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { useTranslations, useLocale } from 'next-intl';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import {
     IconReceipt2,
     IconFileZip,

@@ -7,7 +7,7 @@ import { useSubscription } from '@/components/SubscriptionProvider';
 import { useMsal } from '@azure/msal-react';
 import CreateBudgetModal from '@/components/CreateBudgetModal';
 import BudgetMonthlyChart, { type BudgetMonthlyChartPoint } from '@/components/budgets/BudgetMonthlyChart';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { toast } from 'sonner';
 import type { BudgetStatus } from '@/lib/budgetTypes';

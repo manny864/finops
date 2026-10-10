@@ -2,7 +2,7 @@
 import { useEffect, useRef } from "react";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { useActionLogStore } from "@/store/actionLogStore";
 import { useTranslations } from "next-intl";
 import { textoDeNotificacion, type NotificacionCruda } from "@/lib/notificationText";

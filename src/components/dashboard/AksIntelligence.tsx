@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { Loader2, Server, DollarSign, Box, RotateCw } from 'lucide-react';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import { getFreshIdToken } from '@/lib/msalToken';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import TelemetryDisclaimerBanner from '@/components/TelemetryDisclaimerBanner';

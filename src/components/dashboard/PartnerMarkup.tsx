@@ -41,7 +41,7 @@ import ResizableTh from '@/components/ResizableTh';
 import Pagination, { usePagination } from '@/components/Pagination';
 import { CELL, ColumnMenu, useColumnConfig, type TableColumnConfig } from '@/components/TableColumns';
 import type { MarkupOverrideRuleItem, MarkupScopeType } from '@/types/tenantPartnerMarkup.types';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 
 // A nivel de modulo no hay `t`. Se piden desde el componente. De paso salieron
 // "Regla", "Alcance", "Margen" y "Acciones", que el escaner de castellano no ve

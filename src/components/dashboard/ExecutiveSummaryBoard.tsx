@@ -20,7 +20,7 @@ import {
   IconLayoutGrid,
   IconX,
 } from "@tabler/icons-react";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useCurrency } from "@/components/CurrencyProvider";
 import MyPinnedWidgets from "@/components/dashboard/MyPinnedWidgets";

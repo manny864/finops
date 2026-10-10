@@ -7,7 +7,7 @@ import { X, Check } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useTenant } from "@/components/TenantProvider";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { fetchWithAuthRetry } from "@/lib/msalToken";
 import type { SystemAnnouncement } from "@/types/systemAnnouncements.types";
 

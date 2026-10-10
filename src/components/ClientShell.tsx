@@ -54,7 +54,7 @@ import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 
 import { MetricProvider } from './MetricProvider';
 import { CurrencyProvider } from './CurrencyProvider';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import { getFreshIdToken } from '@/lib/msalToken';
 
 export const TabContext = createContext({ activeTab: 'dashboard', setActiveTab: (t: string) => {} });

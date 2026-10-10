@@ -16,7 +16,7 @@ import {
     MemoryStick, Sparkles, Gauge, PiggyBank, ArrowRight, ShieldCheck,
     Layers, HardDrive,
 } from "lucide-react";
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import InfoTooltip from "@/components/InfoTooltip";
 import type { ComputeEfficiencySummary, RateOptimizationAction } from "@/lib/computeEfficiencyTypes";

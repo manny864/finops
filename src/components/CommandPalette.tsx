@@ -7,7 +7,7 @@ import { LayoutDashboard, FileText, Activity, Trash2, Clock, Tag, ShieldCheck, P
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';
 import { getFreshIdToken } from '@/lib/msalToken';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 
 interface ContentHit {
   kind: 'service' | 'resourceGroup' | 'subscription' | 'waste' | 'alertRule';

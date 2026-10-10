@@ -6,7 +6,7 @@ import DemoModeBadge from "@/components/DemoModeBadge";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { errorMessage } from "@/lib/apiErrors";
 import InfoTooltip from "@/components/InfoTooltip";
 import { McpApiKeyItem } from "@/types/mcpApiKey.types";

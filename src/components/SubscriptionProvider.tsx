@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from './TenantProvider';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 
 export interface Subscription {
     id: string;

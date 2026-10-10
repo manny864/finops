@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Loader2, AlertCircle, Wallet, AlertTriangle, Pencil, Check, X, Trash2, Plus, Eye, Tag } from "lucide-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import Pagination, { usePagination } from "@/components/Pagination";
 import ResizableTh from "@/components/ResizableTh";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";

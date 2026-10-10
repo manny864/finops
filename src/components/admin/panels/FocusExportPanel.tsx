@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { toast } from "sonner";
 import { Download, Loader2, FileSpreadsheet, ExternalLink, Clock, Save } from "lucide-react";

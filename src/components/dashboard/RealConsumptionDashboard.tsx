@@ -7,7 +7,7 @@ import { useMsal } from "@azure/msal-react";
 import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useCurrency } from "@/components/CurrencyProvider";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import InfoTooltip from "@/components/InfoTooltip";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import FinOpsRemediationModal, { type OptimizationTarget } from "@/components/dashboard/FinOpsRemediationModal";

@@ -26,7 +26,7 @@ import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import InfoTooltip from "@/components/InfoTooltip";
 import ResizableTh from "@/components/ResizableTh";
 import MockBanner from "@/components/MockBanner";

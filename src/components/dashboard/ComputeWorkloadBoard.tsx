@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import MockBanner from "@/components/MockBanner";
 import { DollarSign, Layers, Activity } from "lucide-react";
 import { useTranslations } from "next-intl";

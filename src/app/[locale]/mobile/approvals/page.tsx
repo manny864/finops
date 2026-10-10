@@ -9,7 +9,7 @@ import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { Loader2, CheckCircle, XCircle, Trash2, Clock } from "lucide-react";
 import { toast } from "sonner";
 
@@ -49,7 +49,7 @@ export default function MobileApprovalsPage() {
         setLoading(true);
         try {
             if (isMock) {
-                const mock = getMockDataForRoute("approvals", (selectedTenant as { tier?: string }).tier || selectedTenant.id);
+                const mock = (await import("@/lib/mockData")).getMockDataForRoute("approvals", (selectedTenant as { tier?: string }).tier || selectedTenant.id);
                 setRequests(mock.data || []);
                 return;
             }

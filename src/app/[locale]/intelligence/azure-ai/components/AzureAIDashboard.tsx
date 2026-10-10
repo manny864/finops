@@ -23,7 +23,7 @@ import {
   IconCheck,
 } from "@tabler/icons-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import TierLockedNotice from "@/components/TierLockedNotice";
 import AIAnalyticsDashboard from "@/components/dashboard/AIAnalyticsDashboard";
 import VisionVideoDashboard from "@/components/dashboard/VisionVideoDashboard";

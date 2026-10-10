@@ -3,7 +3,7 @@ import React, { ReactNode, useEffect, useState, createContext, useContext } from
 import { PublicClientApplication, EventType, AuthenticationResult } from "@azure/msal-browser";
 import { MsalProvider, useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { useTenant } from "./TenantProvider";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { exitDemoSession } from "@/app/_actions/demoAuth";
 import UserProfileMenu from "./UserProfileMenu";
 import { toast } from "sonner";

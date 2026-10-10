@@ -5,7 +5,7 @@ import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { toast } from "sonner";
 import { Save, Trash2, GitCompare, Plus, Bookmark, X, Loader2, Download } from "lucide-react";
 import jsPDF from "jspdf";

@@ -6,7 +6,6 @@ import { useViewMode } from "@/context/ViewModeContext";
 import { Zap, AlertTriangle, ArrowRight, CheckCircle, Ruler, MapPin, TrendingDown, ShieldCheck, Shield, Edit3, Trash2, X, MessageSquare, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMsal } from "@azure/msal-react";
-import { getMockDataForRoute } from '@/lib/mockData';
 import { getFreshIdToken } from '@/lib/msalToken';
 import MockBanner from '@/components/MockBanner';
 import TelemetryDisclaimerBanner from '@/components/TelemetryDisclaimerBanner';
@@ -47,7 +46,7 @@ export default function RightsizingPage() {
     setError("");
     try {
       if (selectedTenant.id === 'demo_tenant') {
-          const mock = getMockDataForRoute('rightsizing', 'demo_tenant');
+          const mock = (await import("@/lib/mockData")).getMockDataForRoute('rightsizing', 'demo_tenant');
           if (mock?.success) {
               setVms((mock.data as any[]) || []);
           }

@@ -44,7 +44,7 @@ import ResizableTh from "@/components/ResizableTh";
 import Pagination, { usePagination } from "@/components/Pagination";
 import { CELL, ColumnMenu, SCROLL_X, useColumnConfig, type TableColumnConfig } from "@/components/TableColumns";
 import { severityFilterFromDb } from "@/types/tenantNotifications.types";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 
 type ChannelType = "slack" | "teams" | "email" | "webhook";
 

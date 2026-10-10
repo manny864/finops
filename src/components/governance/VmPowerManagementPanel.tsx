@@ -30,7 +30,7 @@ import {
   IconCircleX,
 } from "@tabler/icons-react";
 import { useTenant } from "@/components/TenantProvider";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { errorMessage } from "@/lib/apiErrors";
 import ResizableTh from "@/components/ResizableTh";

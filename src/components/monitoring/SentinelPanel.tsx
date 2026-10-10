@@ -36,7 +36,7 @@ import {
   CartesianGrid,
   Legend,
 } from "recharts";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { buildSentinelRemediationCommand } from "@/lib/aiRemediations";
 import Pagination, { usePagination } from "@/components/Pagination";

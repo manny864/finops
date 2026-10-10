@@ -2,7 +2,7 @@
 import React from 'react';
 import { Info } from 'lucide-react';
 import { useOptionalTenant } from '@/components/TenantProvider';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import { useProviderTranslations } from '@/lib/useProviderTranslations';
 
 type Props = {

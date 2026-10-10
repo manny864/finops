@@ -8,7 +8,7 @@ import { LayoutDashboard, PinOff, ChevronUp, ChevronDown } from "lucide-react";
 import { getWidget } from "./widgetRegistry";
 import { getRequiredTierForPath } from "@/lib/routeTiers";
 import FeatureGuard from "@/components/FeatureGuard";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 
 const DEMO_PINS_KEY = "finops_demo_dashboard_pins";
 

@@ -40,7 +40,7 @@ import ResizableTh from "@/components/ResizableTh";
 import Pagination, { usePagination } from "@/components/Pagination";
 import { CELL, ColumnMenu, SCROLL_X, useColumnConfig, type TableColumnConfig } from "@/components/TableColumns";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { errorMessage } from "@/lib/apiErrors";
 import { normalizeTier } from "@/lib/tierLogic";
 import { useTenantPlanLimits } from "@/hooks/useTenantPlanLimits";

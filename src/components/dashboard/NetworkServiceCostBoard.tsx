@@ -6,7 +6,7 @@ import { useTenant } from "@/components/TenantProvider";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, DollarSign, Layers } from "lucide-react";
 import { useTranslations } from "next-intl";

@@ -40,7 +40,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { useCurrency } from "@/components/CurrencyProvider";
 import type {
   VisionVideoPayload,

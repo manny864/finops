@@ -6,7 +6,7 @@ import { useMsal } from '@azure/msal-react';
 import { Loader2, Save, Plus, Trash2, PieChart } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Pagination from '@/components/Pagination';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import { getFreshIdToken } from '@/lib/msalToken';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import { useProviderTranslations } from "@/lib/useProviderTranslations";

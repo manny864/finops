@@ -41,7 +41,7 @@ import {
   Legend,
   ReferenceLine,
 } from "recharts";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { useTextoPorCategoria } from "@/lib/recommendationText";
 import { getFreshIdToken } from "@/lib/msalToken";
 import Pagination, { usePagination } from "@/components/Pagination";

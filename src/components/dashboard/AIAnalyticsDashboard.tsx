@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { useNombreDeBucket } from "@/lib/bucketSinAsignar";
 import { Loader2, BrainCircuit, AlertTriangle, TrendingUp, Cpu, DollarSign, Zap, Info, Clock, Activity, RefreshCw } from "lucide-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, CartesianGrid, Legend, AreaChart, Area } from "recharts";
 import { TOOLTIP_TEMA } from "@/lib/chartTooltip";

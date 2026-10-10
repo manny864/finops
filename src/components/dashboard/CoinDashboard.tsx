@@ -35,7 +35,7 @@ import {
 } from "recharts";
 import { hasAccess } from "@/lib/tierLogic";
 import PremiumBanner from "@/components/PremiumBanner";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import InfoTooltip from "@/components/InfoTooltip";
 import { useChartTheme } from "@/lib/chartTheme";
 import CoinRecommendationsModal from "@/components/dashboard/CoinRecommendationsModal";

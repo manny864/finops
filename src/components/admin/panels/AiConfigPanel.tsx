@@ -35,7 +35,7 @@ import { getFreshIdToken } from '@/lib/msalToken';
 import { useTranslations } from 'next-intl';
 import { errorMessage } from '@/lib/apiErrors';
 import InfoTooltip from '@/components/InfoTooltip';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 
 /** Contrato de la columna `Tenants.ai_anomaly_sensitivity` — ENUM de 4 valores. */
 type Sensitivity = 'low' | 'medium' | 'high' | 'strict';

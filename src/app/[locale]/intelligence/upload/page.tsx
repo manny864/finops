@@ -6,7 +6,7 @@ import Papa from 'papaparse';
 import { useMsal } from '@azure/msal-react';
 import { useTenant } from '@/components/TenantProvider';
 import { getFreshIdToken } from '@/lib/msalToken';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import { UploadCloud, FileText, CheckCircle2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';

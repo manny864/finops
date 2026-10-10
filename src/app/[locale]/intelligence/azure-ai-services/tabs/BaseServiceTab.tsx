@@ -4,7 +4,7 @@ import useSWR from "swr";
 import { useTranslations } from "next-intl";
 import { useMsal } from "@azure/msal-react";
 import { fetchWithAuthRetry } from "@/lib/msalToken";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 
 interface CapabilityMetrics {
   capability: string;

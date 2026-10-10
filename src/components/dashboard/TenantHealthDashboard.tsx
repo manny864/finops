@@ -8,7 +8,7 @@ import { getFreshIdToken } from '@/lib/msalToken';
 import { Loader2, HeartPulse } from 'lucide-react';
 import { hasAccess } from '@/lib/tierLogic';
 import PremiumBanner from '@/components/PremiumBanner';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 
 function gradeColor(grade: string): string {
     if (grade === 'A') return '#10b981';

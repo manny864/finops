@@ -7,7 +7,7 @@ import { Boxes, DollarSign, Zap, Cpu, Package, Server } from 'lucide-react';
 import { toast } from 'sonner';
 import Pagination, { usePagination } from '@/components/Pagination';
 import PinButton from '@/components/dashboard/PinButton';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { useTranslations } from 'next-intl';
 

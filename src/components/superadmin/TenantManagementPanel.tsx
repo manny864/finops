@@ -7,7 +7,7 @@ import { useMsal } from "@azure/msal-react";
 import { toast } from "sonner";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useTenant } from "@/components/TenantProvider";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { errorMessage } from "@/lib/apiErrors";
 import InfoTooltip from "@/components/InfoTooltip";
 import { ColumnMenu } from "@/components/TableColumns";

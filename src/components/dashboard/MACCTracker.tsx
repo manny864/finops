@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { Loader2, AlertTriangle, CheckCircle, TrendingDown, TrendingUp, DollarSign, Calendar } from "lucide-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 
 type CommitmentStatus = "onTrack" | "atRisk" | "overConsumption";

@@ -33,7 +33,7 @@ import {
   IconTool,
   IconDisc,
 } from "@tabler/icons-react";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { getFreshIdToken } from "@/lib/msalToken";
 import type {
   AdvisorCategory,

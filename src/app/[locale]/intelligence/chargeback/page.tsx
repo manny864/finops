@@ -13,7 +13,7 @@ import Pagination, { usePagination } from '@/components/Pagination';
 import { useProviderTranslations } from "@/lib/useProviderTranslations";
 import { errorMessage } from '@/lib/apiErrors';
 import { fetchWithAuthRetry } from '@/lib/msalToken';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 
 const COLORS = ['#0054A6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#64748b'];

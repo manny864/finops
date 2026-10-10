@@ -8,7 +8,7 @@ import { AlertTriangle, FileText, Loader2, ReceiptText, RefreshCw, UploadCloud }
 import MockBanner from "@/components/MockBanner";
 import { useTenant } from "@/components/TenantProvider";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import {
     EXTERNAL_SPEND_DOC_TYPES, EXTERNAL_SPEND_MAX_BYTES, EXTERNAL_SPEND_MAX_PAGES,
     type Commitment, type ExternalSpendDocType, type ExternalSpendDocument, type ExternalSpendDocumentDetail,

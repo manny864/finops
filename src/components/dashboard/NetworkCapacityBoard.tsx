@@ -15,7 +15,7 @@ import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { IconRouter, IconAlertTriangle, IconExternalLink } from "@tabler/icons-react";
 
 type Veredicto = "subutilizado" | "ajustado" | "sin-datos" | "sin-capacidad";

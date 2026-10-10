@@ -30,7 +30,7 @@ import {
   IconSparkles,
 } from "@tabler/icons-react";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend } from "recharts";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { buildDefenderRemediationCommand } from "@/lib/aiRemediations";
 import Pagination, { usePagination } from "@/components/Pagination";

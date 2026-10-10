@@ -28,7 +28,7 @@ import { useCurrency } from '@/components/CurrencyProvider';
 import { calculateBreakeven } from '@/lib/commitmentBreakeven';
 import ReservationRenewalModal, { type RenewReservation } from '@/components/dashboard/ReservationRenewalModal';
 import ReservationUtilizationModal, { type UtilReservation } from '@/components/dashboard/ReservationUtilizationModal';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import { getFreshIdToken } from '@/lib/msalToken';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import { TOOLTIP_TEMA } from "@/lib/chartTooltip";

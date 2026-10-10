@@ -11,7 +11,7 @@ import CapacityAddonsCard from "@/components/admin/panels/CapacityAddonsCard";
 import ChangePlanModal from "@/components/admin/ChangePlanModal";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { errorMessage } from "@/lib/apiErrors";
 import InfoTooltip from "@/components/InfoTooltip";
 import {

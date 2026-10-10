@@ -10,7 +10,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { hasAccess } from '@/lib/tierLogic';
 import PremiumBanner from '@/components/PremiumBanner';
 import { useCurrency } from '@/components/CurrencyProvider';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import { TOOLTIP_TEMA } from "@/lib/chartTooltip";
 import AnomalyRootCause from './AnomalyRootCause';

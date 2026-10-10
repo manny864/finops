@@ -1,7 +1,13 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
-import { getMockDataForRoute, getMockPerspectivesBreakdown, getMockCostGroupDetail, getMockCostCenterResources, isMockTenant, MOCK_CONTAINER_DOMAIN } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
+
+// El dataset de la demo (4.4k líneas, 292 KB) NO se importa de forma estática: lo cargaban todas las
+// páginas autenticadas de clientes reales (194 KB gzip) para un tenant que nunca lo usa. Se trae la
+// primera vez que el interceptor de demo sirve algo, y queda en caché del módulo.
+let datasetDemo: Promise<typeof import('@/lib/mockData')> | null = null;
+const cargarDatasetDemo = () => (datasetDemo ??= import('@/lib/mockData'));
 import { getMockExecutiveReportById, getMockExecutiveReportHistory } from '@/lib/executiveReportMock';
 import { usePathname, useRouter } from 'next/navigation';
 import { getFreshIdToken } from '@/lib/msalToken';
@@ -392,6 +398,12 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                   url.includes('/api/superadmin/') ||
                   url.includes('/api/admin/config/users')
               ) {
+                  return originalFetch(input, init);
+              }
+              const { getMockDataForRoute, getMockPerspectivesBreakdown, getMockCostGroupDetail, getMockCostCenterResources, MOCK_CONTAINER_DOMAIN } = await cargarDatasetDemo();
+              // El await cede el control: se revalida el tenant ACTUAL antes de servir un solo mock (MEJ-03).
+              // Sin esto, un cambio de demo a tenant real durante la carga serviría cifras inventadas.
+              if (!(window as any).__finopsDemoActive) {
                   return originalFetch(input, init);
               }
               const tier = selectedTenant?.tier?.toLowerCase() || demoSession?.tier?.toLowerCase() || 'professional';

@@ -9,7 +9,7 @@ import { Link } from "@/i18n/routing";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { Loader2, BellRing, KeyRound, ChevronRight, ShieldAlert } from "lucide-react";
 
 interface Rule {
@@ -43,7 +43,7 @@ export default function MobileAlertsPage() {
         setLoading(true);
         try {
             if (isMock) {
-                const mock = getMockDataForRoute("alerts", (selectedTenant as { tier?: string }).tier || selectedTenant.id);
+                const mock = (await import("@/lib/mockData")).getMockDataForRoute("alerts", (selectedTenant as { tier?: string }).tier || selectedTenant.id);
                 setRules(mock.rules || []);
                 setCredCounts({ expired: 1, expiring: 2 });
                 return;

@@ -20,7 +20,7 @@ import {
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useCurrency } from "@/components/CurrencyProvider";
-import { MonthlyStorageHistoryItem } from "@/app/api/intelligence/storage-efficiency/history/route";
+import type { MonthlyStorageHistoryItem } from "@/app/api/intelligence/storage-efficiency/history/route";
 import InfoTooltip from "@/components/InfoTooltip";
 
 function formatStorageSize(gb: number | null | undefined): string {

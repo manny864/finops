@@ -38,7 +38,7 @@ import {
     IconX,
 } from "@tabler/icons-react";
 import { errorMessage } from "@/lib/apiErrors";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import InfoTooltip from "@/components/InfoTooltip";
 import ResizableTh from "@/components/ResizableTh";
 import { ColumnMenu, useColumnConfig, type TableColumnConfig } from "@/components/TableColumns";

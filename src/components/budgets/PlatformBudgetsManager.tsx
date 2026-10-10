@@ -11,7 +11,7 @@ import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { Link } from "@/i18n/routing";
 import { Loader2, Pencil, BellPlus, Plus, ExternalLink, Tag } from "lucide-react";
 import { toast } from "sonner";
@@ -102,7 +102,7 @@ export default function PlatformBudgetsManager() {
         try {
             let json;
             if (isMock) {
-                json = getMockDataForRoute("platform-budgets", (selectedTenant as { tier?: string }).tier || selectedTenant.id);
+                json = (await import("@/lib/mockData")).getMockDataForRoute("platform-budgets", (selectedTenant as { tier?: string }).tier || selectedTenant.id);
             } else {
                 const headers = await authHeaders();
                 const res = await fetch(`/api/budgets?tenantId=${selectedTenant.id}`, { headers });

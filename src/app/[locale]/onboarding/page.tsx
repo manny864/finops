@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useTenant } from '@/components/TenantProvider';
 import { useSubscription } from '@/components/SubscriptionProvider';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import { useMsal } from '@azure/msal-react';
 import { fetchWithAuthRetry } from '@/lib/msalToken';
 import WizardLayout from '@/components/onboarding/WizardLayout';

@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { IconPin, IconPinFilled, IconCheck, IconLoader2, IconAlertCircle } from "@tabler/icons-react";
 import { toast } from "sonner";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { errorMessage } from '@/lib/apiErrors';
 
 const DEMO_PINS_KEY = "finops_demo_dashboard_pins";

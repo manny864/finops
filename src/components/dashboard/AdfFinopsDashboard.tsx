@@ -39,7 +39,7 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { useCurrency } from "@/components/CurrencyProvider";
 import { buildAdfRemediationCommand } from "@/lib/aiRemediations";

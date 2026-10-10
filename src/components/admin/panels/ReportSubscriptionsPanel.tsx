@@ -14,7 +14,7 @@ import { toast } from "react-hot-toast";
 import { useMsal } from "@azure/msal-react";
 import { useTenant } from "@/components/TenantProvider";
 import { fetchWithAuthRetry } from "@/lib/msalToken";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { hasAccess } from "@/lib/tierLogic";
 import { IconTrash, IconSend, IconPlus } from "@tabler/icons-react";
 

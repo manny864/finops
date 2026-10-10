@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { useMsal } from '@azure/msal-react';
 import { fetchWithAuthRetry } from '@/lib/msalToken';
 import { errorMessage } from '@/lib/apiErrors';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import {
     IconFolderPlus,
     IconX,

@@ -9,7 +9,7 @@ import { useMsal, useIsAuthenticated } from '@azure/msal-react';
 import { hasAccess } from '@/lib/tierLogic';
 import { compactPayloadString } from '@/lib/copilotPayload';
 import { captureAutoPageSnapshot, deriveLabelFromPathname } from '@/lib/autoPageContext';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { fetchWithAuthRetry } from '@/lib/msalToken';

@@ -16,7 +16,7 @@ import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { IconTrophy, IconArrowRight, IconInfoCircle } from "@tabler/icons-react";
 
 type Clasificacion = "COGS" | "OPEX" | "UNCLASSIFIED";

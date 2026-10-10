@@ -25,7 +25,7 @@ import {
     IconLayersLinked,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import CostGroupDetailModal from "@/components/dashboard/CostGroupDetailModal";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import InfoTooltip from "@/components/InfoTooltip";

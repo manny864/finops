@@ -12,7 +12,7 @@ import { useSubscription } from "@/components/SubscriptionProvider";
 import ScopeSelector from "@/components/ScopeSelector";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { TrendingUp, PiggyBank, Ghost, DollarSign, BellRing, LifeBuoy, RefreshCw, Lightbulb } from "lucide-react";
 
 interface Summary {
@@ -45,7 +45,7 @@ export default function MobileSummaryPage() {
         setError(false);
         try {
             if (isMock) {
-                setSummary(getMockDataForRoute("mobile-summary", (selectedTenant as { tier?: string }).tier || selectedTenant.id));
+                setSummary((await import("@/lib/mockData")).getMockDataForRoute("mobile-summary", (selectedTenant as { tier?: string }).tier || selectedTenant.id));
                 return;
             }
             if (accounts.length === 0) return;

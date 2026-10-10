@@ -5,7 +5,7 @@ import { useMsal } from "@azure/msal-react";
 import { useLocale, useTranslations } from "next-intl";
 import { X, AlertTriangle, Wrench, Info, ShieldAlert } from "lucide-react";
 import { useTenant } from "@/components/TenantProvider";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { fetchWithAuthRetry } from "@/lib/msalToken";
 import type { SystemAnnouncement } from "@/types/systemAnnouncements.types";
 

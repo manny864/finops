@@ -6,7 +6,7 @@ import { IconX, IconCopy, IconCheck, IconExternalLink } from "@tabler/icons-reac
 import { useMsal } from "@azure/msal-react";
 import { useTenant } from "@/components/TenantProvider";
 import { getFreshIdToken } from "@/lib/msalToken";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 
 interface ContainerAppDetail {
   name: string;

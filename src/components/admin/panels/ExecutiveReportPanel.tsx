@@ -47,7 +47,7 @@ import {
     IconTrendingDown,
     IconTrendingUp,
 } from '@tabler/icons-react';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import { getFreshIdToken } from '@/lib/msalToken';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';

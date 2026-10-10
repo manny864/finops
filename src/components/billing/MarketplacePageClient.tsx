@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useTenant } from "@/components/TenantProvider";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import AddonsMarketplace from "@/components/billing/AddonsMarketplace";
 import type { SaaSPlanTier } from "@/types/saasBilling.types";
 

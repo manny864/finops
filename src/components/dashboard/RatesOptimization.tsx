@@ -1,6 +1,6 @@
 "use client";
 import MockBanner from '@/components/MockBanner';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { useMsal } from '@azure/msal-react';

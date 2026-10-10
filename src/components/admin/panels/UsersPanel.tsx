@@ -20,7 +20,7 @@ import {
     IconUsers,
     IconUsersGroup,
 } from "@tabler/icons-react";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { hasAccess } from "@/lib/tierLogic";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { errorMessage } from "@/lib/apiErrors";

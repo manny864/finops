@@ -27,7 +27,7 @@ import Pagination, { usePagination } from '@/components/Pagination';
 import PinButton from '@/components/dashboard/PinButton';
 import TelemetryDisclaimerBanner from '@/components/TelemetryDisclaimerBanner';
 import InfoTooltip from '@/components/InfoTooltip';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import { getFreshIdToken } from '@/lib/msalToken';
 import { useTranslations } from 'next-intl';
 import { TOOLTIP_TEMA } from "@/lib/chartTooltip";

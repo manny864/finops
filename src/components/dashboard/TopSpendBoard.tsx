@@ -18,7 +18,7 @@ import {
     IconLoader2,
 } from "@tabler/icons-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LabelList } from "recharts";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import InfoTooltip from "@/components/InfoTooltip";
 import { useChartTheme } from "@/lib/chartTheme";

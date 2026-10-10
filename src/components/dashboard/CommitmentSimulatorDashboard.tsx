@@ -15,7 +15,7 @@ import {
     IconBulb,
     IconListDetails
 } from "@tabler/icons-react";
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import type {
     SavingsPlanVsReservationData,

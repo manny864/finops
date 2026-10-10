@@ -19,7 +19,7 @@ import {
 import { toast } from 'sonner';
 import MockBanner from '@/components/MockBanner';
 import CreateResourceGroupModal from '@/components/CreateResourceGroupModal';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import FeatureGuard from '@/components/FeatureGuard';
 import InfoTooltip from '@/components/InfoTooltip';
 import { getFreshIdToken } from '@/lib/msalToken';

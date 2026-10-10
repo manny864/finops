@@ -38,7 +38,7 @@ import { toast } from 'sonner';
 import { getFreshIdToken } from '@/lib/msalToken';
 
 import InfoTooltip from '@/components/InfoTooltip';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import { hasAccess } from '@/lib/tierLogic';
 import { errorMessage } from '@/lib/apiErrors';
 import type {

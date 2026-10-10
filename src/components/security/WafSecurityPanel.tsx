@@ -27,7 +27,7 @@ import {
   IconMapPin,
   IconSparkles,
 } from "@tabler/icons-react";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { buildWafRemediationCommand } from "@/lib/aiRemediations";
 import Pagination, { usePagination } from "@/components/Pagination";

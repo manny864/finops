@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { getFreshIdToken } from '@/lib/msalToken';
-import { isMockTenant } from '@/lib/mockData';
+import { isMockTenant } from '@/lib/demoTenant';
 import { useActionLogStore } from '@/store/actionLogStore';
 import { requestNotificationPermission } from '@/hooks/useBrowserNotifications';
 import type {

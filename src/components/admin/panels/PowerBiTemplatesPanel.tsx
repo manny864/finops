@@ -14,7 +14,7 @@ import { useTranslations } from "next-intl";
 import { resolveScriptComments } from "@/lib/scriptComments";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { downloadPqFile } from "@/lib/export/downloadPqFile";
 import PowerBiScriptModal from "@/components/reports/PowerBiScriptModal";

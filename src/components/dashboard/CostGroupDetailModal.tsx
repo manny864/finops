@@ -16,7 +16,7 @@ import {
     ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, ComposedChart, Line,
     ReferenceLine, CartesianGrid, PieChart, Pie, Cell, LineChart, Legend,
 } from "recharts";
-import { isMockTenant } from "@/lib/mockData";
+import { isMockTenant } from "@/lib/demoTenant";
 import { getRegionCoords } from "@/lib/azureRegionCoords";
 import TierLockedNotice, { parseTierRequiredError } from "@/components/TierLockedNotice";
 import { AlcanceNoAplicado, usePerspectiveScope } from "@/components/PerspectiveScopeSelector";
