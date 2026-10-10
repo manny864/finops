@@ -6059,19 +6059,48 @@ El `value` del contexto era un literal de 15 campos recreado en cada render, y l
   `tierLogic`, `verifyApiKey`, `X-Cron-Auth`, `CRON_SECRET`) o figurar en `SIN_GATE_DE_TIER`: hoy **59 rutas** (43
   Enterprise, 16 Business). El servidor nunca consulta `ROUTE_TIERS`; solo la UI.
 
-### 48.8 Defectos medidos en producción y NO corregidos (cambian lo que ve el usuario)
+### 48.8 El resumen de IA: columnas que no existían (corregido)
 
-**`azureAiSummary.service.ts:699-716` consulta columnas que no existen.** `fetchGenericCapability` hace
-`SELECT resourceName, region, resourceGroup, monthlyCostUSD, utilizationPercent, lastAccessedDaysAgo, snapshotDate FROM
-\`<tabla>\` WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)` sobre
-`AzureSpeechLanguageSnapshots`, `AzureVisionVideoSnapshots`, `AzureContentSafetySnapshots`, `AzureMLSnapshots` y
-`AzureDatabricksSnapshots`. Las migraciones `20260812-004` a `-008` crean esas tablas sin `resourceGroup` ni
-`lastAccessedDaysAgo` (las de Search, DocIntel y Foundry sí las tienen: se copió el patrón). Producción:
-`Unknown column 'resourceGroup' in 'field list'` en las cinco, 9 días con el error en 30; el `catch` loguea y devuelve
-`null`, así que esas capacidades no aparecen en `/api/intelligence/azure-ai/summary`. Dos arreglos posibles: `NULL AS
-resourceGroup, NULL AS lastAccessedDaysAgo` en los dos SELECT (sin migración), o una migración que agregue las
-columnas con el patrón `INFORMATION_SCHEMA` + `PREPARE` (MySQL 8.0 no tiene `ADD COLUMN IF NOT EXISTS`) y que los
-colectores las llenen. El servicio no tiene ningún test.
+`getAzureAiSummary` arma el desglose de las 8 capacidades con una consulta por tabla de snapshots. Seis de las ocho
+consultas pedían columnas que sus tablas no tienen, y MySQL las rechazaba con `Unknown column … in 'field list'`; el
+`catch` de cada capacidad logueaba y devolvía `null`, así que **esas capacidades no aparecían y nada lo mostraba**.
+Producción, 30 días: las 4 aperturas del resumen que hubo fallaron en las seis.
+
+| Capacidad | Tabla | Pedía y no existe |
+|---|---|---|
+| Speech & Language | `AzureSpeechLanguageSnapshots` | `resourceGroup`, `lastAccessedDaysAgo` |
+| Vision & Video | `AzureVisionVideoSnapshots` | ídem |
+| Content Safety | `AzureContentSafetySnapshots` | ídem |
+| Azure Machine Learning | `AzureMLSnapshots` | ídem |
+| Azure Databricks | `AzureDatabricksSnapshots` | `resourceName` (la tabla nombra `workspaceId` / `workspaceName`), y lo anterior |
+| Document Intelligence | `AzureDocumentIntelligenceSnapshots` | `lastAccessedDaysAgo` (`resourceGroup` sí existe) |
+
+Las tablas de Search y Foundry tienen las dos columnas; el SELECT genérico se copió de ellas. Lo que cambió:
+
+- `fetchAiServiceCapability(…, serviceKeywords, columnas = { id: "resourceId", nombre: "resourceName" })` arma el SELECT
+  una sola vez (antes estaba duplicado para el reintento tras el sync) con `${columnas.id} AS resourceId,
+  ${columnas.nombre} AS resourceName, region, monthlyCostUSD, utilizationPercent, snapshotDate`. Databricks pasa
+  `{ id: "workspaceId", nombre: "workspaceName" }`. `buildCapabilityFromRows` ya cubría lo que falta: `resourceGroup` es
+  `"Unknown"` y `lastAccessedDaysAgo` es 0, igual que en `/api/intelligence/azure-ai`, que lee estas tablas con `SELECT *`.
+- `fetchDocIntelCapability` ya no pide `lastAccessedDaysAgo`.
+- `mapCapabilityKey` conoce `doc_intelligence` (la clave con la que el propio servicio arma esa capacidad). Sin esa entrada
+  caía en el `foundry` por defecto y, con recursos de Document Intelligence, la fila de **Foundry mostraba su costo**
+  (también sus señales de riesgo y la remediación «Modernize Legacy Models»).
+- `getAzureAiSummary` cachea sólo las capacidades con recursos. El caché (`ai:capabilities:<tenant>`) es el mismo que usa
+  `/api/intelligence/azure-ai`, que lo sirve sólo si la lista no está vacía y trata «sin recursos» como «ausente»; las
+  cinco tablas genéricas ahora devuelven un objeto vacío cuando el sync confirma 0 recursos (la rama que nunca se
+  alcanzaba), y guardarlo habría cambiado cuándo vuelve a escanear el cron.
+
+`__tests__/unit/azureAiSummaryColumnas.test.ts` (6 tests) es el primero del repo que prueba SQL contra el esquema real: su
+base falsa lee los `CREATE TABLE` y los `ALTER TABLE … ADD COLUMN` de `migrations/*.sql`, acota cada consulta al tenant y
+rechaza, como MySQL, toda columna que la tabla no tiene (los datos de prueba tampoco pueden inventar columnas). Comprueba que
+las 8 tablas se consultan sin violaciones, que cada capacidad sale en su fila con su costo y sus recursos (con costos
+distintos, para que una fila que absorbe a otra se note), que el workspace de Databricks conserva su nombre, y qué se cachea.
+Sin el arreglo reproduce los seis errores de producción; cada parte del arreglo se comprobó por mutación. **Lo que cambia
+para el usuario:** un tenant con recursos de esos seis servicios ve sus costos en el resumen; uno sin ellos no ve
+diferencia (los 5 tenants de hoy).
+
+### 48.9 Defectos medidos en producción y NO corregidos
 
 **`azure-ai/route.ts:1396` trata el resultado vacío como un miss.** Solo sirve del caché si `capabilities.length > 0`,
 pero `cacheCapabilities` guarda la lista vacía: los 5 tenants Enterprise cachean 0 capacidades en el 100% de las
@@ -6082,7 +6111,12 @@ día). Cachear el vacío con un TTL propio alarga la detección de un recurso nu
 cachea 2 h la lista incompleta si el tenant tiene otras capacidades. `getAccessModel` (`lighthouseAccess.ts:50`)
 traduce **cualquier** error de la base en `app_registration`.
 
-### 48.9 SQL recomendado (sin aplicar)
+**El reporte ejecutivo tiene la misma clase de defecto que el resumen de IA** (`executiveReportGenerator.service.ts`,
+colectores `hardWaste`, `anomalies` y `budgets`, cuyo `catch` los deja vacíos): consulta `ZombieResources`, una tabla que no
+existe (45 veces en 9 días de producción), `detected_date` en `Anomalies` (11 veces en 5 días) y `name` en `Budgets` (11
+veces en 5 días). Se encontró al revisar los logs de producción por `Unknown column`; no se tocó.
+
+### 48.10 SQL recomendado (sin aplicar)
 
 Para validar en el MySQL local y convertir después en migración idempotente (MySQL ≥ 8.0.13; producción 8.0.21). La
 expresión tiene que ser idéntica a la de las consultas (88 usos en 26 archivos):
@@ -6092,13 +6126,14 @@ CREATE INDEX idx_cs_tenant_chargedate ON CostSnapshots (tenant_id, ((DATE(COALES
 CREATE INDEX idx_actionlogs_tenant_ts ON ActionLogs (tenant_id, `timestamp`);
 ```
 
-### 48.10 Verificación
+### 48.11 Verificación
 
-Suite completa: 4.778 tests en verde (38 nuevos); `tsc` limpio; ESLint con `--quiet` sin errores; `next build`
-exitoso. Cada arreglo falla sin su arreglo (mutación comprobada: tope de 5 en el cron, reintento de Redis, dedupe del
-miss, grafo de imports, tabla del README). En un Chromium real el dataset no se pide en las páginas públicas ni en el
-login y se pide bajo demanda a los ~700 ms de entrar a la demo; los e2e de demo dan el mismo resultado que en el
-commit base (5 pasan, 96 fallan en ambos por el entorno de prueba, 0 tests de resultado distinto). **Sin verificar:**
-que `667529f` elimine los errores de pool en producción (se confirma tras el deploy con la consulta del informe), el
+Suite completa: 4.784 tests en verde (44 nuevos); `tsc` limpio; ESLint con `--quiet` sin errores; `next build`
+exitoso en el estado anterior al arreglo del resumen de IA. Cada arreglo falla sin su arreglo (mutación comprobada: tope
+de 5 en el cron, reintento de Redis, dedupe del miss, grafo de imports, tabla del README, las cinco partes del resumen de
+IA). En un Chromium real el dataset no se pide en las páginas públicas ni en el login y se pide bajo demanda a los ~700 ms de
+entrar a la demo; los e2e de demo dan el mismo resultado que en el commit base (5 pasan, 96 fallan en ambos por el entorno de
+prueba, 0 tests de resultado distinto). **Sin verificar:** que `667529f` elimine los errores de pool en producción (se
+confirma tras el deploy con la consulta del informe), que el resumen muestre en producción las capacidades que antes
+faltaban (hoy los 5 tenants no tienen recursos de esos servicios: sólo se probó con el DDL real y datos de prueba), el
 `EXPLAIN` de las consultas con la ventana de fecha, y el efecto del `useMemo` en renders.
-

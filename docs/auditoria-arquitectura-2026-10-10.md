@@ -23,8 +23,8 @@ priorizada (sección 7), con las decisiones de producto separadas de las técnic
 1. **Hoy la plataforma está casi ociosa en promedio** (1 réplica web al 1% de CPU, MySQL con 0,84 GB y 4% de
    CPU, 0,13 req/s), **pero hay tres defectos vivos que ninguna métrica de infraestructura muestra** (Z0): el pool
    de MySQL se desborda en ráfagas (≈9.900 errores en 30 días; **corregido**), los 5 tenants Enterprise se
-   re-escanean cada 20 min para devolver una lista vacía, y cinco de las ocho capacidades del resumen de IA fallan
-   siempre por columnas que no existen. El resto de los problemas de escala son **techos de diseño**; los de
+   re-escanean cada 20 min para devolver una lista vacía, y seis de las ocho capacidades del resumen de IA fallaban
+   siempre por columnas que no existen (**corregido**). El resto de los problemas de escala son **techos de diseño**; los de
    mantenimiento ya se pagan todos los días.
 2. **El primer muro de la ingesta es Cost Management, no la capacidad de la infraestructura.** El barrido diario tarda 30 a 47
    min con solo **5 tenants** (el job se corta a los 60) y en 7 de 8 días entre 1 y 3 tenants terminan
@@ -180,16 +180,32 @@ Graph, Monitor, MySQL) para devolver una lista vacía. No hay otros errores de c
 probable es que esos tenants no tengan recursos de IA (no lo distinguí de un vacío silencioso). **No se cambió**:
 cachear el vacío alarga a ≤TTL la detección de un recurso nuevo, y esa frescura es una decisión de producto.
 
-**Z0.3 — El resumen de IA consulta columnas que no existen y cinco de ocho capacidades nunca aparecen.** MEDIDO y
-LEÍDO: `azureAiSummary.service.ts:699-716` (`fetchGenericCapability`) hace `SELECT resourceName, region,
-resourceGroup, …, lastAccessedDaysAgo, … FROM <tabla>` sobre `AzureSpeechLanguageSnapshots`, `AzureVisionVideoSnapshots`,
-`AzureContentSafetySnapshots`, `AzureMLSnapshots` y `AzureDatabricksSnapshots`, pero las migraciones `20260812-004` a
-`-008` crean esas tablas **sin `resourceGroup` ni `lastAccessedDaysAgo`** (las de Search, DocIntel y Foundry sí las
-tienen: se copió el patrón). Producción lo confirma: `Unknown column 'resourceGroup' in 'field list'` en las cinco, 9
-días con el error en 30. El `catch` loguea y devuelve `null`: esas capacidades simplemente no aparecen, sin ningún error visible,
-el patrón del que advierte el CLAUDE.md. El servicio no tiene ningún test. **No se arregló**: cambia lo que ve el usuario
-(aparecen cinco capacidades). El arreglo son pocas líneas (`NULL AS resourceGroup, NULL AS lastAccessedDaysAgo` en el
-SELECT, o una migración que agregue las columnas) más el test que falta.
+**Z0.3 — El resumen de IA pedía columnas que no existen y seis de ocho capacidades nunca aparecían. Corregido.** MEDIDO y
+LEÍDO: `azureAiSummary.service.ts` hacía `SELECT resourceName, region, resourceGroup, …, lastAccessedDaysAgo, … FROM <tabla>`
+sobre cinco tablas cuyas migraciones (`20260812-004` a `-008`) **no tienen `resourceGroup` ni `lastAccessedDaysAgo`** (las de
+Search y Foundry sí: se copió el patrón), y la de Databricks nombra `workspaceId` / `workspaceName`, no `resourceId` /
+`resourceName`. Document Intelligence también fallaba: su tabla tiene `resourceGroup` pero no `lastAccessedDaysAgo`.
+Producción lo confirma en las 4 aperturas del resumen que hubo en 30 días, cada una con 6 errores: `Unknown column
+'resourceGroup'` en Speech/Language, Vision/Video, Content Safety y AML; `'resourceName'` en Databricks;
+`'lastAccessedDaysAgo'` en DocIntel. (Mi primera cuenta decía «cinco» porque sólo veía `resourceGroup`; la corrigió el test.)
+El `catch` logueaba y devolvía `null`: esas capacidades no aparecían, sin ningún error visible, el patrón del que advierte el
+CLAUDE.md. El servicio no tenía tests.
+
+**Corregido** en `fix(ia)`, con `azureAiSummaryColumnas.test.ts` (6 tests): una base falsa que lee el DDL **real** de
+`migrations/` y rechaza, como MySQL, toda columna inexistente (los mocks de `pool.query` de otros tests aceptan cualquier
+SELECT, por eso nadie lo vio). Sin el arreglo el test reproduce los 6 errores de producción. El arreglo: los SELECT piden
+sólo columnas que existen, Databricks usa sus columnas propias, y `mapCapabilityKey` conoce `doc_intelligence` (caía en
+`foundry` por defecto: con recursos de Document Intelligence, la fila de Foundry mostraba su costo; lo encontró el test).
+Además el resumen sigue cacheando sólo las capacidades con recursos, como antes: ahora las cinco genéricas existen como
+objetos vacíos y el caché es el de `/api/intelligence/azure-ai`, que lo sirve sólo si la lista no está vacía. **Lo que cambia
+para el usuario:** un tenant con recursos de esos seis servicios ve sus costos en el resumen; uno sin ellos no ve diferencia
+(los 5 tenants de hoy).
+
+**La misma clase de defecto en otro lado, sin tocar** (leído en los logs de producción al buscar este): el reporte ejecutivo
+(`executiveReportGenerator.service.ts`) tiene tres colectores que fallan, y su sección sale vacía: `hardWaste` consulta
+`ZombieResources`, una tabla que no existe (45 veces en 9 días); `anomalies` pide `detected_date` (11 veces); `budgets`
+pide `name` (11 veces). Hay además dos casos sueltos (`resolved_at` en las anomalías en vivo y `resource_id` en el fallback
+de `realConsumptionService`, una vez cada uno).
 
 ### Z1 — Ingesta de Cost Management (el primer muro)
 
@@ -346,6 +362,7 @@ infraestructura como código: lo decide quien aplica el Terraform).
 | `azureDocumentIntelligence` lee las tablas `Subscriptions` y `TenantSubscriptions` enteras (cruce entre tenants) | `TenantSubscriptions` es la tabla del **plan de facturación** (sin `subscription_id` ni `display_name`) y `Subscriptions` no tiene definición: las dos consultas **fallan en silencio** dentro de un `catch` vacío y los nombres de suscripción nunca se resuelven. Es un bug latente, no una fuga |
 | 14 rutas de cron sin job | **15** (la que sobra, `external-spend-poll`, es condicional por diseño) |
 | El pool de 10 + cola de 20 es un techo teórico («el request nº 31») | Se supera hoy: ≈9.900 errores en 30 días, de un solo cron (Z0.1) |
+| (mi cuenta) el resumen de IA falla en 5 capacidades, por `resourceGroup` | Son **6**: Document Intelligence pedía `lastAccessedDaysAgo` y Databricks, `resourceName` (lo mostró el test con el DDL real) |
 | (mi primer arreglo) un tope de 5 tenants en paralelo en `sync-azure-ai` | No cambiaba nada con exactamente 5 tenants; la medición pidió 1 |
 | (mi hipótesis inicial) ~40 copias del auth de cron con `unsafe-default` | **1** (`sync-azure-ai`); el resto lee `CRON_SECRET` sin ese respaldo |
 
@@ -357,10 +374,10 @@ Cada fase es independiente y reversible. «¿Cambia funcionalidad?» responde po
 
 **Fase 0b — Defectos vivos que esperan una decisión** (antes que cualquier otra fase):
 1. Tras el deploy, confirmar con la consulta del apéndice que `Queue limit reached` cae a ~0 en :13/:33/:53.
-2. `azureAiSummary.service.ts`: pedir solo columnas que existen (o migrar las cinco tablas) y agregar el test que
-   falta. Cambia lo que ve el usuario: aparecen cinco capacidades (Z0.3). Es la misma clase de defecto que el bug
-   latente de `azureDocumentIntelligence` (sección 6): SQL contra lo que no existe y un `catch` que lo traga; a más
-   largo plazo, un test que contraste los `SELECT` con el DDL de las migraciones.
+2. **Hecho (Z0.3):** el resumen de IA. Falta lo mismo en el reporte ejecutivo (`hardWaste`, `anomalies`, `budgets`):
+   SQL contra lo que no existe y un `catch` que lo traga, igual que el bug latente de `azureDocumentIntelligence`
+   (sección 6). Para no depender de que alguien lo mire en los logs: contrastar los `SELECT` con el DDL de las migraciones,
+   como hace la base falsa de `azureAiSummaryColumnas.test.ts`.
 3. Cachear el resultado vacío de `azure-ai` con un TTL propio (p. ej. 1 h): evita ~2.900 corridas de colectores por
    día. Cambia la frescura de un recurso de IA nuevo (Z0.2).
 4. `DB_POOL_LIMIT=20` en el tfvars (5 réplicas × 20 = 100 de 341 conexiones; MySQL está al 4%). Solo por CI.
@@ -402,7 +419,7 @@ Cada fase es independiente y reversible. «¿Cambia funcionalidad?» responde po
 
 ## 8. Qué cambió en esta entrega
 
-Rama `refactor/auditoria-2026-10-10`, 9 commits, **sin push**. Suite: 4.778 tests en verde (+38 nuevos), `tsc` limpio, `eslint --quiet` exit 0, `next build` exitoso.
+Rama `refactor/auditoria-2026-10-10`, 11 commits, **sin push**. Suite: 4.784 tests en verde (+44 nuevos), `tsc` limpio, `eslint --quiet` exit 0, `next build` exitoso.
 
 | Commit | Cambio | Evidencia |
 |---|---|---|
@@ -414,6 +431,7 @@ Rama `refactor/auditoria-2026-10-10`, 9 commits, **sin push**. Suite: 4.778 test
 | `fix(cron)` | `sync-azure-ai` corre de a un tenant | Z0.1: ≈9.900 errores de pool en 30 días, todos de este cron. Un tenant tarda ~2 s. Con el tope viejo el test falla (`expected 5 to be 1`); a confirmar en producción tras el deploy |
 | `test(arquitectura)` | Rutas de cron sin job y APIs sin gate quedan registradas | 14 y 59 excepciones; mutación en ambas direcciones |
 | `perf(ui)` | `value` de `TenantProvider` memoizado | 223 consumidores; impacto en renders sin medir |
+| `fix(ia)` | El resumen de IA pide sólo columnas que existen, Databricks usa las suyas, `doc_intelligence` ya no cae en `foundry`, no se cachean capacidades vacías | `azureAiSummaryColumnas.test.ts` (6): base falsa con el DDL real de `migrations/`; reproduce los 6 errores de producción sin el arreglo; mutación comprobada en cada una de las 5 partes |
 | `docs` | Este informe, HLD 21 y sus cifras corregidas, README (tabla de crons regenerada desde el tfvars y vigilada por `cronRutasConJob.test.ts`) y LLD 48 | +1 test; mutación comprobada |
 
 **Cómo se comprobó que el refactor del bundle no rompió la demo.** (1) Build exitoso. (2) La guarda falla, nombrando
@@ -427,7 +445,7 @@ el login de demo y 4 pruebas funcionales que ejercitan el interceptor.
 ## 9. Lo que no se hizo, y SQL listo para aplicar
 
 **No se hizo, a propósito:** todo lo que cambia comportamiento (fallar cerrado el secreto de cron; gates de tier;
-prioridad del sync; programar los crons; arreglar el resumen de IA y cachear el vacío, Z0.2 y Z0.3), lo que necesita medir primero (pesos de QPU), y lo que es un diseño
+prioridad del sync; programar los crons; cachear el vacío, Z0.2; arreglar el reporte ejecutivo, Z0.3), lo que necesita medir primero (pesos de QPU), y lo que es un diseño
 mayor (i18n por sección, `apiClient`, repositorios). **No se aplicó ninguna migración**: el pipeline ejecuta
 cada `.sql` nuevo en el próximo deploy y hoy no hay presión de escala.
 
@@ -456,7 +474,7 @@ CREATE INDEX idx_actionlogs_tenant_ts ON ActionLogs (tenant_id, `timestamp`);
 | Resets de Redis y corte de MySQL | Log Analytics: `ECONNRESET`, `ECONNREFUSED` (14 días) |
 | Pool de MySQL (Z0.1) | `ContainerAppConsoleLogs_CL \| where TimeGenerated > ago(30d) and Log_s has 'Queue limit reached' \| summarize n=count() by minuto=datetime_part('minute', TimeGenerated)` (debe dar solo 13, 33 y 53) y `by dia=bin(TimeGenerated,1d)`; el mensaje distingue colector, `getAccessModel` y live sync. **Tras el deploy** repetir la primera: debe dar ~0 |
 | Caché de IA y duración por tenant (Z0.2) | Mismos logs: `[azure-ai] Cache miss for <id>` y `[aiServiceCache] Cached N capabilities for <id>` agrupados por tenant y N; duración = último `Cached` menos primer `Cache miss` por tenant y ventana de 20 min |
-| Columnas inexistentes (Z0.3) | `Log_s has 'Unknown column'` por día y por `[azureAiSummary] <capacidad> capability error`; las migraciones `20260812-004` a `-008` contra el SELECT de `azureAiSummary.service.ts:699` |
+| Columnas inexistentes (Z0.3) | `Log_s has 'Unknown column' and Log_s has 'azureAiSummary'`, con `extract` de la capacidad (`\[azureAiSummary\] (.+?) capability error`, ojo: `DocIntel` lleva mayúsculas) y de la columna; sin el filtro de `azureAiSummary` aparecen los del reporte ejecutivo. El DDL, de `migrations/` |
 | Rutas de cron sin job | Rutas `src/app/api/cron/*` contra los `command/args` de los 29 jobs (`az containerapp job list`) y `git log -S` en `infra/`, `.github/`, `scripts/` |
 | Bundle | `npm run build`; por página: chunks listados en `server/app/<ruta>/page_client-reference-manifest.js` (tamaño gzip); marca `cscsfinopsprodwestus2sa` para ubicar el chunk del dataset; grafo de imports desde los `'use client'` |
 | Navegador | Playwright (Chromium): eventos `request` sobre `/_next/static/chunks/`, con el flujo de login de `demo.setup.ts` |

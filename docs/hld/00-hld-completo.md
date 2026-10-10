@@ -1739,8 +1739,11 @@ registra las 59 rutas de API, bajo pantallas Business o Enterprise, que no valid
 - **Cost Management** sigue siendo el primer techo: el barrido tarda 30-47 min con 5 tenants y el cálculo de §16.1
   (N ≤ 6 con 10 min por tenant) se confirma, con ~7-8 como máximo realista. El limitador cuenta llamadas y Azure
   cuenta QPU por tenant; según el conteo del análisis, solo 28 de ~66 sitios de Cost Management pasan por la cola.
-- **El resumen de IA** consulta columnas que no existen en cinco de sus tablas (`resourceGroup`,
-  `lastAccessedDaysAgo`): esas cinco capacidades no aparecen. Corregirlo cambia lo que ve el usuario.
+- **El resumen de IA** consultaba columnas que no existen en seis de sus ocho tablas (`resourceGroup`,
+  `lastAccessedDaysAgo`, y `resourceName` en Databricks): esas capacidades no aparecían y nada lo mostraba. Se corrigió
+  con un test cuya base falsa lee el DDL real de `migrations/`, el primero del repo que prueba SQL contra el esquema. El
+  reporte ejecutivo tiene el mismo defecto en tres de sus colectores (tabla `ZombieResources` inexistente, `detected_date`,
+  `name`) y sigue sin corregir.
 - **`azure-ai`** re-escanea cada 20 min a los 5 tenants Enterprise para devolver una lista vacía, porque la ruta
   solo sirve del caché si la lista tiene elementos. Cachear el vacío es una decisión de frescura.
 - **i18n** manda ~300 KB gzip de traducciones en cada carga completa; la salida es por sección.
