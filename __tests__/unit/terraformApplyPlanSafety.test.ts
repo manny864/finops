@@ -49,3 +49,10 @@ it("uses targeted AcrPull propagation instead of deferring all stamp data source
     expect(stamp).toContain("depends_on      = [azurerm_role_assignment.acr_pull]");
     expect(stamp).toContain("time_sleep.acr_pull_propagation");
 });
+
+it("passes the delete-lock maintenance control from production into both data modules", () => {
+    const production = readFileSync("infra/terraform/environments/prod/main.tf", "utf8");
+    const stamp = readFileSync("infra/terraform/modules/stamp/main.tf", "utf8");
+    expect(production).toMatch(/enable_delete_lock\s*=\s*var\.enable_delete_lock/);
+    expect(stamp.match(/enable_delete_lock\s*=\s*var\.enable_delete_lock/g)).toHaveLength(2);
+});

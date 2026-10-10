@@ -108,6 +108,7 @@ module "keyvault" {
   subnet_id                     = module.network.private_endpoint_subnet_id
   private_dns_zone_id           = module.private_dns.vault_zone_id
   app_principal_id              = azurerm_user_assigned_identity.app.principal_id
+  enable_delete_lock            = var.enable_delete_lock
   tags                          = var.tags
 }
 
@@ -190,6 +191,7 @@ module "mysql" {
   high_availability            = var.mysql_high_availability
   subnet_id                    = module.network.mysql_subnet_id
   private_dns_zone_id          = module.private_dns.mysql_zone_id
+  enable_delete_lock           = var.enable_delete_lock
   tags                         = var.tags
 }
 

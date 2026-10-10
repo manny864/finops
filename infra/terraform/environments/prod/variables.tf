@@ -246,6 +246,12 @@ variable "appinsights_sampling_percentage" {
   default = 100
 }
 
+variable "enable_delete_lock" {
+  description = "Enable MySQL and newly created Key Vault delete locks. Disable only for an approved maintenance operation."
+  type        = bool
+  default     = true
+}
+
 variable "resource_lock_enabled" {
   description = "Feature flag de locks de borrado en recursos de datos. Default desactivado para evitar ScopeLocked en despliegues."
   type        = bool

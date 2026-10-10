@@ -56,7 +56,9 @@ y resolver el limite de replicas antes de aprobar un apply completo.
 ## Correcciones al handoff
 
 - La variable real del PR es enable_delete_lock, no enable_resource_lock.
-  Falta su passthrough en stamp y environment para desactivarla desde tfvars.
+  Se agrego su passthrough en stamp y environment para controlarla desde
+  tfvars; default true conservado. Su desactivacion elimina locks y sigue
+  requiriendo aprobacion explicita de mantenimiento.
 - El lock de Key Vault del PR solo existe cuando create=true. El plan observado
   lo crea en cscs-finops-prod-wus2-kv; no generalizar a vaults adoptados.
 - Cloudflare all_cidrs incluye IPv6, pero ACA IP restrictions acepta IPv4.
@@ -124,6 +126,16 @@ individual y cacheSingleFlight pasan. El build integrado termino correctamente.
 
 PR #117 mergeado por squash: c88a9ac. Correcciones publicadas: f45361c.
 El run 38061470356 fue solo plan: **no ejecuto Terraform apply**.
+
+Suite integrada corregida: **4.912 pasados, 50 omitidos**. Typecheck y build
+integrados exitosos; lint global: 0 errores, 3.434 warnings existentes.
+CI remoto 38061780981: success. Deploy manual final solicitado: 38061845349,
+commit de app 0e0f0b1 (resultado pendiente al escribir esta evidencia).
+
+Azure metadata: MySQL publico deshabilitado, backup 14 dias, HA y geo-backup
+deshabilitados. Key Vault RBAC y purge protection activos, firewall Deny.
+Storage HTTPS/TLS1.2, blobs no publicos, Shared Keys habilitado por compatibilidad.
+No se declara HA o recuperacion geo disponible en la configuracion actual.
 
 No se ejecutaron pruebas de penetracion, restauraciones, benchmarks de carga
 ni una auditoria de cumplimiento certificada. No se eliminaron worktrees.

@@ -232,6 +232,7 @@ module "stamp" {
   log_daily_quota_gb              = var.log_daily_quota_gb
   appinsights_sampling_percentage = var.appinsights_sampling_percentage
   resource_lock_enabled           = var.resource_lock_enabled
+  enable_delete_lock              = var.enable_delete_lock
   alert_email                     = var.alert_email
   monthly_budget_amount           = each.value.monthly_budget_amount
   budget_start_date               = var.budget_start_date

@@ -306,6 +306,11 @@ variable "appinsights_sampling_percentage" {
   default = 100
 }
 
+variable "enable_delete_lock" {
+  type    = bool
+  default = true
+}
+
 variable "resource_lock_enabled" {
   type    = bool
   default = false
