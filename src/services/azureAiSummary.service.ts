@@ -442,7 +442,8 @@ async function fetchRealCapabilitiesFromAzure(tenantId: string): Promise<CachedC
       "databricks",
       syncDatabricksSnapshots,
       getDatabricksResources,
-      ["databricks"]
+      ["databricks"],
+      { id: "workspaceId", nombre: "workspaceName" }
     ),
     fetchFoundryCapability(tenantId),
   ]);
@@ -533,7 +534,7 @@ async function fetchDocIntelCapability(tenantId: string): Promise<CachedCapabili
   try {
     const [rows] = await pool.query(
       `SELECT resourceName, region, resourceGroup, monthlyCostUSD,
-              utilizationPercent, lastAccessedDaysAgo, snapshotDate
+              utilizationPercent, snapshotDate
        FROM AzureDocumentIntelligenceSnapshots
        WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
       [tenantId]
@@ -544,7 +545,7 @@ async function fetchDocIntelCapability(tenantId: string): Promise<CachedCapabili
         await syncDocIntelSnapshots(tenantId);
         const [freshRows] = await pool.query(
           `SELECT resourceName, region, resourceGroup, monthlyCostUSD,
-                  utilizationPercent, lastAccessedDaysAgo, snapshotDate
+                  utilizationPercent, snapshotDate
            FROM AzureDocumentIntelligenceSnapshots
            WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)`,
           [tenantId]
@@ -692,29 +693,25 @@ async function fetchAiServiceCapability(
   capabilityKey: string,
   syncFn: (tid: string) => Promise<void>,
   getResourcesFn: (tid: string) => Promise<Array<{ id: string; name: string; region: string; resourceGroup: string }>>,
-  serviceKeywords: string[]
+  serviceKeywords: string[],
+  // Databricks nombra al recurso `workspaceId` / `workspaceName`; las otras cuatro, `resourceId` / `resourceName`.
+  columnas: { id: string; nombre: string } = { id: "resourceId", nombre: "resourceName" }
 ): Promise<CachedCapability | null> {
-  try {
-    const [rows] = await pool.query(
-      `SELECT resourceName, region, resourceGroup, monthlyCostUSD,
-              utilizationPercent, lastAccessedDaysAgo, snapshotDate
+  // Estas tablas NO tienen `resourceGroup` ni `lastAccessedDaysAgo` (las de Search y Foundry sí; la de DocIntel, sólo la
+  // primera). Pedirlas hacía fallar el SELECT con ER_BAD_FIELD_ERROR, el catch devolvía null y la capacidad desaparecía
+  // del resumen sin ruido. `buildCapabilityFromRows` ya cubre lo que falta («Unknown» y 0).
+  const seleccionar = `SELECT ${columnas.id} AS resourceId, ${columnas.nombre} AS resourceName, region, monthlyCostUSD,
+              utilizationPercent, snapshotDate
        FROM \`${tableName}\`
        WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-       ORDER BY snapshotDate DESC`,
-      [tenantId]
-    ) as [Array<Record<string, unknown>>, unknown];
+       ORDER BY snapshotDate DESC`;
+  try {
+    const [rows] = await pool.query(seleccionar, [tenantId]) as [Array<Record<string, unknown>>, unknown];
 
     if (!rows || rows.length === 0) {
       try {
         await syncFn(tenantId);
-        const [freshRows] = await pool.query(
-          `SELECT resourceName, region, resourceGroup, monthlyCostUSD,
-                  utilizationPercent, lastAccessedDaysAgo, snapshotDate
-           FROM \`${tableName}\`
-           WHERE tenantId = ? AND snapshotDate >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-           ORDER BY snapshotDate DESC`,
-          [tenantId]
-        ) as [Array<Record<string, unknown>>, unknown];
+        const [freshRows] = await pool.query(seleccionar, [tenantId]) as [Array<Record<string, unknown>>, unknown];
         if (freshRows && freshRows.length > 0) {
           const deduplicated = selectLatestAzureAiSnapshots(freshRows);
           return buildCapabilityFromRows(
@@ -832,6 +829,9 @@ function buildCapabilityFromRows(
 function mapCapabilityKey(raw: string): AiCapabilityKey {
   const mapping: Record<string, AiCapabilityKey> = {
     search: "search",
+    // La ruta la llama `document-intelligence`; este servicio, `doc_intelligence`. Sin esta entrada caía en el
+    // `foundry` por defecto y la fila de Foundry mostraba el costo de Document Intelligence.
+    doc_intelligence: "doc_intelligence",
     "document-intelligence": "doc_intelligence",
     "speech-language": "speech_language",
     "vision-video": "vision_video",
@@ -1083,8 +1083,10 @@ export async function getAzureAiSummary(
   try {
     const capabilities = await fetchRealCapabilitiesFromAzure(tenantId);
 
-    // Cache the result for 2 hours (non-blocking)
-    cacheCapabilities(tenantId, capabilities).catch((err) => {
+    // Cache the result for 2 hours (non-blocking). Sólo las capacidades con recursos: el caché es el de
+    // /api/intelligence/azure-ai, que lo sirve sólo si la lista no está vacía y trata «sin recursos» como «ausente».
+    // Guardar las vacías que ahora arma el resumen lo haría «acertar» sin datos y cambiaría cuándo escanea el cron.
+    cacheCapabilities(tenantId, capabilities.filter((c) => c.resources.length > 0)).catch((err) => {
       console.error(`[azureAiSummary] Failed to cache for ${tenantId}:`, err);
     });
 
