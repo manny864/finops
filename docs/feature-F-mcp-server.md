@@ -11,18 +11,30 @@ Toolkit MS recomienda exponer datos FinOps a herramientas externas. Acá impleme
 
 ### Métodos
 - `initialize` → devuelve capabilities + serverInfo
-- `tools/list` → lista las 5 tools disponibles con su JSON Schema
+- `tools/list` → lista las 8 tools disponibles con su JSON Schema
 - `tools/call` → ejecuta una tool, devuelve `content: [{type:"text", text: <json>}]`
 
 ### Tools
 
-| Tool | Input | Output |
-|---|---|---|
-| `get_cost_summary` | `{days?}` | total, avg diario, trend %, point count |
-| `get_top_resources` | `{limit?}` | top N resource_id por costo 30d |
-| `get_zombie_resources` | `{}` | discos/recursos huérfanos pendientes |
-| `get_recommendations` | `{limit?}` | rightsizing/RI/schedule abiertas |
-| `get_budget_status` | `{}` | % consumido por budget activo |
+| Tool | Input | Output | Fuente |
+|---|---|---|---|
+| `get_cost_summary` | `{days?}` | total, avg diario, trend %, point count | MySQL (`cost_snapshots`) |
+| `get_top_resources` | `{limit?}` | top N servicio/resource group por costo 30d | MySQL (`CostSnapshots`) |
+| `get_waste_zombies`, `get_zombie_resources` (alias) | `{}` | desperdicio duro vigente (hasta 100): discos/IPs/snapshots huérfanos, de mayor a menor plata | Escaneo vivo de Resource Graph, con la caché de 15 min de la pantalla de Recursos Zombis |
+| `get_anomalies_feed` | `{limit?}` | anomalías recientes con causa, monto vs esperado, severidad y estado | MySQL (`Anomalies`) |
+| `get_budgets_status`, `get_budget_status` (alias) | `{}` | límite, gasto del mes y % consumido por presupuesto activo | `Budgets` + Cost Management, por la caché de `GET /api/budgets` (1 h; 5 min si hubo 429) |
+| `get_recommendations` | `{limit?}` | recomendaciones de costo abiertas (rightsizing, reservas, apagado) | Azure Advisor, categoría Cost, con caché propia de 30 min |
+
+#### Latencia y fallos
+
+Zombis, presupuestos y recomendaciones son llamadas a Azure, no lecturas de MySQL. Con la caché caliente responden en
+milisegundos; en frío, el escaneo de zombis tarda **30 s o más** (el catálogo, ~63 consultas a Resource Graph, corre en lotes de
+5 con 2,5 s de pausa). Un cliente con timeout corto puede cortar ese primer pedido: el escaneo no se cancela, sigue en el servidor y deja la
+caché lista para el reintento.
+
+Si la fuente falla, la tool responde `{ "count": 0, ..., "note": "<motivo>" }` y lo registra en el log (`[mcp] <tool> falló:`).
+Una lista vacía **sin** `note` sí significa "no hay". Un presupuesto cuyo gasto no se pudo leer sale con `spentUSD: null`,
+`usagePct: null` y `status: "unknown"`, no con 0.
 
 ### Auth
 Header `Authorization: Bearer mcp_<32hex>`. Key hash sha256 contra `MCPApiKeys (tenant_id, key_hash, ...)`.

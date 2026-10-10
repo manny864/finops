@@ -27,6 +27,17 @@ El formato `.pbit` requiere `DataMashup` encriptado (XML packaged) — generarlo
 | `zombies` | Zombie Resources & Waste | `zombies` | governance |
 | `budgets` | Budget Tracking | `budgets` | cost |
 
+## Fuente de cada feed
+
+- `costs`, `invoicing`: MySQL (`CostSnapshots`).
+- `zombies`: el desperdicio duro vigente del escaneo vivo de Resource Graph, con la caché de 15 min de la pantalla de
+  Recursos Zombis. En frío el refresco tarda **30 s o más**.
+- `budgets`: el límite de `Budgets` más el gasto del mes de Cost Management, por la caché de `GET /api/budgets`. Un
+  presupuesto cuyo gasto no se pudo leer sale con `spentUSD` y `usagePct` en `null` y `status` `"unknown"`.
+
+Si la fuente de `zombies` o `budgets` falla, el feed responde HTTP 500 `{ success: false, error }`: el refresco de Power BI
+falla a la vista en lugar de cargar una tabla vacía que se lea como "sin desperdicio".
+
 ## Flujo usuario
 
 1. Usuario va a la página de Reports → Power BI Templates en el SaaS (futura UI).
