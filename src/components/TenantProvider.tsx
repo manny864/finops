@@ -1,5 +1,5 @@
 "use client";
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { isMockTenant } from '@/lib/demoTenant';
 
@@ -1227,8 +1227,16 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
 
   const requiresRbacUpdate = selectedTenant?.requires_rbac_update;
 
+  // El value se memoiza: este provider se re-renderiza cada vez que cambia su padre (ruta, MSAL) y con un
+  // objeto literal nuevo en cada render los ~223 componentes que usan `useTenant()` se re-renderizaban en
+  // cascada aunque nada del tenant hubiera cambiado. Los setters de useState son estables y no van en las deps.
+  const contextValue = useMemo(
+    () => ({ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole, userPermissions, systemRole, authzResolved, userScope, requiresRbacUpdate, isUserRegistered, academyCertified, setAcademyCertified, activeAddonKeys, isDemoMode }),
+    [selectedTenant, isAdmin, tenantsList, userRole, userPermissions, systemRole, authzResolved, userScope, requiresRbacUpdate, isUserRegistered, academyCertified, activeAddonKeys, isDemoMode]
+  );
+
   return (
-    <TenantContext.Provider value={{ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole, userPermissions, systemRole, authzResolved, userScope, requiresRbacUpdate, isUserRegistered, academyCertified, setAcademyCertified, activeAddonKeys, isDemoMode }}>
+    <TenantContext.Provider value={contextValue}>
       {children}
     </TenantContext.Provider>
   );
