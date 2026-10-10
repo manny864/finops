@@ -6101,22 +6101,25 @@ para el usuario:** un tenant con recursos de esos seis servicios ve sus costos e
 diferencia. No se sabe si algún tenant de producción tiene hoy recursos de esos servicios: el cron que podría mostrarlo no se
 autentica (48.9).
 
-### 48.9 Defectos medidos en producción y NO corregidos
+### 48.9 Defectos medidos en producción: uno corregido y el resto abiertos
 
-**`cron/sync-azure-ai` manda el id de fila de `Tenants`, no el `tenant_id`, y nunca pudo autenticarse.** La ruta hace
+**`cron/sync-azure-ai` mandaba el id de fila de `Tenants`, no el `tenant_id`, y nunca pudo autenticarse (corregido).** La ruta hacía
 `SELECT id FROM Tenants WHERE tier = 'Enterprise' LIMIT 100` (y su rama `?tenantId=` también devuelve `id`) y llama a
 `/api/intelligence/azure-ai?tenantId=${tenant.id}`. `Tenants.id` es `INT AUTO_INCREMENT`; el identificador de tenant de la
 plataforma es `tenant_id` (`VARCHAR(255) UNIQUE`, el GUID de Entra), y los otros 17 crons que recorren tenants hacen `SELECT
 tenant_id AS id`. En producción, cada colector falla al listar suscripciones con `AADSTS90002: Tenant '34' not found` (ídem
 231, 344, 427 y 543; ≈117.000 líneas en 30 días), el `catch` devuelve vacío, la ruta cachea `Cached 0 capabilities` bajo
 `ai:capabilities:34` (nadie la lee: las pantallas usan el GUID) y el job termina «Succeeded» porque `results[].cached` es
-`!data.mock`. Es así desde que nació la ruta (2026-08-12); nunca precalentó nada. Arreglarlo es `SELECT tenant_id AS id` en los
-dos SELECT, pero **cambia el comportamiento**: el cron empezaría a escanear de verdad, con tiempos mayores a los ~2 s por tenant
-de 48.5 (medidos sobre el camino que falla), así que antes hay que revisar el tope de concurrencia y el timeout de 300 s, y
-decidir si cachear el resultado vacío (la guarda `capabilities.length > 0` de `azure-ai/route.ts:1396` lo trata como miss).
-Los siete `sync-*` por servicio (aml, azure-search, content-safety, databricks, doc-intel, speech-language, vision-video, sin
-job) tienen el mismo `SELECT id` y filtran además por `azure_subscription_id` y `deleted_at`, que no figuran en el DDL de
-`Tenants`.
+`!data.mock`. Era así desde que nació la ruta (2026-08-12); nunca precalentó nada. **Corregido** en `3dba8bf`: los dos SELECT
+devuelven `tenant_id AS id` (el de `?tenantId=` sigue aceptando el id de la fila o el `tenant_id` como filtro), con
+`syncAzureAiTenantId.test.ts` (4 tests): una tabla `Tenants` falsa con las dos columnas, que rechaza las que no están en el DDL
+del repo; sin el arreglo llama con `tenantId=34` y `231`. **Cambia el comportamiento:** desde el deploy el cron escanea de
+verdad, con tiempos mayores a los ~2 s por tenant de 48.5 (medidos sobre el camino que falla). Hay que mirar en las primeras
+corridas la duración contra el timeout de 300 s y el tope de concurrencia, los `Cached N capabilities` bajo el GUID y los 429 de
+Cost Management, y decidir si cachear el resultado vacío (la guarda `capabilities.length > 0` de `azure-ai/route.ts:1396` lo
+trata como miss: un tenant sin recursos de IA se escaneará cada 20 min). **Sin tocar:** los siete `sync-*` por servicio (aml,
+azure-search, content-safety, databricks, doc-intel, speech-language, vision-video; sin job) tienen el mismo `SELECT id` y filtran
+además por `azure_subscription_id` y `deleted_at`, que no figuran en el DDL de `Tenants`.
 
 **Un colector que falla devuelve `null`**, indistinguible de «el tenant no tiene ese servicio», y `fetchRealCapabilities`
 cachea 2 h la lista incompleta si el tenant tiene otras capacidades. `getAccessModel` (`lighthouseAccess.ts:50`)
@@ -6139,9 +6142,9 @@ CREATE INDEX idx_actionlogs_tenant_ts ON ActionLogs (tenant_id, `timestamp`);
 
 ### 48.11 Verificación
 
-Suite completa: 4.784 tests en verde (44 nuevos); `tsc` limpio; ESLint con `--quiet` sin errores; `next build`
+Suite completa: 4.788 tests en verde (48 nuevos); `tsc` limpio; ESLint con `--quiet` sin errores; `next build`
 exitoso en el estado anterior al arreglo del resumen de IA. Cada arreglo falla sin su arreglo (mutación comprobada: tope
-de 5 en el cron, reintento de Redis, dedupe del miss, grafo de imports, tabla del README, las cinco partes del resumen de
+de 5 en el cron, reintento de Redis, dedupe del miss, grafo de imports, tabla del README, los dos SELECT del cron con `tenant_id`, las cinco partes del resumen de
 IA). En un Chromium real el dataset no se pide en las páginas públicas ni en el login y se pide bajo demanda a los ~700 ms de
 entrar a la demo; los e2e de demo dan el mismo resultado que en el commit base (5 pasan, 96 fallan en ambos por el entorno de
 prueba, 0 tests de resultado distinto). **Sin verificar:** que `667529f` elimine los errores de pool en producción (se

@@ -23,7 +23,8 @@ priorizada (sección 7), con las decisiones de producto separadas de las técnic
 1. **Hoy la plataforma está casi ociosa en promedio** (1 réplica web al 1% de CPU, MySQL con 0,84 GB y 4% de
    CPU, 0,13 req/s), **pero hay tres defectos vivos que ninguna métrica de infraestructura muestra** (Z0): el pool
    de MySQL se desborda en ráfagas (≈9.900 errores en 30 días; **corregido**), el cron `sync-azure-ai` nunca pudo
-   autenticarse (manda el id de fila de `Tenants` y no el `tenant_id` de Entra: ≈117.000 fallos `AADSTS90002` en 30 días), y
+   autenticarse (manda el id de fila de `Tenants` y no el `tenant_id` de Entra: ≈117.000 fallos `AADSTS90002` en 30 días;
+   **corregido**), y
    seis de las ocho capacidades del resumen de IA fallaban siempre por columnas que no existen (**corregido**). El resto de los problemas de escala son **techos de diseño**; los de
    mantenimiento ya se pagan todos los días.
 2. **El primer muro de la ingesta es Cost Management, no la capacidad de la infraestructura.** El barrido diario tarda 30 a 47
@@ -189,14 +190,16 @@ corridas de colectores por día para nada, y su primera consulta a MySQL es la q
 otros errores de colector. Mi filtro buscaba `Error fetching … metrics` y excluía este error, que tiene otro texto; lo mostró
 la corrida de las 11:33 de la revisión nueva.
 
-**No se cambió, porque cambia el comportamiento:** `SELECT tenant_id AS id` en los dos SELECT de la ruta haría que el cron
-empiece a escanear de verdad. Antes hay que decidir tres cosas. (a) Los tiempos de Z0.1 (1,9 s por tenant, ~10 s en total) son
-los del camino que falla: con escaneos reales serán mayores y habrá que revisar el tope de concurrencia y el timeout de 300 s.
-(b) Un tenant sin recursos de IA seguirá sin acertar en la caché (la guarda `length > 0`) y se escaneará cada 20 min, ahora
-contra Azure de verdad: decisión de frescura (cachear el vacío con un TTL propio). (c) Los siete `sync-*` por servicio (aml,
-azure-search, content-safety, databricks, doc-intel, speech-language, vision-video) tienen el mismo `SELECT id` y además
-filtran por `azure_subscription_id` y `deleted_at`, que no figuran en el DDL de `Tenants`: si alguien los programara,
-fallarían en la consulta.
+**Corregido** en `3dba8bf`, con tu visto bueno: `SELECT tenant_id AS id` en los dos SELECT de la ruta (el de `?tenantId=` sigue
+aceptando el id de la fila o el `tenant_id` como filtro). `syncAzureAiTenantId.test.ts` (4 tests) usa una tabla `Tenants` falsa
+con las dos columnas; sin el arreglo reproduce el error de producción (llama con `tenantId=34` y `231`), y se comprobó por
+mutación en cada SELECT y en la guarda del DDL. **Cambia el comportamiento:** desde el deploy el cron escanea de verdad. Queda
+por mirar en las primeras corridas: (a) los tiempos (los 1,9 s por tenant de Z0.1 eran del camino que falla; el tope de
+concurrencia y el timeout de 300 s se revisan con lo que se mida); (b) un tenant sin recursos de IA seguirá sin acertar en la
+caché (la guarda `length > 0`) y se escaneará cada 20 min, ahora contra Azure de verdad: decisión de frescura (cachear el vacío
+con un TTL propio); (c) que no sume 429 de Cost Management. **Sin tocar:** los siete `sync-*` por servicio (aml, azure-search,
+content-safety, databricks, doc-intel, speech-language, vision-video) tienen el mismo `SELECT id` y además filtran por
+`azure_subscription_id` y `deleted_at`, que no figuran en el DDL de `Tenants`; no tienen job, así que hoy no corren.
 
 **Z0.3 — El resumen de IA pedía columnas que no existen y seis de ocho capacidades nunca aparecían. Corregido.** MEDIDO y
 LEÍDO: `azureAiSummary.service.ts` hacía `SELECT resourceName, region, resourceGroup, …, lastAccessedDaysAgo, … FROM <tabla>`
@@ -397,9 +400,9 @@ Cada fase es independiente y reversible. «¿Cambia funcionalidad?» responde po
    SQL contra lo que no existe y un `catch` que lo traga, igual que el bug latente de `azureDocumentIntelligence`
    (sección 6). Para no depender de que alguien lo mire en los logs: contrastar los `SELECT` con el DDL de las migraciones,
    como hace la base falsa de `azureAiSummaryColumnas.test.ts`.
-3. `sync-azure-ai` pasa `Tenants.id` en lugar de `tenant_id` (Z0.2): `SELECT tenant_id AS id`, como los otros 17 crons.
-   Cambia el comportamiento: el cron empieza a escanear de verdad, así que antes hay que revisar su tope de concurrencia y su
-   timeout, y decidir si cachear el resultado vacío (la guarda `length > 0`).
+3. **Hecho (Z0.2):** `sync-azure-ai` manda el `tenant_id`, como los otros 17 crons. Falta mirar sus primeras corridas reales
+   (tiempos contra el timeout de 300 s, `Cached N capabilities` bajo el GUID, 429 de Cost Management) y decidir si cachear el
+   resultado vacío (la guarda `length > 0`).
 4. `DB_POOL_LIMIT=20` en el tfvars (5 réplicas × 20 = 100 de 341 conexiones; MySQL está al 4%). Solo por CI.
 5. Que un colector que falla no devuelva `null`, indistinguible de «sin recursos» (un resultado `ok: false`), que la
    ruta no cachee la lista si algún colector falló y que `getAccessModel` no convierta un error de pool en
@@ -439,7 +442,7 @@ Cada fase es independiente y reversible. «¿Cambia funcionalidad?» responde po
 
 ## 8. Qué cambió en esta entrega
 
-Rama `refactor/auditoria-2026-10-10`, 11 commits, **sin push**. Suite: 4.784 tests en verde (+44 nuevos), `tsc` limpio, `eslint --quiet` exit 0, `next build` exitoso.
+Rama `refactor/auditoria-2026-10-10`: 11 commits en `main` desde el 2026-10-10 (`e77b427`, en producción) y 3 más sin pushear (la corrección de Z0.2, el arreglo del cron y su documentación). Suite: 4.788 tests en verde (+48 nuevos), `tsc` limpio, `eslint --quiet` exit 0, `next build` exitoso.
 
 | Commit | Cambio | Evidencia |
 |---|---|---|
@@ -448,6 +451,7 @@ Rama `refactor/auditoria-2026-10-10`, 11 commits, **sin push**. Suite: 4.784 tes
 | `perf(cache)` | Un solo fetch por clave en misses concurrentes | 6 tests; contra el código anterior fallan 3 |
 | `perf(inventario)` | El fallback por tag corre una vez por request (`asyncOnce`) | 3 consultas → 1; el resultado por clave no cambia |
 | `perf(cron)` | `sync-azure-ai` limita a 5 tenants en paralelo | 12 tenants: máximo 5 en vuelo (antes 12); forma de respuesta intacta. **Insuficiente**: hay 5 tenants, así que no cambiaba nada hoy |
+| `fix(cron)` | `sync-azure-ai` llama con el `tenant_id` y no con el id de la fila (`3dba8bf`) | Z0.2: ≈117.000 `AADSTS90002` en 30 días; `syncAzureAiTenantId.test.ts` (4); sin el arreglo llama con `tenantId=34` y `231`; mutación comprobada en cada SELECT y en la guarda del DDL. **Cambia el comportamiento**: a confirmar con las primeras corridas tras el deploy |
 | `fix(cron)` | `sync-azure-ai` corre de a un tenant | Z0.1: ≈9.900 errores de pool en 30 días, todos de este cron. Un tenant tarda ~2 s (el camino que falla en la autenticación, Z0.2). Con el tope viejo el test falla (`expected 5 to be 1`); a confirmar en producción tras el deploy |
 | `test(arquitectura)` | Rutas de cron sin job y APIs sin gate quedan registradas | 14 y 59 excepciones; mutación en ambas direcciones |
 | `perf(ui)` | `value` de `TenantProvider` memoizado | 223 consumidores; impacto en renders sin medir |
@@ -465,7 +469,7 @@ el login de demo y 4 pruebas funcionales que ejercitan el interceptor.
 ## 9. Lo que no se hizo, y SQL listo para aplicar
 
 **No se hizo, a propósito:** todo lo que cambia comportamiento (fallar cerrado el secreto de cron; gates de tier;
-prioridad del sync; programar los crons; pasar `tenant_id` al cron y decidir el caché del vacío, Z0.2; arreglar el reporte ejecutivo, Z0.3), lo que necesita medir primero (pesos de QPU), y lo que es un diseño
+prioridad del sync; programar los crons; decidir el caché del vacío, Z0.2; arreglar el reporte ejecutivo, Z0.3), lo que necesita medir primero (pesos de QPU), y lo que es un diseño
 mayor (i18n por sección, `apiClient`, repositorios). **No se aplicó ninguna migración**: el pipeline ejecuta
 cada `.sql` nuevo en el próximo deploy y hoy no hay presión de escala.
 

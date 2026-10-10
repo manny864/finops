@@ -1746,8 +1746,9 @@ registra las 59 rutas de API, bajo pantallas Business o Enterprise, que no valid
   `name`) y sigue sin corregir.
 - **`sync-azure-ai`** nunca pudo autenticarse: manda el id de fila de `Tenants` (34, 231…) en lugar del `tenant_id` de
   Entra, y todos sus colectores fallan con `AADSTS90002` (≈117.000 líneas en 30 días). Nunca precalentó el caché que dice
-  precalentar y figura «Succeeded» en cada corrida. Corregirlo hace que el cron empiece a escanear de verdad: hay que
-  revisar su tope de concurrencia y su timeout, y decidir si se cachea el resultado vacío.
+  precalentar y figura «Succeeded» en cada corrida. Corregido (`SELECT tenant_id AS id`, como los otros 17 crons): desde el
+  deploy el cron escanea de verdad, así que hay que mirar sus tiempos contra su timeout, su tope de concurrencia y los 429 de
+  Cost Management, y decidir si se cachea el resultado vacío.
 - **i18n** manda ~300 KB gzip de traducciones en cada carga completa; la salida es por sección.
 - **Despliegue:** ningún cambio de esta auditoría incluye migraciones. Tras el deploy, confirmar con Log Analytics
   que `Queue limit reached` cae a ~0 en los minutos :13, :33 y :53.
