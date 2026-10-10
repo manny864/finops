@@ -1,5 +1,22 @@
 import Redis from 'ioredis';
 
+/**
+ * Cuánto esperar (ms) antes del reintento nº `times` de reconectar, o `null` para rendirse.
+ *
+ * En producción NUNCA se rinde. Con `null` ioredis deja de reconectar PARA SIEMPRE, así que un
+ * corte de Redis de más de ~1,2 s (mantenimiento o failover de Azure Managed Redis; hubo 2 resets
+ * `ECONNRESET` en 14 días de logs) dejaba a esa réplica sin caché hasta que alguien la reiniciara:
+ * todas las rutas SWR pegaban directo a MySQL y a Azure.
+ *
+ * Fuera de producción se conserva el tope de 3 intentos: sin un Redis local el proceso tiene que
+ * poder terminar (los tests corren con `REDIS_PORT=1` a propósito, y los reintentos eternos
+ * mantendrían vivo el event loop).
+ */
+export function estrategiaDeReintento(times: number, enProduccion: boolean): number | null {
+  if (!enProduccion) return times > 3 ? null : Math.min(times * 200, 1000);
+  return Math.min(times * 200, 2000);
+}
+
 const redisClientFactory = () => {
   const host = process.env.REDIS_HOST || '127.0.0.1';
 
@@ -23,10 +40,7 @@ const redisClientFactory = () => {
     connectTimeout: useTls ? 10000 : 2000,
     commandTimeout: useTls ? 5000 : 2000,
     enableOfflineQueue: false,
-    retryStrategy: (times) => {
-      if (times > 3) return null;
-      return Math.min(times * 200, 1000);
-    }
+    retryStrategy: (times) => estrategiaDeReintento(times, process.env.NODE_ENV === 'production')
   });
 };
 
