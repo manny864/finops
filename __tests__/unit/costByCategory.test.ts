@@ -80,6 +80,10 @@ vi.mock("@/services/categoryConsumptionService", () => ({
     getRealCategoryOverview: (...args: unknown[]) => getRealCategoryOverviewMock(...args),
 }));
 
+vi.mock("@/lib/cache", () => ({
+    getWithStaleWhileRevalidate: (_key: string, loader: () => Promise<unknown>) => loader(),
+}));
+
 vi.mock("@/lib/requestAuth", () => ({
     requireTenantAccess: vi.fn().mockResolvedValue({ tenantId: "real-tenant" }),
     AuthError: class AuthError extends Error { status = 401; },

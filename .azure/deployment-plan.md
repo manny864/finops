@@ -64,8 +64,13 @@ Existing-vault adoption uses a data source; a create-only lock will not protect 
 - Typecheck and production Next.js build succeeded; touched-source lint: zero errors.
 - Terraform init -backend=false, validate and fmt -check succeeded locally.
 - PR plan: 3 adds, 89 updates, 1 destroy; failed replicas check. Apply blocked.
+- New main plan run 38061470356: 2 adds, 89 updates, zero destroys. RBAC replacement resolved.
+- replicas_web_acotadas still fails: production config has web_max_replicas=5.
+- PR #117 merged as c88a9ac; security fixes pushed as f45361c.
+- Integrated build succeeded. Handler test cache isolation corrected and focused tests passed.
 
 ## 8. Execution status
 
 No infrastructure apply has been authorized for unexplained drift or executed.
+Apply remains blocked by the replicas check; do not bypass it or silently reduce capacity.
 No deployment success is claimed until the current commit and endpoint are verified.

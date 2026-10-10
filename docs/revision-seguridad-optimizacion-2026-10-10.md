@@ -44,6 +44,11 @@ especifica de time_sleep.acr_pull_propagation permanece. Terraform init
 -backend=false, validate y fmt -check pasaron; el nuevo plan remoto debe
 confirmar que ya no propone recrear el rol del deployer.
 
+Verificacion posterior: run 38061470356 sobre f45361c termina con **2 altas,
+89 cambios y 0 destrucciones**. Desaparecio la recreacion del rol. Sigue fallando
+replicas_web_acotadas (5 > 3), por lo que el nuevo guard impide el apply.
+No se redujo capacidad sin validar carga ni se eludio el check con -target.
+
 No ejecutar APPLY-PROD con este plan. Evitar -target como sustituto de resolver
 la deriva. Corregir lectura diferida del principal, revisar todas las diferencias
 y resolver el limite de replicas antes de aprobar un apply completo.
@@ -112,6 +117,13 @@ y resolver el limite de replicas antes de aprobar un apply completo.
 - Suite posterior al guard del workflow: 4.911 pasados, 50 omitidos.
 - Terraform local: init -backend=false, validate y fmt -check exitosos.
 - La version final integrada necesita repetir validacion y plan remoto.
+
+La primera suite integrada revelo contaminacion de cache entre dos casos de
+costByCategory.test.ts. Se aislo SWR en esa prueba de handler; la prueba
+individual y cacheSingleFlight pasan. El build integrado termino correctamente.
+
+PR #117 mergeado por squash: c88a9ac. Correcciones publicadas: f45361c.
+El run 38061470356 fue solo plan: **no ejecuto Terraform apply**.
 
 No se ejecutaron pruebas de penetracion, restauraciones, benchmarks de carga
 ni una auditoria de cumplimiento certificada. No se eliminaron worktrees.
