@@ -60,9 +60,16 @@ export function computeZombieSummaryMetrics(
 }
 
 /**
+ * El motivo con que se rotula un hallazgo: el suyo, o su tipo de recurso si no tiene motivo propio. Bajo «Recurso
+ * Zombi» irían juntos gateways, balanceadores y pools, que son justo lo más caro.
+ */
+export function motivoDelHallazgo(r: ZombieResourceItem): string {
+  return r.issueDisplayName === GENERIC_ZOMBIE_ISSUE_NAME ? r.typeDisplayName : r.issueDisplayName;
+}
+
+/**
  * El desperdicio duro (`HARD_WASTE`, sin eximidos) agrupado por motivo y de mayor a menor: la distribución de
- * ineficiencias del reporte ejecutivo. Un hallazgo con el motivo genérico se rotula por su tipo de recurso: bajo
- * «Recurso Zombi» irían juntos gateways, balanceadores y pools, que son justo lo más caro.
+ * ineficiencias del reporte ejecutivo.
  */
 export function computeHardWasteByIssue(
   resources: ZombieResourceItem[]
@@ -70,7 +77,7 @@ export function computeHardWasteByIssue(
   const byReason = new Map<string, { affected: number; wasteUsd: number }>();
   for (const r of resources) {
     if (r.isExempted || r.category !== "HARD_WASTE") continue;
-    const reason = r.issueDisplayName === GENERIC_ZOMBIE_ISSUE_NAME ? r.typeDisplayName : r.issueDisplayName;
+    const reason = motivoDelHallazgo(r);
     const acc = byReason.get(reason) ?? { affected: 0, wasteUsd: 0 };
     acc.affected += 1;
     acc.wasteUsd += r.monthlySavingsUSD;

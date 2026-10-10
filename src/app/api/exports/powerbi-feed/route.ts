@@ -12,6 +12,8 @@ import crypto from "crypto";
 import pool from "@/modules/storage/db";
 import { resolvePeriodRange } from "@/lib/invoicingPeriod";
 import { errorMessage } from '@/lib/apiErrors';
+import { getActiveHardWaste } from "@/services/azureHardWaste.service";
+import { getBudgetStatuses } from "@/services/budgetUtilization.service";
 
 function hashKey(plain: string): string {
     return crypto.createHash("sha256").update(plain).digest("hex");
@@ -95,36 +97,25 @@ async function feedInvoicing(tenantId: string, period: string) {
     return rows;
 }
 
+// Zombis y presupuestos NO sacan un `catch` que devuelva `[]`: Power BI importa una tabla vacía sin error y el
+// reporte queda en "0 desperdicio" / "0 presupuestos". Si la fuente falla, el `GET` responde 500 y el refresco falla
+// a la vista. (Antes pedían las tablas `zombies` y `Budgets.name`/`amount_usd`/..., que no existen.)
+
+/** El desperdicio duro vigente del escaneo de Resource Graph (30 s o más en frío), el mismo que ve la pantalla. */
 async function feedZombies(tenantId: string) {
-    try {
-        const [rows] = await pool.query(
-            `SELECT resource_id, resource_type, location, COALESCE(resource_group, '*') as resource_group, estimated_monthly_cost_usd
-             FROM zombies WHERE tenant_id=? AND resolved_at IS NULL`,
-            [tenantId]
-        );
-        return rows;
-    } catch { return []; }
+    const hallazgos = await getActiveHardWaste(tenantId);
+    return hallazgos.map((r) => ({
+        resource_id: r.id,
+        resource_type: r.resourceType,
+        location: r.location,
+        resource_group: r.resourceGroup,
+        estimated_monthly_cost_usd: r.monthlySavingsUSD,
+    }));
 }
 
-async function feedBudgets(tenantId: string) {
-    try {
-        const [rows] = await pool.query(
-            `SELECT name, amount_usd, period, actual_spend_usd
-             FROM Budgets WHERE tenant_id=? AND active=1`,
-            [tenantId]
-        );
-        return (rows as any[]).map(b => {
-            const used = Number(b.actual_spend_usd) || 0;
-            const total = Number(b.amount_usd) || 0;
-            const pct = total > 0 ? (used / total) * 100 : 0;
-            return {
-                name: b.name, period: b.period,
-                budgetUSD: total, spentUSD: used,
-                usagePct: Math.round(pct * 10) / 10,
-                status: pct >= 100 ? "exceeded" : pct >= 80 ? "warning" : "ok",
-            };
-        });
-    } catch { return []; }
+/** Los presupuestos activos con su % consumido: el mismo estado que `get_budgets_status` del MCP. */
+function feedBudgets(tenantId: string) {
+    return getBudgetStatuses(tenantId);
 }
 
 export async function GET(request: NextRequest) {

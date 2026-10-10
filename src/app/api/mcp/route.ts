@@ -12,6 +12,11 @@ import pool from "@/modules/storage/db";
 import { authenticateMcpToken } from "@/services/mcpApiKey.service";
 import { errorMessage } from "@/lib/apiErrors";
 import { assembleLiveAnomalies } from "@/services/azureAnomalyDetection.service";
+import { getActiveHardWaste } from "@/services/azureHardWaste.service";
+import { motivoDelHallazgo } from "@/services/azureZombieAudit.service";
+import { getBudgetStatuses } from "@/services/budgetUtilization.service";
+import { getAdvisorExecutiveData } from "@/services/azureAdvisor.service";
+import { getWithStaleWhileRevalidate } from "@/lib/cache";
 
 interface ToolDef {
     name: string;
@@ -25,6 +30,53 @@ async function authenticateMCP(request: NextRequest): Promise<{ tenantId: string
     if (!authHeader.toLowerCase().startsWith("bearer ")) return null;
     const token = authHeader.slice(7).trim();
     return authenticateMcpToken(token);
+}
+
+/**
+ * `get_waste_zombies` y `get_zombie_resources`: el desperdicio duro vigente del escaneo de Resource Graph (el que
+ * cuentan la pantalla de Recursos Zombis y el reporte ejecutivo), de mayor a menor plata. Sólo difieren en el nombre
+ * de la lista. En frío espera el escaneo (30 s o más). Si falla lo dice en `note` y lo registra: un vacío acá se lee
+ * como "no hay desperdicio" (antes pedía la tabla `ZombieResources`, que no existe, y pasaba justo eso).
+ */
+function zombiesHandler(tool: string, lista: "waste" | "zombies"): ToolDef["handler"] {
+    return async (_args, tenantId) => {
+        try {
+            const hallazgos = (await getActiveHardWaste(tenantId)).slice(0, 100);
+            return {
+                count: hallazgos.length,
+                [lista]: hallazgos.map((r) => ({
+                    id: r.id,
+                    subscription_id: r.subscriptionId,
+                    resource_name: r.name,
+                    resource_type: r.resourceType,
+                    resource_group: r.resourceGroup,
+                    region: r.location,
+                    estimated_waste_usd: r.monthlySavingsUSD,
+                    reason: motivoDelHallazgo(r),
+                })),
+            };
+        } catch (e) {
+            console.error(`[mcp] ${tool} falló:`, errorMessage(e));
+            return { count: 0, [lista]: [], note: `No se pudo escanear Resource Graph: ${errorMessage(e) || "error desconocido"}` };
+        }
+    };
+}
+
+/**
+ * `get_budgets_status` y `get_budget_status`: el límite sale de `Budgets` y el gasto del mes de Cost Management, por la
+ * misma caché que la pantalla de Presupuestos. Un presupuesto cuyo gasto no se pudo leer sale con `spentUSD: null` y
+ * `status: "unknown"`, no con 0. Si falla lo dice en `note` y lo registra (antes pedía columnas que `Budgets` no tiene).
+ */
+function budgetsHandler(tool: string): ToolDef["handler"] {
+    return async (_args, tenantId) => {
+        try {
+            const budgets = await getBudgetStatuses(tenantId);
+            return { count: budgets.length, budgets };
+        } catch (e) {
+            console.error(`[mcp] ${tool} falló:`, errorMessage(e));
+            return { count: 0, budgets: [], note: `No se pudieron leer los presupuestos: ${errorMessage(e) || "error desconocido"}` };
+        }
+    };
 }
 
 const TOOLS: ToolDef[] = [
@@ -92,41 +144,17 @@ const TOOLS: ToolDef[] = [
     },
     {
         name: "get_waste_zombies",
-        description: "Recursos huérfanos y desperdicio detectado (discos sin VM, IPs públicas inactivas, snapshots viejos).",
+        description:
+            "Recursos huérfanos y desperdicio detectado (discos sin VM, IPs públicas inactivas, snapshots viejos). " +
+            "Lee el escaneo vivo de Resource Graph: el primer pedido tras 15 min sin uso puede tardar más de 30 s.",
         inputSchema: { type: "object", properties: {} },
-        handler: async (_args, tenantId) => {
-            try {
-                const [rows]: any = await pool.query(
-                    `SELECT id, subscription_id, resource_name, resource_type, resource_group, region, estimated_waste_usd, reason
-                     FROM ZombieResources
-                     WHERE tenant_id=? AND status='active'
-                     ORDER BY estimated_waste_usd DESC LIMIT 100`,
-                    [tenantId]
-                );
-                return { count: (rows || []).length, waste: rows || [] };
-            } catch {
-                return { count: 0, waste: [], note: "Tabla ZombieResources no disponible" };
-            }
-        },
+        handler: zombiesHandler("get_waste_zombies", "waste"),
     },
     {
         name: "get_zombie_resources",
         description: "Alias de get_waste_zombies para compatibilidad hacia atrás.",
         inputSchema: { type: "object", properties: {} },
-        handler: async (_args, tenantId) => {
-            try {
-                const [rows]: any = await pool.query(
-                    `SELECT id, subscription_id, resource_name, resource_type, resource_group, region, estimated_waste_usd, reason
-                     FROM ZombieResources
-                     WHERE tenant_id=? AND status='active'
-                     ORDER BY estimated_waste_usd DESC LIMIT 100`,
-                    [tenantId]
-                );
-                return { count: (rows || []).length, zombies: rows || [] };
-            } catch {
-                return { count: 0, zombies: [], note: "Tabla ZombieResources no disponible" };
-            }
-        },
+        handler: zombiesHandler("get_zombie_resources", "zombies"),
     },
     {
         name: "get_anomalies_feed",
@@ -176,61 +204,13 @@ const TOOLS: ToolDef[] = [
         name: "get_budgets_status",
         description: "Estado de presupuestos del tenant — % consumido por budget y alertas activas.",
         inputSchema: { type: "object", properties: {} },
-        handler: async (_args, tenantId) => {
-            try {
-                const [rows]: any = await pool.query(
-                    `SELECT name, amount_usd, period, actual_spend_usd
-                     FROM Budgets WHERE tenant_id=? AND active=1`,
-                    [tenantId]
-                );
-                const budgets = (rows || []).map((b: any) => {
-                    const used = Number(b.actual_spend_usd) || 0;
-                    const total = Number(b.amount_usd) || 0;
-                    const pct = total > 0 ? (used / total) * 100 : 0;
-                    return {
-                        name: b.name,
-                        period: b.period,
-                        budgetUSD: total,
-                        spentUSD: used,
-                        usagePct: Math.round(pct * 10) / 10,
-                        status: pct >= 100 ? "exceeded" : pct >= 80 ? "warning" : "ok",
-                    };
-                });
-                return { count: budgets.length, budgets };
-            } catch {
-                return { count: 0, budgets: [], note: "Tabla Budgets no disponible" };
-            }
-        },
+        handler: budgetsHandler("get_budgets_status"),
     },
     {
         name: "get_budget_status",
         description: "Alias de get_budgets_status para compatibilidad hacia atrás.",
         inputSchema: { type: "object", properties: {} },
-        handler: async (_args, tenantId) => {
-            try {
-                const [rows]: any = await pool.query(
-                    `SELECT name, amount_usd, period, actual_spend_usd
-                     FROM Budgets WHERE tenant_id=? AND active=1`,
-                    [tenantId]
-                );
-                const budgets = (rows || []).map((b: any) => {
-                    const used = Number(b.actual_spend_usd) || 0;
-                    const total = Number(b.amount_usd) || 0;
-                    const pct = total > 0 ? (used / total) * 100 : 0;
-                    return {
-                        name: b.name,
-                        period: b.period,
-                        budgetUSD: total,
-                        spentUSD: used,
-                        usagePct: Math.round(pct * 10) / 10,
-                        status: pct >= 100 ? "exceeded" : pct >= 80 ? "warning" : "ok",
-                    };
-                });
-                return { count: budgets.length, budgets };
-            } catch {
-                return { count: 0, budgets: [], note: "Tabla Budgets no disponible" };
-            }
-        },
+        handler: budgetsHandler("get_budget_status"),
     },
     {
         name: "get_recommendations",
@@ -242,16 +222,32 @@ const TOOLS: ToolDef[] = [
         handler: async (args, tenantId) => {
             const limit = Math.min(Math.max(Number(args.limit) || 20, 1), 100);
             try {
-                const [rows]: any = await pool.query(
-                    `SELECT id, kind, resource_id, action_text, estimated_savings_usd
-                     FROM recommendations
-                     WHERE tenant_id=? AND status='open'
-                     ORDER BY estimated_savings_usd DESC LIMIT ?`,
-                    [tenantId, limit]
+                // No hay tabla de recomendaciones (esta tool pedía `recommendations`, que no existe): salen de Azure
+                // Advisor, categoría Cost (rightsizing, reservas, apagado programado), las que siguen abiertas. Clave
+                // de caché propia y no la de /api/advisor: esa guarda el texto reescrito con IA que ve la pantalla.
+                const abiertas = await getWithStaleWhileRevalidate(
+                    `mcp:advisor-cost:v1:${tenantId}`,
+                    async () => {
+                        const { recommendations } = await getAdvisorExecutiveData(tenantId, "es");
+                        return recommendations.Cost.filter((r) => (r.status ?? "active") === "active").map((r) => ({
+                            id: r.id,
+                            kind: r.actionType,
+                            resource_id: r.resourceId,
+                            action_text: r.aiSuggestedAction?.actionTitle || r.titleTranslated,
+                            estimated_savings_usd: r.monthlySavingsUSD,
+                        }));
+                    },
+                    1800
                 );
-                return { count: (rows || []).length, recommendations: rows || [] };
-            } catch {
-                return { count: 0, recommendations: [], note: "Tabla recommendations no disponible" };
+                const top = [...abiertas].sort((a, b) => b.estimated_savings_usd - a.estimated_savings_usd).slice(0, limit);
+                return { count: top.length, recommendations: top };
+            } catch (e) {
+                console.error("[mcp] get_recommendations falló:", errorMessage(e));
+                return {
+                    count: 0,
+                    recommendations: [],
+                    note: `No se pudieron leer las recomendaciones de Azure Advisor: ${errorMessage(e) || "error desconocido"}`,
+                };
             }
         },
     },

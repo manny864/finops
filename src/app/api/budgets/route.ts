@@ -2,20 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
-import { getBudgetConsumption, calculateBudgetProjection, getDiscoveredCostCenterTags } from "@/services/budgetService";
+import { getDiscoveredCostCenterTags } from "@/services/budgetService";
+import { getBudgetsUtilization, budgetsCacheKey } from "@/services/budgetUtilization.service";
 // RBAC: GET requiere pertenencia al tenant (read). POST (crear/actualizar budget)
 // requiere rol Admin/Owner — es un control de gobernanza financiera.
-import { getWithStaleWhileRevalidate, invalidateCachePattern } from "@/lib/cache";
-import { is429 } from "@/modules/collectors/azure/billing/billingHelpers";
-import Decimal from "decimal.js";
-import { toMoneyNumber } from "@/lib/moneyDecimal";
-import { errorMessage } from '@/lib/apiErrors';
-
-const BUDGETS_TTL_SECONDS = 3600;
-// Si Cost Management tiró 429 en todas las suscripciones, no conviene cachear
-// el $0 degradado la hora entera (ver mtdBillingService.ts, mismo patrón):
-// el próximo refresh del usuario reintenta en 5 min en vez de una hora.
-const BUDGETS_DEGRADED_TTL_SECONDS = 300;
+import { invalidateCachePattern } from "@/lib/cache";
 
 export async function GET(request: NextRequest) {
     try {
@@ -30,48 +21,9 @@ export async function GET(request: NextRequest) {
         await requireTenantAccess(request, tenantId);
         await exigirSuscripcionDelTenant(tenantId, subscriptionId);
 
-        const [rows]: any = await pool.query(
-            "SELECT * FROM Budgets WHERE tenant_id = ?",
-            [tenantId]
-        );
-
-        // Fetch current consumption for each budget (using SWR cache).
-        // getBudgetConsumption calls Azure — wrap each call so a credential/throttle
-        // error on one budget doesn't crash the whole list (returns 0 gracefully).
-        const cacheKey = `budgets:${tenantId}:${subscriptionId}`;
-        const { budgets: budgetsWithUtilization } = await getWithStaleWhileRevalidate(cacheKey, async () => {
-            let throttled = false;
-            const budgets = await Promise.all(rows.map(async (b: any) => {
-                let currentSpend = 0;
-                try {
-                    currentSpend = await getBudgetConsumption(tenantId!, subscriptionId, b.cost_center_tag_value);
-                } catch (consumptionErr) {
-                    if (is429(consumptionErr)) throttled = true;
-                    console.warn(`[budgets] consumption fetch failed for budget ${b.id}:`, errorMessage(consumptionErr));
-                }
-                const limitDec = new Decimal(b.monthly_limit_usd || 0);
-                const currentSpendDec = new Decimal(currentSpend || 0);
-                const limitNum = toMoneyNumber(limitDec);
-                const currentSpendNum = toMoneyNumber(currentSpendDec);
-                const utilization = limitNum > 0
-                    ? Number(currentSpendDec.dividedBy(limitDec).times(100).toFixed(2))
-                    : 0;
-                const proj = calculateBudgetProjection(limitNum, currentSpendNum);
-                return {
-                    id: b.id,
-                    costCenter: b.cost_center_tag_value,
-                    monthlyLimit: limitNum,
-                    alertThreshold: toMoneyNumber(new Decimal(b.alert_threshold || 0)),
-                    currentSpend: currentSpendNum,
-                    utilization,
-                    dailyBurnRate: proj.dailyBurnRate,
-                    forecastedMonthEndSpend: proj.forecastedMonthEndSpend,
-                    forecastedBreachDate: proj.forecastedBreachDate,
-                    budgetStatus: proj.budgetStatus,
-                };
-            }));
-            return { budgets, throttled };
-        }, BUDGETS_TTL_SECONDS, undefined, (result) => result.throttled ? BUDGETS_DEGRADED_TTL_SECONDS : BUDGETS_TTL_SECONDS);
+        // El gasto de cada presupuesto sale de Cost Management (con caché SWR): la lógica y la clave viven en el servicio
+        // porque el MCP y el feed de Power BI leen la misma caché.
+        const { budgets: budgetsWithUtilization } = await getBudgetsUtilization(tenantId, subscriptionId);
 
         const suggestedCostCenters = await getDiscoveredCostCenterTags(tenantId);
 
@@ -105,7 +57,7 @@ export async function POST(request: NextRequest) {
             [tenantId, costCenter, monthlyLimit, alertThreshold, monthlyLimit, alertThreshold]
         );
 
-        await invalidateCachePattern(`budgets:${tenantId}:*`);
+        await invalidateCachePattern(budgetsCacheKey(tenantId, "*"));
 
         return NextResponse.json({ success: true, message: "Presupuesto guardado" });
 
@@ -134,7 +86,7 @@ export async function PUT(request: NextRequest) {
             [costCenter, monthlyLimit, alertThreshold, id, tenantId]
         );
 
-        await invalidateCachePattern(`budgets:${tenantId}:*`);
+        await invalidateCachePattern(budgetsCacheKey(tenantId, "*"));
         return NextResponse.json({ success: true, message: "Presupuesto actualizado" });
     } catch (e: unknown) {
         if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
@@ -159,7 +111,7 @@ export async function DELETE(request: NextRequest) {
             [id, tenantId]
         );
 
-        await invalidateCachePattern(`budgets:${tenantId}:*`);
+        await invalidateCachePattern(budgetsCacheKey(tenantId, "*"));
         return NextResponse.json({ success: true, message: "Presupuesto eliminado" });
     } catch (e: unknown) {
         if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });

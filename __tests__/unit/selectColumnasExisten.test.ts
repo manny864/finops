@@ -71,14 +71,6 @@ const DEUDA: Record<string, string[]> = {
     "src/app/api/intelligence/storage/data-lake-gen2/route.ts": ["costcategorysnapshots.resource_group", "costcategorysnapshots.resource_id"],
     "src/app/api/intelligence/storage/managed-disks/route.ts": ["costcategorysnapshots.resource_group", "costcategorysnapshots.resource_id"],
 
-    // Las herramientas del MCP y el feed de Power BI que el arreglo de anomalías no tocó: zombis, presupuestos y
-    // recomendaciones. `Budgets` no tiene name/amount_usd/period/actual_spend_usd (tiene cost_center_tag_value y
-    // monthly_limit_usd, y el gasto no se guarda); `ZombieResources`, `zombies` y `recommendations` no existen.
-    // Las tools devuelven `{ count: 0, ..., note: "Tabla X no disponible" }`, que un agente lee como "no hay".
-    "src/app/api/mcp/route.ts": ["budgets.actual_spend_usd", "budgets.amount_usd", "budgets.name", "budgets.period", "recommendations", "zombieresources"],
-    "src/app/api/exports/powerbi-feed/route.ts": ["budgets.actual_spend_usd", "budgets.amount_usd", "budgets.name", "budgets.period", "zombies"],
-    "src/services/globalSearch.service.ts": ["zombieresources"],
-
     // `Tenants` no tiene `azure_subscription_id` ni `deleted_at`. Son rutas de cron que la auditoría del 2026-10-10
     // declara "sin job ni referencias": hoy no corren. (sync-foundry pide además `tenantId`; la columna es `tenant_id`.)
     "src/app/api/cron/sync-aml/route.ts": ["tenants.azure_subscription_id", "tenants.deleted_at"],
@@ -176,16 +168,23 @@ describe("SELECT de una sola tabla contra el DDL versionado", () => {
         ).toEqual([]);
     });
 
-    it("lo corregido el 2026-10-10 sigue corregido: reporte ejecutivo y tool de anomalías del MCP", () => {
-        for (const archivo of ["src/services/executiveReportGenerator.service.ts", "src/app/api/mcp/route.ts"]) {
-            const problemas = [...(escaneo.problemasPorArchivo.get(archivo) ?? [])];
-            // El MCP conserva sus otras tools rotas (en DEUDA): de las anomalías no debe quedar nada.
-            expect(problemas.filter((p) => p.startsWith("anomalies")), archivo).toEqual([]);
-            if (archivo.includes("executiveReport")) expect(problemas, archivo).toEqual([]);
+    it("lo corregido el 2026-10-10 sigue corregido: reporte ejecutivo, tools del MCP, feed de Power BI y buscador", () => {
+        const corregidos = [
+            "src/services/executiveReportGenerator.service.ts",
+            "src/app/api/mcp/route.ts",
+            "src/app/api/exports/powerbi-feed/route.ts",
+            "src/services/globalSearch.service.ts",
+        ];
+        for (const archivo of corregidos) {
+            // Ni una consulta a una tabla o columna inexistente, y ninguna entrada en DEUDA que la tape.
+            expect([...(escaneo.problemasPorArchivo.get(archivo) ?? [])], archivo).toEqual([]);
+            expect(DEUDA[archivo], `${archivo} ya no debe estar en DEUDA`).toBeUndefined();
         }
         // No pasa en vacío: la guarda sí vio esas consultas.
-        const tablasDelReporte = (escaneo.analisisPorArchivo.get("src/services/executiveReportGenerator.service.ts") ?? []).map((a) => a.tabla);
-        expect(tablasDelReporte).toEqual(expect.arrayContaining(["anomalies", "budgets"]));
+        const tablasDe = (archivo: string) => (escaneo.analisisPorArchivo.get(archivo) ?? []).map((a) => a.tabla);
+        expect(tablasDe("src/services/executiveReportGenerator.service.ts")).toEqual(expect.arrayContaining(["anomalies", "budgets"]));
+        expect(tablasDe("src/app/api/mcp/route.ts")).toEqual(expect.arrayContaining(["anomalies"]));
+        expect(tablasDe("src/app/api/exports/powerbi-feed/route.ts")).toEqual(expect.arrayContaining(["costsnapshots"]));
     });
 
     it("los dos errores sueltos de producción ya no están en el código: `resolved_at` y `resource_id` de CostSnapshots", () => {

@@ -8,6 +8,8 @@ import { GET as getPowerBiFeed } from "@/app/api/exports/powerbi-feed/route";
 const mocks = vi.hoisted(() => {
     return {
         mockPoolQuery: vi.fn(),
+        getActiveHardWaste: vi.fn(),
+        getBudgetStatuses: vi.fn(),
     };
 });
 
@@ -15,6 +17,10 @@ vi.mock("@/modules/storage/db", () => ({
     default: { query: mocks.mockPoolQuery, getConnection: vi.fn() },
     initializeDatabase: vi.fn().mockResolvedValue(undefined),
 }));
+// Zombis y presupuestos ya no salen de MySQL sino del escaneo de Resource Graph y de Cost Management (ambas son
+// llamadas a Azure): se mockean las dos fuentes. Que sus SELECT existan se prueba en `mcpYFeedsFuentesVivas.test.ts`.
+vi.mock("@/services/azureHardWaste.service", () => ({ getActiveHardWaste: mocks.getActiveHardWaste }));
+vi.mock("@/services/budgetUtilization.service", () => ({ getBudgetStatuses: mocks.getBudgetStatuses }));
 
 function makeReq(url: string, init?: RequestInit) {
     return new NextRequest(new URL(url, "http://localhost:3000"), init);
@@ -175,15 +181,9 @@ describe("GET /api/exports/powerbi-feed", () => {
     });
 
     it("returns 200 with budgets data for type=budgets", async () => {
-        mocks.mockPoolQuery.mockImplementation((sql, params) => {
-            if (sql.includes("SELECT tenant_id FROM MCPApiKeys")) {
-                return Promise.resolve([[{ tenant_id: "tenant-x" }], []]);
-            }
-            if (sql.includes("FROM Budgets")) {
-                return Promise.resolve([[], []]);
-            }
-            return Promise.resolve([[], []]);
-        });
+        mocks.mockPoolQuery.mockResolvedValue([[{ tenant_id: "tenant-x" }], []]);
+        const presupuestos = [{ name: "Plataforma", period: "monthly", budgetUSD: 1000, spentUSD: 400, usagePct: 40, status: "ok" }];
+        mocks.getBudgetStatuses.mockResolvedValue(presupuestos);
 
         const validKey = "mcp_test1234567890";
         const req = makeReq("http://localhost:3000/api/exports/powerbi-feed?type=budgets", {
@@ -196,19 +196,15 @@ describe("GET /api/exports/powerbi-feed", () => {
         expect(res.status).toBe(200);
         expect(data.success).toBe(true);
         expect(data.type).toBe("budgets");
-        expect(Array.isArray(data.data)).toBe(true);
+        expect(data.data).toEqual(presupuestos);
+        expect(mocks.getBudgetStatuses).toHaveBeenCalledWith("tenant-x");
     });
 
     it("returns 200 with zombies data for type=zombies", async () => {
-        mocks.mockPoolQuery.mockImplementation((sql, params) => {
-            if (sql.includes("SELECT tenant_id FROM MCPApiKeys")) {
-                return Promise.resolve([[{ tenant_id: "tenant-x" }], []]);
-            }
-            if (sql.includes("FROM zombies")) {
-                return Promise.resolve([[], []]);
-            }
-            return Promise.resolve([[], []]);
-        });
+        mocks.mockPoolQuery.mockResolvedValue([[{ tenant_id: "tenant-x" }], []]);
+        mocks.getActiveHardWaste.mockResolvedValue([
+            { id: "/subscriptions/s1/resourceGroups/rg/providers/Microsoft.Compute/disks/d1", resourceType: "microsoft.compute/disks", location: "eastus", resourceGroup: "rg", monthlySavingsUSD: 12.5 },
+        ]);
 
         const validKey = "mcp_test1234567890";
         const req = makeReq("http://localhost:3000/api/exports/powerbi-feed?type=zombies", {
@@ -221,7 +217,16 @@ describe("GET /api/exports/powerbi-feed", () => {
         expect(res.status).toBe(200);
         expect(data.success).toBe(true);
         expect(data.type).toBe("zombies");
-        expect(Array.isArray(data.data)).toBe(true);
+        expect(data.data).toEqual([
+            {
+                resource_id: "/subscriptions/s1/resourceGroups/rg/providers/Microsoft.Compute/disks/d1",
+                resource_type: "microsoft.compute/disks",
+                location: "eastus",
+                resource_group: "rg",
+                estimated_monthly_cost_usd: 12.5,
+            },
+        ]);
+        expect(mocks.getActiveHardWaste).toHaveBeenCalledWith("tenant-x");
     });
 
     it("returns 200 with sustainability data for type=sustainability", async () => {

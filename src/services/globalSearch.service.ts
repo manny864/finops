@@ -11,12 +11,15 @@
  * que quien pregunta pertenece a ese tenant: sin las dos cosas, un buscador
  * global se vuelve la forma más cómoda de leer datos de otro cliente.
  *
- * Todo sale de MySQL. Ningún origen pega contra Azure: un buscador se dispara
- * en cada tecla y no puede depender de una llamada a ARM.
+ * Ningún origen pega contra Azure: un buscador se dispara en cada tecla y no
+ * puede depender de una llamada a ARM. Salen de MySQL, salvo `waste`: el
+ * desperdicio no se guarda en ninguna tabla, sólo existe el escaneo de Resource
+ * Graph, y de él se lee únicamente lo que ya está en la caché (30 s o más en frío).
  */
 import pool from "@/modules/storage/db";
 import { RowDataPacket } from "mysql2";
 import { errorMessage } from "@/lib/apiErrors";
+import { peekActiveHardWaste } from "@/services/azureHardWaste.service";
 
 export type SearchResultKind = "service" | "resourceGroup" | "subscription" | "waste" | "alertRule";
 
@@ -51,8 +54,8 @@ async function source<T>(name: string, fn: () => Promise<T[]>) {
     try {
         return { source: name, ok: true as const, rows: await fn() };
     } catch (err) {
-        // Una tabla ausente (ZombieResources no tiene DDL en migrations) no
-        // puede tumbar el resto del buscador.
+        // Un origen caído (una tabla ausente, un escaneo sin caché) no puede
+        // tumbar el resto del buscador.
         console.warn(`[globalSearch] origen "${name}" no disponible:`, errorMessage(err));
         return { source: name, ok: false as const, error: errorMessage(err), rows: [] as T[] };
     }
@@ -98,16 +101,15 @@ export async function searchTenantContent(tenantId: string, rawQuery: string): P
             return rows;
         }),
         source("waste", async () => {
-            const [rows] = await pool.query<RowDataPacket[]>(
-                `SELECT resource_name AS name, resource_type AS type,
-                        COALESCE(estimated_waste_usd, 0) AS total
-                 FROM ZombieResources
-                 WHERE tenant_id = ? AND status = 'active'
-                   AND (resource_name LIKE ? ESCAPE '\\\\' OR resource_group LIKE ? ESCAPE '\\\\')
-                 ORDER BY estimated_waste_usd DESC LIMIT ?`,
-                [tenantId, term, term, PER_SOURCE_LIMIT]
-            );
-            return rows;
+            // Sólo la caché del escaneo de zombis: nunca lo dispara ni lo espera. Con la caché fría el origen queda
+            // caído (y el buscador lo marca como resultados parciales), no "sin resultados".
+            const hallazgos = await peekActiveHardWaste(tenantId);
+            if (!hallazgos) throw new Error("sin escaneo reciente de recursos zombis (se llena al abrir Recursos Zombis)");
+            const t = q.toLowerCase();
+            return hallazgos
+                .filter((r) => r.name.toLowerCase().includes(t) || r.resourceGroup.toLowerCase().includes(t))
+                .slice(0, PER_SOURCE_LIMIT)
+                .map((r) => ({ name: r.name, type: r.resourceType, total: r.monthlySavingsUSD }));
         }),
         source("alertRules", async () => {
             const [rows] = await pool.query<RowDataPacket[]>(
