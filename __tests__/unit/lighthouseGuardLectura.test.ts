@@ -63,6 +63,7 @@ const LEEN_CON_SCOPE: Array<[ruta: string, porque: string]> = [
     ["reports/executive/export-pdf", "fuera de TENANT_ALL, scopeId llega como suscripción (huella, etiquetas)"],
     ["reports/executive/send-email", "idem export-pdf"],
     ["reports/executive/start-job", "idem export-pdf, guardado para el job"],
+    ["reports/executive/data", "fuera de TENANT_ALL, scopeId llega como suscripción (huella, etiquetas)"],
 ];
 
 /**

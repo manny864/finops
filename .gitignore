@@ -101,8 +101,7 @@ mysql_data/
 !src/modules/storage/schema.sql
 /backups/
 .tmp/
-/.tmp/
-data/
+/data/
 
 # ---------------------------------------------------------------------------
 # Media, Videos y Assets Generados
