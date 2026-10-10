@@ -74,7 +74,7 @@ jobs:
       actions: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Checkov
         # Fijado por commit SHA inmutable (v12) para mitigar riesgos de cadena de suministro (P0)
@@ -198,7 +198,7 @@ jobs:
       - name: Subir hallazgos al Security tab
         if: always()
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@9f759ee644a3e7c15c1390abf49868036c00067b # v3.38.3
         with:
           sarif_file: checkov.sarif
 
@@ -239,13 +239,13 @@ jobs:
       run:
         working-directory: infra/terraform/environments/${{ github.event.inputs.environment || 'prod' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           terraform_version: 1.9.8
 
-      - uses: azure/login@v2
+      - uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2.3.1
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -313,6 +313,10 @@ jobs:
             exit 0
           fi
           IP=$(curl -fsS https://api.ipify.org)
+          # Un servicio de terceros decide qué entra al firewall del vault y al
+          # archivo de outputs: sólo se acepta una IPv4. Otra cosa (HTML, un salto
+          # de línea con otra variable) corta el job acá, antes de escribir nada.
+          [[ "$IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || { echo "::error::api.ipify.org devolvió algo que no es una IPv4"; exit 1; }
           echo "runner_ip=$IP" >> "$GITHUB_OUTPUT"
           echo "vaults=$(echo $VAULTS | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
           for V in $VAULTS; do
@@ -483,9 +487,9 @@ jobs:
       run:
         working-directory: infra/terraform/environments/${{ matrix.environment }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-      - uses: azure/login@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+      - uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2.3.1
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -534,6 +538,10 @@ jobs:
             exit 0
           fi
           IP=$(curl -fsS https://api.ipify.org)
+          # Un servicio de terceros decide qué entra al firewall del vault y al
+          # archivo de outputs: sólo se acepta una IPv4. Otra cosa (HTML, un salto
+          # de línea con otra variable) corta el job acá, antes de escribir nada.
+          [[ "$IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || { echo "::error::api.ipify.org devolvió algo que no es una IPv4"; exit 1; }
           echo "runner_ip=$IP" >> "$GITHUB_OUTPUT"
           echo "vaults=$(echo $VAULTS | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
           for V in $VAULTS; do

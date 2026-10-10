@@ -36,8 +36,16 @@ on:
       - '**/*.test.tsx'
   workflow_dispatch:
 
+# Mínimo a nivel de workflow; `id-token: write` lo pide sólo el job `deploy`, que
+# es el único que hace `azure/login`.
+#
+# Antes estaba acá, y entonces lo heredaba `verificacion`: el job que corre
+# `npm ci` y la suite de tests, o sea código de cientos de dependencias de npm,
+# en un push a main. Cualquier proceso de ese job podía pedir un token OIDC con
+# sujeto `ref:refs/heads/main`, que el service principal de Terraform acepta
+# (credencial `gh-main`) con Contributor y User Access Administrator sobre la
+# suscripción. Un `postinstall` malicioso en una dependencia llegaba a Azure.
 permissions:
-  id-token: write
   contents: read
 
 concurrency:
@@ -96,8 +104,8 @@ jobs:
     name: Lint + typecheck + tests (puerta del deploy)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22'
           cache: 'npm'
@@ -132,7 +140,7 @@ jobs:
       - name: Upload test report
         if: failure()
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: vitest-report-deploy
           path: vitest-report.json
@@ -142,10 +150,13 @@ jobs:
     needs: verificacion
     runs-on: ubuntu-latest
     environment: prod
+    permissions:
+      id-token: write
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: azure/login@v2
+      - uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2.3.1
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -275,6 +286,22 @@ jobs:
           for i in $(seq 1 30); do
             code=$(curl -s -o /dev/null -w '%{http_code}' "https://$FQDN/api/health" || true)
             [ "$code" = "200" ] && exit 0
+            # 403 = el origen sólo acepta IPs de Cloudflare (allowed_ip_ranges):
+            # este runner no puede entrar por el FQDN de Azure, y eso NO es una
+            # falla del deploy. Se confía entonces en la sonda de readiness de la
+            # plataforma, que pega al mismo /api/health por dentro: la revisión
+            # nueva tiene que estar Healthy y Running. Sin el filtro de IP este
+            # camino no se ejecuta nunca.
+            if [ "$code" = "403" ]; then
+              REV=$(az containerapp show -g "$RG" -n "$APP" \
+                --query properties.latestRevisionName -o tsv || true)
+              ESTADO=$(az containerapp revision show -g "$RG" -n "$APP" --revision "$REV" \
+                --query "join(' ', [properties.healthState, properties.runningState])" -o tsv || true)
+              if [ "$ESTADO" = "Healthy Running" ]; then
+                echo "El origen filtra por IP (403); la revisión $REV está $ESTADO."
+                exit 0
+              fi
+            fi
             sleep 10
           done
           echo "Health check falló — revisar la revisión y hacer rollback"; exit 1

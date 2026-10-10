@@ -1,0 +1,24 @@
+# Mantiene al día las Actions fijadas por SHA en .github/workflows/.
+#
+# Las Actions van por commit SHA completo con el tag de versión en un comentario
+# (`uses: owner/repo@<sha> # v4.4.0`), porque un tag es mutable: quien controle
+# el repo de una Action puede mover `v4` a otro código, y esos jobs corren con
+# acceso a credenciales. Dependabot actualiza el SHA y el comentario juntos y
+# abre el PR para revisar el diff antes de aceptarlo.
+#
+# Un solo PR agrupado por semana: cada PR dispara CI y el repo es privado, así
+# que los minutos de Actions no son gratis. Sólo `github-actions`: las
+# dependencias de npm no están en el alcance de este archivo.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    groups:
+      github-actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore(ci)"
