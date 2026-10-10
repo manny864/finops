@@ -203,6 +203,11 @@ jobs:
           sarif_file: checkov.sarif
 
   plan-apply:
+    # En el cron semanal este job corría ADEMÁS de `drift`, o sea dos planes de
+    # producción por lunes, uno de ellos sin que nadie lo mire (el del 2026-10-05
+    # cayó por la propagación del firewall del Key Vault y dejó la corrida en rojo
+    # aunque `drift` pasó). Por schedule corre sólo `drift`.
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     needs: scan
     permissions:
@@ -214,9 +219,11 @@ jobs:
     # unico ambiente que existe: no hay stamp dev aplicado ni terraform.tfvars
     # para el. La segunda es que el nombre de este environment define el
     # subject del token OIDC (`repo:<owner>/<repo>:environment:<nombre>`), y el
-    # service principal cscs-finops-terraform solo tiene credenciales federadas
-    # para `environment:prod`, `pull_request` y `ref:refs/heads/main`. Con 'dev'
-    # azure/login fallaba con AADSTS700213 en cada PR que tocara infra.
+    # service principal cscs-finops-terraform tiene la credencial federada de
+    # `environment:prod`. Con 'dev' azure/login fallaba con AADSTS700213 en cada PR
+    # que tocara infra. Las otras (`pull_request`, `ref:refs/heads/main` y dos de
+    # staging, verificadas el 2026-10-10) ya no las usa ningún job: ver el runbook de
+    # docs/security/endurecimiento-infraestructura-saas-2026-10-09.md.
     #
     # El apply sigue atado a workflow_dispatch (ver el paso al final), asi que
     # un PR nunca aplica cambios de Terraform: planifica contra el state de
@@ -476,6 +483,10 @@ jobs:
   drift:
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
+    # Con environment, el sujeto del token OIDC es `environment:prod`, el mismo que
+    # usan plan-apply y el deploy. Sin él era `ref:refs/heads/main`, una credencial
+    # federada más sobre el service principal que sólo existía para este job.
+    environment: ${{ matrix.environment }}
     permissions:
       id-token: write
       contents: read
