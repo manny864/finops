@@ -258,7 +258,7 @@ Para cumplir con regulaciones internacionales de residencia de datos (GDPR, LGPD
 
 ```mermaid
 graph LR
-    subgraph "Global Traffic Manager (Cloudflare / Front Door)"
+    subgraph "Borde global (Cloudflare)"
         GTM["Geo-DNS / Policy Router"]
     end
 

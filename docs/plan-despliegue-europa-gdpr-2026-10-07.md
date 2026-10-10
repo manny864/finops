@@ -167,8 +167,8 @@ Lo que ya se sabe, para no repetir el análisis:
   así que el pool único es correcto dentro de cada stamp. Falta un guard de
   región (`DATA_REGION` no existe en `src/`; hoy `data_region` sólo alimenta un
   atributo OTEL), ruteo por tenant y alta en el stamp correcto.
-- **Front Door rutea por país del visitante, no por tenant**: para esto sirve un
-  hostname regional (`eu.<dominio>`).
+- **Un router global (como Front Door, ya eliminado del Terraform) rutea por país
+  del visitante, no por tenant**: para esto sirve un hostname regional (`eu.<dominio>`).
 - Hay que decidir región (capacidad de MySQL en la suscripción: ya hubo
   `ProvisionNotSupportedForRegion`), sacar o regionalizar Cloudflare y WorkOS,
   y resolver el webhook de Paddle y las vistas cross-tenant del superadmin.

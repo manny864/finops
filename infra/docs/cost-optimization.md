@@ -53,7 +53,7 @@ pena mirar la métrica antes de asumir que sigue siendo gratis.
 | MySQL >80% CPU sostenido | B2s → GP_Standard_D2ds_v4 | +70 |
 | Primer SLA contractual | `mysql_high_availability = true` (exige GP) | +125 |
 | Redis se llena (evictions) | Basic C0 → C1, o Standard con réplica | +25 a +60 |
-| Cliente europeo exige residencia | stamp `eu` + Front Door | +210 (stamp) +35 |
+| Cliente europeo exige residencia | stamp `eu` con hostname regional | +210 (stamp) |
 | Compliance pide red privada | `keyvault_private_endpoint_enabled = true` | +7 |
 
 > **Antes de subir `web_max_replicas`:** el limitador de Cost Management

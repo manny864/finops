@@ -139,10 +139,7 @@ module "global_diagnostics" {
   name_base    = local.global_name_base
   workspace_id = module.stamp[var.default_stamp].workspace_id
 
-  targets = merge(
-    { acr = module.acr.id },
-    var.frontdoor_enabled ? { frontdoor = module.frontdoor.profile_id } : {}
-  )
+  targets = { acr = module.acr.id }
 }
 
 # ---------------------------------------------------------------------------
@@ -238,7 +235,6 @@ module "stamp" {
   security_activity_alerts_enabled   = each.value.security_activity_alerts_enabled
   security_policy_audit_enabled      = each.value.security_policy_audit_enabled
   nat_gateway_enabled                = each.value.nat_gateway_enabled
-  app_private_access_only            = each.value.app_private_access_only
   alert_email                        = var.alert_email
   monthly_budget_amount              = each.value.monthly_budget_amount
   budget_start_date                  = var.budget_start_date
@@ -255,43 +251,6 @@ module "stamp" {
   document_intelligence_enabled = each.value.document_intelligence_enabled
 
   tags = merge(local.tags, { DataRegion = upper(each.key) })
-}
-
-
-# ---------------------------------------------------------------------------
-# Front Door: sólo con 2+ stamps. Con uno, Cloudflare alcanza.
-# ---------------------------------------------------------------------------
-
-module "frontdoor" {
-  source              = "../../modules/frontdoor"
-  enabled             = var.frontdoor_enabled
-  name_base           = local.global_name_base
-  name_compact        = local.global_name_compact
-  resource_group_name = azurerm_resource_group.global.name
-  sku_name            = var.frontdoor_sku
-  origin_host_name    = local.stamp_hostnames[var.default_stamp]
-
-  # Private Link al entorno del stamp por defecto (null = el origin sigue siendo público).
-  origin_private_link = var.frontdoor_private_link_enabled ? {
-    target_id = module.stamp[var.default_stamp].container_app_environment_id
-    location  = var.stamps[var.default_stamp].location
-  } : null
-
-  custom_domain_host_name  = var.frontdoor_custom_domain
-  waf_mode                 = var.frontdoor_waf_mode
-  waf_bot_action           = var.frontdoor_waf_bot_action
-  waf_rate_limit_action    = var.frontdoor_waf_rate_limit_action
-  waf_rate_limit_threshold = var.frontdoor_waf_rate_limit_threshold
-
-  extra_origins = [
-    for k, v in var.stamp_geo_routing : {
-      key       = k
-      host_name = local.stamp_hostnames[k]
-      countries = v
-    }
-  ]
-
-  tags = local.tags
 }
 
 # ---------------------------------------------------------------------------

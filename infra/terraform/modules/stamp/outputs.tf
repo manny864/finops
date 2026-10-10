@@ -107,8 +107,3 @@ output "custom_domain_verification_id" {
   sensitive = true
 }
 
-output "container_app_environment_id" {
-  description = "ID del managed environment: destino del Private Link de Front Door."
-  value       = azurerm_container_app_environment.this.id
-}
-

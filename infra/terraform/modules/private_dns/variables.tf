@@ -26,18 +26,6 @@ variable "document_intelligence_enabled" {
   default = false
 }
 
-variable "containerapps_enabled" {
-  description = "Crea la zona privatelink.<region>.azurecontainerapps.io para el endpoint privado del entorno de Container Apps."
-  type        = bool
-  default     = false
-}
-
-variable "containerapps_location" {
-  description = "Región del entorno de Container Apps (la zona privada lleva el nombre de la región). Sólo se usa con containerapps_enabled."
-  type        = string
-  default     = ""
-}
-
 variable "tags" {
   type = map(string)
 }

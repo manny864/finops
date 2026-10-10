@@ -52,7 +52,6 @@ graph TB
     subgraph "Azure — West US 2"
         subgraph "Control Plane (Global RG)"
             ACR["Azure Container Registry (Basic)"]
-            FD["Front Door (disabled — 1 stamp)"]
         end
 
         subgraph "Stamp westus2"
@@ -114,8 +113,7 @@ graph TB
 
 La infra usa un patrón de **stamps** (sellos regionales). Hoy existe un único stamp (`westus2`). La key del mapa es el valor de `Tenants.data_residency`. Agregar un segundo stamp requiere:
 1. Declarar la entrada en `var.stamps`
-2. Habilitar Front Door (`frontdoor_enabled = true`)
-3. Configurar geo-routing en `stamp_geo_routing`
+2. Declarar el dominio regional del stamp (`custom_domain_name`, por ejemplo `eu.<dominio>`) y cargar su registro en Cloudflare. No hay router global: Front Door se eliminó del Terraform el 2026-10-10 (último estado en el commit `979582f`)
 
 ---
 
@@ -503,7 +501,6 @@ infra/terraform/modules/
 ├── custom_domain/     # Custom domain + Managed Certificate
 ├── defender/          # Microsoft Defender for Cloud
 ├── diagnostics/       # Diagnostic settings
-├── frontdoor/         # Azure Front Door (disabled)
 ├── keyvault/          # Key Vault + access policies
 ├── monitoring/        # Action groups + metric alerts
 ├── mysql/             # MySQL Flexible Server

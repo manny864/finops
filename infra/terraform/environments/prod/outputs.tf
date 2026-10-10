@@ -48,16 +48,6 @@ output "appinsights_ids" {
   value = { for k, s in module.stamp : k => s.appinsights_id }
 }
 
-output "frontdoor_hostname" {
-  value = module.frontdoor.endpoint_hostname
-}
-
-output "frontdoor_custom_domain_validation_token" {
-  description = "Valor del TXT _dnsauth.<subdominio> con el que Front Door valida el dominio propio (null si no hay dominio configurado)."
-  value       = module.frontdoor.custom_domain_validation_token
-  sensitive   = true
-}
-
 output "custom_domain_dns_instructions" {
   # Terraform obliga a marcar sensitive porque el provider marca
   # custom_domain_verification_id como tal (ver modules/containerapp/outputs.tf).

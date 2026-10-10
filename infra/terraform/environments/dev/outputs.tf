@@ -41,10 +41,6 @@ output "appinsights_ids" {
   value = { for k, s in module.stamp : k => s.appinsights_id }
 }
 
-output "frontdoor_hostname" {
-  value = module.frontdoor.endpoint_hostname
-}
-
 # Lo consume .github/workflows/terraform.yml para abrir y cerrar el firewall
 # del vault alrededor del plan/apply.
 output "key_vault_names" {

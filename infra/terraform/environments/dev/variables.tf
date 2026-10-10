@@ -79,12 +79,6 @@ variable "default_stamp" {
   default = "us"
 }
 
-variable "stamp_geo_routing" {
-  description = "stamp => países ISO-3166. Sólo aplica con frontdoor_enabled."
-  type        = map(list(string))
-  default     = {}
-}
-
 # ---------------------------------------------------------------------------
 # Cron. Estas expresiones son el reemplazo del crontab manual del VPS.
 # ---------------------------------------------------------------------------
@@ -131,17 +125,6 @@ variable "image_tag" {
 variable "target_port" {
   type    = number
   default = 3000
-}
-
-# --- front door ---
-variable "frontdoor_enabled" {
-  type    = bool
-  default = false
-}
-
-variable "frontdoor_sku" {
-  type    = string
-  default = "Standard_AzureFrontDoor"
 }
 
 # --- defender for cloud (alcance suscripción) ---

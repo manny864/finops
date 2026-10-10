@@ -94,9 +94,6 @@ acr_sku    = "Basic"
 image_name = "finops"
 image_tag  = "latest"
 
-# Cloudflare ya hace WAF/TLS/CDN. Front Door recién con el segundo stamp.
-frontdoor_enabled = false
-
 # Se prende en prod: el alcance es la suscripción entera.
 defender_enabled = false
 

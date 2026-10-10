@@ -71,7 +71,6 @@ terraform/
     budget/           presupuesto por RG con alertas
     acr/              GLOBAL — registry
     defender/         GLOBAL — Defender for Cloud (alcance suscripción)
-    frontdoor/        GLOBAL — geo-routing, sólo con 2+ stamps
 pipelines/github-actions/
   terraform.yml       checkov + Infracost + plan en PR, apply manual, drift semanal
   deploy.yml          ACR build → migraciones → web → los 14 jobs → health check
@@ -106,7 +105,6 @@ igual para saber qué apagar cuando el crédito termine.
 | `web_min_replicas` | `1` (`0` en dev) | En 0 no se paga cuando nadie usa el ambiente |
 | `allowed_ip_ranges` | `[]` | Restringe el ingress a Cloudflare |
 | `defender_enabled` | `false` | Defender for Cloud. Alcance **suscripción** |
-| `frontdoor_enabled` | `false` | Sólo útil con 2+ stamps |
 | `zone_redundant` | `true` | **No se puede cambiar después de crear el entorno** |
 | `stamps.<clave>.ai_services_enabled` | `false` | Cuenta de Azure AI Services del stamp (`modules/ai_services`): private endpoint, `gpt-5.4-mini` Data Zone y la identidad de la app como credencial. Unos US$9/mes fijos más el consumo, con presupuesto propio de US$50. Ver *IA de plataforma* abajo |
 | `stamps.<clave>.ai_services_location` | `null` (la del stamp) | Región de la cuenta de IA. West US 2 no ofrece modelos de Azure OpenAI: `us` usa `westus3` |

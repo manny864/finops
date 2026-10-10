@@ -89,10 +89,7 @@ module "global_diagnostics" {
   name_base    = local.global_name_base
   workspace_id = module.stamp[var.default_stamp].workspace_id
 
-  targets = merge(
-    { acr = module.acr.id },
-    var.frontdoor_enabled ? { frontdoor = module.frontdoor.profile_id } : {}
-  )
+  targets = { acr = module.acr.id }
 }
 
 # ---------------------------------------------------------------------------
@@ -168,28 +165,4 @@ module "stamp" {
   budget_start_date               = var.budget_start_date
 
   tags = merge(local.tags, { DataRegion = upper(each.key) })
-}
-
-# ---------------------------------------------------------------------------
-# Front Door: sólo con 2+ stamps. Con uno, Cloudflare alcanza.
-# ---------------------------------------------------------------------------
-
-module "frontdoor" {
-  source              = "../../modules/frontdoor"
-  enabled             = var.frontdoor_enabled
-  name_base           = local.global_name_base
-  name_compact        = local.global_name_compact
-  resource_group_name = azurerm_resource_group.global.name
-  sku_name            = var.frontdoor_sku
-  origin_host_name    = local.stamp_hostnames[var.default_stamp]
-
-  extra_origins = [
-    for k, v in var.stamp_geo_routing : {
-      key       = k
-      host_name = local.stamp_hostnames[k]
-      countries = v
-    }
-  ]
-
-  tags = local.tags
 }

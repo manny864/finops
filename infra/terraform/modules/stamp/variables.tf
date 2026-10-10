@@ -346,19 +346,6 @@ variable "nat_gateway_enabled" {
   default     = false
 }
 
-variable "app_private_access_only" {
-  description = <<-DESC
-    true = el entorno de Container Apps deja de aceptar tráfico de internet
-    (publicNetworkAccess Disabled) y sólo se llega por endpoint privado: se crea el
-    endpoint en la subred de endpoints privados, la zona privatelink.<region>.azurecontainerapps.io
-    y el A record del entorno. Es el destino del Private Link de Front Door
-    (frontdoor_private_link_enabled). CORTA el acceso público de inmediato: Cloudflare
-    deja de llegar al origen. Ver el runbook "Cerrar el origen" de docs/security/.
-  DESC
-  type        = bool
-  default     = false
-}
-
 variable "resource_lock_enabled" {
   type    = bool
   default = false

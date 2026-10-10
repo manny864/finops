@@ -111,22 +111,12 @@ variable "stamps" {
     # NAT Gateway con IP fija de salida (modules/network/main.tf). Cambia la salida de TODO el
     # entorno: ver el runbook "Cerrar el origen" de docs/security/.
     nat_gateway_enabled = optional(bool, false)
-
-    # El entorno de Container Apps deja de aceptar internet y sólo se llega por endpoint
-    # privado (modules/stamp/main.tf). Es el destino del Private Link de Front Door.
-    app_private_access_only = optional(bool, false)
   }))
 }
 
 variable "default_stamp" {
   type    = string
   default = "us"
-}
-
-variable "stamp_geo_routing" {
-  description = "stamp => países ISO-3166. Sólo aplica con frontdoor_enabled."
-  type        = map(list(string))
-  default     = {}
 }
 
 # ---------------------------------------------------------------------------
@@ -191,56 +181,6 @@ variable "image_tag" {
 variable "target_port" {
   type    = number
   default = 3000
-}
-
-# --- front door ---
-variable "frontdoor_enabled" {
-  type    = bool
-  default = false
-}
-
-variable "frontdoor_sku" {
-  type    = string
-  default = "Standard_AzureFrontDoor"
-}
-
-# Cerrar el origen con Front Door Premium + Private Link (alternativa a la lista de IP de
-# Cloudflare: con el acceso público del entorno apagado, Cloudflare deja de llegar al origen).
-# Orden y runbook en docs/security/endurecimiento-infraestructura-saas-2026-10-09.md.
-variable "frontdoor_private_link_enabled" {
-  description = "El origin de Front Door se conecta por Private Link al entorno de Container Apps del stamp por defecto. Exige frontdoor_enabled y SKU Premium; después del apply hay que APROBAR la conexión de endpoint privado en el entorno."
-  type        = bool
-  default     = false
-}
-
-variable "frontdoor_custom_domain" {
-  description = "FQDN del dominio propio en Front Door (certificado gestionado de Front Door). Vacío = sólo el hostname *.azurefd.net."
-  type        = string
-  default     = ""
-}
-
-variable "frontdoor_waf_mode" {
-  description = "Detection (default) registra sin bloquear; Prevention bloquea. Revisar el log del WAF en Log Analytics antes de pasar a Prevention."
-  type        = string
-  default     = "Detection"
-}
-
-variable "frontdoor_waf_bot_action" {
-  description = "Acción del ruleset de bots: Log (default, sólo registra), Allow, Block o Redirect."
-  type        = string
-  default     = "Log"
-}
-
-variable "frontdoor_waf_rate_limit_action" {
-  description = "Acción al superar el límite de pedidos por IP: Log (default, sólo mide), Block, Redirect, JSChallenge o CAPTCHA."
-  type        = string
-  default     = "Log"
-}
-
-variable "frontdoor_waf_rate_limit_threshold" {
-  description = "Pedidos por minuto y por IP de cliente. Estimación sin datos de tráfico: medir antes de bloquear."
-  type        = number
-  default     = 1200
 }
 
 # --- defender for cloud (alcance suscripción) ---

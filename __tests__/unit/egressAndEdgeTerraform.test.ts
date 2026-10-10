@@ -5,18 +5,21 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * Salida fija (NAT Gateway), certificado propio, Front Door Premium con Private Link y
- * versión de MySQL: todo viene apagado y lo que se enciende no puede tocar lo existente.
- * Estos tests cuidan lo que no se nota hasta que falla en producción:
+ * Salida fija (NAT Gateway), certificado propio y versión de MySQL: todo viene apagado y lo
+ * que se enciende no puede tocar lo existente. Estos tests cuidan lo que no se nota hasta que
+ * falla en producción:
  *
  *  - Container Apps sólo admite NAT Gateway Standard (StandardV2 no está soportado).
  *  - El binding del dominio ignora el id del certificado: cambiarlo desde Terraform lo
  *    recrearía en producción. Crear el certificado propio y borrar el gestionado nunca van
  *    en el mismo apply (Azure no borra un certificado en uso).
- *  - Front Door y el filtro por IP a Cloudflare son destinos ALTERNATIVOS: lo impone un check
- *    y el apply se frena ante un check que no pasa.
+ *  - Filtrar el origen a Cloudflare sin declarar la IP de salida del entorno deja a los cron
+ *    con 403: lo impone un check y el apply se frena ante un check que no pasa.
  *  - Una versión de MySQL mal puesta en el tfvars no puede disparar la actualización mayor,
  *    que es irreversible.
+ *
+ * Front Door se eliminó del Terraform el 2026-10-10 (se eligió Cloudflare + NAT Gateway +
+ * certificado propio); el último estado del módulo está en el commit 979582f.
  */
 const TF = "infra/terraform";
 const PROD = `${TF}/environments/prod`;
@@ -110,71 +113,6 @@ describe("certificado propio en el dominio", () => {
   });
 });
 
-describe("Front Door Premium con Private Link", () => {
-  const fd = leer(`${TF}/modules/frontdoor/main.tf`);
-  const fdVars = leer(`${TF}/modules/frontdoor/variables.tf`);
-  const variablesProd = leer(`${PROD}/variables.tf`);
-  const mainProd = leer(`${PROD}/main.tf`);
-
-  it("viene apagado: Front Door sin habilitar, sin Private Link y sin dominio propio", () => {
-    expect(variablesProd).toMatch(/variable "frontdoor_enabled"[\s\S]*?default\s*=\s*false/);
-    expect(variablesProd).toMatch(/variable "frontdoor_private_link_enabled"[\s\S]*?default\s*=\s*false/);
-    expect(variablesProd).toMatch(/variable "frontdoor_custom_domain"[\s\S]*?default\s*=\s*""/);
-    expect(fdVars).toMatch(/variable "origin_private_link"[\s\S]*?default\s*=\s*null/);
-  });
-
-  it("el origin se conecta al managed environment y exige Premium", () => {
-    expect(fd).toMatch(/target_type\s*=\s*"managedEnvironments"/);
-    expect(fd.match(/error_message\s*=\s*"El Private Link hacia el origin sólo existe en Front Door Premium/g)).toHaveLength(2);
-    expect(mainProd).toMatch(/origin_private_link\s*=\s*var\.frontdoor_private_link_enabled \? \{/);
-  });
-
-  it("el WAF arranca en Detection y el rate limit y los bots en Log: medir antes de bloquear", () => {
-    expect(variablesProd).toMatch(/variable "frontdoor_waf_mode"[\s\S]*?default\s*=\s*"Detection"/);
-    expect(variablesProd).toMatch(/variable "frontdoor_waf_bot_action"[\s\S]*?default\s*=\s*"Log"/);
-    expect(variablesProd).toMatch(/variable "frontdoor_waf_rate_limit_action"[\s\S]*?default\s*=\s*"Log"/);
-    expect(fdVars).toMatch(/variable "waf_rate_limit_action"[\s\S]*?default\s*=\s*"Log"/);
-    expect(fdVars).toMatch(/variable "waf_bot_action"[\s\S]*?default\s*=\s*"Log"/);
-  });
-
-  it("el nombre de la regla personalizada sólo tiene letras y números (lo exige el WAF)", () => {
-    const nombre = fd.slice(fd.indexOf('dynamic "custom_rule"')).match(/name\s*=\s*"([^"]+)"/)?.[1];
-    expect(nombre).toBeDefined();
-    expect(nombre).toMatch(/^[A-Za-z0-9]+$/);
-  });
-
-  it("el dominio propio entra en la ruta, en la asociación y en la política del WAF", () => {
-    expect(fd).toMatch(/cdn_frontdoor_custom_domain_ids\s*=\s*var\.custom_domain_host_name != ""/);
-    expect(fd).toMatch(/resource "azurerm_cdn_frontdoor_custom_domain_association"/);
-    expect(fd).toMatch(/dynamic "domain"[\s\S]*?azurerm_cdn_frontdoor_custom_domain\.this\[0\]\.id/);
-  });
-
-  it("no duplica el diagnóstico: los logs ya los manda module.global_diagnostics", () => {
-    expect(fd).not.toMatch(/azurerm_monitor_diagnostic_setting/);
-    expect(mainProd).toMatch(/var\.frontdoor_enabled \? \{ frontdoor = module\.frontdoor\.profile_id \} : \{\}/);
-  });
-});
-
-describe("acceso privado al entorno de Container Apps", () => {
-  const stamp = leer(`${TF}/modules/stamp/main.tf`);
-
-  it("viene apagado y sólo entonces cambia el acceso público", () => {
-    expect(leer(`${TF}/modules/stamp/variables.tf`)).toMatch(/variable "app_private_access_only"[\s\S]*?default\s*=\s*false/);
-    expect(leer(`${PROD}/variables.tf`)).toMatch(/app_private_access_only\s*=\s*optional\(bool,\s*false\)/);
-    expect(stamp).toMatch(/public_network_access\s*=\s*var\.app_private_access_only \? "Disabled" : "Enabled"/);
-  });
-
-  it("el endpoint usa el groupId verificado y el A record la primera etiqueta del dominio por defecto", () => {
-    expect(stamp).toMatch(/subresource_names\s*=\s*\["managedEnvironments"\]/);
-    expect(stamp).toMatch(/name\s*=\s*split\("\.", azurerm_container_app_environment\.this\.default_domain\)\[0\]/);
-    expect(stamp).toMatch(/count\s*=\s*var\.app_private_access_only \? 1 : 0/);
-  });
-
-  it("la zona privada se llama privatelink.<región>.azurecontainerapps.io", () => {
-    expect(leer(`${TF}/modules/private_dns/main.tf`)).toContain('privatelink.${var.containerapps_location}.azurecontainerapps.io');
-  });
-});
-
 describe("MySQL: la versión no se cambia desde Terraform", () => {
   const mysql = leer(`${TF}/modules/mysql/main.tf`);
 
@@ -191,7 +129,7 @@ describe("MySQL: la versión no se cambia desde Terraform", () => {
   });
 });
 
-describe.skipIf(!hayTerraform)("guardas del entorno evaluadas con terraform console", () => {
+describe.skipIf(!hayTerraform)("guarda del origen evaluada con terraform console", () => {
   const checks = leer(`${PROD}/checks.tf`);
 
   function condicion(nombre: string): string {
@@ -207,11 +145,8 @@ describe.skipIf(!hayTerraform)("guardas del entorno evaluadas con terraform cons
       writeFileSync(
         join(dir, "variables.tf"),
         [
-          'variable "frontdoor_enabled" {\n  type = bool\n  default = false\n}',
-          'variable "frontdoor_private_link_enabled" {\n  type = bool\n  default = false\n}',
-          'variable "frontdoor_sku" {\n  type = string\n  default = "Standard_AzureFrontDoor"\n}',
           'variable "origin_cloudflare_only" {\n  type = bool\n  default = false\n}',
-          'variable "stamps" {\n  type = map(object({ app_private_access_only = bool }))\n  default = { us = { app_private_access_only = false } }\n}',
+          'variable "origin_extra_allowed_ip_ranges" {\n  type = list(string)\n  default = []\n}',
         ].join("\n"),
       );
       const env: NodeJS.ProcessEnv = { ...process.env };
@@ -225,42 +160,14 @@ describe.skipIf(!hayTerraform)("guardas del entorno evaluadas con terraform cons
   }
 
   it.each([
-    [false, false, "Standard_AzureFrontDoor", true],
-    [true, false, "Premium_AzureFrontDoor", false],
-    [true, true, "Standard_AzureFrontDoor", false],
-    [true, true, "Premium_AzureFrontDoor", true],
-  ])("private link exige Front Door Premium: private_link=%s frontdoor=%s sku=%s => pasa=%s", (privateLink, frontdoor, sku, pasa) => {
-    const r = evaluar(condicion("frontdoor_private_link_requiere_premium"), {
-      frontdoor_private_link_enabled: privateLink,
-      frontdoor_enabled: frontdoor,
-      frontdoor_sku: sku,
-    });
-    expect(r).toBe(String(pasa));
-  });
-
-  it.each([
-    [false, false, false, true],
-    [true, false, false, false],
-    [true, true, false, false],
-    [true, true, true, true],
-  ])("el acceso privado sin Front Door con Private Link deja a todos afuera: privado=%s frontdoor=%s private_link=%s => pasa=%s", (privado, frontdoor, privateLink, pasa) => {
-    const r = evaluar(condicion("acceso_privado_requiere_frontdoor_con_private_link"), {
-      stamps: { us: { app_private_access_only: privado } },
-      frontdoor_enabled: frontdoor,
-      frontdoor_private_link_enabled: privateLink,
-    });
-    expect(r).toBe(String(pasa));
-  });
-
-  it.each([
-    [false, false, true],
-    [true, false, true],
-    [false, true, true],
-    [true, true, false],
-  ])("Cloudflare y acceso privado son alternativas: cloudflare=%s privado=%s => pasa=%s", (cloudflare, privado, pasa) => {
-    const r = evaluar(condicion("cloudflare_y_acceso_privado_son_alternativas"), {
+    [false, [], true],
+    [false, ["203.0.113.7/32"], true],
+    [true, [], false],
+    [true, ["203.0.113.7/32"], true],
+  ])("filtrar el origen a Cloudflare exige declarar a los cron: cloudflare=%s extras=%j => pasa=%s", (cloudflare, extras, pasa) => {
+    const r = evaluar(condicion("origen_cloudflare_declara_llamadores_internos"), {
       origin_cloudflare_only: cloudflare,
-      stamps: { us: { app_private_access_only: privado } },
+      origin_extra_allowed_ip_ranges: extras,
     });
     expect(r).toBe(String(pasa));
   });

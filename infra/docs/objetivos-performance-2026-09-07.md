@@ -342,8 +342,8 @@ es tapar el síntoma de O1 y O2.
   Es la solución estructural de P1 y probablemente el destino final, pero es un
   componente nuevo que mantener. Primero O2.1 + O2.3 y medir: puede que con la
   carga de fondo de la ola 1 ya baja, alcance.
-- **Front Door.** Está en `false` a propósito; Cloudflare ya hace WAF/TLS/CDN.
-  Recién con el segundo stamp.
+- **Front Door.** Descartado: Cloudflare ya hace WAF/TLS/CDN, y el 2026-10-10 se
+  eliminó el módulo del Terraform (`docs/security/endurecimiento-infraestructura-saas-2026-10-09.md`).
 - **ACR Standard.** Con O1.2 los pulls bajan a los del deploy nada más, y Basic
   sobra. Si se hace O1.2 primero, este objetivo se cae solo.
 

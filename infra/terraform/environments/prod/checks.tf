@@ -94,28 +94,3 @@ check "origen_cloudflare_declara_llamadores_internos" {
   }
 }
 
-# Cerrar el origen con Front Door Premium + Private Link y cerrarlo con la lista de IP de
-# Cloudflare son destinos ALTERNATIVOS, no se suman: con el acceso público del entorno
-# apagado Cloudflare deja de llegar al origen, y con el filtro a Cloudflare el origen sigue
-# siendo público. El apply del workflow se frena ante un check que no pase.
-check "frontdoor_private_link_requiere_premium" {
-  assert {
-    condition     = !var.frontdoor_private_link_enabled || (var.frontdoor_enabled && var.frontdoor_sku == "Premium_AzureFrontDoor")
-    error_message = "frontdoor_private_link_enabled requiere frontdoor_enabled = true y frontdoor_sku = Premium_AzureFrontDoor: el Private Link hacia el origin sólo existe en Premium."
-  }
-}
-
-check "acceso_privado_requiere_frontdoor_con_private_link" {
-  assert {
-    condition     = !anytrue([for k, s in var.stamps : s.app_private_access_only]) || (var.frontdoor_enabled && var.frontdoor_private_link_enabled)
-    error_message = "app_private_access_only = true apaga el acceso público del entorno de Container Apps: sin Front Door con Private Link (frontdoor_enabled y frontdoor_private_link_enabled) nadie llega al app desde internet. Ver 'Cerrar el origen' en docs/security/endurecimiento-infraestructura-saas-2026-10-09.md."
-  }
-}
-
-check "cloudflare_y_acceso_privado_son_alternativas" {
-  assert {
-    condition     = !(var.origin_cloudflare_only && anytrue([for k, s in var.stamps : s.app_private_access_only]))
-    error_message = "origin_cloudflare_only filtra un origen público por IP de Cloudflare; app_private_access_only apaga el acceso público. Son destinos alternativos: elegir uno."
-  }
-}
-

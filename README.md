@@ -153,7 +153,7 @@ infra/                            # Infraestructura como código (Terraform)
 │   └── modules/                  # stamp, containerapp, cronjobs, mysql, redis,
 │                                 # keyvault, network, private_dns, storage, acr,
 │                                 # monitoring, diagnostics, security_policy,
-│                                 # budget, defender, frontdoor, custom_domain
+│                                 # budget, defender, custom_domain
 └── docs/                         # Guía de despliegue, residencia de datos, costos
 
 migrations/                       # SQL idempotente YYYYMMDD-NNN-descripcion.sql
@@ -381,8 +381,9 @@ Dos planos, para que agregar una región sea agregar una clave de un mapa y no
 rediseñar nada:
 
 - **Plano de control** (global, sin datos de clientes): Azure Container Registry,
-  Defender for Cloud (alcance suscripción) y — sólo con 2+ stamps — Front Door
-  para geo-routing.
+  Defender for Cloud (alcance suscripción). No hay router global: con más de un
+  stamp el ruteo es por hostname regional (Front Door se eliminó del Terraform el
+  2026-10-10).
 - **Stamp** (celda regional, todo lo que toca datos de clientes): hoy uno, en
   **West US 2**, cuya clave en el mapa `stamps` es el valor de
   `Tenants.data_residency` que atiende.
