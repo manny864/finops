@@ -15,6 +15,11 @@ import {
 } from "@/types/azureNetworkingZombies.types";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 
+/** La clave de caché del escaneo de zombis de red: una sola definición para que quien la lee y quien la invalida no se desincronicen. */
+export function networkingZombiesCacheKey(tenantId: string, subscriptionId?: string | null): string {
+  return `cleanup:zombies-networking:v3:${tenantId}:${subscriptionId || "all"}`;
+}
+
 export function formatNetworkZombieType(type: NetworkZombieType): string {
   switch (type) {
     case "VPN_GATEWAY":

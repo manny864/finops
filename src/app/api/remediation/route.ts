@@ -4,11 +4,13 @@ import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAu
 import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
 import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 import { getDeleteRemediationTier, DeleteResourceDomain } from "@/lib/tierLogic";
-import { redis } from "@/lib/redis";
+import { invalidateCache, invalidateCachePattern } from "@/lib/cache";
 import { isMockTenant } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
 import { azureErrorResponse } from "@/lib/apiErrors";
 import { esBorradoManual } from "@/lib/zombieAuditCatalog";
+import { zombieScanCacheKey } from "@/services/azureZombieScan.service";
+import { networkingZombiesCacheKey } from "@/services/azureNetworkingZombies.service";
 
 const DELETE_DOMAINS = new Set<DeleteResourceDomain>(["zombies", "networking", "ttl", "advisor"]);
 
@@ -94,28 +96,26 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Invalidar cache de auditoría (Redis SWR) para que el recurso recién
-    // borrado no siga apareciendo como zombie hasta que expire el TTL.
-    const keysToInvalidate = [
-      `audit:full:v1:${tenantId}:all`,
+    // Invalidar la caché (Redis SWR) de toda pantalla que liste el recurso recién borrado, para que no siga
+    // apareciendo hasta que expire el TTL. Las claves de zombis salen de la MISMA función que usa la pantalla
+    // que las lee: copiarlas acá a mano las dejó apuntando a versiones que ya nadie leía (zombis v2, red v1) y la
+    // purga no se veía hasta 15 min después. __tests__/unit/remediacionInvalidaCache.test.ts corre las pantallas
+    // reales y falla si alguna lista queda cacheada o si se pide borrar una clave que ninguna lee.
+    const suscripciones: (string | undefined)[] = [undefined]; // undefined = la vista "todas"
+    if (subscriptionId) suscripciones.push(String(subscriptionId).toLowerCase());
+
+    await invalidateCache(
       `audit:ttl:v1:${tenantId}`,
-      `cleanup:zombies-networking:v1:${tenantId}:all`,
-      `cleanup:zombies:v2:azure:${tenantId}:all`,
-      `advisor:${tenantId}:es`,
-      `advisor:${tenantId}:en`,
-      `advisor:${tenantId}:pt-BR`
-    ];
-
-    if (subscriptionId) {
-      const subIdStr = String(subscriptionId).toLowerCase();
-      keysToInvalidate.push(
-        `audit:full:v1:${tenantId}:${subIdStr}`,
-        `cleanup:zombies-networking:v1:${tenantId}:${subIdStr}`,
-        `cleanup:zombies:v2:azure:${tenantId}:${subIdStr}`
-      );
-    }
-
-    await redis.del(...keysToInvalidate).catch((e) => console.warn("[Remediation] No se pudo invalidar cache de audit:", e?.message));
+      ...suscripciones.flatMap((sub) => [
+        `audit:full:v1:${tenantId}:${sub ?? "all"}`,
+        zombieScanCacheKey(tenantId, sub),
+        networkingZombiesCacheKey(tenantId, sub),
+      ])
+    );
+    // El advisor cachea por idioma (el de la URL o, sin él, el header Accept-Language entero) y por
+    // suscripción: no es un conjunto enumerable. Se barre por patrón, con el comodín de versión que ya usa el
+    // cron de sync, para que subir de versión la clave no vuelva a dejar esto apuntando al vacío.
+    await invalidateCachePattern(`advisor:v*:${tenantId}:*`);
 
     return NextResponse.json({ success: true });
   } catch (e: unknown) {

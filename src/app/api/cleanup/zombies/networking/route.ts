@@ -19,6 +19,7 @@ import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubs
 import {
   getMockNetworkingZombiesPayload,
   computeNetworkingZombiesSummary,
+  networkingZombiesCacheKey,
 } from "@/services/azureNetworkingZombies.service";
 import {
   NetworkZombieResourceItem,
@@ -353,7 +354,7 @@ export async function GET(request: NextRequest) {
 
     const subscriptionId = searchParams.get("subscriptionId") || undefined;
     await exigirSuscripcionDelTenant(tenantId, subscriptionId);
-    const cacheKey = `cleanup:zombies-networking:v3:${tenantId}:${subscriptionId || "all"}`;
+    const cacheKey = networkingZombiesCacheKey(tenantId, subscriptionId);
 
     const rawData = await getWithStaleWhileRevalidate(
       cacheKey,
@@ -459,7 +460,7 @@ export async function POST(request: NextRequest) {
         comment: comment || null,
         createdBy: "user",
       });
-      await invalidateCache(`cleanup:zombies-networking:v3:${tenantId}:all`);
+      await invalidateCache(networkingZombiesCacheKey(tenantId));
       return NextResponse.json({ success: true, message: "Recurso eximido exitosamente" });
     }
 
@@ -468,7 +469,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Falta resourceId" }, { status: 400 });
       }
       await deleteExemption(tenantId, resourceId);
-      await invalidateCache(`cleanup:zombies-networking:v3:${tenantId}:all`);
+      await invalidateCache(networkingZombiesCacheKey(tenantId));
       return NextResponse.json({ success: true, message: "Exención removida exitosamente" });
     }
 
