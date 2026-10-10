@@ -123,6 +123,12 @@ export function liveAnomaliesCacheKey(tenantId: string): string {
 // promesa de background y nadie dispara un fetch redundante.
 const _inFlight = new Map<string, Promise<unknown>>();
 
+// Misses BLOQUEANTES en vuelo, por key y por proceso. `_inFlight` sólo deduplicaba la revalidación en
+// background; el miss (cache frío o vencido el TTL duro) llamaba a `fetcher()` una vez POR REQUEST. Con
+// N usuarios o prewarms sobre el mismo tenant, tras una invalidación o una caída de Redis, eran N
+// consultas idénticas a Cost Management y a MySQL: justo la carga que ya genera los 429.
+const _missInFlight = new Map<string, Promise<unknown>>();
+
 /**
  * Patrón Stale-While-Revalidate (SWR) con soft + hard TTL.
  *
@@ -217,22 +223,35 @@ export async function getWithStaleWhileRevalidate<T>(
     }
   }
 
-  // Cache miss: fetch sincrónico y guardar.
-  const freshData = await fetcher();
-  if (isRedisReady()) {
-    try {
-      const effTtl = resolveTtl(freshData);
-      // `effTtl <= 0` = no se guarda (ver el comentario en `revalidate`).
-      if (effTtl > 0) {
-        const envelope: Envelope<T> = { __sw: true, t: Date.now(), data: freshData };
-        await redis.set(key, JSON.stringify(envelope), 'EX', effTtl);
-      }
-    } catch (error) {
-      if (errorMessage(error) !== 'Connection is closed') {
-        console.warn('[cache] Aviso escribiendo en Redis en SWR:', errorMessage(error) || error);
+  // Cache miss: fetch sincrónico y guardar. Los misses concurrentes de la MISMA key comparten UNA
+  // promesa: el primero trae el dato y los demás esperan ese resultado (y su error, si lo hay) en vez de
+  // repetir la consulta. Usan el `fetcher` y el TTL del primero: la key identifica el dato.
+  const pendiente = _missInFlight.get(key) as Promise<T> | undefined;
+  if (pendiente) return pendiente;
+
+  const carga = (async (): Promise<T> => {
+    const freshData = await fetcher();
+    if (isRedisReady()) {
+      try {
+        const effTtl = resolveTtl(freshData);
+        // `effTtl <= 0` = no se guarda (ver el comentario en `revalidate`).
+        if (effTtl > 0) {
+          const envelope: Envelope<T> = { __sw: true, t: Date.now(), data: freshData };
+          await redis.set(key, JSON.stringify(envelope), 'EX', effTtl);
+        }
+      } catch (error) {
+        if (errorMessage(error) !== 'Connection is closed') {
+          console.warn('[cache] Aviso escribiendo en Redis en SWR:', errorMessage(error) || error);
+        }
       }
     }
+    return freshData;
+  })();
+  _missInFlight.set(key, carga);
+  try {
+    return await carga;
+  } finally {
+    // Se libera siempre (también si falló): el siguiente miss vuelve a intentar, no hereda el error.
+    if (_missInFlight.get(key) === carga) _missInFlight.delete(key);
   }
-
-  return freshData;
 }
