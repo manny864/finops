@@ -60,6 +60,12 @@ variable "tags" {
   type = map(string)
 }
 
+variable "enable_delete_lock" {
+  type        = bool
+  description = "Aplica bloqueo CanNotDelete contra borrado accidental del Key Vault si es creado por este módulo"
+  default     = true
+}
+
 # ── Firewall del vault (opción 4 de docs/keyvault-network-hardening.md) ─────
 #
 # Cerrar el acceso público del todo (private_endpoint_enabled sin esto) deja

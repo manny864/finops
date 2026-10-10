@@ -59,3 +59,9 @@ variable "private_dns_zone_id" {
 variable "tags" {
   type = map(string)
 }
+
+variable "enable_delete_lock" {
+  type        = bool
+  description = "Aplica bloqueo CanNotDelete contra borrado accidental del servidor MySQL"
+  default     = true
+}

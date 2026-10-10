@@ -55,3 +55,12 @@ resource "azurerm_mysql_flexible_server_configuration" "require_tls" {
   server_name         = azurerm_mysql_flexible_server.this.name
   value               = "ON"
 }
+
+# Bloqueo contra borrado accidental (Resource Lock - CanNotDelete)
+resource "azurerm_management_lock" "mysql_delete_lock" {
+  count      = var.enable_delete_lock ? 1 : 0
+  name       = "${azurerm_mysql_flexible_server.this.name}-lock"
+  scope      = azurerm_mysql_flexible_server.this.id
+  lock_level = "CanNotDelete"
+  notes      = "Protección contra borrado accidental del servidor MySQL de producción (Fase 4 Endurecimiento SaaS)"
+}
