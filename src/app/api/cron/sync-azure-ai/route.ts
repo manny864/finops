@@ -10,8 +10,9 @@ const CRON_SECRET = process.env.CRON_SECRET || "unsafe-default";
 // (`Promise.allSettled`): con los 5 tenants de hoy son 40 consultas simultáneas contra un pool de 10 conexiones
 // y una cola de 20, y las que sobran fallan con `Queue limit reached` (~9.900 veces en 30 días, todas en los
 // minutos :13/:33/:53 de este cron). Los colectores atrapan el error y devuelven null: la capability desaparece
-// sin ruido, y `getAccessModel` cae a `app_registration`. Un tenant tarda ~2 s (p50), así que de a uno son ~10 s
-// de los 300 del job. ponytail: en serie; con ~100 tenants Enterprise (≈200 s) subir a 2-3 y vigilar ese error.
+// sin ruido, y `getAccessModel` cae a `app_registration`. ponytail: en serie; si el barrido supera los ~200 s de los
+// 300 del job, subir a 2-3 y vigilar ese error (los ~2 s por tenant medidos eran del camino que fallaba en la
+// autenticación, ver `tenant_id` abajo: con escaneos reales hay que volver a medir).
 const MAX_TENANTS_EN_PARALELO = 1;
 
 function timingSafeCompare(a: string, b: string): boolean {
@@ -37,16 +38,20 @@ export async function GET(request: NextRequest) {
     // against the DB; it never grants tenant-scoped access on its own.
     // eslint-disable-next-line local/no-unauth-tenant-id
     const tenantIdParam = request.nextUrl.searchParams.get("tenantId");
+    // `tenant_id` (el GUID de Entra) y no `id` (el autoincremental de la fila): azure-ai resuelve credenciales y cachea
+    // por ese identificador, igual que los demás crons. Con `id` los 8 colectores de cada tenant fallaban en la
+    // autenticación (AADSTS90002 «Tenant '34' not found») en cada corrida, el caché se llenaba de listas vacías bajo una
+    // clave que nadie lee y el job igual terminaba en Succeeded: el cron nunca precalentó nada.
     let tenants: any[] = [];
     if (tenantIdParam) {
       const [rows]: any = await pool.query(
-        "SELECT id FROM Tenants WHERE (id = ? OR tenant_id = ?) AND tier = 'Enterprise' LIMIT 1",
+        "SELECT tenant_id AS id FROM Tenants WHERE (id = ? OR tenant_id = ?) AND tier = 'Enterprise' LIMIT 1",
         [tenantIdParam, tenantIdParam]
       );
       tenants = rows || [];
     } else {
       const [rows]: any = await pool.query(
-        "SELECT id FROM Tenants WHERE tier = 'Enterprise' LIMIT 100"
+        "SELECT tenant_id AS id FROM Tenants WHERE tier = 'Enterprise' LIMIT 100"
       );
       tenants = rows || [];
     }
