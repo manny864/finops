@@ -12,9 +12,9 @@ La infraestructura ya aplica controles importantes: MySQL privado con TLS obliga
 **Estado al cierre del 10 de octubre de 2026** (detalle por ítem en la sección 6):
 
 - **Cerrado con evidencia:** Defender for Cloud, diagnósticos y logs (P1), y el TLS de MySQL y Redis (P2, salvo la rotación de claves de Redis).
-- **Preparado y apagado** (interruptor en Terraform, sin efecto hasta activarlo): restringir el origen a Cloudflare, Blob por identidad administrada, alertas de Activity Log y Azure Policy en modo auditoría.
+- **Preparado y apagado** (interruptor en Terraform, sin efecto hasta activarlo): las dos salidas para cerrar el origen (A: NAT Gateway, certificado propio y filtro a Cloudflare; B: Front Door Premium con Private Link), Blob por identidad administrada, alertas de Activity Log y Azure Policy en modo auditoría.
 - **Hecho en CI:** `id-token` sólo en los jobs que hacen login (los tres workflows), las 25 referencias a Actions fijadas por SHA con Dependabot, `drift` con el mismo sujeto OIDC que el resto, y un health check de deploy que tolera un origen filtrado.
-- **Abierto, con motivo:** cerrar el origen (hay tres consumidores que no vienen de Cloudflare), identidades y usuario de MySQL (hay DDL en runtime), recuperación (el script de backup no comprueba a `mysqldump`), MySQL 8.0 (el soporte estándar termina el 31 de enero de 2027 y Azure cobra Extended Support desde el 1 de febrero) y el certificado gestionado del dominio (vence el 29 de enero de 2027).
+- **Abierto, con motivo:** elegir y ejecutar una de las dos salidas del origen (A y B son alternativas: B apaga el acceso público y con eso Cloudflare deja de llegar), identidades y usuario de MySQL (hay DDL en runtime), recuperación (el script de backup no comprueba a `mysqldump`), la actualización de MySQL 8.0 a 8.4 (preparada, falta ensayarla y ejecutarla antes del 31 de enero de 2027, cuando Azure empieza a cobrar Extended Support) y el certificado gestionado del dominio (vence el 29 de enero de 2027).
 
 Todo lo que cambia la seguridad de Entra, GitHub o Azure (credenciales federadas, roles, protección de ramas) lo ejecuta una persona: los comandos están en la sección 7. Los valores de producción se generan en el runner desde el secreto `TF_VARS_PROD`; los valores predeterminados de Terraform no prueban qué valores contiene ese secreto, y su contenido no se inspeccionó.
 
@@ -50,7 +50,7 @@ Consultas de sólo lectura con `gh`, `az`, `curl`, `dig`, KQL contra Log Analyti
 | Drift semanal | De las últimas 5 corridas, 3 pasaron y 2 fallaron. La del 5 de octubre cayó en el plan de `plan-apply` (que corría también por schedule) por `ForbiddenByFirewall` del Key Vault; el job `drift` pasó. |
 | Origen web | `cscs-finops-prod-westus2-web`: ingress externo, 0 restricciones de IP. GET directo a `/api/health` → 200. `ca-linkedin-mcp` también es externo y sin restricciones; no se verificó si lo gestiona este repositorio. |
 | Dominio propio | `finops.cscloudsolutions.com.ar` resuelve a IP de Cloudflare y responde `server: cloudflare`: el proxy está activo. |
-| Entorno de Container Apps | Workload profiles (perfil Consumption) en una VNet, **sin NAT Gateway, sin UDR y sin NSG**. IP de entrada pública `20.112.42.44`. El app lista unas 190 IPs de salida del pool regional. |
+| Entorno de Container Apps | Workload profiles (perfil Consumption) en una VNet, **sin NAT Gateway, sin UDR y sin NSG**. IP de entrada pública `20.112.42.44`. El app lista unas 190 IPs de salida del pool regional. Su resource group gestionado (`ME_...`) sólo tiene esa IP de entrada y su load balancer: no hay IP fija de salida. El `groupId` de Private Link es `managedEnvironments` y la zona requerida `privatelink.westus2.azurecontainerapps.io`. `Microsoft.Cdn` está registrado en la suscripción. |
 | Jobs | 29: 27 cron, `sync-azure-ai` y la migración. `CRON_URL` es `https://<app>.internal.<dominio del entorno>/api/cron/<job>`, que por DNS público resuelve a la **misma IP pública** que el FQDN externo. |
 | Certificado del dominio | Gestionado por Azure, validación CNAME, emitido el 29-jul-2026, **vence el 29-ene-2027** (leído del certificado que sirve el origen). |
 | Credenciales federadas de `cscs-finops-terraform` | Cinco, del emisor de GitHub Actions: `gh-env-prod` (`environment:prod`), `gh-pr` (`pull_request`), `gh-main` (`ref:refs/heads/main`), `gh-actions-finops-env-staging` y `gh-actions-finops-staging`. Ningún workflow ni entorno de Terraform usa `staging`. |
@@ -59,24 +59,25 @@ Consultas de sólo lectura con `gh`, `az`, `curl`, `dig`, KQL contra Log Analyti
 | Diagnósticos | Key Vault, MySQL, Blob y ACR envían todos los logs (`allLogs`) a Log Analytics; Redis sólo métricas; el entorno de Container Apps envía sus logs a Log Analytics. |
 | Log Analytics | Retención 30 días, tope de 1 GB por día. Ingesta de 0,08 a 0,11 GB por día en los últimos 14 días y ningún evento de tope alcanzado. |
 | Alertas | Una sola alerta de Activity Log en la suscripción (Service Health), ninguna regla de alerta de log y un action group con un receptor de correo. |
-| MySQL | Privado, `require_secure_transport = ON`, TLS 1.2 y 1.3, HA y backup geo-redundante desactivados, retención 14 días, `Standard_B2s`, versión 8.0.21. |
+| MySQL | Privado, `require_secure_transport = ON`, TLS 1.2 y 1.3, HA y backup geo-redundante desactivados, retención 14 días, `Standard_B2s` (Burstable), versión 8.0.21, 64 GB aprovisionados y 0,82 GB usados. `sql_mode`: `ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO`. |
 | Redis | Acceso público deshabilitado, TLS mínimo 1.2, protocolo cifrado, autenticación por access key habilitada. |
 | Storage de la app | ZRS, TLS 1.2, HTTPS obligatorio, **Shared Key activa**, **red pública abierta (default Allow)**, acceso anónimo a blobs desactivado, soft delete de 30 días, versionado activo; el módulo no declara retención inmutable. |
 | Acceso a Blob (`StorageBlobLogs`, 14 días) | `TrustedAccessSas` 440 (servicios de Azure), `SAS` 360 (AzCopy 10.32.4: los backups), `TrustedAccess` 292 (Storage Resource Provider), `AccountKey` 74 (la app, `azsdk-js-azure-storage-blob`) y 28 más (Terraform: `HashiCorp/go-azure-sdk`, y una herramienta con `python-requests`), `OAuth` 2. |
 | ACR | Basic, admin deshabilitado, pull anónimo deshabilitado, acceso público habilitado, sin retención ni cuarentena. |
 | Key Vault | ACL `Deny`, un Private Endpoint, RBAC, purge protection, soft delete de 30 días; `publicNetworkAccess` habilitado a propósito para el firewall efímero del runner. |
-| Precios (Retail Prices API, West US 2) | ACR: Basic 0,1666, Standard 0,6666 y Premium 1,6666 USD/día (≈ USD 5, 20 y 50 al mes; cada región replicada suma ≈ USD 50). Front Door: base de USD 35 (Standard) y USD 330 (Premium) al mes. NAT Gateway: USD 0,045/hora (≈ USD 33/mes) más USD 0,005/hora de IP pública Standard (≈ USD 3,65/mes) y USD 0,045/GB procesado. MySQL Extended Support: USD 0,07 por vCore-hora. Reglas de Activity Log y Azure Policy en auditoría: sin medidor facturable. |
+| Precios (Retail Prices API, West US 2) | ACR: Basic 0,1666, Standard 0,6666 y Premium 1,6666 USD/día (≈ USD 5, 20 y 50 al mes; cada región replicada suma ≈ USD 50). Front Door: base de USD 35 (Standard) y USD 330 (Premium) al mes. NAT Gateway: USD 0,045/hora (≈ USD 33/mes) más USD 0,005/hora de IP pública Standard (≈ USD 3,65/mes) y USD 0,045/GB procesado. Endpoint privado de un entorno de Container Apps: USD 0,10/hora (≈ USD 73/mes). MySQL Extended Support: USD 0,07 por vCore-hora. Reglas de Activity Log y Azure Policy en auditoría: sin medidor facturable. |
 | MySQL 8.0 | Según learn.microsoft.com (versión de la página del 16-sep-2026): retiro de la comunidad el 30-abr-2026, **fin del soporte estándar de Azure el 31-ene-2027**, Extended Support con cargo automático desde el 1-feb-2027. Con 2 vCores son ≈ USD 102 al mes. |
 | Cloudflare | Los 15 rangos IPv4 y los 7 IPv6 del catálogo del repositorio son idénticos a las listas oficiales de cloudflare.com/ips-v4 y /ips-v6. |
 
 ### 1.2 Cambios de la jornada
 
 - **Otra sesión (Copilot)** publicó el PR #117 y varios commits en `main` (`c88a9ac` a `0512540`), que arrastraron los tres commits previos de esta evaluación. Trajo: Checkov fijado por SHA, HTTPS obligatorio en Storage, el catálogo de rangos de Cloudflare, soporte de identidad administrada en `azureBlobStorage.ts`, dos locks `CanNotDelete` (flag `enable_delete_lock`), `concurrency` en el workflow de Terraform, `scripts/validate-terraform-apply-plan.mjs` (frena el apply ante destrucciones no pedidas o checks que no pasan) y el cierre del firewall del Key Vault que falla el job. El apply de producción (run 38087177000) terminó en success.
-- **Esta sesión** (commits locales hasta su publicación): `id-token` sólo en los jobs que hacen login en los tres workflows; las 24 referencias a Actions que quedaban por tag, fijadas por SHA, y `dependabot.yml`; health check del deploy que tolera un origen filtrado; validación de IPv4 antes de escribir en el firewall del vault; por schedule corre sólo `drift`, y `drift` usa `environment:prod`; interruptores de Terraform (origen, Blob por identidad administrada, alertas de Activity Log, Azure Policy en auditoría) con sus tests; corrección de `azureBlobStorage.ts` (ver P1 Storage); TLS explícito en el cliente de Redis; y la corrección de costos de ACR y de la premisa de repo público en `keyvault-network-hardening.md`.
+- **Esta sesión, primera tanda** (publicada por el usuario con el push de `58af917`; el deploy y CI terminaron en success, la revisión `--0000315` está sana y `/api/status` informa la versión `58af917`; el PR #118 de Dependabot, con 7 actualizaciones de Actions, queda sin mergear a la espera de revisión): `id-token` sólo en los jobs que hacen login en los tres workflows; las 24 referencias a Actions que quedaban por tag, fijadas por SHA, y `dependabot.yml`; health check del deploy que tolera un origen filtrado; validación de IPv4 antes de escribir en el firewall del vault; por schedule corre sólo `drift`, y `drift` usa `environment:prod`; interruptores de Terraform (origen, Blob por identidad administrada, alertas de Activity Log, Azure Policy en auditoría) con sus tests; corrección de `azureBlobStorage.ts` (ver P1 Storage); TLS explícito en el cliente de Redis; y la corrección de costos de ACR y de la premisa de repo público en `keyvault-network-hardening.md`.
+- **Esta sesión, segunda tanda** (commits locales hasta su publicación): NAT Gateway, certificado propio, Front Door Premium con Private Link y acceso privado al entorno, y la versión de MySQL como variable (todo apagado; ver P0 origen y P1 MySQL), con 35 tests nuevos y planes contra el state real de producción.
 
 ### 1.3 Sigue sin verificar
 
-El contenido de `TF_VARS_PROD`; la configuración de Cloudflare (modo SSL, reglas WAF, rate limiting, y si el CNAME estuvo en modo proxy cuando se emitió el certificado); a qué URL apuntan los webhooks de Paddle y cualquier monitor externo; qué IP de origen ve el ingress cuando un job llama al FQDN interno (la documentación no lo dice, y es lo primero que hay que medir al activar el filtro); el estado actual del HTTP 406 de Azure Backup para MySQL; el comportamiento real de la condición RBAC propuesta en la sección 7 (se tomó del ejemplo oficial, no se probó contra la suscripción); y la atención operativa del correo de alertas.
+El contenido de `TF_VARS_PROD`; la configuración de Cloudflare (modo SSL, reglas WAF, rate limiting, y si el CNAME estuvo en modo proxy cuando se emitió el certificado); a qué URL apuntan los webhooks de Paddle y cualquier monitor externo; qué IP de origen ve el ingress cuando un job llama al FQDN interno (la documentación no lo dice: con el NAT Gateway es la IP fija, y es lo primero que hay que medir al activar el filtro); si Front Door crea una o varias solicitudes de endpoint privado y cómo resuelven el DNS los cron por la zona privada (no ensayado); si el servicio acepta la actualización de MySQL en Burstable por CLI o sólo por el portal; el estado actual del HTTP 406 de Azure Backup para MySQL; el comportamiento real de la condición RBAC propuesta en la sección 7 (se tomó del ejemplo oficial, no se probó contra la suscripción); y la atención operativa del correo de alertas.
 
 ## 2. Controles existentes identificados en el repositorio
 
@@ -97,34 +98,42 @@ Estos controles están declarados en Terraform o documentados. Los que se contra
 
 ### P0 — Cerrar el acceso directo al origen y reforzar la entrega web
 
-**Estado: preparado, no cerrado.** El origen sigue abierto; el cierre está a un interruptor de distancia, pero activarlo hoy rompería cosas.
+**Estado: las dos salidas están implementadas como interruptores de Terraform, apagados. El origen sigue abierto hasta que una persona encienda una.**
 
 Lo verificado el 10 de octubre:
 
 - El ingress es externo y no tiene restricciones; un GET directo al FQDN de Azure desde fuera responde 200. El comentario del código describe el vacío como transitorio ("sólo mientras se valida el certificado del dominio propio").
 - Con cualquier regla `Allow`, el resto del tráfico entrante recibe 403 "RBAC: Access Denied", y `ipAddressRange` sólo acepta IPv4 (learn.microsoft.com, "Set up IP ingress restrictions in Azure Container Apps"). Por eso el catálogo usa los rangos IPv4 de Cloudflare y nunca la lista combinada.
+- El resource group gestionado del entorno (`ME_...`) contiene una sola IP pública, la de **entrada** (`capp-svc-lb-ip`, `20.112.42.44`), y su load balancer. **No existe una IP fija de salida**: el output `outbound_ip` del stamp, que decía lo contrario, muestra la de entrada (la descripción ya está corregida).
 - Hay **tres consumidores del origen que no vienen de Cloudflare**:
-  1. **Los 28 jobs de cron** (27 más `sync-azure-ai`; la migración no pasa por el ingress). Llaman a `https://<app>.internal.<dominio>/api/cron/<job>`, que resuelve a la IP pública del entorno. La documentación no dice si las reglas de IP aplican a llamadas del mismo entorno ni qué IP de origen ve el ingress; lo más probable es la IP de salida de Azure del job, que no es de Cloudflare y cambia (Microsoft advierte que las IP de salida pueden cambiar; el entorno no tiene NAT Gateway). Con sólo Cloudflare en la lista, cada cron podría recibir 403 y las sincronizaciones se pararían.
+  1. **Los 28 jobs de cron** (27 más `sync-azure-ai`; la migración no pasa por el ingress). Llaman a `https://<app>.internal.<dominio>/api/cron/<job>`, que resuelve a la IP pública del entorno. La documentación no dice si las reglas de IP aplican a llamadas del mismo entorno ni qué IP de origen ve el ingress; lo más probable es la IP de salida de Azure del job, que no es de Cloudflare y cambia (Microsoft advierte que las IP de salida pueden cambiar; el entorno no tenía NAT Gateway). Con sólo Cloudflare en la lista, cada cron podría recibir 403 y las sincronizaciones se pararían.
   2. **El health check del deploy**, que pega al FQDN de Azure desde un runner de GitHub. Ya está resuelto: ante un 403 comprueba que la revisión nueva esté `Healthy` y `Running`.
-  3. **La validación del certificado gestionado.** Microsoft exige que el app sea accesible desde las IP de DigiCert y que el CNAME apunte directo al dominio generado del app; un valor intermedio, y la página cita a Cloudflare como ejemplo, bloquea la emisión y la renovación (learn.microsoft.com, "Custom domain names and free managed certificates in Container Apps"). El dominio hoy está detrás del proxy de Cloudflare y el certificado vigente **vence el 29 de enero de 2027**: la renovación ya está en riesgo con independencia del cierre del origen, y un filtro por IP la bloquearía del todo.
-- Permitir sólo los rangos de Cloudflare no identifica a *este* sitio: según el comportamiento conocido de Cloudflare, otra cuenta de Cloudflare puede apuntar al FQDN del origen y llegar desde esos mismos rangos. Complementar con un secreto compartido en un encabezado, o con Authenticated Origin Pulls, validado en la aplicación (confirmar el mecanismo contra la documentación de Cloudflare al diseñarlo; no se verificó aquí). `src/proxy.ts` excluye `/api` de su matcher a propósito, así que ese control no es un cambio de una línea.
+  3. **La validación del certificado gestionado.** Microsoft exige que el app sea accesible desde las IP de DigiCert y que el CNAME apunte directo al dominio generado del app; un valor intermedio, y la página cita a Cloudflare como ejemplo, bloquea la emisión y la renovación (learn.microsoft.com, "Custom domain names and free managed certificates in Container Apps"). El dominio hoy está detrás del proxy de Cloudflare y el certificado vigente **vence el 29 de enero de 2027**.
+- Permitir sólo los rangos de Cloudflare no identifica a *este* sitio: según el comportamiento conocido de Cloudflare, otra cuenta de Cloudflare puede apuntar al FQDN del origen y llegar desde esos mismos rangos. `src/proxy.ts` excluye `/api` de su matcher a propósito, así que un secreto compartido validado en la aplicación no es un cambio de una línea.
 - Además, definir si `ca-linkedin-mcp` debe seguir expuesto.
 
-Lo que quedó preparado (en `infra/terraform/environments/prod`):
+**Dos destinos, ALTERNATIVOS (no se suman).** Front Door con Private Link exige que el entorno tenga el acceso público **deshabilitado** (learn.microsoft.com, "Create a private link to an Azure Container App with Azure Front Door"); con eso Cloudflare deja de llegar al origen. Dos `check` de Terraform lo imponen, y el apply del workflow se frena ante un check que no pase.
 
-- `origin_cloudflare_only` (default `false`) y `origin_extra_allowed_ip_ranges` (default `[]`) arman `allowed_ip_ranges` con el catálogo IPv4 de Cloudflare más los CIDR extra. Sin tocar nada el origen queda como hoy.
-- Un `check` impide encender el filtro sin declarar a los llamadores internos; el apply del workflow se frena ante un check que no pasa.
+| | **A. Cloudflare + NAT Gateway + certificado propio** | **B. Front Door Premium + Private Link** |
+|---|---|---|
+| Qué hace | El ingress sigue público pero sólo acepta IPv4 de Cloudflare más la IP fija de salida del entorno (para los cron). Cloudflare sigue como borde: WAF, CDN y DNS. | El entorno deja de aceptar internet (`publicNetworkAccess` Disabled) y se llega por endpoint privado. Front Door pasa a ser el borde: WAF, rate limit, bots y dominio propio con certificado gestionado. Cloudflare sale del camino. |
+| Interruptores | `nat_gateway_enabled`, `custom_domain_certificate_source` (`byo_staged`, después `byo`), `origin_cloudflare_only` y `origin_extra_allowed_ip_ranges` | `frontdoor_enabled`, `frontdoor_sku = Premium_AzureFrontDoor`, `frontdoor_custom_domain`; después `frontdoor_private_link_enabled` y `app_private_access_only` |
+| Costo fijo | ≈ USD 36,5/mes (NAT Gateway ≈ USD 33 y su IP ≈ USD 3,65) más USD 0,045/GB de salida | ≈ USD 403/mes (Front Door Premium USD 330 y endpoint privado del entorno USD 73, a USD 0,10/hora) más tráfico |
+| Cierra el origen | A medias: sigue público y filtrado por IP; no impide que otra cuenta de Cloudflare apunte a él | Del todo: no hay IP pública que atacar |
+| Riesgos | Qué IP ve el ingress en las llamadas del mismo entorno (el NAT la fija pero hay que medirlo); cambia la salida de TODO el entorno | Minutos de caída entre apagar el acceso público y aprobar el Private Link; la resolución de DNS de los cron por la zona privada no está ensayada |
+| Runbook | 7.3 | 7.8 |
+
+Recomendación: la **A** alcanza para el objetivo (que nada eluda el WAF de Cloudflare) a una undécima parte del costo; la **B** se justifica si se quiere abandonar Cloudflare o que el origen no exista en internet. En ambos casos hay que resolver antes la renovación del certificado de enero (P1).
+
+Lo que quedó hecho (en `infra/terraform`), todo apagado por defecto:
+
+- **Origen:** `origin_cloudflare_only` y `origin_extra_allowed_ip_ranges` arman `allowed_ip_ranges` con el catálogo de Cloudflare más los CIDR extra; un check impide encender el filtro sin declarar a los llamadores internos.
+- **NAT Gateway** (`modules/network`): IP pública fija de salida en la subred de apps, SKU Standard (Container Apps no admite StandardV2). Output `stamp_nat_gateway_ips`.
+- **Certificado propio** (`modules/custom_domain`): `certificate_source` = `managed` | `byo_staged` | `byo`, con el `.pfx` y su contraseña en dos secretos de Key Vault.
+- **Front Door** (`modules/frontdoor`): origin por Private Link al managed environment, dominio propio con certificado gestionado, WAF en Detection y rate limit y bots en Log (los logs ya los manda `module.global_diagnostics`). **Stamp:** `app_private_access_only` apaga el acceso público del entorno y crea el endpoint privado, la zona `privatelink.<región>.azurecontainerapps.io` y el A record.
 - El health check del deploy tolera el 403.
 
-Opciones, con costo:
-
-| Opción | Resuelve | Costo | Notas |
-|---|---|---|---|
-| **A. NAT Gateway + certificado propio en el origen + lista de Cloudflare** | Cron con IP fija; sin dependencia de DigiCert ni del CNAME | ≈ USD 36,5/mes fijos (NAT Gateway y su IP) más USD 0,045/GB de salida | El entorno es *workload profiles*, que sí admite NAT Gateway (learn.microsoft.com, "Networking in an Azure Container Apps Environment"; el tipo "consumption only" no). Todo el tráfico de salida del entorno pasaría a salir por esa IP. El certificado propio (por ejemplo, un Origin CA de Cloudflare con modo SSL "Full (strict)") lo genera una persona en Cloudflare y exige adaptar `modules/custom_domain`, que hoy sólo sabe de certificados gestionados. |
-| B. Front Door Premium con WAF y Private Link al origen | Cierra el origen de verdad (ingress sin IP pública) | ≈ USD 330/mes de base, más tráfico | Hay que ampliar el módulo `frontdoor` (hoy sólo geo-routing) y rehacer el dominio y el certificado. Sólo conviene si se abandona Cloudflare. |
-| C. Aceptar la exposición y registrarlo | Nada; documenta el riesgo | USD 0 | Compensar con la autenticación de las rutas, las reglas WAF y el rate limiting de Cloudflare, y atender la renovación del certificado a mano. Es una decisión válida si queda escrita, con responsable y fecha de revisión. |
-
-Recomendación: la A si se quiere cerrar; la C si no. En ambos casos hay que resolver antes la renovación del certificado de enero. Los pasos de activación, la verificación y el rollback están en 7.3.
+Verificación contra el state real de producción (plan sin refresh y sin lock, sólo lectura): con todo apagado, el único cambio es el reemplazo de `deployer_secrets_officer` que ya se conocía (el principal cambia entre CI y una máquina local); escenario A: 5 recursos a crear y 1 cambio en el ingress del app; escenario B: 20 a crear y 1 cambio en el lugar en el entorno (no reemplazo); y los tres checks nuevos se evaluaron con `terraform console` en todas sus combinaciones.
 
 **Aceptación:** ningún origen público permite omitir el borde, o la excepción queda aceptada por escrito; sólo se aceptan orígenes autorizados; las pruebas de acceso directo y reglas WAF/rate limit quedan registradas; el proceso de actualización de rangos tiene responsable y alerta; los cron y el certificado siguen funcionando después del cambio.
 
@@ -233,11 +242,25 @@ Falta: encenderlas, designar quién lee el correo del action group (hoy un solo 
 
 ### P1 — MySQL 8.0 sale del soporte estándar el 31 de enero de 2027
 
-**Estado: abierto, con fecha.** Hallazgo nuevo de esta jornada. El servidor de producción corre MySQL 8.0 (`8.0.21`, `Standard_B2s`, 2 vCores). Según la política de versiones de Azure Database for MySQL (learn.microsoft.com, página actualizada el 16 de septiembre de 2026): la comunidad retiró 8.0 el 30 de abril de 2026; el soporte estándar de Azure termina el 31 de enero de 2027; desde el 1 de febrero de 2027 el servidor se inscribe solo en Extended Support, que se factura por vCore-hora (USD 0,07 en West US 2: ≈ USD 102 al mes con 2 vCores, hoy sin cargo) y sólo recibe actualizaciones críticas de seguridad.
+**Estado: preparado. Falta ensayar en una copia, validar contra un MySQL 8.4 real y que una persona ejecute la actualización.** Hallazgo nuevo de esta jornada. El servidor de producción corre MySQL 8.0 (`8.0.21`, `Standard_B2s` Burstable, 2 vCores, 64 GB aprovisionados y 0,82 GB usados). Según la política de versiones de Azure Database for MySQL (learn.microsoft.com, página actualizada el 16 de septiembre de 2026): la comunidad retiró 8.0 el 30 de abril de 2026; el soporte estándar de Azure termina el 31 de enero de 2027; desde el 1 de febrero de 2027 el servidor se inscribe solo en Extended Support, que se factura por vCore-hora (USD 0,07 en West US 2: ≈ USD 102 al mes con 2 vCores, hoy sin cargo) y sólo recibe actualizaciones críticas de seguridad. 8.4 está en GA.
 
-La salida es una actualización de versión mayor en el lugar (la política describe la función Major Version Upgrade, con algo de downtime) a MySQL 8.4, que está en GA. Antes: probar la aplicación y las 157 migraciones contra 8.4 en un MySQL local; en 8.4 el plugin de autenticación por defecto pasa a `caching_sha2_password` (las cuentas existentes con `mysql_native_password` siguen funcionando; Azure mantiene ese plugin habilitado); y hacer un backup a demanda justo antes.
+La actualización de versión mayor en el lugar (Major Version Upgrade) no cambia la cadena de conexión. Lo que dice la documentación de Microsoft y condiciona el plan:
 
-**Aceptación:** el servidor corre una versión dentro de soporte estándar antes del 31 de enero de 2027, con el plan de reversión (restauración del backup previo) probado.
+- Es **irreversible**; el rollback es restaurar el backup a demanda previo en un servidor nuevo (con otra FQDN).
+- El downtime depende del tamaño de la base y del número de tablas. Aquí la base es chica (0,82 GB), pero no hay una medición: por eso se ensaya antes en una copia.
+- En un servidor **Burstable** el flujo es propio: el servicio sube temporalmente el compute tier a General Purpose (por defecto el más básico; se cobra sólo el uso real) y después se queda ahí o vuelve a `B2s`, según la elección previa. La documentación describe este flujo en el portal.
+- Prerrequisitos: backup a demanda; ninguna transacción XA pendiente (`XA RECOVER;`); sin los valores de `sql_mode` retirados (`NO_AUTO_CREATE_USER`, `NO_FIELD_OPTIONS`, `NO_KEY_OPTIONS`, `NO_TABLE_OPTIONS`); y el verificador oficial de Oracle (MySQL Shell, `util.checkForServerUpgrade`), porque la **validación en línea no está disponible para 8.0 a 8.4**. Microsoft recomienda ensayar primero en una copia restaurada por punto en el tiempo.
+
+Lo ya verificado (10 de octubre):
+
+- `sql_mode` de producción: `ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO`. Ninguno de los cuatro valores retirados. Los parámetros sobreescritos no incluyen nada obsoleto.
+- Revisión estática de las 156 migraciones (6.147 líneas): sin sentencias de replicación removidas en 8.4 (`SHOW MASTER STATUS`, `CHANGE MASTER`, `START SLAVE`...), sin `mysql_native_password`, `SQL_CALC_FOUND_ROWS`, `FLOAT(M,D)`, `ZEROFILL` ni alias `utf8`; las palabras reservadas nuevas de 8.4 (`MANUAL`, `PARALLEL`, `QUALIFY`, `TABLESAMPLE`) sólo aparecen como valores entre comillas. Una revisión heurística de las claves foráneas (8.4 exige que referencien una clave única o primaria completa, `restrict_fk_on_non_standard_key`) analizó 133 y las 133 cumplen. Es un cribado, no reemplaza correr las migraciones en 8.4.
+- El driver (`mysql2` ^3.22.4) admite `caching_sha2_password`; Microsoft mantiene habilitado `mysql_native_password` en todas las versiones, así que el usuario administrador existente sigue entrando.
+- Terraform no puede dispararla: `mysql_version` es una variable que sólo manda al **crear** un servidor, y el recurso ignora cambios de `version` (un plan con `mysql_version = "8.4"` contra el state real no toca MySQL). Si al terminar se conserva General Purpose, hay que actualizar `mysql_sku_name` o el plan propondrá volver a Burstable.
+
+Falta: correr las migraciones y la suite contra un `mysql:8.4` real (el MySQL local es 8.0; hace falta bajar esa imagen de Docker Hub, ≈ 1 GB); la copia de ensayo (7.7); y elegir una ventana. Los pasos, con el rollback, están en 7.7.
+
+**Aceptación:** el servidor corre una versión dentro de soporte estándar antes del 31 de enero de 2027, con el rollback (restauración del backup previo) probado.
 
 ### P2 — Verificar autenticación y cifrado de MySQL y Redis
 
@@ -282,17 +305,19 @@ Los resultados esperables, por lo medido: no cumplirían las de red y Shared Key
 
 ### P1 — Certificado gestionado del dominio (hallazgo nuevo)
 
-**Estado: abierto, con fecha.** El certificado del dominio propio lo emite y renueva Azure (validación CNAME), vence el 29 de enero de 2027 y el dominio está detrás del proxy de Cloudflare. Microsoft documenta que un CNAME intermedio (cita a Cloudflare como ejemplo) impide la emisión y la renovación. No se sabe si el proxy estaba activo cuando se emitió (julio) ni qué modo SSL usa Cloudflare. Si la renovación falla y Cloudflare usa "Full (strict)", los usuarios verían errores 526 a partir del vencimiento; con "Full" no se enteraría nadie, pero el origen quedaría con un certificado vencido.
+**Estado: preparado; falta que una persona cargue el certificado propio y lo asocie.** El certificado del dominio propio lo emite y renueva Azure (validación CNAME), vence el 29 de enero de 2027 y el dominio está detrás del proxy de Cloudflare. Microsoft documenta que un CNAME intermedio (cita a Cloudflare como ejemplo) impide la emisión y la renovación. No se sabe si el proxy estaba activo cuando se emitió (julio) ni qué modo SSL usa Cloudflare. Si la renovación falla y Cloudflare usa "Full (strict)", los usuarios verían errores 526 a partir del vencimiento; con "Full" no se enteraría nadie, pero el origen quedaría con un certificado vencido.
 
-Acciones: (1) comprobar en el portal si Azure sigue marcando el certificado como renovable y el modo SSL de Cloudflare; (2) elegir una de dos salidas: poner el registro en modo "sólo DNS" durante la ventana de renovación (desde diciembre), o pasar a un certificado propio en el origen (opción A de P0, que además evita la dependencia de DigiCert); (3) dejar un recordatorio con fecha, antes del 1 de diciembre de 2026.
+Salida implementada (`modules/custom_domain`): `certificate_source` con tres valores. `managed` es el de hoy. `byo_staged` crea en el entorno un certificado propio (por ejemplo un Origin CA de Cloudflare, de hasta 15 años, con modo SSL "Full (strict)") y mantiene el gestionado. `byo` deja sólo el propio y borra el gestionado. El `.pfx` y su contraseña salen de dos secretos de Key Vault que carga una persona: la clave privada nunca pasa por Terraform, por el repositorio ni por una variable (un test lo vigila). Terraform **no** cambia el binding del dominio (ignora el id del certificado: recrearlo es downtime): lo asocia una persona con `az containerapp hostname bind --certificate`, y recién después `byo` borra el gestionado, que Azure no deja borrar en uso. Verificado contra el state real: `byo_staged` crea un solo recurso (el certificado); `byo` además destruye el gestionado. La secuencia con comandos está en 7.3.
+
+Sin esto, la alternativa es poner el registro en modo "sólo DNS" durante la ventana de renovación (desde diciembre) y recordarlo con fecha antes del 1 de diciembre de 2026. Con el destino B (Front Door) el dominio pasa a un certificado gestionado por Front Door y este punto desaparece.
 
 ## 4. Plan de implementación por fases
 
 | Fase | Horizonte orientativo | Trabajo y salida requerida |
 |---|---|---|
 | 0 — Confirmación | Inmediata | **Hecha el 10 de octubre** (1.1), salvo lo listado en 1.3. |
-| 1 — P0 | Antes del próximo despliegue relevante | **Hecho en el repositorio:** permisos por job, Actions por SHA, Dependabot, health check del deploy. **Por una persona (7.1 y 7.2):** borrar credenciales sobrantes, condicionar `User Access Administrator`, proteger `main`, `sha_pinning_required`. **Decisión:** origen (opción A, B o C) y certificado del dominio, antes de diciembre. |
-| 2 — P1 | Siguiente ciclo de cambio planificado | Activar alertas de Activity Log y Azure Policy en auditoría (7.4); activar Blob por identidad administrada y migrar los backups antes de apagar Shared Key (7.6); corregir el backup lógico y probar la restauración (7.5); actualizar MySQL a 8.4 antes del 31 de enero de 2027; refactor del DDL en runtime y usuario de MySQL con privilegios mínimos. |
+| 1 — P0 | Antes del próximo despliegue relevante | **Hecho en el repositorio:** permisos por job, Actions por SHA, Dependabot, health check del deploy. **Por una persona (7.1 y 7.2):** borrar credenciales sobrantes, condicionar `User Access Administrator`, proteger `main`, `sha_pinning_required`. **Decisión:** destino del origen (A, B o aceptar por escrito) y certificado del dominio, antes de diciembre; el código de A y B ya está, apagado. |
+| 2 — P1 | Siguiente ciclo de cambio planificado | Activar alertas de Activity Log y Azure Policy en auditoría (7.4); activar Blob por identidad administrada y migrar los backups antes de apagar Shared Key (7.6); corregir el backup lógico y probar la restauración (7.5); actualizar MySQL a 8.4 antes del 31 de enero de 2027 (ensayo en una copia, validación contra un 8.4 real, ventana; 7.7); refactor del DDL en runtime y usuario de MySQL con privilegios mínimos. |
 | 3 — P2 | 30–90 días, según riesgo y costo | Rotación de claves de Redis o Entra ID; despliegue por digest y firma de imágenes; pasar Azure Policy a enforcement escalonado. |
 
 El orden y las fechas deben ajustarse al riesgo, dependencia de cambios y presupuesto. Mantener un plan Terraform revisado, aplicar en ventana controlada y disponer de rollback probado para cambios de red, identidad y políticas.
@@ -311,14 +336,14 @@ La evaluación se considera atendida cuando:
 
 | Ítem | Estado | Hecho | Falta |
 |---|---|---|---|
-| P0 Origen | **Preparado, no cerrado** | Interruptores y check en Terraform; health check del deploy; catálogo de Cloudflare verificado; prueba de acceso directo (200) | Decidir A, B o C; resolver el certificado; activar con el runbook 7.3 |
+| P0 Origen | **Preparado (A y B), no cerrado** | A: NAT Gateway, certificado propio y filtro a Cloudflare; B: Front Door Premium con Private Link y acceso privado; checks que los hacen excluyentes; health check del deploy; planes contra el state real | Elegir A o B (o aceptar por escrito) y activar con 7.3 u 7.8 |
 | P0 OIDC y planes | **Parcial** | `id-token` por job en 3 workflows; 25 Actions por SHA y Dependabot; `drift` con `environment:prod`; sin plan duplicado por schedule; IPv4 validada; 2FA verificado | Borrar credenciales, condicionar UAA, proteger `main`, `sha_pinning_required`, principal de plan separado (7.1 y 7.2) |
 | P1 Storage | **Preparado** | Credencial de identidad administrada corregida; interruptor; clientes de la cuenta medidos | Activar el interruptor; migrar backups y Terraform; apagar Shared Key (7.6) |
 | P1 Identidades y usuario MySQL | **Abierto** | Bloqueos identificados (DDL en runtime, migraciones en proceso) | Refactor en la aplicación; después, identidades separadas |
 | P1 Defender, auditoría y alertas | **Cerrado en lo verificable; alertas preparadas** | Defender, diagnósticos y logs verificados; alertas de Activity Log (7 reglas) listas | Encenderlas, designar responsable y probar de extremo a extremo (7.4) |
 | P1 Recuperación | **Abierto** | Configuración real medida; defecto del backup lógico identificado | Corregir el script y ensayarlo en la VM; restauración de prueba; decisión de HA y geo |
-| P1 MySQL 8.0 | **Abierto, con fecha** | Fechas y costo verificados | Actualizar a 8.4 antes del 31 de enero de 2027 |
-| P1 Certificado del dominio | **Abierto, con fecha** | Vencimiento y requisitos verificados | Elegir salida antes de diciembre |
+| P1 MySQL 8.0 | **Preparado, con fecha** | Fechas, costo y procedimiento verificados; `sql_mode` sin valores retirados; revisión estática de las migraciones; Terraform no puede dispararla | Validar contra un `mysql:8.4` real (requiere bajar la imagen), ensayar en una copia y ejecutar antes del 31 de enero de 2027 (7.7) |
+| P1 Certificado del dominio | **Preparado, con fecha** | Vencimiento y requisitos verificados; `managed` / `byo_staged` / `byo` con planes contra el state real | Cargar el certificado, asociarlo y pasar a `byo` (7.3), o pasar a Front Door (7.8), antes de diciembre |
 | P2 MySQL y Redis | **Cerrado, salvo rotación** | TLS verificado en Azure; cliente de Redis explícito, con test | Rotación de claves de Redis o Entra ID |
 | P2 ACR | **Recomendación hecha; digest abierto** | Basic confirmado y costo corregido | Despliegue por digest (con el cambio de `APP_VERSION`) y firma |
 | P2 Checkov | **Parcial** | Defender Containers verificado | Decidir las exclusiones de Key Vault con Checkov a mano |
@@ -387,35 +412,73 @@ az role assignment delete --ids "<id de la asignación SIN condición>"
 
 3. **Plan de PR de sólo lectura** (cuando se quiera cerrar el último hueco de OIDC): crear un segundo principal con `Reader` sobre la suscripción y `Storage Blob Data Reader` sobre la cuenta de tfstate, con una única credencial federada `pull_request`, sin acceso al Key Vault; guardar su client id como secret `AZURE_PLAN_CLIENT_ID`. Con eso el workflow se parte en un job de PR (`terraform plan -refresh=false -lock=false`, sin firewall del vault) y un job de apply; y recién entonces se puede restringir el environment `prod` a `main`. La partición del workflow se hace cuando exista ese principal.
 
-### 7.3 Cerrar el origen
+### 7.3 Cerrar el origen, destino A: Cloudflare + NAT Gateway + certificado propio
 
-Antes de activar nada:
+Cada paso es un `workflow_dispatch` de Terraform con `confirm` vacío (sólo plan), lectura del resumen del plan y recién entonces `APPLY-PROD`. Las variables se editan en `TF_VARS_PROD` (desde GitHub; no se puede desde el repositorio). Antes de empezar, comprobar en Cloudflare el modo SSL y a qué URL apuntan los webhooks de Paddle y cualquier monitor externo: todo lo que le pegue al origen sin pasar por Cloudflare dejará de entrar.
 
-1. Elegir la opción (A, B o C de P0) y resolver el certificado del dominio (P1). Con la A, crear el NAT Gateway y su IP pública en la subred de apps (`cscs-finops-prod-westus2-snet-apps`, `10.50.0.0/23`); anotar la IP.
-2. Comprobar en Cloudflare el modo SSL, y a qué URL apuntan los webhooks de Paddle y cualquier monitor externo: todo lo que le pegue al origen sin pasar por Cloudflare dejará de entrar.
+**Paso 1: NAT Gateway.** En el stamp `us`:
 
-Activar (en `TF_VARS_PROD`, que se edita desde GitHub; no se puede desde el repositorio):
+```hcl
+nat_gateway_enabled = true
+```
+
+El plan debe mostrar 4 recursos a crear (IP pública, NAT Gateway y sus dos asociaciones) y ningún cambio en el app. Cambia la salida de **todo** el entorno. Después del apply, la IP fija, y la prueba de que el entorno sale por ella (`az containerapp exec` abre una consola interactiva dentro de una réplica):
+
+```bash
+az network public-ip show -g cscs-finops-prod-westus2-rg -n cscs-finops-prod-westus2-nat-pip --query ipAddress -o tsv
+az containerapp exec -g cscs-finops-prod-westus2-rg -n cscs-finops-prod-westus2-web
+```
+
+Y dentro de la consola: `node -e "fetch('https://api.ipify.org').then(r=>r.text()).then(console.log)"`. Tiene que imprimir la IP del NAT. Rollback: `nat_gateway_enabled = false`.
+
+**Paso 2: certificado propio.**
+
+a. En Cloudflare, SSL/TLS, Origin Server, Create Certificate: hostname `finops.cscloudsolutions.com.ar`, RSA 2048 o ECDSA P-256 (Container Apps no admite P-384 ni P-521), validez de 15 años. Guardar el certificado y la clave (Cloudflare muestra la clave una sola vez).
+
+b. Armar el `.pfx` en tu máquina (la clave no pasa por el repositorio) y subirlo a Key Vault. El vault tiene el firewall en `Deny`, así que se abre para tu IP sólo durante la carga; hace falta el rol `Key Vault Secrets Officer` sobre el vault. Después, borrar los archivos locales.
+
+```bash
+openssl pkcs12 -export -inkey origen.key -in origen.pem -out origen.pfx -passout pass:"$PFX_PASSWORD"
+MI_IP=$(curl -s https://api.ipify.org)
+az keyvault network-rule add --name cscs-finops-prod-wus2-kv --ip-address "$MI_IP"
+az keyvault secret set --vault-name cscs-finops-prod-wus2-kv --name origin-cert-pfx --encoding base64 --file origen.pfx
+az keyvault secret set --vault-name cscs-finops-prod-wus2-kv --name origin-cert-pfx-password --value "$PFX_PASSWORD"
+az keyvault network-rule remove --name cscs-finops-prod-wus2-kv --ip-address "$MI_IP"
+```
+
+c. `custom_domain_certificate_source = "byo_staged"` en el stamp. El plan debe mostrar un solo recurso nuevo, el certificado `finops-cscloudsolutions-com-ar-byo`. Apply.
+
+d. Asociarlo al hostname (cambio en el lugar del binding, sin downtime) y comprobar que el origen sirve el nuevo:
+
+```bash
+az containerapp hostname bind --hostname finops.cscloudsolutions.com.ar -g cscs-finops-prod-westus2-rg -n cscs-finops-prod-westus2-web --environment cscs-finops-prod-westus2-cae --certificate finops-cscloudsolutions-com-ar-byo
+echo | openssl s_client -connect cscs-finops-prod-westus2-web.victoriousmoss-01886ec5.westus2.azurecontainerapps.io:443 -servername finops.cscloudsolutions.com.ar 2>/dev/null | openssl x509 -noout -issuer -enddate
+```
+
+El emisor tiene que ser el Origin CA de Cloudflare. Recién entonces, en Cloudflare, modo SSL "Full (strict)", y comprobar que el sitio sigue respondiendo 200.
+
+e. `custom_domain_certificate_source = "byo"`: el plan destruye sólo el certificado gestionado (que ya nadie usa). Apply.
+
+**Paso 3: filtrar el origen.** En `TF_VARS_PROD`:
 
 ```hcl
 origin_cloudflare_only         = true
 origin_extra_allowed_ip_ranges = ["<IP del NAT Gateway>/32"]
 ```
 
-Después: `workflow_dispatch` con `confirm` vacío (sólo plan), leer el resumen del plan (tiene que mostrar sólo el cambio de `ipSecurityRestrictions` del app) y recién entonces `APPLY-PROD`.
-
-Verificar, en este orden:
+El plan debe mostrar sólo un cambio en el lugar de `azurerm_container_app` (las restricciones de ingress: 15 rangos de Cloudflare y la IP del NAT). Apply y verificar, en este orden:
 
 ```bash
 # 1. Directo al origen: debe dar 403 (antes daba 200)
 curl -s -o /dev/null -w '%{http_code}\n' https://cscs-finops-prod-westus2-web.victoriousmoss-01886ec5.westus2.azurecontainerapps.io/api/health
 # 2. Por el dominio propio (Cloudflare): debe seguir en 200
 curl -s -o /dev/null -w '%{http_code}\n' https://finops.cscloudsolutions.com.ar/api/health
-# 3. Un cron manual debe terminar Succeeded (si da 403, el ingress ve otra IP de origen: revisar extras)
+# 3. Un cron manual debe terminar Succeeded (si da 403, el ingress ve otra IP de origen: revisar los extras)
 az containerapp job start -g cscs-finops-prod-westus2-rg -n cron-prewarm-dashboard
 az containerapp job execution list -g cscs-finops-prod-westus2-rg -n cron-prewarm-dashboard --query "[0].properties.status" -o tsv
 ```
 
-Rollback: `origin_cloudflare_only = false` y un apply. Atender la renovación del certificado antes de diciembre (P1).
+Rollback: `origin_cloudflare_only = false` y un apply.
 
 ### 7.4 Alertas de Activity Log y Azure Policy en auditoría
 
@@ -470,6 +533,97 @@ StorageBlobLogs
 3. Migrar el runbook de backups (AzCopy con la identidad de la VM, o SAS de delegación de usuario) y ensayarlo (7.5).
 4. Agregar `storage_use_azuread = true` al provider de producción y un rol de datos para el principal de Terraform sobre la cuenta; comprobar un plan.
 5. Sólo entonces: exponer `shared_access_key_enabled` como variable del stamp, retirar la connection string del app, apagar Shared Key, y volver a correr la consulta de arriba: no debe quedar ningún `AccountKey` ni `SAS` firmado con clave.
+
+### 7.7 MySQL 8.0 a 8.4
+
+La actualización es **irreversible** y la ejecuta una persona, en una ventana. Terraform no puede dispararla (ignora `version`). Antes de empezar, la validación contra un MySQL 8.4 real: el local es 8.0, así que hay que bajar la imagen `mysql:8.4` de Docker Hub (≈ 1 GB) y correr contra ella `npm run migrate` y la suite.
+
+1. **Chequeos previos.** Desde la VM de backups (está en la VNet; el servidor es privado), con la contraseña del administrador que está en el Key Vault:
+
+```bash
+# Ninguna transacción XA pendiente: debe devolver vacío
+mysql -h cscs-finops-prod-westus2-mysql.mysql.database.azure.com -u <admin> -p --ssl-mode=REQUIRED -e "XA RECOVER;"
+# Verificador oficial de Oracle (la validación en línea de Azure no existe para 8.0 a 8.4)
+mysqlsh --uri <admin>@cscs-finops-prod-westus2-mysql.mysql.database.azure.com --ssl-mode=REQUIRED -- util checkForServerUpgrade --target-version=8.4
+```
+
+Microsoft indica que se pueden ignorar las advertencias sobre los procedimientos `mysql.az_*`. Cualquier otro hallazgo se resuelve antes.
+
+2. **Ensayo en una copia.** Restaurar por punto en el tiempo a un servidor nuevo (el de producción es privado: la restauración puede pedir `--vnet` y `--subnet`; ver `az mysql flexible-server restore --help`), correr el verificador contra la copia, actualizar la copia, medir el tiempo que tarda y borrarla:
+
+```bash
+az mysql flexible-server restore --resource-group cscs-finops-prod-westus2-rg --name cscs-finops-upgrade-prueba \
+  --source-server cscs-finops-prod-westus2-mysql --restore-time "$(date -u -v-5M +%Y-%m-%dT%H:%M:%SZ)"
+```
+
+3. **Backup a demanda de producción**, justo antes:
+
+```bash
+az mysql flexible-server backup create --resource-group cscs-finops-prod-westus2-rg --name cscs-finops-prod-westus2-mysql --backup-name pre-8-4
+```
+
+4. **Actualizar.** En el portal, Overview del servidor, Upgrade (el flujo documentado para Burstable): elegir 8.4, el compute tier General Purpose temporal (por defecto el más básico) y si al terminar se conserva o se vuelve a `B2s`. La base es chica (0,82 GB usados), pero el downtime no se midió: lo da el paso 2.
+
+5. **Verificar:** `SELECT VERSION();` devuelve 8.4.x, `/api/health` en 200, un cron manual en Succeeded (7.3, paso 3) y la ausencia de errores de conexión en los logs del app. Si se conservó General Purpose, actualizar `mysql_sku_name` en el stamp o el siguiente plan propondrá volver a Burstable.
+
+6. **Rollback:** restaurar el backup `pre-8-4` en un servidor nuevo, que tiene otro nombre: hay que cambiar `DB_HOST` del app. Por eso el ensayo del paso 2 es obligatorio.
+
+Costo: durante la actualización se paga el uso real del compute tier General Purpose; se evita el Extended Support de ≈ USD 102 al mes.
+
+### 7.8 Cerrar el origen, destino B: Front Door Premium con Private Link
+
+Es alternativa a 7.3: apaga el acceso público del entorno y Cloudflare deja de llegar al origen. Cada paso es un `workflow_dispatch` de Terraform (plan primero, después `APPLY-PROD`). El proveedor `Microsoft.Cdn` ya está registrado en la suscripción.
+
+**Etapa 1: Front Door con origin público** (el sitio no cambia). En `TF_VARS_PROD`:
+
+```hcl
+frontdoor_enabled       = true
+frontdoor_sku           = "Premium_AzureFrontDoor"
+frontdoor_custom_domain = "finops.cscloudsolutions.com.ar"
+```
+
+El WAF arranca en `Detection` y el rate limit y los bots en `Log`. Empieza el costo fijo de ≈ USD 330 al mes. Después del apply, el token de validación del dominio y el endpoint:
+
+```bash
+az afd custom-domain show -g cscs-finops-prod-global-rg --profile-name cscs-finops-prod-global-afd -n cd-app --query "{token:validationProperties.validationToken, estado:domainValidationState}" -o json
+az afd endpoint show -g cscs-finops-prod-global-rg --profile-name cscs-finops-prod-global-afd -n cscs-finops-prod-global-fde --query hostName -o tsv
+```
+
+En el DNS de Cloudflare, cargar el TXT `_dnsauth.finops` con el token y esperar a que el estado sea `Approved`. Probar por el hostname de Front Door (`https://<endpoint>.azurefd.net/api/health`: 200).
+
+**Etapa 2: cutover de DNS.** Cambiar el CNAME `finops` para que apunte al endpoint de Front Door, **sin proxy de Cloudflare** (nube gris: si Cloudflare sigue delante, Front Door ve las IP de Cloudflare y el rate limit por IP deja de servir). Revisar el log del WAF en Log Analytics unos días (la tabla `AzureDiagnostics`, categorías `FrontDoorWebApplicationFirewallLog` y `FrontDoorAccessLog`) y recién entonces pasar `frontdoor_waf_mode` a `Prevention` y las acciones de bots y rate limit a `Block`. El umbral de 1200 pedidos por minuto y por IP es una estimación sin datos: medirlo antes de bloquear.
+
+**Etapa 3: Private Link y acceso privado.** Hay minutos de caída entre que el entorno deja de aceptar internet y se aprueba la conexión: hacerlo en una ventana y con el comando de aprobación listo. En `TF_VARS_PROD`:
+
+```hcl
+frontdoor_private_link_enabled = true
+# y en el stamp us:
+app_private_access_only = true
+```
+
+El plan debe mostrar el origin con Private Link, el endpoint privado del entorno, la zona `privatelink.westus2.azurecontainerapps.io` con su A record, y un cambio **en el lugar** del entorno. Apply, y enseguida aprobar la conexión pendiente (Azure puede crear varias solicitudes con el mensaje `AFD Private Link Request`: aprobar todas):
+
+```bash
+ENVID=$(az containerapp env show -g cscs-finops-prod-westus2-rg -n cscs-finops-prod-westus2-cae --query id -o tsv)
+az network private-endpoint-connection list --id "$ENVID" -o table
+az network private-endpoint-connection approve --id "<id de cada conexión pendiente>" --description "AFD"
+```
+
+Verificar:
+
+```bash
+# Por el dominio propio (Front Door): 200
+curl -s -o /dev/null -w '%{http_code}\n' https://finops.cscloudsolutions.com.ar/api/health
+# Directo al FQDN de Azure: ya no responde
+curl -s -m 15 -o /dev/null -w '%{http_code}\n' https://cscs-finops-prod-westus2-web.victoriousmoss-01886ec5.westus2.azurecontainerapps.io/api/health
+# Un cron manual debe terminar Succeeded: resuelve por la zona privada
+az containerapp job start -g cscs-finops-prod-westus2-rg -n cron-prewarm-dashboard
+az containerapp job execution list -g cscs-finops-prod-westus2-rg -n cron-prewarm-dashboard --query "[0].properties.status" -o tsv
+```
+
+Si el cron falla, la resolución de DNS de los jobs por la zona privada no está funcionando: el A record lleva como nombre la primera etiqueta del dominio por defecto del entorno (`victoriousmoss-01886ec5`) y la zona tiene que estar enlazada a la VNet. Rollback: `app_private_access_only = false` (el entorno vuelve a aceptar internet y se borra el endpoint) y el CNAME de vuelta a Cloudflare.
+
+Costo fijo de este destino: ≈ USD 403 al mes (Front Door Premium USD 330 y endpoint privado del entorno USD 73) más tráfico.
 
 ## Referencias de configuración
 
