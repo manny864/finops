@@ -18,6 +18,13 @@ está**: se sacó el mismo día que se puso. El pendiente era papel viejo, no es
 real. La sección "Cómo aplicarlo" queda como registro de lo que se hizo y como
 runbook si hubiera que repetirlo en otro stamp.
 
+> **Actualización 2026-10-10 — el repositorio ya no es público.** `gh repo view`
+> devuelve `visibility: PRIVATE`, los workflows de forks están desactivados y hay
+> un único colaborador. Las secciones "3. Runner self-hosted" y "El repositorio
+> fue público, y por qué" describen la situación del 2026-09-07 y están
+> actualizadas abajo. Lo implementado no cambia: sigue siendo el firewall
+> efímero de la opción 1.
+
 El inventario de abajo es del **2026-08-22** y su tabla ya no describe el
 presente — ver la nota del 2026-09-07 sobre staging.
 
@@ -118,6 +125,12 @@ llena de IPs muertas de runners.
 | Pasos "Abrir/Cerrar el Key Vault" en `plan-apply` y en `drift` | `.github/workflows/terraform.yml` |
 | `keyvault_private_endpoint_enabled` + `keyvault_network_acls_enabled` en `true` | `environments/prod/terraform.tfvars` |
 
+**Alcance de esos pasos:** corren también en `pull_request`, así que un PR
+escribe en el firewall del vault (abre y cierra la IP de su runner), no sólo
+lee. Si algún día se separa un plan de sólo lectura, hay que resolver antes cómo
+se abre ese firewall — ver
+[`docs/security/endurecimiento-infraestructura-saas-2026-10-09.md`](../../docs/security/endurecimiento-infraestructura-saas-2026-10-09.md).
+
 El `ignore_changes` es la pieza sutil y la que más importa: sin él, el propio
 `terraform apply` vería la IP que el workflow acaba de agregar como drift y la
 quitaría **mientras la está usando**. Se cierra la puerta con la llave adentro.
@@ -132,51 +145,63 @@ que no hay nada que permitir.
 de vida de Terraform. Elimina la dependencia de data plane de raíz. El costo es
 perder el manejo declarativo de su rotación y del `expiration_date`.
 
-### 3. Runner self-hosted dentro de la VNet — DESCARTADA
+### 3. Runner self-hosted dentro de la VNet — NO IMPLEMENTADA
 
 Sería la solución de manual: un runner con IP privada resuelve el private
-endpoint y Terraform funciona sin excepciones de firewall. En este repo **no se
-puede**.
+endpoint y Terraform funciona sin excepciones de firewall.
 
-`manny864/finops` es un repositorio **público**, y `terraform.yml` dispara en
-`pull_request` sobre `infra/terraform/**`. Cualquiera puede forkear, abrir un PR
-que toque esa ruta, y su código se ejecutaría en una máquina dentro de la VNet
-de producción, con la managed identity que tiene `Key Vault Secrets Officer`
-sobre el vault que se está tratando de blindar. Se cerraría el vault a internet
-para abrirle una puerta con credenciales adentro.
+**Estaba descartada por una premisa que ya no se cumple.** El 2026-09-07 el repo
+era público y `terraform.yml` dispara en `pull_request` sobre
+`infra/terraform/**`: cualquiera podía forkear, abrir un PR que tocara esa ruta,
+y su código se ejecutaría en una máquina dentro de la VNet de producción, con la
+managed identity que tiene `Key Vault Secrets Officer` sobre el vault que se
+quería blindar. Con el repo privado y los workflows de forks desactivados
+(verificado el 2026-10-10) ese vector no existe.
 
-Es la razón por la que GitHub desaconseja runners self-hosted en repos
-públicos. Las mitigaciones (aprobación manual para contribuidores nuevos,
-secrets no propagados a forks) dependen de configuración que se afloja sin que
-nadie se entere.
+Eso no la deja habilitada sin más: el runner ejecutaría dentro de la VNet el
+código de cualquier rama que suba un colaborador con escritura —hoy, la cuenta
+propietaria—, y esa cuenta ya puede obtener por OIDC los permisos de Terraform
+sobre la suscripción (ver el documento de seguridad enlazado arriba). Además hay
+que operar el runner (parches, aislamiento entre jobs). Se puede retomar como
+decisión aparte; hoy el firewall efímero cumple sin infraestructura nueva.
 
-La variante gestionada —*larger runners* con Azure private networking— tampoco
-aplica: exige GitHub Team/Enterprise sobre una **organización**, y el repo
-pertenece a una cuenta de usuario.
+La variante gestionada —*larger runners* con Azure private networking— exige,
+según se evaluó el 2026-09-07 (sin re-verificar), GitHub Team/Enterprise sobre
+una **organización**, y el repo pertenece a una cuenta de usuario.
 
-## El repositorio es público, y por qué
+## El repositorio fue público, y por qué
 
-`manny864/finops` tiene `visibility: public`. **No es la intención**: el repo
-normalmente es privado y se abrió porque se agotaron los minutos gratuitos de
-GitHub Actions para repos privados — en público los minutos de los runners
-estándar no se cobran, y sin eso no había forma de deployar.
+Hasta al menos el 2026-09-07 `manny864/finops` tuvo `visibility: public`. **No
+era la intención**: el repo normalmente es privado y se abrió porque se agotaron
+los minutos gratuitos de GitHub Actions para repos privados — en público los
+minutos de los runners estándar no se cobran, y sin eso no había forma de
+deployar.
 
-Es un intercambio consciente, pero conviene tenerlo escrito: `terraform.tfvars`
-está gitignoreado y los secretos viven en Key Vault, así que no hay
-credenciales filtradas, pero la topología de red completa, los nombres de
-recursos, las expresiones cron y la lógica de RBAC multi-tenant del SaaS son
-legibles por cualquiera mientras dure.
+Fue un intercambio consciente, pero conviene tenerlo escrito:
+`terraform.tfvars` está gitignoreado y los secretos viven en Key Vault, así que
+no hay credenciales filtradas, pero la topología de red completa, los nombres de
+recursos, las expresiones cron y la lógica de RBAC multi-tenant del SaaS fueron
+legibles por cualquiera mientras duró. **Volver a privado no retira esa
+exposición:** lo que se publicó pudo ser copiado (forks, clones, cachés de
+terceros). Para esta actualización no se revisó el historial en busca de
+secretos.
 
-Volver a privado es lo que desbloquea la opción 3, y las salidas son:
+**Estado actual (2026-10-10): privado.** No consta la fecha del cambio. La razón
+por la que se había abierto sigue en pie —los minutos gratuitos de Actions para
+repos privados—; no se pudo consultar el consumo porque la API de facturación
+pide el scope `user` en el token de `gh`. Conviene mirarlo antes de que un mes de
+deploys los vuelva a agotar. Las salidas eran:
 
 | Camino | Costo | Nota |
 |---|---|---|
-| GitHub Team | ~USD 4/usuario/mes | 3.000 min/mes incluidos. Además habilita *larger runners* con Azure private networking, que es la opción 3 en versión gestionada |
+| GitHub Team | ~USD 4/usuario/mes (cifra del 2026-09-07, sin recotizar) | 3.000 min/mes incluidos. Además habilita *larger runners* con Azure private networking, que es la opción 3 en versión gestionada. Es un plan de **organizaciones**; el repo es de una cuenta personal |
+| GitHub Pro | sin cotizar | Plan de cuenta personal. La API de protección de ramas indica (403, 2026-10-10) que es lo que la habilita en un repo privado de cuenta personal. **No** incluye required reviewers de environments: en repos privados sólo los ofrece GitHub Enterprise, según la documentación de GitHub (consultada el 2026-10-10) |
 | Runner self-hosted para el build | el fierro | Los minutos de runners propios **no se cuentan** contra la cuota. Con el repo privado deja de ser peligroso, y puede correr como Container Apps Job en el Environment que ya existe |
 | Reducir minutos | 0 | El grueso se lo lleva el build de la imagen. Cachear capas en ACR o mover el build a ACR Tasks descarga al runner |
 
-Mientras el repo siga público, la opción 3 queda descartada y el firewall
-efímero de la opción 1 es la respuesta correcta.
+Con el repo privado, la opción 3 deja de estar descartada por ese motivo, pero
+el firewall efímero de la opción 1 sigue en producción y es la respuesta
+vigente.
 
 ## Cómo aplicarlo
 

@@ -13,9 +13,11 @@ resource "azurerm_container_registry" "this" {
   # hay que purgar tags viejos desde el pipeline.
   retention_policy_in_days = var.sku == "Premium" ? 30 : null
 
-  # Geo-replicación: baja el tiempo de pull del stamp europeo. Sólo Premium
-  # (~USD 500/mes) — con Basic el stamp EU hace pull cross-region y tarda más
-  # en el primer arranque de cada revisión, nada más.
+  # Geo-replicación: baja el tiempo de pull del stamp europeo. Sólo Premium:
+  # ~USD 50/mes del registry unit más ~USD 50/mes por cada región replicada
+  # (Retail Prices API, West US 2, 2026-10-10; Basic ronda ~USD 5/mes) — con
+  # Basic el stamp EU hace pull cross-region y tarda más en el primer arranque
+  # de cada revisión, nada más.
   dynamic "georeplications" {
     for_each = var.sku == "Premium" ? toset(var.geo_replication_locations) : toset([])
     content {

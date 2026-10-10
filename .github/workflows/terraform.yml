@@ -154,8 +154,10 @@ jobs:
           #  CKV_AZURE_139, 163, 164, 165, 166, 233, 237 — ACR en SKU Basic:
           #    georreplicación, zona redundante, endpoints dedicados,
           #    firewall/red privada y content trust son todas features
-          #    exclusivas de Premium (~USD 500/mes más). Con un solo stamp no
-          #    hay georreplicación que aprovechar. El escaneo de
+          #    exclusivas de Premium (~USD 45/mes más que Basic: ~USD 50
+          #    contra ~USD 5 por registry unit, Retail Prices API del
+          #    2026-10-10; cada región replicada suma otros ~USD 50). Con un
+          #    solo stamp no hay georreplicación que aprovechar. El escaneo de
           #    vulnerabilidades (163) ya está cubierto igual: el plan
           #    "Containers" de Defender for Cloud escanea imágenes en
           #    cualquier SKU de ACR (defender_resource_types en
