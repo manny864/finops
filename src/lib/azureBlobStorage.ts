@@ -15,19 +15,28 @@
  * través de nuestras propias API routes, nunca con una URL directa de blob.
  */
 import { BlobServiceClient, ContainerClient } from "@azure/storage-blob";
+import { DefaultAzureCredential } from "@azure/identity";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 let serviceClientSingleton: BlobServiceClient | null = null;
 const containerClients = new Map<string, ContainerClient>();
 
 export function isBlobStorageEnabled(): boolean {
-  return !!process.env.AZURE_STORAGE_CONNECTION_STRING;
+  return !!(process.env.AZURE_STORAGE_ACCOUNT_NAME || process.env.AZURE_STORAGE_CONNECTION_STRING);
 }
 
 function getServiceClient(): BlobServiceClient {
   if (serviceClientSingleton) return serviceClientSingleton;
+
+  const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME;
+  if (accountName) {
+    const url = `https://${accountName}.blob.core.windows.net`;
+    serviceClientSingleton = new BlobServiceClient(url, new DefaultAzureCredential());
+    return serviceClientSingleton;
+  }
+
   const conn = process.env.AZURE_STORAGE_CONNECTION_STRING;
-  if (!conn) throw new Error("AZURE_STORAGE_CONNECTION_STRING no está configurado.");
+  if (!conn) throw new Error("Ni AZURE_STORAGE_ACCOUNT_NAME ni AZURE_STORAGE_CONNECTION_STRING están configurados.");
   serviceClientSingleton = BlobServiceClient.fromConnectionString(conn);
   return serviceClientSingleton;
 }

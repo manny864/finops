@@ -119,3 +119,12 @@ resource "time_sleep" "rbac_propagation" {
   depends_on      = [azurerm_role_assignment.deployer_secrets_officer]
   create_duration = "40s"
 }
+
+# Bloqueo contra borrado accidental (Resource Lock - CanNotDelete)
+resource "azurerm_management_lock" "keyvault_delete_lock" {
+  count      = var.create && var.enable_delete_lock ? 1 : 0
+  name       = "${azurerm_key_vault.this[0].name}-lock"
+  scope      = azurerm_key_vault.this[0].id
+  lock_level = "CanNotDelete"
+  notes      = "Protección contra borrado accidental del Key Vault de producción (Fase 4 Endurecimiento SaaS)"
+}

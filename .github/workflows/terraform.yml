@@ -73,7 +73,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Checkov
-        uses: bridgecrewio/checkov-action@v12
+        # Fijado por commit SHA inmutable (v12) para mitigar riesgos de cadena de suministro (P0)
+        uses: bridgecrewio/checkov-action@c13aafd679d3814a25067d10fcaf98c4f7594931 # v12
         with:
           directory: infra/terraform
           framework: terraform
