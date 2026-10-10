@@ -130,7 +130,16 @@ El run 38061470356 fue solo plan: **no ejecuto Terraform apply**.
 Suite integrada corregida: **4.912 pasados, 50 omitidos**. Typecheck y build
 integrados exitosos; lint global: 0 errores, 3.434 warnings existentes.
 CI remoto 38061780981: success. Deploy manual final solicitado: 38061845349,
-commit de app 0e0f0b1 (resultado pendiente al escribir esta evidencia).
+commit de app 0e0f0b1: **success**. Endpoint /api/health responde status=ok;
+/api/status con cache-busting confirma version 0e0f0b103891eea5a26cb514b135b0439ca37bbc
+y estado operational. La consulta inicial durante la transicion devolvio c88a9ac;
+no se tomo el HTTP 200 como prueba suficiente de la nueva version.
+
+Ultimo commit de infraestructura: fcd242b. CI 38062523241: success.
+Plan final 38062543442: success como ejecucion de plan, **2 altas, 89 cambios,
+0 destrucciones**, con replicas_web_acotadas todavia fallido. Firewall temporal
+cerrado por el workflow. **Terraform apply no ejecutado**: requiere resolver
+la configuracion de cinco replicas frente al limite de tres y revisar la deriva.
 
 Azure metadata: MySQL publico deshabilitado, backup 14 dias, HA y geo-backup
 deshabilitados. Key Vault RBAC y purge protection activos, firewall Deny.
