@@ -6035,7 +6035,7 @@ con `Promise.all`, cada uno con su primera consulta a MySQL. Con los 5 tenants E
 contra el pool de 10 y la cola de 20 (`DB_POOL_LIMIT`, `DB_QUEUE_LIMIT`, `db.ts`): **≈9.900 errores `Queue limit
 reached` en 30 días, todos en los minutos :13/:33/:53**, con una mediana de 10 por ráfaga (40 − 30). La forma de la
 respuesta no cambia (`results` en el orden de los tenants, un error por tenant no frena a los demás). Un tenant
-tarda ~2 s, así que 5 son ~10 s de los 300 del job; con ~100 tenants (≈200 s) hay que subirlo a 2-3. Test:
+tarda ~2 s (medido sobre el camino que falla en la autenticación, 48.9), así que 5 son ~10 s de los 300 del job; con ~100 tenants (≈200 s) hay que subirlo a 2-3. Test:
 `syncAzureAiConcurrencia.test.ts` (6; con el tope en 5 falla `expected 5 to be 1`). **No se tocó**
 `CRON_SECRET || "unsafe-default"`: es la única de 43 rutas de cron que acepta `Bearer unsafe-default` con la variable
 sin definir; fallar cerrado cambia el comportamiento ante una mala configuración.
@@ -6098,14 +6098,25 @@ las 8 tablas se consultan sin violaciones, que cada capacidad sale en su fila co
 distintos, para que una fila que absorbe a otra se note), que el workspace de Databricks conserva su nombre, y qué se cachea.
 Sin el arreglo reproduce los seis errores de producción; cada parte del arreglo se comprobó por mutación. **Lo que cambia
 para el usuario:** un tenant con recursos de esos seis servicios ve sus costos en el resumen; uno sin ellos no ve
-diferencia (los 5 tenants de hoy).
+diferencia. No se sabe si algún tenant de producción tiene hoy recursos de esos servicios: el cron que podría mostrarlo no se
+autentica (48.9).
 
 ### 48.9 Defectos medidos en producción y NO corregidos
 
-**`azure-ai/route.ts:1396` trata el resultado vacío como un miss.** Solo sirve del caché si `capabilities.length > 0`,
-pero `cacheCapabilities` guarda la lista vacía: los 5 tenants Enterprise cachean 0 capacidades en el 100% de las
-corridas (143 de 143 por tenant en 48 h) y se re-escanean completos cada 20 min (2.880 corridas de colectores por
-día). Cachear el vacío con un TTL propio alarga la detección de un recurso nuevo: decisión de frescura.
+**`cron/sync-azure-ai` manda el id de fila de `Tenants`, no el `tenant_id`, y nunca pudo autenticarse.** La ruta hace
+`SELECT id FROM Tenants WHERE tier = 'Enterprise' LIMIT 100` (y su rama `?tenantId=` también devuelve `id`) y llama a
+`/api/intelligence/azure-ai?tenantId=${tenant.id}`. `Tenants.id` es `INT AUTO_INCREMENT`; el identificador de tenant de la
+plataforma es `tenant_id` (`VARCHAR(255) UNIQUE`, el GUID de Entra), y los otros 17 crons que recorren tenants hacen `SELECT
+tenant_id AS id`. En producción, cada colector falla al listar suscripciones con `AADSTS90002: Tenant '34' not found` (ídem
+231, 344, 427 y 543; ≈117.000 líneas en 30 días), el `catch` devuelve vacío, la ruta cachea `Cached 0 capabilities` bajo
+`ai:capabilities:34` (nadie la lee: las pantallas usan el GUID) y el job termina «Succeeded» porque `results[].cached` es
+`!data.mock`. Es así desde que nació la ruta (2026-08-12); nunca precalentó nada. Arreglarlo es `SELECT tenant_id AS id` en los
+dos SELECT, pero **cambia el comportamiento**: el cron empezaría a escanear de verdad, con tiempos mayores a los ~2 s por tenant
+de 48.5 (medidos sobre el camino que falla), así que antes hay que revisar el tope de concurrencia y el timeout de 300 s, y
+decidir si cachear el resultado vacío (la guarda `capabilities.length > 0` de `azure-ai/route.ts:1396` lo trata como miss).
+Los siete `sync-*` por servicio (aml, azure-search, content-safety, databricks, doc-intel, speech-language, vision-video, sin
+job) tienen el mismo `SELECT id` y filtran además por `azure_subscription_id` y `deleted_at`, que no figuran en el DDL de
+`Tenants`.
 
 **Un colector que falla devuelve `null`**, indistinguible de «el tenant no tiene ese servicio», y `fetchRealCapabilities`
 cachea 2 h la lista incompleta si el tenant tiene otras capacidades. `getAccessModel` (`lighthouseAccess.ts:50`)
@@ -6135,5 +6146,6 @@ IA). En un Chromium real el dataset no se pide en las páginas públicas ni en e
 entrar a la demo; los e2e de demo dan el mismo resultado que en el commit base (5 pasan, 96 fallan en ambos por el entorno de
 prueba, 0 tests de resultado distinto). **Sin verificar:** que `667529f` elimine los errores de pool en producción (se
 confirma tras el deploy con la consulta del informe), que el resumen muestre en producción las capacidades que antes
-faltaban (hoy los 5 tenants no tienen recursos de esos servicios: sólo se probó con el DDL real y datos de prueba), el
+faltaban (no se sabe si algún tenant tiene recursos de esos servicios, porque el cron que lo mostraría no se autentica, 48.9:
+sólo se probó con el DDL real y datos de prueba), el
 `EXPLAIN` de las consultas con la ventana de fecha, y el efecto del `useMemo` en renders.
