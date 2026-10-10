@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { authenticateMcpToken } from "@/services/mcpApiKey.service";
 import { errorMessage } from "@/lib/apiErrors";
+import { assembleLiveAnomalies } from "@/services/azureAnomalyDetection.service";
 
 interface ToolDef {
     name: string;
@@ -137,16 +138,37 @@ const TOOLS: ToolDef[] = [
         handler: async (args, tenantId) => {
             const limit = Math.min(Math.max(Number(args.limit) || 20, 1), 100);
             try {
+                // `Anomalies` no guarda servicio, severidad ni desvío: la causa sale de `top_contributors`, la severidad
+                // del z-score y el desvío de monto y esperado. `assembleLiveAnomalies` es el ensamblado de la pantalla.
                 const [rows]: any = await pool.query(
-                    `SELECT id, detected_date, service_name, actual_cost_usd, expected_cost_usd, deviation_percentage, severity, status
+                    `SELECT id, subscription_id, DATE_FORMAT(date, '%Y-%m-%d') AS date, amount, expected_amount, z_score,
+                            top_contributors, status
                      FROM Anomalies
                      WHERE tenant_id=?
-                     ORDER BY detected_date DESC LIMIT ?`,
+                     ORDER BY Anomalies.date DESC LIMIT ?`,
                     [tenantId, limit]
                 );
-                return { count: (rows || []).length, anomalies: rows || [] };
-            } catch {
-                return { count: 0, anomalies: [], note: "Tabla Anomalies no disponible" };
+                const { anomalies } = assembleLiveAnomalies({ dailyCosts: [], dbAnomalies: rows || [] }).summary;
+                return {
+                    count: anomalies.length,
+                    anomalies: anomalies.map((a) => ({
+                        id: Number(a.id),
+                        detected_date: a.detectionDate,
+                        service_name: a.rootCauses[0]?.serviceName || null,
+                        actual_cost_usd: a.actualCostUSD,
+                        expected_cost_usd: a.expectedCostUSD,
+                        deviation_percentage:
+                            a.expectedCostUSD > 0
+                                ? Math.round(((a.actualCostUSD - a.expectedCostUSD) / a.expectedCostUSD) * 10000) / 100
+                                : 0,
+                        severity: a.severity,
+                        status: a.state,
+                    })),
+                };
+            } catch (e) {
+                // La tabla existe: lo que falló es la lectura. Se registra para que no sea sólo "no hay anomalías".
+                console.error("[mcp] get_anomalies_feed falló:", errorMessage(e));
+                return { count: 0, anomalies: [], note: `No se pudieron leer las anomalías: ${errorMessage(e) || "error desconocido"}` };
             }
         },
     },

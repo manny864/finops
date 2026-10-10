@@ -36,6 +36,22 @@ import { getCachedCarbonFootprint } from '@/lib/carbonFootprint';
 import { getRealTagCompliance } from '@/services/tagComplianceService';
 import { getRealCommitmentsCoverage } from '@/services/commitmentCoverageService';
 import { getRealRightsizingRecommendations } from '@/services/rightsizingAggregator.service';
+import { getWithStaleWhileRevalidate } from '@/lib/cache';
+import {
+    assembleLiveZombieAudit,
+    computeHardWasteByIssue,
+    getLocalTagsCache,
+    getZombieExemptions,
+} from '@/services/azureZombieAudit.service';
+import {
+    scanLiveZombies,
+    zombieScanCacheKey,
+    ZOMBIE_SCAN_TTL_S,
+    ZOMBIE_SCAN_SOFT_TTL_S,
+} from '@/services/azureZombieScan.service';
+import { assembleLiveAnomalies } from '@/services/azureAnomalyDetection.service';
+import { ANOMALY_STATES, isOpenAnomalyState } from '@/types/azureAnomalyDetection.types';
+import { getBudgetConsumption } from '@/services/budgetService';
 
 export const EXECUTIVE_HISTORY_MONTHS = 6;
 
@@ -203,37 +219,54 @@ export async function aggregateExecutiveTelemetry(
         collect('haRisks', () => evaluateHALive(tenantId)),
 
         collect('hardWaste', async () => {
-            const [rows] = await pool.query<RowDataPacket[]>(
-                `SELECT reason, COUNT(*) AS affected, SUM(COALESCE(estimated_waste_usd, 0)) AS wasteUsd
-                 FROM ZombieResources
-                 WHERE tenant_id = ? AND status = 'active'
-                 GROUP BY reason
-                 ORDER BY wasteUsd DESC`,
-                [tenantId]
+            // El desperdicio no se guarda en ninguna tabla: sólo existe el escaneo de Resource Graph, que es el mismo
+            // (y con la misma caché) de la pantalla de Recursos Zombis. Es de todo el tenant: el alcance del reporte
+            // no entra porque `scopeId` no está validado contra las suscripciones del tenant. Si el escaneo falla
+            // lanza, y el colector queda caído en vez de leerse como "cero desperdicio" (salvo que la pantalla de
+            // zombis, que ante un fallo guarda la lista vacía, ya la haya dejado en esta misma caché).
+            const rawItems = await getWithStaleWhileRevalidate(
+                zombieScanCacheKey(tenantId),
+                () => scanLiveZombies(tenantId),
+                ZOMBIE_SCAN_TTL_S,
+                ZOMBIE_SCAN_SOFT_TTL_S
             );
-            return rows || [];
+            const [exemptions, localTags] = await Promise.all([getZombieExemptions(tenantId), getLocalTagsCache(tenantId)]);
+            return computeHardWasteByIssue(assembleLiveZombieAudit({ rawItems, exemptions, localTags }).metrics.resources);
         }),
 
         collect('anomalies', async () => {
+            // `Anomalies` no tiene servicio ni severidad: la causa sale de `top_contributors` y la severidad del
+            // z-score, que es lo que arma `assembleLiveAnomalies`, el mismo ensamblado de la pantalla de anomalías.
+            // Sólo las abiertas: "activa" es lo que la app llama abierta (New o Investigating).
             const [rows] = await pool.query<RowDataPacket[]>(
-                `SELECT detected_date, service_name, actual_cost_usd, expected_cost_usd,
-                        deviation_percentage, severity
+                `SELECT id, subscription_id, DATE_FORMAT(date, '%Y-%m-%d') AS date, amount, expected_amount, z_score,
+                        top_contributors, status
                  FROM Anomalies
-                 WHERE tenant_id = ?
-                 ORDER BY detected_date DESC
+                 WHERE tenant_id = ? AND status IN (?)
+                 ORDER BY Anomalies.date DESC
                  LIMIT 20`,
-                [tenantId]
+                [tenantId, ANOMALY_STATES.filter(isOpenAnomalyState)]
             );
-            return rows || [];
+            return assembleLiveAnomalies({
+                dailyCosts: [],
+                dbAnomalies: (rows || []) as Parameters<typeof assembleLiveAnomalies>[0]['dbAnomalies'],
+            }).summary.anomalies;
         }),
 
         collect('budgets', async () => {
+            // `Budgets` guarda el límite, no el gasto. El gasto del mes sale de Cost Management, igual que en la
+            // pantalla de Presupuestos (GET /api/budgets), y también de todo el tenant. Si Cost Management no
+            // contesta lanza: el colector queda caído, no con gasto cero.
             const [rows] = await pool.query<RowDataPacket[]>(
-                `SELECT name, amount_usd, actual_spend_usd
+                `SELECT cost_center_tag_value, monthly_limit_usd
                  FROM Budgets WHERE tenant_id = ? AND active = 1`,
                 [tenantId]
             );
-            return rows || [];
+            return Promise.all((rows || []).map(async (b) => ({
+                name: String(b.cost_center_tag_value),
+                amountUSD: Number(b.monthly_limit_usd),
+                currentSpendUSD: await getBudgetConsumption(tenantId, 'All', String(b.cost_center_tag_value)),
+            })));
         }),
 
         collect('carbon', async () => {
@@ -305,21 +338,22 @@ export async function aggregateExecutiveTelemetry(
     const criticalHighHaRisksCount = haItems.filter((i) => i.severity === 'critical' || i.severity === 'high').length;
 
     // ── Anomalias ────────────────────────────────────────────────────────
-    const anomalies = (anomalyRows.ok ? anomalyRows.value : []).map((row) => ({
-        date: row.detected_date instanceof Date
-            ? row.detected_date.toISOString().slice(0, 10)
-            : String(row.detected_date || '').slice(0, 10),
-        resource: String(row.service_name || 'Servicio no identificado'),
-        impactUSD: round2(Number(row.actual_cost_usd || 0) - Number(row.expected_cost_usd || 0)),
-        severity: `${row.severity || 'unknown'} (${round2(Number(row.deviation_percentage || 0))}% de desvío)`,
-    }));
+    const anomalies = (anomalyRows.ok ? anomalyRows.value : []).map((a) => {
+        const desvio = a.expectedCostUSD > 0 ? ((a.actualCostUSD - a.expectedCostUSD) / a.expectedCostUSD) * 100 : 0;
+        return {
+            date: String(a.detectionDate).slice(0, 10),
+            resource: a.rootCauses[0]?.serviceName || 'Servicio no identificado',
+            impactUSD: round2(a.deltaUSD),
+            severity: `${a.severity} (${round2(desvio)}% de desvío)`,
+        };
+    });
 
     // ── Presupuestos ─────────────────────────────────────────────────────
     const budgetsExecution = (budgetRows.ok ? budgetRows.value : []).map((row) => {
-        const amountUSD = round2(Number(row.amount_usd || 0));
-        const currentSpendUSD = round2(Number(row.actual_spend_usd || 0));
+        const amountUSD = round2(row.amountUSD);
+        const currentSpendUSD = round2(row.currentSpendUSD);
         const burnPercent = amountUSD > 0 ? round2((currentSpendUSD / amountUSD) * 100) : 0;
-        return { name: String(row.name || ''), amountUSD, currentSpendUSD, burnPercent, isExceeded: currentSpendUSD > amountUSD };
+        return { name: row.name, amountUSD, currentSpendUSD, burnPercent, isExceeded: currentSpendUSD > amountUSD };
     });
     const budgetBurnPercent = budgetsExecution.length > 0
         ? round2(budgetsExecution.reduce((acc, b) => acc + b.burnPercent, 0) / budgetsExecution.length)

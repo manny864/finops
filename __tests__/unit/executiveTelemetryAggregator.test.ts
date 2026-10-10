@@ -20,6 +20,16 @@ vi.mock("@/modules/storage/db", () => ({
     insertPlatformAiUsage: vi.fn(),
     initializeDatabase: vi.fn(),
 }));
+const scanLiveZombies = vi.fn();
+const getBudgetConsumption = vi.fn();
+vi.mock("@/lib/cache", () => ({ getWithStaleWhileRevalidate: async (_clave: string, f: () => unknown) => f() }));
+vi.mock("@/services/azureZombieScan.service", () => ({
+    scanLiveZombies: (...a: unknown[]) => scanLiveZombies(...a),
+    zombieScanCacheKey: (t: string) => `zombies:${t}`,
+    ZOMBIE_SCAN_TTL_S: 900,
+    ZOMBIE_SCAN_SOFT_TTL_S: 300,
+}));
+vi.mock("@/services/budgetService", () => ({ getBudgetConsumption: (...a: unknown[]) => getBudgetConsumption(...a) }));
 vi.mock("@/services/categoryConsumptionService", () => ({
     getRealCategoryOverview: vi.fn(async () => ({ categories: [] })),
 }));
@@ -59,6 +69,8 @@ const TENANT = "11111111-aaaa-4bbb-8ccc-222222222222"; // real: no matchea isMoc
 beforeEach(() => {
     vi.clearAllMocks();
     query.mockResolvedValue([[]]);
+    scanLiveZombies.mockResolvedValue([]);
+    getBudgetConsumption.mockResolvedValue(0);
 });
 
 describe("aggregateExecutiveTelemetry", () => {
@@ -110,24 +122,25 @@ describe("aggregateExecutiveTelemetry", () => {
         expect(r.resourceFamilies.others.map((o) => o.category)).toEqual(["Vertical no mapeada"]);
     });
 
-    it("deriva desperdicio y presupuestos de las filas reales", async () => {
+    it("deriva desperdicio y presupuestos de los datos reales", async () => {
+        // El desperdicio sale del escaneo de zombis (no hay tabla): un disco de 75 y una IP de 25.
+        scanLiveZombies.mockResolvedValueOnce([
+            { id: "/s/d1", name: "d1", type: "microsoft.compute/disks", monthlyCost: 75, tags: { Environment: "P", CostCenter: "C", Owner: "O" } },
+            { id: "/s/ip1", name: "ip1", type: "microsoft.network/publicipaddresses", monthlyCost: 25, tags: { Environment: "P", CostCenter: "C", Owner: "O" } },
+        ]);
+        // El límite sale de `Budgets` (cost_center_tag_value, monthly_limit_usd) y el gasto, de Cost Management.
         query.mockImplementation(async (sql: string) => {
-            if (String(sql).includes("ZombieResources")) {
-                return [[{ reason: "Disco huérfano", affected: 3, wasteUsd: 75 },
-                         { reason: "IP sin uso", affected: 5, wasteUsd: 25 }]];
-            }
-            if (String(sql).includes("FROM Budgets")) {
-                return [[{ name: "Core", amount_usd: 1000, actual_spend_usd: 400 }]];
-            }
+            if (String(sql).includes("FROM Budgets")) return [[{ cost_center_tag_value: "Core", monthly_limit_usd: "1000.00" }]];
             return [[]];
         });
+        getBudgetConsumption.mockResolvedValueOnce(400);
 
         const r = await aggregateExecutiveTelemetry(TENANT);
 
         expect(r.kpiMetrics.monthlySavingsIdentifiedUSD).toBe(100);
         expect(r.kpiMetrics.annualizedSavingsUSD).toBe(1200);
-        expect(r.inefficiencyDistribution[0]).toMatchObject({ categoryName: "Disco huérfano", percentageOfTotalWaste: 75 });
-        expect(r.budgetsExecution[0]).toMatchObject({ burnPercent: 40, isExceeded: false });
+        expect(r.inefficiencyDistribution[0]).toMatchObject({ categoryName: "Disco Huérfano (Unattached)", percentageOfTotalWaste: 75 });
+        expect(r.budgetsExecution[0]).toMatchObject({ name: "Core", amountUSD: 1000, currentSpendUSD: 400, burnPercent: 40, isExceeded: false });
         expect(r.kpiMetrics.budgetBurnPercent).toBe(40);
     });
 
