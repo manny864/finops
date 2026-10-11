@@ -190,14 +190,21 @@ az role assignment create --assignee-object-id "$SP_OID" --assignee-principal-ty
 
 ### F0.6 ACR de staging e imágenes iniciales
 
-Las imágenes tienen que existir **antes** del primer apply: la app nace con `finops:latest`, las migraciones usan `finops:builder` y los cron `finops:cron`. Sin ellas, la revisión de la app no arranca. Son las imágenes actuales de prod, y sólo sirven hasta el primer deploy de staging (F3).
+Las imágenes tienen que existir **antes** del primer apply: la app nace con `finops:latest`, las migraciones usan `finops:builder` y los cron `finops:cron`. Sin ellas, la revisión de la app no arranca. Son imágenes de **bootstrap construidas para staging** (no se importan las de prod, por D5): el `Dockerfile` declara las `NEXT_PUBLIC_*` con valor vacío por defecto, así que se construyen sin configuración pública (sin login ni cobro) y sólo sirven para que el primer apply levante. El primer deploy de staging (F3) las reemplaza.
 
 ```bash
 az acr create -n cscsfinopsstgglobalcr -g cscs-finops-stg-global-rg --sku Basic --admin-enabled false -o none
 az acr import --name cscsfinopsstgglobalcr --source docker.io/library/node:22-alpine --image finops:cron
-az acr import --name cscsfinopsstgglobalcr --source cscsfinopsprodglobalcr.azurecr.io/finops:latest --image finops:latest
-az acr import --name cscsfinopsstgglobalcr --source cscsfinopsprodglobalcr.azurecr.io/finops:builder --image finops:builder
 ```
+
+Con el árbol limpio, en la raíz del repo y **después de comprobar que `.dockerignore` excluye `.env*`** (el contexto se sube a Azure):
+
+```bash
+az acr build -r cscsfinopsstgglobalcr --platform linux/amd64 -t finops:latest .
+az acr build -r cscsfinopsstgglobalcr --platform linux/amd64 --target builder -t finops:builder .
+```
+
+Si ACR Tasks no está habilitado en la suscripción, construir con `docker build --platform linux/amd64` (mismos `--target` y tags) y `docker push` previo `az acr login -n cscsfinopsstgglobalcr`.
 
 Se usa `az acr import` y no `docker pull`/`push` por el motivo documentado en `modules/cronjobs/variables.tf`: conserva el manifest multi-arquitectura.
 
@@ -209,10 +216,9 @@ Los secretos van **por environment** para que un job de staging no pueda leer lo
 gh secret set AZURE_CLIENT_ID --repo manny864/finops --env staging --body "$APP_ID"
 gh secret set AZURE_SUBSCRIPTION_ID --repo manny864/finops --env staging --body "$SUB"
 gh variable set TFSTATE_CONTAINER --repo manny864/finops --env staging --body "tfstate-stg"
-gh variable set TFSTATE_CONTAINER --repo manny864/finops --env prod --body "tfstate"
 ```
 
-`TF_VARS` de staging se sube en F1.4, cuando el archivo esté listo. `TF_VARS` de prod se sube en F1.5 (ver el orden ahí).
+`TF_VARS` de staging se sube en F1.4, cuando el archivo esté listo. **Producción no se toca:** sigue con los secretos de repo (`AZURE_CLIENT_ID`, `AZURE_SUBSCRIPTION_ID`, `TF_VARS_PROD`) y, sin `TFSTATE_CONTAINER`, usa el contenedor `tfstate` por el valor por defecto. Pasar los secretos de prod a su environment es un endurecimiento aparte, que se hace después y con su propio «sí».
 
 **Verificación de F0 (agente, sólo lectura):**
 
@@ -270,7 +276,7 @@ Mostrá el diff completo antes de commitear.
 - **Input `environment`:** `options: [prod, staging]`. Actualizar los comentarios que dicen «solo prod».
 - **`confirm`:** la descripción tiene que nombrar `APPLY-PROD` y `APPLY-STAGING`. En las cuatro condiciones que hoy comparan con `'APPLY-PROD'`, la palabra esperada pasa a depender del ambiente: `inputs.confirm == (inputs.environment == 'staging' && 'APPLY-STAGING' || 'APPLY-PROD')`. Mismo cambio en el mensaje del paso "Aviso".
 - **`terraform init`:** `container_name=${{ vars.TFSTATE_CONTAINER || 'tfstate' }}`. La clave queda como está (`<environment>/terraform.tfstate`).
-- **Secreto de variables:** `TF_VARS_CONTENT: ${{ secrets.TF_VARS }}`, el secreto de environment, en lugar de `secrets.TF_VARS_PROD`.
+- **Secreto de variables:** el paso recibe los dos secretos por separado (`TF_VARS_STAGING: ${{ secrets.TF_VARS }}` y `TF_VARS_PROD_VALUE: ${{ secrets.TF_VARS_PROD }}`) y el `run` elige según el ambiente. **Staging exige `TF_VARS_STAGING` no vacío y falla si falta, sin caer jamás al de prod.** Prod sigue leyendo `TF_VARS_PROD`: su configuración no cambia.
 - **Registro de proveedores:** en el `env` del job, `ARM_RESOURCE_PROVIDER_REGISTRATIONS: ${{ (github.event.inputs.environment || 'prod') == 'staging' && 'none' || 'legacy' }}`. El SP de staging no puede registrar proveedores a nivel suscripción. La variable de entorno la documenta el provider azurerm v4.81.0, con los valores `core`, `extended`, `all`, `legacy` y `none` («If the principal running Terraform has insufficient permissions to register Resource Providers then we recommend setting … to `none`»). Prod queda en `legacy`, que es el default y no cambia nada.
 - **Job `drift`:** matriz `[prod, staging]`, con el mismo `container_name` y el mismo `TF_VARS` por environment.
 - **`concurrency`:** el grupo tiene que incluir el ambiente, para que un plan de staging no espere a uno de prod.
@@ -281,7 +287,7 @@ Tests: crear `__tests__/unit/stagingEnvironmentTerraform.test.ts` (vitest, mismo
 - cada archivo compartido de `environments/staging` es un enlace a `../prod/<mismo nombre>`;
 - staging no tiene otros `.tf` además de `imports.tf`;
 - `environments/prod/main.tf` no tiene bloques `import`;
-- el workflow ofrece `staging`, usa `secrets.TF_VARS` y no menciona `TF_VARS_PROD`;
+- el workflow ofrece `staging`, prod sigue leyendo `secrets.TF_VARS_PROD`, staging lee `secrets.TF_VARS` y no hay camino en que staging use el de prod;
 - la palabra de confirmación depende del ambiente;
 - el contenedor sale de `vars.TFSTATE_CONTAINER`.
 
@@ -375,13 +381,7 @@ gh secret set TF_VARS --repo manny864/finops --env staging < infra/terraform/env
 
 ### F1.5 Orden de publicación y planes
 
-1. **Antes del push del workflow nuevo**, la persona sube el `TF_VARS` de prod como secreto de environment, desde la copia maestra local:
-
-   ```bash
-   gh secret set TF_VARS --repo manny864/finops --env prod < infra/terraform/environments/prod/terraform.tfvars
-   ```
-
-   Si C-01 fase 2 todavía no se aplicó, ese archivo ya trae `blob_managed_identity_enabled = true`. Entonces el primer plan de prod mostrará el `update` del app que agrega `AZURE_STORAGE_ACCOUNT_NAME`: es el de C-01, previsto. **Lo más limpio es terminar C-01 fase 2 antes de F1.5.**
+1. **Sin cambios en la configuración de prod.** El workflow nuevo sigue leyendo `TF_VARS_PROD` y el contenedor `tfstate`. Lo único que toca a prod es el código del workflow, y su plan tiene que dar 0 cambios (paso 3). Si C-01 fase 2 todavía no se aplicó, el plan de prod mostrará el `update` del app de C-01 (`AZURE_STORAGE_ACCOUNT_NAME`), previsto. **Lo más limpio es terminar C-01 fase 2 antes de F1.5.**
 2. Push de F1.1 a F1.3, con "sí".
 3. **Plan de prod** (`environment=prod`, sin `confirm`). Esperado: **0 to add, 0 to destroy**, y como mucho el `update` benigno de `APP_VERSION` (más el de C-01, si corresponde). Cualquier otra cosa: parar.
 4. **Plan de staging** (`environment=staging`, sin `confirm`). Esperado:
