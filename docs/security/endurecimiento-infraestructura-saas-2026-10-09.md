@@ -75,6 +75,7 @@ Consultas de sólo lectura con `gh`, `az`, `curl`, `dig`, KQL contra Log Analyti
 - **Esta sesión, primera tanda** (publicada por el usuario con el push de `58af917`; el deploy y CI terminaron en success, la revisión `--0000315` está sana y `/api/status` informa la versión `58af917`; el PR #118 de Dependabot, con 7 actualizaciones de Actions, queda sin mergear a la espera de revisión): `id-token` sólo en los jobs que hacen login en los tres workflows; las 24 referencias a Actions que quedaban por tag, fijadas por SHA, y `dependabot.yml`; health check del deploy que tolera un origen filtrado; validación de IPv4 antes de escribir en el firewall del vault; por schedule corre sólo `drift`, y `drift` usa `environment:prod`; interruptores de Terraform (origen, Blob por identidad administrada, alertas de Activity Log, Azure Policy en auditoría) con sus tests; corrección de `azureBlobStorage.ts` (ver P1 Storage); TLS explícito en el cliente de Redis; y la corrección de costos de ACR y de la premisa de repo público en `keyvault-network-hardening.md`.
 - **Esta sesión, segunda tanda** (commits locales `979582f` y `2d13e9f` hasta su publicación): NAT Gateway, certificado propio, la versión de MySQL como variable y, en ese momento, también Front Door Premium con Private Link y acceso privado al entorno (todo apagado; ver P0 origen y P1 MySQL), con tests y planes contra el state real de producción.
 - **Esta sesión, tercera tanda** (decisión del 10 de octubre): se eligió el destino A y se **eliminó Front Door del Terraform**, tanto lo agregado ese día como el módulo apagado que existía desde julio (el último estado está en `979582f`). El plan contra el state real quedó igual: sólo el reemplazo conocido de `deployer_secrets_officer`. MySQL 8.4 se validó en local (P1 MySQL) y el runbook del certificado pasó a generar la clave en la máquina de la persona (7.3).
+- **Esta sesión, cuarta tanda** (11 de octubre; migración de Shared Key a identidad administrada, sin apply todavía): `storage_use_azuread` en el provider de prod, rol de datos de la VM de backups sobre `db-backups`, el runbook worker sin SAS y con el código de salida de `mysqldump` y `gzip` verificado, y el interruptor `storage_shared_access_key_enabled` del stamp con un check que impide apagarlo con la app en la connection string. El script se ejecuta con PowerShell real contra herramientas simuladas (`__tests__/unit/sharedKeyMigrationTerraform.test.ts`). Secuencia y comandos en 7.6.
 
 ### 1.3 Sigue sin verificar
 
@@ -162,7 +163,7 @@ Pendiente, por quien tenga acceso a Entra y GitHub (comandos en 7.1 y 7.2):
 
 ### P1 — Eliminar claves compartidas de Storage y restringir su red
 
-**Estado: preparado. La app puede pasar a identidad administrada con un interruptor; apagar Shared Key todavía rompe a dos clientes más.**
+**Estado: en curso (11 de octubre). El código de las fases 1, 3 y 4 está preparado y probado; falta publicarlo, revisar los planes de CI y aplicar fase por fase (7.6). Apagar Shared Key sigue pendiente de migrar los tres clientes.** Hallazgo nuevo: la clave de la cuenta fue detectada por un tercero (ver abajo), así que la rotación pasa a ser parte del alcance.
 
 `modules/storage/main.tf` declara acceso de red público y una variable `shared_access_key_enabled`; `modules/stamp/main.tf` la fija en `true`. La aplicación recibe `AZURE_STORAGE_CONNECTION_STRING`. La identidad tiene `Storage Blob Data Contributor` en el scope de toda la cuenta. Los contenedores son privados, pero eso no elimina el riesgo de la clave compartida.
 
@@ -170,10 +171,16 @@ Pendiente, por quien tenga acceso a Entra y GitHub (comandos en 7.1 y 7.2):
 
 | Cliente | Cómo se autentica | Solicitudes | Qué pasa al apagar Shared Key |
 |---|---|---|---|
-| La aplicación (`azsdk-js-azure-storage-blob`) | Clave de cuenta (connection string) | 74 | Se rompe, salvo que ya use identidad administrada: **migrable hoy** con `blob_managed_identity_enabled`. |
-| Backups lógicos (AzCopy 10.32.4, en la VM del Hybrid Worker) | SAS firmada con la clave de la cuenta (`data.azurerm_storage_account_blob_container_sas`) | 360 | Se rompe: una SAS firmada con la clave deja de valer. Hay que pasar el runbook a AzCopy con identidad de la VM o a una SAS de delegación de usuario. |
-| Terraform (`HashiCorp/go-azure-sdk`, `GetBlobServiceProperties`) | Clave de cuenta | 26 | Se rompe el refresh de `azurerm_storage_account`: hace falta `storage_use_azuread = true` en el provider y un rol de datos para el principal de Terraform sobre la cuenta. El provider de producción no lo tiene (sólo el bootstrap). |
-| Servicios de Azure (`TrustedAccess`, `TrustedAccessSas`) | Acceso de confianza de servicios de Azure | 732 | No se sabe: `TrustedAccessSas` es un servicio de Azure leyendo con una SAS que este repositorio no emite. Confirmar el efecto con Azure antes de apagar la clave. |
+| La aplicación (`azsdk-js-azure-storage-blob`) | Clave de cuenta (connection string) | 29 (74 en la medición anterior): `tenant-logos`, `support-attachments`, `user-avatars` y `executive-reports` | Se rompe, salvo que ya use identidad administrada: **migrable hoy** con `blob_managed_identity_enabled` (el rol ya existe y el código prefiere la identidad). |
+| Backups lógicos (AzCopy 10.32.4, en la VM del Hybrid Worker) | SAS firmada con la clave de la cuenta (`data.azurerm_storage_account_blob_container_sas`) | 360: `GetBlobProperties` y `PutBlob` sobre `db-backups`, cada 2 h | Se rompe: la doc de Azure dice que una SAS de servicio o de cuenta se rechaza (sólo sobrevive la SAS de delegación de usuario). **La identidad de la VM no tiene ningún rol hoy.** |
+| Terraform (`HashiCorp/go-azure-sdk`) | Clave de cuenta | 36, todas `GetBlobServiceProperties` (los contenedores van por ARM) | El refresh de `azurerm_storage_account` falla sin `storage_use_azuread = true`. Esa llamada exige `Microsoft.Storage/storageAccounts/blobServices/read` (rol mínimo: Storage Account Contributor), que el Contributor de la suscripción ya incluye. Verificado: con el flag la llamada entra con `OAuth`. |
+| Servicios de Azure (`SRP/1.0`, `xAzure/1.0`) | Acceso de confianza | 732 | `SRP/1.0` es ARM operando contenedores. `xAzure/1.0` corre a diario a las 02:38 UTC (`SetBlobTier`, `ListBlobs`, `ListContainers` sobre `db-backups`): es la **gestión del ciclo de vida** de Azure. La documentación no dice que Shared Key lo afecte; se comprueba el día siguiente al apagarla. |
+| Navegador (portal de Azure) | Clave de cuenta | 26 `ListBlobs` (22 sobre `db-backups`), tres IPs públicas, 12, 13 y 22 de septiembre | Con Shared Key apagada el portal usa Entra ID: quien explore blobs necesita un rol de datos. |
+| GitGuardian (`python-requests`) | Clave de cuenta | 8 `GetAccountInformation` (11, 19 y 26 de septiembre; 3 de octubre) | Deja de poder validar la clave, que es lo que se busca. |
+
+La cuenta no tiene Azure Files, colas ni tablas (el portal y Cloud Shell no se ven afectados por esa vía).
+
+**Hallazgo (11 de octubre): la clave de la cuenta fue detectada por un tercero.** Las tres IPs de `python-requests` resuelven a `egress.gitguardian.com`: GitGuardian valida con una llamada real las claves que detecta (inferencia). No hay rastro en los archivos versionados ni en el historial de este repositorio (los dos tests con `AccountKey=` usan un valor de un carácter). `StorageBlobLogs` empieza el 11 de septiembre: antes no hay datos. Desde entonces la clave la usaron la app, Terraform, GitGuardian y navegadores desde tres IPs públicas pendientes de confirmar, y **nadie leyó blobs de `db-backups` con la clave** (sólo listados desde el portal). Hay que abrir el incidente en GitGuardian para ver dónde está expuesta y tratar la clave como comprometida: se rota **apenas se apague Shared Key** (fase 5). Rotarla antes rompería a la app (connection string) y a los backups (la SAS se firma con ella).
 
 1. **La migración de la app tenía un defecto latente**, corregido en esta jornada: `azureBlobStorage.ts` usaba `DefaultAzureCredential` cuando hay `AZURE_STORAGE_ACCOUNT_NAME`. En Container Apps esa cadena prueba primero `EnvironmentCredential` con el app registration de CSCS (`AZURE_CLIENT_ID` y `AZURE_CLIENT_SECRET`) y nunca llega a la identidad administrada; es el mismo problema, verificado el 28 de julio de 2026, que ya resolvieron `src/lib/secrets/keyvault.ts` y `src/lib/azureAiCredential.ts`. Ahora usa `ManagedIdentityCredential` con `AZURE_KEYVAULT_MI_CLIENT_ID` y cae a la cadena por defecto sólo sin esa variable (desarrollo local). El test de la credencial falla contra el código anterior.
 2. `blob_managed_identity_enabled` (default `false`) agrega `AZURE_STORAGE_ACCOUNT_NAME` al app y deja la connection string: apagar el flag es el rollback.
@@ -335,7 +342,7 @@ La evaluación se considera atendida cuando:
 |---|---|---|---|
 | P0 Origen | **Cerrado: destino A, 2026-10-11 UTC** | NAT IP `20.98.94.14`; 16 reglas de ingress (15 IPv4 Cloudflare + NAT /32); origen directo HTTP 403, dominio HTTP 200; cron `cron-prewarm-dashboard-mikfv5r` Succeeded. NAT apply [38102146134](https://github.com/manny864/finops/actions/runs/38102146134), filtro apply [38102837464](https://github.com/manny864/finops/actions/runs/38102837464); convergencia [38103136343](https://github.com/manny864/finops/actions/runs/38103136343): 155 no-op y solo update benigno APP_VERSION; cierre de firewall de Key Vault exitoso | Mantener rangos actualizados y revisar drift. El origen sigue público y filtrado por IP: no identifica exclusivamente esta cuenta de Cloudflare |
 | P0 OIDC y planes | **Parcial** | `id-token` por job en 3 workflows; 25 Actions por SHA y Dependabot; `drift` con `environment:prod`; sin plan duplicado por schedule; IPv4 validada; 2FA verificado | Borrar credenciales, condicionar UAA, proteger `main`, `sha_pinning_required`, principal de plan separado (7.1 y 7.2) |
-| P1 Storage | **Preparado** | Credencial de identidad administrada corregida; interruptor; clientes de la cuenta medidos | Activar el interruptor; migrar backups y Terraform; apagar Shared Key (7.6) |
+| P1 Storage | **En curso** | Medidos los clientes de la clave (app, AzCopy en la VM, Terraform); la clave fue detectada por GitGuardian; código de las fases 1, 3 y 4 preparado y probado (el script del worker, ejecutado con PowerShell real contra herramientas simuladas); credencial de identidad administrada corregida | Publicar, revisar los planes de CI y aplicar fase por fase; prueba de humo y test job en la VM; restauración de prueba; apagar Shared Key y rotar las claves (7.6) |
 | P1 Identidades y usuario MySQL | **Abierto** | Bloqueos identificados (DDL en runtime, migraciones en proceso) | Refactor en la aplicación; después, identidades separadas |
 | P1 Defender, auditoría y alertas | **Cerrado en lo verificable; alertas preparadas** | Defender, diagnósticos y logs verificados; alertas de Activity Log (7 reglas) listas | Encenderlas, designar responsable y probar de extremo a extremo (7.4) |
 | P1 Recuperación | **Abierto** | Configuración real medida; defecto del backup lógico identificado | Corregir el script y ensayarlo en la VM; restauración de prueba; decisión de HA y geo |
@@ -526,21 +533,74 @@ az mysql flexible-server restore --resource-group cscs-finops-prod-westus2-rg \
 
 El servidor de producción tiene acceso privado: la restauración puede pedir `--vnet` y `--subnet` (ver `az mysql flexible-server restore --help`). Medir el tiempo, comprobar el recuento de tablas y filas contra producción, y borrar el servidor de prueba. La restauración del dump lógico y la de Blob (versiones y soft delete) se registran con la misma plantilla: pasos, tiempo, responsable y dependencias.
 
-### 7.6 Storage: secuencia para apagar Shared Key
+### 7.6 Storage: de claves compartidas a identidad administrada, y apagar Shared Key
 
-1. `blob_managed_identity_enabled = true` en `TF_VARS_PROD`; plan y apply. Subir un logo o un adjunto de prueba y comprobar que sale sin errores `[blob]` en los logs del app.
-2. Comprobar que el acceso de la app pasó a OAuth:
+El orden importa y cada fase se revierte sola. Un plan de sólo lectura del workflow `terraform` lo revisa una persona antes de cada apply; nada de esto se aplica desde la máquina local (el plan local no puede leer el Key Vault y quiere reemplazar un role assignment). **Nada se apaga hasta que los tres clientes (Terraform, app y VM de backups) estén migrados y medidos.** La consulta que mide todo, sin variantes:
 
 ```kusto
 StorageBlobLogs
 | where TimeGenerated > ago(1h)
-| summarize Solicitudes = count() by AuthenticationType, Agente = substring(tostring(UserAgentHeader), 0, 28)
+| summarize n = count() by AuthenticationType, Cliente = tostring(split(UserAgentHeader, " ")[0]), Operacion = OperationName
+| order by n desc
 ```
 
-   Debe aparecer `azsdk-js-azure-storage-blob` con `OAuth` y dejar de aparecer con `AccountKey`.
-3. Migrar el runbook de backups (AzCopy con la identidad de la VM, o SAS de delegación de usuario) y ensayarlo (7.5).
-4. Agregar `storage_use_azuread = true` al provider de producción y un rol de datos para el principal de Terraform sobre la cuenta; comprobar un plan.
-5. Sólo entonces: exponer `shared_access_key_enabled` como variable del stamp, retirar la connection string del app, apagar Shared Key, y volver a correr la consulta de arriba: no debe quedar ningún `AccountKey` ni `SAS` firmado con clave.
+**Fase 1: Terraform a Entra ID.** `storage_use_azuread = true` ya está en el provider de prod y no necesita apply propio: se prueba con un plan de sólo lectura. Verificado en local el 11 de octubre: con el flag, `GetBlobServiceProperties` entra con `OAuth` y el plan sale sin cambios. En CI, el mismo `Cliente` `HashiCorp/go-azure-sdk` debe figurar con `OAuth`. Si el workflow falla con 403, al principal le falta `Microsoft.Storage/storageAccounts/blobServices/read` sobre la cuenta (rol mínimo Storage Account Contributor; el Contributor de la suscripción ya lo trae). Rollback: quitar la línea.
+
+**Fase 2: la app.** `blob_managed_identity_enabled = true` en `TF_VARS_PROD`, al nivel de arriba. El plan debe ser un solo `update` de `module.stamp["us"].module.app.azurerm_container_app.this` (agrega `AZURE_STORAGE_ACCOUNT_NAME`; es la misma línea que el `update` benigno de `APP_VERSION`). Después del apply, subir un logo o un adjunto de prueba, sin errores `[blob]` en los logs del app, y la consulta de arriba: `azsdk-js-azure-storage-blob` con `OAuth` y ninguno con `AccountKey`. Rollback: `blob_managed_identity_enabled = false`.
+
+**Fase 3: la VM de backups.** La VM sube con su propia identidad de sistema (no la de la Automation Account: el worker corre en el Hybrid Worker, o sea en la VM).
+
+1. **Rol (Terraform).** El plan debe agregar exactamente un recurso: `module.mysql_backup[0].azurerm_role_assignment.vm_backups_blob_contributor` (Storage Blob Data Contributor, sólo sobre el contenedor `db-backups`). Por sí solo no cambia nada: el runbook publicado sigue con la SAS. Esperar unos minutos a la propagación (la doc de AzCopy dice hasta cinco).
+2. **Prueba de humo en la VM** (sin tocar backups: sube y borra un archivo bajo `db-backups/_prueba-identidad/`):
+
+```bash
+az vm run-command invoke -g cscs-finops-prod-westus2-backup-rg -n vm-mysql-worker --command-id RunPowerShellScript --scripts @infra/scripts/prueba-identidad-vm.ps1 --query 'value[0].message' -o tsv
+```
+
+   Esperado: la versión de AzCopy y `azcopy copy: exit 0` y `azcopy remove: exit 0`. En la consulta de arriba, `AzCopy/...` con `OAuth` (`PutBlob`, `DeleteBlob`) desde la IP de la VM; los ciclos programados siguen con `SAS` hasta publicar. Un 403 `AuthorizationPermissionMismatch` es que el rol todavía no propagó o no está.
+3. **Borrador y test job en el Hybrid Worker.** El contenido sale del heredoc versionado, no de un copiado a mano (`content` está en `ignore_changes`: Terraform no lo publica). Correr **entre ciclos** (arrancan a los :12 de las horas impares UTC y duran unos minutos). El test job hace un `mysqldump` real y sube un backup real a `daily/`:
+
+```bash
+npx tsx infra/scripts/renderizar-runbook-worker.ts > /tmp/worker.ps1
+```
+
+```bash
+RB="https://management.azure.com/subscriptions/ec03e8ce-ceee-4638-b303-64ae431d5b1e/resourceGroups/cscs-finops-prod-westus2-backup-rg/providers/Microsoft.Automation/automationAccounts/aa-mysql-backups/runbooks/Backup-MySQL-Smart"
+az rest --method put --uri "$RB/draft/content?api-version=2024-10-23" --headers "Content-Type=text/powershell" --body @/tmp/worker.ps1
+az rest --method put --uri "$RB/draft/testJob?api-version=2024-10-23" --body '{"properties":{"runOn":"hwg-mysql-worker","parameters":{}}}'
+az rest --method get --uri "$RB/draft/testJob?api-version=2024-10-23" --query 'properties.{estado:status, excepcion:exception}'
+az rest --method get --uri "$RB/draft/testJob/streams?api-version=2024-10-23" --query 'value[].{tipo:properties.streamType, texto:properties.summary}'
+```
+
+   El borrador no reemplaza al publicado: el orquestador sigue usando el publicado hasta el `publish`. Esperado: estado `Completed`, "Dump generado y verificado", "Subida completada OK" y el blob nuevo en `db-backups/finops/daily/`.
+4. **Publicar** (sólo con el test job en `Completed`) y comprobar un ciclo programado completo: orquestador y worker en `Completed`, un blob nuevo, y en la consulta de arriba AzCopy con `OAuth` y ninguno con `SAS` desde la IP de la VM:
+
+```bash
+az rest --method post --uri "$RB/publish?api-version=2024-10-23"
+```
+
+   La publicación trae consigo dos cambios que ya estaban en el repositorio: los nombres fijos de `monthly/` y `yearly/` (el publicado hoy todavía usa el timestamp: el 1 de cada mes salen 12 "mensuales") y la verificación del código de salida de `mysqldump` y `gzip`, más `gzip -t` y la marca `-- Dump completed`, que impiden subir un dump truncado como si fuera un backup.
+5. **Restauración de prueba** con el backup nuevo (7.5): descargarlo con Entra ID (hace falta un rol de lectura de datos sobre el contenedor para quien lo baje), cargarlo en un MySQL de prueba y comparar tablas y filas con producción.
+6. **Rollback:** republicar el script anterior (`git show <sha anterior>:infra/terraform/modules/mysql_backup/main.tf > /tmp/main-anterior.tf` y `npx tsx infra/scripts/renderizar-runbook-worker.ts --main /tmp/main-anterior.tf`) con el mismo `draft/content` y `publish`. La variable `STORAGE_SAS_TOKEN` y la SAS siguen vivas hasta la fase 5 justamente para esto.
+
+**Fase 4: apagar Shared Key.** Precondición: 24 a 48 horas con la consulta de arriba sin ningún `AccountKey` ni `SAS` de la app, de Terraform ni de la VM (quedan GitGuardian y, si alguien explora desde el portal, `Mozilla`). En el stamp `us` de `TF_VARS_PROD`: `storage_shared_access_key_enabled = false`. Hay un check de Terraform que frena el apply si la app no está ya en identidad administrada. El plan debe ser **un solo `update`** de `module.stamp["us"].module.storage.azurerm_storage_account.this` con un único atributo distinto, `shared_access_key_enabled` (probado en local). Después del apply:
+
+```bash
+az storage blob list --account-name cscsfinopsprodwestus2sa -c db-backups --auth-mode key --num-results 1
+```
+
+   Esperado: error `KeyBasedAuthenticationNotPermitted`. Y las pruebas positivas: un logo o un adjunto en la app, el siguiente ciclo de backup en `Completed`, un plan de sólo lectura del workflow, y al día siguiente el ciclo de vida de Azure (02:38 UTC) en `Success`:
+
+```kusto
+StorageBlobLogs
+| where TimeGenerated > ago(26h)
+| where UserAgentHeader startswith "xAzure"
+| summarize n = count() by OperationName, StatusText
+```
+
+   Rollback: `storage_shared_access_key_enabled = true` (rige en minutos).
+
+**Fase 5: limpieza y rotación** (después de la fase 4, con la clave ya inservible). Se retira todo lo que firma o transporta la clave: la SAS (`data.azurerm_storage_account_blob_container_sas`, `time_static.sas_start`, `time_rotating.sas_reference`, la variable `STORAGE_SAS_TOKEN` de Automation, `sas_validity_years`, el output `sas_expiry_warning`), la connection string del app (el secreto `storage-connection-string` y `AZURE_STORAGE_CONNECTION_STRING`), sus outputs, la entrada del mapeo de Key Vault (`src/lib/secrets/infraSecrets.ts` y `scripts/migrate-infra-secrets-to-kv.ts`) y la exclusión `CKV2_AZURE_40` de Checkov. El validador del apply sólo deja pasar **un** `delete`, el del input `replace`: la variable `STORAGE_SAS_TOKEN` va por `replace`, y los recursos `time_*` (que sólo viven en el state) se sacan con bloques `removed` sin destruir. Después, con aprobación, **rotar las dos claves** (`az storage account keys renew --account-name cscsfinopsprodwestus2sa -g cscs-finops-prod-westus2-rg --key key1`, y lo mismo con `key2`), comprobar que nada se rompe y cerrar el incidente de GitGuardian. Fuera de este alcance: Private Endpoint y cierre de red de la cuenta, y una salida explícita (NAT) para la subred de la VM, que hoy sale por la salida por defecto de Azure.
 
 ### 7.7 MySQL 8.0 a 8.4
 
