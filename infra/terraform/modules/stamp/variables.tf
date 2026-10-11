@@ -351,8 +351,9 @@ variable "storage_shared_access_key_enabled" {
     false = la cuenta de Storage de la app rechaza toda solicitud autorizada con la clave de
     cuenta, incluidas las SAS firmadas con ella (sólo valen Entra ID y las SAS de delegación de
     usuario). Antes de apagarla tienen que haber migrado los tres clientes: la app
-    (blob_managed_identity_enabled), los backups (runbook worker con la identidad de la VM) y
-    Terraform (storage_use_azuread en el provider). El rollback es volver a true. Ver
+    (blob_managed_identity_enabled), los backups (runbook worker con identidad administrada: en el
+    Hybrid Worker es la de la Automation Account) y Terraform (storage_use_azuread en el
+    provider). El rollback es volver a true. Ver
     docs/security/endurecimiento-infraestructura-saas-2026-10-09.md, 7.6.
   DESC
   type        = bool
