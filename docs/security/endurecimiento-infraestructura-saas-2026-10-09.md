@@ -440,22 +440,17 @@ openssl req -new -newkey rsa:2048 -nodes -keyout origen.key -out origen.csr -sub
 
 RSA 2048 o ECDSA P-256; Container Apps no admite P-384 ni P-521.
 
-b. En Cloudflare, SSL/TLS, Origin Server, Create Certificate: elegir **Use my private key and CSR** y pegar el contenido de `origen.csr` (`pbcopy < origen.csr`). En la lista de hostnames dejar sólo `finops.cscloudsolutions.com.ar`: Cloudflare agrega por defecto el apex y el comodín de primer nivel. Elegir la vigencia (el máximo es 15 años) y Create. Copiar el certificado en formato PEM a un archivo `origen.pem` en la misma carpeta. Con esta opción Cloudflare nunca ve ni muestra la clave; con "Generate private key" la clave aparece una sola vez en pantalla. **Cloudflare no avisa del vencimiento de estos certificados:** anotar la fecha (`openssl x509 -in origen.pem -noout -enddate`) con un recordatorio en el calendario. Container Apps, además, marca en el panel de certificados del entorno los que vencen en menos de 60 días.
+b. En Cloudflare, SSL/TLS, Origin Server, Create Certificate: elegir **Use my private key and CSR** y pegar el contenido de `origen.csr` (`pbcopy < origen.csr`). En la lista de hostnames tiene que estar `finops.cscloudsolutions.com.ar` escrito de forma exacta. Cloudflare agrega por defecto el apex y el comodín de primer nivel; se pueden dejar (el 2026-10-10 se emitió así), pero la documentación de Container Apps no dice si acepta un certificado comodín para el binding, así que el nombre exacto no puede faltar. Elegir la vigencia (el máximo es 15 años) y Create. Copiar el certificado en formato PEM a un archivo `origen.pem` en la misma carpeta. Con esta opción Cloudflare nunca ve ni muestra la clave; con "Generate private key" la clave aparece una sola vez en pantalla. **Cloudflare no avisa del vencimiento de estos certificados:** anotar la fecha (`openssl x509 -in origen.pem -noout -enddate`) con un recordatorio en el calendario. Container Apps, además, marca en el panel de certificados del entorno los que vencen en menos de 60 días.
 
-c. Armar el `.pfx` con una contraseña generada y subirlo a Key Vault. Los algoritmos van fijados (3DES y SHA1, el formato clásico) porque OpenSSL 3 usa AES-256 por defecto y no se confirmó que Container Apps lo acepte; con esas banderas el comando se probó en el LibreSSL del Mac (3.3.6) y en OpenSSL 3.6.3. Si el apply del paso d rechazara el formato, no cambia nada en el app: sólo no se crea el certificado. El Base64 se escribe en una sola línea: `az keyvault secret set --encoding base64` lo parte en líneas de 76 caracteres. El vault tiene el firewall en `Deny`, así que se abre para tu IP sólo durante la carga; hace falta el rol `Key Vault Secrets Officer` sobre el vault.
+c. Armar el `.pfx` y subirlo a Key Vault con el script (desde la raíz del repositorio; por defecto lee `~/origen-cert`):
 
 ```bash
-PFX_PASSWORD=$(openssl rand -base64 24)
-openssl pkcs12 -export -inkey origen.key -in origen.pem -out origen.pfx -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1 -passout pass:"$PFX_PASSWORD"
-base64 < origen.pfx | tr -d '\n' > origen.pfx.b64
-MI_IP=$(curl -s https://api.ipify.org)
-az keyvault network-rule add --name cscs-finops-prod-wus2-kv --ip-address "$MI_IP"
-az keyvault secret set --vault-name cscs-finops-prod-wus2-kv --name origin-cert-pfx --file origen.pfx.b64
-az keyvault secret set --vault-name cscs-finops-prod-wus2-kv --name origin-cert-pfx-password --value "$PFX_PASSWORD"
-az keyvault network-rule remove --name cscs-finops-prod-wus2-kv --ip-address "$MI_IP"
+scripts/subir-certificado-origen.sh
 ```
 
-Después, borrar todo: `cd ~ && rm -rf ~/origen-cert && unset PFX_PASSWORD`. No hace falta guardar una copia: la del vault es la que lee Terraform, y si se perdiera la clave se crea otro certificado con un CSR nuevo (el anterior se puede revocar desde el mismo panel de Cloudflare).
+Hace, en este orden: comprueba que el certificado corresponda al CSR, que traiga el hostname exacto y que no esté vencido; arma el `.pfx` con una contraseña generada (3DES y SHA1, el formato clásico, porque OpenSSL 3 usa AES-256 por defecto y no se confirmó que Container Apps lo acepte; el comando se probó en el LibreSSL del Mac, 3.3.6, y en OpenSSL 3.6.3); escribe el Base64 en **una** línea (`az keyvault secret set --encoding base64` lo parte en líneas de 76 caracteres); abre el firewall del vault sólo para tu IP y **espera a que la regla propague** (el 2026-09-14 el plan de CI murió con 403 `ForbiddenByFirewall` 38 s después de abrirla); sube los dos secretos desde archivos (la contraseña no pasa por la línea de comandos); comprueba que el largo guardado sea el del archivo, sin leer el valor; y **cierra el firewall aunque algo falle**. Hace falta `az login` y el rol `Key Vault Secrets Officer` sobre el vault. Con `DRY_RUN=1` sólo hace la parte local (probada con material descartable; la parte de Azure sólo se prueba al correrlo). Si falla, dice por qué y deja el firewall cerrado; se corre de nuevo (genera otra contraseña y escribe una versión nueva de los secretos).
+
+La carpeta con la clave **se conserva** hasta terminar el paso f: si Container Apps rechazara el formato del `.pfx` hace falta la clave para rearmarlo con otros parámetros.
 
 d. `custom_domain_certificate_source = "byo_staged"` en el stamp. El plan debe mostrar un solo recurso nuevo, el certificado `finops-cscloudsolutions-com-ar-byo`. Apply.
 
@@ -468,7 +463,7 @@ echo | openssl s_client -connect cscs-finops-prod-westus2-web.victoriousmoss-018
 
 El emisor tiene que ser el Origin CA de Cloudflare. Recién entonces, en Cloudflare, modo SSL "Full (strict)", y comprobar que el sitio sigue respondiendo 200.
 
-f. `custom_domain_certificate_source = "byo"`: el plan destruye sólo el certificado gestionado (que ya nadie usa). Apply.
+f. `custom_domain_certificate_source = "byo"`: el plan destruye sólo el certificado gestionado (que ya nadie usa). Apply. Con el sitio respondiendo, borrar la carpeta de la clave: `rm -rf ~/origen-cert`.
 
 **Paso 3: filtrar el origen.** En `TF_VARS_PROD`:
 
