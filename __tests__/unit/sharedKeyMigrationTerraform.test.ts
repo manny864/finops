@@ -36,14 +36,29 @@ describe("Terraform deja de depender de la clave de cuenta", () => {
   });
 });
 
-describe("la VM de backups sube con su identidad", () => {
+describe("roles de datos sobre db-backups: la VM y la Automation Account", () => {
   const backup = leer(`${TF}/modules/mysql_backup/main.tf`);
-  const rol = backup.match(/resource "azurerm_role_assignment" "vm_backups_blob_contributor" \{[\s\S]*?\n\}/)?.[0] ?? "";
+  const rolDe = (nombre: string) => backup.match(new RegExp(`resource "azurerm_role_assignment" "${nombre}" \\{[\\s\\S]*?\\n\\}`))?.[0] ?? "";
+  const rol = rolDe("vm_backups_blob_contributor");
+  const rolAutomation = rolDe("automation_backups_blob_contributor");
 
-  it("recibe Storage Blob Data Contributor sobre el contenedor, con la identidad de la VM", () => {
+  it("la VM recibe Storage Blob Data Contributor sobre el contenedor, con su propia identidad", () => {
     expect(rol).toContain('role_definition_name = "Storage Blob Data Contributor"');
     expect(rol).toMatch(/scope\s*=\s*var\.storage_container_resource_id/);
     expect(rol).toMatch(/principal_id\s*=\s*azurerm_windows_virtual_machine\.this\.identity\[0\]\.principal_id/);
+  });
+
+  // Un job del Hybrid Worker presenta la identidad de la Automation Account, no la de la VM: con
+  // sólo el rol de la VM el primer test job (2026-10-11) dio 403 AuthorizationPermissionMismatch.
+  it("la Automation Account recibe el mismo rol sobre el mismo contenedor, y no uno más ancho", () => {
+    expect(rolAutomation).toContain('role_definition_name = "Storage Blob Data Contributor"');
+    expect(rolAutomation).toMatch(/scope\s*=\s*var\.storage_container_resource_id/);
+    expect(rolAutomation).toMatch(/principal_id\s*=\s*azurerm_automation_account\.this\.identity\[0\]\.principal_id/);
+  });
+
+  it("la cuenta de Automation tiene identidad de sistema (sin ella el rol no tiene a quién asignarse)", () => {
+    const cuenta = backup.match(/resource "azurerm_automation_account" "this" \{[\s\S]*?\n\}/)?.[0] ?? "";
+    expect(cuenta).toMatch(/identity\s*\{\s*type\s*=\s*"SystemAssigned"/);
   });
 
   it("el scope llega armado desde el módulo storage, sin el atributo deprecado del provider", () => {
@@ -118,7 +133,7 @@ describe("Shared Key: interruptor del stamp", () => {
   });
 });
 
-describe("runbook worker de backups: sube con la identidad de la VM", () => {
+describe("runbook worker de backups: sube con identidad administrada", () => {
   const backup = leer(`${TF}/modules/mysql_backup/main.tf`);
 
   const renderizar = (rutas: { mysqldump: string; gzip: string; azcopy: string; temp: string }) => renderizarWorker(rutas);
@@ -168,7 +183,7 @@ describe("runbook worker de backups: sube con la identidad de la VM", () => {
   });
 
   describe.skipIf(!hayPwsh || !rutaGzip)("renderizado y ejecutado con PowerShell", () => {
-    function correr(escenario: { dump?: "ok" | "falla" | "truncado"; azcopyExit?: number; cuenta?: string }) {
+    function correr(escenario: { dump?: "ok" | "falla" | "truncado"; azcopyExit?: number; cuenta?: string; sinMysqldump?: boolean; sinAzcopy?: boolean }) {
       const dir = mkdtempSync(join(tmpdir(), "worker-backup-test-"));
       try {
         const bin = join(dir, "bin");
@@ -194,7 +209,15 @@ describe("runbook worker de backups: sube con la identidad de la VM", () => {
         );
         const azcopy = fake("azcopy", 'echo "$AZCOPY_AUTO_LOGIN_TYPE|$*" >> "$FAKE_AZCOPY_LOG"\nexit "${FAKE_AZCOPY_EXIT:-0}"');
         const script = join(dir, "worker.ps1");
-        writeFileSync(script, renderizar({ mysqldump, gzip: rutaGzip, azcopy, temp }));
+        writeFileSync(
+          script,
+          renderizar({
+            mysqldump: escenario.sinMysqldump ? join(dir, "no-existe", "mysqldump") : mysqldump,
+            gzip: rutaGzip,
+            azcopy: escenario.sinAzcopy ? join(dir, "no-existe", "azcopy") : azcopy,
+            temp,
+          }),
+        );
         const harness = join(dir, "harness.ps1");
         writeFileSync(
           harness,
@@ -278,6 +301,25 @@ describe("runbook worker de backups: sube con la identidad de la VM", () => {
       const r = correr({ azcopyExit: 1 });
       expect(r.status).not.toBe(0);
       expect(r.salida).toContain("azcopy exit 1");
+      expect(r.restos).toEqual([]);
+    });
+
+    // Descubierto el 2026-10-11 al correr el borrador en el sandbox de Azure (sin las herramientas de la VM): Start-Process
+    // con una ruta inexistente es un error terminante que aborta el foreach, pero el script seguía hasta "Ciclo finalizado."
+    // y el job terminaba en Completed sin haber subido nada: el mismo fallo silencioso que se quería eliminar.
+    it("mysqldump que no se puede lanzar (ruta mal o herramienta borrada): el ciclo termina en error, no en Completed", () => {
+      const r = correr({ sinMysqldump: true });
+      expect(r.status).not.toBe(0);
+      expect(r.salida).toContain("fallo(s)");
+      expect(r.salida).toContain("no se confirmo la subida del backup diario");
+      expect(r.azcopy).toEqual([]);
+      expect(r.restos).toEqual([]);
+    });
+
+    it("AzCopy que no se puede lanzar: el ciclo termina en error, no en Completed", () => {
+      const r = correr({ sinAzcopy: true });
+      expect(r.status).not.toBe(0);
+      expect(r.salida).toContain("fallo(s)");
       expect(r.restos).toEqual([]);
     });
 

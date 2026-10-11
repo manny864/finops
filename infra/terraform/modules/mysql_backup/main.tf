@@ -397,19 +397,38 @@ resource "azurerm_role_assignment" "automation_operator_self" {
   principal_id         = azurerm_automation_account.this.identity[0].principal_id
 }
 
-# Los backups se suben con la identidad de la VM (AzCopy con AZCOPY_AUTO_LOGIN_TYPE=MSI), no con
-# una SAS firmada con la clave de la cuenta. Es la identidad de la VM y no la de la Automation
-# Account: el runbook worker corre en el Hybrid Worker, o sea en la VM. Sin este rol AzCopy sale
-# con 403 AuthorizationPermissionMismatch.
+# Los backups se suben con identidad administrada (AzCopy con AZCOPY_AUTO_LOGIN_TYPE=MSI), no con
+# una SAS firmada con la clave de la cuenta. Sin un rol de datos AzCopy sale con 403
+# AuthorizationPermissionMismatch.
+#
+# ¿Cuál identidad? En un job del Hybrid Worker el servicio inyecta IDENTITY_ENDPOINT/IDENTITY_HEADER
+# y AzCopy los usa: el token es el de la Automation Account, no el de la VM donde corre. La doc de
+# Azure Automation lo dice así: con la identidad de la cuenta habilitada, "it is only possible to
+# use the Automation Account System-Assigned Managed Identity" (automation-hrw-run-runbooks, "Use
+# runbook authentication with managed identities"). Se midió el 2026-10-11: el primer test job dio
+# 403 y StorageBlobLogs mostró como requester el objectId de la Automation Account. Por eso el rol
+# va a las dos identidades:
+#   - la de la Automation Account: la que usa el runbook en producción;
+#   - la de la VM: la que ve AzCopy cuando se lo corre a mano en la VM (az vm run-command: prueba
+#     de humo y simulacros de restauración), donde no hay IDENTITY_ENDPOINT y cae a IMDS.
 #
 # Storage Blob Data Contributor es el rol integrado más chico que alcanza para subir (la doc de
-# AzCopy pide Contributor u Owner), y va sólo sobre el contenedor de backups. Hasta que el
-# runbook publicado lo use, este rol no cambia nada: el script anterior sigue con la SAS.
-# La propagación de un rol de datos tarda unos minutos antes de que AzCopy lo vea.
+# AzCopy pide Contributor u Owner), y va sólo sobre el contenedor de backups. La Automation
+# Account ya llegaba a este permiso de rebote (Virtual Machine Contributor incluye runCommand sobre
+# la VM, y la VM tiene el rol de abajo): darlo directo no suma alcance real y deja la relación
+# a la vista. Hasta que el runbook publicado lo use, estos roles no cambian nada: el script
+# anterior sigue con la SAS. La propagación de un rol de datos tarda unos minutos antes de que
+# AzCopy lo vea.
 resource "azurerm_role_assignment" "vm_backups_blob_contributor" {
   scope                = var.storage_container_resource_id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = azurerm_windows_virtual_machine.this.identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "automation_backups_blob_contributor" {
+  scope                = var.storage_container_resource_id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = azurerm_automation_account.this.identity[0].principal_id
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -541,9 +560,10 @@ resource "azurerm_automation_runbook" "worker" {
   content = <<-PS1
     <#
     .DESCRIPTION
-    Runbook Worker: ejecuta mysqldump, comprime con gzip y sube a Blob Storage con la
-    identidad administrada de la VM (AzCopy con AZCOPY_AUTO_LOGIN_TYPE=MSI; el rol Storage
-    Blob Data Contributor sobre el contenedor lo da Terraform), sin SAS ni clave de cuenta.
+    Runbook Worker: ejecuta mysqldump, comprime con gzip y sube a Blob Storage con identidad
+    administrada (AzCopy con AZCOPY_AUTO_LOGIN_TYPE=MSI: en un job del Hybrid Worker es la de la
+    Automation Account; el rol Storage Blob Data Contributor sobre el contenedor lo da
+    Terraform), sin SAS ni clave de cuenta.
     Organiza los archivos en estructura jerárquica (db/frecuencia/archivo). Generado desde
     Terraform — ver infra/terraform/modules/mysql_backup/main.tf, no editar a mano en el Portal.
     #>
@@ -584,14 +604,24 @@ resource "azurerm_automation_runbook" "worker" {
 
     if (!(Test-Path $localTempPath)) { New-Item -ItemType Directory -Path $localTempPath | Out-Null }
 
-    # AzCopy se autentica con la identidad de sistema de la VM: con esta variable hace el login
-    # por IMDS en cada ejecucion, sin `azcopy login` ni almacen de tokens (que un servicio no
-    # tiene). Sin el rol de datos sobre el contenedor sale con 403 AuthorizationPermissionMismatch.
+    # AzCopy se autentica con identidad administrada: con esta variable hace el login en cada
+    # ejecucion, sin `azcopy login` ni almacen de tokens (que un servicio no tiene). En un job del
+    # Hybrid Worker el token es el de la Automation Account (el worker inyecta IDENTITY_ENDPOINT);
+    # a mano en la VM es el de la VM, por IMDS. Las dos tienen el rol de datos sobre el contenedor;
+    # sin el, AzCopy sale con 403 AuthorizationPermissionMismatch.
     $env:AZCOPY_AUTO_LOGIN_TYPE = "MSI"
 
     Write-Output "Configurando entorno seguro para MySQL..."
     $env:MYSQL_PWD = $mysqlPass
     $fallos = @()
+    $subidaDiariaOk = @{}
+
+    # Un Start-Process que no puede lanzar el ejecutable (ruta mal, herramienta borrada) lanza un
+    # error terminante. Sin catch, ese error abortaba el foreach pero el script seguia hasta "Ciclo
+    # finalizado." y el job terminaba en Completed sin haber subido nada (se vio el 2026-10-11 al
+    # correr el borrador en el sandbox de Azure, que no tiene las herramientas de la VM). Con Stop,
+    # cada error cae en el catch de su base, queda en $fallos y el ciclo termina con throw.
+    $ErrorActionPreference = "Stop"
 
     foreach ($db in $databases) {
       Write-Output "--- Iniciando backup para base de datos: $db ---"
@@ -664,15 +694,25 @@ resource "azurerm_automation_runbook" "worker" {
             Write-Warning "Error subiendo a Blob Storage. Exit Code: $($uploadProcess.ExitCode). Verificar el rol Storage Blob Data Contributor de la identidad de la VM sobre el contenedor y que la VM llegue a $storageAccount.blob.core.windows.net."
           } else {
             Write-Output "Subida completada OK."
+            if ($destUrl -like "*/daily/*") { $subidaDiariaOk[$db] = $true }
           }
         }
 
         Write-Output "Finalizado para $db."
+      } catch {
+        $fallos += "$${db}: $($_.Exception.Message)"
+        Write-Warning "FALLO en $${db}: $($_.Exception.Message)"
       } finally {
         # Se borran siempre, tambien tras un `continue` o una excepcion.
         Remove-Item -LiteralPath $sqlPath, $localFilePath -Force -ErrorAction SilentlyContinue
         Write-Output "------------------------------------"
       }
+    }
+
+    # Un foreach abortado por un error que nadie capturó no deja rastro en $fallos. Por eso se exige,
+    # ademas, que cada base tenga confirmada su subida diaria: sin eso el ciclo no puede terminar bien.
+    foreach ($db in $databases) {
+      if (-not $subidaDiariaOk[$db]) { $fallos += "$${db}: no se confirmo la subida del backup diario" }
     }
 
     $env:MYSQL_PWD = $null
