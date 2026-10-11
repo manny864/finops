@@ -445,7 +445,7 @@ b. En Cloudflare, SSL/TLS, Origin Server, Create Certificate: elegir **Use my pr
 c. Armar el `.pfx` y subirlo a Key Vault con el script (desde la raíz del repositorio; por defecto lee `~/origen-cert`):
 
 ```bash
-scripts/subir-certificado-origen.sh
+infra/scripts/subir-certificado-origen.sh
 ```
 
 Hace, en este orden: comprueba que el certificado corresponda al CSR, que traiga el hostname exacto y que no esté vencido; arma el `.pfx` con una contraseña generada (3DES y SHA1, el formato clásico, porque OpenSSL 3 usa AES-256 por defecto y no se confirmó que Container Apps lo acepte; el comando se probó en el LibreSSL del Mac, 3.3.6, y en OpenSSL 3.6.3); escribe el Base64 en **una** línea (`az keyvault secret set --encoding base64` lo parte en líneas de 76 caracteres); abre el firewall del vault sólo para tu IP y **espera a que la regla propague** (el 2026-09-14 el plan de CI murió con 403 `ForbiddenByFirewall` 38 s después de abrirla); sube los dos secretos desde archivos (la contraseña no pasa por la línea de comandos); comprueba que el largo guardado sea el del archivo, sin leer el valor; y **cierra el firewall aunque algo falle**. Hace falta `az login` y el rol `Key Vault Secrets Officer` sobre el vault. Con `DRY_RUN=1` sólo hace la parte local (probada con material descartable; la parte de Azure sólo se prueba al correrlo). Si falla, dice por qué y deja el firewall cerrado; se corre de nuevo (genera otra contraseña y escribe una versión nueva de los secretos).

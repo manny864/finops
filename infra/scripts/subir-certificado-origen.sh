@@ -3,8 +3,8 @@
 # Lo corre una persona con `az login` y el rol Key Vault Secrets Officer sobre el vault.
 # Runbook: docs/security/endurecimiento-infraestructura-saas-2026-10-09.md, sección 7.3, paso 2c.
 #
-# Uso:  scripts/subir-certificado-origen.sh [carpeta]
-#       DRY_RUN=1 scripts/subir-certificado-origen.sh [carpeta]   sólo la parte local: valida y arma el .pfx
+# Uso:  infra/scripts/subir-certificado-origen.sh [carpeta]
+#       DRY_RUN=1 infra/scripts/subir-certificado-origen.sh [carpeta]   sólo la parte local: valida y arma el .pfx
 # La carpeta (por defecto ~/origen-cert) trae origen.key, origen.csr y origen.pem. Nada se imprime de la clave
 # ni de la contraseña.
 set -euo pipefail
