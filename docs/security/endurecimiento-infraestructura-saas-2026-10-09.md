@@ -411,6 +411,8 @@ az role assignment delete --ids "<id de la asignación SIN condición>"
 
 ### 7.3 Cerrar el origen: Cloudflare + NAT Gateway + certificado propio (destino elegido)
 
+Para ejecutarlo con un agente con terminal (por ejemplo Copilot en VS Code) hay una guía con las etapas en el orden recomendado, lo que se espera ver en cada una y cuándo parar: [`ejecucion-destino-a-copilot.md`](./ejecucion-destino-a-copilot.md). Esta sección es la referencia; la guía agrega el orden operativo (certificado primero, después NAT y por último el filtro).
+
 Cada paso es un `workflow_dispatch` de Terraform con `confirm` vacío (sólo plan), lectura del resumen del plan y recién entonces `APPLY-PROD`. Las variables se editan en `TF_VARS_PROD` (desde GitHub; no se puede desde el repositorio). Antes de empezar, comprobar en Cloudflare el modo SSL y a qué URL apuntan los webhooks de Paddle y cualquier monitor externo: todo lo que le pegue al origen sin pasar por Cloudflare dejará de entrar.
 
 **Paso 1: NAT Gateway.** En el stamp `us`:
@@ -463,7 +465,7 @@ echo | openssl s_client -connect cscs-finops-prod-westus2-web.victoriousmoss-018
 
 El emisor tiene que ser el Origin CA de Cloudflare. Recién entonces, en Cloudflare, modo SSL "Full (strict)", y comprobar que el sitio sigue respondiendo 200.
 
-f. `custom_domain_certificate_source = "byo"`: el plan destruye sólo el certificado gestionado (que ya nadie usa). Apply. Con el sitio respondiendo, borrar la carpeta de la clave: `rm -rf ~/origen-cert`.
+f. `custom_domain_certificate_source = "byo"`: el plan destruye sólo el certificado gestionado (que ya nadie usa). **El validador del apply (`scripts/validate-terraform-apply-plan.mjs`) bloquea cualquier destrucción que no sea la del input `replace`**, así que el workflow se lanza con `confirm=APPLY-PROD` **y** `replace=module.stamp["us"].module.custom_domain.azurerm_container_app_environment_managed_certificate.this[0]`. Se probó contra el state real: con ese input el plan sigue siendo un `delete` de ese certificado (no se recrea nada: el recurso ya no está en la configuración) y el validador lo deja pasar; sin él, lo bloquea con "Unapproved destructive change". El log mostrará el aviso fijo "Se va a RECREAR", que aquí no aplica. Apply. Con el sitio respondiendo, borrar la carpeta de la clave: `rm -rf ~/origen-cert`.
 
 **Paso 3: filtrar el origen.** En `TF_VARS_PROD`:
 
