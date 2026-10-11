@@ -99,6 +99,8 @@ variable "storage_account_name" {
   type = string
 }
 
+# Sólo para firmar la SAS que todavía usa el runbook publicado. Se retira junto con ella
+# (la VM sube con su identidad administrada): ver docs/security/, 7.6.
 variable "storage_account_primary_connection_string" {
   sensitive = true
   type      = string
@@ -107,6 +109,11 @@ variable "storage_account_primary_connection_string" {
 variable "storage_container_name" {
   type    = string
   default = "db-backups"
+}
+
+variable "storage_container_resource_id" {
+  description = "ID de Resource Manager del contenedor de backups (azurerm_storage_container.backups.resource_manager_id). Sobre él recibe la VM el rol Storage Blob Data Contributor: con él AzCopy sube con la identidad administrada, sin SAS ni clave de cuenta."
+  type        = string
 }
 
 variable "sas_validity_years" {

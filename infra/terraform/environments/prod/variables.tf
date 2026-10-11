@@ -111,6 +111,10 @@ variable "stamps" {
     # NAT Gateway con IP fija de salida (modules/network/main.tf). Cambia la salida de TODO el
     # entorno: ver el runbook "Cerrar el origen" de docs/security/.
     nat_gateway_enabled = optional(bool, false)
+
+    # Apagar la clave de cuenta de Storage (modules/storage). true = como hoy. Sólo se pone en
+    # false después de migrar la app, los backups y Terraform; hay un check que lo vigila.
+    storage_shared_access_key_enabled = optional(bool, true)
   }))
 }
 

@@ -45,6 +45,13 @@ provider "azurerm" {
   # nada más: azurerm lee ARM_CLIENT_ID/ARM_TENANT_ID/ARM_SUBSCRIPTION_ID (los
   # pone azure/login) y pide el JWT OIDC directo a GitHub Actions.
   use_oidc = true
+
+  # Las llamadas de plano de datos que el provider le hace a la cuenta de Storage (hoy sólo
+  # GetBlobServiceProperties al leer azurerm_storage_account; los contenedores van por ARM)
+  # usan Entra ID y no la clave de cuenta. Es el requisito para poder apagar Shared Key
+  # (docs/security/endurecimiento-infraestructura-saas-2026-10-09.md, 7.6). Verificado el
+  # 2026-10-11 en StorageBlobLogs: con este flag esa llamada entra con OAuth.
+  storage_use_azuread = true
 }
 
 locals {
@@ -235,6 +242,7 @@ module "stamp" {
   security_activity_alerts_enabled   = each.value.security_activity_alerts_enabled
   security_policy_audit_enabled      = each.value.security_policy_audit_enabled
   nat_gateway_enabled                = each.value.nat_gateway_enabled
+  storage_shared_access_key_enabled  = each.value.storage_shared_access_key_enabled
   alert_email                        = var.alert_email
   monthly_budget_amount              = each.value.monthly_budget_amount
   budget_start_date                  = var.budget_start_date
@@ -311,6 +319,7 @@ module "mysql_backup" {
 
   storage_account_name                      = module.stamp[var.default_stamp].storage_account_name
   storage_account_primary_connection_string = module.stamp[var.default_stamp].storage_account_primary_connection_string
+  storage_container_resource_id             = module.stamp[var.default_stamp].backups_container_resource_manager_id
 
   key_vault_id = module.stamp[var.default_stamp].key_vault_id
 

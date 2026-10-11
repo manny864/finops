@@ -315,7 +315,7 @@ module "storage" {
   backup_database_name          = var.mysql_database_name
   backup_monthly_retention_days = var.storage_backup_monthly_retention_days
   backup_yearly_retention_days  = var.storage_backup_yearly_retention_days
-  shared_access_key_enabled     = true
+  shared_access_key_enabled     = var.storage_shared_access_key_enabled
   app_principal_id              = azurerm_user_assigned_identity.app.principal_id
   tags                          = var.tags
 }

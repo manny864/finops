@@ -67,6 +67,10 @@ output "storage_account_id" {
   value = module.storage.id
 }
 
+output "backups_container_resource_manager_id" {
+  value = module.storage.backups_container_resource_manager_id
+}
+
 output "storage_account_primary_connection_string" {
   value     = module.storage.primary_connection_string
   sensitive = true

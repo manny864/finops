@@ -94,3 +94,14 @@ check "origen_cloudflare_declara_llamadores_internos" {
   }
 }
 
+# Apagar la clave de cuenta de Storage rompe a la app si todavía usa la connection string
+# (AZURE_STORAGE_CONNECTION_STRING): logos, adjuntos, avatares y reportes dejarían de cargar.
+# Sin la identidad administrada activa no se puede apagar. El check no cubre a los backups ni a
+# Terraform (los vigilan el plan revisado y la secuencia 7.6): sólo lo que se decide desde acá.
+# El apply del workflow se frena ante un check que no pase.
+check "shared_key_apagada_requiere_app_con_identidad" {
+  assert {
+    condition     = var.blob_managed_identity_enabled || alltrue([for k, s in var.stamps : s.storage_shared_access_key_enabled])
+    error_message = "storage_shared_access_key_enabled = false en algún stamp, pero blob_managed_identity_enabled = false: la app seguiría con la connection string (clave de cuenta) y perdería el acceso a Blob. Activar primero blob_managed_identity_enabled. Ver 7.6 en docs/security/endurecimiento-infraestructura-saas-2026-10-09.md."
+  }
+}

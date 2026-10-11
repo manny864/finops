@@ -23,7 +23,7 @@ variable "replication_type" {
 }
 
 variable "shared_access_key_enabled" {
-  description = "Necesario mientras la app use AZURE_STORAGE_CONNECTION_STRING."
+  description = "true = la cuenta acepta la clave de cuenta (y las SAS firmadas con ella). Se apaga con storage_shared_access_key_enabled del stamp, después de migrar la app, los backups y Terraform."
   type        = bool
   default     = true
 }

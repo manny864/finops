@@ -397,6 +397,21 @@ resource "azurerm_role_assignment" "automation_operator_self" {
   principal_id         = azurerm_automation_account.this.identity[0].principal_id
 }
 
+# Los backups se suben con la identidad de la VM (AzCopy con AZCOPY_AUTO_LOGIN_TYPE=MSI), no con
+# una SAS firmada con la clave de la cuenta. Es la identidad de la VM y no la de la Automation
+# Account: el runbook worker corre en el Hybrid Worker, o sea en la VM. Sin este rol AzCopy sale
+# con 403 AuthorizationPermissionMismatch.
+#
+# Storage Blob Data Contributor es el rol integrado más chico que alcanza para subir (la doc de
+# AzCopy pide Contributor u Owner), y va sólo sobre el contenedor de backups. Hasta que el
+# runbook publicado lo use, este rol no cambia nada: el script anterior sigue con la SAS.
+# La propagación de un rol de datos tarda unos minutos antes de que AzCopy lo vea.
+resource "azurerm_role_assignment" "vm_backups_blob_contributor" {
+  scope                = var.storage_container_resource_id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = azurerm_windows_virtual_machine.this.identity[0].principal_id
+}
+
 # ─────────────────────────────────────────────────────────────────────────────
 # SAS del contenedor destino (Fase 3.3 del manual) — generado por Terraform en
 # vez de a mano en el Portal, para que quede versionado y sea reproducible.
@@ -526,10 +541,11 @@ resource "azurerm_automation_runbook" "worker" {
   content = <<-PS1
     <#
     .DESCRIPTION
-    Runbook Worker: ejecuta mysqldump, comprime con gzip y sube a Blob Storage
-    usando SAS Token. Organiza los archivos en estructura jerárquica
-    (db/frecuencia/archivo). Generado desde Terraform — ver
-    infra/terraform/modules/mysql_backup/main.tf, no editar a mano en el Portal.
+    Runbook Worker: ejecuta mysqldump, comprime con gzip y sube a Blob Storage con la
+    identidad administrada de la VM (AzCopy con AZCOPY_AUTO_LOGIN_TYPE=MSI; el rol Storage
+    Blob Data Contributor sobre el contenedor lo da Terraform), sin SAS ni clave de cuenta.
+    Organiza los archivos en estructura jerárquica (db/frecuencia/archivo). Generado desde
+    Terraform — ver infra/terraform/modules/mysql_backup/main.tf, no editar a mano en el Portal.
     #>
 
     $toolPath_MysqlDump = "${var.vm_tool_path_mysqldump}"
@@ -541,7 +557,6 @@ resource "azurerm_automation_runbook" "worker" {
     $mysqlUser = Get-AutomationVariable -Name "MYSQL_USER"
     $mysqlPass = Get-AutomationVariable -Name "MYSQL_PASS"
     $storageAccount = Get-AutomationVariable -Name "STORAGE_ACCOUNT_NAME"
-    $sasToken = Get-AutomationVariable -Name "STORAGE_SAS_TOKEN"
     $containerName = "${var.storage_container_name}"
 
     # Una variable de Automation vacia no da error: se interpola como cadena
@@ -554,7 +569,6 @@ resource "azurerm_automation_runbook" "worker" {
       MYSQL_USER           = $mysqlUser
       MYSQL_PASS           = $mysqlPass
       STORAGE_ACCOUNT_NAME = $storageAccount
-      STORAGE_SAS_TOKEN    = $sasToken
     }
     $vacias = @($requeridas.GetEnumerator() | Where-Object { [string]::IsNullOrWhiteSpace("$($_.Value)") } | ForEach-Object { $_.Key })
     if ($vacias.Count -gt 0) {
@@ -570,64 +584,99 @@ resource "azurerm_automation_runbook" "worker" {
 
     if (!(Test-Path $localTempPath)) { New-Item -ItemType Directory -Path $localTempPath | Out-Null }
 
+    # AzCopy se autentica con la identidad de sistema de la VM: con esta variable hace el login
+    # por IMDS en cada ejecucion, sin `azcopy login` ni almacen de tokens (que un servicio no
+    # tiene). Sin el rol de datos sobre el contenedor sale con 403 AuthorizationPermissionMismatch.
+    $env:AZCOPY_AUTO_LOGIN_TYPE = "MSI"
+
     Write-Output "Configurando entorno seguro para MySQL..."
     $env:MYSQL_PWD = $mysqlPass
     $fallos = @()
 
     foreach ($db in $databases) {
       Write-Output "--- Iniciando backup para base de datos: $db ---"
-      $fileName = "$${db}_$${dateStr}.sql.gz"
-      $localFilePath = Join-Path $localTempPath $fileName
+      $baseName = "$${db}_$${dateStr}"
+      $sqlPath = Join-Path $localTempPath "$baseName.sql"
+      $localFilePath = "$sqlPath.gz"
+      $fileName = "$baseName.sql.gz"
 
-      $dumpCommand = "`"$toolPath_MysqlDump`" -h $mysqlHost -u $mysqlUser --single-transaction --quick --routines --triggers --ssl-mode=REQUIRED $db | `"$toolPath_Gzip`" > `"$localFilePath`""
-      Write-Output "Ejecutando dump y compresión..."
-      cmd /c $dumpCommand
-
-      if (!(Test-Path $localFilePath) -or (Get-Item $localFilePath).Length -eq 0) {
-        $fallos += "dump de $${db}: no se genero o quedo vacio"
-        Write-Warning "FALLO: El archivo de backup no se generó correctamente para $db."
-        if (Test-Path $localFilePath) { Remove-Item $localFilePath -Force }
-        continue
-      }
-
-      $fileSize = (Get-Item $localFilePath).Length / 1MB
-      Write-Output "Dump generado exitosamente: $fileName ($([math]::Round($fileSize, 2)) MB)"
-
-      # monthly/ y yearly/ usan un nombre fijo por periodo, no el timestamp.
-      # Con la cadencia de 2 horas el dia 1 corre 12 veces: con el nombre
-      # timestampeado eso dejaba 12 "mensuales" distintos. Con nombre fijo y
-      # --overwrite=true (ya puesto mas abajo) las 12 pisan el mismo blob y
-      # queda exactamente uno por mes, sin importar cada cuanto corra el
-      # schedule.
-      $monthlyName = "$${db}_$($now.ToString('yyyy-MM')).sql.gz"
-      $yearlyName = "$${db}_$($now.ToString('yyyy')).sql.gz"
-
-      $destinations = @()
-      $dbBaseUrl = "https://$storageAccount.blob.core.windows.net/$containerName/$db"
-      $destinations += "$dbBaseUrl/daily/$fileName$sasToken"
-      if ($dayOfMonth -eq 1) { $destinations += "$dbBaseUrl/monthly/$monthlyName$sasToken" }
-      if ($dayOfMonth -eq 1 -and $monthOfYear -eq 1) { $destinations += "$dbBaseUrl/yearly/$yearlyName$sasToken" }
-
-      foreach ($destUrl in $destinations) {
-        $logUrl = $destUrl.Substring(0, $destUrl.IndexOf('?'))
-        Write-Output "Iniciando subida con AzCopy (SAS) a: $logUrl"
-        $azCopyArgs = "copy `"$localFilePath`" `"$destUrl`" --overwrite=true --log-level=ERROR"
-        $uploadProcess = Start-Process -FilePath $toolPath_AzCopy -ArgumentList $azCopyArgs -Wait -PassThru -NoNewWindow
-
-        if ($uploadProcess.ExitCode -ne 0) {
-          $fallos += "$${logUrl}: azcopy exit $($uploadProcess.ExitCode)"
-          Write-Warning "Error subiendo a Blob Storage. Exit Code: $($uploadProcess.ExitCode). Verifica el SAS Token."
-        } else {
-          Write-Output "Subida completada OK."
+      try {
+        # 1) mysqldump a un archivo, mirando su codigo de salida. Antes era
+        #    `mysqldump | gzip` por cmd /c: el codigo de salida de un pipeline es el del ultimo
+        #    comando, asi que un mysqldump caido a medias dejaba un .gz no vacio que se subia
+        #    como si fuera un backup. --result-file (y no `>`) evita que Windows convierta los
+        #    saltos de linea.
+        Write-Output "Ejecutando dump..."
+        $dumpArgs = "-h $mysqlHost -u $mysqlUser --single-transaction --quick --routines --triggers --ssl-mode=REQUIRED --result-file=`"$sqlPath`" $db"
+        $dumpProcess = Start-Process -FilePath $toolPath_MysqlDump -ArgumentList $dumpArgs -Wait -PassThru -NoNewWindow
+        if ($dumpProcess.ExitCode -ne 0) {
+          $fallos += "dump de $${db}: mysqldump exit $($dumpProcess.ExitCode)"
+          Write-Warning "FALLO: mysqldump termino con codigo $($dumpProcess.ExitCode) para $db."
+          continue
         }
-      }
+        # mysqldump cierra el archivo con "-- Dump completed on ..." solo si llego al final.
+        $cola = Get-Content -LiteralPath $sqlPath -Tail 3 -ErrorAction SilentlyContinue
+        if (-not ($cola -match '^-- Dump completed on')) {
+          $fallos += "dump de $${db}: el archivo no termina con '-- Dump completed' (truncado o ausente)"
+          Write-Warning "FALLO: el dump de $db no esta completo."
+          continue
+        }
 
-      Remove-Item $localFilePath -Force
-      Write-Output "Finalizado para $db."
-      Write-Output "------------------------------------"
+        # 2) gzip, con su codigo de salida, y una prueba de integridad (-t) antes de subir.
+        $gzipProcess = Start-Process -FilePath $toolPath_Gzip -ArgumentList "-f `"$sqlPath`"" -Wait -PassThru -NoNewWindow
+        if ($gzipProcess.ExitCode -ne 0 -or !(Test-Path -LiteralPath $localFilePath)) {
+          $fallos += "dump de $${db}: gzip exit $($gzipProcess.ExitCode)"
+          Write-Warning "FALLO: no se pudo comprimir el dump de $db."
+          continue
+        }
+        $testProcess = Start-Process -FilePath $toolPath_Gzip -ArgumentList "-t `"$localFilePath`"" -Wait -PassThru -NoNewWindow
+        if ($testProcess.ExitCode -ne 0) {
+          $fallos += "dump de $${db}: gzip -t exit $($testProcess.ExitCode) (archivo corrupto)"
+          Write-Warning "FALLO: el archivo comprimido de $db no pasa la prueba de integridad."
+          continue
+        }
+
+        $fileSize = (Get-Item -LiteralPath $localFilePath).Length / 1MB
+        Write-Output "Dump generado y verificado: $fileName ($([math]::Round($fileSize, 2)) MB)"
+
+        # monthly/ y yearly/ usan un nombre fijo por periodo, no el timestamp.
+        # Con la cadencia de 2 horas el dia 1 corre 12 veces: con el nombre
+        # timestampeado eso dejaba 12 "mensuales" distintos. Con nombre fijo y
+        # --overwrite=true (ya puesto mas abajo) las 12 pisan el mismo blob y
+        # queda exactamente uno por mes, sin importar cada cuanto corra el
+        # schedule.
+        $monthlyName = "$${db}_$($now.ToString('yyyy-MM')).sql.gz"
+        $yearlyName = "$${db}_$($now.ToString('yyyy')).sql.gz"
+
+        $destinations = @()
+        $dbBaseUrl = "https://$storageAccount.blob.core.windows.net/$containerName/$db"
+        $destinations += "$dbBaseUrl/daily/$fileName"
+        if ($dayOfMonth -eq 1) { $destinations += "$dbBaseUrl/monthly/$monthlyName" }
+        if ($dayOfMonth -eq 1 -and $monthOfYear -eq 1) { $destinations += "$dbBaseUrl/yearly/$yearlyName" }
+
+        foreach ($destUrl in $destinations) {
+          Write-Output "Iniciando subida con AzCopy (identidad administrada) a: $destUrl"
+          $azCopyArgs = "copy `"$localFilePath`" `"$destUrl`" --overwrite=true --log-level=ERROR"
+          $uploadProcess = Start-Process -FilePath $toolPath_AzCopy -ArgumentList $azCopyArgs -Wait -PassThru -NoNewWindow
+
+          if ($uploadProcess.ExitCode -ne 0) {
+            $fallos += "$${destUrl}: azcopy exit $($uploadProcess.ExitCode)"
+            Write-Warning "Error subiendo a Blob Storage. Exit Code: $($uploadProcess.ExitCode). Verificar el rol Storage Blob Data Contributor de la identidad de la VM sobre el contenedor y que la VM llegue a $storageAccount.blob.core.windows.net."
+          } else {
+            Write-Output "Subida completada OK."
+          }
+        }
+
+        Write-Output "Finalizado para $db."
+      } finally {
+        # Se borran siempre, tambien tras un `continue` o una excepcion.
+        Remove-Item -LiteralPath $sqlPath, $localFilePath -Force -ErrorAction SilentlyContinue
+        Write-Output "------------------------------------"
+      }
     }
 
     $env:MYSQL_PWD = $null
+    $env:AZCOPY_AUTO_LOGIN_TYPE = $null
 
     # Sin este throw el job termina en "Completed" aunque no se haya subido
     # nada: Write-Error es non-terminating. El orquestador decide si alertar
