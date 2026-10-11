@@ -111,10 +111,6 @@ variable "stamps" {
     # NAT Gateway con IP fija de salida (modules/network/main.tf). Cambia la salida de TODO el
     # entorno: ver el runbook "Cerrar el origen" de docs/security/.
     nat_gateway_enabled = optional(bool, false)
-
-    # Apagar la clave de cuenta de Storage (modules/storage). true = como hoy. Sólo se pone en
-    # false después de migrar la app, los backups y Terraform; hay un check que lo vigila.
-    storage_shared_access_key_enabled = optional(bool, true)
   }))
 }
 
@@ -284,6 +280,19 @@ variable "blob_managed_identity_enabled" {
   description = "true = la app usa Blob por identidad administrada (AZURE_STORAGE_ACCOUNT_NAME). Ver runbook de Storage en docs/security/endurecimiento-infraestructura-saas-2026-10-09.md."
   type        = bool
   default     = false
+}
+
+# Apagar la clave de cuenta de Storage (modules/storage). true = como hoy. Sólo se pone en false
+# después de migrar la app, los backups y Terraform (docs/security/..., 7.6); un check lo vigila.
+#
+# Es una variable de nivel raíz, como blob_managed_identity_enabled, y NO un atributo de stamps:
+# Checkov no resuelve `each.value.<atributo>` y CKV2_AZURE_41 (Storage con SAS policy) exige ver
+# el valor de shared_access_key_enabled como un literal. Con el valor por un for_each el escaneo
+# falla en CI (2026-10-11) aunque el recurso cumpla. Rige para todos los stamps.
+variable "storage_shared_access_key_enabled" {
+  description = "false = la cuenta de Storage de cada stamp rechaza toda solicitud autorizada con la clave de cuenta, incluidas las SAS firmadas con ella. Antes: app con identidad administrada, backups con la identidad de la VM y Terraform con storage_use_azuread. Rollback: true. Ver docs/security/endurecimiento-infraestructura-saas-2026-10-09.md, 7.6."
+  type        = bool
+  default     = true
 }
 
 variable "resource_lock_enabled" {

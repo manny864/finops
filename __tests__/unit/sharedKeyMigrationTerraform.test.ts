@@ -62,14 +62,20 @@ describe("Shared Key: interruptor del stamp", () => {
 
   it("viene encendido en todos lados: apagarlo es una decisión, no un default", () => {
     expect(stampVars).toMatch(/variable "storage_shared_access_key_enabled"[\s\S]*?default\s*=\s*true/);
-    expect(prodVars).toMatch(/storage_shared_access_key_enabled\s*=\s*optional\(bool,\s*true\)/);
+    expect(prodVars).toMatch(/variable "storage_shared_access_key_enabled"[\s\S]*?default\s*=\s*true/);
     expect(leer(`${TF}/modules/storage/variables.tf`)).toMatch(/variable "shared_access_key_enabled"[\s\S]*?default\s*=\s*true/);
   });
 
   it("el stamp ya no lo fija en true: lo toma de su variable", () => {
     expect(stamp).toMatch(/shared_access_key_enabled\s*=\s*var\.storage_shared_access_key_enabled/);
     expect(stamp).not.toMatch(/shared_access_key_enabled\s*=\s*true/);
-    expect(leer(`${PROD}/main.tf`)).toMatch(/storage_shared_access_key_enabled\s*=\s*each\.value\.storage_shared_access_key_enabled/);
+  });
+
+  it("llega desde una variable de nivel raíz y no desde each.value: Checkov no resuelve for_each y CKV2_AZURE_41 fallaría en CI", () => {
+    const main = leer(`${PROD}/main.tf`);
+    expect(main).toMatch(/storage_shared_access_key_enabled\s*=\s*var\.storage_shared_access_key_enabled/);
+    expect(main).not.toMatch(/storage_shared_access_key_enabled\s*=\s*each\.value/);
+    expect(prodVars).not.toMatch(/storage_shared_access_key_enabled\s*=\s*optional/);
   });
 
   describe.skipIf(!hayTerraform)("el check evaluado con terraform console", () => {
@@ -83,7 +89,7 @@ describe("Shared Key: interruptor del stamp", () => {
           join(dir, "variables.tf"),
           [
             'variable "blob_managed_identity_enabled" {\n  type = bool\n  default = false\n}',
-            'variable "stamps" {\n  type = map(object({ storage_shared_access_key_enabled = bool }))\n  default = { us = { storage_shared_access_key_enabled = true } }\n}',
+            'variable "storage_shared_access_key_enabled" {\n  type = bool\n  default = true\n}',
           ].join("\n"),
         );
         const env: NodeJS.ProcessEnv = { ...process.env };
@@ -106,7 +112,7 @@ describe("Shared Key: interruptor del stamp", () => {
       [true, false, true],
       [true, true, true],
     ])("app con identidad=%s, Shared Key encendida=%s => pasa=%s", (identidad, encendida, pasa) => {
-      const r = evaluar({ blob_managed_identity_enabled: identidad, stamps: { us: { storage_shared_access_key_enabled: encendida } } });
+      const r = evaluar({ blob_managed_identity_enabled: identidad, storage_shared_access_key_enabled: encendida });
       expect(r).toBe(String(pasa));
     });
   });

@@ -242,7 +242,7 @@ module "stamp" {
   security_activity_alerts_enabled   = each.value.security_activity_alerts_enabled
   security_policy_audit_enabled      = each.value.security_policy_audit_enabled
   nat_gateway_enabled                = each.value.nat_gateway_enabled
-  storage_shared_access_key_enabled  = each.value.storage_shared_access_key_enabled
+  storage_shared_access_key_enabled  = var.storage_shared_access_key_enabled
   alert_email                        = var.alert_email
   monthly_budget_amount              = each.value.monthly_budget_amount
   budget_start_date                  = var.budget_start_date
