@@ -344,9 +344,13 @@ stamps = {
     web_min_replicas = 0
     web_max_replicas = 2
 
-    keyvault_create                   = true
-    keyvault_private_endpoint_enabled = true
-    keyvault_network_acls_enabled     = false # primer apply; F1.7 lo pasa a true
+    keyvault_create = true
+    # PRIMER apply: el vault tiene que quedar ABIERTO. Con private endpoint y sin firewall el módulo lo
+    # crea sin acceso público y el runner no puede escribir los secretos (403). Es lo que pasó en el
+    # primer apply real de staging (2026-10-12). Después del primer apply que termina bien, F1.7 pasa
+    # los dos a true.
+    keyvault_private_endpoint_enabled = false
+    keyvault_network_acls_enabled     = false
 
     monthly_budget_amount = 150
     nat_gateway_enabled   = false # F2.5
@@ -405,9 +409,13 @@ az keyvault secret set --vault-name cscs-finops-stg-wus2-kv --name infra-azure-c
 
 Con el firewall ya encendido (F1.7), primero hay que agregar la IP de la persona y después quitarla, como hace el workflow. Los nombres que lee el código son: `infra-azure-client-secret`, `infra-paddle-api-key`, `infra-paddle-webhook-secret`, `infra-recaptcha-secret`, `infra-gemini-api-key`, `infra-azure-marketplace-aad-app-secret`, `infra-redis-password`, `infra-azure-storage-connection-string` e `infra-backup-azure-sas-url`. Cargar sólo los que la prueba necesite.
 
-### F1.7 Segundo apply: firewall del Key Vault
+### F1.7 Segundo apply: private endpoint y firewall del Key Vault
 
-`keyvault_network_acls_enabled = true` en el tfvars de staging, subirlo (F1.4), plan y apply. Desde acá el workflow abre y cierra la IP del runner leyendo `key_vault_names`.
+Sólo después de un primer apply que terminó bien: `keyvault_private_endpoint_enabled = true` y `keyvault_network_acls_enabled = true` en el tfvars de staging, subirlo (F1.4), plan y apply. Desde acá el workflow abre y cierra la IP del runner leyendo `key_vault_names`.
+
+**Lección del primer apply real (2026-10-12):** arrancar con `keyvault_private_endpoint_enabled = true` y el firewall apagado crea el vault sin acceso público y el apply falla con 403 al escribir los secretos. Si ya pasó, `keyvault_network_acls_enabled = true` (con el private endpoint en `true`) devuelve el acceso público con firewall `Deny`; los secretos pueden fallar una vez con `ForbiddenByFirewall` mientras propaga la IP del runner, y un segundo apply converge.
+
+**Otro defecto del primer apply, ya corregido en el código:** MySQL con VNet injection falla con `VnetNotLinkedToPrivateDnsZone` si se crea antes que el enlace de la VNet a la zona DNS privada (carrera que en prod no se notaba). El output `mysql_zone_id` ahora depende del enlace.
 
 ### F1.8 Contingencias (sólo con "sí", y una por vez)
 

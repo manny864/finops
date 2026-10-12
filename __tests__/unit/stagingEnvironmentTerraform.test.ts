@@ -150,3 +150,19 @@ describe("workflow terraform: un ambiente no pisa al otro", () => {
     expect(workflow).toMatch(/environment:\s*\[prod\]/);
   });
 });
+
+// Defectos que sólo aparecen al crear un ambiente desde cero: en prod los recursos ya existen y las
+// carreras o los valores desconocidos no se notan. Los encontró el primer apply de staging (2026-10-12).
+describe("primer apply de un ambiente nuevo", () => {
+  it("MySQL espera al enlace de la VNet con la zona DNS privada, no sólo a la zona", () => {
+    const salida = leer("infra/terraform/modules/private_dns/outputs.tf");
+    const bloque = salida.match(/output "mysql_zone_id" \{[\s\S]*?\n\}/)?.[0] ?? "";
+    expect(bloque).toMatch(/depends_on\s*=\s*\[azurerm_private_dns_zone_virtual_network_link\.this\]/);
+  });
+
+  it("la plantilla arranca con el Key Vault abierto: con private endpoint y sin firewall quedaría sin acceso público", () => {
+    const ejemplo = leer(`${STG}/terraform.tfvars.example`);
+    expect(ejemplo).toMatch(/keyvault_private_endpoint_enabled\s*=\s*false/);
+    expect(ejemplo).toMatch(/keyvault_network_acls_enabled\s*=\s*false/);
+  });
+});

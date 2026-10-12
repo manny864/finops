@@ -43,9 +43,13 @@ stamps = {
     web_min_replicas = 0
     web_max_replicas = 2
 
-    keyvault_create                   = true
-    keyvault_private_endpoint_enabled = true
-    keyvault_network_acls_enabled     = false # primer apply; F1.7 lo pasa a true
+    keyvault_create = true
+    # PRIMER apply de un ambiente nuevo: el vault tiene que quedar ABIERTO. Con private endpoint y sin
+    # firewall el módulo lo crea sin acceso público, y el runner (sin ruta a la VNet) no puede escribir
+    # los secretos: 403. El workflow sólo sabe abrir la IP del runner cuando el vault ya existe en el
+    # state. Después del primer apply que termina bien, los dos pasan a true (F1.7).
+    keyvault_private_endpoint_enabled = false
+    keyvault_network_acls_enabled     = false
 
     monthly_budget_amount = 150
     nat_gateway_enabled   = false # F2.5
