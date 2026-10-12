@@ -5,9 +5,12 @@ import { describe, expect, it } from "vitest";
  * Auditoría del servidor MySQL (hallazgo H-04 de docs/security/auditoria-terraform-2026-10-11.md).
  * Sin ella no queda registro de quién se conectó ni de los DDL y los cambios de permisos. Es un
  * interruptor que viene APAGADO: se ensaya en staging y recién después se enciende en prod, porque suma
- * ingesta de logs. Estos tests cuidan que:
+ * ingesta de logs. El interruptor tiene TRES estados (unmanaged / on / off) por el rollback: el
+ * validador del apply sólo perdona un `delete`, y apagar la auditoría borrando dos parámetros quedaría
+ * bloqueado; pasar de `on` a `off` es un update. Estos tests cuidan que:
  *
- *  - apagado no crea nada (prod no cambia hasta decidirlo);
+ *  - `unmanaged` (el valor por defecto) no crea nada: prod no cambia hasta decidirlo;
+ *  - `off` NO borra los parámetros: apagar es un update, no un delete;
  *  - las clases de evento son válidas para Azure y son las de seguridad, no las de volumen;
  *  - el interruptor llega desde el mapa `stamps` hasta el módulo.
  */
@@ -25,14 +28,24 @@ describe("recursos de auditoría del módulo mysql", () => {
   const habilitado = bloque("audit_log_enabled");
   const eventos = bloque("audit_log_events");
 
-  it("apagado no crea nada: los dos parámetros llevan count condicionado al interruptor", () => {
-    expect(habilitado).toMatch(/count\s*=\s*var\.audit_log_enabled \? 1 : 0/);
-    expect(eventos).toMatch(/count\s*=\s*var\.audit_log_enabled \? 1 : 0/);
+  it("`unmanaged` no crea nada: los dos parámetros llevan count 0 sólo en ese estado", () => {
+    expect(habilitado).toMatch(/count\s*=\s*var\.audit_log_mode == "unmanaged" \? 0 : 1/);
+    expect(eventos).toMatch(/count\s*=\s*var\.audit_log_mode == "unmanaged" \? 0 : 1/);
   });
 
-  it("usan los nombres de parámetro de Azure y prenden con ON", () => {
+  // Regresión del rollback: con un booleano, apagar = count 0 = dos deletes, y el validador del apply
+  // sólo deja pasar uno. `off` tiene que mantener los recursos y cambiar el valor.
+  it("`off` mantiene los recursos y sólo cambia el valor a OFF (apagar es un update, no dos deletes)", () => {
+    expect(habilitado).not.toMatch(/count\s*=\s*var\.audit_log_mode == "on"/);
+    expect(habilitado).toMatch(/value\s*=\s*var\.audit_log_mode == "on" \? "ON" : "OFF"/);
+  });
+
+  it("el modo sólo admite unmanaged, on y off", () => {
+    expect(mysqlVars).toMatch(/variable "audit_log_mode"[\s\S]*?contains\(\["unmanaged", "on", "off"\], var\.audit_log_mode\)/);
+  });
+
+  it("usan los nombres de parámetro de Azure", () => {
     expect(habilitado).toMatch(/name\s*=\s*"audit_log_enabled"/);
-    expect(habilitado).toMatch(/value\s*=\s*"ON"/);
     expect(eventos).toMatch(/name\s*=\s*"audit_log_events"/);
     expect(eventos).toMatch(/value\s*=\s*var\.audit_log_events/);
   });
@@ -44,10 +57,10 @@ describe("recursos de auditoría del módulo mysql", () => {
 });
 
 describe("valores por defecto", () => {
-  it("la auditoría viene apagada en el módulo, en el stamp y en el mapa stamps del root", () => {
-    expect(mysqlVars).toMatch(/variable "audit_log_enabled"[\s\S]*?default\s*=\s*false/);
-    expect(leer(`${TF}/modules/stamp/variables.tf`)).toMatch(/variable "mysql_audit_log_enabled"[\s\S]*?default\s*=\s*false/);
-    expect(leer(`${TF}/environments/prod/variables.tf`)).toMatch(/mysql_audit_log_enabled\s*=\s*optional\(bool, false\)/);
+  it("la auditoría viene sin gestionar en el módulo, en el stamp y en el mapa stamps del root", () => {
+    expect(mysqlVars).toMatch(/variable "audit_log_mode"[\s\S]*?default\s*=\s*"unmanaged"/);
+    expect(leer(`${TF}/modules/stamp/variables.tf`)).toMatch(/variable "mysql_audit_log_mode"[\s\S]*?default\s*=\s*"unmanaged"/);
+    expect(leer(`${TF}/environments/prod/variables.tf`)).toMatch(/mysql_audit_log_mode\s*=\s*optional\(string, "unmanaged"\)/);
   });
 
   const porDefecto = mysqlVars.match(/variable "audit_log_events"[\s\S]*?default\s*=\s*"([^"]+)"/)?.[1] ?? "";
@@ -70,14 +83,14 @@ describe("valores por defecto", () => {
 
 describe("cableado hasta el módulo", () => {
   it("el stamp pasa el interruptor al módulo mysql", () => {
-    expect(leer(`${TF}/modules/stamp/main.tf`)).toMatch(/audit_log_enabled\s*=\s*var\.mysql_audit_log_enabled/);
+    expect(leer(`${TF}/modules/stamp/main.tf`)).toMatch(/audit_log_mode\s*=\s*var\.mysql_audit_log_mode/);
   });
 
   it("el root lo toma del mapa stamps", () => {
-    expect(leer(`${TF}/environments/prod/main.tf`)).toMatch(/mysql_audit_log_enabled\s*=\s*each\.value\.mysql_audit_log_enabled/);
+    expect(leer(`${TF}/environments/prod/main.tf`)).toMatch(/mysql_audit_log_mode\s*=\s*each\.value\.mysql_audit_log_mode/);
   });
 
   it("la plantilla de staging lo enciende (se ensaya ahí antes que en prod)", () => {
-    expect(leer(`${TF}/environments/staging/terraform.tfvars.example`)).toMatch(/mysql_audit_log_enabled\s*=\s*true/);
+    expect(leer(`${TF}/environments/staging/terraform.tfvars.example`)).toMatch(/mysql_audit_log_mode\s*=\s*"on"/);
   });
 });

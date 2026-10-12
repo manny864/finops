@@ -77,15 +77,25 @@ variable "enable_delete_lock" {
   default     = true
 }
 
-variable "audit_log_enabled" {
+variable "audit_log_mode" {
   description = <<-DESC
-    Activa el registro de auditoría del servidor (parámetros audit_log_enabled y audit_log_events).
-    Apagado por defecto: encenderlo en un ambiente es una decisión, porque suma ingesta de logs.
-    Los registros salen por el diagnostic setting `allLogs` del servidor (categoría MySqlAuditLogs, tabla
-    AzureDiagnostics del workspace). Ambos parámetros son dinámicos: no reinician el servidor.
+    Auditoría del servidor (parámetros audit_log_enabled y audit_log_events), en tres estados:
+      unmanaged  no se gestionan (no crea nada: es lo que tiene prod hasta decidirlo);
+      on         audit_log_enabled = ON;
+      off        audit_log_enabled = OFF, los parámetros siguen gestionados.
+    Los tres estados existen por el ROLLBACK: pasar de `on` a `off` es un update en el lugar. Volver a
+    `unmanaged` borra los dos parámetros, y el validador del apply (scripts/validate-terraform-apply-plan.mjs)
+    sólo perdona UN delete: apagar la auditoría con un booleano habría quedado bloqueado.
+    Los registros salen por el diagnostic setting `allLogs` (categoría MySqlAuditLogs, tabla AzureDiagnostics).
+    Ambos parámetros son dinámicos: no reinician el servidor.
   DESC
-  type        = bool
-  default     = false
+  type        = string
+  default     = "unmanaged"
+
+  validation {
+    condition     = contains(["unmanaged", "on", "off"], var.audit_log_mode)
+    error_message = "audit_log_mode debe ser unmanaged, on u off."
+  }
 }
 
 variable "audit_log_events" {

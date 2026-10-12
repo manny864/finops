@@ -48,7 +48,7 @@ variable "stamps" {
     mysql_backup_retention_days = optional(number, 14)
     mysql_geo_redundant_backup  = optional(bool, false)
     mysql_high_availability     = optional(bool, false)
-    mysql_audit_log_enabled     = optional(bool, false)
+    mysql_audit_log_mode        = optional(string, "unmanaged")
 
     # Azure Backup (Data Protection Backup Vault) — contención adicional,
     # ver modules/stamp/main.tf.

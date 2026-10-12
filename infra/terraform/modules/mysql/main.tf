@@ -67,17 +67,17 @@ resource "azurerm_mysql_flexible_server_configuration" "require_tls" {
 # Los dos parámetros son dinámicos (no reinician). Se encadenan porque Azure serializa los cambios de
 # parámetros del servidor y dos en paralelo pueden chocar con ServerIsBusy.
 resource "azurerm_mysql_flexible_server_configuration" "audit_log_enabled" {
-  count               = var.audit_log_enabled ? 1 : 0
+  count               = var.audit_log_mode == "unmanaged" ? 0 : 1
   name                = "audit_log_enabled"
   resource_group_name = var.resource_group_name
   server_name         = azurerm_mysql_flexible_server.this.name
-  value               = "ON"
+  value               = var.audit_log_mode == "on" ? "ON" : "OFF"
 
   depends_on = [azurerm_mysql_flexible_server_configuration.require_tls]
 }
 
 resource "azurerm_mysql_flexible_server_configuration" "audit_log_events" {
-  count               = var.audit_log_enabled ? 1 : 0
+  count               = var.audit_log_mode == "unmanaged" ? 0 : 1
   name                = "audit_log_events"
   resource_group_name = var.resource_group_name
   server_name         = azurerm_mysql_flexible_server.this.name

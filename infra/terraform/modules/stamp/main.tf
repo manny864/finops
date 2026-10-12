@@ -192,7 +192,7 @@ module "mysql" {
   backup_retention_days        = var.mysql_backup_retention_days
   geo_redundant_backup_enabled = var.mysql_geo_redundant_backup
   high_availability            = var.mysql_high_availability
-  audit_log_enabled            = var.mysql_audit_log_enabled
+  audit_log_mode               = var.mysql_audit_log_mode
   subnet_id                    = module.network.mysql_subnet_id
   private_dns_zone_id          = module.private_dns.mysql_zone_id
   enable_delete_lock           = var.enable_delete_lock

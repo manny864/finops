@@ -443,8 +443,8 @@ variable "tags" {
   type = map(string)
 }
 
-variable "mysql_audit_log_enabled" {
-  description = "Auditoría del servidor MySQL (modules/mysql). Apagada por defecto: suma ingesta de logs."
-  type        = bool
-  default     = false
+variable "mysql_audit_log_mode" {
+  description = "Auditoría del servidor MySQL (modules/mysql): unmanaged (por defecto, no gestiona nada), on u off. Ver el módulo."
+  type        = string
+  default     = "unmanaged"
 }

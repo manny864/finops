@@ -179,7 +179,7 @@ module "stamp" {
   mysql_backup_retention_days = each.value.mysql_backup_retention_days
   mysql_geo_redundant_backup  = each.value.mysql_geo_redundant_backup
   mysql_high_availability     = each.value.mysql_high_availability
-  mysql_audit_log_enabled     = each.value.mysql_audit_log_enabled
+  mysql_audit_log_mode        = each.value.mysql_audit_log_mode
 
   mysql_backup_vault_enabled        = each.value.mysql_backup_vault_enabled
   mysql_backup_vault_redundancy     = each.value.mysql_backup_vault_redundancy
