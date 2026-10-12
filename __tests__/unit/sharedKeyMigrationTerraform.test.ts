@@ -182,7 +182,9 @@ describe("runbook worker de backups: sube con identidad administrada", () => {
     expect(bloque).toMatch(/ignore_changes\s*=\s*\[runbook_type, tags, content\]/);
   });
 
-  describe.skipIf(!hayPwsh || !rutaGzip)("renderizado y ejecutado con PowerShell", () => {
+  // Cada caso lanza PowerShell de verdad: tarda 1,5 a 2,3 s en una máquina quieta y en el runner de CI, cargado, un caso pasó
+  // de los 5 s por defecto (2026-10-12, run 38290537594) y rompió el CI de main sin que nada hubiera cambiado.
+  describe.skipIf(!hayPwsh || !rutaGzip)("renderizado y ejecutado con PowerShell", { timeout: 60_000 }, () => {
     function correr(escenario: { dump?: "ok" | "falla" | "truncado"; azcopyExit?: number; cuenta?: string; sinMysqldump?: boolean; sinAzcopy?: boolean }) {
       const dir = mkdtempSync(join(tmpdir(), "worker-backup-test-"));
       try {
