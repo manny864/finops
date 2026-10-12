@@ -76,3 +76,27 @@ variable "enable_delete_lock" {
   description = "Aplica bloqueo CanNotDelete contra borrado accidental del servidor MySQL"
   default     = true
 }
+
+variable "audit_log_enabled" {
+  description = <<-DESC
+    Activa el registro de auditoría del servidor (parámetros audit_log_enabled y audit_log_events).
+    Apagado por defecto: encenderlo en un ambiente es una decisión, porque suma ingesta de logs.
+    Los registros salen por el diagnostic setting `allLogs` del servidor (categoría MySqlAuditLogs, tabla
+    AzureDiagnostics del workspace). Ambos parámetros son dinámicos: no reinician el servidor.
+  DESC
+  type        = bool
+  default     = false
+}
+
+variable "audit_log_events" {
+  description = <<-DESC
+    Clases de evento a auditar (audit_log_events). CONNECTION_V2 incluye los intentos de conexión
+    FALLIDOS con su código de error, que CONNECTION no registra: es la señal contra fuerza bruta.
+    DDL y DCL (cambios de esquema y de permisos) son de bajo volumen. Se deja afuera ADMIN (incluye
+    `SHOW STATUS`), DML y GENERAL: mucho volumen y poco valor de seguridad. Valores admitidos, leídos de
+    `az mysql flexible-server parameter show -n audit_log_events`: DDL, DML_SELECT, DML_NONSELECT, DCL,
+    ADMIN, DML, GENERAL, CONNECTION, CONNECTION_V2, TABLE_ACCESS.
+  DESC
+  type        = string
+  default     = "CONNECTION_V2,DDL,DCL"
+}

@@ -62,6 +62,30 @@ resource "azurerm_mysql_flexible_server_configuration" "require_tls" {
   value               = "ON"
 }
 
+# Auditoría del servidor (hallazgo H-04 de docs/security/auditoria-terraform-2026-10-11.md): sin ella
+# no queda registro de quién se conectó, ni de los DDL y los cambios de permisos. Apagada por defecto.
+# Los dos parámetros son dinámicos (no reinician). Se encadenan porque Azure serializa los cambios de
+# parámetros del servidor y dos en paralelo pueden chocar con ServerIsBusy.
+resource "azurerm_mysql_flexible_server_configuration" "audit_log_enabled" {
+  count               = var.audit_log_enabled ? 1 : 0
+  name                = "audit_log_enabled"
+  resource_group_name = var.resource_group_name
+  server_name         = azurerm_mysql_flexible_server.this.name
+  value               = "ON"
+
+  depends_on = [azurerm_mysql_flexible_server_configuration.require_tls]
+}
+
+resource "azurerm_mysql_flexible_server_configuration" "audit_log_events" {
+  count               = var.audit_log_enabled ? 1 : 0
+  name                = "audit_log_events"
+  resource_group_name = var.resource_group_name
+  server_name         = azurerm_mysql_flexible_server.this.name
+  value               = var.audit_log_events
+
+  depends_on = [azurerm_mysql_flexible_server_configuration.audit_log_enabled]
+}
+
 # Bloqueo contra borrado accidental (Resource Lock - CanNotDelete)
 resource "azurerm_management_lock" "mysql_delete_lock" {
   count      = var.enable_delete_lock ? 1 : 0

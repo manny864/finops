@@ -278,10 +278,12 @@ resource "azurerm_mysql_flexible_server_configuration" "audit_log_events" {
   name                = "audit_log_events"
   resource_group_name = var.resource_group_name
   server_name         = azurerm_mysql_flexible_server.this.name
-  value               = "CONNECTION,DDL,DCL,ADMIN"
+  value               = "CONNECTION_V2,DDL,DCL"
   depends_on          = [azurerm_mysql_flexible_server_configuration.audit_log_enabled]
 }
 ```
+
+> **Corrección del 2026-10-12, tras leer la doc de Microsoft (`concepts-audit-logs`) y ensayarlo en staging:** la propuesta original usaba `CONNECTION` y `ADMIN`. `CONNECTION` **no** registra los intentos de conexión fallidos; `CONNECTION_V2` sí, con su código de error (la señal contra fuerza bruta). `ADMIN` incluye `SHOW STATUS` y mete mucho ruido con poco valor de seguridad. Quedó `CONNECTION_V2,DDL,DCL`, detrás de un interruptor apagado por defecto (`mysql_audit_log_enabled` en `stamps`): ver `modules/mysql` y `__tests__/unit/mysqlAuditTerraform.test.ts`.
 
 ```sql
 -- Usuario de backup, fuera de Terraform. Su contraseña va a Key Vault y a MYSQL_PASS de Automation.

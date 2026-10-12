@@ -442,3 +442,9 @@ variable "document_intelligence_enabled" {
 variable "tags" {
   type = map(string)
 }
+
+variable "mysql_audit_log_enabled" {
+  description = "Auditoría del servidor MySQL (modules/mysql). Apagada por defecto: suma ingesta de logs."
+  type        = bool
+  default     = false
+}
