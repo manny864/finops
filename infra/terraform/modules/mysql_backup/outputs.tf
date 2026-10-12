@@ -36,11 +36,6 @@ output "office365_connection_authorize_url" {
   value       = "https://portal.azure.com/#@/resource${azurerm_api_connection.office365.id}"
 }
 
-output "sas_expiry_warning" {
-  description = "Fecha en la que vence el SAS del contenedor de backups. Agendar renovación antes de esta fecha."
-  value       = time_rotating.sas_reference.rotation_rfc3339
-}
-
 output "next_manual_steps" {
   description = "Lo que Terraform NO puede automatizar — hacer una sola vez después del apply."
   value       = <<-EOT

@@ -99,13 +99,6 @@ variable "storage_account_name" {
   type = string
 }
 
-# Sólo para firmar la SAS que todavía usa el runbook publicado. Se retira junto con ella
-# (la VM sube con su identidad administrada): ver docs/security/, 7.6.
-variable "storage_account_primary_connection_string" {
-  sensitive = true
-  type      = string
-}
-
 variable "storage_container_name" {
   type    = string
   default = "db-backups"
@@ -114,12 +107,6 @@ variable "storage_container_name" {
 variable "storage_container_resource_id" {
   description = "ID de Resource Manager del contenedor de backups (azurerm_storage_container.backups.resource_manager_id). Sobre él recibe la VM el rol Storage Blob Data Contributor: con él AzCopy sube con la identidad administrada, sin SAS ni clave de cuenta."
   type        = string
-}
-
-variable "sas_validity_years" {
-  description = "El manual original fija 5 años y deja una advertencia manual para renovarlo. Se mantiene el mismo mecanismo (Terraform no puede auto-rotar un SAS sin recrear el recurso), documentado en el output sas_expiry_warning."
-  type        = number
-  default     = 3
 }
 
 # --- Key Vault existente (para guardar la password del admin de la VM) ---

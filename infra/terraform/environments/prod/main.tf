@@ -299,9 +299,8 @@ module "mysql_backup" {
   mysql_admin_password = module.stamp[var.default_stamp].mysql_admin_password
   mysql_database_names = [var.stamps[var.default_stamp].mysql_database_name]
 
-  storage_account_name                      = module.stamp[var.default_stamp].storage_account_name
-  storage_account_primary_connection_string = module.stamp[var.default_stamp].storage_account_primary_connection_string
-  storage_container_resource_id             = module.stamp[var.default_stamp].backups_container_resource_manager_id
+  storage_account_name          = module.stamp[var.default_stamp].storage_account_name
+  storage_container_resource_id = module.stamp[var.default_stamp].backups_container_resource_manager_id
 
   key_vault_id = module.stamp[var.default_stamp].key_vault_id
 

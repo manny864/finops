@@ -137,8 +137,8 @@ describe("Blob por identidad administrada: interruptor del stamp", () => {
     expect(stamp.match(/AZURE_STORAGE_ACCOUNT_NAME\s*=/g)).toHaveLength(1);
   });
 
-  it("va después de extra_env_vars y no reemplaza la connection string (el rollback es apagar el flag)", () => {
+  it("va después de extra_env_vars; la connection string ya no está (fase 5 de C-01): la app entra por identidad administrada", () => {
     expect(stamp).toMatch(/var\.extra_env_vars,[^)]*local\.blob_managed_identity_env\)/);
-    expect(stamp).toContain('AZURE_STORAGE_CONNECTION_STRING       = "storage-connection-string"');
+    expect(stamp).not.toContain("AZURE_STORAGE_CONNECTION_STRING");
   });
 });

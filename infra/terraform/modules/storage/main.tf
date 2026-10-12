@@ -2,10 +2,10 @@
 # VPS. El filesystem de un contenedor en Container Apps es efímero, así que los
 # adjuntos de soporte y los logos de tenant no pueden quedarse en disco local.
 #
-# No hace falta cambiar código: src/lib/supportAttachments.ts y
-# src/lib/tenantLogo.ts ya conmutan a Blob cuando isBlobStorageEnabled()
-# (src/lib/azureBlobStorage.ts) ve AZURE_STORAGE_CONNECTION_STRING. Lo único
-# pendiente es copiar los archivos que hoy están en data/.
+# La app conmuta a Blob cuando isBlobStorageEnabled() (src/lib/azureBlobStorage.ts) ve
+# AZURE_STORAGE_ACCOUNT_NAME: entra con la identidad administrada (Storage Blob Data Contributor)
+# y no usa la clave de la cuenta, que está apagada (storage_shared_access_key_enabled = false).
+# El fallback con AZURE_STORAGE_CONNECTION_STRING sólo existe para desarrollo local y Docker.
 resource "azurerm_storage_account" "this" {
   # Storage Account: sólo minúsculas y números, máximo 24. De ahí la variante
   # compacta de la convención.

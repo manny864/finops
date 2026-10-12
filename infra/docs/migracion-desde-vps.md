@@ -78,8 +78,10 @@ Verificar contra el VPS: `SELECT COUNT(*)` de `Tenants`, `CostSnapshots`,
 
 No hay cambio de código: `src/lib/supportAttachments.ts` y
 `src/lib/tenantLogo.ts` ya conmutan a Blob cuando `isBlobStorageEnabled()` ve
-`AZURE_STORAGE_CONNECTION_STRING`, que Terraform inyecta como secret. Sólo hay
-que copiar lo que ya existe:
+`AZURE_STORAGE_ACCOUNT_NAME`: la app entra con su identidad administrada, porque la
+clave de la cuenta está apagada y la connection string ya no existe (fase 5 de C-01).
+Quien suba los archivos necesita el rol Storage Blob Data Contributor. Sólo hay que
+copiar lo que ya existe:
 
 ```bash
 ACCOUNT=$(terraform output -raw storage_accounts | ...)   # o del portal

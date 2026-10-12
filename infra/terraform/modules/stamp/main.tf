@@ -468,14 +468,12 @@ locals {
   app_secrets = {
     db-password                   = random_password.mysql.result
     redis-password                = module.redis.primary_access_key
-    storage-connection-string     = module.storage.primary_connection_string
     appinsights-connection-string = module.monitoring.appinsights_connection_string
   }
 
   app_secret_env = {
     DB_PASSWORD                           = "db-password"
     REDIS_PASSWORD                        = "redis-password"
-    AZURE_STORAGE_CONNECTION_STRING       = "storage-connection-string"
     APPLICATIONINSIGHTS_CONNECTION_STRING = "appinsights-connection-string"
   }
 }

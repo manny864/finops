@@ -14,11 +14,6 @@ output "backups_container_resource_manager_id" {
   value = "${azurerm_storage_account.this.id}/blobServices/default/containers/${azurerm_storage_container.backups.name}"
 }
 
-output "primary_connection_string" {
-  value     = azurerm_storage_account.this.primary_connection_string
-  sensitive = true
-}
-
 output "blob_endpoint" {
   value = azurerm_storage_account.this.primary_blob_endpoint
 }

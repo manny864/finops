@@ -432,47 +432,38 @@ resource "azurerm_role_assignment" "automation_backups_blob_contributor" {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# SAS del contenedor destino (Fase 3.3 del manual) — generado por Terraform en
-# vez de a mano en el Portal, para que quede versionado y sea reproducible.
-# Mismos permisos que el manual: lectura, escritura, eliminación, lista,
-# agregado, creación (r/w/d/l/a/c).
+# Fase 5 de C-01 (docs/security/endurecimiento-infraestructura-saas-2026-10-09.md, 7.6):
+# la SAS del contenedor destino ya no existe. Se firmaba con la clave de la cuenta, y desde
+# la fase 4 la cuenta rechaza cualquier pedido autorizado con clave (incluida una SAS firmada
+# con ella). Los backups suben con la identidad administrada de la Automation Account.
 #
-# ADVERTENCIA (igual que el manual original): un SAS no se auto-rota. Vence en
-# sas_validity_years años desde el apply — agendar su renovación antes de esa
-# fecha (ver output sas_expiry_warning). Renovarlo es sólo bump de
-# sas_validity_years o un `terraform apply` que regenere el time_rotating de
-# abajo; no hace falta recrear ningún otro recurso.
+# Los tres recursos de abajo vivían en el state: se sueltan SIN destruir. El validador del
+# apply sólo deja pasar un `delete` (el del input `replace`), y `time_static` / `time_rotating`
+# no tienen nada que borrar en Azure. La variable cifrada STORAGE_SAS_TOKEN de la Automation
+# Account queda en Azure con un token ya inservible hasta que una persona la borre:
+#   az rest --method delete --url ".../automationAccounts/aa-mysql-backups/variables/STORAGE_SAS_TOKEN?api-version=2023-11-01"
 # ─────────────────────────────────────────────────────────────────────────────
+removed {
+  from = time_static.sas_start
 
-# `start`/`expiry` NO pueden depender de timestamp(): timestamp() es "ahora"
-# en CADA plan, así que el SAS calculado (y con él
-# azurerm_automation_variable_string.storage_sas_token) cambiaría de valor en
-# cada plan aunque nada haya cambiado de verdad — drift perpetuo. time_static
-# ancla el "start" al momento del primer apply y no se vuelve a mover (a
-# diferencia de timestamp()); time_rotating hace lo mismo para el "expiry",
-# pero SÍ avanza cuando se cumple rotation_years — así el SAS es estable
-# mientras es válido y se recalcula solo cuando corresponde renovarlo.
-resource "time_static" "sas_start" {}
-
-resource "time_rotating" "sas_reference" {
-  rotation_years = var.sas_validity_years
+  lifecycle {
+    destroy = false
+  }
 }
 
-data "azurerm_storage_account_blob_container_sas" "backups" {
-  connection_string = var.storage_account_primary_connection_string
-  container_name    = var.storage_container_name
-  https_only        = true
+removed {
+  from = time_rotating.sas_reference
 
-  start  = time_static.sas_start.rfc3339
-  expiry = time_rotating.sas_reference.rotation_rfc3339
+  lifecycle {
+    destroy = false
+  }
+}
 
-  permissions {
-    read   = true
-    write  = true
-    delete = true
-    list   = true
-    add    = true
-    create = true
+removed {
+  from = azurerm_automation_variable_string.storage_sas_token
+
+  lifecycle {
+    destroy = false
   }
 }
 
@@ -509,14 +500,6 @@ resource "azurerm_automation_variable_string" "storage_account_name" {
   resource_group_name     = azurerm_resource_group.this.name
   automation_account_name = azurerm_automation_account.this.name
   value                   = var.storage_account_name
-  encrypted               = true
-}
-
-resource "azurerm_automation_variable_string" "storage_sas_token" {
-  name                    = "STORAGE_SAS_TOKEN"
-  resource_group_name     = azurerm_resource_group.this.name
-  automation_account_name = azurerm_automation_account.this.name
-  value                   = data.azurerm_storage_account_blob_container_sas.backups.sas
   encrypted               = true
 }
 

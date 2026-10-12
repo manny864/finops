@@ -331,3 +331,50 @@ describe("runbook worker de backups: sube con identidad administrada", () => {
     });
   });
 });
+
+// Fase 5 de C-01: con Shared Key apagada, la clave de la cuenta ya no puede firmar ni transportar
+// nada. Estos tests impiden que la SAS o la connection string vuelvan por un copiar y pegar, y que
+// el apply se frene por borrar tres recursos que el validador no perdona.
+describe("fase 5: la SAS y la connection string de la cuenta ya no existen en el código", () => {
+  const backup = leer(`${TF}/modules/mysql_backup/main.tf`);
+  const backupVars = leer(`${TF}/modules/mysql_backup/variables.tf`);
+  const backupOut = leer(`${TF}/modules/mysql_backup/outputs.tf`);
+  const stamp = leer(`${TF}/modules/stamp/main.tf`);
+
+  it("el módulo de backups no firma ninguna SAS ni la guarda en Automation", () => {
+    expect(backup).not.toMatch(/data "azurerm_storage_account_blob_container_sas"/);
+    expect(backup).not.toMatch(/resource "time_static" "sas_start"/);
+    expect(backup).not.toMatch(/resource "time_rotating" "sas_reference"/);
+    expect(backup).not.toMatch(/resource "azurerm_automation_variable_string" "storage_sas_token"/);
+    expect(backupVars).not.toMatch(/storage_account_primary_connection_string|sas_validity_years/);
+    expect(backupOut).not.toMatch(/sas_expiry_warning/);
+  });
+
+  // El validador del apply sólo perdona UN delete (el del input `replace`). Sin estos `removed`, sacar
+  // los tres recursos del código los destruiría y el apply se frenaría; con destroy = false se sueltan
+  // del state y la variable cifrada de Automation la borra una persona (ver el comentario en main.tf).
+  it.each([
+    ["time_static", "sas_start"],
+    ["time_rotating", "sas_reference"],
+    ["azurerm_automation_variable_string", "storage_sas_token"],
+  ])("%s.%s se suelta del state sin destruir (removed con destroy = false)", (tipo, nombre) => {
+    const bloque = new RegExp(`removed \\{\\s*from\\s*=\\s*${tipo}\\.${nombre}\\s*lifecycle \\{\\s*destroy\\s*=\\s*false\\s*\\}\\s*\\}`);
+    expect(backup).toMatch(bloque);
+  });
+
+  it("ningún output ni argumento arrastra la connection string de la cuenta", () => {
+    expect(leer(`${TF}/modules/storage/outputs.tf`)).not.toContain("primary_connection_string");
+    expect(leer(`${TF}/modules/stamp/outputs.tf`)).not.toContain("primary_connection_string");
+    expect(leer(`${PROD}/main.tf`)).not.toContain("primary_connection_string");
+  });
+
+  it("el app ya no recibe la connection string como secreto ni como variable de entorno", () => {
+    expect(stamp).not.toContain("storage-connection-string");
+    expect(stamp).not.toContain("AZURE_STORAGE_CONNECTION_STRING");
+  });
+
+  it("el mapeo de Key Vault y el script de migración tampoco la conocen", () => {
+    expect(leer("src/lib/secrets/infraSecrets.ts")).not.toMatch(/azure-storage-connection-string|AZURE_STORAGE_CONNECTION_STRING/);
+    expect(leer("scripts/migrate-infra-secrets-to-kv.ts")).not.toContain("AZURE_STORAGE_CONNECTION_STRING");
+  });
+});

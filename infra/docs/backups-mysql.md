@@ -22,7 +22,7 @@ schedule "daily-backup" (Hour/2)
         ├─ se asegura de que vm-mysql-worker esté encendida (Start-AzVM)
         ├─ espera a que el Hybrid Worker haga polling
         ├─ lanza Backup-MySQL-Smart    (en la VM, grupo hwg-mysql-worker)
-        │     └─ mysqldump | gzip  →  azcopy con SAS  →  db-backups/
+        │     └─ mysqldump | gzip  →  azcopy (identidad de la Automation Account)  →  db-backups/
         └─ monitorea con tope de tiempo
 ```
 
@@ -129,7 +129,8 @@ de un job.
 | Variable | Origen |
 |---|---|
 | `MYSQL_HOST` / `MYSQL_USER` / `MYSQL_PASS` | stamp |
-| `STORAGE_ACCOUNT_NAME` / `STORAGE_SAS_TOKEN` | stamp + data source del SAS |
+| `STORAGE_ACCOUNT_NAME` | stamp |
+| ~~`STORAGE_SAS_TOKEN`~~ | retirada en la fase 5 de C-01: la cuenta rechaza claves y SAS firmadas con ella. Si todavía aparece en la Automation Account es un resto inservible: borrarla |
 | `ALERT_WEBHOOK_URL` | `listCallbackUrl` de la Logic App |
 | `TEAMS_WEBHOOK_URL` | `teams_webhook_url`, vía el secret `TF_VARS_PROD` |
 
@@ -149,7 +150,7 @@ mirar el blob:
 
 ```bash
 az storage blob list --account-name cscsfinopsprodwestus2sa -c db-backups \
-  --sas-token "$SAS" --query "[].{n:name,m:properties.lastModified}" -o tsv | sort -k2 | tail -5
+  --auth-mode login --query "[].{n:name,m:properties.lastModified}" -o tsv | sort -k2 | tail -5
 ```
 
 ## Qué falta

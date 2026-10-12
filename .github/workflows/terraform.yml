@@ -117,13 +117,14 @@ jobs:
           #    asociado al container — limitación de la herramienta, no
           #    ausencia de logging. Verificado 2026-07-29: sin el diagnostic
           #    setting Y sin el skip, sigue marcando FAILED igual.
-          #  CKV2_AZURE_40 — Storage del stamp con Shared Key habilitada: la
-          #    app todavía usa AZURE_STORAGE_CONNECTION_STRING. El código para
-          #    pasar a identidad administrada ya existe
-          #    (src/lib/azureBlobStorage.ts, ManagedIdentityCredential) y se activa
-          #    con blob_managed_identity_enabled; faltan los backups (SAS firmada
-          #    con la clave) y el provider de Terraform. Ver
-          #    docs/security/endurecimiento-infraestructura-saas-2026-10-09.md.
+          #  CKV2_AZURE_40 — Shared Key en la cuenta de Storage del stamp. En prod y
+          #    en staging está APAGADA (storage_shared_access_key_enabled = false en
+          #    TF_VARS; fase 4 de C-01, 2026-10-12) y la app, los backups y Terraform ya
+          #    entran por Entra ID. Sigue en la lista porque el job de scan no tiene los
+          #    tfvars (viven en un secret) y Checkov ve el default de la variable, que
+          #    sigue en true para que apagarla sea una decisión explícita de cada
+          #    ambiente. Si algún día el default pasa a false, se puede sacar de acá.
+          #    Ver docs/security/endurecimiento-infraestructura-saas-2026-10-09.md, 7.6.
           #  CKV2_AZURE_56 — MySQL Flexible sin private endpoint: usa VNet
           #    injection (delegated_subnet_id) en su lugar, que deja el
           #    servidor igual de privado sin pagar el PE — Checkov sólo
