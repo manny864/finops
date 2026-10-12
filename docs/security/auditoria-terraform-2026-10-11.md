@@ -295,7 +295,7 @@ GRANT SELECT, SHOW VIEW, TRIGGER ON finops.* TO 'finops_backup'@'%';
 
 - **Documentación de la Mejora:** la auditoría aumenta la ingesta de Log Analytics, porque el diagnóstico `allLogs` ya envía `MySqlAuditLogs`; hay que mirar el tope diario (L-04). El usuario de backup exige agregar `--no-tablespaces` al worker y volver a publicarlo, con el mismo procedimiento de hoy. Un usuario de app con sólo DML sigue bloqueado por el DDL en runtime (P1); mientras tanto, el administrador debería quedar sólo para el job `migrate`. Entra ID para MySQL (servidor con identidad y `azurerm_mysql_flexible_server_active_directory_administrator`) necesita permisos de Graph para esa identidad: hay que verificarlos en learn antes de diseñarlo.
 
-> **Estado de H-04 (auditoría de MySQL): ensayada en staging el 2026-10-12; en prod sigue sin gestionar.**
+> **Estado de H-04 (auditoría de MySQL): ACTIVADA EN PROD el 2026-10-12 a las 11:23Z** (run 38242195971, `2 added, 1 changed, 0 destroyed`; plan revisado: sólo los dos parámetros y el `APP_VERSION` benigno). Verificado en Azure: `audit_log_enabled = ON`, `audit_log_events = CONNECTION_V2,DDL,DCL`, servidor `Ready` sin reinicio, app sana, y los primeros 12 registros llegaron a `AzureDiagnostics` en 5 minutos (conexiones de las dos réplicas, subred de apps, y un DDL). **Todas las conexiones son de `finops_admin`**: con datos reales queda a la vista el hallazgo de usuario único. Pendiente: medir el volumen a las 24 horas (agendado) y la regla de alerta de fuerza bruta. Ensayada antes en staging.
 > El interruptor es `mysql_audit_log_mode` en `stamps` (`unmanaged` por defecto, `on`, `off`): prod no cambia hasta decidirlo.
 > Resultado medido en staging (workspace de Log Analytics, tabla `AzureDiagnostics`, categoría `MySqlAuditLogs`):
 > - llegan `connection_log` `CONNECT`/`DISCONNECT` con usuario, IP de origen y `status_d` (0 = éxito), y `general_log` con los DDL (por ejemplo `CREATE TABLE IF NOT EXISTS SchemaMigrations`, el DDL en runtime que ya figuraba como pendiente);
@@ -315,7 +315,7 @@ GRANT SELECT, SHOW VIEW, TRIGGER ON finops.* TO 'finops_backup'@'%';
 >
 > Volumen en prod, estimado con las métricas del servidor (7 días): 460 conexiones nuevas (unas 66 por día) y 0 abortadas, o sea del orden de 130 eventos de conexión por día; el DDL en runtime se mide en las primeras 24 horas. El tope diario del workspace es 1 GB y el máximo medido es 0,115 GB/día.
 >
-> Receta para prod (cada paso con su «sí»): (1) agregar `mysql_audit_log_mode = "on"` al stamp `us` de `terraform.tfvars` y subir `TF_VARS_PROD`; (2) plan de CI: tienen que salir exactamente 2 `create` (`audit_log_enabled[0]` y `audit_log_events[0]`) más el `APP_VERSION` benigno; (3) apply con `APPLY-PROD`; (4) comprobar los dos parámetros en Azure y las filas en `AzureDiagnostics`; (5) mirar el volumen a las 24 horas. Rollback: `mysql_audit_log_mode = "off"`.
+> Receta que se siguió en prod (cada paso con su «sí»): (1) agregar `mysql_audit_log_mode = "on"` al stamp `us` de `terraform.tfvars` y subir `TF_VARS_PROD`; (2) plan de CI: tienen que salir exactamente 2 `create` (`audit_log_enabled[0]` y `audit_log_events[0]`) más el `APP_VERSION` benigno; (3) apply con `APPLY-PROD`; (4) comprobar los dos parámetros en Azure y las filas en `AzureDiagnostics`; (5) mirar el volumen a las 24 horas. Rollback: `mysql_audit_log_mode = "off"`.
 
 ### H-05. [CRITICIDAD: Alta] Detección: Activity Log sin exportar, alertas y Policy apagadas, retención de 30 días
 
