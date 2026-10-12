@@ -197,12 +197,16 @@ az acr create -n cscsfinopsstgglobalcr -g cscs-finops-stg-global-rg --sku Basic 
 az acr import --name cscsfinopsstgglobalcr --source docker.io/library/node:22-alpine --image finops:cron
 ```
 
-Con el árbol limpio, en la raíz del repo y **después de comprobar que `.dockerignore` excluye `.env*`** (el contexto se sube a Azure):
+**Nunca construir desde la carpeta de trabajo.** `.dockerignore` excluye `.env*` pero **no `infra/`**, y el `Dockerfile` hace `COPY . .` en la etapa `builder`: un `az acr build .` subiría a Azure los `terraform.tfvars` ignorados por git (el de prod trae el webhook de Teams) y los dejaría dentro de la imagen `finops:builder`. El deploy de prod no tiene el problema porque CI construye desde un clon limpio. Se construye entonces desde una exportación de **lo versionado** en `origin/main`:
 
 ```bash
-az acr build -r cscsfinopsstgglobalcr --platform linux/amd64 -t finops:latest .
-az acr build -r cscsfinopsstgglobalcr --platform linux/amd64 --target builder -t finops:builder .
+D=$(mktemp -d) && git archive origin/main | tar -x -C "$D" && echo "contexto: $D"
+az acr build -r cscsfinopsstgglobalcr --platform linux/amd64 -t finops:latest "$D"
+az acr build -r cscsfinopsstgglobalcr --platform linux/amd64 --target builder -t finops:builder "$D"
+rm -rf "$D"
 ```
+
+Antes de construir, comprobar que el contexto no trae secretos: `find "$D" -name '*.tfvars' -o -name '.env*' -o -name '*.pem' -o -name '*.key'` tiene que devolver sólo `*.tfvars.example` y `cron-jobs.tfvars` (versionados y sin secretos).
 
 Si ACR Tasks no está habilitado en la suscripción, construir con `docker build --platform linux/amd64` (mismos `--target` y tags) y `docker push` previo `az acr login -n cscsfinopsstgglobalcr`.
 
