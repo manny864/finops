@@ -105,6 +105,14 @@ Customer cancels → subscription.canceled (CANCELED)
 - Inserts row into BillingTransactions with status = "payment_failed"
 - Raw event stored for troubleshooting
 
+### adjustment.created / adjustment.updated
+**When:** Paddle creates an adjustment (refund, chargeback or credit) for a transaction (`created`, for every adjustment), or a pending refund is approved or rejected (`updated`). Paddle Billing has **no** `transaction.refunded` event (that was Paddle Classic): refunds arrive as adjustments. In sandbox Paddle approves every pending refund each ten minutes.
+**Processing:**
+- Only a `refund` or `chargeback` that is `approved` and `type = full` reverts the commissions of `transaction_id` (`PENDING`, `DUE` and `APPROVED` become `REVERSED`; `PAID` is never touched).
+- Credits, pending or rejected refunds, chargeback warnings and reversals do nothing.
+- Partial refunds are logged (`PARCIAL`) and left for manual review: the commission was computed on the whole charge and prorating it is an accounting decision.
+- Idempotent: `created` and `updated` of the same adjustment revert the same rows once.
+
 ## Price ID to Tier Mapping
 
 The `@/lib/paddleTierMap.ts` helper module manages bidirectional conversion:

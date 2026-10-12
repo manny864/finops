@@ -104,7 +104,7 @@ aunque la pasarela reintente la notificación.
 
 **5.1.** Si un cobro se reembolsa, la comisión correspondiente **se anula**
 siempre que no haya sido liquidada.
-<sub>Implementa: `transaction.refunded` sólo revierte comisiones en estado `PENDING` o `APPROVED`.</sub>
+<sub>Implementa: un reembolso o contracargo aprobado y total (`adjustment.created` o `adjustment.updated` de Paddle) revierte las comisiones en estado `PENDING`, `DUE` o `APPROVED`. Las ya liquidadas y los reembolsos PARCIALES se revisan a mano: este texto dice «se anula» para cualquier reembolso y hay que decidir qué pasa con los parciales.</sub>
 
 **5.2.** Una comisión **ya liquidada** no se anula automáticamente. Su importe se
 descuenta de la liquidación siguiente.

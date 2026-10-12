@@ -2965,7 +2965,8 @@ con un POST.
 ```
 transaction.completed  → INSERT BillingTransactions
                        → devengarComision(...)        (best-effort, idempotente)
-transaction.refunded   → revertirComision(txnId)      (evento NUEVO)
+adjustment.created/updated → revertirComision(txnId) (reembolso o contracargo APROBADO y TOTAL; Paddle Billing
+                              no tiene `transaction.refunded`, ver docs/paddle-billing.md)
 ```
 
 El devengo va **después** del registro de la transacción y es best-effort: si

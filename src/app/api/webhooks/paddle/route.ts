@@ -70,7 +70,8 @@ const REPLAY_WINDOW_SECONDS = 5 * 60; // 5 minutes
 /**
  * Paddle webhook signature verification & handling
  * Supports: subscription.created, subscription.updated, subscription.canceled, subscription.past_due,
- *           transaction.completed, transaction.payment_failed, transaction.refunded
+ *           transaction.completed, transaction.payment_failed, adjustment.created, adjustment.updated
+ * (los reembolsos y contracargos llegan como adjustments: Paddle Billing no tiene un `transaction.refunded`)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -147,8 +148,9 @@ export async function POST(request: NextRequest) {
         return handleTransactionCompleted(payload, tenantId);
       case "transaction.payment_failed":
         return handleTransactionPaymentFailed(payload, tenantId);
-      case "transaction.refunded":
-        return handleTransactionRefunded(payload);
+      case "adjustment.created":
+      case "adjustment.updated":
+        return handleAdjustment(payload);
       default:
         console.log(`[Webhooks] Ignoring event type: ${eventType}`);
         return NextResponse.json({ success: true, message: "Event ignored" });
@@ -544,16 +546,32 @@ async function handleTransactionCompleted(payload: any, tenantId?: string) {
 }
 
 /**
- * Reembolso: revierte la comision del afiliado si todavia no se liquido.
+ * Devolución de plata al cliente. En Paddle Billing llega como un *adjustment* (`adjustment.created` y `adjustment.updated`):
+ * no existe un evento `transaction.refunded`, que era de Paddle Classic. `created` llega para TODOS los ajustes y `updated`
+ * cuando un reembolso pendiente se aprueba o rechaza; en sandbox Paddle aprueba todos cada diez minutos, y un reembolso que
+ * cumple los criterios de aprobación automática nace ya `approved`.
  *
- * No hay tabla propia para reembolsos; el evento sirve unicamente para que una
- * comision devengada sobre un cobro que se devolvio no llegue a la liquidacion.
- * Responde 200 siempre: si no habia comision que revertir, tampoco hay nada que
- * Paddle deba reintentar.
+ * Revierte las comisiones del cobro sólo si el ajuste devuelve plata (`refund` o `chargeback`), está `approved` y es TOTAL.
+ * Un crédito no devuelve plata; uno pendiente o rechazado todavía no (o nunca) la devolvió; el aviso de contracargo, su
+ * reversión y la reversión de un crédito se deciden a mano. Uno PARCIAL no se revierte solo: la comisión se calculó sobre el
+ * cobro entero y reducirla en proporción es una decisión contable, no del webhook; queda en el log para revisarlo.
+ *
+ * Es idempotente: `created` y `updated` del mismo ajuste dan la misma reversión, y `revertirComision` sólo toca lo que
+ * todavía no se pagó. Responde 200 siempre: si no había comisión que revertir, tampoco hay nada que Paddle deba reintentar.
  */
-async function handleTransactionRefunded(payload: any) {
-  const transactionId = payload?.data?.id;
-  const { revertidas } = await revertirComision(transactionId);
+async function handleAdjustment(payload: any) {
+  const ajuste = payload?.data;
+  const devuelvePlata = ajuste?.action === "refund" || ajuste?.action === "chargeback";
+  if (!devuelvePlata || ajuste?.status !== "approved" || !ajuste?.transaction_id) {
+    return NextResponse.json({ success: true, message: "Ajuste sin efecto sobre las comisiones" });
+  }
+  if (ajuste.type !== "full") {
+    console.warn(
+      `[Webhooks] ${payload.event_type}: ${ajuste.action} PARCIAL ${ajuste.id} de la txn ${ajuste.transaction_id}; la comisión no se toca, revisarla a mano.`
+    );
+    return NextResponse.json({ success: true, message: "Devolución parcial: la comisión se revisa a mano" });
+  }
+  const { revertidas } = await revertirComision(ajuste.transaction_id);
   return NextResponse.json({ success: true, reversedCommissions: revertidas });
 }
 
