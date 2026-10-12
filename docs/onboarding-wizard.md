@@ -131,13 +131,14 @@ Marks onboarding complete, sets `Tenants.is_onboarded = 1`, and fires `SignupEve
   - **Title:** "Connect Azure Subscription"
   - **Description:** "Provide your Service Principal credentials"
   - **Form fields:** Client ID, Client Secret, Azure Tenant ID
-  - **Action button:** "Validate" (calls `/api/admin/diagnose-sp`)
+  - **Action button:** "Validate" (calls `POST /api/admin/diagnose-sp`; if it passes, saves the credentials with `PUT /api/tenants`)
+  - **Rules:** the Tenant ID must be the one of the selected environment (the secret only works in the directory where the app lives); the secret must be the secret VALUE, not its ID (a GUID); every failure shows a message by `code` (see `src/app/api/admin/diagnose-sp/route.ts`)
 - **Behavior:** Auto-advances to Step 3 on success, or allow skip
 
 #### **Step 3: Run First Data Sync**
 - **Title:** "Run First Data Sync"
 - **Description:** "Sync your first set of cost data from Azure"
-- **Action button:** "Run Sync" (calls `/api/admin/sync/trigger`)
+- **Action button:** "Run Sync" (calls `POST /api/admin/config/account-status/sync-now`; the step is marked complete only if the job started)
 - **During sync:** Shows spinner + "Syncing your data..." (up to 60s)
 - **On complete:** Auto-advances to Step 4 or allow skip
 
@@ -219,8 +220,8 @@ Then: Redirect to `/{locale}/onboarding`
 - New wizard links to advanced setup as fallback
 
 ### Endpoint Reuse
-- `/api/admin/diagnose-sp` — SP credential validation (already exists)
-- `/api/admin/sync/trigger` — Sync trigger (minimal wrapper if needed)
+- `/api/admin/diagnose-sp` — SP credential validation: token against Entra + subscriptions visible through ARM. **Created on 2026-10-12**: the wizard called it from its first version but it did not exist (the 404 made the form look dead). It does not save anything and does not verify roles (that is `/api/admin/check-sp-roles`)
+- `/api/admin/config/account-status/sync-now` — Sync trigger (the `/api/admin/sync/trigger` route this document used to name never existed)
 - `/api/intelligence/budgets` — Budget creation (already exists)
 - `/api/onboard/complete` — Completion endpoint (refactored for new finish endpoint)
 

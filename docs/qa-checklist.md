@@ -73,7 +73,7 @@
 - [ ] Página carga sin errores tras primer login.
 - [ ] Step 1: crear SP (Service Principal Azure) → guía visible.
 - [ ] Step 2: pegar `client_id` + `client_secret` + `azure_tenant_id`.
-- [ ] Endpoint de diagnóstico (`/api/admin/diagnose-sp`) valida permisos en Azure.
+- [ ] Endpoint de diagnóstico (`/api/admin/diagnose-sp`) valida el token contra Entra y que el SP vea suscripciones; cada falla (secreto = ID del secreto, secreto vencido, app inexistente, sin Reader) muestra su mensaje. Los roles se revisan con `check-sp-roles`.
 - [ ] Status visual de cada permiso (Reader, Cost Management Reader, Resource Graph) en verde/rojo.
 - [ ] Step 3: primera sync arranca → status pasa a `OK` en `Tenants.sync_status`.
 
@@ -1054,7 +1054,7 @@ curl "$BASE/openapi.json" | jq .openapi
 - [ ] Progress bar shows 0% on load, updates when steps completed.
 - [ ] Step 1 (Welcome): Can enter company name, select cloud, currency, timezone.
 - [ ] Step 2 (Azure SP): Can paste client_id, secret, tenant_id. "Validate" button shows green ✓ on success or red ✗ on failure.
-- [ ] Step 3 (Sync): "Run Sync" shows spinner for 2-3s, then marks complete.
+- [ ] Step 3 (Sync): "Run Sync" arranca el job (`account-status/sync-now`) y marca el paso; si el job no arranca avisa con el motivo y NO marca el paso.
 - [ ] Step 4 (Budget): Form accepts budget name, monthly limit, alert threshold. "Create Budget" on success advances to Step 5.
 - [ ] Step 5 (Notifications): Link to `/admin/notifications` opens in new tab; user can return and continue.
 - [ ] "Finish Onboarding" button at bottom (only when all steps are completed/skipped).

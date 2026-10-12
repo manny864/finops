@@ -106,7 +106,7 @@ export default function OnboardingPage() {
         setBudgetName('Producción Cloud');
         setBudgetLimit('5000');
         setBudgetAlertThreshold('80');
-        setSpValidationResult({ success: true, allPermissionsPresent: true });
+        setSpValidationResult({ success: true, subscriptions: 2, names: ['Contoso Prod', 'Contoso Dev'] });
         setProgress({
             step_welcome: 'completed',
             step_azure_sp: 'completed',
@@ -178,32 +178,88 @@ export default function OnboardingPage() {
         }
     };
 
+    /**
+     * Valida el Service Principal contra Entra/ARM y, si anda, lo guarda para este tenant.
+     *
+     * Antes cualquier falla (la ruta no existía: 404 con HTML, `response.json()` lanzaba) caía en un `console.error` y el
+     * formulario no mostraba nada: parecía que "no valida". Ahora toda salida deja un mensaje a la vista.
+     *
+     * Las credenciales se guardan con `PUT /api/tenants` (Key Vault) sólo si el Tenant ID es el de este entorno: el
+     * secreto sirve únicamente contra el directorio donde vive la aplicación, y las credenciales de otro directorio
+     * guardadas bajo este tenant fallarían en la primera sincronización con AADSTS700016. Conectar otro directorio es
+     * agregar otro tenant, no algo que el asistente deba hacer a escondidas.
+     */
     const handleValidateSP = async () => {
+        if (!selectedTenant?.id) return;
         setSpValidating(true);
+        setSpValidationResult(null);
         try {
+            if (azureTenantId.trim().toLowerCase() !== selectedTenant.id.toLowerCase()) {
+                setSpValidationResult({ success: false, code: 'TENANT_MISMATCH' });
+                return;
+            }
             const response = await fetchWithAuthRetry(
                 instance,
                 accounts[0],
                 '/api/admin/diagnose-sp',
                 {
                     method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         client_id: clientId,
                         client_secret: clientSecret,
                         tenant_id: azureTenantId,
+                        platform_tenant_id: selectedTenant.id,
                     }),
                 }
             );
-            const data = await response.json();
-            setSpValidationResult(data);
-            if (data.success || data.allPermissionsPresent) {
-                await updateStepStatus('step_azure_sp', 'completed');
-                setActiveStep(3);
+            // Un cuerpo que no es JSON (404, 502 del proxy) es una falla de red para el usuario, no una excepción.
+            const data = await response.json().catch(() => null);
+            if (!data?.success) {
+                setSpValidationResult(data && typeof data === 'object' ? data : { success: false, code: 'NETWORK' });
+                return;
             }
+            const guardado = await fetchWithAuthRetry(instance, accounts[0], '/api/tenants', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tenantId: selectedTenant.id, name: selectedTenant.name, clientId, clientSecret }),
+            });
+            if (!guardado.ok) {
+                setSpValidationResult({ success: false, code: 'SAVE_FAILED' });
+                return;
+            }
+            setSpValidationResult(data);
+            // El botón "Validar" del paso siguiente (socio de Lighthouse) depende de esto: sin refresco el tenant
+            // seleccionado seguiría diciendo que no tiene credenciales hasta recargar la página.
+            setSelectedTenant({ ...selectedTenant, client_id: clientId, has_client_secret: true });
+            await updateStepStatus('step_azure_sp', 'completed');
+            setActiveStep(3);
         } catch (error) {
             console.error('[Onboarding] Failed to validate SP:', error);
+            setSpValidationResult({ success: false, code: 'NETWORK' });
         } finally {
             setSpValidating(false);
+        }
+    };
+
+    /** Texto del resultado de la validación, por `code` (los literales son estáticos a propósito: los verifica i18nKeyIntegrity). */
+    const mensajeSp = (r: { code?: string; error?: string; aadsts?: string } | null): string => {
+        switch (r?.code) {
+            case 'INVALID_INPUT': return t('spErrInvalidInput');
+            case 'SECRET_ID_NOT_VALUE': return t('spErrSecretIdNotValue');
+            case 'INVALID_SECRET': return t('spErrInvalidSecret');
+            case 'SECRET_EXPIRED': return t('spErrSecretExpired');
+            case 'APP_NOT_FOUND': return t('spErrAppNotFound');
+            case 'TENANT_NOT_FOUND': return t('spErrTenantNotFound');
+            case 'APP_DISABLED': return t('spErrAppDisabled');
+            case 'AUTH_FAILED': return t('spErrAuthFailed', { aadsts: r?.aadsts ?? '?' });
+            case 'ACCESS_DENIED': return t('spErrAccessDenied');
+            case 'NO_SUBSCRIPTIONS': return t('spErrNoSubscriptions');
+            case 'NETWORK': return t('spErrNetwork');
+            case 'RATE_LIMITED': return t('spErrRateLimited');
+            case 'TENANT_MISMATCH': return t('spErrTenantMismatch', { tenant: selectedTenant?.id ?? '' });
+            case 'SAVE_FAILED': return t('spErrSaveFailed');
+            default: return r?.error || t('validationFailed');
         }
     };
 
@@ -238,24 +294,36 @@ export default function OnboardingPage() {
         }
     };
 
+    /**
+     * Dispara la primera sincronización con la ruta que existe (`account-status/sync-now`, Admin/Owner, devuelve en cuanto
+     * el job arranca). Antes llamaba a `/api/admin/sync/trigger`, que no existe: el 404 no lanzaba, pasaban dos segundos
+     * y el paso quedaba "completado" sin que se hubiera sincronizado nada — y lo mismo si fallaba. Ahora, si no arrancó,
+     * el paso NO se marca completado y se avisa.
+     */
     const handleRunFirstSync = async () => {
+        if (!selectedTenant?.id) return;
         setSyncRunning(true);
         try {
-            await fetchWithAuthRetry(
+            const res = await fetchWithAuthRetry(
                 instance,
                 accounts[0],
-                '/api/admin/sync/trigger',
+                '/api/admin/config/account-status/sync-now',
                 {
                     method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tenantId: selectedTenant.id }),
                 }
             );
-            await new Promise((resolve) => setTimeout(resolve, 2000));
+            if (!res.ok) {
+                const detalle = await res.json().then((d) => d?.error).catch(() => null);
+                alert(detalle || t('syncStartFailed'));
+                return;
+            }
             await updateStepStatus('step_first_sync', 'completed');
             setActiveStep(4);
         } catch (error) {
             console.error('[Onboarding] Sync trigger failed:', error);
-            await updateStepStatus('step_first_sync', 'completed');
-            setActiveStep(4);
+            alert(t('syncStartFailed'));
         } finally {
             setSyncRunning(false);
         }
@@ -466,7 +534,10 @@ export default function OnboardingPage() {
                                                 {t('credsValidated')}
                                             </p>
                                             <p className="text-sm text-green-800 mt-1">
-                                                {t('allPermsPresent')}
+                                                {t('spSubscriptionsVisible', {
+                                                    count: spValidationResult.subscriptions ?? 0,
+                                                    names: (spValidationResult.names ?? []).join(', '),
+                                                })}
                                             </p>
                                         </div>
                                     </div>
@@ -475,7 +546,7 @@ export default function OnboardingPage() {
                                         <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                                         <div>
                                             <p className="font-medium text-red-900">
-                                                {spValidationResult.error || t('validationFailed')}
+                                                {mensajeSp(spValidationResult)}
                                             </p>
                                         </div>
                                     </div>
