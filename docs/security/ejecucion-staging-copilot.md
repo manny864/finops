@@ -460,9 +460,9 @@ Es el mismo procedimiento que el destino A de prod (runbook 7.3 y [ejecucion-des
    VAULT=cscs-finops-stg-wus2-kv HOST=finops-staging.cscloudsolutions.com.ar infra/scripts/subir-certificado-origen.sh ~/origen-cert-stg
    ```
 
-2. **DNS en Cloudflare (la persona).** El registro TXT `asuid.finops-staging` con el `customDomainVerificationId` del app, y el CNAME `finops-staging` al FQDN del app de staging, proxied igual que prod. El agente obtiene los dos valores con `--query`.
+2. **DNS en Cloudflare (la persona).** El registro TXT `asuid.finops-staging` con el `customDomainVerificationId` del app, y el CNAME `finops-staging` al FQDN del app de staging, **sin proxy (nube gris) hasta que el apply del paso 3 termine**: la documentación de Container Apps pide los dos registros para validar el dominio y con el proxy de Cloudflare lo que resuelve son IP de Cloudflare, no el CNAME. El agente obtiene los dos valores con `--query` y comprueba con `dig` contra `1.1.1.1` o contra el NS de la zona (el resolver de un router doméstico puede contestar un TXT sintético "Blocked").
 3. **Dominio (Terraform).** `custom_domain_enabled = true`, `custom_domain_name = "finops-staging.cscloudsolutions.com.ar"`, `custom_domain_certificate_source = "byo"`. Staging nunca tuvo certificado gestionado, así que va directo a `byo`. Plan y apply.
-4. **SSL.** Cloudflare ya está en Full (strict) para la zona. Verificar que el dominio responda 200 en `/api/health`.
+4. **SSL y proxy.** Con el apply hecho, comprobar el certificado que sirve el dominio directo (`openssl s_client -connect finops-staging.cscloudsolutions.com.ar:443 -servername finops-staging.cscloudsolutions.com.ar`: emisor Cloudflare Origin CA; un Origin CA no lo confía `curl`, hace falta `-k`). Recién entonces la persona pasa el CNAME a proxied. Cloudflare ya está en Full (strict) para la zona. Verificar que el dominio responda 200 en `/api/health`.
 5. **NAT y filtro de origen**, igual que las etapas 5 y 6 del destino A. Primero `nat_gateway_enabled = true`, apply, y leer la IP del NAT. Después `origin_cloudflare_only = true` y `origin_extra_allowed_ip_ranges = ["<IP del NAT de staging>/32"]`, y apply. Esperado: el FQDN directo da 403, el dominio da 200 y un cron manual termina `Succeeded`.
 
 ## 9. Fase F3: deploy con staging primero y promoción manual a prod
