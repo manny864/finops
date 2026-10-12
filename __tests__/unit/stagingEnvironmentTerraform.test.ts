@@ -171,6 +171,21 @@ describe("primer apply de un ambiente nuevo", () => {
 
 // D5: staging cobra contra el SANDBOX de Paddle. Compartir el JSON de prod por un enlace le daba los price IDs
 // en vivo, y el catálogo de la app cae a los IDs en vivo que lleva en el código cuando falta una variable.
+// D5: staging tiene su propia app registration. Las de prod viven en otro tenant y un token emitido para ellas
+// no tiene que servir en staging (src/lib/requestAuth.ts) ni su ID tiene que aparecer en la configuración de staging.
+describe("staging no usa la identidad de prod", () => {
+  const identidadDeProd = ["876d8a5b-6023-4484-b3ba-73c186e4a72b", "07d029f8-4ae4-4a79-b45f-e67083f92b30", "8b41364f-581a-4e43-b7cb-13138dac5517"];
+
+  it("el ejemplo de staging no menciona ninguna app registration ni tenant de identidad de prod", () => {
+    const ejemplo = leer(`${STG}/terraform.tfvars.example`);
+    for (const id of identidadDeProd) expect(ejemplo, id).not.toContain(id);
+  });
+
+  it("documenta que AZURE_CLIENT_ID y AZURE_TENANT_ID son los de la app registration de staging", () => {
+    expect(leer(`${STG}/terraform.tfvars.example`)).toMatch(/AZURE_CLIENT_ID[\s\S]*app registration[\s\S]*STAGING/i);
+  });
+});
+
 describe("price IDs de Paddle de staging: sandbox, nunca los de prod", () => {
   const ruta = `${STG}/paddle-price-ids.json`;
   const deStaging: Record<string, string> = JSON.parse(leer(ruta));
