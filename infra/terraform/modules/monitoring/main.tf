@@ -37,3 +37,23 @@ resource "azurerm_monitor_action_group" "this" {
     email_address = var.alert_email
   }
 }
+
+# Retención de las tablas de seguridad (hallazgo H-05 de la auditoría del 2026-10-11). Este recurso NO crea ni
+# borra tablas: sólo actualiza su retención (doc del provider azurerm). Las tres existen en todo workspace.
+# Borrar el recurso devuelve la retención a la del workspace; por el validador del apply (un solo delete) el
+# rollback se hace bajando la retención total a la interactiva, que es un update.
+resource "azurerm_log_analytics_workspace_table" "seguridad" {
+  for_each = var.security_tables_retention_days > 0 ? toset(["AzureDiagnostics", "AzureActivity", "StorageBlobLogs"]) : toset([])
+
+  workspace_id            = azurerm_log_analytics_workspace.this.id
+  name                    = each.key
+  retention_in_days       = var.security_tables_retention_days
+  total_retention_in_days = var.security_tables_total_retention_days
+
+  lifecycle {
+    precondition {
+      condition     = var.security_tables_total_retention_days >= var.security_tables_retention_days
+      error_message = "La retención total no puede ser menor que la interactiva."
+    }
+  }
+}

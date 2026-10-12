@@ -448,3 +448,21 @@ variable "mysql_audit_log_mode" {
   type        = string
   default     = "unmanaged"
 }
+
+variable "security_activity_log_export_enabled" {
+  description = "Exporta el Activity Log de la SUSCRIPCIÓN al workspace de este stamp (modules/security_policy). Encender en UN solo stamp. Apagado por defecto."
+  type        = bool
+  default     = false
+}
+
+variable "security_tables_retention_days" {
+  description = "Retención interactiva (días) de las tablas de seguridad del workspace (modules/monitoring). 0 = no se gestionan."
+  type        = number
+  default     = 0
+}
+
+variable "security_tables_total_retention_days" {
+  description = "Retención total (días) de las tablas de seguridad del workspace. Rollback: igualarla a la interactiva."
+  type        = number
+  default     = 0
+}

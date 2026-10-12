@@ -34,6 +34,14 @@ locals {
     keyvault-delete        = "Microsoft.KeyVault/vaults/delete"
     mysql-delete           = "Microsoft.DBforMySQL/flexibleServers/delete"
     storage-delete         = "Microsoft.Storage/storageAccounts/delete"
+    # Ejecutar código en una VM sin entrar por la red, publicar un runbook (la VM de backups ejecuta lo
+    # publicado como SYSTEM), abrir una regla de NSG y rotar las claves de Storage. Nombres verificados el
+    # 2026-10-12 con `az provider operation show`. La rotación de claves va a sonar cuando se rote la
+    # clave filtrada de Storage (C-01): es lo esperado.
+    vm-run-command    = "Microsoft.Compute/virtualMachines/runCommand/action"
+    runbook-publish   = "Microsoft.Automation/automationAccounts/runbooks/publish/action"
+    nsg-rule-write    = "Microsoft.Network/networkSecurityGroups/securityRules/write"
+    storage-key-regen = "Microsoft.Storage/storageAccounts/regeneratekey/action"
   }
 }
 
@@ -110,4 +118,42 @@ resource "azurerm_resource_group_policy_assignment" "audit" {
   display_name         = "Auditoría ${each.key} (${var.name_base})"
   description          = "Modo auditoría (enforce = false): mide cumplimiento, no bloquea."
   enforce              = false
+}
+
+# ---------------------------------------------------------------------------
+# Exportación del Activity Log al workspace (hallazgo H-05 de la auditoría del 2026-10-11).
+# ---------------------------------------------------------------------------
+#
+# Sin esto el Activity Log sólo vive 90 días en Azure y no se puede cruzar con los logs del Key Vault, de
+# Storage y de MySQL: investigar una credencial filtrada o una asignación de Owner queda con ese horizonte.
+# Las cuatro categorías son las de seguridad: Administrative (escrituras, borrados y acciones, incluidos
+# los cambios de RBAC), Security (alertas de Defender), Policy y Alert. No se exportan Recommendation,
+# Autoscale ni ResourceHealth: ruido sin valor de seguridad. Nombres verificados con la ayuda de
+# `az monitor diagnostic-settings subscription create`. Exportar el Activity Log no cobra ingesta.
+resource "azurerm_monitor_diagnostic_setting" "activity_log" {
+  count = var.activity_log_export_enabled ? 1 : 0
+
+  name                       = "${var.name_base}-activity-log"
+  target_resource_id         = data.azurerm_subscription.current.id
+  log_analytics_workspace_id = var.workspace_id
+
+  enabled_log {
+    category = "Administrative"
+  }
+  enabled_log {
+    category = "Security"
+  }
+  enabled_log {
+    category = "Policy"
+  }
+  enabled_log {
+    category = "Alert"
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.workspace_id != null
+      error_message = "activity_log_export_enabled = true exige workspace_id: el Activity Log necesita un destino."
+    }
+  }
 }

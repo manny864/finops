@@ -56,3 +56,20 @@ variable "action_group_id" {
 variable "tags" {
   type = map(string)
 }
+
+variable "activity_log_export_enabled" {
+  description = <<-DESC
+    Exporta el Activity Log de la SUSCRIPCIÓN al workspace de Log Analytics (categorías Administrative,
+    Security, Policy y Alert). Sin esto el Activity Log sólo vive 90 días en Azure y no se puede consultar
+    junto con el resto. Exportarlo no cobra ingesta (doc de Azure Monitor). Es de la suscripción: se enciende
+    en UN solo stamp. Apagarlo borra un recurso, que el validador del apply sí deja pasar (un delete, por replace).
+  DESC
+  type        = bool
+  default     = false
+}
+
+variable "workspace_id" {
+  description = "Workspace de Log Analytics que recibe el Activity Log. Obligatorio si activity_log_export_enabled."
+  type        = string
+  default     = null
+}

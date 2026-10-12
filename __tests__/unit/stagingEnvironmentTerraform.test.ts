@@ -92,7 +92,9 @@ describe("terraform.tfvars.example de staging", () => {
     expect(ejemplo).toMatch(/^defender_enabled\s*=\s*false/m);
     expect(ejemplo).toMatch(/^mysql_backup_enabled\s*=\s*false/m);
     expect(ejemplo).toMatch(/security_activity_alerts_enabled\s*=\s*false/);
-    expect(ejemplo).toMatch(/security_policy_audit_enabled\s*=\s*false/);
+    expect(ejemplo).toMatch(/security_activity_log_export_enabled\s*=\s*false/); // de la suscripción: sólo prod
+    // La auditoría de Policy es de ámbito grupo de recursos (no de la suscripción): se ensaya en staging.
+    expect(ejemplo).toMatch(/security_policy_audit_enabled\s*=\s*true/);
     expect(ejemplo).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
     expect(ejemplo).not.toMatch(/password|secret\s*=|connection_string/i);
   });

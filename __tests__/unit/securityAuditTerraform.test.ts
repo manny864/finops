@@ -58,7 +58,8 @@ describe("alertas de Activity Log", () => {
 
   it("son nombres de operación con la forma Proveedor/tipo/accion", () => {
     expect(operaciones.length).toBeGreaterThanOrEqual(6);
-    for (const op of operaciones) expect(op, op).toMatch(/^Microsoft\.[A-Za-z]+\/[A-Za-z/]+\/(write|delete)$/);
+    // El verbo final puede ser write, delete o action (runCommand, publish y regeneratekey son acciones).
+    for (const op of operaciones) expect(op, op).toMatch(/^Microsoft\.[A-Za-z]+\/[A-Za-z/]+\/(write|delete|action)$/);
     expect(new Set(operaciones).size).toBe(operaciones.length);
   });
 

@@ -68,7 +68,10 @@ module "monitoring" {
 
   appinsights_sampling_percentage = var.appinsights_sampling_percentage
   alert_email                     = var.alert_email
-  tags                            = var.tags
+
+  security_tables_retention_days       = var.security_tables_retention_days
+  security_tables_total_retention_days = var.security_tables_total_retention_days
+  tags                                 = var.tags
 }
 
 resource "azurerm_user_assigned_identity" "app" {
@@ -684,6 +687,9 @@ module "security_policy" {
 
   activity_alerts_enabled = var.security_activity_alerts_enabled
   policy_audit_enabled    = var.security_policy_audit_enabled
+
+  activity_log_export_enabled = var.security_activity_log_export_enabled
+  workspace_id                = module.monitoring.workspace_id
 
   # Sólo lo que tiene datos. La VNet queda deliberadamente afuera: un lock ahí
   # impide crear y operar MySQL Flexible con VNet injection.

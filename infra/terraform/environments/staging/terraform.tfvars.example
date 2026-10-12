@@ -57,7 +57,12 @@ stamps = {
     custom_domain_enabled = false # F2.3
 
     security_activity_alerts_enabled = false # son de la suscripción: sólo prod
-    security_policy_audit_enabled    = false
+    # H-05: la auditoría de Policy es de ámbito grupo de recursos y se ensaya acá; el Activity Log y las alertas
+    # son de la suscripción (el SP de staging no tiene permisos a ese nivel) y se revisan en el plan de prod.
+    security_policy_audit_enabled        = true
+    security_activity_log_export_enabled = false
+    security_tables_retention_days       = 90
+    security_tables_total_retention_days = 365
 
     extra_env_vars = {
       NEXT_PUBLIC_APP_URL = "https://finops-staging.cscloudsolutions.com.ar"

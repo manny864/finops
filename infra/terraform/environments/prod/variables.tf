@@ -109,6 +109,13 @@ variable "stamps" {
     security_activity_alerts_enabled = optional(bool, false)
     security_policy_audit_enabled    = optional(bool, false)
 
+    # Exportación del Activity Log de la suscripción (también de la suscripción: UN solo stamp) y retención de
+    # las tablas de seguridad del workspace. 0 / false = no se gestionan. Ver modules/security_policy y
+    # modules/monitoring.
+    security_activity_log_export_enabled = optional(bool, false)
+    security_tables_retention_days       = optional(number, 0)
+    security_tables_total_retention_days = optional(number, 0)
+
     # NAT Gateway con IP fija de salida (modules/network/main.tf). Cambia la salida de TODO el
     # entorno: ver el runbook "Cerrar el origen" de docs/security/.
     nat_gateway_enabled = optional(bool, false)
