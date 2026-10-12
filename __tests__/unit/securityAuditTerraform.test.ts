@@ -38,8 +38,18 @@ describe("auditoría: interruptores", () => {
   });
 
   it("apagados no crean nada: los dos recursos se arman con for_each condicional", () => {
-    expect(audit).toMatch(/for_each\s*=\s*var\.activity_alerts_enabled && var\.action_group_id != null \? local\.activity_alert_operations : \{\}/);
+    expect(audit).toMatch(/for_each\s*=\s*var\.activity_alerts_enabled \? local\.activity_alert_operations : \{\}/);
     expect(audit).toMatch(/for_each\s*=\s*var\.policy_audit_enabled \? local\.policy_audit_definitions : \{\}/);
+  });
+
+  // Regresión del primer plan de staging (2026-10-12): en un ambiente nuevo action_group_id no se
+  // conoce hasta el apply, y un for_each que lo mire rompe el plan con "Invalid for_each argument".
+  // En prod no se notaba porque el action group ya estaba en el state.
+  it("el for_each no depende de action_group_id (desconocido en un ambiente nuevo); falta de grupo = precondición", () => {
+    const recurso = audit.match(/resource "azurerm_monitor_activity_log_alert" "audit" \{[\s\S]*?\n\}/)?.[0] ?? "";
+    const forEach = recurso.match(/^\s*for_each\s*=.*$/m)?.[0] ?? "";
+    expect(forEach).not.toMatch(/action_group_id/);
+    expect(recurso).toMatch(/precondition\s*\{[\s\S]*?var\.action_group_id != null/);
   });
 });
 

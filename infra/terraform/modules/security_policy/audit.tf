@@ -38,7 +38,20 @@ locals {
 }
 
 resource "azurerm_monitor_activity_log_alert" "audit" {
-  for_each = var.activity_alerts_enabled && var.action_group_id != null ? local.activity_alert_operations : {}
+  # El for_each NO puede depender de action_group_id: en un ambiente nuevo ese id no existe hasta
+  # el apply, y Terraform no puede decidir las claves del mapa ("Invalid for_each argument", visto
+  # en el primer plan de staging, 2026-10-12; en prod el action group ya está en el state y nunca
+  # falló). Mismo motivo por el que el resto del módulo usa un flag y no el id. Si falta el action
+  # group con el flag encendido, la precondición de abajo lo dice en voz alta en vez de no crear
+  # nada en silencio.
+  for_each = var.activity_alerts_enabled ? local.activity_alert_operations : {}
+
+  lifecycle {
+    precondition {
+      condition     = var.action_group_id != null
+      error_message = "activity_alerts_enabled = true exige action_group_id: las alertas de Activity Log necesitan a quién avisar."
+    }
+  }
 
   name                = "${var.name_base}-audit-${each.key}"
   resource_group_name = var.resource_group_name
