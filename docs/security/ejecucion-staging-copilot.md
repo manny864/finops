@@ -465,6 +465,14 @@ Es el mismo procedimiento que el destino A de prod (runbook 7.3 y [ejecucion-des
 4. **SSL y proxy.** Con el apply hecho, comprobar el certificado que sirve el dominio directo (`openssl s_client -connect finops-staging.cscloudsolutions.com.ar:443 -servername finops-staging.cscloudsolutions.com.ar`: emisor Cloudflare Origin CA; un Origin CA no lo confía `curl`, hace falta `-k`). Recién entonces la persona pasa el CNAME a proxied. Cloudflare ya está en Full (strict) para la zona. Verificar que el dominio responda 200 en `/api/health`.
 5. **NAT y filtro de origen**, igual que las etapas 5 y 6 del destino A. Primero `nat_gateway_enabled = true`, apply, y leer la IP del NAT. Después `origin_cloudflare_only = true` y `origin_extra_allowed_ip_ranges = ["<IP del NAT de staging>/32"]`, y apply. Esperado: el FQDN directo da 403, el dominio da 200 y un cron manual termina `Succeeded`.
 
+**F2 ejecutada el 2026-10-12 (staging) y comprobada contra Azure:**
+
+- Certificado de origen propio en el vault (`origin-cert-pfx` y `origin-cert-pfx-password`), dominio con `custom_domain_certificate_source = "byo"` (runs 38262457629 plan y 38262860403 apply: 2 create, 0 destroy). Container Apps aceptó el `.pfx` clásico 3DES/SHA1: el certificado del entorno quedó `Succeeded` y vence 2041-10-08; el hostname está `SniEnabled` con él.
+- NAT (run 38264061370: 4 create): IP pública fija `20.9.196.179` (SKU Standard), asociada a la subred de apps delegada a `Microsoft.App/environments`. El entorno de staging tiene perfiles de carga de trabajo (`Consumption`), requisito del NAT.
+- Filtro de origen (run 38264946987: 1 update, las 16 reglas `allow` del ingress: 15 rangos de Cloudflare y la IP del NAT `/32`): el FQDN directo da **403**, el dominio por Cloudflare da **200**, y `cron-prewarm-dashboard` lanzado a mano termina `Succeeded`. La URL de los cron (`<app>.internal.<dominio del entorno>`) resuelve a la IP estática pública del entorno (`staticIp`), así que su tráfico pasa por el filtro y sale por el NAT: que el cron funcione prueba que la IP de salida es la del NAT.
+- Dos cosas que el runbook no decía: el primer pedido a staging tarda ~50 s por el arranque en frío (mínimo de réplicas 0), así que los `curl` de verificación llevan `--max-time` holgado; y el CNAME va sin proxy hasta que el apply del dominio termina (ver el paso 2).
+- No se pudo comprobar desde afuera que la zona esté en Full (strict): lo confirma la persona en Cloudflare.
+
 ## 9. Fase F3: deploy con staging primero y promoción manual a prod
 
 **No empezar sin D5 confirmada.** La especificación es para el default de D5: build por ambiente.
