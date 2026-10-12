@@ -381,10 +381,11 @@ export default function TenantManagementPanel() {
                     paddlePriceId: priceId,
                 }),
             });
-            const json: { success: boolean } & GeneratePaddleLinkResponse = await res.json();
+            const json: { success: boolean; error?: string } & Partial<GeneratePaddleLinkResponse> = await res.json().catch(() => ({ success: false }));
 
-            if (!res.ok || !json.success) {
-                throw new Error("Error al generar enlace de Paddle");
+            // El motivo (Paddle rechazó el precio, falta el default payment link…) viene en `error`: mostrarlo, no taparlo.
+            if (!res.ok || !json.success || !json.checkoutUrl) {
+                throw new Error(json.error || "Error al generar enlace de Paddle");
             }
 
             setGeneratedLinkData({

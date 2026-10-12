@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { vi, describe, it, expect, beforeEach } from "vitest";
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
     listAllTenantsForSuperAdmin,
     createManualTenant,
@@ -238,29 +238,148 @@ describe("superAdminTenants.service", () => {
         expect(subsSql).toContain("is_manual_bypass");
     });
 
-    it("generatePaddleCheckoutLink persists paddle_price_id on TenantSubscriptions", async () => {
+});
+
+/**
+ * El enlace Enterprise que genera el panel de SuperAdmin tiene que ser el `checkout.url` de una TRANSACCIÓN creada en Paddle.
+ *
+ * Antes el servicio armaba `https://buy.paddle.com/checkout?price_id=…&custom_data=…` sin llamar a Paddle; el test que lo
+ * cuidaba afirmaba justamente esa URL (`toContain("price_id=")`), o sea que daba por bueno el defecto: el enlace abría un
+ * marco de checkout en blanco y, aunque hubiera abierto algo, `custom_data` iba como `{ tenantId }` cuando el webhook lee
+ * `tenant_id`.
+ */
+describe("generatePaddleCheckoutLink", () => {
+    const TENANT = "81ebe027-e6af-4e09-bc73-58c9012c6408";
+    const PRECIO = "pri_01kve67ce9j9b9697hm7jb58s7";
+    const fetchMock = vi.fn();
+    const respuesta = (cuerpo: unknown, status = 200) => ({ ok: status < 400, status, json: async () => cuerpo });
+    const creada = (url: string | null = "https://finops.sandbox.paddle.io/pay/hsc_x?_ptxn=txn_01m4rzzzzzzzzzzzzzzzzzzzzz") =>
+        respuesta({ data: { id: "txn_01m4rzzzzzzzzzzzzzzzzzzzzz", status: "ready", checkout: { url } } });
+
+    beforeEach(() => {
+        mocks.mockPoolQuery.mockReset();
         mocks.mockPoolQuery.mockResolvedValue([{}, []]);
-
-        await generatePaddleCheckoutLink({ tenantId: "tenant-x", paddlePriceId: "pri_abc" }, false);
-
-        const sql = String(mocks.mockPoolQuery.mock.calls[0][0]);
-        expect(sql).toContain("TenantSubscriptions");
-        expect(sql).toContain("paddle_price_id");
-        expect(sql).not.toContain("TenantCommercialDeals");
+        fetchMock.mockReset();
+        fetchMock.mockResolvedValue(creada());
+        vi.stubGlobal("fetch", fetchMock);
+        process.env.PADDLE_API_KEY = "pdl_sdbx_apikey_de_prueba";
+        vi.spyOn(console, "error").mockImplementation(() => {});
+    });
+    afterEach(() => {
+        vi.unstubAllGlobals();
+        vi.restoreAllMocks();
+        delete process.env.PADDLE_API_KEY;
     });
 
-    it("generatePaddleCheckoutLink generates custom checkout URL", async () => {
-        const link = await generatePaddleCheckoutLink(
-            {
-                tenantId: "tenant-acme-prod",
-                paddlePriceId: "pri_01h8_enterprise_annual",
-            },
-            true
-        );
+    it("crea la transacción con el precio, cobro automático y el tenant y el tier en custom_data, y devuelve el checkout.url de Paddle", async () => {
+        const r = await generatePaddleCheckoutLink({ tenantId: TENANT, paddlePriceId: PRECIO }, false);
 
-        expect(link.checkoutUrl).toContain("price_id=pri_01h8_enterprise_annual");
-        expect(link.checkoutUrl).toContain("custom_data=");
-        expect(link.priceId).toBe("pri_01h8_enterprise_annual");
-        expect(link.tenantId).toBe("tenant-acme-prod");
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        const [url, init] = fetchMock.mock.calls[0];
+        expect(url).toBe("https://sandbox-api.paddle.com/transactions");
+        expect(init.method).toBe("POST");
+        expect(init.headers.Authorization).toBe("Bearer pdl_sdbx_apikey_de_prueba");
+        expect(JSON.parse(init.body)).toEqual({
+            items: [{ price_id: PRECIO, quantity: 1 }],
+            collection_mode: "automatic",
+            // snake_case: es lo que lee el webhook (`custom_data.tenant_id`); con `tenantId` el pago no activaba a nadie.
+            custom_data: { tenant_id: TENANT, tier: "Enterprise" },
+        });
+        expect(r).toEqual({
+            checkoutUrl: "https://finops.sandbox.paddle.io/pay/hsc_x?_ptxn=txn_01m4rzzzzzzzzzzzzzzzzzzzzz",
+            priceId: PRECIO,
+            tenantId: TENANT,
+            transactionId: "txn_01m4rzzzzzzzzzzzzzzzzzzzzz",
+        });
+    });
+
+    it("el pedido a Paddle lleva un tope de tiempo", async () => {
+        await generatePaddleCheckoutLink({ tenantId: TENANT, paddlePriceId: PRECIO }, false);
+        expect(fetchMock.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
+    });
+
+    it("con una clave de producción va a la API de producción", async () => {
+        process.env.PADDLE_API_KEY = "pdl_live_apikey_de_prueba";
+        await generatePaddleCheckoutLink({ tenantId: TENANT, paddlePriceId: PRECIO }, false);
+        expect(fetchMock.mock.calls[0][0]).toBe("https://api.paddle.com/transactions");
+    });
+
+    it("el enlace nunca es una URL armada a mano con price_id y custom_data en la query (no abre ningún checkout)", async () => {
+        const r = await generatePaddleCheckoutLink({ tenantId: TENANT, paddlePriceId: PRECIO }, false);
+        expect(r.checkoutUrl).not.toContain("price_id=");
+        expect(r.checkoutUrl).not.toContain("custom_data=");
+        expect(r.checkoutUrl).not.toContain("buy.paddle.com/checkout");
+    });
+
+    it("registra el precio para el tenant ANTES de pedirle el enlace a Paddle: es lo que el webhook acepta como prueba del deal", async () => {
+        await generatePaddleCheckoutLink({ tenantId: TENANT, paddlePriceId: `  ${PRECIO}  ` }, false);
+
+        const [sql, params] = mocks.mockPoolQuery.mock.calls[0];
+        expect(String(sql)).toContain("TenantSubscriptions");
+        expect(String(sql)).toContain("paddle_price_id");
+        expect(String(sql)).not.toContain("TenantCommercialDeals");
+        expect(params).toContain(TENANT);
+        expect(params).toContain(PRECIO); // sin los espacios
+        expect(mocks.mockPoolQuery.mock.invocationCallOrder[0]).toBeLessThan(fetchMock.mock.invocationCallOrder[0]);
+    });
+
+    it("si no se puede registrar el precio (el tenant no existe, la base falla) NO le pide nada a Paddle y avisa", async () => {
+        mocks.mockPoolQuery.mockRejectedValue(new Error("Cannot add or update a child row: a foreign key constraint fails"));
+        await expect(generatePaddleCheckoutLink({ tenantId: TENANT, paddlePriceId: PRECIO }, false)).rejects.toThrow(/foreign key/);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("si Paddle rechaza la transacción, lanza con el motivo que dio y status 502; no devuelve ningún enlace", async () => {
+        fetchMock.mockResolvedValue(
+            respuesta({ error: { type: "request_error", code: "transaction_default_checkout_url_not_set", detail: "Cannot create a transaction or open a checkout as no default payment link has been set for this account." } }, 400)
+        );
+        await expect(generatePaddleCheckoutLink({ tenantId: TENANT, paddlePriceId: PRECIO }, false)).rejects.toMatchObject({
+            status: 502,
+            message: expect.stringContaining("no default payment link has been set"),
+        });
+    });
+
+    it("si Paddle rechaza sin cuerpo JSON, el mensaje lleva el HTTP status", async () => {
+        fetchMock.mockResolvedValue({ ok: false, status: 500, json: async () => { throw new Error("no json"); } });
+        await expect(generatePaddleCheckoutLink({ tenantId: TENANT, paddlePriceId: PRECIO }, false)).rejects.toMatchObject({
+            status: 502,
+            message: expect.stringContaining("HTTP 500"),
+        });
+    });
+
+    it("si Paddle crea la transacción pero no devuelve checkout.url, no inventa un enlace: 502 con la pista del default payment link", async () => {
+        fetchMock.mockResolvedValue(creada(null));
+        await expect(generatePaddleCheckoutLink({ tenantId: TENANT, paddlePriceId: PRECIO }, false)).rejects.toMatchObject({
+            status: 502,
+            message: expect.stringContaining("default payment link"),
+        });
+    });
+
+    it("sin PADDLE_API_KEY falla antes de tocar la base y Paddle", async () => {
+        delete process.env.PADDLE_API_KEY;
+        await expect(generatePaddleCheckoutLink({ tenantId: TENANT, paddlePriceId: PRECIO }, false)).rejects.toMatchObject({
+            message: expect.stringContaining("PADDLE_API_KEY"),
+        });
+        expect(mocks.mockPoolQuery).not.toHaveBeenCalled();
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        ["falta el tenant", { tenantId: "", paddlePriceId: PRECIO }],
+        ["falta el precio", { tenantId: TENANT, paddlePriceId: "" }],
+        ["el precio no empieza con pri_", { tenantId: TENANT, paddlePriceId: "pro_01kve6535wab28k3hzxekkwv32" }],
+        ["el precio trae caracteres que no son de un ID", { tenantId: TENANT, paddlePriceId: "pri_x\"},{\"y" }],
+    ])("%s: 400 sin llamar a la base ni a Paddle", async (_caso, payload) => {
+        await expect(generatePaddleCheckoutLink(payload, false)).rejects.toMatchObject({ status: 400 });
+        expect(mocks.mockPoolQuery).not.toHaveBeenCalled();
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("el modo demo no llama a Paddle ni a la base y devuelve un enlace claramente falso", async () => {
+        const r = await generatePaddleCheckoutLink({ tenantId: "tenant-acme-prod", paddlePriceId: PRECIO }, true);
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(mocks.mockPoolQuery).not.toHaveBeenCalled();
+        expect(r.checkoutUrl).toContain("example.invalid");
+        expect(r).toMatchObject({ priceId: PRECIO, tenantId: "tenant-acme-prod" });
     });
 });

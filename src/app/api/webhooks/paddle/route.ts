@@ -20,31 +20,36 @@ async function readCurrentTier(connection: any, tenantId: string): Promise<strin
   return (rows as Array<{ tier?: string }>)[0]?.tier ?? null;
 }
 
-const VALID_TIERS: readonly TierName[] = ["Professional", "Business", "Enterprise"];
-
 /**
  * Resuelve el tier de una suscripción de Paddle. Prioridad:
- * 1. `custom_data.tier` — lo seteamos nosotros al abrir el checkout (necesario
- *    para Enterprise, que usa Prices custom por-cliente sin mapeo fijo por
- *    priceId; ver admin/tenants).
- * 2. `priceIdToTier(priceId)` — mapeo fijo vía env vars para los planes
- *    self-service (Professional/Business).
+ * 1. El precio, vía `priceIdToTier`: mapeo fijo por env vars para los planes self-service (Professional/Business).
+ * 2. Enterprise, que usa un Price a medida por cliente sin mapeo fijo: sólo si `custom_data.tier` lo pide Y el precio
+ *    pagado es el que un SuperAdmin REGISTRÓ para ESTE tenant (`TenantSubscriptions.paddle_price_id`, ver
+ *    `generatePaddleCheckoutLink`).
  *
- * Devuelve null si no se puede resolver, en vez de asumir "Professional": un
- * evento con un priceId no mapeado (ej. un Price custom sin custom_data)
- * NO debe degradar silenciosamente el tier de un tenant existente.
+ * Por qué no alcanza con `custom_data.tier`: quien abre un checkout con Paddle.js elige su `customData`, y el token de
+ * cliente y Paddle.js son públicos. Con `custom_data.tier` en primer lugar, `Paddle.Checkout.open({ items: [plan
+ * Professional], customData: { tenant_id, tier: "Enterprise" } })` desde la consola del navegador pagaba el precio de
+ * Professional y activaba Enterprise. Ahora el tier sale del precio pagado o de un registro del lado del servidor, nunca de
+ * un dato que mande el comprador. `custom_data.tier` con "Professional" o "Business" ya no cuenta: el precio decide.
+ *
+ * Devuelve null si no se puede resolver, en vez de asumir "Professional": un evento con un priceId no mapeado NO debe
+ * degradar silenciosamente el tier de un tenant existente.
  */
-function resolveTier(payload: any): TierName | null {
-  const customTier = payload.data?.custom_data?.tier;
-  if (typeof customTier === "string" && (VALID_TIERS as readonly string[]).includes(customTier)) {
-    return customTier as TierName;
-  }
-  const items = payload.data?.items || [];
-  if (items.length > 0) {
-    const priceId = items[0].price?.id;
-    return priceIdToTier(priceId);
+async function resolveTier(payload: any, tenantId?: string): Promise<TierName | null> {
+  const priceId: string | undefined = payload.data?.items?.[0]?.price?.id;
+  const porPrecio = priceId ? priceIdToTier(priceId) : null;
+  if (porPrecio) return porPrecio;
+  if (payload.data?.custom_data?.tier === "Enterprise" && tenantId && priceId && (await esDealEnterpriseRegistrado(tenantId, priceId))) {
+    return "Enterprise";
   }
   return null;
+}
+
+/** ¿Un SuperAdmin registró este precio como el deal Enterprise de este tenant? Sin try/catch: si la base falla, 500 y Paddle reintenta. */
+async function esDealEnterpriseRegistrado(tenantId: string, priceId: string): Promise<boolean> {
+  const [rows] = await pool.query("SELECT 1 FROM TenantSubscriptions WHERE tenant_id = ? AND paddle_price_id = ? LIMIT 1", [tenantId, priceId]);
+  return Array.isArray(rows) && rows.length > 0;
 }
 
 /**
@@ -218,7 +223,7 @@ async function handleSubscriptionCreated(payload: any, tenantId?: string) {
     const subscriptionId = payload.data?.id;
     const status = payload.data?.status;
     const trialEndsAt = payload.data?.trial_ends_at;
-    const tier = resolveTier(payload);
+    const tier = await resolveTier(payload, tenantId);
     const accessUntil = resolveAccessUntil(payload);
 
     // Map Paddle status to internal status
@@ -294,7 +299,7 @@ async function handleSubscriptionUpdated(payload: any, tenantId?: string) {
   try {
     const status = payload.data?.status;
     const trialEndsAt = payload.data?.trial_ends_at;
-    const tier = resolveTier(payload);
+    const tier = await resolveTier(payload, tenantId);
     const accessUntil = resolveAccessUntil(payload);
 
     // Map Paddle status to internal status

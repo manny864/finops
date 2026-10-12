@@ -4,6 +4,7 @@
 
 import crypto from "crypto";
 import pool from "@/modules/storage/db";
+import { getPaddleBaseUrl } from "@/lib/paddleTierMap";
 import {
     SuperAdminTenantItem,
     CreateManualTenantPayload,
@@ -510,8 +511,29 @@ export async function updateCommercialDeal(
     return { success: true };
 }
 
+/** Error con el código HTTP que la ruta debe devolver (400 entrada inválida, 502 Paddle). `errorStatus` lo lee de `status`. */
+function errorHttp(mensaje: string, status: number): Error {
+    return Object.assign(new Error(mensaje), { status });
+}
+
 /**
- * Genera el enlace de checkout personalizado de Paddle para cobrar un deal Enterprise.
+ * Genera el enlace de pago de un deal Enterprise: crea la TRANSACCIÓN en Paddle y devuelve su `checkout.url`.
+ *
+ * Antes armaba `https://buy.paddle.com/checkout?price_id=…&custom_data=…` a mano, sin llamar a Paddle. Ese enlace no abre
+ * nada: `buy.paddle.com/checkout` es el marco del checkout que maneja Paddle.js y su código sólo lee `action`, `payload` y
+ * `retain_enabled`; `price_id` y `custom_data` no existen para él. Se veía como "se generó el link y falla": la pantalla
+ * quedaba en blanco. Además `custom_data` iba como `{ tenantId }` y el webhook lee `tenant_id`, así que aunque el enlace
+ * hubiera abierto un checkout, el pago no habría activado al tenant.
+ *
+ * El contrato de Paddle Billing es otro: se crea la transacción por API y su `checkout.url` es el "default payment link" de
+ * la cuenta más `?_ptxn=<id de la transacción>`
+ * (https://developer.paddle.com/build/transactions/default-payment-link). Sin ese link configurado Paddle contesta
+ * `transaction_default_checkout_url_not_set` (sandbox y live se configuran por separado). El `custom_data` de una
+ * transacción creada por API lo fijamos nosotros y el cliente no lo puede tocar; Paddle lo copia a la suscripción que crea
+ * (https://developer.paddle.com/build/transactions/custom-data).
+ *
+ * El precio se REGISTRA para el tenant (`TenantSubscriptions.paddle_price_id`) antes de pedir el enlace: es lo único que el
+ * webhook acepta como prueba de que un pago es el deal Enterprise de ese tenant (ver `resolveTier` en el webhook de Paddle).
  */
 export async function generatePaddleCheckoutLink(
     payload: GeneratePaddleLinkPayload,
@@ -520,29 +542,54 @@ export async function generatePaddleCheckoutLink(
     const { tenantId, paddlePriceId } = payload;
 
     if (!tenantId || !paddlePriceId) {
-        throw new Error("tenantId y paddlePriceId son obligatorios");
+        throw errorHttp("tenantId y paddlePriceId son obligatorios", 400);
     }
 
     const priceId = paddlePriceId.trim();
-    const customData = encodeURIComponent(JSON.stringify({ tenantId }));
-    const baseUrl = process.env.PADDLE_CHECKOUT_URL || "https://buy.paddle.com/checkout";
-    const checkoutUrl = `${baseUrl}?price_id=${priceId}&custom_data=${customData}`;
-
-    if (!isMock) {
-        try {
-            await upsertTenantSubscription(tenantId, { paddlePriceId: priceId });
-        } catch (e) {
-            console.error("[superAdminTenants] no se pudo persistir el paddle_price_id:", e);
-        }
+    if (!/^pri_[a-z0-9]+$/i.test(priceId)) {
+        throw errorHttp("El Price ID de Paddle tiene que empezar con pri_ (ej: pri_01h...). Se copia de Paddle > Catálogo > Precios.", 400);
     }
 
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + 7 * 86400000); // 7 días de validez
+    // Demo: ni Paddle ni la base. El enlace es obviamente falso para que nadie lo mande a un cliente.
+    if (isMock) {
+        return { checkoutUrl: "https://example.invalid/pay?_ptxn=txn_demo", priceId, tenantId, transactionId: "txn_demo" };
+    }
 
-    return {
-        checkoutUrl,
-        priceId,
-        tenantId,
-        expiresAtIso: expiresAt.toISOString(),
-    };
+    const apiKey = process.env.PADDLE_API_KEY;
+    if (!apiKey) throw errorHttp("Falta PADDLE_API_KEY en este entorno: no se puede crear la transacción en Paddle.", 500);
+
+    // Primero el registro: si el tenant no existe (FK) o la base falla, no se le pide a Paddle un enlace que no podría activar nada.
+    await upsertTenantSubscription(tenantId, { paddlePriceId: priceId });
+
+    const res = await fetch(`${getPaddleBaseUrl()}/transactions`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+            items: [{ price_id: priceId, quantity: 1 }],
+            collection_mode: "automatic",
+            custom_data: { tenant_id: tenantId, tier: "Enterprise" },
+        }),
+        signal: AbortSignal.timeout(20_000),
+    });
+
+    if (!res.ok) {
+        const error: any = await res.json().catch(() => ({}));
+        console.error("[Paddle] Create transaction error:", res.status, error?.error?.code, error?.error?.detail);
+        const detalle = error?.error?.detail || error?.error?.code;
+        throw errorHttp(
+            detalle
+                ? `Paddle rechazó la transacción: ${detalle}`
+                : `Paddle rechazó la transacción (HTTP ${res.status}). Verificá que el Price ID exista en el entorno de Paddle de este ambiente (sandbox o live).`,
+            502
+        );
+    }
+
+    const data: any = await res.json();
+    const checkoutUrl = data?.data?.checkout?.url;
+    if (!checkoutUrl) {
+        console.error("[Paddle] Transacción creada sin checkout.url:", data?.data?.id, data?.data?.status);
+        throw errorHttp("Paddle creó la transacción pero no devolvió un enlace de pago. Revisá el default payment link en Paddle > Checkout.", 502);
+    }
+
+    return { checkoutUrl, priceId, tenantId, transactionId: data.data.id };
 }

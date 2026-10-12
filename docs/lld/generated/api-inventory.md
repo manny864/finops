@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **488** rutas.
+Total: **490** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -41,6 +41,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/admin/data-residency` | GET, PUT | requireTenantRole, requireTenantAccess | — | — |
 | `/api/admin/data-residency/lock` | POST | requireSuperAdmin | — | — |
 | `/api/admin/data-residency/unlock` | POST | requireSuperAdmin | — | — |
+| `/api/admin/diagnose-sp` | POST | requireTenantRole, requireRequestIdentity | — | — |
 | `/api/admin/focus-export/schedule` | GET, PATCH | requireTenantRole, requireTenantTier | Enterprise | — |
 | `/api/admin/governance-policies` | GET | requireTenantAccess | — | sí |
 | `/api/admin/integrations/mcp-keys` | — | — | — | — |
@@ -72,7 +73,6 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/admin/tenants/contract-tenant` | POST | requireTenantAccess, requireRequestIdentity | — | — |
 | `/api/admin/tenants/delete` | POST, DELETE | requireSuperAdmin | — | — |
 | `/api/admin/tenants/logo` | POST, DELETE | requireTenantRole | — | — |
-| `/api/admin/tenants/paddle-checkout-link` | POST | requireSuperAdmin | — | — |
 | `/api/admin/user-scopes` | GET, POST, DELETE | requireTenantRole, requireTenantTier | Enterprise | sí |
 | `/api/admin/users/search-entra` | GET | requireTenantRole | — | sí |
 | `/api/admin/users/sync-group` | GET, POST | requireTenantRole | — | sí |
@@ -271,6 +271,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/intelligence/defender` | GET, PATCH | requireTenantTier | Enterprise | sí |
 | `/api/intelligence/defender/details` | GET | requireTenantTier | Enterprise | sí |
 | `/api/intelligence/entra-id` | GET | requireTenantTier, requireTenantAccess | Enterprise | sí |
+| `/api/intelligence/executive-report/data` | — | — | — | — |
 | `/api/intelligence/executive-report/export-pdf` | — | — | — | — |
 | `/api/intelligence/executive-report/history` | — | — | — | — |
 | `/api/intelligence/executive-report/history/[id]` | — | — | — | — |
@@ -402,6 +403,7 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/reports/billing/invoice/pdf` | GET | requireTenantAccess | — | sí |
 | `/api/reports/billing/map-customer` | POST | requireTenantAccess | — | sí |
 | `/api/reports/executive/active-job` | GET | requireTenantAccess | — | sí |
+| `/api/reports/executive/data` | GET | requireTenantAccess | — | sí |
 | `/api/reports/executive/export-pdf` | POST | requireTenantAccess | — | sí |
 | `/api/reports/executive/job-status` | GET | requireTenantAccess | — | sí |
 | `/api/reports/executive/latest` | GET | requireTenantAccess | — | sí |
@@ -518,6 +520,7 @@ son un hallazgo. Contrastar contra `docs/lld/03-seguridad-y-rbac.md`.
 - `/api/governance/advisor`
 - `/api/health`
 - `/api/intelligence/azure-monitor`
+- `/api/intelligence/executive-report/data`
 - `/api/intelligence/executive-report/export-pdf`
 - `/api/intelligence/executive-report/history`
 - `/api/intelligence/executive-report/history/[id]`

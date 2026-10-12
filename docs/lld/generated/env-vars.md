@@ -51,7 +51,7 @@ Una variable con 0 usos está declarada pero no la lee nadie: o es de build/infr
 | `NEXT_PUBLIC_CLIENT_ID` | 4 | `src/components/AuthProvider.tsx`, `src/components/RoleAssignmentBanner.tsx` |
 | `NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY` | 2 | `src/components/PricingPage.tsx`, `src/lib/paddleTierMap.ts` |
 | `NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY` | 2 | `src/components/PricingPage.tsx`, `src/lib/paddleTierMap.ts` |
-| `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` | 2 | `src/components/PricingPage.tsx`, `src/components/billing/AddonsMarketplace.tsx` |
+| `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` | 3 | `src/components/PricingPage.tsx`, `src/components/billing/AddonsMarketplace.tsx` |
 | `NEXT_PUBLIC_PADDLE_PRO_MONTHLY` | 2 | `src/components/PricingPage.tsx`, `src/lib/paddleTierMap.ts` |
 | `NEXT_PUBLIC_PADDLE_PRO_YEARLY` | 2 | `src/components/PricingPage.tsx`, `src/lib/paddleTierMap.ts` |
 | `NEXT_PUBLIC_SSO_ENABLED` | 0 | — |
@@ -60,7 +60,7 @@ Una variable con 0 usos está declarada pero no la lee nadie: o es de build/infr
 | `PADDLE_ADDON_SUBSCRIPTION_PRICE_ID_PROFESSIONAL` | 0 | — |
 | `PADDLE_ADDON_TENANT_PRICE_ID_BUSINESS` | 1 | `src/lib/addonCatalog.ts` |
 | `PADDLE_ADDON_TENANT_PRICE_ID_PROFESSIONAL` | 1 | `src/lib/addonCatalog.ts` |
-| `PADDLE_API_KEY` | 13 | `src/app/api/admin/tenants/paddle-checkout-link/route.ts`, `src/app/api/billing/addons/capacity/route.ts` |
+| `PADDLE_API_KEY` | 13 | `src/app/api/billing/addons/capacity/route.ts`, `src/app/api/billing/addons/tenant/route.ts` |
 | `PADDLE_WEBHOOK_SECRET` | 1 | `src/app/api/webhooks/paddle/route.ts` |
 | `PARTNER_MPN_ID` | 2 | `src/lib/partner/pal.ts`, `src/services/superAdminPartnerCenter.service.ts` |
 | `POWER_SCHEDULES_HEALTHCHECK_URL` | 0 | — |

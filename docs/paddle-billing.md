@@ -133,6 +133,37 @@ priceIdToTier("pri_01kve6af8g1bvznqnr53aq5c6a") // → "Professional"
 tierToPriceId("Professional", "monthly") // → "pri_01kve6af8g1bvznqnr53aq5c6a"
 ```
 
+## Enterprise (deals a medida)
+
+Enterprise no tiene precio fijo: cada cliente tiene un Price a medida, creado a mano en Paddle (Catálogo > Precios), que se cobra
+con un enlace que genera un SuperAdmin (Superadmin > Tenants > "Cobrar vía Paddle").
+
+**El enlace** es el `checkout.url` de una transacción creada por API (`POST /transactions` con
+`custom_data: { tenant_id, tier: "Enterprise" }`): el *default payment link* de la cuenta más `?_ptxn=<transacción>`. Lo arma
+`generatePaddleCheckoutLink` (`src/services/superAdminTenants.service.ts`). Requisitos en Paddle (sandbox y live se configuran
+por separado):
+
+- Un **default payment link** en Paddle > Checkout > Checkout configuration. Si falta, la API contesta
+  `transaction_default_checkout_url_not_set` y el panel muestra ese motivo. La página tiene que incluir Paddle.js; la página
+  hospedada por Paddle (`https://<cuenta>.sandbox.paddle.io/pay/hsc_…`) lo hace y acepta `_ptxn`.
+- El precio tiene que ser **recurrente**: el tier lo activa `subscription.created`. Un precio de pago único sólo genera
+  `transaction.completed`, que no cambia el tier (queda registrado el cobro y no se activa nada).
+
+No sirven los enlaces armados a mano (`https://buy.paddle.com/checkout?price_id=…&custom_data=…`): `buy.paddle.com/checkout` es
+el marco del checkout que maneja Paddle.js y su código sólo lee `action`, `payload` y `retain_enabled`; la pantalla queda en
+blanco. Hasta el 2026-10-12 la app generaba justamente ese enlace —sin llamar a Paddle— y además con `custom_data` como
+`{ tenantId }`, mientras el webhook lee `tenant_id`: aunque hubiera abierto un checkout, el pago no habría activado a nadie.
+
+**El tier en el webhook (`resolveTier`)** sale del precio pagado: si es uno de los cuatro de plan, ese tier; si no, Enterprise
+sólo cuando `custom_data.tier` es `Enterprise` **y** el precio es el que un SuperAdmin registró para ese tenant
+(`TenantSubscriptions.paddle_price_id`, que el panel escribe antes de pedirle el enlace a Paddle).
+
+`custom_data` no es de fiar cuando viene de un checkout abierto con Paddle.js: lo elige quien lo abre
+([doc de Paddle](https://developer.paddle.com/build/transactions/custom-data)). Con el código anterior, que daba prioridad a
+`custom_data.tier`, nada impedía pagar el plan Professional con `customData: { tenant_id, tier: "Enterprise" }` desde la consola
+del navegador y quedar Enterprise. Lo mismo vale para `tenant_id`, `addon_key`, `months` y `addon_type`; ver "Security
+Considerations".
+
 ## Proration Modes
 
 When upgrading or downgrading, you can choose:
@@ -301,6 +332,12 @@ curl -X POST http://localhost:3000/api/webhooks/paddle \
 3. **Database:** BillingTransactions.raw_event stores full payload for audit
 4. **Auth:** All endpoints require `requireTenantRole` with OWNER permission (billing-sensitive)
 5. **API Keys:** Production keys never committed; use env-based secrets only
+6. **`custom_data` del comprador:** un checkout abierto con Paddle.js lleva el `customData` que elija quien lo abre. Ninguna
+   decisión de dinero o de acceso puede depender sólo de él: el tier sale del precio pagado o de un registro del servidor
+   (`resolveTier`). **Abierto:** `tenant_id` (se puede pagar a nombre de otro tenant y pisar su suscripción) y
+   `addon_key`/`months`/`addon_type` (`purchaseAddon` acredita el módulo que diga `custom_data` sin comprobar que el precio
+   pagado sea el de ese módulo) siguen saliendo de `custom_data`. La salida es crear la transacción en el servidor, para el
+   usuario autenticado, y abrir el checkout con `transactionId`.
 
 ## Performance Notes
 

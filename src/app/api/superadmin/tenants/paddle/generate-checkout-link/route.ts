@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
         if (error instanceof AuthError) {
             return NextResponse.json({ success: false, error: errorMessage(error) }, { status: errorStatus(error) });
         }
-        return NextResponse.json({ success: false, error: errorMessage(error) }, { status: 500 });
+        // 400 si el dato no sirve, 502 si Paddle rechazó la transacción: el servicio lo marca en `status`.
+        return NextResponse.json({ success: false, error: errorMessage(error) }, { status: errorStatus(error) ?? 500 });
     }
 }

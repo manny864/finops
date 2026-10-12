@@ -89,5 +89,6 @@ export interface GeneratePaddleLinkResponse {
     checkoutUrl: string;
     priceId: string;
     tenantId: string;
-    expiresAtIso?: string;
+    /** Transacción que creó Paddle (`txn_…`): el pago del enlace llega al webhook con este ID. */
+    transactionId?: string;
 }
