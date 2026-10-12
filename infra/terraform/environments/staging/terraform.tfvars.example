@@ -70,6 +70,8 @@ stamps = {
       # deduce el entorno de la clave (pdl_sdbx_) y del token de cliente (test_). Los secretos (PADDLE_API_KEY y
       # PADDLE_WEBHOOK_SECRET) van al Key Vault de staging, nunca acá.
       PADDLE_ENV = "sandbox"
+      # PADDLE_ADDON_TENANT_PRICE_ID_PROFESSIONAL y _BUSINESS: los IDs del sandbox que deja paddle-capacidad-ids.json
+      # (scripts/paddle-sandbox-crear-catalogo.ts); no son secretos, pero van acá y no en el JSON de price IDs.
       # AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_LIGHTHOUSE_* y AZURE_MARKETPLACE_*: los de la app
       # registration y el tenant de PRUEBA de staging (D5), nunca los de prod.
     }

@@ -193,7 +193,8 @@ describe("price IDs de Paddle de staging: sandbox, nunca los de prod", () => {
     expect(ejemplo).not.toMatch(/pdl_(sdbx|live)_apikey_\w+|pdl_ntfset_\w+|\b(live|test)_[a-z0-9]{20,}/);
   });
 
-  it("sólo define variables que el catálogo conoce, con IDs bien formados y sin repetir", () => {
+  it("define exactamente las variables del catálogo (las 144), con IDs bien formados y sin repetir", () => {
+    expect(Object.keys(deStaging).sort()).toEqual([...enCatalogo].sort());
     const vistos = new Set<string>();
     for (const [k, v] of Object.entries(deStaging)) {
       expect(enCatalogo.has(k), `${k} no está en el catálogo`).toBe(true);
