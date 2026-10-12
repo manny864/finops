@@ -1,0 +1,64 @@
+# Plantilla de STAGING (docs/security/ejecucion-staging-copilot.md, F1.4). El terraform.tfvars real está
+# ignorado por git y se sube al secret TF_VARS del environment staging; los <valores> los completa la
+# persona. Sin secretos: el único GUID es el de la suscripción y el tenant, que ya viven en los secrets.
+subscription_id   = "<el mismo de prod>"
+tenant_id         = "<el mismo de prod>"
+environment       = "stg" # con "staging" el nombre del Key Vault supera los 24 caracteres
+global_location   = "westus2"
+alert_email       = "<buzón de pruebas, NO el de guardia de prod>"
+teams_webhook_url = ""
+
+defender_enabled      = false # Defender es de la suscripción: lo gestiona prod
+mysql_backup_enabled  = false # la VM de backups se enciende sólo para probarla
+enable_delete_lock    = false # staging se puede desarmar
+resource_lock_enabled = false
+# Azure rechaza un start_date pasado fuera del mes en curso: poner el mes del primer apply.
+budget_start_date = "2026-10-01T00:00:00Z"
+
+blob_managed_identity_enabled     = true
+storage_shared_access_key_enabled = true # hasta ensayar acá la fase 4 de C-01
+
+allowed_ip_ranges              = []
+origin_cloudflare_only         = false # F2.5
+origin_extra_allowed_ip_ranges = []
+
+stamps = {
+  us = {
+    location            = "westus2"
+    zone_redundant      = false
+    address_space       = ["10.60.0.0/16"]
+    apps_subnet_prefix  = "10.60.0.0/23"
+    pe_subnet_prefix    = "10.60.10.0/24"
+    mysql_subnet_prefix = "10.60.20.0/24"
+
+    mysql_sku_name                  = "B_Standard_B1ms"
+    mysql_storage_gb                = 20
+    mysql_backup_retention_days     = 7
+    redis_sku_name                  = "Balanced_B0"
+    redis_high_availability_enabled = false
+    storage_replication_type        = "LRS"
+
+    web_cpu          = 0.5
+    web_memory       = "1Gi"
+    web_min_replicas = 0
+    web_max_replicas = 2
+
+    keyvault_create                   = true
+    keyvault_private_endpoint_enabled = true
+    keyvault_network_acls_enabled     = false # primer apply; F1.7 lo pasa a true
+
+    monthly_budget_amount = 150
+    nat_gateway_enabled   = false # F2.5
+    custom_domain_enabled = false # F2.3
+
+    security_activity_alerts_enabled = false # son de la suscripción: sólo prod
+    security_policy_audit_enabled    = false
+
+    extra_env_vars = {
+      NEXT_PUBLIC_APP_URL = "https://finops-staging.cscloudsolutions.com.ar"
+      # AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_LIGHTHOUSE_* y AZURE_MARKETPLACE_*: los de la app
+      # registration y el tenant de PRUEBA de staging (D5), nunca los de prod.
+      # PADDLE_*: sandbox o vacío, según lo que soporte el código (D5).
+    }
+  }
+}

@@ -239,7 +239,7 @@ El código es el mismo por construcción: staging no tiene copias que puedan der
 ```bash
 mkdir -p infra/terraform/environments/staging
 cd infra/terraform/environments/staging
-for f in main.tf variables.tf checks.tf outputs.tf cloudflare_ips.tf cron-jobs.tfvars paddle-price-ids.json .terraform.lock.hcl; do
+for f in main.tf variables.tf checks.tf outputs.tf cloudflare_ips.tf paddle-price-ids.json .terraform.lock.hcl; do
   ln -s "../prod/$f" "$f"
 done
 ```
@@ -247,6 +247,7 @@ done
 Archivos propios de staging (versionados):
 
 - `imports.tf`: los RG y el ACR que crea la persona en F0. Prod no tiene este archivo.
+- `cron-jobs.tfvars`: un subconjunto **propio y reducido** (5 jobs: `sync`, `prewarm-dashboard`, `support-attachments-cleanup`, `trial-expiry` y `status-snapshot` cada 30 minutos), **no** un enlace al de prod. Con 0 réplicas mínimas, los 29 jobs de prod mantendrían despierta la app las 24 horas. `prewarm-dashboard` queda porque es el cron de prueba del camino cron → app (NAT y filtro de origen).
 
 ```hcl
 # Los crea la persona en F0 (docs/security/ejecucion-staging-copilot.md): el SP de staging sólo tiene
@@ -278,7 +279,7 @@ Mostrá el diff completo antes de commitear.
 - **`terraform init`:** `container_name=${{ vars.TFSTATE_CONTAINER || 'tfstate' }}`. La clave queda como está (`<environment>/terraform.tfstate`).
 - **Secreto de variables:** el paso recibe los dos secretos por separado (`TF_VARS_STAGING: ${{ secrets.TF_VARS }}` y `TF_VARS_PROD_VALUE: ${{ secrets.TF_VARS_PROD }}`) y el `run` elige según el ambiente. **Staging exige `TF_VARS_STAGING` no vacío y falla si falta, sin caer jamás al de prod.** Prod sigue leyendo `TF_VARS_PROD`: su configuración no cambia.
 - **Registro de proveedores:** en el `env` del job, `ARM_RESOURCE_PROVIDER_REGISTRATIONS: ${{ (github.event.inputs.environment || 'prod') == 'staging' && 'none' || 'legacy' }}`. El SP de staging no puede registrar proveedores a nivel suscripción. La variable de entorno la documenta el provider azurerm v4.81.0, con los valores `core`, `extended`, `all`, `legacy` y `none` («If the principal running Terraform has insufficient permissions to register Resource Providers then we recommend setting … to `none`»). Prod queda en `legacy`, que es el default y no cambia nada.
-- **Job `drift`:** matriz `[prod, staging]`, con el mismo `container_name` y el mismo `TF_VARS` por environment.
+- **Job `drift`:** **sigue sólo en prod** hasta que staging tenga un state aplicado (un drift sobre un state vacío planearía crear todo y dejaría el lunes en rojo). Al sumarlo después, su `init` y su paso de tfvars tienen que leer el contenedor y el secret por ambiente, igual que `plan-apply`.
 - **`concurrency`:** el grupo tiene que incluir el ambiente, para que un plan de staging no espere a uno de prod.
 - **Lo que no cambia:** los PR siguen planificando contra prod.
 
@@ -517,7 +518,7 @@ Es el mismo procedimiento que el destino A de prod (runbook 7.3 y [ejecucion-des
 
 - **Total:** unos **90–140 USD/mes**, más el NAT Gateway en F2, que cobra por hora y por GB (no se pudo leer de la Retail Prices API; medirlo en Cost Management).
 - **Presupuesto:** `monthly_budget_amount = 150` avisa a `alert_email`.
-- **Verificación:** a los 7 días, revisar el costo real en Cost Management. Si se pasa, el primer ajuste es un `cron-jobs.tfvars` propio de staging con menos frecuencia, que es configuración y no código.
+- **Verificación:** a los 7 días, revisar el costo real en Cost Management. Si se pasa, el primer ajuste es bajar la frecuencia del `cron-jobs.tfvars` de staging (ya es propio y reducido), que es configuración y no código.
 
 **Desarmado (la persona):**
 

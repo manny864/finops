@@ -15,13 +15,13 @@ on:
         required: true
         default: prod
         type: choice
-        # Solo prod: environments/dev/ tiene terraform.tfvars.example pero no
-        # terraform.tfvars, asi que un plan sobre dev falla en el -var-file
-        # antes de llegar a Azure. Cuando exista un stamp dev aplicado, volver
-        # a agregarlo aca y en la matriz de drift.
-        options: [prod]
+        # prod y staging. environments/dev/ tiene terraform.tfvars.example pero no
+        # terraform.tfvars, asi que un plan sobre dev falla en el -var-file antes
+        # de llegar a Azure: sigue sin ofrecerse. staging comparte el codigo de prod
+        # (enlaces en environments/staging) y se aplica con su propia palabra.
+        options: [prod, staging]
       confirm:
-        description: 'Para APLICAR, escribir exactamente: APPLY-PROD (vacio = solo plan)'
+        description: 'Para APLICAR, escribir exactamente: APPLY-PROD (ambiente prod) o APPLY-STAGING (ambiente staging). Vacio = solo plan'
         required: false
         default: ''
         type: string
@@ -59,7 +59,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: terraform-prod
+  group: terraform-${{ github.event.inputs.environment || 'prod' }}
   cancel-in-progress: false
 
 jobs:
@@ -244,6 +244,13 @@ jobs:
     # plan y se detiene, y lo dice en el log (paso "Aviso" mas abajo) para que
     # no se confunda con un apply exitoso.
     environment: ${{ github.event.inputs.environment || 'prod' }}
+    env:
+      # El SP de staging no puede registrar proveedores de recursos a nivel suscripcion (sus roles
+      # son solo sobre sus RG) y el provider lo intenta al iniciar. Con `none` no lo intenta; los
+      # proveedores ya estan registrados porque la suscripcion es la misma que la de prod. Prod
+      # queda en `legacy`, que es el valor por defecto de azurerm 4.x: no cambia nada.
+      # Contrato: documentacion del provider azurerm v4.81.0, `resource_provider_registrations`.
+      ARM_RESOURCE_PROVIDER_REGISTRATIONS: ${{ (github.event.inputs.environment || 'prod') == 'staging' && 'none' || 'legacy' }}
     defaults:
       run:
         working-directory: infra/terraform/environments/${{ github.event.inputs.environment || 'prod' }}
@@ -265,7 +272,7 @@ jobs:
           terraform init \
             -backend-config="resource_group_name=${{ secrets.TFSTATE_RG }}" \
             -backend-config="storage_account_name=${{ secrets.TFSTATE_STORAGE }}" \
-            -backend-config="container_name=tfstate" \
+            -backend-config="container_name=${{ vars.TFSTATE_CONTAINER || 'tfstate' }}" \
             -backend-config="use_azuread_auth=true" \
             -backend-config="use_oidc=true" \
             -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
@@ -292,11 +299,22 @@ jobs:
       # `-var-file=cron-jobs.tfvars` (versionado en git) y Terraform resuelve
       # los -var-file en orden, ganando el último para una misma variable. Los
       # horarios se cambian en ese archivo, por PR; nunca editando el secret.
+      #
+      # Staging lee su propio secret (`TF_VARS`, del environment staging) y EXIGE que exista: si
+      # faltara, nunca cae al de prod. El secret de prod ni siquiera se carga en el entorno del
+      # paso cuando el ambiente es staging.
       - name: Escribir terraform.tfvars desde el secret
         env:
-          TF_VARS_CONTENT: ${{ secrets.TF_VARS_PROD }}
-        run: printf '%s\n' "$TF_VARS_CONTENT" > terraform.tfvars
-
+          AMBIENTE: ${{ github.event.inputs.environment || 'prod' }}
+          TF_VARS_STAGING: ${{ secrets.TF_VARS }}
+          TF_VARS_PROD_VALOR: ${{ (github.event.inputs.environment || 'prod') != 'staging' && secrets.TF_VARS_PROD || '' }}
+        run: |
+          if [ "$AMBIENTE" = "staging" ]; then
+            [ -n "$TF_VARS_STAGING" ] || { echo "::error::Falta el secret TF_VARS del environment staging"; exit 1; }
+            printf '%s\n' "$TF_VARS_STAGING" > terraform.tfvars
+          else
+            printf '%s\n' "$TF_VARS_PROD_VALOR" > terraform.tfvars
+          fi
 
       # ── Firewall del Key Vault (opción 4 de infra/docs/keyvault-network-hardening.md)
       #
@@ -402,23 +420,24 @@ jobs:
       # Apply sólo en ejecución manual, nunca automático desde un PR, y sólo
       # con la confirmación tipeada (ver el comentario del job).
       - name: Aviso — dispatch sin confirmar, no se aplica
-        if: github.event_name == 'workflow_dispatch' && inputs.confirm != 'APPLY-PROD'
+        if: github.event_name == 'workflow_dispatch' && inputs.confirm != (inputs.environment == 'staging' && 'APPLY-STAGING' || 'APPLY-PROD')
         # Por env y no interpolado en el script: `confirm` es texto libre.
         env:
           CONFIRM: ${{ inputs.confirm }}
+          ESPERADO: ${{ inputs.environment == 'staging' && 'APPLY-STAGING' || 'APPLY-PROD' }}
         run: |
           echo "::warning title=Plan sin aplicar::El plan de arriba NO se aplicó."
-          echo "Para aplicar, re-lanzar el workflow escribiendo APPLY-PROD en el campo 'confirm'."
+          echo "Para aplicar, re-lanzar el workflow escribiendo $ESPERADO en el campo 'confirm'."
           echo "Recibido: '$CONFIRM'"
 
       - name: Validar seguridad del apply
-        if: github.event_name == 'workflow_dispatch' && inputs.confirm == 'APPLY-PROD'
+        if: github.event_name == 'workflow_dispatch' && inputs.confirm == (inputs.environment == 'staging' && 'APPLY-STAGING' || 'APPLY-PROD')
         env:
           REPLACE_ADDR: ${{ inputs.replace }}
         run: node "$GITHUB_WORKSPACE/scripts/validate-terraform-apply-plan.mjs" plan.json
 
       - name: Terraform apply
-        if: github.event_name == 'workflow_dispatch' && inputs.confirm == 'APPLY-PROD'
+        if: github.event_name == 'workflow_dispatch' && inputs.confirm == (inputs.environment == 'staging' && 'APPLY-STAGING' || 'APPLY-PROD')
         run: terraform apply -auto-approve tfplan
 
       # ── Devolver APP_VERSION, que el apply se lleva puesta ──────────────────
@@ -440,7 +459,7 @@ jobs:
       # Terraform sí ignora (ver el `lifecycle` del módulo containerapp). Por eso
       # este paso es idempotente: sirve igual si el apply se corre dos veces.
       - name: Restaurar APP_VERSION
-        if: github.event_name == 'workflow_dispatch' && inputs.confirm == 'APPLY-PROD'
+        if: github.event_name == 'workflow_dispatch' && inputs.confirm == (inputs.environment == 'staging' && 'APPLY-STAGING' || 'APPLY-PROD')
         run: |
           set -euo pipefail
           terraform output -json web_apps | jq -r 'to_entries[] | "\(.value.resource_group) \(.value.app)"' |
@@ -494,7 +513,10 @@ jobs:
       contents: read
     strategy:
       matrix:
-        # Solo prod, por el mismo motivo que en el input de arriba.
+        # Solo prod. Staging se suma cuando tenga un state aplicado: un drift sobre un state
+        # vacio planearia crear todo y dejaria el lunes en rojo. Al sumarlo, el paso de init y el
+        # de tfvars de este job tienen que leer el contenedor y el secret por ambiente, igual que
+        # plan-apply.
         environment: [prod]
     defaults:
       run:

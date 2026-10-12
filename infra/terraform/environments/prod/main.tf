@@ -270,29 +270,6 @@ module "stamp" {
 # infra/terraform/modules/mysql_backup/variables.tf para el detalle completo.
 # ---------------------------------------------------------------------------
 
-# ── Import puntual: TEAMS_WEBHOOK_URL ya existe en Azure ─────────────────────
-#
-# La variable se creo a mano por la API el 2026-09-12 para que la alerta a Teams
-# funcionara el mismo dia, ANTES de que existiera este recurso en el modulo. Por
-# eso el primer apply muere con "a resource with the ID ... already exists - to
-# be managed via Terraform this resource needs to be imported into the State".
-#
-# Se resuelve con un `import` block y no con `terraform import` a mano porque el
-# workflow es workflow_dispatch y no expone un paso de import: asi entra por el
-# apply normal y queda auditado en el plan.
-#
-# El ID se arma desde el data source y no hardcodeado: el subscription id es un
-# secreto del pipeline (sale enmascarado como *** en los logs).
-#
-# BORRAR ESTE BLOQUE una vez que el apply haya pasado. Terraform lo ignora si el
-# recurso ya esta en el state, pero dejarlo es ruido permanente en cada plan.
-data "azurerm_client_config" "current" {}
-
-import {
-  to = module.mysql_backup[0].azurerm_automation_variable_string.teams_webhook_url
-  id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${var.mysql_backup_resource_group_name}/providers/Microsoft.Automation/automationAccounts/aa-mysql-backups/variables/TEAMS_WEBHOOK_URL"
-}
-
 module "mysql_backup" {
   count  = var.mysql_backup_enabled ? 1 : 0
   source = "../../modules/mysql_backup"
@@ -326,10 +303,4 @@ module "mysql_backup" {
   alert_email         = var.alert_email
   teams_webhook_url   = var.teams_webhook_url
   schedule_start_time = var.mysql_backup_schedule_start_time
-}
-
-# Import del runbook Orchestrator pre-existente en Azure Automation
-import {
-  to = module.mysql_backup[0].azurerm_automation_runbook.orchestrator
-  id = "/subscriptions/ec03e8ce-ceee-4638-b303-64ae431d5b1e/resourceGroups/cscs-finops-prod-westus2-backup-rg/providers/Microsoft.Automation/automationAccounts/aa-mysql-backups/runbooks/Orchestrator-Start-Backup-Stop"
 }
