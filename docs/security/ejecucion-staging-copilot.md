@@ -48,6 +48,7 @@ Las tomó la persona el 2026-10-11:
 - **Build por ambiente desde el mismo commit.** Staging se construye con sus propias variables. La promoción a prod reconstruye ese mismo `sha` con las variables de prod.
 - **Staging tiene su propia app registration**, multi-tenant, consentida sólo en un tenant de prueba, y **no usa Paddle en vivo**. Antes de F3 hay que verificar en el código si soporta sandbox o un modo sin facturación.
 - **Promover la misma imagen por digest** queda para cuando la configuración pública se lea en runtime, que es un cambio de la app.
+- **Verificado en el código (2026-10-12), antes de F3:** el servidor soporta el sandbox con `PADDLE_ENV=sandbox` (`src/app/api/billing/portal/route.ts`, `src/lib/paddleTierMap.ts`) y el navegador lo deduce del prefijo del token, `test_` (`PricingPage.tsx`, `AddonsMarketplace.tsx`). **Pero la CSP que se aplica en un build de producción (`next.config.ts`, variable `isDev`) no incluye los dominios sandbox de Paddle** (`sandbox-cdn`, `sandbox-buy`, `sandbox-api` y `checkout-service.sandbox`): en staging, que corre un build de producción, el checkout sandbox quedaría bloqueado. Hace falta un cambio chico en `next.config.ts` y `src/proxy.ts`: permitir esos dominios cuando el token del build empiece con `test_`, y nunca en un build de prod con token `live_` (el menor privilegio que ya documenta el código). Sin hacer: se hace junto con D5.
 
 Si la persona decide otra cosa, se actualiza esta sección antes de F3.
 
