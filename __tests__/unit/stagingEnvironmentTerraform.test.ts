@@ -21,7 +21,7 @@ const leer = (ruta: string) => readFileSync(ruta, "utf8");
 const workflow = leer(".github/workflows/terraform.yml");
 
 describe("staging comparte el código de prod por enlaces simbólicos", () => {
-  const compartidos = ["main.tf", "variables.tf", "checks.tf", "outputs.tf", "cloudflare_ips.tf", "paddle-price-ids.json", ".terraform.lock.hcl"];
+  const compartidos = ["main.tf", "variables.tf", "checks.tf", "outputs.tf", "cloudflare_ips.tf", ".terraform.lock.hcl"];
 
   it.each(compartidos)("%s es un enlace a ../prod/%s", (f) => {
     expect(lstatSync(`${STG}/${f}`).isSymbolicLink()).toBe(true);
@@ -166,5 +166,40 @@ describe("primer apply de un ambiente nuevo", () => {
     const ejemplo = leer(`${STG}/terraform.tfvars.example`);
     expect(ejemplo).toMatch(/keyvault_private_endpoint_enabled\s*=\s*false/);
     expect(ejemplo).toMatch(/keyvault_network_acls_enabled\s*=\s*false/);
+  });
+});
+
+// D5: staging cobra contra el SANDBOX de Paddle. Compartir el JSON de prod por un enlace le daba los price IDs
+// en vivo, y el catálogo de la app cae a los IDs en vivo que lleva en el código cuando falta una variable.
+describe("price IDs de Paddle de staging: sandbox, nunca los de prod", () => {
+  const ruta = `${STG}/paddle-price-ids.json`;
+  const deStaging: Record<string, string> = JSON.parse(leer(ruta));
+  const deProd: Record<string, string> = JSON.parse(leer(`${PROD}/paddle-price-ids.json`));
+  const enCatalogo = new Set<string>();
+  for (const m of leer("src/lib/addonCatalog.ts").matchAll(/process\.env\.(PADDLE_PRICE_[A-Z0-9_]+) \|\| "pri_[a-z0-9]+"/g)) enCatalogo.add(m[1]);
+
+  it("es un archivo propio y no un enlace al de prod", () => {
+    expect(lstatSync(ruta).isSymbolicLink()).toBe(false);
+  });
+
+  it("ningún price ID coincide con uno de prod (los de prod cobran de verdad)", () => {
+    const vivos = new Set(Object.values(deProd));
+    for (const [k, v] of Object.entries(deStaging)) expect(vivos.has(v), `${k} usa un ID de prod`).toBe(false);
+  });
+
+  it("el ejemplo fija PADDLE_ENV = sandbox y no lleva ninguna credencial de Paddle", () => {
+    const ejemplo = leer(`${STG}/terraform.tfvars.example`);
+    expect(ejemplo).toMatch(/^\s*PADDLE_ENV\s*=\s*"sandbox"/m);
+    expect(ejemplo).not.toMatch(/pdl_(sdbx|live)_apikey_\w+|pdl_ntfset_\w+|\b(live|test)_[a-z0-9]{20,}/);
+  });
+
+  it("sólo define variables que el catálogo conoce, con IDs bien formados y sin repetir", () => {
+    const vistos = new Set<string>();
+    for (const [k, v] of Object.entries(deStaging)) {
+      expect(enCatalogo.has(k), `${k} no está en el catálogo`).toBe(true);
+      expect(v, k).toMatch(/^pri_[a-z0-9]{26}$/);
+      expect(vistos.has(v), `${k} repite un ID`).toBe(false);
+      vistos.add(v);
+    }
   });
 });

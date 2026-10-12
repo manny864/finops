@@ -66,9 +66,12 @@ stamps = {
 
     extra_env_vars = {
       NEXT_PUBLIC_APP_URL = "https://finops-staging.cscloudsolutions.com.ar"
+      # D5: staging cobra contra el SANDBOX de Paddle. PADDLE_ENV lo lee la ruta del portal de facturación; el resto de la app
+      # deduce el entorno de la clave (pdl_sdbx_) y del token de cliente (test_). Los secretos (PADDLE_API_KEY y
+      # PADDLE_WEBHOOK_SECRET) van al Key Vault de staging, nunca acá.
+      PADDLE_ENV = "sandbox"
       # AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_LIGHTHOUSE_* y AZURE_MARKETPLACE_*: los de la app
       # registration y el tenant de PRUEBA de staging (D5), nunca los de prod.
-      # PADDLE_*: sandbox o vacío, según lo que soporte el código (D5).
     }
   }
 }

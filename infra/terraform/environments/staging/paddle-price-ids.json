@@ -1,1 +1,26 @@
-../prod/paddle-price-ids.json
+{
+  "PADDLE_PRICE_ANALYTICS_MONTHLY": "pri_01m4re7a2zcdjwm8bay166s89j",
+  "PADDLE_PRICE_ANALYTICS_1M": "pri_01m4re60nkq8ceej1w8gvdvxhn",
+  "PADDLE_PRICE_ANALYTICS_3M": "pri_01m4re0dg6mb15e0204rdtthc0",
+  "PADDLE_PRICE_ANALYTICS_6M": "pri_01m4rdypmd22x0g5trxzfm6pz1",
+  "PADDLE_PRICE_ANALYTICS_9M": "pri_01m4rdxpy5xs1gnb88rst6010x",
+  "PADDLE_PRICE_ANALYTICS_YEARLY": "pri_01m4rdvhmqfzx26d9yahbant7q",
+  "PADDLE_PRICE_GOVREPORTING_MONTHLY": "pri_01m4rc4gmmqh6s6fcemc450d2x",
+  "PADDLE_PRICE_GOVREPORTING_1M": "pri_01m4rc3ncedfvcyrfamszcckh4",
+  "PADDLE_PRICE_GOVREPORTING_3M": "pri_01m4rc2e4jbgsppxd6j6wfmw3k",
+  "PADDLE_PRICE_GOVREPORTING_6M": "pri_01m4rc1evvrwgmz1nckngc60rf",
+  "PADDLE_PRICE_GOVREPORTING_9M": "pri_01m4rc0bfz571pq83b6002ne3s",
+  "PADDLE_PRICE_GOVREPORTING_YEARLY": "pri_01m4rbz6fa0mqsw7xfy26ppg0p",
+  "PADDLE_PRICE_MONITORING_MONTHLY": "pri_01m4rbs0ndc91xg0fh3jag1xt3",
+  "PADDLE_PRICE_MONITORING_1M": "pri_01m4rbqysh7pa5a9fs63wrehht",
+  "PADDLE_PRICE_MONITORING_3M": "pri_01m4rbpsgby0pkyq5ka1nthtgq",
+  "PADDLE_PRICE_MONITORING_6M": "pri_01m4rbnemenfy0qm97wmvyrv1f",
+  "PADDLE_PRICE_MONITORING_9M": "pri_01m4rbk6z6akmetg0rwdnva5sp",
+  "PADDLE_PRICE_MONITORING_YEARLY": "pri_01m4rba8k8ma7y76epsmzkfwcv",
+  "PADDLE_PRICE_POLICIES_MONTHLY": "pri_01m4rd3x02j73k5qeh3yf295mh",
+  "PADDLE_PRICE_POLICIES_1M": "pri_01m4rd2mcn3ytyjx2vr3d557y9",
+  "PADDLE_PRICE_POLICIES_3M": "pri_01m4rd17env9bvzc1avg2jyj76",
+  "PADDLE_PRICE_POLICIES_6M": "pri_01m4rd06a51c402amsa1z9pzz4",
+  "PADDLE_PRICE_POLICIES_9M": "pri_01m4rcz4gr2vkkgc7btkden2hk",
+  "PADDLE_PRICE_POLICIES_YEARLY": "pri_01m4rcstd2cn2ew0yjef7gwjwx"
+}

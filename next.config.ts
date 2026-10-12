@@ -55,13 +55,16 @@ const nextConfig: NextConfig = {
     // sourcemaps y reconstrucción de callstacks. Se habilita 'unsafe-eval' SOLO en dev;
     // en producción la CSP permanece estricta (sin eval).
     const isDev = process.env.NODE_ENV !== 'production';
-    // Dominios sandbox de Paddle SOLO en dev: en producción los tokens/price IDs
-    // son live y permitir sandbox en el CSP viola least-privilege (además de
-    // generar confusión al leer la política — "¿por qué aparece sandbox en prod?").
+    // Dominios sandbox de Paddle: en dev y en un build cuyo token de cliente es de sandbox (`test_`, el de
+    // staging; es el mismo criterio con el que el navegador elige el entorno de Paddle.js). Un build de prod
+    // lleva un token `live_` y NO los permite: en producción los tokens/price IDs son live y permitir sandbox
+    // en el CSP viola least-privilege (además de generar confusión al leer la política — "¿por qué aparece
+    // sandbox en prod?"). Sin esto el checkout sandbox de staging, que corre un build de producción, queda bloqueado.
+    const usaPaddleSandbox = isDev || (process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN ?? '').startsWith('test_');
     const paddleSandbox = {
-      cdn: isDev ? ' https://sandbox-cdn.paddle.com' : '',
-      api: isDev ? ' https://sandbox-api.paddle.com https://checkout-service.sandbox.paddle.com' : '',
-      buy: isDev ? ' https://sandbox-buy.paddle.com' : '',
+      cdn: usaPaddleSandbox ? ' https://sandbox-cdn.paddle.com' : '',
+      api: usaPaddleSandbox ? ' https://sandbox-api.paddle.com https://checkout-service.sandbox.paddle.com' : '',
+      buy: usaPaddleSandbox ? ' https://sandbox-buy.paddle.com' : '',
     };
     const scriptSrc = [
       "script-src 'self' 'unsafe-inline'",

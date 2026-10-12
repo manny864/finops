@@ -16,12 +16,14 @@ const intlMiddleware = createMiddleware({
  * enforcing y quitar 'unsafe-inline'. No puede romper checkout/login.
  */
 function reportOnlyCsp(nonce: string): string {
-  // Sandbox de Paddle solo en dev — en producción los tokens son live y los
-  // dominios sandbox no deben figurar como orígenes permitidos (least privilege).
+  // Sandbox de Paddle en dev y en un build con token de cliente de sandbox (`test_`, staging) — en un build de
+  // producción el token es live y los dominios sandbox no deben figurar como orígenes permitidos (least privilege).
+  // Mismo criterio que next.config.ts; el acceso a NEXT_PUBLIC_* es literal para que Next lo inlinee al compilar.
   const isDev = process.env.NODE_ENV !== 'production';
-  const sbCdn = isDev ? ' https://sandbox-cdn.paddle.com' : '';
-  const sbApi = isDev ? ' https://sandbox-api.paddle.com https://checkout-service.sandbox.paddle.com' : '';
-  const sbBuy = isDev ? ' https://sandbox-buy.paddle.com' : '';
+  const usaPaddleSandbox = isDev || (process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN ?? '').startsWith('test_');
+  const sbCdn = usaPaddleSandbox ? ' https://sandbox-cdn.paddle.com' : '';
+  const sbApi = usaPaddleSandbox ? ' https://sandbox-api.paddle.com https://checkout-service.sandbox.paddle.com' : '';
+  const sbBuy = usaPaddleSandbox ? ' https://sandbox-buy.paddle.com' : '';
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https: 'unsafe-inline'`,
