@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
+import RefundsDialog from "@/components/billing/RefundsDialog";
 import DemoModeBadge from "@/components/DemoModeBadge";
 import { useTenant } from "@/components/TenantProvider";
 import { SUBSCRIPTION_LIMITS } from "@/lib/tierLogic";
@@ -61,6 +62,7 @@ const columnasFacturacion = (t: (k: string) => string): ColumnConfig[] => [
 export default function BillingPanel() {
     const t = useTranslations("AdminBilling");
     const tc = useTranslations("Common");
+    const tr = useTranslations("Refunds");
     const locale = useLocale();
     const router = useRouter();
     const [changePlanOpen, setChangePlanOpen] = useState(false);
@@ -76,6 +78,7 @@ export default function BillingPanel() {
 
     // Modal de cancelación
     const [showCancelModal, setShowCancelModal] = useState(false);
+    const [showRefunds, setShowRefunds] = useState(false);
     const [canceling, setCanceling] = useState(false);
     const [canceledMessage, setCanceledMessage] = useState<string | null>(null);
 
@@ -573,6 +576,15 @@ export default function BillingPanel() {
                         >
                             <IconRefresh size={14} className={loading ? "animate-spin" : ""} />
                         </button>
+                        {!isMock && (
+                            <button
+                                type="button"
+                                onClick={() => setShowRefunds(true)}
+                                className="ml-2 px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                            >
+                                {tr("open")}
+                            </button>
+                        )}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
@@ -774,6 +786,8 @@ export default function BillingPanel() {
                     </div>
                 </div>
             </div>
+
+            {showRefunds && <RefundsDialog tenantId={tenantId} onClose={() => setShowRefunds(false)} />}
 
             {/* ─── MODAL: Confirmación de Cancelación de Suscripción (z-[100]) ──────── */}
             {showCancelModal && (

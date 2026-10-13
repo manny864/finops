@@ -635,6 +635,43 @@
     "viewDetails": "Ver Detalles",
     "downloadError": "Error en la descarga"
   },
+  "Refunds": {
+    "title": "Reembolsos",
+    "policyAdmin": "Podés pedir el reembolso total de un cobro dentro de los {days} días de haberse hecho. Para uno anterior, escribí a soporte.",
+    "policySuper": "Como SuperAdmin podés pedir el reembolso total de cualquier cobro, sin límite de días.",
+    "effects": "Cuando Paddle aprueba el reembolso: el cobro queda marcado como reembolsado y se revierten las comisiones; si fue un módulo, se da de baja; si fue el último cobro del plan, el acceso se corta de inmediato y la suscripción se cancela. Los reembolsos parciales se hacen desde el panel de Paddle.",
+    "loading": "Cargando cobros…",
+    "loadError": "No se pudieron cargar los cobros",
+    "empty": "Este tenant todavía no tiene cobros.",
+    "colDate": "Fecha",
+    "colItem": "Concepto",
+    "colAmount": "Monto",
+    "colStatus": "Estado",
+    "itemPlan": "Plan",
+    "itemAddon": "Módulo: {key}",
+    "status": {
+      "completed": "Cobrado",
+      "refund_pending": "Reembolso en proceso",
+      "refunded": "Reembolsado"
+    },
+    "motivo": {
+      "ya-reembolsado": "Ya reembolsado",
+      "en-proceso": "Reembolso en proceso",
+      "fuera-de-ventana": "Fuera de la ventana de {days} días",
+      "no-cobrado": "No cobrado"
+    },
+    "refund": "Reembolsar",
+    "confirmTitle": "Pedir el reembolso total de {amount}",
+    "reasonLabel": "Motivo del reembolso",
+    "reasonPlaceholder": "Ej.: el cliente contrató por error",
+    "reasonHint": "Queda registrado en Paddle y en la auditoría.",
+    "confirmButton": "Pedir reembolso",
+    "back": "Volver",
+    "close": "Cerrar",
+    "requested": "Reembolso pedido. Paddle lo revisa y, cuando lo aprueba, se aplican los efectos.",
+    "requestError": "No se pudo pedir el reembolso",
+    "open": "Reembolsos"
+  },
   "AdminBilling": {
     "title": "Facturación",
     "cancelsAtPeriodEnd": "Cancela fin de período",

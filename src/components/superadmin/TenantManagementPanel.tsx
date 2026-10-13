@@ -6,6 +6,7 @@ import DemoModeBadge from "@/components/DemoModeBadge";
 import { useMsal } from "@azure/msal-react";
 import { toast } from "sonner";
 import { getFreshIdToken } from "@/lib/msalToken";
+import RefundsDialog from "@/components/billing/RefundsDialog";
 import { useTenant } from "@/components/TenantProvider";
 import { isMockTenant } from "@/lib/demoTenant";
 import { errorMessage } from "@/lib/apiErrors";
@@ -84,6 +85,7 @@ export default function TenantManagementPanel() {
     const t = useTranslations("SuperAdminTenants");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
+    const [refundsTenant, setRefundsTenant] = useState<{ id: string; name: string } | null>(null);
 
     const tenantId = selectedTenant?.id || "default";
     const isMock = isMockTenant(tenantId);
@@ -1119,6 +1121,14 @@ export default function TenantManagementPanel() {
                                                     )}
                                                     <span>Impersonar</span>
                                                 </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setRefundsTenant({ id: tItem.tenantId, name: tItem.organizationName || tItem.tenantId })}
+                                                    className="ml-2 inline-flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-xs transition-all"
+                                                    title={`Reembolsos de ${tItem.organizationName || tItem.tenantId}`}
+                                                >
+                                                    <span>Reembolsos</span>
+                                                </button>
                                             </td>
                                         )}
 
@@ -1192,6 +1202,8 @@ export default function TenantManagementPanel() {
                     </div>
                 </div>
             </div>
+
+            {refundsTenant && <RefundsDialog tenantId={refundsTenant.id} tenantName={refundsTenant.name} onClose={() => setRefundsTenant(null)} />}
 
             {/* ─── MODAL: Enlace de Checkout Paddle Generado (z-[100]) ──────────────── */}
             {generatedLinkData?.modalOpen && (

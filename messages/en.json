@@ -635,6 +635,43 @@
     "viewDetails": "View Details",
     "downloadError": "Download failed"
   },
+  "Refunds": {
+    "title": "Refunds",
+    "policyAdmin": "You can request a full refund of a charge within {days} days of it being made. For an older one, contact support.",
+    "policySuper": "As SuperAdmin you can request a full refund of any charge, with no day limit.",
+    "effects": "When Paddle approves the refund: the charge is marked as refunded and commissions are reversed; if it was a module, it is switched off; if it was the plan's latest charge, access is cut immediately and the subscription is canceled. Partial refunds are made from the Paddle dashboard.",
+    "loading": "Loading charges…",
+    "loadError": "Could not load the charges",
+    "empty": "This tenant has no charges yet.",
+    "colDate": "Date",
+    "colItem": "Item",
+    "colAmount": "Amount",
+    "colStatus": "Status",
+    "itemPlan": "Plan",
+    "itemAddon": "Module: {key}",
+    "status": {
+      "completed": "Charged",
+      "refund_pending": "Refund in progress",
+      "refunded": "Refunded"
+    },
+    "motivo": {
+      "ya-reembolsado": "Already refunded",
+      "en-proceso": "Refund in progress",
+      "fuera-de-ventana": "Outside the {days}-day window",
+      "no-cobrado": "Not charged"
+    },
+    "refund": "Refund",
+    "confirmTitle": "Request a full refund of {amount}",
+    "reasonLabel": "Reason for the refund",
+    "reasonPlaceholder": "E.g. the customer subscribed by mistake",
+    "reasonHint": "It is recorded in Paddle and in the audit trail.",
+    "confirmButton": "Request refund",
+    "back": "Back",
+    "close": "Close",
+    "requested": "Refund requested. Paddle reviews it and, once approved, the effects are applied.",
+    "requestError": "Could not request the refund",
+    "open": "Refunds"
+  },
   "AdminBilling": {
     "title": "Billing",
     "cancelsAtPeriodEnd": "Cancels at period end",

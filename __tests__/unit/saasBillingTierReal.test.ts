@@ -77,7 +77,7 @@ describe("la baja pedida por el cliente queda registrada", () => {
         queryMock.mockResolvedValue([{ affectedRows: 1 }]);
         const res = await cancelTenantSubscription(TENANT, "admin@x.com");
         expect(res.success).toBe(true);
-        const sql = String(queryMock.mock.calls[0][0]);
+        const sql = String(queryMock.mock.calls.map(([q]) => String(q)).find((q) => q.includes("UPDATE Tenants")));
         expect(sql).toContain("UPDATE Tenants");
         expect(sql).toContain("cancel_at_period_end");
         expect(sql).toContain("tenant_id = ?");

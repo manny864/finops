@@ -125,3 +125,50 @@ describe("saasBilling.service", () => {
         await expect(cancelTenantSubscription("tenant-que-no-existe")).rejects.toThrow();
     });
 });
+
+describe("cancelTenantSubscription pide la baja a Paddle", () => {
+    const fetchMock = vi.fn();
+    beforeEach(() => {
+        mocks.mockPoolQuery.mockReset();
+        fetchMock.mockReset();
+        vi.stubGlobal("fetch", fetchMock);
+        process.env.PADDLE_API_KEY = "pdl_sdbx_apikey_de_prueba";
+    });
+    afterEach(() => {
+        vi.unstubAllGlobals();
+        delete process.env.PADDLE_API_KEY;
+    });
+
+    /** Primero el SELECT de la suscripción, después el UPDATE y la auditoría. */
+    const tenantConSuscripcion = (id: string | null) =>
+        mocks.mockPoolQuery.mockImplementation(async (sql: string) =>
+            String(sql).includes("SELECT paddle_subscription_id") ? [[{ paddle_subscription_id: id }], []] : [{ affectedRows: 1 }, []]
+        );
+
+    it("programa la cancelación para el final del período EN PADDLE y después marca la baja", async () => {
+        tenantConSuscripcion("sub_01m4plan000000000000000000");
+        fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
+
+        const r = await cancelTenantSubscription("tenant-live-abc", "owner@company.com");
+
+        expect(r.success).toBe(true);
+        expect(fetchMock.mock.calls[0][0]).toBe("https://sandbox-api.paddle.com/subscriptions/sub_01m4plan000000000000000000/cancel");
+        expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ effective_from: "next_billing_period" });
+        expect(mocks.mockPoolQuery).toHaveBeenCalledWith(expect.stringContaining("UPDATE Tenants SET cancel_at_period_end = TRUE"), ["tenant-live-abc"]);
+    });
+
+    it("si Paddle rechaza, NO se marca la baja y el error dice por qué (antes se decía 'listo' y Paddle seguía cobrando)", async () => {
+        tenantConSuscripcion("sub_01m4plan000000000000000000");
+        fetchMock.mockResolvedValue({ ok: false, status: 400, json: async () => ({ error: { code: "x", detail: "Subscription already has a scheduled change" } }) });
+
+        await expect(cancelTenantSubscription("tenant-live-abc", "owner@company.com")).rejects.toThrow(/scheduled change/);
+        expect(mocks.mockPoolQuery).not.toHaveBeenCalledWith(expect.stringContaining("UPDATE Tenants SET cancel_at_period_end"), expect.anything());
+    });
+
+    it("un tenant sin suscripción de Paddle (alta manual) sólo lleva la marca y no llama a Paddle", async () => {
+        tenantConSuscripcion(null);
+        const r = await cancelTenantSubscription("tenant-manual", "owner@company.com");
+        expect(r.success).toBe(true);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+});

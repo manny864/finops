@@ -208,6 +208,21 @@ export class TenantAddonsService {
     }
 
     /**
+     * Da de baja el módulo RECURRENTE del tenant: su suscripción de Paddle se canceló, así que no se va a cobrar el mes siguiente.
+     * Sin esto la fila quedaba `active` para siempre (`addon-expiry` sólo vence los pases con `expires_at`) y el módulo se
+     * conservaba sin pagarlo. Devuelve cuántas filas dio de baja.
+     */
+    static async cancelRecurringAddon(tenantId: string, addonKey: string): Promise<number> {
+        if (isMockTenant(tenantId)) return 0;
+        const [res]: any = await pool.query(
+            `UPDATE TenantAddons SET status = 'cancelled'
+              WHERE tenant_id = ? AND addon_key = ? AND addon_type = 'recurring' AND status = 'active'`,
+            [tenantId, addonKey]
+        );
+        return Number(res?.affectedRows ?? 0);
+    }
+
+    /**
      * Verifica si el tenant tiene acceso a una feature por tier base O por add-on activo.
      */
     static async hasFeatureOrAddonAccess(

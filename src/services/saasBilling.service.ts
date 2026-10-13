@@ -14,6 +14,7 @@ import {
 } from "@/types/saasBilling.types";
 import { azurePlanToBillingCycle } from "@/lib/marketplace/planMapping";
 import { getPaddleBaseUrl } from "@/lib/paddleTierMap";
+import { cancelarSuscripcion } from "@/lib/paddleSubscriptions";
 import { normalizeTier } from "@/lib/tierLogic";
 
 /**
@@ -264,6 +265,18 @@ export async function cancelTenantSubscription(
             message: "Suscripción de prueba cancelada programada para el final del período.",
             effectiveDateIso: effectiveDate.toISOString(),
         };
+    }
+
+    // La baja se pide a PADDLE primero. Antes sólo se marcaba `cancel_at_period_end` en la base: el cliente veía "se cancelará al
+    // final del período" y Paddle seguía cobrando todos los meses, porque nadie le avisaba. Si Paddle rechaza, se dice por qué en
+    // vez de dejar una baja que no existe. Un tenant sin suscripción de Paddle (alta manual, Enterprise) sólo lleva la marca.
+    const [subRows]: any = await pool.query("SELECT paddle_subscription_id FROM Tenants WHERE tenant_id = ? LIMIT 1", [tenantId]);
+    const paddleSubscriptionId = Array.isArray(subRows) ? subRows[0]?.paddle_subscription_id : null;
+    if (paddleSubscriptionId) {
+        const r = await cancelarSuscripcion(paddleSubscriptionId, "next_billing_period");
+        if (!r.ok) {
+            throw new Error(r.detail ? `Paddle no pudo programar la baja: ${r.detail}` : `Paddle no pudo programar la baja (HTTP ${r.status}).`);
+        }
     }
 
     // Antes esto escribia en `TenantSaaSSubscriptions` (tabla inexistente) y

@@ -635,6 +635,43 @@
     "viewDetails": "Ver Detalhes",
     "downloadError": "Erro no download"
   },
+  "Refunds": {
+    "title": "Reembolsos",
+    "policyAdmin": "Você pode solicitar o reembolso total de uma cobrança em até {days} dias após ela ser feita. Para uma anterior, fale com o suporte.",
+    "policySuper": "Como SuperAdmin, você pode solicitar o reembolso total de qualquer cobrança, sem limite de dias.",
+    "effects": "Quando a Paddle aprova o reembolso: a cobrança fica marcada como reembolsada e as comissões são revertidas; se foi um módulo, ele é desativado; se foi a última cobrança do plano, o acesso é cortado imediatamente e a assinatura é cancelada. Reembolsos parciais são feitos no painel da Paddle.",
+    "loading": "Carregando cobranças…",
+    "loadError": "Não foi possível carregar as cobranças",
+    "empty": "Este tenant ainda não tem cobranças.",
+    "colDate": "Data",
+    "colItem": "Item",
+    "colAmount": "Valor",
+    "colStatus": "Status",
+    "itemPlan": "Plano",
+    "itemAddon": "Módulo: {key}",
+    "status": {
+      "completed": "Cobrado",
+      "refund_pending": "Reembolso em andamento",
+      "refunded": "Reembolsado"
+    },
+    "motivo": {
+      "ya-reembolsado": "Já reembolsado",
+      "en-proceso": "Reembolso em andamento",
+      "fuera-de-ventana": "Fora da janela de {days} dias",
+      "no-cobrado": "Não cobrado"
+    },
+    "refund": "Reembolsar",
+    "confirmTitle": "Solicitar o reembolso total de {amount}",
+    "reasonLabel": "Motivo do reembolso",
+    "reasonPlaceholder": "Ex.: o cliente contratou por engano",
+    "reasonHint": "Fica registrado na Paddle e na auditoria.",
+    "confirmButton": "Solicitar reembolso",
+    "back": "Voltar",
+    "close": "Fechar",
+    "requested": "Reembolso solicitado. A Paddle o analisa e, quando aprovar, os efeitos são aplicados.",
+    "requestError": "Não foi possível solicitar o reembolso",
+    "open": "Reembolsos"
+  },
   "AdminBilling": {
     "title": "Faturamento",
     "cancelsAtPeriodEnd": "Cancela no fim do período",

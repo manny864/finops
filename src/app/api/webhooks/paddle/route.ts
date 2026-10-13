@@ -7,6 +7,7 @@ import { priceIdToTier, TierName } from "@/lib/paddleTierMap";
 import { notifyInternalCancellation } from "@/lib/billingAlerts";
 import { errorMessage } from "@/lib/apiErrors";
 import { applyTierChange } from "@/services/providerLifecycleService";
+import { aplicarReembolsoAprobado, liberarReembolsoRechazado } from "@/services/refunds.service";
 import { verificarVinculo, preciosPagados, VinculoCheckout } from "@/lib/checkoutBinding";
 
 /**
@@ -181,7 +182,8 @@ export async function POST(request: NextRequest) {
         return handleTransactionPaymentFailed(payload, tenantId);
       case "adjustment.created":
       case "adjustment.updated":
-        return handleAdjustment(payload);
+        // `await` a propósito: si aplicar los efectos lanza, tiene que caer en el catch de abajo (500 + log) y no escaparse.
+        return await handleAdjustment(payload);
       default:
         console.log(`[Webhooks] Ignoring event type: ${eventType}`);
         return NextResponse.json({ success: true, message: "Event ignored" });
@@ -385,6 +387,23 @@ async function handleSubscriptionUpdated(payload: any, tenantId?: string, vincul
 }
 
 async function handleSubscriptionCanceled(payload: any, tenantId?: string) {
+  // La suscripción de un MÓDULO no es el plan: cancelarla da de baja ese módulo y nada más. Sin este corte, cancelar (o
+  // reembolsar y cancelar) un módulo pasaba TODO el tenant a CANCELED, cortaba sus comisiones por churn y avisaba una baja.
+  if (esSuscripcionDeAddon(payload)) {
+    const addonKey = String(payload.data.custom_data.addon_key);
+    if (tenantId) {
+      try {
+        const { TenantAddonsService } = await import("@/services/tenantAddons.service");
+        const bajas = await TenantAddonsService.cancelRecurringAddon(tenantId, addonKey);
+        console.log(`[Webhooks] subscription.canceled de un add-on (${addonKey}) del tenant ${tenantId}: ${bajas} fila(s) dada(s) de baja; el plan no se toca.`);
+      } catch (e) {
+        console.error(`[Webhooks] No se pudo dar de baja el add-on ${addonKey} de ${tenantId}:`, errorMessage(e));
+        return NextResponse.json({ error: "Failed to cancel add-on" }, { status: 500 });
+      }
+    }
+    return NextResponse.json({ success: true, message: "Addon subscription canceled: plan untouched" });
+  }
+
   if (!tenantId) {
     console.warn("[Webhooks] No tenant_id in custom_data for subscription.canceled");
     return NextResponse.json({ success: true, message: "Ignored: No tenantId" });
@@ -445,6 +464,13 @@ async function handleSubscriptionCanceled(payload: any, tenantId?: string) {
 }
 
 async function handleSubscriptionPastDue(payload: any, tenantId?: string) {
+  // Un módulo con el pago atrasado no suspende al tenant: Paddle reintenta y, si al final cancela, `subscription.canceled` da de
+  // baja el módulo.
+  if (esSuscripcionDeAddon(payload)) {
+    console.log(`[Webhooks] subscription.past_due de un add-on (${payload.data.custom_data.addon_key}): el plan del tenant ${tenantId} no se suspende.`);
+    return NextResponse.json({ success: true, message: "Addon subscription: plan untouched" });
+  }
+
   if (!tenantId) {
     console.warn("[Webhooks] No tenant_id in custom_data for subscription.past_due");
     return NextResponse.json({ success: true, message: "Ignored: No tenantId" });
@@ -585,11 +611,22 @@ async function handleTransactionCompleted(payload: any, tenantId?: string, vincu
  * reversión y la reversión de un crédito se deciden a mano. Uno PARCIAL no se revierte solo: la comisión se calculó sobre el
  * cobro entero y reducirla en proporción es una decisión contable, no del webhook; queda en el log para revisarlo.
  *
+ * Además de las comisiones, un reembolso o contracargo TOTAL aprobado marca el cobro como reembolsado, revoca el módulo que acreditó
+ * y, si es el último cobro del plan, corta el acceso y cancela la suscripción (`aplicarReembolsoAprobado`). Uno `rejected` libera el
+ * cobro para volver a pedirlo.
+ *
  * Es idempotente: `created` y `updated` del mismo ajuste dan la misma reversión, y `revertirComision` sólo toca lo que
  * todavía no se pagó. Responde 200 siempre: si no había comisión que revertir, tampoco hay nada que Paddle deba reintentar.
  */
 async function handleAdjustment(payload: any) {
   const ajuste = payload?.data;
+
+  // Un reembolso pendiente que Paddle RECHAZA: el cobro vuelve a poder reembolsarse.
+  if (ajuste?.action === "refund" && ajuste?.status === "rejected" && ajuste?.transaction_id) {
+    await liberarReembolsoRechazado(ajuste.transaction_id);
+    return NextResponse.json({ success: true, message: "Reembolso rechazado: el cobro queda disponible" });
+  }
+
   const devuelvePlata = ajuste?.action === "refund" || ajuste?.action === "chargeback";
   if (!devuelvePlata || ajuste?.status !== "approved" || !ajuste?.transaction_id) {
     return NextResponse.json({ success: true, message: "Ajuste sin efecto sobre las comisiones" });
@@ -601,7 +638,9 @@ async function handleAdjustment(payload: any) {
     return NextResponse.json({ success: true, message: "Devolución parcial: la comisión se revisa a mano" });
   }
   const { revertidas } = await revertirComision(ajuste.transaction_id);
-  return NextResponse.json({ success: true, reversedCommissions: revertidas });
+  // Si algo de acá falla lanza y el POST contesta 500: Paddle reintenta, y todo es idempotente.
+  const efectos = await aplicarReembolsoAprobado(ajuste.transaction_id);
+  return NextResponse.json({ success: true, reversedCommissions: revertidas, ...efectos });
 }
 
 async function handleTransactionPaymentFailed(payload: any, tenantId?: string) {

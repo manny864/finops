@@ -112,6 +112,26 @@ Customer cancels → subscription.canceled (CANCELED)
 - Credits, pending or rejected refunds, chargeback warnings and reversals do nothing.
 - Partial refunds are logged (`PARCIAL`) and left for manual review: the commission was computed on the whole charge and prorating it is an accounting decision.
 - Idempotent: `created` and `updated` of the same adjustment revert the same rows once.
+- A **full** `refund` or `chargeback` that is `approved` also runs `aplicarReembolsoAprobado` (`src/services/refunds.service.ts`): the charge is marked `refunded` in `BillingTransactions`; if it credited a marketplace module, that `TenantAddons` row becomes `cancelled` (and, if the module was recurring, its Paddle subscription is canceled immediately, otherwise it would bill and re-credit next month); if it is the **latest charge of the tenant's plan**, `access_until` is set to now and the subscription is canceled in Paddle (the `subscription.canceled` that follows leaves the state and the history entry). An earlier charge of the plan only gets marked: it was already used. If Paddle cannot cancel (network / 5xx) the webhook answers 500 and Paddle retries; everything is idempotent.
+- A `refund` that is `rejected` puts the charge back to `completed` so it can be requested again.
+
+### Requesting a refund from the platform
+
+`GET/POST /api/billing/refunds` (`RefundsDialog`: *Billing > Refunds* for the tenant's Admin/Owner, *Tenants > Refunds* for the SuperAdmin).
+- Only **full** refunds. Partial ones are made in the Paddle dashboard.
+- Admin/Owner: within `VENTANA_REEMBOLSO_DIAS` (14) days of the charge. SuperAdmin (corporate domain + `SUPERADMIN` role): no window. The window is a default chosen by us; the terms say refunds are not given for partial months except where the law requires.
+- The charge must belong to the tenant, be `completed`, and have no refund in progress (the status moves `completed` → `refund_pending` atomically before calling Paddle; Paddle also refuses a second refund on a transaction with one pending).
+- It calls `POST /adjustments` (`action: refund`, `type: full`) and records `REFUND_REQUESTED` in `SecurityAuditTrail`. **The effects above are NOT applied here: they arrive with the approved adjustment webhook**, so refunds made in the Paddle dashboard are covered the same way.
+- **The runtime API key needs `adjustment.write`** (in addition to `price.read`, `subscription.read`, `subscription.write` and `transaction.write`).
+- Live accounts: most refunds are created `pending_approval` and Paddle reviews them; sandbox approves every ten minutes.
+
+### Cancelling a subscription
+
+`POST /api/admin/billing/cancel-subscription` now asks Paddle to cancel at the end of the billing period (`next_billing_period`) **before** marking `Tenants.cancel_at_period_end`. It used to only set the flag: the customer saw "will be canceled" while Paddle kept billing. If Paddle rejects it, the error is shown and nothing is marked.
+
+### Marketplace module subscriptions are not the plan
+
+`subscription.canceled` and `subscription.past_due` of a module (`custom_data.addon_key`) only affect that module: cancel → its recurring `TenantAddons` row becomes `cancelled`; past_due → nothing. They no longer cancel/suspend the tenant, cut its churn commissions or notify a cancellation.
 
 ## Price ID to Tier Mapping
 
