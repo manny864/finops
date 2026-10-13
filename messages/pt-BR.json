@@ -6659,6 +6659,11 @@
     "genericError": "Ocorreu um erro. Por favor, tente de novo.",
     "requestError": "Erro ao processar a solicitação.",
     "close": "Fechar",
+    "requestTitle": "Solicitar uma Demo",
+    "requestSubtitle": "Preencha seus dados e a equipe de vendas entrará em contato para agendar a demonstração.",
+    "requestSubmit": "Solicitar Demo",
+    "requestSentTitle": "Solicitação enviada!",
+    "requestSentBody": "Recebemos seus dados. A equipe de vendas entrará em contato para agendar a demo.",
     "title": "Acesso à Demo",
     "subtitle": "Por favor, preencha seus dados para acessar a demonstração do FinOps SaaS.",
     "fullName": "Nome Completo",
@@ -15904,7 +15909,7 @@
     "monthly": "Mensal",
     "annual": "Anual",
     "annualSave": "Economize {percent}%",
-    "tryNow": "Demo Interativa",
+    "requestDemo": "Solicitar Demo",
     "buyNow": "Comprar Agora",
     "contactSales": "Contatar Vendas",
     "title": "Preços Simples e Fixos",
@@ -16193,6 +16198,7 @@
     "rec_avd_consolidate_host_pool_desc": "O host pool {hostPool} tem em média {avgSessions} sessões por host sobre um limite de {maxSessions}. Reduzir em {hosts} a quantidade de session hosts mantém a capacidade disponível e reduz o custo fixo."
   },
   "finopsPopup": {
+    "requestDemo": "Solicitar Demo",
     "title": "Planos e Recursos de FinOps",
     "subtitle": "Seja você uma startup ou Enterprise, temos planos projetados para otimizar sua nuvem sem gerar custos desnecessários.",
     "pro": {

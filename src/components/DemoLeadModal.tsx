@@ -23,6 +23,12 @@ interface DemoLeadModalProps {
      * para todos los demás.
      */
     onVerificacionCaida?: () => void;
+    /**
+     * "Solicitar Demo" desde la página de precios: el mismo formulario, pero no da
+     * acceso a nada. Al enviarlo muestra un agradecimiento y ventas recibe el pedido
+     * por mail; no se llama a `onSuccess` porque no hay a dónde navegar.
+     */
+    solicitud?: boolean;
 }
 
 declare global {
@@ -31,11 +37,12 @@ declare global {
     }
 }
 
-export default function DemoLeadModal({ onSuccess, onClose, onVerificacionCaida }: DemoLeadModalProps) {
+export default function DemoLeadModal({ onSuccess, onClose, onVerificacionCaida, solicitud }: DemoLeadModalProps) {
     const t = useTranslations("DemoLead");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [verificacionCaida, setVerificacionCaida] = useState(false);
+    const [enviado, setEnviado] = useState(false);
     const [formData, setFormData] = useState({
         fullName: '',
         email: '',
@@ -84,7 +91,8 @@ export default function DemoLeadModal({ onSuccess, onClose, onVerificacionCaida 
 
                 const data = await res.json();
                 if (res.ok && data.success) {
-                    onSuccess();
+                    if (solicitud) setEnviado(true);
+                    else onSuccess();
                 } else {
                     setError(data.error || t("genericError"));
                 }
@@ -116,10 +124,23 @@ export default function DemoLeadModal({ onSuccess, onClose, onVerificacionCaida 
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                         </button>
                     )}
+                    {enviado ? (
+                        <div className="p-8 text-center">
+                            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">{t("requestSentTitle")}</h2>
+                            <p className="text-sm text-gray-500 mt-2">{t("requestSentBody")}</p>
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-sm transition-all"
+                            >
+                                {t("close")}
+                            </button>
+                        </div>
+                    ) : (
                     <div className="p-8">
                         <div className="text-center mb-6">
-                            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">{t("title")}</h2>
-                            <p className="text-sm text-gray-500 mt-2">{t("subtitle")}</p>
+                            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">{solicitud ? t("requestTitle") : t("title")}</h2>
+                            <p className="text-sm text-gray-500 mt-2">{solicitud ? t("requestSubtitle") : t("subtitle")}</p>
                         </div>
                         
                         <form onSubmit={handleSubmit} className="space-y-4">
@@ -193,7 +214,7 @@ export default function DemoLeadModal({ onSuccess, onClose, onVerificacionCaida 
                                 {loading ? (
                                     <><Loader2 className="w-5 h-5 animate-spin mr-2" /> {t("processing")}</>
                                 ) : (
-                                    t("submit")
+                                    solicitud ? t("requestSubmit") : t("submit")
                                 )}
                             </button>
                             <p className="text-[10px] text-gray-400 text-center mt-2">
@@ -201,6 +222,7 @@ export default function DemoLeadModal({ onSuccess, onClose, onVerificacionCaida 
                             </p>
                         </form>
                     </div>
+                    )}
                     <div className="bg-gray-50 p-4 border-t border-gray-100 text-center">
                         <p className="text-xs text-gray-500 font-medium">© {new Date().getFullYear()} CSCloudSolutions</p>
                     </div>

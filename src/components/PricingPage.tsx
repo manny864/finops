@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useTranslations, useLocale } from 'next-intl';
-import { useRouter } from '@/i18n/routing';
 import { initializePaddle, Paddle } from '@paddle/paddle-js';
 import { getFreshIdToken } from '@/lib/msalToken';
 import EnterpriseLeadModal from './EnterpriseLeadModal';
@@ -27,11 +26,8 @@ interface PricingPageProps {
   hideLogin?: boolean;
 }
 
-type DemoTier = 'pro' | 'business' | 'enterprise';
-
 export default function PricingPage({ onLoginClick, tenantId, hideLogin }: PricingPageProps) {
   const { instance, accounts } = useMsal();
-  const router = useRouter();
   const [isAnnual, setIsAnnual] = useState(false);
   const [paddle, setPaddle] = useState<Paddle>();
   const [isEnterpriseModalOpen, setEnterpriseModalOpen] = useState(false);
@@ -39,10 +35,9 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
   // Precios leídos de Paddle vía /api/pricing/plans. null hasta que responda y
   // si falla: `getPrice` cae al catálogo de `pricing.ts` en ese caso.
   const [remotePrices, setRemotePrices] = useState<Record<string, { monthly: number | null; annual: number | null }> | null>(null);
-  // Gate de leads para "Demo Interactiva": si el visitante todavía no completó
-  // el formulario de datos, se abre acá mismo (en la página de precios) y solo
-  // tras enviarlo se navega a /demo. Guarda el tier elegido mientras tanto.
-  const [pendingDemoTier, setPendingDemoTier] = useState<DemoTier | null>(null);
+  // "Solicitar Demo": abre el formulario de datos acá mismo. No navega a /demo:
+  // el pedido le llega por mail a ventas, que coordina la demostración.
+  const [demoModalOpen, setDemoModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
 
   const t = useTranslations('pricing');
@@ -58,24 +53,6 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
   // (ver AuthProvider.tsx) ya ocurrió, así que este es el email que debe quedar
   // asociado a la cuenta admin en Paddle — evitamos que el usuario tipee otro.
   const corporateEmail = accounts?.[0]?.username;
-
-  const goToDemo = (tier: DemoTier) => {
-    // Mismo flag que usa /demo: si ya completó el formulario alguna vez, pasa
-    // directo; si no, el modal se muestra ANTES de salir de la página de precios.
-    const hasCompleted = typeof window !== 'undefined' && localStorage.getItem('hasCompletedDemoLead');
-    if (!hasCompleted) {
-      setPendingDemoTier(tier);
-      return;
-    }
-    router.push({ pathname: '/demo', query: { tier } });
-  };
-
-  const handleDemoLeadSuccess = () => {
-    localStorage.setItem('hasCompletedDemoLead', 'true');
-    const tier = pendingDemoTier;
-    setPendingDemoTier(null);
-    if (tier) router.push({ pathname: '/demo', query: { tier } });
-  };
 
   const instanceRef = useRef(instance);
   const onLoginClickRef = useRef(onLoginClick);
@@ -234,7 +211,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           onClose={onLoginClick ? () => onLoginClick() : () => setViewMode('cards')}
           onSelectPro={() => {
             setViewMode('cards');
-            goToDemo('pro');
+            setDemoModalOpen(true);
           }}
           onSelectBusiness={() => {
             setViewMode('cards');
@@ -249,12 +226,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           isOpen={isEnterpriseModalOpen}
           onClose={() => setEnterpriseModalOpen(false)}
         />
-        {pendingDemoTier && (
-          <DemoLeadModal
-            onSuccess={handleDemoLeadSuccess}
-            onClose={() => setPendingDemoTier(null)}
-          />
-        )}
+        {demoModalOpen && <DemoLeadModal solicitud onSuccess={() => {}} onClose={() => setDemoModalOpen(false)} />}
         <CorporateEmailNoticeModal
           open={!!pendingCheckoutPriceId}
           email={corporateEmail}
@@ -387,10 +359,10 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
             
             <div className="flex flex-col space-y-2.5 mb-5">
               <button 
-                onClick={() => goToDemo('pro')}
+                onClick={() => setDemoModalOpen(true)}
                 className="w-full bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-[#00AEEF] hover:bg-blue-50/50 dark:hover:bg-slate-800 rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-2xs cursor-pointer"
               >
-                {t('tryNow')}
+                {t('requestDemo')}
               </button>
               <button 
                 onClick={() => openCheckout(getPriceId('pro'))}
@@ -455,10 +427,10 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
             
             <div className="flex flex-col space-y-2.5 mb-5">
               <button 
-                onClick={() => goToDemo('business')}
+                onClick={() => setDemoModalOpen(true)}
                 className="w-full bg-white dark:bg-slate-900 border border-[#002244] dark:border-slate-600 text-[#002244] dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-2xs cursor-pointer"
               >
-                {t('tryNow')}
+                {t('requestDemo')}
               </button>
               <button 
                 onClick={() => openCheckout(getPriceId('business'))}
@@ -529,10 +501,10 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
                 {t('contactSales')}
               </button>
               <button
-                onClick={() => goToDemo('enterprise')}
+                onClick={() => setDemoModalOpen(true)}
                 className="w-full bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-2xs text-center cursor-pointer"
               >
-                {t('tryNow')}
+                {t('requestDemo')}
               </button>
             </div>
             
@@ -591,7 +563,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         <p className="text-center text-xs text-gray-400 mt-4">{tf('copyright', { year: new Date().getFullYear() })}</p>
       </footer>
       <EnterpriseLeadModal isOpen={isEnterpriseModalOpen} onClose={() => setEnterpriseModalOpen(false)} />
-      {pendingDemoTier && <DemoLeadModal onSuccess={handleDemoLeadSuccess} onClose={() => setPendingDemoTier(null)} />}
+      {demoModalOpen && <DemoLeadModal solicitud onSuccess={() => {}} onClose={() => setDemoModalOpen(false)} />}
       <CorporateEmailNoticeModal
         open={!!pendingCheckoutPriceId}
         email={corporateEmail}

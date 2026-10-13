@@ -595,7 +595,7 @@ export function FinOpsCapabilitiesTable({
                         onClick={onSelectPro}
                         className="mt-2.5 px-3 py-1.5 rounded-lg text-xs font-bold text-[#0054A6] bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors shadow-2xs cursor-pointer"
                       >
-                        {t('pro.name')} - Demo
+                        {t('requestDemo')}
                       </button>
                     )}
                   </div>
