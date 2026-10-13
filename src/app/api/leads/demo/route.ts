@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { escapeHtml } from "@/lib/htmlEscape";
 import { getInfraSecret } from "@/lib/secrets/infraSecrets";
+import { tierDeDemo } from "@/lib/demoLeadTier";
 
 export async function POST(req: NextRequest) {
     try {
@@ -76,6 +77,8 @@ export async function POST(req: NextRequest) {
         const safeEmail = escapeHtml(email);
         const safePhone = escapeHtml(phone);
         const safeCompany = escapeHtml(companyName);
+        // Lo manda la página de precios; el acceso desde /demo no lo trae.
+        const tier = tierDeDemo(body.tier);
         const mailPayload = {
             message: {
                 subject: `🚨 NUEVO LEAD DEMO - FinOps: ${safeCompany}`,
@@ -87,6 +90,7 @@ export async function POST(req: NextRequest) {
                         <p><strong>Correo Electrónico:</strong> ${safeEmail}</p>
                         <p><strong>Teléfono:</strong> ${safePhone}</p>
                         <p><strong>Nombre empresa:</strong> <span style="font-size: 1.2em; color: #0054A6;">${safeCompany}</span></p>
+                        ${tier ? `<p><strong>Tier consultado:</strong> ${tier}</p>` : ""}
                         <p><strong>Score reCAPTCHA:</strong> ${escapeHtml(recaptchaResult.score)}</p>
                     `
                 },

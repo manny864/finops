@@ -29,6 +29,8 @@ interface DemoLeadModalProps {
      * por mail; no se llama a `onSuccess` porque no hay a dónde navegar.
      */
     solicitud?: boolean;
+    /** Tier de la tarjeta desde la que se pidió la demo; viaja al mail de ventas. */
+    tier?: string;
 }
 
 declare global {
@@ -37,7 +39,7 @@ declare global {
     }
 }
 
-export default function DemoLeadModal({ onSuccess, onClose, onVerificacionCaida, solicitud }: DemoLeadModalProps) {
+export default function DemoLeadModal({ onSuccess, onClose, onVerificacionCaida, solicitud, tier }: DemoLeadModalProps) {
     const t = useTranslations("DemoLead");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -86,7 +88,7 @@ export default function DemoLeadModal({ onSuccess, onClose, onVerificacionCaida,
                 const res = await fetch('/api/leads/demo', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...formData, recaptchaToken: token })
+                    body: JSON.stringify({ ...formData, tier, recaptchaToken: token })
                 });
 
                 const data = await res.json();

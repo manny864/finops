@@ -7,6 +7,7 @@ import { getFreshIdToken } from '@/lib/msalToken';
 import EnterpriseLeadModal from './EnterpriseLeadModal';
 import { TIER_BASE_PRICE_USD, getAnnualMonthlyEquivalent, getAnnualDiscountPercent } from '@/lib/pricing';
 import DemoLeadModal from './DemoLeadModal';
+import type { TierDeDemo } from '@/lib/demoLeadTier';
 import LanguageSwitcher from './LanguageSwitcher';
 import { FinOpsCapabilitiesTable } from './FinOpsCapabilitiesTable';
 import {
@@ -37,7 +38,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
   const [remotePrices, setRemotePrices] = useState<Record<string, { monthly: number | null; annual: number | null }> | null>(null);
   // "Solicitar Demo": abre el formulario de datos acá mismo. No navega a /demo:
   // el pedido le llega por mail a ventas, que coordina la demostración.
-  const [demoModalOpen, setDemoModalOpen] = useState(false);
+  const [demoTier, setDemoTier] = useState<TierDeDemo | null>(null);
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
 
   const t = useTranslations('pricing');
@@ -211,7 +212,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           onClose={onLoginClick ? () => onLoginClick() : () => setViewMode('cards')}
           onSelectPro={() => {
             setViewMode('cards');
-            setDemoModalOpen(true);
+            setDemoTier('Professional');
           }}
           onSelectBusiness={() => {
             setViewMode('cards');
@@ -226,7 +227,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
           isOpen={isEnterpriseModalOpen}
           onClose={() => setEnterpriseModalOpen(false)}
         />
-        {demoModalOpen && <DemoLeadModal solicitud onSuccess={() => {}} onClose={() => setDemoModalOpen(false)} />}
+        {demoTier && <DemoLeadModal solicitud tier={demoTier} onSuccess={() => {}} onClose={() => setDemoTier(null)} />}
         <CorporateEmailNoticeModal
           open={!!pendingCheckoutPriceId}
           email={corporateEmail}
@@ -359,7 +360,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
             
             <div className="flex flex-col space-y-2.5 mb-5">
               <button 
-                onClick={() => setDemoModalOpen(true)}
+                onClick={() => setDemoTier('Professional')}
                 className="w-full bg-white dark:bg-slate-900 border border-[#0054A6] text-[#0054A6] dark:text-[#00AEEF] hover:bg-blue-50/50 dark:hover:bg-slate-800 rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-2xs cursor-pointer"
               >
                 {t('requestDemo')}
@@ -427,7 +428,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
             
             <div className="flex flex-col space-y-2.5 mb-5">
               <button 
-                onClick={() => setDemoModalOpen(true)}
+                onClick={() => setDemoTier('Business')}
                 className="w-full bg-white dark:bg-slate-900 border border-[#002244] dark:border-slate-600 text-[#002244] dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-2xs cursor-pointer"
               >
                 {t('requestDemo')}
@@ -501,7 +502,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
                 {t('contactSales')}
               </button>
               <button
-                onClick={() => setDemoModalOpen(true)}
+                onClick={() => setDemoTier('Enterprise')}
                 className="w-full bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg py-2.5 px-3 text-xs font-bold transition-all shadow-2xs text-center cursor-pointer"
               >
                 {t('requestDemo')}
@@ -563,7 +564,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         <p className="text-center text-xs text-gray-400 mt-4">{tf('copyright', { year: new Date().getFullYear() })}</p>
       </footer>
       <EnterpriseLeadModal isOpen={isEnterpriseModalOpen} onClose={() => setEnterpriseModalOpen(false)} />
-      {demoModalOpen && <DemoLeadModal solicitud onSuccess={() => {}} onClose={() => setDemoModalOpen(false)} />}
+      {demoTier && <DemoLeadModal solicitud tier={demoTier} onSuccess={() => {}} onClose={() => setDemoTier(null)} />}
       <CorporateEmailNoticeModal
         open={!!pendingCheckoutPriceId}
         email={corporateEmail}
