@@ -95,7 +95,7 @@ function resolveAccessUntil(payload: any): Date | null {
 }
 import { minorUnitsToDecimalString } from "@/lib/money";
 import { devengarComision, revertirComision } from "@/services/affiliates.service";
-import { devengarComisionComercial, cancelarComisionesPorChurn } from "@/services/commissions.service";
+import { devengarComisionComercial, cancelarComisionesPorChurn, ajustarComisionesPorReembolsoParcial } from "@/services/commissions.service";
 
 const REPLAY_WINDOW_SECONDS = 5 * 60; // 5 minutes
 
@@ -606,10 +606,10 @@ async function handleTransactionCompleted(payload: any, tenantId?: string, vincu
  * cuando un reembolso pendiente se aprueba o rechaza; en sandbox Paddle aprueba todos cada diez minutos, y un reembolso que
  * cumple los criterios de aprobación automática nace ya `approved`.
  *
- * Revierte las comisiones del cobro sólo si el ajuste devuelve plata (`refund` o `chargeback`), está `approved` y es TOTAL.
- * Un crédito no devuelve plata; uno pendiente o rechazado todavía no (o nunca) la devolvió; el aviso de contracargo, su
- * reversión y la reversión de un crédito se deciden a mano. Uno PARCIAL no se revierte solo: la comisión se calculó sobre el
- * cobro entero y reducirla en proporción es una decisión contable, no del webhook; queda en el log para revisarlo.
+ * Sólo cuenta si el ajuste devuelve plata (`refund` o `chargeback`) y está `approved`. TOTAL: revierte las comisiones del cobro.
+ * PARCIAL: las reduce en proporción a lo devuelto (`ajustarComisionesPorReembolsoParcial`). Un crédito no devuelve plata; uno
+ * pendiente o rechazado todavía no (o nunca) la devolvió; el aviso de contracargo, su reversión y la reversión de un crédito se
+ * deciden a mano.
  *
  * Además de las comisiones, un reembolso o contracargo TOTAL aprobado marca el cobro como reembolsado, revoca el módulo que acreditó
  * y, si es el último cobro del plan, corta el acceso y cancela la suscripción (`aplicarReembolsoAprobado`). Uno `rejected` libera el
@@ -632,10 +632,18 @@ async function handleAdjustment(payload: any) {
     return NextResponse.json({ success: true, message: "Ajuste sin efecto sobre las comisiones" });
   }
   if (ajuste.type !== "full") {
-    console.warn(
-      `[Webhooks] ${payload.event_type}: ${ajuste.action} PARCIAL ${ajuste.id} de la txn ${ajuste.transaction_id}; la comisión no se toca, revisarla a mano.`
-    );
-    return NextResponse.json({ success: true, message: "Devolución parcial: la comisión se revisa a mano" });
+    // PARCIAL aprobado: la comisión baja en la misma proporción en que se devolvió el cobro (y una ya pagada queda anotada para
+    // descontarla de la liquidación siguiente). Si lo pedimos nosotros por la vía proporcional, además termina el servicio, igual que
+    // un reembolso total; uno hecho a mano en el panel de Paddle sólo ajusta comisiones. Todo idempotente por ajuste.
+    const subtotal = minorUnitsToDecimalString(ajuste.totals?.subtotal, ajuste.currency_code);
+    const comisiones = subtotal
+      ? await ajustarComisionesPorReembolsoParcial({ transactionId: ajuste.transaction_id, adjustmentId: ajuste.id, subtotalReembolsado: subtotal })
+      : null;
+    if (!subtotal) {
+      console.warn(`[Webhooks] ${payload.event_type}: ${ajuste.action} parcial ${ajuste.id} sin totals.subtotal legible; las comisiones no se ajustan, revisarlas a mano.`);
+    }
+    const efectos = await aplicarReembolsoAprobado(ajuste.transaction_id, { soloSiPedido: true });
+    return NextResponse.json({ success: true, parcial: true, comisiones, ...efectos });
   }
   const { revertidas } = await revertirComision(ajuste.transaction_id);
   // Si algo de acá falla lanza y el POST contesta 500: Paddle reintenta, y todo es idempotente.

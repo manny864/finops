@@ -15,7 +15,9 @@ interface Cobro {
     billedAt: string | null;
     addonKey: string | null;
     reembolsable: boolean;
-    motivo?: "ya-reembolsado" | "en-proceso" | "fuera-de-ventana" | "no-cobrado";
+    motivo?: "ya-reembolsado" | "en-proceso" | "fuera-de-ventana" | "no-cobrado" | "periodo-agotado" | "sin-periodo";
+    prorrateo?: { diasPeriodo: number; diasUsados: number; monto: string };
+    motivoProrrateo?: "periodo-agotado" | "sin-periodo";
 }
 
 interface Props {
@@ -37,6 +39,7 @@ export default function RefundsDialog({ tenantId, tenantName, onClose }: Props) 
     const [ventanaDias, setVentanaDias] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [elegido, setElegido] = useState<Cobro | null>(null);
+    const [total, setTotal] = useState(false);
     const [motivo, setMotivo] = useState("");
     const [enviando, setEnviando] = useState(false);
     const [resultado, setResultado] = useState<string | null>(null);
@@ -73,12 +76,13 @@ export default function RefundsDialog({ tenantId, tenantName, onClose }: Props) 
             const res = await fetch("/api/billing/refunds", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", ...(await headers()) },
-                body: JSON.stringify({ tenantId, transactionId: elegido.transactionId, reason: motivo }),
+                body: JSON.stringify({ tenantId, transactionId: elegido.transactionId, reason: motivo, modo: total || !elegido.prorrateo ? "total" : "proporcional" }),
             });
             const json = await res.json();
             if (!res.ok || !json.success) throw new Error(json.error || t("requestError"));
             setResultado(t("requested"));
             setElegido(null);
+            setTotal(false);
             setMotivo("");
             await cargar();
         } catch (e) {
@@ -94,6 +98,14 @@ export default function RefundsDialog({ tenantId, tenantName, onClose }: Props) 
             return new Intl.NumberFormat(locale, { style: "currency", currency: c.currency || "USD" }).format(Number(c.amount));
         } catch {
             return `${c.amount} ${c.currency ?? ""}`.trim();
+        }
+    };
+
+    const dinero = (valor: string, moneda: string | null) => {
+        try {
+            return new Intl.NumberFormat(locale, { style: "currency", currency: moneda || "USD" }).format(Number(valor));
+        } catch {
+            return `${valor} ${moneda ?? ""}`.trim();
         }
     };
 
@@ -146,6 +158,7 @@ export default function RefundsDialog({ tenantId, tenantName, onClose }: Props) 
                                     <th className="py-2 pr-3 font-semibold">{t("colDate")}</th>
                                     <th className="py-2 pr-3 font-semibold">{t("colItem")}</th>
                                     <th className="py-2 pr-3 font-semibold text-right">{t("colAmount")}</th>
+                                    <th className="py-2 pr-3 font-semibold text-right">{t("colRefund")}</th>
                                     <th className="py-2 pr-3 font-semibold">{t("colStatus")}</th>
                                     <th className="py-2 font-semibold" />
                                 </tr>
@@ -156,6 +169,14 @@ export default function RefundsDialog({ tenantId, tenantName, onClose }: Props) 
                                         <td className="py-2 pr-3 whitespace-nowrap">{fecha(c.billedAt)}</td>
                                         <td className="py-2 pr-3">{c.addonKey ? t("itemAddon", { key: c.addonKey }) : t("itemPlan")}</td>
                                         <td className="py-2 pr-3 text-right whitespace-nowrap">{monto(c)}</td>
+                                        <td className="py-2 pr-3 text-right whitespace-nowrap">
+                                            {c.prorrateo ? (
+                                                <span title={t("daysUsed", { used: c.prorrateo.diasUsados, period: c.prorrateo.diasPeriodo })}>
+                                                    {dinero(c.prorrateo.monto, c.currency)}
+                                                    <span className="block text-[10px] text-slate-500 dark:text-slate-400">{t("daysUsed", { used: c.prorrateo.diasUsados, period: c.prorrateo.diasPeriodo })}</span>
+                                                </span>
+                                            ) : "—"}
+                                        </td>
                                         <td className="py-2 pr-3">
                                             {c.reembolsable || !c.motivo ? t(`status.${c.status}`) : t(`motivo.${c.motivo}`, { days: ventanaDias ?? 0 })}
                                         </td>
@@ -163,7 +184,7 @@ export default function RefundsDialog({ tenantId, tenantName, onClose }: Props) 
                                             {c.reembolsable && (
                                                 <button
                                                     type="button"
-                                                    onClick={() => { setElegido(c); setResultado(null); setError(null); }}
+                                                    onClick={() => { setElegido(c); setTotal(false); setResultado(null); setError(null); }}
                                                     className="px-3 py-1 rounded-lg border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-semibold"
                                                 >
                                                     {t("refund")}
@@ -179,7 +200,26 @@ export default function RefundsDialog({ tenantId, tenantName, onClose }: Props) 
 
                 {elegido && (
                     <div className="space-y-3 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
-                        <p className="text-sm font-semibold text-[#1B2A41] dark:text-slate-100">{t("confirmTitle", { amount: monto(elegido) })}</p>
+                        <p className="text-sm font-semibold text-[#1B2A41] dark:text-slate-100">
+                            {total || !elegido.prorrateo
+                                ? t("confirmTotal", { amount: monto(elegido) })
+                                : t("confirmProrated", { amount: dinero(elegido.prorrateo.monto, elegido.currency) })}
+                        </p>
+                        {!total && elegido.prorrateo && (
+                            <p className="text-xs text-slate-600 dark:text-slate-400">
+                                {t("prorratedSummary", { used: elegido.prorrateo.diasUsados, period: elegido.prorrateo.diasPeriodo })}
+                            </p>
+                        )}
+                        {ventanaDias == null && (
+                            elegido.prorrateo ? (
+                                <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+                                    <input type="checkbox" checked={total} onChange={(e) => setTotal(e.target.checked)} className="rounded border-slate-300" />
+                                    <span>{t("totalOption", { amount: monto(elegido) })}</span>
+                                </label>
+                            ) : (
+                                <p className="text-xs text-slate-600 dark:text-slate-400">{t("totalOnly")}</p>
+                            )
+                        )}
                         <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300" htmlFor="refund-reason">{t("reasonLabel")}</label>
                         <textarea
                             id="refund-reason"

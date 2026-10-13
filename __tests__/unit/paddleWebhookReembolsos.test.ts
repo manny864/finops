@@ -13,6 +13,7 @@ const m = vi.hoisted(() => ({
   transicion: vi.fn(),
   churn: vi.fn(),
   avisoBaja: vi.fn(),
+  ajustar: vi.fn(),
 }));
 
 vi.mock("@/modules/storage/db", () => ({
@@ -26,7 +27,7 @@ vi.mock("@/services/tenantLifecycle.service", () => ({ recordTenantLifecycleTran
 vi.mock("@/services/providerLifecycleService", () => ({ applyTierChange: vi.fn(async () => {}) }));
 vi.mock("@/lib/billingAlerts", () => ({ notifyInternalCancellation: m.avisoBaja }));
 vi.mock("@/services/affiliates.service", () => ({ devengarComision: vi.fn(), revertirComision: m.revertir }));
-vi.mock("@/services/commissions.service", () => ({ devengarComisionComercial: vi.fn(), cancelarComisionesPorChurn: m.churn }));
+vi.mock("@/services/commissions.service", () => ({ devengarComisionComercial: vi.fn(), cancelarComisionesPorChurn: m.churn, ajustarComisionesPorReembolsoParcial: m.ajustar }));
 vi.mock("@/services/refunds.service", () => ({ aplicarReembolsoAprobado: m.aplicar, liberarReembolsoRechazado: m.liberar }));
 vi.mock("@/services/tenantAddons.service", () => ({ TenantAddonsService: { purchaseAddon: vi.fn(), cancelRecurringAddon: m.cancelarAddon } }));
 
@@ -65,6 +66,7 @@ beforeEach(() => {
   m.aplicar.mockResolvedValue({ aplicado: true, addonRevocado: true, accesoCortado: false });
   m.revertir.mockResolvedValue({ revertidas: 1 });
   m.cancelarAddon.mockResolvedValue(1);
+  m.ajustar.mockResolvedValue({ reducidas: 1, revertidas: 0, pagadasARevisar: 0 });
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -97,7 +99,6 @@ describe("adjustment.*: efectos de un reembolso", () => {
 
   it.each([
     ["pendiente de aprobación", { status: "pending_approval" }],
-    ["PARCIAL aprobado", { type: "partial" }],
     ["un crédito", { action: "credit" }],
     ["un aviso de contracargo", { action: "chargeback_warning" }],
     ["una reversión de contracargo", { action: "chargeback_reverse" }],
@@ -107,6 +108,52 @@ describe("adjustment.*: efectos de un reembolso", () => {
     expect(m.aplicar).not.toHaveBeenCalled();
     expect(m.liberar).not.toHaveBeenCalled();
     expect(m.revertir).not.toHaveBeenCalled();
+  });
+
+  describe("reembolso PARCIAL aprobado", () => {
+    const parcial = (extra: Record<string, unknown> = {}) =>
+      ajuste({ type: "partial", currency_code: "USD", totals: { subtotal: "2700", tax: "270", total: "2970" }, ...extra });
+
+    it("reduce las comisiones en la proporción devuelta (subtotal pre-impuestos, en unidades mayores) y NO las revierte enteras", async () => {
+      const r = await POST(parcial());
+      expect(r.status).toBe(200);
+      expect(m.ajustar).toHaveBeenCalledWith({ transactionId: TXN, adjustmentId: "adj_01", subtotalReembolsado: "27.00" });
+      expect(m.revertir).not.toHaveBeenCalled();
+    });
+
+    it("si el pedido lo hicimos nosotros (proporcional), termina el servicio: aplica los efectos sólo si el cobro está pedido", async () => {
+      await POST(parcial());
+      expect(m.aplicar).toHaveBeenCalledWith(TXN, { soloSiPedido: true });
+    });
+
+    it("created y updated del mismo ajuste llaman con el mismo ajuste: la idempotencia está en las comisiones", async () => {
+      await POST(parcial({}));
+      expect(m.ajustar).toHaveBeenCalledTimes(1);
+      expect(m.ajustar.mock.calls[0][0].adjustmentId).toBe("adj_01");
+    });
+
+    it("un contracargo parcial aprobado también ajusta las comisiones", async () => {
+      await POST(parcial({ action: "chargeback" }));
+      expect(m.ajustar).toHaveBeenCalledTimes(1);
+    });
+
+    it("sin totals.subtotal legible no ajusta a ciegas: avisa en el log", async () => {
+      const aviso = vi.spyOn(console, "warn").mockImplementation(() => {});
+      await POST(parcial({ totals: {} }));
+      expect(m.ajustar).not.toHaveBeenCalled();
+      expect(aviso.mock.calls.flat().join(" ")).toMatch(/subtotal/);
+    });
+
+    it("pendiente de aprobación o rechazado no ajusta nada", async () => {
+      await POST(parcial({ status: "pending_approval" }));
+      await POST(parcial({ status: "rejected" }));
+      expect(m.ajustar).not.toHaveBeenCalled();
+    });
+
+    it("si aplicar los efectos falla, 500 para que Paddle reintente (y el ajuste de comisiones ya es idempotente)", async () => {
+      m.aplicar.mockRejectedValue(new Error("Paddle no pudo cancelar"));
+      expect((await POST(parcial())).status).toBe(500);
+    });
   });
 
   it("un rechazo de algo que no es un reembolso (un contracargo) no libera ningún cobro", async () => {

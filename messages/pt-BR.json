@@ -637,9 +637,9 @@
   },
   "Refunds": {
     "title": "Reembolsos",
-    "policyAdmin": "Você pode solicitar o reembolso total de uma cobrança em até {days} dias após ela ser feita. Para uma anterior, fale com o suporte.",
-    "policySuper": "Como SuperAdmin, você pode solicitar o reembolso total de qualquer cobrança, sem limite de dias.",
-    "effects": "Quando a Paddle aprova o reembolso: a cobrança fica marcada como reembolsada e as comissões são revertidas; se foi um módulo, ele é desativado; se foi a última cobrança do plano, o acesso é cortado imediatamente e a assinatura é cancelada. Reembolsos parciais são feitos no painel da Paddle.",
+    "policyAdmin": "Você pode solicitar o reembolso de uma cobrança em até {days} dias após ela ser feita. É devolvida a parte do período que você não usou: os dias são contados do pagamento até o pedido. Para uma anterior, fale com o suporte.",
+    "policySuper": "Como SuperAdmin, você pode solicitar o reembolso de qualquer cobrança, sem limite de dias: proporcional pelos dias não usados ou, se marcar, total.",
+    "effects": "Quando a Paddle aprova o reembolso: a cobrança fica marcada como reembolsada; se foi um módulo, ele é desativado; se foi a última cobrança do plano, o acesso é cortado imediatamente e a assinatura é cancelada. As comissões dessa cobrança são reduzidas na mesma proporção (ou revertidas, se for total) e, enquanto o reembolso está pendente, não são pagas.",
     "loading": "Carregando cobranças…",
     "loadError": "Não foi possível carregar as cobranças",
     "empty": "Este tenant ainda não tem cobranças.",
@@ -658,10 +658,11 @@
       "ya-reembolsado": "Já reembolsado",
       "en-proceso": "Reembolso em andamento",
       "fuera-de-ventana": "Fora da janela de {days} dias",
-      "no-cobrado": "Não cobrado"
+      "no-cobrado": "Não cobrado",
+      "periodo-agotado": "Período já usado",
+      "sin-periodo": "Não é possível calcular o período"
     },
     "refund": "Reembolsar",
-    "confirmTitle": "Solicitar o reembolso total de {amount}",
     "reasonLabel": "Motivo do reembolso",
     "reasonPlaceholder": "Ex.: o cliente contratou por engano",
     "reasonHint": "Fica registrado na Paddle e na auditoria.",
@@ -670,7 +671,14 @@
     "close": "Fechar",
     "requested": "Reembolso solicitado. A Paddle o analisa e, quando aprovar, os efeitos são aplicados.",
     "requestError": "Não foi possível solicitar o reembolso",
-    "open": "Reembolsos"
+    "open": "Reembolsos",
+    "colRefund": "Devolvido",
+    "daysUsed": "{used} de {period} dias usados",
+    "confirmProrated": "Solicitar o reembolso proporcional de {amount}",
+    "confirmTotal": "Solicitar o reembolso total de {amount}",
+    "prorratedSummary": "O tempo não usado é devolvido: {used} de {period} dias usados. Ao ser aprovado, o serviço termina.",
+    "totalOption": "Reembolso total da cobrança ({amount}), sem proporcionalidade",
+    "totalOnly": "Não é possível calcular o proporcional desta cobrança: só o reembolso total pode ser solicitado."
   },
   "AdminBilling": {
     "title": "Faturamento",

@@ -1,5 +1,6 @@
 import pool from "@/modules/storage/db";
 import type { RowDataPacket } from "mysql2";
+import { cancelarComisionesPorChurn } from "@/services/commissions.service";
 
 /**
  * MEJ-12: el único punto por donde debe pasar un cambio de ciclo de vida de un
@@ -73,6 +74,7 @@ export async function recordTenantLifecycleTransition(
   const actor = options.actor || "system";
   const reason = options.reason ?? t.defaultReason ?? null;
 
+  let committed = false;
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -138,13 +140,22 @@ export async function recordTenantLifecycleTransition(
     );
 
     await conn.commit();
-    return true;
+    committed = true;
   } catch (e) {
     await conn.rollback().catch(() => {});
     throw e;
   } finally {
     conn.release();
   }
+
+  // Una baja (cancelación o fin de contrato) corta las cuotas del comercial que todavía no son exigibles, SEA CUAL SEA la vía por la
+  // que llegó: el webhook de Paddle, la cancelación inmediata desde el panel, el marketplace de Azure o el cron de vencimiento.
+  // Antes sólo lo hacía `subscription.canceled` de Paddle, y las demás bajas dejaban cuotas vivas. Es idempotente y best-effort
+  // (no lanza): la baja ya quedó registrada.
+  if (committed && (eventType === "CANCELED" || eventType === "EXPIRED")) {
+    await cancelarComisionesPorChurn(tenantId);
+  }
+  return committed;
 }
 
 export interface TenantLifecycleEvent {

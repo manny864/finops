@@ -275,6 +275,84 @@ export async function cancelarComisionesPorChurn(tenantId: string): Promise<{ ca
     }
 }
 
+export interface ResultadoAjusteParcial {
+  /** Comisiones que se redujeron (siguen vivas, con menos monto). */
+  reducidas: number;
+  /** Comisiones que quedaron en cero y pasaron a REVERSED. */
+  revertidas: number;
+  /** Comisiones ya PAGADAS: no se tocan, quedan anotadas para descontar de la liquidación siguiente. */
+  pagadasARevisar: number;
+}
+
+/**
+ * Reembolso PARCIAL aprobado: la comisión se reduce en la misma proporción en que se devolvió el cobro.
+ *
+ * La base de la comisión es el subtotal PRE-impuestos del cobro y el reembolso se mide en la misma unidad (`totals.subtotal` del
+ * ajuste), así que la base nueva es `base - reembolsado` y el monto se recalcula con el % de la fila: ni afiliado ni comercial
+ * cobran por plata que se devolvió. Si la base llega a cero, la comisión pasa a REVERSED como en un reembolso total.
+ *
+ * Sólo toca PENDING, DUE y APPROVED. Una comisión PAGADA no se descuenta con un UPDATE (es una decisión contable): queda una nota
+ * en la fila con el ajuste y el monto para descontarlo de la liquidación siguiente, y se cuenta en `pagadasARevisar`.
+ *
+ * Idempotente por ajuste: Paddle manda `adjustment.created` y `adjustment.updated` del mismo reembolso y reintenta; cada fila lleva
+ * en `notes` la marca `[adj_...]` del ajuste que ya aplicó, y no lo aplica dos veces. Dos ajustes distintos sobre el mismo cobro sí
+ * se acumulan.
+ */
+export async function ajustarComisionesPorReembolsoParcial(params: {
+  transactionId: string;
+  adjustmentId: string;
+  /** Subtotal pre-impuestos devuelto, en unidades mayores (ej. "12.50"). */
+  subtotalReembolsado: string;
+}): Promise<ResultadoAjusteParcial> {
+  const vacio: ResultadoAjusteParcial = { reducidas: 0, revertidas: 0, pagadasARevisar: 0 };
+  const { transactionId, adjustmentId } = params;
+  const reembolsado = new Decimal(params.subtotalReembolsado || 0);
+  if (!transactionId || !adjustmentId || reembolsado.lte(0)) return vacio;
+
+  const marca = `[${adjustmentId}]`;
+  try {
+    const [filas] = await pool.query<any[]>(
+      "SELECT id, base_amount, commission_pct, status, notes FROM Commissions WHERE paddle_transaction_id = ?",
+      [transactionId]
+    );
+    const r = { ...vacio };
+    for (const f of Array.isArray(filas) ? filas : []) {
+      if (String(f.notes ?? "").includes(marca)) continue;
+
+      if (f.status === "PAID") {
+        await pool.query("UPDATE Commissions SET notes = CONCAT(COALESCE(notes, ''), ?) WHERE id = ?", [
+          `\n${marca} Reembolso parcial de ${reembolsado.toFixed(2)} sobre una comisión ya pagada: descontar de la liquidación siguiente.`,
+          f.id,
+        ]);
+        r.pagadasARevisar++;
+        continue;
+      }
+      if (!["PENDING", "DUE", "APPROVED"].includes(f.status)) continue;
+
+      const base = Decimal.max(new Decimal(String(f.base_amount)).minus(reembolsado), 0);
+      const monto = calcularMonto(base.toFixed(4), f.commission_pct);
+      const nota = `\n${marca} Reembolso parcial de ${reembolsado.toFixed(2)}: base ${new Decimal(String(f.base_amount)).toFixed(2)} -> ${base.toFixed(2)}.`;
+      if (base.lte(0) || new Decimal(monto).lte(0)) {
+        await pool.query("UPDATE Commissions SET status = 'REVERSED', notes = CONCAT(COALESCE(notes, ''), ?) WHERE id = ?", [nota, f.id]);
+        r.revertidas++;
+      } else {
+        await pool.query(
+          "UPDATE Commissions SET base_amount = ?, commission_amount = ?, notes = CONCAT(COALESCE(notes, ''), ?) WHERE id = ?",
+          [base.toFixed(4), monto, nota, f.id]
+        );
+        r.reducidas++;
+      }
+    }
+    if (r.reducidas + r.revertidas + r.pagadasARevisar > 0) {
+      console.log(`[comisiones] reembolso parcial ${adjustmentId} (txn ${transactionId}): ${r.reducidas} reducida(s), ${r.revertidas} revertida(s), ${r.pagadasARevisar} pagada(s) a revisar`);
+    }
+    return r;
+  } catch (e) {
+    console.error(`[comisiones] no se pudo ajustar la comisión de la txn ${transactionId} por el reembolso parcial ${adjustmentId}:`, errorMessage(e));
+    return vacio;
+  }
+}
+
 /**
  * Pasa a `DUE` lo que ya cumplió su fecha de exigibilidad.
  *

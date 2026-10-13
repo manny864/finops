@@ -23,7 +23,7 @@ function respuestaError(err: unknown) {
 
 /**
  * GET /api/billing/refunds?tenantId=
- * Cobros del tenant con si se pueden reembolsar y, si no, por qué. Admin/Owner del tenant o SuperAdmin.
+ * Cobros del tenant con si se pueden reembolsar, cuánto se devolvería hoy (prorrateo) y, si no, por qué. Admin/Owner del tenant o SuperAdmin.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -45,14 +45,17 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/billing/refunds   { tenantId, transactionId, reason }
- * Pide a Paddle el reembolso TOTAL de un cobro. Los efectos en la plataforma los aplica el webhook cuando Paddle lo aprueba.
+ * POST /api/billing/refunds   { tenantId, transactionId, reason, modo? }
+ * Pide a Paddle el reembolso de un cobro: PROPORCIONAL por los días no usados (por omisión) o `modo: "total"` (sólo SuperAdmin). Los efectos en la plataforma los aplica el webhook cuando Paddle lo aprueba.
  */
 export async function POST(request: NextRequest) {
   try {
-    const { tenantId, transactionId, reason } = await request.json().catch(() => ({}));
+    const { tenantId, transactionId, reason, modo } = await request.json().catch(() => ({}));
     if (!tenantId || typeof transactionId !== "string" || typeof reason !== "string") {
       return NextResponse.json({ error: "tenantId, transactionId y reason son requeridos" }, { status: 400 });
+    }
+    if (modo !== undefined && modo !== "proporcional" && modo !== "total") {
+      return NextResponse.json({ error: "modo debe ser 'proporcional' o 'total'" }, { status: 400 });
     }
     if (!/^txn_[a-z0-9]{26}$/.test(transactionId)) {
       return NextResponse.json({ error: "transactionId inválido" }, { status: 400 });
@@ -75,6 +78,7 @@ export async function POST(request: NextRequest) {
       reason,
       email: identity.email,
       esSuperAdmin: await esSuperAdmin(identity),
+      modo,
     });
     return NextResponse.json({ success: true, ...resultado });
   } catch (err) {

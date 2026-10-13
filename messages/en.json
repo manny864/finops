@@ -637,9 +637,9 @@
   },
   "Refunds": {
     "title": "Refunds",
-    "policyAdmin": "You can request a full refund of a charge within {days} days of it being made. For an older one, contact support.",
-    "policySuper": "As SuperAdmin you can request a full refund of any charge, with no day limit.",
-    "effects": "When Paddle approves the refund: the charge is marked as refunded and commissions are reversed; if it was a module, it is switched off; if it was the plan's latest charge, access is cut immediately and the subscription is canceled. Partial refunds are made from the Paddle dashboard.",
+    "policyAdmin": "You can request a refund of a charge within {days} days of it being made. The unused part of the period is refunded: days are counted from payment to the request. For an older charge, contact support.",
+    "policySuper": "As SuperAdmin you can request a refund of any charge, with no day limit: prorated for the unused days or, if you tick it, the full amount.",
+    "effects": "When Paddle approves the refund: the charge is marked as refunded; if it was a module, it is switched off; if it was the plan's latest charge, access is cut immediately and the subscription is canceled. Commissions on that charge are reduced by the same proportion (or reversed if it is a full refund) and are not paid while the refund is pending.",
     "loading": "Loading charges…",
     "loadError": "Could not load the charges",
     "empty": "This tenant has no charges yet.",
@@ -658,10 +658,11 @@
       "ya-reembolsado": "Already refunded",
       "en-proceso": "Refund in progress",
       "fuera-de-ventana": "Outside the {days}-day window",
-      "no-cobrado": "Not charged"
+      "no-cobrado": "Not charged",
+      "periodo-agotado": "Period already used",
+      "sin-periodo": "Period cannot be calculated"
     },
     "refund": "Refund",
-    "confirmTitle": "Request a full refund of {amount}",
     "reasonLabel": "Reason for the refund",
     "reasonPlaceholder": "E.g. the customer subscribed by mistake",
     "reasonHint": "It is recorded in Paddle and in the audit trail.",
@@ -670,7 +671,14 @@
     "close": "Close",
     "requested": "Refund requested. Paddle reviews it and, once approved, the effects are applied.",
     "requestError": "Could not request the refund",
-    "open": "Refunds"
+    "open": "Refunds",
+    "colRefund": "Refunded",
+    "daysUsed": "{used} of {period} days used",
+    "confirmProrated": "Request the prorated refund of {amount}",
+    "confirmTotal": "Request the full refund of {amount}",
+    "prorratedSummary": "The unused time is refunded: {used} of {period} days used. Once approved, the service ends.",
+    "totalOption": "Full refund of the charge ({amount}), no proration",
+    "totalOnly": "The prorated amount cannot be calculated for this charge: only the full refund can be requested."
   },
   "AdminBilling": {
     "title": "Billing",

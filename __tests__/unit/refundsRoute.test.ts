@@ -51,7 +51,19 @@ describe("POST /api/billing/refunds", () => {
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual({ success: true, adjustmentId: "adj_01", status: "pending_approval" });
     expect(m.rol).toHaveBeenCalledWith(expect.anything(), TENANT, ["Admin", "Owner"]);
-    expect(m.pedir).toHaveBeenCalledWith({ tenantId: TENANT, transactionId: TXN, reason: "El cliente pidió la baja", email: "owner@cliente.com", esSuperAdmin: false });
+    expect(m.pedir).toHaveBeenCalledWith({ tenantId: TENANT, transactionId: TXN, reason: "El cliente pidió la baja", email: "owner@cliente.com", esSuperAdmin: false, modo: undefined });
+  });
+
+  it("pasa el modo pedido al servicio (que decide si ese usuario puede pedir el total)", async () => {
+    await post({ ...valido, modo: "total" });
+    expect(m.pedir).toHaveBeenCalledWith(expect.objectContaining({ modo: "total" }));
+    await post({ ...valido, modo: "proporcional" });
+    expect(m.pedir).toHaveBeenLastCalledWith(expect.objectContaining({ modo: "proporcional" }));
+  });
+
+  it("un modo que no existe es 400 y no llega al servicio", async () => {
+    expect((await post({ ...valido, modo: "mitad" })).status).toBe(400);
+    expect(m.pedir).not.toHaveBeenCalled();
   });
 
   it("un SuperAdmin de dominio corporativo pide sin ventana", async () => {

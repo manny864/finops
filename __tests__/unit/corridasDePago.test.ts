@@ -81,6 +81,28 @@ describe("los guardas que impiden pagar dos veces", () => {
         expect(connMock.rollback).toHaveBeenCalled();
     });
 
+    // Un reembolso PEDIDO y todavía sin resolver: si la comisión se pagara ahora y Paddle lo aprobara después, quedaría PAGADA y ya no se
+    // puede revertir con un UPDATE. Se retiene hasta que se resuelva (si Paddle lo rechaza, el cobro vuelve a `completed`).
+    const RETENCION = /NOT EXISTS \(SELECT 1 FROM BillingTransactions bt WHERE bt\.paddle_transaction_id = c\.paddle_transaction_id AND bt\.status = 'refund_pending'\)/;
+
+    it("la vista previa retiene las comisiones de un cobro con reembolso pendiente", async () => {
+        await previsualizarCorrida({ currency: "USD", minimo: 0 });
+        expect(sql().find((s) => s.includes("FROM Commissions"))!).toMatch(RETENCION);
+    });
+
+    it("crear la corrida retiene lo mismo en la lectura de candidatas y en el UPDATE que las asigna", async () => {
+        queryMock
+            .mockResolvedValueOnce([[{ beneficiary_type: "affiliate", beneficiary_id: "a1", comisiones: 1, monto: "10.0000" }], []] as any) // candidatas
+            .mockResolvedValueOnce([{ insertId: 9 }, []] as any) // INSERT PayoutRuns
+            .mockResolvedValue([[], []] as any);
+        await crearCorrida({ currency: "USD", minimo: 0, adminEmail: "a@b.c" });
+        const lectura = sql().find((s) => s.includes("FOR UPDATE"))!;
+        const asignacion = sql().find((s) => s.includes("UPDATE Commissions SET payout_run_id"))!;
+        expect(lectura).toMatch(RETENCION);
+        expect(asignacion, "sin esto la corrida se llevaría una comisión con reembolso pendiente").toContain("bt.status = 'refund_pending'");
+        expect(asignacion).toContain("bt.paddle_transaction_id = Commissions.paddle_transaction_id");
+    });
+
     it("sin nada que pagar devuelve null en vez de una corrida vacía", async () => {
         expect(await crearCorrida({ currency: "USD", minimo: 0, adminEmail: "a@b.c" })).toBeNull();
     });

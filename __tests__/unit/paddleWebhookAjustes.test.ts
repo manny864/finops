@@ -24,7 +24,7 @@ vi.mock("@/lib/paddleTierMap", () => ({
   getPaddleBaseUrl: vi.fn(() => "https://sandbox-api.paddle.com"),
 }));
 vi.mock("@/services/affiliates.service", () => ({ devengarComision: vi.fn(), revertirComision }));
-vi.mock("@/services/commissions.service", () => ({ devengarComisionComercial: vi.fn(), cancelarComisionesPorChurn: vi.fn() }));
+vi.mock("@/services/commissions.service", () => ({ devengarComisionComercial: vi.fn(), cancelarComisionesPorChurn: vi.fn(), ajustarComisionesPorReembolsoParcial: vi.fn() }));
 
 import { POST } from "@/app/api/webhooks/paddle/route";
 
@@ -90,15 +90,17 @@ describe("webhook de Paddle: ajustes (reembolsos y contracargos)", () => {
       expect(revertirComision).not.toHaveBeenCalled();
     });
 
-    it.each(["refund", "chargeback"])("un %s PARCIAL aprobado: no lo revierte solo y lo deja en el log para revisarlo a mano", async (action) => {
+    // La comisión de un parcial NO se revierte entera: se reduce en proporción (paddleWebhookReembolsos.test.ts). Acá se cuida que
+    // no pase por `revertirComision` y que, si el ajuste no trae el subtotal, quede dicho en el log en vez de ajustar a ciegas.
+    it.each(["refund", "chargeback"])("un %s PARCIAL aprobado no revierte la comisión entera; sin subtotal legible lo deja en el log", async (action) => {
       const aviso = vi.spyOn(console, "warn").mockImplementation(() => {});
       const r = await POST(evento("adjustment.updated", { action, status: "approved", type: "partial" }));
       expect(r.status).toBe(200);
       expect(revertirComision).not.toHaveBeenCalled();
       const log = aviso.mock.calls.flat().join(" ");
       expect(log).toContain(action);
-      expect(log).toMatch(/PARCIAL/);
-      expect(log).toContain(TXN);
+      expect(log).toMatch(/parcial/i);
+      expect(log).toContain("adj_01k0000000000000000000000b");
     });
 
     it("un ajuste sin el campo type (forma inesperada) tampoco se trata como total", async () => {

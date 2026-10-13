@@ -61,6 +61,9 @@ export function referenciaDeLinea(runId: number, tipo: string, beneficiarioId: s
     return `run${runId}-${tipo === "sales_rep" ? "rep" : "aff"}-${beneficiarioId}`;
 }
 
+// Una comisión cuyo cobro tiene un reembolso PEDIDO y todavía sin resolver no entra en una corrida de pago: si Paddle lo aprueba
+// después de pagarla, la comisión quedaría PAGADA y ya no se puede revertir con un UPDATE. Mientras está pendiente se retiene; si
+// Paddle lo rechaza, el cobro vuelve a `completed` y la comisión entra en la corrida siguiente.
 const SELECT_LINEAS = `
     SELECT c.beneficiary_type, c.beneficiary_id,
            COALESCE(a.name, r.name) AS nombre,
@@ -106,6 +109,7 @@ export async function previsualizarCorrida(params: {
     const [rows] = await pool.query<any[]>(
         `${SELECT_LINEAS}
           WHERE c.status = 'DUE' AND c.payout_run_id IS NULL AND c.currency = ?
+          AND NOT EXISTS (SELECT 1 FROM BillingTransactions bt WHERE bt.paddle_transaction_id = c.paddle_transaction_id AND bt.status = 'refund_pending')
           GROUP BY c.beneficiary_type, c.beneficiary_id, nombre, email, payout_method, payout_reference
          HAVING monto >= ?
           ORDER BY monto DESC`,
@@ -141,6 +145,7 @@ export async function crearCorrida(params: {
         const [candidatas] = await conn.query<any[]>(
             `${SELECT_LINEAS}
               WHERE c.status = 'DUE' AND c.payout_run_id IS NULL AND c.currency = ?
+          AND NOT EXISTS (SELECT 1 FROM BillingTransactions bt WHERE bt.paddle_transaction_id = c.paddle_transaction_id AND bt.status = 'refund_pending')
               GROUP BY c.beneficiary_type, c.beneficiary_id, nombre, email, payout_method, payout_reference
              HAVING monto >= ?
               FOR UPDATE`,
@@ -162,7 +167,8 @@ export async function crearCorrida(params: {
             await conn.query(
                 `UPDATE Commissions SET payout_run_id = ?
                   WHERE status = 'DUE' AND payout_run_id IS NULL AND currency = ?
-                    AND beneficiary_type = ? AND beneficiary_id = ?`,
+                    AND beneficiary_type = ? AND beneficiary_id = ?
+                    AND NOT EXISTS (SELECT 1 FROM BillingTransactions bt WHERE bt.paddle_transaction_id = Commissions.paddle_transaction_id AND bt.status = 'refund_pending')`,
                 [runId, params.currency, l.beneficiary_type, l.beneficiary_id],
             );
         }

@@ -11,12 +11,16 @@ const connMock = {
 };
 vi.mock("@/modules/storage/db", () => ({ default: { getConnection: async () => connMock, query: (...a: unknown[]) => queryMock(...a) } }));
 
+const { churn } = vi.hoisted(() => ({ churn: vi.fn() }));
+vi.mock("@/services/commissions.service", () => ({ cancelarComisionesPorChurn: churn }));
+
 import { recordTenantLifecycleTransition } from "@/services/tenantLifecycle.service";
 
 const currentStatus = (s: string) => [[{ subscription_status: s }]];
 const lastEvent = (t: string | null) => [t ? [{ event_type: t }] : []];
 
 beforeEach(() => {
+    churn.mockReset().mockResolvedValue({ canceladas: 0 });
     queryMock.mockReset();
     connMock.commit.mockClear();
     connMock.rollback.mockClear();
@@ -157,5 +161,52 @@ describe("atomicidad", () => {
         expect(applied).toBe(false);
         expect(connMock.commit).not.toHaveBeenCalled();
         expect(connMock.rollback).toHaveBeenCalled();
+    });
+});
+
+describe("una baja corta las cuotas no exigibles del comercial, venga por donde venga", () => {
+    const transicion = (estado: string, evento: "CANCELED" | "EXPIRED" | "SUSPENDED" | "ACTIVATED" | "REACTIVATED", ultimo: string | null = null) => {
+        queryMock
+            .mockResolvedValueOnce(currentStatus(estado))
+            .mockResolvedValueOnce(lastEvent(ultimo))
+            .mockResolvedValueOnce([{}])
+            .mockResolvedValueOnce([{}]);
+        return recordTenantLifecycleTransition("t1", evento, { actor: "cualquiera" });
+    };
+
+    it.each(["CANCELED", "EXPIRED"] as const)("%s cancela las comisiones pendientes del tenant", async (evento) => {
+        await transicion("ACTIVE", evento);
+        expect(churn).toHaveBeenCalledWith("t1");
+    });
+
+    it.each(["SUSPENDED", "ACTIVATED", "REACTIVATED"] as const)("%s no toca las comisiones: no es una baja", async (evento) => {
+        await transicion("ACTIVE", evento);
+        expect(churn).not.toHaveBeenCalled();
+    });
+
+    it("sólo después de confirmar la transacción de la baja", async () => {
+        const orden: string[] = [];
+        connMock.commit.mockImplementationOnce(async () => { orden.push("commit"); });
+        churn.mockImplementationOnce(async () => { orden.push("churn"); return { canceladas: 0 }; });
+        await transicion("ACTIVE", "CANCELED");
+        expect(orden).toEqual(["commit", "churn"]);
+    });
+
+    it("una repetición del mismo evento (reentrega del webhook) no vuelve a cancelar nada", async () => {
+        queryMock.mockResolvedValueOnce(currentStatus("CANCELED")).mockResolvedValueOnce(lastEvent("CANCELED"));
+        expect(await recordTenantLifecycleTransition("t1", "CANCELED")).toBe(false);
+        expect(churn).not.toHaveBeenCalled();
+    });
+
+    it("un tenant inexistente no cancela nada", async () => {
+        queryMock.mockResolvedValueOnce([[]]);
+        expect(await recordTenantLifecycleTransition("fantasma", "CANCELED")).toBe(false);
+        expect(churn).not.toHaveBeenCalled();
+    });
+
+    it("si la baja falla, tampoco se cancelan comisiones", async () => {
+        queryMock.mockResolvedValueOnce(currentStatus("ACTIVE")).mockRejectedValueOnce(new Error("deadlock"));
+        await expect(recordTenantLifecycleTransition("t1", "CANCELED")).rejects.toThrow("deadlock");
+        expect(churn).not.toHaveBeenCalled();
     });
 });
