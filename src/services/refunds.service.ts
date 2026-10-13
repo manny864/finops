@@ -23,7 +23,7 @@ import { registrarAuditoria } from "@/lib/auditTrail";
  * ese cobro NO entran en una corrida de pago (`payoutRuns.service`).
  *
  * Estado del cobro en `BillingTransactions.status`: `completed` → `refund_pending` (pedido) → `refunded` (aprobado) o de vuelta a
- * `completed` (rechazado). No hay tabla nueva: el pedido y el efecto quedan en `SecurityAuditTrail`.
+ * `completed` (rechazado). No hay tabla nueva: el pedido y el efecto quedan en `AuditTrailLogs`.
  */
 export const VENTANA_REEMBOLSO_DIAS = 7;
 

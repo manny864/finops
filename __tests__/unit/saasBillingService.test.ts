@@ -128,8 +128,8 @@ describe("saasBilling.service", () => {
                 ["tenant-live-abc"]
             );
             expect(mocks.mockPoolQuery).toHaveBeenCalledWith(
-                expect.stringContaining("INSERT INTO SecurityAuditTrail"),
-                expect.arrayContaining(["tenant-live-abc", "SUBSCRIPTION_CANCEL_REQUESTED", "owner@company.com"])
+                expect.stringContaining("INSERT INTO AuditTrailLogs"),
+                expect.arrayContaining(["tenant-live-abc", "owner@company.com", "SUBSCRIPTION_CANCEL_REQUESTED"])
             );
         } finally {
             vi.unstubAllGlobals();

@@ -122,7 +122,7 @@ Customer cancels → subscription.canceled (CANCELED)
 - **Total**: the whole charge, `type: full`. **Only a SuperAdmin** (corporate domain + `SUPERADMIN` role) can ask for it (checkbox in the dialog).
 - **Window**: an Admin/Owner can request only within `VENTANA_REEMBOLSO_DIAS` (**7**) days of the charge; the SuperAdmin has no window. The window is a default chosen by us; the terms say refunds are not given for partial months except where the law requires.
 - The charge must belong to the tenant, be `completed`, and have no refund in progress (the status moves `completed` → `refund_pending` atomically before calling Paddle; Paddle also refuses a second refund on a transaction with one pending).
-- It calls `POST /adjustments` (`action: refund`) and records `REFUND_REQUESTED` in `SecurityAuditTrail`. **The effects are NOT applied here: they arrive with the approved adjustment webhook**, so refunds made in the Paddle dashboard are covered the same way.
+- It calls `POST /adjustments` (`action: refund`) and records `REFUND_REQUESTED` in `AuditTrailLogs`. **The effects are NOT applied here: they arrive with the approved adjustment webhook**, so refunds made in the Paddle dashboard are covered the same way.
 - Because what is refunded is the unused time, an approved prorated refund **ends the service** exactly like a total one (access cut, module switched off, subscription canceled). A partial refund made by hand in the Paddle dashboard (the charge is still `completed`) only adjusts commissions.
 - While a refund is `refund_pending`, the commissions of that charge are **held out of payout runs** (`payoutRuns.service`): otherwise a commission could be paid and the refund approved afterwards, and a `PAID` commission cannot be reverted with an UPDATE. If Paddle rejects the refund the charge goes back to `completed` and the commission enters the next run.
 - **The runtime API key needs `adjustment.write`** (in addition to `price.read`, `subscription.read`, `subscription.write` and `transaction.write`).
@@ -152,7 +152,7 @@ A cancellation requested by the customer runs **on its own** only when the tenan
   - **Reject**: a reason is required and is emailed to the customer; nothing else changes.
   - **Approve**: *with a Paddle subscription* it cancels at the end of the period in Paddle (if Paddle rejects it again, the request goes back to `PENDING` and the error is shown; `skipPaddle` is the way out when the SuperAdmin already cancelled it by hand in Paddle) and the `subscription.canceled` that follows records the cancellation. *Without one*, nothing else will emit the cancellation, so it is recorded right there (`CANCELED`, which also cuts the sales-rep installments not yet due) and `effectiveDate` fixes until when the tenant keeps access; the date is **required** if the tenant has no access date, because without it the cancellation would leave it without service at once.
   - The request is taken with an `UPDATE ... WHERE status = 'PENDING'` before anything runs, so two SuperAdmins cannot execute it twice; if the execution fails it goes back to `PENDING`.
-  - Audit: `CANCELLATION_REQUEST_CREATED` / `_APPROVED` / `_REJECTED` in `SecurityAuditTrail`; the customer gets an email with the outcome.
+  - Audit: `CANCELLATION_REQUEST_CREATED` / `_APPROVED` / `_REJECTED` in `AuditTrailLogs`; the customer gets an email with the outcome.
 
 ### Marketplace module subscriptions are not the plan
 

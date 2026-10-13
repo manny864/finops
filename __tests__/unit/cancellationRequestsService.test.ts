@@ -7,7 +7,7 @@ vi.mock("@/lib/emailHelper", async (orig) => ({ ...(await orig<typeof import("@/
 vi.mock("@/services/tenantLifecycle.service", () => ({ recordTenantLifecycleTransition: m.transicion }));
 vi.mock("@/lib/paddleSubscriptions", () => ({ cancelarSuscripcion: m.cancelarPaddle }));
 
-import { crearSolicitud, listarSolicitudes, recordarSolicitudesPendientes, resolverSolicitud, tieneSolicitudPendiente, DIAS_ENTRE_RECORDATORIOS } from "@/services/cancellationRequests.service";
+import { crearSolicitud, listarSolicitudes, recordarSolicitudesPendientes, reintentarSiHuboBloqueo, resolverSolicitud, tieneSolicitudPendiente, DIAS_ENTRE_RECORDATORIOS } from "@/services/cancellationRequests.service";
 
 const TENANT = "81ebe027-e6af-4e09-bc73-58c9012c6408";
 const SUB = "sub_01m4plan000000000000000000";
@@ -46,7 +46,7 @@ describe("crearSolicitud", () => {
     await expect(crearSolicitud(pedido)).resolves.toEqual({ id: 12, creada: true });
 
     expect(m.consultar).toHaveBeenCalledWith(expect.stringContaining("WHERE NOT EXISTS"), [TENANT, "owner@cliente.com", "no-paddle-subscription", null, TENANT]);
-    expect(m.consultar).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO SecurityAuditTrail"), expect.arrayContaining([TENANT, "CANCELLATION_REQUEST_CREATED", "owner@cliente.com"]));
+    expect(m.consultar).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO AuditTrailLogs"), expect.arrayContaining([TENANT, "owner@cliente.com", "CANCELLATION_REQUEST_CREATED"]));
     const [asunto, html, para] = m.correo.mock.calls[0];
     expect(para).toBe("soporte@cscloudsolutions.com.ar");
     expect(asunto).toContain("pendiente de aprobación");
@@ -61,7 +61,7 @@ describe("crearSolicitud", () => {
     base({ "INSERT INTO CancellationRequests": { affectedRows: 0 }, "SELECT id FROM CancellationRequests WHERE tenant_id": [{ id: 7 }] });
     await expect(crearSolicitud(pedido)).resolves.toEqual({ id: 7, creada: false });
     expect(m.correo).not.toHaveBeenCalled();
-    expect(hizo("SecurityAuditTrail")).toBe(false);
+    expect(hizo("AuditTrailLogs")).toBe(false);
   });
 
   it("el detalle se corta a 1000 caracteres", async () => {
@@ -96,7 +96,7 @@ describe("resolverSolicitud: rechazar", () => {
     expect(para).toBe("owner@cliente.com");
     expect(asunto).toContain("no fue aprobada");
     expect(html).toContain("Lo hablamos y sigue con nosotros");
-    expect(m.consultar).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO SecurityAuditTrail"), expect.arrayContaining(["CANCELLATION_REQUEST_REJECTED", ADMIN]));
+    expect(m.consultar).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO AuditTrailLogs"), expect.arrayContaining([ADMIN, "CANCELLATION_REQUEST_REJECTED"]));
   });
 });
 
@@ -248,5 +248,46 @@ describe("recordarSolicitudesPendientes", () => {
     expect(hizo("SET status")).toBe(false);
     expect(m.transicion).not.toHaveBeenCalled();
     expect(m.cancelarPaddle).not.toHaveBeenCalled();
+  });
+});
+
+describe("reintentarSiHuboBloqueo", () => {
+  const bloqueo = (extra: Record<string, unknown> = { errno: 1213, code: "ER_LOCK_DEADLOCK" }) => Object.assign(new Error("Deadlock found when trying to get lock"), extra);
+
+  it("reintenta un deadlock (1213) y devuelve el resultado del intento que sale bien", async () => {
+    const op = vi.fn().mockRejectedValueOnce(bloqueo()).mockRejectedValueOnce(bloqueo()).mockResolvedValue("ok");
+    await expect(reintentarSiHuboBloqueo(op)).resolves.toBe("ok");
+    expect(op).toHaveBeenCalledTimes(3);
+  });
+
+  it.each([[{ errno: 1205 }], [{ code: "ER_LOCK_WAIT_TIMEOUT" }], [{ code: "ER_LOCK_DEADLOCK" }]])("también reintenta %j", async (extra) => {
+    const op = vi.fn().mockRejectedValueOnce(bloqueo(extra)).mockResolvedValue("ok");
+    await expect(reintentarSiHuboBloqueo(op)).resolves.toBe("ok");
+  });
+
+  it("un error que no es de bloqueo sube de inmediato, sin reintentar", async () => {
+    const op = vi.fn().mockRejectedValue(Object.assign(new Error("ER_NO_SUCH_TABLE"), { errno: 1146 }));
+    await expect(reintentarSiHuboBloqueo(op)).rejects.toThrow("ER_NO_SUCH_TABLE");
+    expect(op).toHaveBeenCalledTimes(1);
+  });
+
+  it("si el bloqueo no se va, se rinde al agotar los intentos con el error original", async () => {
+    const op = vi.fn().mockRejectedValue(bloqueo());
+    await expect(reintentarSiHuboBloqueo(op, 3)).rejects.toThrow("Deadlock");
+    expect(op).toHaveBeenCalledTimes(3);
+  });
+
+  it("crearSolicitud lo usa: un deadlock en el INSERT no le llega al cliente", async () => {
+    let llamadas = 0;
+    m.consultar.mockImplementation(async (sql: string) => {
+      if (String(sql).includes("INSERT INTO CancellationRequests")) {
+        if (++llamadas === 1) throw bloqueo();
+        return [{ affectedRows: 0 }];
+      }
+      if (String(sql).includes("SELECT id FROM CancellationRequests")) return [[{ id: 9 }]];
+      return [[]];
+    });
+    await expect(crearSolicitud({ tenantId: TENANT, requestedBy: "a@b.c", reasonCode: "no-paddle-subscription" })).resolves.toEqual({ id: 9, creada: false });
+    expect(llamadas).toBe(2);
   });
 });

@@ -15,6 +15,7 @@ import {
 import { azurePlanToBillingCycle } from "@/lib/marketplace/planMapping";
 import { getPaddleBaseUrl } from "@/lib/paddleTierMap";
 import { cancelarSuscripcion } from "@/lib/paddleSubscriptions";
+import { registrarAuditoria } from "@/lib/auditTrail";
 import { crearSolicitud, tieneSolicitudPendiente, type MotivoSolicitud } from "@/services/cancellationRequests.service";
 import { normalizeTier } from "@/lib/tierLogic";
 
@@ -332,19 +333,12 @@ export async function cancelTenantSubscription(
     }
 
     // Registro en auditoría
-    try {
-        await pool.query(
-            `INSERT INTO SecurityAuditTrail (tenant_id, event_type, user_email, description) VALUES (?, ?, ?, ?)`,
-            [
-                tenantId,
-                "SUBSCRIPTION_CANCEL_REQUESTED",
-                userEmail || "admin@cscloudsolutions.com",
-                "Cancelación de suscripción SaaS programada para fin de período.",
-            ]
-        );
-    } catch {
-        /* noop */
-    }
+    await registrarAuditoria(
+        tenantId,
+        "SUBSCRIPTION_CANCEL_REQUESTED",
+        userEmail || "admin@cscloudsolutions.com",
+        "Cancelación de suscripción SaaS programada para fin de período."
+    );
 
     return {
         success: true,

@@ -164,8 +164,8 @@ describe("solicitarReembolso", () => {
     });
     expect(hizo("SET status = 'refund_pending'")).toBe(true);
     expect(consultar).toHaveBeenCalledWith(
-      expect.stringContaining("INSERT INTO SecurityAuditTrail"),
-      expect.arrayContaining([TENANT, "REFUND_REQUESTED", "owner@cliente.com", expect.stringContaining("reembolso proporcional de 269.99")])
+      expect.stringContaining("INSERT INTO AuditTrailLogs"),
+      expect.arrayContaining([TENANT, "owner@cliente.com", "REFUND_REQUESTED", expect.stringContaining("reembolso proporcional de 269.99")])
     );
   });
 

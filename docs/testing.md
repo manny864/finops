@@ -61,6 +61,30 @@ expect(result.toNumber()).toBeCloseTo(1.234, 6);
 
 ### Testing Next.js route handlers
 
+### Tests against a REAL MySQL
+
+Almost every test mocks `pool.query`, which accepts any SQL: it proves nothing about columns, JSON reads, locking or foreign keys. Three files in `__tests__/integration/` talk to a real MySQL and **skip themselves unless `DB_PORT` is set** (CI has no MySQL):
+
+| File | What it proves |
+|---|---|
+| `egressSqlReal.test.ts` | the egress `CASE` classifies the nine real Azure meters like the JS interpreter |
+| `reembolsosYCancelacionesSqlReal.test.ts` | refunds (proration over the stored `raw_event`), commission adjustments, payout hold, churn on cancellation, and cancellation requests — real services, only Paddle (`fetch`) and email are faked |
+| `concurrenciaReembolsosYCancelacionesReal.test.ts` | simultaneous requests: one request per tenant, one refund per charge, one approval — and **no database errors** (the `INSERT ... WHERE NOT EXISTS` deadlocked 86 times in 750 requests before retrying) |
+
+Run them against a **throwaway container**, never a shared database. The five variables are explicit so it cannot point at production (`scripts/migrate.ts` and `db.ts` read only `process.env`):
+
+```bash
+docker run -d --name finops-val -p 127.0.0.1:3317:3306 -e MYSQL_ROOT_PASSWORD=root-validacion \
+  -e MYSQL_USER=finops_user -e MYSQL_PASSWORD=finopspassword mysql:8.0 \
+  --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+docker exec finops-val mysql -uroot -proot-validacion -e "DROP DATABASE IF EXISTS finops_app; \
+  CREATE DATABASE finops_app CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; GRANT ALL ON finops_app.* TO 'finops_user'@'%';"
+export DB_HOST=127.0.0.1 DB_PORT=3317 DB_USER=finops_user DB_PASSWORD=finopspassword DB_NAME=finops_app
+npx tsx scripts/migrate.ts && npx vitest run
+```
+
+Run it on `mysql:8.0` (production) and `mysql:8.4`. The migrations only apply from scratch on a database created as `utf8mb4_unicode_ci`.
+
 Add `// @vitest-environment node` at the top of integration test files to avoid `jsdom` limitations with `Request`/`Response`.
 
 ```ts
