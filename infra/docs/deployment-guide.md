@@ -153,10 +153,10 @@ actualiza producción directamente y deja una sola revisión activa.
 
 Flujo de un cambio:
 
-1. **Push a `main`** → `deploy-azure.yml` corre migraciones.
-2. Actualiza la app con la imagen nueva.
-3. Actualiza los cron jobs a la misma imagen.
-4. Hace health check de producción.
+1. **Push a `main`** → `deploy-azure.yml` despliega **staging** (migraciones, app nueva, health check). No toca prod.
+2. Se prueba en staging.
+3. **Promoción a prod, a mano:** Actions > `promote-prod` > Run workflow, con el `sha` que pasó por staging y `confirm = PROMOTE-PROD`. Hace lo mismo (`_deploy.yml`) contra prod.
+4. Los cron jobs no se tocan en el deploy (los gestiona Terraform).
 
 > **Migraciones:** corren antes de actualizar la app. Si el health check falla,
 > el rollback es volver a desplegar una imagen anterior contra el esquema ya

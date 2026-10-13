@@ -1,0 +1,82 @@
+# Promoción a PRODUCCIÓN. Es la única forma de desplegar prod: `deploy-azure.yml` (push a main) sólo despliega staging.
+#
+# Se dispara a mano (Actions > promote-prod > Run workflow) con:
+#   sha      el commit a promover (40 caracteres).
+#   confirm  exactamente `PROMOTE-PROD`.
+#
+# Antes de tocar nada verifica que el sha (1) sea ancestro de origin/main y (2) tenga un deploy a STAGING exitoso. Después
+# construye ESE sha con las variables de prod y lo despliega con la misma plantilla que staging (`_deploy.yml`).
+#
+# La aprobación vive acá (el dispatch con la confirmación escrita) y no en los revisores obligatorios del environment: en un
+# repositorio privado con GitHub Pro esos revisores no existen.
+name: promote-prod
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Commit a promover a prod (40 caracteres; tiene que haber pasado por staging)"
+        required: true
+        type: string
+      confirm:
+        description: "Escribí PROMOTE-PROD para confirmar"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-prod
+  # false a propósito, por lo mismo que en deploy-azure.yml: cancelar el job no cancela la migración ya disparada en Azure.
+  cancel-in-progress: false
+
+jobs:
+  verificar-promocion:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: La confirmación es exacta
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          [ "$CONFIRM" = "PROMOTE-PROD" ] || { echo "confirm tiene que ser exactamente PROMOTE-PROD."; exit 1; }
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: El sha es un commit de main que ya pasó por staging
+        env:
+          SHA: ${{ inputs.sha }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "sha tiene que ser el hash completo de 40 caracteres."; exit 1; }
+          git cat-file -e "$SHA^{commit}" 2>/dev/null || { echo "El commit $SHA no existe en el repositorio."; exit 1; }
+          git merge-base --is-ancestor "$SHA" origin/main || { echo "El commit $SHA no está en main: no se promueve."; exit 1; }
+          OK=$(gh run list --repo "$REPO" --workflow deploy-azure.yml --commit "$SHA" --status success --limit 5 --json databaseId --jq 'length')
+          if [ "${OK:-0}" -lt 1 ]; then
+            echo "El commit $SHA no tiene un deploy a staging exitoso (workflow deploy-azure.yml)."
+            echo "Un commit que sólo toca docs/tests/infra no se despliega: promové el último commit que sí pasó por staging."
+            exit 1
+          fi
+          echo "El commit $SHA está en main y su deploy a staging terminó bien."
+
+  deploy-prod:
+    needs: verificar-promocion
+    permissions:
+      id-token: write
+      contents: read
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      environment: prod
+      sha: ${{ inputs.sha }}
+      acr: cscsfinopsprodglobalcr
+      rg: cscs-finops-prod-westus2-rg
+      app: cscs-finops-prod-westus2-web
+      migrate_job: cscs-finops-prod-wus2-migrate
+    secrets: inherit

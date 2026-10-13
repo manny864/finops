@@ -420,7 +420,8 @@ llaves SSH.
 |---|---|---|
 | `ci.yml` | PRs a `main` | `lint` → `typecheck` → `test:coverage` → `build`. **Es el único gate de calidad.** |
 | `ci.yml` | Push a `main` | Sólo `test` (vitest). Lint, typecheck y build ya los corre el `next build` de la imagen en el deploy; vitest no lo corría nadie. |
-| `deploy-azure.yml` | Push a `main` (ignora `infra/**`, `docs/**`, `**.md`) | Build en ACR → job de migraciones → nueva revisión de la Container App → health check. Rollback = activar la revisión anterior, sin rebuild. |
+| `deploy-azure.yml` | Push a `main` (ignora `infra/**`, `docs/**`, `**.md`) | Despliega **staging**, nunca prod: puerta de calidad → guardas (las `NEXT_PUBLIC_*` son las de staging y el token de Paddle es del sandbox) → build en ACR → job de migraciones → nueva revisión → health check. Los pasos viven en `_deploy.yml`, compartido con prod. |
+| `promote-prod.yml` | `workflow_dispatch` con `sha` y `confirm = PROMOTE-PROD` | **La única forma de desplegar prod.** Verifica que el `sha` esté en `main` y tenga un deploy a staging exitoso; después construye ese mismo `sha` con las variables de prod y corre el mismo `_deploy.yml`. Rollback = activar la revisión anterior, sin rebuild. |
 | `terraform.yml` | PR sobre `infra/terraform/**`, `workflow_dispatch`, lunes 07:00 UTC | Checkov (`--framework terraform`) + Infracost + `plan` en el PR; el **apply es siempre manual**; el cron semanal detecta drift. |
 
 El build de la imagen produce **dos tags**: el runtime (standalone de Next

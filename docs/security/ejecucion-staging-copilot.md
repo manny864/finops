@@ -493,6 +493,12 @@ Es el mismo procedimiento que el destino A de prod (runbook 7.3 y [ejecucion-des
 
 **No empezar sin D5 confirmada.** La especificación es para el default de D5: build por ambiente.
 
+**Implementado el 2026-10-12** con tres diferencias respecto del texto de abajo, todas para tener un solo lugar donde se escriben los pasos de deploy:
+- Los pasos (build, migraciones, deploy, health) viven en **`_deploy.yml`**, un workflow reutilizable que no lleva ningún nombre de recurso; `deploy-azure.yml` (staging) y `promote-prod.yml` (prod) lo llaman con sus nombres **escritos en el llamador**, no en `vars.*`. Así no hay variables por environment que configurar a mano y un test (`deployStagingPrimero.test.ts`) puede afirmar que el workflow de push no nombra nada de prod.
+- La guarda de las `NEXT_PUBLIC_*` es el job `guardas-staging`: compara cada variable del environment `staging` contra el valor a nivel de repositorio (que es el de prod, leído por un job sin environment) y exige que el token de Paddle empiece con `test_`.
+- `HEALTH_URL` no existe: el health check usa el FQDN del app y, si el filtro de origen contesta 403, confía en la sonda de readiness de la plataforma (igual que antes).
+Nada de esto corrió todavía en Actions: la primera vez es el primer push a `main`.
+
 **Variables por environment** (la persona, con `gh variable set … --env`):
 
 - **`staging`:** `ACR=cscsfinopsstgglobalcr`, `RG=cscs-finops-stg-westus2-rg`, `APP=cscs-finops-stg-westus2-web`, `MIGRATE_JOB=cscs-finops-stg-wus2-migrate`, `HEALTH_URL=https://finops-staging.cscloudsolutions.com.ar/api/health`, y las `NEXT_PUBLIC_*` de staging.

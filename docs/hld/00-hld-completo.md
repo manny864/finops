@@ -502,12 +502,13 @@ flowchart TD
     BUILD_TEST --> PASS_MAIN["PR aprobado para merge a main"]
 
     BRANCH -->|"Push a main"| CI_TESTS["Workflow: ci.yml (sólo tests)"]
-    BRANCH -->|"Push a main"| DEPLOY_WORKFLOW["Workflow: deploy-azure.yml"]
+    BRANCH -->|"Push a main"| DEPLOY_WORKFLOW["Workflow: deploy-azure.yml (staging)"]
     DEPLOY_WORKFLOW --> ACR_BUILD["docker build + push (Runtime & Builder images)"]
     ACR_BUILD --> MIGRATION_JOB["Container App Job (Execute SQL Migrations)"]
     MIGRATION_JOB --> REVISION_UPDATE["Azure Container App (Deploy New Revision)"]
     REVISION_UPDATE --> HEALTH_CHECK["Health Check Endpoint /api/health"]
-    HEALTH_CHECK -->|200 OK| PROD_LIVE["Despliegue Exitoso en Producción 🚀"]
+    HEALTH_CHECK -->|200 OK| STAGING_LIVE["Staging actualizado"]
+    STAGING_LIVE -->|"Manual: promote-prod.yml (sha + PROMOTE-PROD)"| PROD_LIVE["Mismo build y pasos contra Producción 🚀"]
     HEALTH_CHECK -->|Fail| ROLLBACK["Auto-Rollback a Revisión Anterior"]
 ```
 

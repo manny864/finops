@@ -1,0 +1,201 @@
+# Build, migraciones, deploy y health de UN ambiente. Lo llaman `deploy-azure.yml` (staging, en cada push a main) y
+# `promote-prod.yml` (prod, a mano). Está acá una sola vez para que lo que se prueba en staging sea EXACTAMENTE lo que corre
+# en prod: lo único que cambia entre los dos son las entradas (environment y nombres de recursos).
+#
+# Esta plantilla no lleva ningún nombre de recurso escrito: los trae el llamador. Así un cambio acá no puede, por error,
+# apuntar un deploy de staging a prod ni al revés.
+#
+# Originalmente era el job `deploy` de deploy-azure.yml (ver su historia para el porqué de cada paso).
+name: deploy-reusable
+
+on:
+  workflow_call:
+    inputs:
+      environment: { description: "environment de GitHub (staging | prod)", required: true, type: string }
+      sha:         { description: "commit a construir y desplegar",          required: true, type: string }
+      acr:         { description: "nombre del ACR (sin .azurecr.io)",        required: true, type: string }
+      rg:          { description: "resource group del app y del job",        required: true, type: string }
+      app:         { description: "Container App web",                       required: true, type: string }
+      migrate_job: { description: "Container App Job de migraciones",        required: true, type: string }
+
+env:
+  ACR: ${{ inputs.acr }}
+  IMAGE: finops
+  RG: ${{ inputs.rg }}
+  APP: ${{ inputs.app }}
+  MIGRATE_JOB: ${{ inputs.migrate_job }}
+  # Tag aparte para las migraciones: la imagen de runtime es un standalone de
+  # Next podado y NO puede correr `npm run migrate` (no tiene scripts/, ni
+  # migrations/, ni tsx). Este tag se construye con --target builder.
+  MIGRATE_TAG_SUFFIX: builder
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      # `inputs.sha` se interpola en scripts más abajo: se exige un hash de commit antes de usarlo en cualquiera.
+      - name: El sha es un hash de commit
+        env:
+          SHA: ${{ inputs.sha }}
+        run: |
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "sha inválido: $SHA"; exit 1; }
+
+      # El sha que se construye es el que pide el llamador (el de push en staging, el elegido en la promoción a prod),
+      # no el de la ref del workflow: promover un sha viejo no puede construir el HEAD de main.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
+
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # Las NEXT_PUBLIC_ TIENEN que ir como --build-arg: Next las inlinea en el
+      # bundle del cliente al compilar, así que una env var del Container App
+      # llega tarde — para entonces el bundle ya está hecho.
+      #
+      # Van como `vars` y no como `secrets` porque son públicas por definición:
+      # se sirven a cualquier browser que abra la app. Si faltan, el build NO
+      # falla: compila con valores vacíos y el login queda en "not-configured"
+      # y el checkout de Paddle roto. Por eso el paso siguiente las verifica.
+      #
+      # Antes salían de .env.production, que viajaba dentro de la imagen; ese
+      # archivo se sacó del contexto de build por seguridad (ver .dockerignore).
+      - name: Verificar variables públicas de build
+        run: |
+          MISSING=""
+          for V in NEXT_PUBLIC_CLIENT_ID \
+                   NEXT_PUBLIC_PADDLE_CLIENT_TOKEN \
+                   NEXT_PUBLIC_PADDLE_PRO_MONTHLY \
+                   NEXT_PUBLIC_PADDLE_PRO_YEARLY \
+                   NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY \
+                   NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY; do
+            eval "VAL=\${$V}"
+            [ -z "$VAL" ] && MISSING="$MISSING $V"
+          done
+          if [ -n "$MISSING" ]; then
+            echo "Faltan variables del environment ${{ inputs.environment }} (Settings > Environments > ${{ inputs.environment }} > Variables):$MISSING"
+            echo "Sin ellas el bundle se compila vacío y el login rompe en runtime."
+            exit 1
+          fi
+        env:
+          NEXT_PUBLIC_CLIENT_ID: ${{ vars.NEXT_PUBLIC_CLIENT_ID }}
+          NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: ${{ vars.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN }}
+          NEXT_PUBLIC_PADDLE_PRO_MONTHLY: ${{ vars.NEXT_PUBLIC_PADDLE_PRO_MONTHLY }}
+          NEXT_PUBLIC_PADDLE_PRO_YEARLY: ${{ vars.NEXT_PUBLIC_PADDLE_PRO_YEARLY }}
+          NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY: ${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY }}
+          NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY: ${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY }}
+
+      - name: Build & push (local runner)
+        run: |
+          az acr login -n "$ACR"
+          
+          # Descargar imágenes para usar como caché (ignorando fallos si no existen)
+          docker pull "$ACR.azurecr.io/$IMAGE:latest" || true
+          docker pull "$ACR.azurecr.io/$IMAGE:$MIGRATE_TAG_SUFFIX" || true
+          
+          # Las dos imagenes comparten la etapa `builder`, que es la que corre
+          # `npm run build` (compilacion de Next + tsc). Antes se construian en
+          # PARALELO con `&`, y como son dos invocaciones independientes de
+          # docker build ninguna veia el cache de la otra: la etapa se ejecutaba
+          # DOS VECES, peleando por los 2 vCPU del runner. En el log se veia
+          # `#16 [builder 4/4] RUN npm run build` y `#20 [builder 4/4] RUN npm
+          # run build` compilando a la par, 3.6 y 3.7 min cada una, y despues
+          # dos pasadas de TypeScript — de ahi los builds de 20 a 60 min y los
+          # runners que se caian a mitad de camino.
+          #
+          # Ahora van en serie y la de migraciones va PRIMERO: al terminar deja
+          # `builder` en el cache local, y el build de runtime lo reusa entero.
+          # Los --build-arg tienen que ser identicos en las dos o el cache no
+          # matchea; antes la de migraciones no recibia ninguna NEXT_PUBLIC_.
+          BUILD_ARGS=(
+            --build-arg BUILDKIT_INLINE_CACHE=1
+            --build-arg NEXT_PUBLIC_CLIENT_ID="${{ vars.NEXT_PUBLIC_CLIENT_ID }}"
+            --build-arg NEXT_PUBLIC_PADDLE_CLIENT_TOKEN="${{ vars.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN }}"
+            --build-arg NEXT_PUBLIC_PADDLE_PRO_MONTHLY="${{ vars.NEXT_PUBLIC_PADDLE_PRO_MONTHLY }}"
+            --build-arg NEXT_PUBLIC_PADDLE_PRO_YEARLY="${{ vars.NEXT_PUBLIC_PADDLE_PRO_YEARLY }}"
+            --build-arg NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY="${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY }}"
+            --build-arg NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY="${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY }}"
+          )
+
+          docker build \
+            -t "$ACR.azurecr.io/$IMAGE:${{ inputs.sha }}-$MIGRATE_TAG_SUFFIX" \
+            -t "$ACR.azurecr.io/$IMAGE:$MIGRATE_TAG_SUFFIX" \
+            --cache-from "$ACR.azurecr.io/$IMAGE:$MIGRATE_TAG_SUFFIX" \
+            "${BUILD_ARGS[@]}" \
+            --target builder \
+            -f Dockerfile . \
+            || { echo "Build de imagen de migraciones falló"; exit 1; }
+
+          docker build \
+            -t "$ACR.azurecr.io/$IMAGE:${{ inputs.sha }}" \
+            -t "$ACR.azurecr.io/$IMAGE:latest" \
+            --cache-from "$ACR.azurecr.io/$IMAGE:latest" \
+            "${BUILD_ARGS[@]}" \
+            -f Dockerfile . \
+            || { echo "Build de runtime falló"; exit 1; }
+
+          # Push en paralelo: son subidas de red, no compilan nada.
+          docker push "$ACR.azurecr.io/$IMAGE:${{ inputs.sha }}" &
+          docker push "$ACR.azurecr.io/$IMAGE:latest" &
+          docker push "$ACR.azurecr.io/$IMAGE:${{ inputs.sha }}-$MIGRATE_TAG_SUFFIX" &
+          docker push "$ACR.azurecr.io/$IMAGE:$MIGRATE_TAG_SUFFIX" &
+          wait
+
+      - name: Migraciones
+        run: |
+          az containerapp job update -g "$RG" -n "$MIGRATE_JOB" \
+            --image "$ACR.azurecr.io/$IMAGE:${{ inputs.sha }}-$MIGRATE_TAG_SUFFIX"
+          az containerapp job start -g "$RG" -n "$MIGRATE_JOB"
+          for i in $(seq 1 90); do
+            STATUS=$(az containerapp job execution list -g "$RG" --name "$MIGRATE_JOB" \
+              --query "[0].properties.status" -o tsv)
+            [ "$STATUS" = "Succeeded" ] && exit 0
+            [ "$STATUS" = "Failed" ] && { echo "Migración falló"; exit 1; }
+            sleep 10
+          done
+          echo "Timeout esperando la migración"; exit 1
+
+      - name: Deploy de la app
+        run: |
+          # APP_VERSION va por --set-env-vars y NO por --build-arg: un build-arg
+          # que cambia en cada commit invalida el cache de la etapa `builder`
+          # justo antes de `npm run build`, que es lo que hacía los deploys de
+          # 20-60 min. Como env var de runtime el cache no se entera.
+          az containerapp update -g "$RG" -n "$APP" \
+            --image "$ACR.azurecr.io/$IMAGE:${{ inputs.sha }}" \
+            --set-env-vars AZURE_SENDER_EMAIL_ALERTS="${{ vars.AZURE_SENDER_EMAIL_ALERTS || 'alerts@cscloudsolutions.com.ar' }}" \
+                           APP_VERSION="${{ inputs.sha }}"
+
+      - name: Health check
+        run: |
+          FQDN=$(az containerapp show -g "$RG" -n "$APP" \
+            --query properties.configuration.ingress.fqdn -o tsv)
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://$FQDN/api/health" || true)
+            [ "$code" = "200" ] && exit 0
+            # 403 = el origen sólo acepta IPs de Cloudflare (allowed_ip_ranges):
+            # este runner no puede entrar por el FQDN de Azure, y eso NO es una
+            # falla del deploy. Se confía entonces en la sonda de readiness de la
+            # plataforma, que pega al mismo /api/health por dentro: la revisión
+            # nueva tiene que estar Healthy y Running. Sin el filtro de IP este
+            # camino no se ejecuta nunca.
+            if [ "$code" = "403" ]; then
+              REV=$(az containerapp show -g "$RG" -n "$APP" \
+                --query properties.latestRevisionName -o tsv || true)
+              ESTADO=$(az containerapp revision show -g "$RG" -n "$APP" --revision "$REV" \
+                --query "join(' ', [properties.healthState, properties.runningState])" -o tsv || true)
+              if [ "$ESTADO" = "Healthy Running" ]; then
+                echo "El origen filtra por IP (403); la revisión $REV está $ESTADO."
+                exit 0
+              fi
+            fi
+            sleep 10
+          done
+          echo "Health check falló — revisar la revisión y hacer rollback"; exit 1
