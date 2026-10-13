@@ -4,6 +4,7 @@ import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import { errorMessage, errorStatus } from "@/lib/apiErrors";
 import { normalizeTier, SUBSCRIPTION_LIMITS, USER_LIMITS } from "@/lib/tierLogic";
 import { getPaddleBaseUrl } from "@/lib/paddleTierMap";
+import { customDataFirmado } from "@/lib/checkoutBinding";
 
 export async function POST(request: NextRequest) {
     try {
@@ -58,11 +59,7 @@ export async function POST(request: NextRequest) {
             },
             body: JSON.stringify({
                 items: [{ price_id: customPriceId, quantity: 1 }],
-                custom_data: {
-                    tenant_id: tenantId,
-                    addon_type: "additional_tenant_slot",
-                    tier,
-                },
+                custom_data: customDataFirmado({ tenantId, priceId: customPriceId, addonType: "additional_tenant_slot", tier }),
                 checkout: {
                     url: returnUrl || undefined,
                 },

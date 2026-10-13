@@ -728,6 +728,17 @@ export function isAddonVisibleForTier(item: AddonProduct, tier: string): boolean
     return !hasAccess(tier, item.requiredTierFallback);
 }
 
+/** Price ID a cobrar por un add-on según tipo y duración; undefined si ese período no tiene precio cargado. */
+export function priceIdForAddon(item: AddonProduct, recurring: boolean, months: number): string | undefined {
+    if (recurring) return item.prices.monthly;
+    if (months === 1) return item.prices.pass1m;
+    if (months === 3) return item.prices.pass3m;
+    if (months === 6) return item.prices.pass6m;
+    if (months === 9) return item.prices.pass9m;
+    if (months === 12) return item.prices.pass12m || item.prices.annual;
+    return undefined;
+}
+
 /**
  * Aplica al add-on los valores que dependen del tier del comprador. Se llama
  * ANTES de filtrar por visibilidad: `isAddonVisibleForTier` exige un price ID

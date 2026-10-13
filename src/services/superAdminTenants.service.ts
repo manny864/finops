@@ -5,6 +5,7 @@
 import crypto from "crypto";
 import pool from "@/modules/storage/db";
 import { getPaddleBaseUrl } from "@/lib/paddleTierMap";
+import { customDataFirmado } from "@/lib/checkoutBinding";
 import {
     SuperAdminTenantItem,
     CreateManualTenantPayload,
@@ -567,7 +568,7 @@ export async function generatePaddleCheckoutLink(
         body: JSON.stringify({
             items: [{ price_id: priceId, quantity: 1 }],
             collection_mode: "automatic",
-            custom_data: { tenant_id: tenantId, tier: "Enterprise" },
+            custom_data: customDataFirmado({ tenantId, priceId, tier: "Enterprise" }),
         }),
         signal: AbortSignal.timeout(20_000),
     });

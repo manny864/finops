@@ -26,6 +26,7 @@ vi.mock("@/services/affiliates.service", () => ({ devengarComision: vi.fn(), rev
 vi.mock("@/services/commissions.service", () => ({ devengarComisionComercial: vi.fn(), cancelarComisionesPorChurn: vi.fn() }));
 
 import { POST } from "@/app/api/webhooks/paddle/route";
+import { customDataFirmado } from "@/lib/checkoutBinding";
 
 /**
  * Cómo se decide el tier cuando llega `subscription.created` / `subscription.updated`.
@@ -42,6 +43,7 @@ const PRECIO_PRO = "pri_plan_professional_mensual";
 const PRECIO_BUSINESS = "pri_plan_business_mensual";
 const PRECIO_ENTERPRISE = "pri_enterprise_a_medida_acme";
 
+/** `customData` llega FIRMADO por el servidor, como en un checkout legítimo; los casos de checkout armado a mano están en paddleWebhookVinculo.test.ts. */
 function evento(tipo: "subscription.created" | "subscription.updated", precio: string, customData: Record<string, unknown>) {
   const ts = Math.floor(Date.now() / 1000);
   const body = JSON.stringify({
@@ -49,7 +51,7 @@ function evento(tipo: "subscription.created" | "subscription.updated", precio: s
     data: {
       id: "sub_01m4rzzzzzzzzzzzzzzzzzzzzz",
       status: "active",
-      custom_data: customData,
+      custom_data: customDataFirmado({ tenantId: String(customData.tenant_id), priceId: precio, tier: customData.tier as string | undefined }),
       items: [{ price: { id: precio }, quantity: 1 }],
       current_billing_period: { ends_at: "2026-11-12T00:00:00Z" },
     },
@@ -103,11 +105,11 @@ describe.each(["subscription.created", "subscription.updated"] as const)("%s: ti
     expect(poolQuery).toHaveBeenCalledWith(expect.stringContaining("TenantSubscriptions"), [TENANT, PRECIO_ENTERPRISE]);
   });
 
-  it("pagar el precio de Professional con custom_data.tier = Enterprise (forjado desde el navegador) deja Professional", async () => {
+  it("pagar el precio de Professional con custom_data.tier = Enterprise deja Professional (el precio decide, aun con el vínculo firmado)", async () => {
     registrar([TENANT, PRECIO_PRO]); // aunque el registro dijera que sí, un precio de plan lo decide el precio
     await POST(evento(tipo, PRECIO_PRO, { tenant_id: TENANT, tier: "Enterprise" }));
     expect(tierEscrito()).toBe("Professional");
-    expect(poolQuery).not.toHaveBeenCalled();
+    expect(poolQuery).not.toHaveBeenCalledWith(expect.stringContaining("TenantSubscriptions"), expect.anything());
   });
 
   it("lo mismo con el precio de Business", async () => {

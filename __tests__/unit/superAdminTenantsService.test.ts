@@ -7,6 +7,7 @@ import {
     updateCommercialDeal,
     generatePaddleCheckoutLink,
 } from "@/services/superAdminTenants.service";
+import { verificarVinculo } from "@/lib/checkoutBinding";
 
 const mocks = vi.hoisted(() => {
     return {
@@ -263,12 +264,14 @@ describe("generatePaddleCheckoutLink", () => {
         fetchMock.mockResolvedValue(creada());
         vi.stubGlobal("fetch", fetchMock);
         process.env.PADDLE_API_KEY = "pdl_sdbx_apikey_de_prueba";
+        process.env.PADDLE_WEBHOOK_SECRET = "secreto-de-prueba";
         vi.spyOn(console, "error").mockImplementation(() => {});
     });
     afterEach(() => {
         vi.unstubAllGlobals();
         vi.restoreAllMocks();
         delete process.env.PADDLE_API_KEY;
+        delete process.env.PADDLE_WEBHOOK_SECRET;
     });
 
     it("crea la transacción con el precio, cobro automático y el tenant y el tier en custom_data, y devuelve el checkout.url de Paddle", async () => {
@@ -283,8 +286,10 @@ describe("generatePaddleCheckoutLink", () => {
             items: [{ price_id: PRECIO, quantity: 1 }],
             collection_mode: "automatic",
             // snake_case: es lo que lee el webhook (`custom_data.tenant_id`); con `tenantId` el pago no activaba a nadie.
-            custom_data: { tenant_id: TENANT, tier: "Enterprise" },
+            // + el precio y la firma con que el webhook comprueba que el vínculo lo armó el servidor (checkoutBinding.ts).
+            custom_data: { tenant_id: TENANT, tier: "Enterprise", price_id: PRECIO, sig: expect.any(String) },
         });
+        expect(verificarVinculo(JSON.parse(init.body).custom_data, [PRECIO])).toMatchObject({ tenantId: TENANT, tier: "Enterprise" });
         expect(r).toEqual({
             checkoutUrl: "https://finops.sandbox.paddle.io/pay/hsc_x?_ptxn=txn_01m4rzzzzzzzzzzzzzzzzzzzzz",
             priceId: PRECIO,

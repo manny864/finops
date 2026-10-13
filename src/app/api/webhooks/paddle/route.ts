@@ -7,6 +7,7 @@ import { priceIdToTier, TierName } from "@/lib/paddleTierMap";
 import { notifyInternalCancellation } from "@/lib/billingAlerts";
 import { errorMessage } from "@/lib/apiErrors";
 import { applyTierChange } from "@/services/providerLifecycleService";
+import { verificarVinculo, preciosPagados, VinculoCheckout } from "@/lib/checkoutBinding";
 
 /**
  * Tier actual del tenant ANTES de escribir el nuevo. Lo recibe
@@ -23,9 +24,9 @@ async function readCurrentTier(connection: any, tenantId: string): Promise<strin
 /**
  * Resuelve el tier de una suscripción de Paddle. Prioridad:
  * 1. El precio, vía `priceIdToTier`: mapeo fijo por env vars para los planes self-service (Professional/Business).
- * 2. Enterprise, que usa un Price a medida por cliente sin mapeo fijo: sólo si `custom_data.tier` lo pide Y el precio
- *    pagado es el que un SuperAdmin REGISTRÓ para ESTE tenant (`TenantSubscriptions.paddle_price_id`, ver
- *    `generatePaddleCheckoutLink`).
+ * 2. Enterprise, que usa un Price a medida por cliente sin mapeo fijo: sólo si el vínculo FIRMADO del checkout lo pide
+ *    (`custom_data.tier`, ver `checkoutBinding.ts`) Y el precio pagado es el que un SuperAdmin REGISTRÓ para ESTE tenant
+ *    (`TenantSubscriptions.paddle_price_id`, ver `generatePaddleCheckoutLink`).
  *
  * Por qué no alcanza con `custom_data.tier`: quien abre un checkout con Paddle.js elige su `customData`, y el token de
  * cliente y Paddle.js son públicos. Con `custom_data.tier` en primer lugar, `Paddle.Checkout.open({ items: [plan
@@ -36,11 +37,11 @@ async function readCurrentTier(connection: any, tenantId: string): Promise<strin
  * Devuelve null si no se puede resolver, en vez de asumir "Professional": un evento con un priceId no mapeado NO debe
  * degradar silenciosamente el tier de un tenant existente.
  */
-async function resolveTier(payload: any, tenantId?: string): Promise<TierName | null> {
+async function resolveTier(payload: any, tenantId?: string, vinculo?: VinculoCheckout | null): Promise<TierName | null> {
   const priceId: string | undefined = payload.data?.items?.[0]?.price?.id;
   const porPrecio = priceId ? priceIdToTier(priceId) : null;
   if (porPrecio) return porPrecio;
-  if (payload.data?.custom_data?.tier === "Enterprise" && tenantId && priceId && (await esDealEnterpriseRegistrado(tenantId, priceId))) {
+  if (vinculo?.tier === "Enterprise" && tenantId && priceId && (await esDealEnterpriseRegistrado(tenantId, priceId))) {
     return "Enterprise";
   }
   return null;
@@ -50,6 +51,31 @@ async function resolveTier(payload: any, tenantId?: string): Promise<TierName | 
 async function esDealEnterpriseRegistrado(tenantId: string, priceId: string): Promise<boolean> {
   const [rows] = await pool.query("SELECT 1 FROM TenantSubscriptions WHERE tenant_id = ? AND paddle_price_id = ? LIMIT 1", [tenantId, priceId]);
   return Array.isArray(rows) && rows.length > 0;
+}
+
+/**
+ * A QUÉ tenant pertenece un evento. El `custom_data` lo elige quien abre el checkout (Paddle.js es público), así que
+ * `custom_data.tenant_id` por sí solo no es un dato confiable. Se acepta, en este orden:
+ *  1. la suscripción ya vinculada en la base (`Tenants.paddle_subscription_id`): es lo que NOSOTROS registramos; cubre
+ *     renovaciones, cambios de plan y cancelaciones, incluidas las suscripciones anteriores a la firma;
+ *  2. un `custom_data` con firma válida cuyo precio figura entre los pagados (`checkoutBinding.ts`): el alta de un plan,
+ *     de un add-on o de un deal Enterprise.
+ * Sin ninguno de los dos el evento se registra sin tenant y no toca nada.
+ */
+async function resolverTenant(payload: any): Promise<{ tenantId?: string; vinculo: VinculoCheckout | null }> {
+  const vinculo = verificarVinculo(payload.data?.custom_data, preciosPagados(payload));
+  const subscriptionId: string | undefined = String(payload.event_type ?? "").startsWith("subscription.")
+    ? payload.data?.id
+    : payload.data?.subscription_id;
+  if (subscriptionId) {
+    const [rows]: any = await pool.query("SELECT tenant_id FROM Tenants WHERE paddle_subscription_id = ? LIMIT 1", [subscriptionId]);
+    if (Array.isArray(rows) && rows[0]?.tenant_id) return { tenantId: rows[0].tenant_id, vinculo };
+  }
+  const declarado = payload.data?.custom_data?.tenant_id;
+  if (!vinculo && declarado) {
+    console.warn(`[Webhooks] ${payload.event_type}: custom_data.tenant_id=${declarado} sin firma válida o con un precio que no se pagó; se ignora.`);
+  }
+  return { tenantId: vinculo?.tenantId, vinculo };
 }
 
 /**
@@ -135,22 +161,22 @@ export async function POST(request: NextRequest) {
     }
 
     const eventType = payload.event_type;
-    const tenantId = payload.data?.custom_data?.tenant_id;
+    const { tenantId, vinculo } = await resolverTenant(payload);
 
     console.log(`[Webhooks] Processing event ${eventType} for Tenant ID: ${tenantId}`);
 
     // Route by event type
     switch (eventType) {
       case "subscription.created":
-        return handleSubscriptionCreated(payload, tenantId);
+        return handleSubscriptionCreated(payload, tenantId, vinculo);
       case "subscription.updated":
-        return handleSubscriptionUpdated(payload, tenantId);
+        return handleSubscriptionUpdated(payload, tenantId, vinculo);
       case "subscription.canceled":
         return handleSubscriptionCanceled(payload, tenantId);
       case "subscription.past_due":
         return handleSubscriptionPastDue(payload, tenantId);
       case "transaction.completed":
-        return handleTransactionCompleted(payload, tenantId);
+        return handleTransactionCompleted(payload, tenantId, vinculo);
       case "transaction.payment_failed":
         return handleTransactionPaymentFailed(payload, tenantId);
       case "adjustment.created":
@@ -206,7 +232,7 @@ function esSuscripcionDeAddon(payload: any): boolean {
   return Boolean(payload?.data?.custom_data?.addon_key);
 }
 
-async function handleSubscriptionCreated(payload: any, tenantId?: string) {
+async function handleSubscriptionCreated(payload: any, tenantId?: string, vinculo?: VinculoCheckout | null) {
   if (esSuscripcionDeAddon(payload)) {
     console.log(
       `[Webhooks] ${payload.event_type} de un add-on (${payload.data.custom_data.addon_key}): no toca el plan del tenant ${tenantId}.`
@@ -223,7 +249,7 @@ async function handleSubscriptionCreated(payload: any, tenantId?: string) {
     const subscriptionId = payload.data?.id;
     const status = payload.data?.status;
     const trialEndsAt = payload.data?.trial_ends_at;
-    const tier = await resolveTier(payload, tenantId);
+    const tier = await resolveTier(payload, tenantId, vinculo);
     const accessUntil = resolveAccessUntil(payload);
 
     // Map Paddle status to internal status
@@ -283,7 +309,7 @@ async function handleSubscriptionCreated(payload: any, tenantId?: string) {
   }
 }
 
-async function handleSubscriptionUpdated(payload: any, tenantId?: string) {
+async function handleSubscriptionUpdated(payload: any, tenantId?: string, vinculo?: VinculoCheckout | null) {
   if (esSuscripcionDeAddon(payload)) {
     console.log(
       `[Webhooks] ${payload.event_type} de un add-on (${payload.data.custom_data.addon_key}): no toca el plan del tenant ${tenantId}.`
@@ -299,7 +325,7 @@ async function handleSubscriptionUpdated(payload: any, tenantId?: string) {
   try {
     const status = payload.data?.status;
     const trialEndsAt = payload.data?.trial_ends_at;
-    const tier = await resolveTier(payload, tenantId);
+    const tier = await resolveTier(payload, tenantId, vinculo);
     const accessUntil = resolveAccessUntil(payload);
 
     // Map Paddle status to internal status
@@ -445,7 +471,7 @@ async function handleSubscriptionPastDue(payload: any, tenantId?: string) {
   }
 }
 
-async function handleTransactionCompleted(payload: any, tenantId?: string) {
+async function handleTransactionCompleted(payload: any, tenantId?: string, vinculo?: VinculoCheckout | null) {
   try {
     const transactionId = payload.data?.id;
     const subscriptionId = payload.data?.subscription_id;
@@ -525,22 +551,20 @@ async function handleTransactionCompleted(payload: any, tenantId?: string) {
     // formas: pase temporal Y suscripción mensual. El que compraba la mensual
     // pagaba y NO recibía el módulo -- la transacción se cobraba, el add-on no
     // se acreditaba en ningún lado y el acceso nunca se abría.
-    const customData = payload.data?.custom_data;
-    const addonType = customData?.addon_type === "recurring" ? "recurring" : "pass";
-    if (customData?.addon_key) {
+    // Lo que se acredita sale del vínculo FIRMADO (tenant, add-on, tipo y meses atados al precio que se pagó), no del
+    // `custom_data` crudo: ese lo elige quien abre el checkout (ver `checkoutBinding.ts`).
+    if (vinculo?.addonKey && vinculo.tenantId === tenant) {
+      const addonType = vinculo.addonType === "recurring" ? "recurring" : "pass";
+      const meses = Number.isFinite(vinculo.months) && Number(vinculo.months) > 0 ? Number(vinculo.months) : 1;
       try {
         const { TenantAddonsService } = await import("@/services/tenantAddons.service");
-        await TenantAddonsService.purchaseAddon(
-          tenant,
-          String(customData.addon_key),
-          addonType,
-          Number(customData.months || 1),
-          transactionId
-        );
-        console.log(`[Webhooks] Add-on acreditado para tenant ${tenant}: ${customData.addon_key} (${addonType}, ${customData.months || 1}m)`);
+        await TenantAddonsService.purchaseAddon(tenant, vinculo.addonKey, addonType, meses, transactionId);
+        console.log(`[Webhooks] Add-on acreditado para tenant ${tenant}: ${vinculo.addonKey} (${addonType}, ${meses}m)`);
       } catch (addonErr) {
         console.error(`[Webhooks] Error acreditando add-on:`, addonErr);
       }
+    } else if (payload.data?.custom_data?.addon_key) {
+      console.warn(`[Webhooks] transaction.completed ${transactionId}: add-on pedido sin vínculo firmado válido; no se acredita.`);
     }
 
     return NextResponse.json({ success: true });

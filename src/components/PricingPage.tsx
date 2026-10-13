@@ -4,6 +4,7 @@ import { useMsal } from '@azure/msal-react';
 import { useTranslations, useLocale } from 'next-intl';
 import { useRouter } from '@/i18n/routing';
 import { initializePaddle, Paddle } from '@paddle/paddle-js';
+import { getFreshIdToken } from '@/lib/msalToken';
 import EnterpriseLeadModal from './EnterpriseLeadModal';
 import { TIER_BASE_PRICE_USD, getAnnualMonthlyEquivalent, getAnnualDiscountPercent } from '@/lib/pricing';
 import DemoLeadModal from './DemoLeadModal';
@@ -149,15 +150,46 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
     setPendingCheckoutPriceId(priceId);
   };
 
-  const confirmCheckout = () => {
+  const confirmCheckout = async () => {
     if (!paddle || !pendingCheckoutPriceId) return;
-    const customData = tenantId ? { tenant_id: tenantId } : undefined;
-    paddle.Checkout.open({
-      items: [{ priceId: pendingCheckoutPriceId, quantity: 1 }],
-      customData,
-      customer: corporateEmail ? { email: corporateEmail } : undefined,
-    });
+    const priceId = pendingCheckoutPriceId;
     setPendingCheckoutPriceId(undefined);
+    const customer = corporateEmail ? { email: corporateEmail } : undefined;
+
+    // Sin tenant todavía (visitante en la página de precios) no hay nada que vincular: el checkout se abre pelado.
+    if (!tenantId) {
+      paddle.Checkout.open({ items: [{ priceId, quantity: 1 }], customer });
+      return;
+    }
+
+    // Con tenant, el `custom_data` (a quién se acredita) lo FIRMA el servidor: el webhook ignora uno que armó el navegador
+    // (ver `checkoutBinding.ts`). Plan y período se deducen del precio elegido.
+    const plan = ([
+      ['Professional', 'monthly', process.env.NEXT_PUBLIC_PADDLE_PRO_MONTHLY],
+      ['Professional', 'yearly', process.env.NEXT_PUBLIC_PADDLE_PRO_YEARLY],
+      ['Business', 'monthly', process.env.NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY],
+      ['Business', 'yearly', process.env.NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY],
+    ] as const).find(([, , id]) => id === priceId);
+    if (!plan) {
+      alert("No se pudo identificar el plan elegido. Recargá la página e intentá de nuevo.");
+      return;
+    }
+    try {
+      const token = accounts?.[0] ? await getFreshIdToken(instance, accounts[0]) : null;
+      const res = await fetch(`/api/checkout?tenantId=${encodeURIComponent(tenantId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ tier: plan[0], billing: plan[1] }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.priceId) {
+        alert(data.error || "No se pudo preparar el checkout. Intentá de nuevo.");
+        return;
+      }
+      paddle.Checkout.open({ items: [{ priceId: data.priceId, quantity: 1 }], customData: data.customData, customer });
+    } catch {
+      alert("No se pudo preparar el checkout. Intentá de nuevo.");
+    }
   };
 
   /**

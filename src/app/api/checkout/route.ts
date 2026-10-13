@@ -3,6 +3,7 @@ import { requireTenantAccess } from "@/lib/requestAuth";
 import { tierToPriceId } from "@/lib/paddleTierMap";
 import pool from "@/modules/storage/db";
 import rateLimiter from "@/lib/rateLimiter";
+import { customDataFirmado } from "@/lib/checkoutBinding";
 
 export async function POST(request: NextRequest) {
   try {
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       priceId,
-      customData: { tenant_id: tenantId },
+      customData: customDataFirmado({ tenantId, priceId }),
       message: "Use this data with paddle.Checkout.open() to open the checkout overlay",
     });
   } catch (error) {

@@ -202,36 +202,27 @@ export default function AddonsMarketplace({
             }
 
             // En modo Real / Sandbox con Paddle
-            let priceId: string | undefined;
-            if (isRecurring) {
-                priceId = product.prices.monthly;
-            } else {
-                if (months === 1) priceId = product.prices.pass1m;
-                else if (months === 3) priceId = product.prices.pass3m;
-                else if (months === 6) priceId = product.prices.pass6m;
-                else if (months === 9) priceId = product.prices.pass9m;
-                else if (months === 12) priceId = product.prices.pass12m || product.prices.annual;
-            }
-
-            if (!priceId) {
-                toast.error("El identificador de precio (Price ID) no está configurado para este período.");
-                return;
-            }
-
             if (!paddle) {
                 toast.error(t("toast_paddle_unavailable"));
                 return;
             }
 
+            // El servidor elige el precio y FIRMA a quién se acredita qué: el webhook ignora un `custom_data` armado
+            // acá (ver `checkoutBinding.ts`).
             toast.info(t("toast_paddle_loading"));
+            const res = await fetch("/api/billing/marketplace/checkout", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+                body: JSON.stringify({ tenantId, addonKey, addonType: isRecurring ? "recurring" : "pass", months }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.priceId) {
+                throw new Error(data.error || "No se pudo preparar el checkout.");
+            }
+
             paddle.Checkout.open({
-                items: [{ priceId, quantity: 1 }],
-                customData: {
-                    tenant_id: tenantId,
-                    addon_key: product.key,
-                    addon_type: isRecurring ? "recurring" : "pass",
-                    months,
-                },
+                items: [{ priceId: data.priceId, quantity: 1 }],
+                customData: data.customData,
                 customer: userEmail ? { email: userEmail } : undefined,
                 settings: {
                     displayMode: "overlay",
