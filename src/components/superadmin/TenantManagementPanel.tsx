@@ -7,6 +7,7 @@ import { useMsal } from "@azure/msal-react";
 import { toast } from "sonner";
 import { getFreshIdToken } from "@/lib/msalToken";
 import RefundsDialog from "@/components/billing/RefundsDialog";
+import CancellationRequestsDialog from "@/components/superadmin/CancellationRequestsDialog";
 import { useTenant } from "@/components/TenantProvider";
 import { isMockTenant } from "@/lib/demoTenant";
 import { errorMessage } from "@/lib/apiErrors";
@@ -83,9 +84,12 @@ const DEFAULT_COLUMNS: ColumnConfig[] = [
 
 export default function TenantManagementPanel() {
     const t = useTranslations("SuperAdminTenants");
+    const trc = useTranslations("CancellationRequests");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const [refundsTenant, setRefundsTenant] = useState<{ id: string; name: string } | null>(null);
+    const [cancellationsOpen, setCancellationsOpen] = useState(false);
+    const [pendingCancellations, setPendingCancellations] = useState(0);
 
     const tenantId = selectedTenant?.id || "default";
     const isMock = isMockTenant(tenantId);
@@ -179,6 +183,24 @@ export default function TenantManagementPanel() {
             return {};
         }
     }, [instance, accounts, isMock]);
+
+    // Cuántas solicitudes de cancelación esperan una decisión: el contador del botón «Cancelaciones».
+    useEffect(() => {
+        if (isMock) return;
+        let cancelado = false;
+        (async () => {
+            try {
+                const res = await fetch("/api/superadmin/cancellation-requests?status=PENDING", { headers: await getAuthHeaders() });
+                const json = await res.json();
+                if (!cancelado && res.ok && json.success) setPendingCancellations(json.solicitudes.length);
+            } catch {
+                /* sin contador: el botón sigue funcionando */
+            }
+        })();
+        return () => {
+            cancelado = true;
+        };
+    }, [isMock, getAuthHeaders]);
 
     // Cargar Tenants
     const loadTenants = useCallback(async () => {
@@ -722,6 +744,18 @@ export default function TenantManagementPanel() {
                         >
                             <IconRefresh size={14} className={loading ? "animate-spin" : ""} />
                         </button>
+                        {!isMock && (
+                            <button
+                                type="button"
+                                onClick={() => setCancellationsOpen(true)}
+                                className="ml-2 inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                            >
+                                <span>{trc("open")}</span>
+                                {pendingCancellations > 0 && (
+                                    <span className="rounded-full bg-amber-500 text-white px-1.5 text-[10px] leading-4" aria-label={`${pendingCancellations}`}>{pendingCancellations}</span>
+                                )}
+                            </button>
+                        )}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
@@ -1203,6 +1237,7 @@ export default function TenantManagementPanel() {
                 </div>
             </div>
 
+            {cancellationsOpen && <CancellationRequestsDialog onClose={() => setCancellationsOpen(false)} onPendingCount={setPendingCancellations} />}
             {refundsTenant && <RefundsDialog tenantId={refundsTenant.id} tenantName={refundsTenant.name} onClose={() => setRefundsTenant(null)} />}
 
             {/* ─── MODAL: Enlace de Checkout Paddle Generado (z-[100]) ──────────────── */}

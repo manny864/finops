@@ -2,6 +2,7 @@ import pool from "@/modules/storage/db";
 import { getPaddleBaseUrl } from "@/lib/paddleTierMap";
 import { cancelarSuscripcion } from "@/lib/paddleSubscriptions";
 import { minorUnitsToDecimalString } from "@/lib/money";
+import { registrarAuditoria } from "@/lib/auditTrail";
 
 /**
  * Reembolsos de un cobro de Paddle: PROPORCIONALES (lo normal) o TOTALES (sólo SuperAdmin).
@@ -296,7 +297,7 @@ export async function solicitarReembolso(p: PedidoReembolso): Promise<{ adjustme
   const data: any = await res.json();
   const adjustmentId: string = data?.data?.id;
   const status: string = data?.data?.status ?? "pending_approval";
-  await auditar(p.tenantId, "REFUND_REQUESTED", p.email, `Pedido de ${resumen}: txn ${p.transactionId}, ajuste ${adjustmentId} (${status}). Motivo: ${motivo}`);
+  await registrarAuditoria(p.tenantId, "REFUND_REQUESTED", p.email, `Pedido de ${resumen}: txn ${p.transactionId}, ajuste ${adjustmentId} (${status}). Motivo: ${motivo}`);
   return { adjustmentId, status, modo, ...(monto ? { monto } : {}) };
 }
 
@@ -380,7 +381,7 @@ export async function aplicarReembolsoAprobado(transactionId: string, opciones: 
     }
   }
 
-  await auditar(
+  await registrarAuditoria(
     tenantId,
     "REFUND_APPLIED",
     "paddle-webhook",
@@ -395,12 +396,4 @@ async function cancelarOFallar(subscriptionId: string, motivo: string): Promise<
   if (r.status >= 500) throw new Error(`Paddle no pudo cancelar ${subscriptionId} (${motivo}): HTTP ${r.status}`);
   // 4xx: lo habitual es que ya estuviera cancelada. Queda registrado por si no lo era.
   console.warn(`[Refunds] Paddle rechazó cancelar ${subscriptionId} (${motivo}): ${r.status} ${r.code ?? ""} ${r.detail ?? ""}`);
-}
-
-async function auditar(tenantId: string, evento: string, actor: string, descripcion: string): Promise<void> {
-  try {
-    await pool.query("INSERT INTO SecurityAuditTrail (tenant_id, event_type, user_email, description) VALUES (?, ?, ?, ?)", [tenantId, evento, actor, descripcion]);
-  } catch (e) {
-    console.warn("[Refunds] No se pudo escribir la auditoría:", (e as Error)?.message);
-  }
 }

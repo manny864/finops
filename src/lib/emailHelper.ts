@@ -713,6 +713,85 @@ export function getInternalCancellationAlertEmailHtml(params: {
   `;
 }
 
+const MOTIVO_SOLICITUD_CANCELACION: Record<string, string> = {
+  "no-paddle-subscription": "el tenant no tiene suscripción de Paddle (alta manual o Enterprise): no hay nada que se cancele solo",
+  "azure-marketplace": "el tenant factura por el marketplace de Azure: la baja se gestiona por Microsoft",
+  "paddle-rejected": "Paddle rechazó el pedido de baja",
+};
+
+/**
+ * Aviso INTERNO al SuperAdmin: hay una solicitud de cancelación que NO se puede ejecutar sola y espera su aprobación. Sirve igual
+ * para el aviso inicial y para el recordatorio (`recordatorio: true`). Todo dato de origen externo va escapado.
+ */
+export function getCancellationApprovalRequestEmailHtml(params: {
+  tenantId: string;
+  companyName: string | null;
+  tier: string | null;
+  requestedBy: string;
+  reasonCode: string;
+  detail: string | null;
+  recordatorio?: boolean;
+  diasPendiente?: number;
+}): string {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://finops.example.com";
+  const motivo = MOTIVO_SOLICITUD_CANCELACION[params.reasonCode] ?? params.reasonCode;
+  const titulo = params.recordatorio ? "⏰ Recordatorio: cancelación pendiente de aprobación" : "⚠️ Cancelación pendiente de aprobación";
+  return `
+    <html>
+      <head>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #b45309 0%, #92400e 100%); color: white; padding: 32px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: white; border: 1px solid #e0e0e0; border-radius: 0 0 8px 8px; padding: 32px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+          td { padding: 8px 0; border-bottom: 1px solid #eee; font-size: 14px; }
+          td:first-child { color: #666; width: 160px; }
+          .button { display: inline-block; padding: 10px 24px; background-color: #b45309; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; margin-top: 20px; font-size: 14px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header"><h1 style="margin:0;font-size:20px;">${titulo}</h1></div>
+          <div class="content">
+            <table>
+              <tr><td>Cliente</td><td><strong>${escapeHtml(params.companyName || "(sin nombre)")}</strong></td></tr>
+              <tr><td>Tenant ID</td><td style="font-family:monospace;">${escapeHtml(params.tenantId)}</td></tr>
+              <tr><td>Plan</td><td>${escapeHtml(params.tier || "(desconocido)")}</td></tr>
+              <tr><td>Pedida por</td><td>${escapeHtml(params.requestedBy)}</td></tr>
+              <tr><td>Por qué no es automática</td><td>${escapeHtml(motivo)}</td></tr>
+              ${params.detail ? `<tr><td>Detalle</td><td>${escapeHtml(params.detail)}</td></tr>` : ""}
+              ${params.recordatorio && params.diasPendiente ? `<tr><td>Pendiente hace</td><td><strong>${params.diasPendiente} días</strong></td></tr>` : ""}
+            </table>
+            <p style="margin-top:24px;">El cliente conserva el servicio y ve su solicitud «en revisión» hasta que la apruebes o la rechaces. Al aprobarla se ejecuta la baja y se cortan las cuotas de comisión que todavía no son exigibles.</p>
+            <p style="margin-top: 20px;"><a href="${baseUrl}/superadmin/tenants" class="button">Revisar la solicitud</a></p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+}
+
+/** Aviso al CLIENTE: su solicitud de cancelación fue aprobada o rechazada. */
+export function getCancellationResolvedEmailHtml(params: { companyName: string | null; aprobada: boolean; note: string | null; effectiveDate: string | null }): string {
+  const titulo = params.aprobada ? "Tu cancelación fue aprobada" : "Tu solicitud de cancelación no fue aprobada";
+  const cuerpo = params.aprobada
+    ? `Procesamos la baja de la suscripción de <strong>${escapeHtml(params.companyName || "tu organización")}</strong>.${params.effectiveDate ? ` Conservás el acceso hasta el <strong>${escapeHtml(params.effectiveDate)}</strong>.` : " Conservás el acceso hasta el final del período ya pago."}`
+    : `No pudimos dar curso a la solicitud de cancelación de <strong>${escapeHtml(params.companyName || "tu organización")}</strong>. Tu suscripción sigue activa.`;
+  return `
+    <html>
+      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <div style="max-width:600px;margin:0 auto;padding:20px;">
+          <h2 style="color:#1B2A41;">${titulo}</h2>
+          <p style="font-size:14px;line-height:1.6;">${cuerpo}</p>
+          ${params.note ? `<p style="font-size:14px;line-height:1.6;"><strong>Comentario del equipo:</strong> ${escapeHtml(params.note)}</p>` : ""}
+          <p style="font-size:13px;color:#666;">Si tenés dudas, respondé a este correo o escribinos desde la plataforma.</p>
+        </div>
+      </body>
+    </html>
+  `;
+}
+
 /**
  * Alerta INTERNA (equipo CSCloudSolutions, no el cliente) cuando se completa
  * un signup real — nuevo tenant/usuario provisionado con trial activo. El

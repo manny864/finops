@@ -31,6 +31,8 @@ export interface TenantBillingDetails {
     currentPeriodStartIso?: string;
     currentPeriodEndIso: string;
     cancelAtPeriodEnd: boolean;
+    /** Hay una solicitud de cancelación esperando la aprobación de un SuperAdmin. */
+    cancellationPending?: boolean;
     isEnterprise?: boolean;
     /**
      * Si el tenant tiene una suscripcion viva en Paddle. Decide a donde lleva
@@ -58,4 +60,6 @@ export interface CancelSubscriptionResponse {
     success: boolean;
     message: string;
     effectiveDateIso: string;
+    /** La baja no se pudo ejecutar sola: quedó como solicitud pendiente de aprobación. */
+    pendingApproval?: boolean;
 }

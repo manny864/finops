@@ -171,6 +171,7 @@ export default function BillingPanel() {
                 currentPeriodStartIso: json.currentPeriodStartIso,
                 currentPeriodEndIso: json.currentPeriodEndIso || new Date(Date.now() + 30 * 86400000).toISOString(),
                 cancelAtPeriodEnd: Boolean(json.cancelAtPeriodEnd),
+                cancellationPending: Boolean(json.cancellationPending),
                 isEnterprise: json.isEnterprise !== undefined ? json.isEnterprise : json.planTier === "Enterprise",
                 hasPaddleSubscription: Boolean(json.hasPaddleSubscription),
                 invoices: json.invoices || [],
@@ -247,7 +248,8 @@ export default function BillingPanel() {
                 throw new Error(json.error || "No se pudo procesar la cancelación");
             }
 
-            setCanceledMessage(t("cancelScheduled"));
+            // Una baja que no se pudo ejecutar sola queda como solicitud en revisión: no se le dice «programada» al cliente.
+            setCanceledMessage(json.pendingApproval ? t("cancelRequested") : t("cancelScheduled"));
             setShowCancelModal(false);
             await loadBilling();
         } catch (e: any) {
@@ -383,7 +385,12 @@ export default function BillingPanel() {
                             {t("status") || "Estado"}
                         </span>
                         <div className="mt-1">
-                            {billingData?.cancelAtPeriodEnd ? (
+                            {billingData?.cancellationPending ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800">
+                                    <IconAlertTriangle size={13} />
+                                    <span>{t("cancellationInReview")}</span>
+                                </span>
+                            ) : billingData?.cancelAtPeriodEnd ? (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800">
                                     <IconAlertTriangle size={13} />
                                     <span>{t("cancelsAtPeriodEnd")}</span>
@@ -546,18 +553,18 @@ export default function BillingPanel() {
                         </h2>
                     </div>
                     <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed max-w-xl">
-                        {t("cancelHint")}
+                        {billingData?.cancellationPending ? t("cancelPendingBanner") : t("cancelHint")}
                     </p>
                 </div>
 
                 <button
                     type="button"
                     onClick={() => setShowCancelModal(true)}
-                    disabled={billingData?.cancelAtPeriodEnd}
+                    disabled={billingData?.cancelAtPeriodEnd || billingData?.cancellationPending}
                     className="inline-flex items-center justify-center gap-1.5 bg-rose-600 text-white hover:bg-rose-700 px-4 py-2 rounded-lg text-xs font-semibold transition-all shrink-0 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <IconTrash size={14} className="text-white" />
-                    <span>{billingData?.cancelAtPeriodEnd ? t("cancellationScheduled") : t("cancelSubscription")}</span>
+                    <span>{billingData?.cancellationPending ? t("cancellationInReview") : billingData?.cancelAtPeriodEnd ? t("cancellationScheduled") : t("cancelSubscription")}</span>
                 </button>
             </div>
 

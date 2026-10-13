@@ -3,6 +3,7 @@ import pool, { initializeDatabase } from "@/modules/storage/db";
 import { recordTenantLifecycleTransition } from "@/services/tenantLifecycle.service";
 import { sendEmailAsync, getSubscriptionEndedEmailHtml } from "@/lib/emailHelper";
 import { serverError } from '@/lib/apiErrors';
+import { recordarSolicitudesPendientes } from "@/services/cancellationRequests.service";
 
 /**
  * Cron: revoca acceso a tenants CANCELED cuyo período ya pagado
@@ -70,10 +71,20 @@ export async function GET(request: NextRequest) {
                 expiredCount++;
             }
 
+            // De paso, el recordatorio de las solicitudes de cancelación que siguen esperando a un SuperAdmin (no hay cron propio para
+            // esto: un job diario más sería otra pieza que mantener). Si falla no tumba el vencimiento de accesos.
+            let recordadas = 0;
+            try {
+                ({ recordadas } = await recordarSolicitudesPendientes());
+            } catch (e) {
+                console.error("[subscription-expiry] No se pudieron recordar las solicitudes de cancelación:", e);
+            }
+
             return NextResponse.json({
                 success: true,
                 processed: expiredCount,
                 expired: expiredCount,
+                cancellationRemindersSent: recordadas,
             });
         } finally {
             connection.release();

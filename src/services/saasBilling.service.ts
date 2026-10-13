@@ -15,6 +15,7 @@ import {
 import { azurePlanToBillingCycle } from "@/lib/marketplace/planMapping";
 import { getPaddleBaseUrl } from "@/lib/paddleTierMap";
 import { cancelarSuscripcion } from "@/lib/paddleSubscriptions";
+import { crearSolicitud, tieneSolicitudPendiente, type MotivoSolicitud } from "@/services/cancellationRequests.service";
 import { normalizeTier } from "@/lib/tierLogic";
 
 /**
@@ -143,6 +144,14 @@ export async function getTenantBillingDetails(tenantId: string): Promise<TenantB
         /* entorno sin migrar: no hay cancelacion programada que mostrar */
     }
 
+    // Una solicitud de cancelación que espera la aprobación de un SuperAdmin: el cliente la ve «en revisión».
+    let cancellationPending = false;
+    try {
+        cancellationPending = await tieneSolicitudPendiente(tenantId);
+    } catch {
+        /* entorno sin migrar */
+    }
+
     // 2. Consultar facturas reales
     const invoices: SaaSInvoiceItem[] = [];
     try {
@@ -176,6 +185,7 @@ export async function getTenantBillingDetails(tenantId: string): Promise<TenantB
         paymentGateway,
         currentPeriodEndIso,
         cancelAtPeriodEnd,
+        cancellationPending,
         isEnterprise,
         hasPaddleSubscription,
         invoices,
@@ -267,16 +277,45 @@ export async function cancelTenantSubscription(
         };
     }
 
-    // La baja se pide a PADDLE primero. Antes sólo se marcaba `cancel_at_period_end` en la base: el cliente veía "se cancelará al
-    // final del período" y Paddle seguía cobrando todos los meses, porque nadie le avisaba. Si Paddle rechaza, se dice por qué en
-    // vez de dejar una baja que no existe. Un tenant sin suscripción de Paddle (alta manual, Enterprise) sólo lleva la marca.
-    const [subRows]: any = await pool.query("SELECT paddle_subscription_id FROM Tenants WHERE tenant_id = ? LIMIT 1", [tenantId]);
-    const paddleSubscriptionId = Array.isArray(subRows) ? subRows[0]?.paddle_subscription_id : null;
-    if (paddleSubscriptionId) {
-        const r = await cancelarSuscripcion(paddleSubscriptionId, "next_billing_period");
-        if (!r.ok) {
-            throw new Error(r.detail ? `Paddle no pudo programar la baja: ${r.detail}` : `Paddle no pudo programar la baja (HTTP ${r.status}).`);
+    // ¿Esta baja se puede ejecutar SOLA? Sí si el tenant tiene una suscripción de Paddle y Paddle la acepta. Se pide a PADDLE antes de
+    // marcar nada: antes sólo se marcaba `cancel_at_period_end` y Paddle seguía cobrando todos los meses. En los demás casos (sin
+    // suscripción de Paddle, factura por el marketplace de Azure, o Paddle la rechaza o no responde) no hay nada que la ejecute, y
+    // antes quedaba una marca que nadie veía: ahora queda una SOLICITUD que se le avisa al SuperAdmin para que la apruebe. El pedido
+    // del cliente nunca se pierde ni se rechaza con un error.
+    const [tenantRows]: any = await pool.query("SELECT paddle_subscription_id, marketplace_source FROM Tenants WHERE tenant_id = ? LIMIT 1", [tenantId]);
+    const tenantRow = Array.isArray(tenantRows) ? tenantRows[0] : null;
+    if (!tenantRow) {
+        throw new Error("No se pudo registrar la cancelación: el tenant no existe.");
+    }
+    const paddleSubscriptionId: string | null = tenantRow.paddle_subscription_id ?? null;
+
+    let motivo: MotivoSolicitud | null = null;
+    let detalle: string | null = null;
+    if (tenantRow.marketplace_source === "azure_marketplace") {
+        motivo = "azure-marketplace";
+    } else if (!paddleSubscriptionId) {
+        motivo = "no-paddle-subscription";
+    } else {
+        try {
+            const r = await cancelarSuscripcion(paddleSubscriptionId, "next_billing_period");
+            if (!r.ok) {
+                motivo = "paddle-rejected";
+                detalle = r.detail ? `Paddle: ${r.detail}` : `Paddle contestó HTTP ${r.status}.`;
+            }
+        } catch (e) {
+            motivo = "paddle-rejected";
+            detalle = `No se pudo contactar a Paddle: ${(e as Error)?.message || "error de red"}`;
         }
+    }
+
+    if (motivo) {
+        await crearSolicitud({ tenantId, requestedBy: userEmail || "desconocido", reasonCode: motivo, detail: detalle });
+        return {
+            success: true,
+            pendingApproval: true,
+            message: "Recibimos tu solicitud de cancelación. Nuestro equipo la revisa y te avisamos; mientras tanto tu suscripción sigue activa.",
+            effectiveDateIso: effectiveDate.toISOString(),
+        };
     }
 
     // Antes esto escribia en `TenantSaaSSubscriptions` (tabla inexistente) y

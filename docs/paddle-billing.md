@@ -136,6 +136,24 @@ Customer cancels → subscription.canceled (CANCELED)
 
 `POST /api/admin/billing/cancel-subscription` now asks Paddle to cancel at the end of the billing period (`next_billing_period`) **before** marking `Tenants.cancel_at_period_end`. It used to only set the flag: the customer saw "will be canceled" while Paddle kept billing. If Paddle rejects it, the error is shown and nothing is marked.
 
+### Cancellations that need a SuperAdmin's approval
+
+A cancellation requested by the customer runs **on its own** only when the tenant has a Paddle subscription and Paddle accepts the cancellation (`cancelTenantSubscription`). Otherwise nothing would execute it, so a **request** is created (`CancellationRequests`, migration `20261013-035`, one `PENDING` per tenant) instead of just setting a flag nobody sees:
+
+| `reason_code` | When |
+|---|---|
+| `no-paddle-subscription` | manual sign-up or Enterprise tenant, no Paddle subscription |
+| `azure-marketplace` | `marketplace_source = azure_marketplace` (billed by Microsoft) |
+| `paddle-rejected` | Paddle rejected the cancellation or did not answer (the detail is stored) |
+
+- **The customer's request is never lost or answered with an error**: the response is `{ success: true, pendingApproval: true }`, the billing screen shows "Cancellation under review" and the subscription stays active; nothing is cut until someone approves.
+- **The SuperAdmin is notified by email** (`INTERNAL_CANCELLATION_ALERT_EMAIL`, else `AZURE_RECIPIENT_EMAIL`) with the tenant, plan, who asked and why it is not automatic. Reminder every `DIAS_ENTRE_RECORDATORIOS` (3) days while it is still pending, sent by the daily `subscription-expiry` cron (no cron of its own). It is **never approved automatically**.
+- **Superadmin > Tenants > Cancellations** (`CancellationRequestsDialog`, `GET /api/superadmin/cancellation-requests`, `POST .../{id}`): lists them (pending first, with the not-yet-due sales-rep installments the cancellation would cancel).
+  - **Reject**: a reason is required and is emailed to the customer; nothing else changes.
+  - **Approve**: *with a Paddle subscription* it cancels at the end of the period in Paddle (if Paddle rejects it again, the request goes back to `PENDING` and the error is shown; `skipPaddle` is the way out when the SuperAdmin already cancelled it by hand in Paddle) and the `subscription.canceled` that follows records the cancellation. *Without one*, nothing else will emit the cancellation, so it is recorded right there (`CANCELED`, which also cuts the sales-rep installments not yet due) and `effectiveDate` fixes until when the tenant keeps access; the date is **required** if the tenant has no access date, because without it the cancellation would leave it without service at once.
+  - The request is taken with an `UPDATE ... WHERE status = 'PENDING'` before anything runs, so two SuperAdmins cannot execute it twice; if the execution fails it goes back to `PENDING`.
+  - Audit: `CANCELLATION_REQUEST_CREATED` / `_APPROVED` / `_REJECTED` in `SecurityAuditTrail`; the customer gets an email with the outcome.
+
 ### Marketplace module subscriptions are not the plan
 
 `subscription.canceled` and `subscription.past_due` of a module (`custom_data.addon_key`) only affect that module: cancel → its recurring `TenantAddons` row becomes `cancelled`; past_due → nothing. They no longer cancel/suspend the tenant, cut its churn commissions or notify a cancellation.

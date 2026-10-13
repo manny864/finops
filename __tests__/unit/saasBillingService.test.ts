@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { vi, describe, it, expect, beforeEach } from "vitest";
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
     getTenantBillingDetails,
     getCustomerPortalUrl,
@@ -9,8 +9,15 @@ import {
 const mocks = vi.hoisted(() => {
     return {
         mockPoolQuery: vi.fn(),
+        crearSolicitud: vi.fn(),
+        tieneSolicitudPendiente: vi.fn(),
     };
 });
+
+vi.mock("@/services/cancellationRequests.service", () => ({
+    crearSolicitud: mocks.crearSolicitud,
+    tieneSolicitudPendiente: mocks.tieneSolicitudPendiente,
+}));
 
 vi.mock("@/modules/storage/db", () => ({
     default: { query: mocks.mockPoolQuery, getConnection: vi.fn() },
@@ -21,6 +28,8 @@ describe("saasBilling.service", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mocks.mockPoolQuery.mockReset();
+        mocks.crearSolicitud.mockReset().mockResolvedValue({ id: 1, creada: true });
+        mocks.tieneSolicitudPendiente.mockReset().mockResolvedValue(false);
     });
 
     it("getTenantBillingDetails returns synthetic Enterprise plan for demo tenant", async () => {
@@ -101,21 +110,31 @@ describe("saasBilling.service", () => {
     });
 
     it("cancelTenantSubscription updates database and logs audit event for real tenant", async () => {
-        mocks.mockPoolQuery.mockResolvedValue([{ affectedRows: 1 }, []]);
-
-        const result = await cancelTenantSubscription("tenant-live-abc", "owner@company.com");
-        expect(result.success).toBe(true);
-        // La baja se registra en `Tenants.cancel_at_period_end`. Antes escribía en
-        // `TenantSaaSSubscriptions` (inexistente) y caía a un fallback con
-        // `WHERE id = ?` y un valor que el ENUM no admite: no persistía nada.
-        expect(mocks.mockPoolQuery).toHaveBeenCalledWith(
-            expect.stringContaining("UPDATE Tenants SET cancel_at_period_end = TRUE WHERE tenant_id = ?"),
-            ["tenant-live-abc"]
+        // Un tenant con suscripción de Paddle y Paddle que acepta: la baja es automática (ver el describe de abajo).
+        mocks.mockPoolQuery.mockImplementation(async (sql: string) =>
+            String(sql).includes("SELECT paddle_subscription_id") ? [[{ paddle_subscription_id: "sub_01m4plan000000000000000000", marketplace_source: null }], []] : [{ affectedRows: 1 }, []]
         );
-        expect(mocks.mockPoolQuery).toHaveBeenCalledWith(
-            expect.stringContaining("INSERT INTO SecurityAuditTrail"),
-            expect.arrayContaining(["tenant-live-abc", "SUBSCRIPTION_CANCEL_REQUESTED", "owner@company.com"])
-        );
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({}) }));
+        process.env.PADDLE_API_KEY = "pdl_sdbx_apikey_de_prueba";
+        try {
+            const result = await cancelTenantSubscription("tenant-live-abc", "owner@company.com");
+            expect(result.success).toBe(true);
+            expect(result.pendingApproval).toBeUndefined();
+            // La baja se registra en `Tenants.cancel_at_period_end`. Antes escribía en
+            // `TenantSaaSSubscriptions` (inexistente) y caía a un fallback con
+            // `WHERE id = ?` y un valor que el ENUM no admite: no persistía nada.
+            expect(mocks.mockPoolQuery).toHaveBeenCalledWith(
+                expect.stringContaining("UPDATE Tenants SET cancel_at_period_end = TRUE WHERE tenant_id = ?"),
+                ["tenant-live-abc"]
+            );
+            expect(mocks.mockPoolQuery).toHaveBeenCalledWith(
+                expect.stringContaining("INSERT INTO SecurityAuditTrail"),
+                expect.arrayContaining(["tenant-live-abc", "SUBSCRIPTION_CANCEL_REQUESTED", "owner@company.com"])
+            );
+        } finally {
+            vi.unstubAllGlobals();
+            delete process.env.PADDLE_API_KEY;
+        }
     });
 
     // Antes devolvía success aunque no escribiera en ningún lado: el cliente
@@ -126,10 +145,12 @@ describe("saasBilling.service", () => {
     });
 });
 
-describe("cancelTenantSubscription pide la baja a Paddle", () => {
+describe("cancelTenantSubscription: automática o solicitud para aprobar", () => {
     const fetchMock = vi.fn();
+    const SUB = "sub_01m4plan000000000000000000";
     beforeEach(() => {
         mocks.mockPoolQuery.mockReset();
+        mocks.crearSolicitud.mockReset().mockResolvedValue({ id: 5, creada: true });
         fetchMock.mockReset();
         vi.stubGlobal("fetch", fetchMock);
         process.env.PADDLE_API_KEY = "pdl_sdbx_apikey_de_prueba";
@@ -139,36 +160,95 @@ describe("cancelTenantSubscription pide la baja a Paddle", () => {
         delete process.env.PADDLE_API_KEY;
     });
 
-    /** Primero el SELECT de la suscripción, después el UPDATE y la auditoría. */
-    const tenantConSuscripcion = (id: string | null) =>
+    const tenant = (fila: Record<string, unknown> | null) =>
         mocks.mockPoolQuery.mockImplementation(async (sql: string) =>
-            String(sql).includes("SELECT paddle_subscription_id") ? [[{ paddle_subscription_id: id }], []] : [{ affectedRows: 1 }, []]
+            String(sql).includes("SELECT paddle_subscription_id") ? [fila ? [fila] : [], []] : [{ affectedRows: 1 }, []]
         );
+    const marcaDeBaja = () => mocks.mockPoolQuery.mock.calls.some(([sql]) => String(sql).includes("UPDATE Tenants SET cancel_at_period_end"));
 
-    it("programa la cancelación para el final del período EN PADDLE y después marca la baja", async () => {
-        tenantConSuscripcion("sub_01m4plan000000000000000000");
+    it("con suscripción de Paddle que acepta: programa la baja EN PADDLE al final del período y marca la baja (automática)", async () => {
+        tenant({ paddle_subscription_id: SUB, marketplace_source: null });
         fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
 
         const r = await cancelTenantSubscription("tenant-live-abc", "owner@company.com");
 
         expect(r.success).toBe(true);
-        expect(fetchMock.mock.calls[0][0]).toBe("https://sandbox-api.paddle.com/subscriptions/sub_01m4plan000000000000000000/cancel");
+        expect(r.pendingApproval).toBeUndefined();
+        expect(fetchMock.mock.calls[0][0]).toBe(`https://sandbox-api.paddle.com/subscriptions/${SUB}/cancel`);
         expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ effective_from: "next_billing_period" });
-        expect(mocks.mockPoolQuery).toHaveBeenCalledWith(expect.stringContaining("UPDATE Tenants SET cancel_at_period_end = TRUE"), ["tenant-live-abc"]);
+        expect(marcaDeBaja()).toBe(true);
+        expect(mocks.crearSolicitud).not.toHaveBeenCalled();
     });
 
-    it("si Paddle rechaza, NO se marca la baja y el error dice por qué (antes se decía 'listo' y Paddle seguía cobrando)", async () => {
-        tenantConSuscripcion("sub_01m4plan000000000000000000");
+    it("si Paddle rechaza, el pedido NO se pierde ni vuelve como error: queda una solicitud para aprobar y no se marca la baja", async () => {
+        tenant({ paddle_subscription_id: SUB, marketplace_source: null });
         fetchMock.mockResolvedValue({ ok: false, status: 400, json: async () => ({ error: { code: "x", detail: "Subscription already has a scheduled change" } }) });
 
-        await expect(cancelTenantSubscription("tenant-live-abc", "owner@company.com")).rejects.toThrow(/scheduled change/);
-        expect(mocks.mockPoolQuery).not.toHaveBeenCalledWith(expect.stringContaining("UPDATE Tenants SET cancel_at_period_end"), expect.anything());
+        const r = await cancelTenantSubscription("tenant-live-abc", "owner@company.com");
+
+        expect(r).toMatchObject({ success: true, pendingApproval: true });
+        expect(mocks.crearSolicitud).toHaveBeenCalledWith({
+            tenantId: "tenant-live-abc",
+            requestedBy: "owner@company.com",
+            reasonCode: "paddle-rejected",
+            detail: expect.stringContaining("scheduled change"),
+        });
+        expect(marcaDeBaja()).toBe(false);
     });
 
-    it("un tenant sin suscripción de Paddle (alta manual) sólo lleva la marca y no llama a Paddle", async () => {
-        tenantConSuscripcion(null);
+    it("si Paddle no responde (red), también queda como solicitud", async () => {
+        tenant({ paddle_subscription_id: SUB, marketplace_source: null });
+        fetchMock.mockRejectedValue(new Error("ETIMEDOUT"));
+        await expect(cancelTenantSubscription("tenant-live-abc", "owner@company.com")).resolves.toMatchObject({ pendingApproval: true });
+        expect(mocks.crearSolicitud).toHaveBeenCalledWith(expect.objectContaining({ reasonCode: "paddle-rejected", detail: expect.stringContaining("ETIMEDOUT") }));
+    });
+
+    it("sin suscripción de Paddle (alta manual, Enterprise): nada se cancela solo, queda una solicitud y no se llama a Paddle", async () => {
+        tenant({ paddle_subscription_id: null, marketplace_source: null });
         const r = await cancelTenantSubscription("tenant-manual", "owner@company.com");
-        expect(r.success).toBe(true);
+        expect(r).toMatchObject({ success: true, pendingApproval: true });
+        expect(mocks.crearSolicitud).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant-manual", reasonCode: "no-paddle-subscription" }));
         expect(fetchMock).not.toHaveBeenCalled();
+        expect(marcaDeBaja()).toBe(false);
+    });
+
+    it("un tenant que factura por el marketplace de Azure: solicitud, aunque tenga un id de Paddle", async () => {
+        tenant({ paddle_subscription_id: SUB, marketplace_source: "azure_marketplace" });
+        await cancelTenantSubscription("tenant-azure", "owner@company.com");
+        expect(mocks.crearSolicitud).toHaveBeenCalledWith(expect.objectContaining({ reasonCode: "azure-marketplace" }));
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("sin email del solicitante queda registrado como desconocido, no como vacío", async () => {
+        tenant({ paddle_subscription_id: null, marketplace_source: null });
+        await cancelTenantSubscription("tenant-manual");
+        expect(mocks.crearSolicitud).toHaveBeenCalledWith(expect.objectContaining({ requestedBy: "desconocido" }));
+    });
+
+    it("un tenant inexistente falla en vez de crear una solicitud huérfana", async () => {
+        tenant(null);
+        await expect(cancelTenantSubscription("fantasma", "a@b.c")).rejects.toThrow(/no existe/);
+        expect(mocks.crearSolicitud).not.toHaveBeenCalled();
+    });
+
+    it("el mensaje al cliente dice que está en revisión, no que se programó", async () => {
+        tenant({ paddle_subscription_id: null, marketplace_source: null });
+        const r = await cancelTenantSubscription("tenant-manual", "a@b.c");
+        expect(r.message).toMatch(/revisa/);
+        expect(r.message).not.toMatch(/se cancelará/);
+    });
+});
+
+describe("getTenantBillingDetails informa si hay una cancelación en revisión", () => {
+    it("cancellationPending viene de la solicitud pendiente", async () => {
+        mocks.mockPoolQuery.mockReset().mockResolvedValue([[{ tier: "Professional", subscription_status: "ACTIVE", cancel_at_period_end: 0 }]]);
+        mocks.tieneSolicitudPendiente.mockReset().mockResolvedValue(true);
+        expect((await getTenantBillingDetails("tenant-live-abc")).cancellationPending).toBe(true);
+    });
+
+    it("en un entorno sin migrar (la tabla no existe) no rompe la pantalla", async () => {
+        mocks.mockPoolQuery.mockReset().mockResolvedValue([[{ tier: "Professional", subscription_status: "ACTIVE", cancel_at_period_end: 0 }]]);
+        mocks.tieneSolicitudPendiente.mockReset().mockRejectedValue(new Error("Table 'CancellationRequests' doesn't exist"));
+        expect((await getTenantBillingDetails("tenant-live-abc")).cancellationPending).toBe(false);
     });
 });

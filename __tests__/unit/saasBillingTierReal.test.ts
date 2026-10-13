@@ -73,14 +73,26 @@ describe("el panel de Mi cuenta muestra el tier que el tenant realmente paga", (
 });
 
 describe("la baja pedida por el cliente queda registrada", () => {
-    it("marca cancel_at_period_end en Tenants por tenant_id", async () => {
-        queryMock.mockResolvedValue([{ affectedRows: 1 }]);
-        const res = await cancelTenantSubscription(TENANT, "admin@x.com");
-        expect(res.success).toBe(true);
-        const sql = String(queryMock.mock.calls.map(([q]) => String(q)).find((q) => q.includes("UPDATE Tenants")));
-        expect(sql).toContain("UPDATE Tenants");
-        expect(sql).toContain("cancel_at_period_end");
-        expect(sql).toContain("tenant_id = ?");
+    const tenantConPaddle = (extra: Record<string, unknown> = {}) =>
+        queryMock.mockImplementation(async (sql: string) =>
+            String(sql).includes("SELECT paddle_subscription_id") ? [[{ paddle_subscription_id: "sub_01m4plan000000000000000000", marketplace_source: null, ...extra }]] : [{ affectedRows: 1 }]
+        );
+
+    it("marca cancel_at_period_end en Tenants por tenant_id (con la baja ya aceptada por Paddle)", async () => {
+        tenantConPaddle();
+        vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({}) }));
+        process.env.PADDLE_API_KEY = "pdl_sdbx_apikey_de_prueba";
+        try {
+            const res = await cancelTenantSubscription(TENANT, "admin@x.com");
+            expect(res.success).toBe(true);
+            const sql = String(queryMock.mock.calls.map(([q]) => String(q)).find((q) => q.includes("UPDATE Tenants")));
+            expect(sql).toContain("UPDATE Tenants");
+            expect(sql).toContain("cancel_at_period_end");
+            expect(sql).toContain("tenant_id = ?");
+        } finally {
+            vi.unstubAllGlobals();
+            delete process.env.PADDLE_API_KEY;
+        }
     });
 
     // Antes devolvia success aunque no escribiera en ningun lado.
