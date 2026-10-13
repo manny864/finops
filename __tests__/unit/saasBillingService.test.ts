@@ -66,18 +66,9 @@ describe("saasBilling.service", () => {
                     [],
                 ]);
             }
-            if (sql.includes("SELECT id, invoice_number, billing_date, amount_usd, status, download_pdf_url FROM SaaSInvoices")) {
+            if (sql.includes("FROM BillingTransactions")) {
                 return Promise.resolve([
-                    [
-                        {
-                            id: 1,
-                            invoice_number: "INV-REAL-100",
-                            billing_date: "2026-08-01T00:00:00Z",
-                            amount_usd: 499.0,
-                            status: "PAID",
-                            download_pdf_url: "/invoices/1.pdf",
-                        },
-                    ],
+                    [{ id: 7, paddle_transaction_id: "txn_01real", amount: "499.00", billed_on: new Date("2026-08-01T00:00:00Z") }],
                     [],
                 ]);
             }
@@ -91,8 +82,22 @@ describe("saasBilling.service", () => {
         expect(details.paymentGateway).toBe("PADDLE");
         expect(details.hasPaddleSubscription).toBe(true);
         expect(details.cancelAtPeriodEnd).toBe(false);
-        expect(details.invoices.length).toBe(1);
-        expect(details.invoices[0].invoiceNumber).toBe("INV-REAL-100");
+        // El historial sale de los cobros reales, sin número de factura ni PDF inventados.
+        expect(details.invoices).toEqual([
+            { id: "7", invoiceNumber: "txn_01real", billingDateIso: "2026-08-01T00:00:00.000Z", amountUSD: 499, status: "PAID" },
+        ]);
+        const sqlHistorial = String(mocks.mockPoolQuery.mock.calls.map((c) => c[0]).find((q) => String(q).includes("BillingTransactions")));
+        expect(sqlHistorial).toContain("status = 'completed'");
+        expect(sqlHistorial).not.toContain("SaaSInvoices");
+    });
+
+    it("si no se puede leer el historial, la lista queda vacía y el resto del panel sigue", async () => {
+        mocks.mockPoolQuery.mockImplementation((sql) =>
+            String(sql).includes("BillingTransactions") ? Promise.reject(new Error("boom")) : Promise.resolve([[], []])
+        );
+        vi.spyOn(console, "warn").mockImplementation(() => {});
+        const details = await getTenantBillingDetails("tenant-live-abc");
+        expect(details.invoices).toEqual([]);
     });
 
     it("getCustomerPortalUrl returns sandbox demo URL for mock tenant", async () => {

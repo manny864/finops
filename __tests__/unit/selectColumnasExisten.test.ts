@@ -78,9 +78,8 @@ const DEUDA: Record<string, string[]> = {
         "tenantsubscriptions.subscription_id",
     ],
 
-    // Sueltas. La tabla se llama `recommendation_exemptions` (con guion bajo); `SaaSInvoices` no está en ninguna migración.
+    // Suelta. La tabla se llama `recommendation_exemptions` (con guion bajo).
     "src/services/azureOrphanBackups.service.ts": ["recommendationexemptions"],
-    "src/services/saasBilling.service.ts": ["saasinvoices"],
     // Falso positivo del parser del DDL, no un defecto: SchemaMigrations existe (la crea el propio runner) pero su
     // CREATE TABLE termina en una comilla y `ddlVersionado.ts` sólo reconoce el cierre `) ENGINE|;`.
     "src/modules/storage/migrations.ts": ["schemamigrations"],

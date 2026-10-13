@@ -153,29 +153,35 @@ export async function getTenantBillingDetails(tenantId: string): Promise<TenantB
         /* entorno sin migrar */
     }
 
-    // 2. Consultar facturas reales
+    // 2. Historial de cobros. Sale de `BillingTransactions` (lo que Paddle cobró de verdad):
+    // `SaaSInvoices` no existe en ninguna migración y la lista llegaba siempre vacía.
+    // Paddle no nos manda un número de factura ni un PDF propios, así que el «número» es el id de la
+    // transacción y `downloadPdfUrl` queda vacío: la pantalla cae a /api/billing/invoices/[id]/pdf,
+    // que arma el documento con estos mismos datos. Sólo USD porque `amountUSD` y el PDF lo dan por hecho.
     const invoices: SaaSInvoiceItem[] = [];
     try {
         const [invRows]: any = await pool.query(
-            `SELECT id, invoice_number, billing_date, amount_usd, status, download_pdf_url FROM SaaSInvoices WHERE tenant_id = ? ORDER BY billing_date DESC LIMIT 50`,
+            `SELECT id, paddle_transaction_id, amount, COALESCE(billed_at, created_at) AS billed_on
+               FROM BillingTransactions
+              WHERE tenant_id = ? AND status = 'completed' AND currency = 'USD'
+              ORDER BY billed_at DESC, created_at DESC
+              LIMIT 50`,
             [tenantId]
         );
 
         if (Array.isArray(invRows)) {
             for (const r of invRows) {
-                const bDate = r.billing_date ? new Date(r.billing_date) : new Date();
                 invoices.push({
                     id: String(r.id),
-                    invoiceNumber: r.invoice_number || `INV-${r.id}`,
-                    billingDateIso: bDate.toISOString(),
-                    amountUSD: Number(r.amount_usd) || 0,
-                    status: (r.status as any) || "PAID",
-                    downloadPdfUrl: r.download_pdf_url || undefined,
+                    invoiceNumber: r.paddle_transaction_id || String(r.id),
+                    billingDateIso: new Date(r.billed_on).toISOString(),
+                    amountUSD: Number(r.amount) || 0,
+                    status: "PAID",
                 });
             }
         }
-    } catch {
-        /* noop */
+    } catch (e) {
+        console.warn("[saasBilling] No se pudo leer el historial de cobros:", (e as Error)?.message);
     }
 
     return {

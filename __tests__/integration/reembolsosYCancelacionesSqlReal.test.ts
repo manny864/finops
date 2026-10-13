@@ -29,7 +29,8 @@ const T_PLAN = "tmp-val-plan";
 const T_MANUAL = "tmp-val-manual";
 const T_AZURE = "tmp-val-azure";
 const T_FK = "tmp-val-fk";
-const TODOS = [T_PLAN, T_MANUAL, T_AZURE, T_FK];
+const T_HIST = "tmp-val-historial";
+const TODOS = [T_PLAN, T_MANUAL, T_AZURE, T_FK, T_HIST];
 const SUB_PLAN = "sub_01valplan000000000000000a";
 const SUB_MOD = "sub_01valmodulo0000000000000b";
 const ADMIN = "soporte@cscloudsolutions.com";
@@ -379,6 +380,32 @@ describe.skipIf(!process.env.DB_PORT)("reembolsos, comisiones y cancelaciones co
       expect((await recordarSolicitudesPendientes()).recordadas).toBe(1);
       // Recordar no resuelve nada.
       expect((await fila("SELECT status FROM CancellationRequests WHERE id = ?", [id])).status).toBe("PENDING");
+    });
+  });
+
+  // ─────────────────────── HISTORIAL DE COBROS DEL PANEL ───────────────────────
+
+  describe("historial de cobros (getTenantBillingDetails)", () => {
+    it("sale de BillingTransactions: sólo cobros completed en USD, el más nuevo primero, sin números de factura inventados", async () => {
+      await cobro(T_HIST, "txn_01hist_viejo", null, hace(40), "29999");
+      await cobro(T_HIST, "txn_01hist_nuevo", null, hace(5), "29999");
+      await cobro(T_HIST, "txn_01hist_reemb", null, hace(20), "29999", "refunded");
+      await pool.query(
+        "INSERT INTO BillingTransactions (tenant_id, paddle_transaction_id, amount, currency, status, billed_at) VALUES (?, 'txn_01hist_eur', 100, 'EUR', 'completed', ?)",
+        [T_HIST, hace(10)]
+      );
+      await pool.query("INSERT INTO BillingTransactions (tenant_id, paddle_transaction_id, status) VALUES (?, 'txn_01hist_falla', 'payment_failed')", [T_HIST]);
+
+      const { invoices } = await getTenantBillingDetails(T_HIST);
+
+      expect(invoices.map((i) => i.invoiceNumber)).toEqual(["txn_01hist_nuevo", "txn_01hist_viejo"]);
+      expect(invoices[0]).toMatchObject({ amountUSD: 299.99, status: "PAID" });
+      expect(invoices[0].downloadPdfUrl).toBeUndefined();
+      expect(new Date(invoices[0].billingDateIso).getTime()).toBeGreaterThan(hace(6).getTime());
+    });
+
+    it("un tenant sin cobros devuelve la lista vacía", async () => {
+      expect((await getTenantBillingDetails(T_FK)).invoices).toEqual([]);
     });
   });
 });
