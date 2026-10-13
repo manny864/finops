@@ -19,6 +19,12 @@ import { registrarAuditoria } from "@/lib/auditTrail";
 import { crearSolicitud, tieneSolicitudPendiente, type MotivoSolicitud } from "@/services/cancellationRequests.service";
 import { normalizeTier } from "@/lib/tierLogic";
 
+const ESTADO_DEL_COBRO: Record<string, SaaSInvoiceItem["status"]> = {
+    completed: "PAID",
+    refund_pending: "REFUND_PENDING",
+    refunded: "REFUNDED",
+};
+
 /**
  * Retorna la información de suscripción y facturación sintética para tenants de demostración.
  */
@@ -34,21 +40,24 @@ function getMockBillingDetails(tenantId: string): TenantBillingDetails {
             id: "inv-mock-0842",
             invoiceNumber: "INV-2026-0842",
             billingDateIso: augDate.toISOString(),
-            amountUSD: 1200.0,
+            amount: 1200.0,
+            currency: "USD",
             status: "PAID",
         },
         {
             id: "inv-mock-0742",
             invoiceNumber: "INV-2026-0742",
             billingDateIso: julDate.toISOString(),
-            amountUSD: 1200.0,
+            amount: 1200.0,
+            currency: "USD",
             status: "PAID",
         },
         {
             id: "inv-mock-0642",
             invoiceNumber: "INV-2026-0642",
             billingDateIso: junDate.toISOString(),
-            amountUSD: 1200.0,
+            amount: 1200.0,
+            currency: "USD",
             status: "PAID",
         },
     ];
@@ -157,13 +166,13 @@ export async function getTenantBillingDetails(tenantId: string): Promise<TenantB
     // `SaaSInvoices` no existe en ninguna migración y la lista llegaba siempre vacía.
     // Paddle no nos manda un número de factura ni un PDF propios, así que el «número» es el id de la
     // transacción y `downloadPdfUrl` queda vacío: la pantalla cae a /api/billing/invoices/[id]/pdf,
-    // que arma el documento con estos mismos datos. Sólo USD porque `amountUSD` y el PDF lo dan por hecho.
+    // que arma el documento con estos mismos datos. Los reembolsos se muestran con su estado, no se esconden.
     const invoices: SaaSInvoiceItem[] = [];
     try {
         const [invRows]: any = await pool.query(
-            `SELECT id, paddle_transaction_id, amount, COALESCE(billed_at, created_at) AS billed_on
+            `SELECT id, paddle_transaction_id, amount, currency, status, COALESCE(billed_at, created_at) AS billed_on
                FROM BillingTransactions
-              WHERE tenant_id = ? AND status = 'completed' AND currency = 'USD'
+              WHERE tenant_id = ? AND status IN ('completed', 'refund_pending', 'refunded')
               ORDER BY billed_at DESC, created_at DESC
               LIMIT 50`,
             [tenantId]
@@ -175,8 +184,9 @@ export async function getTenantBillingDetails(tenantId: string): Promise<TenantB
                     id: String(r.id),
                     invoiceNumber: r.paddle_transaction_id || String(r.id),
                     billingDateIso: new Date(r.billed_on).toISOString(),
-                    amountUSD: Number(r.amount) || 0,
-                    status: "PAID",
+                    amount: Number(r.amount) || 0,
+                    currency: r.currency || "USD",
+                    status: ESTADO_DEL_COBRO[r.status] ?? "PAID",
                 });
             }
         }

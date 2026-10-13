@@ -543,7 +543,7 @@ const INVOICE_PDF_I18N: Record<string, Record<string, string>> = {
         billedTo: 'Facturado a', invoice: 'Factura', issueDate: 'Fecha de emisión',
         status: 'Estado', concept: 'Concepto', amount: 'Importe', plan: 'Plan',
         lineItem: 'Suscripción a la plataforma FinOps CSCloudSolutions',
-        total: 'Total', PAID: 'Pagada', PENDING: 'Pendiente', FAILED: 'Fallida',
+        total: 'Total', PAID: 'Pagada', PENDING: 'Pendiente', FAILED: 'Fallida', REFUND_PENDING: 'Reembolso en revisión', REFUNDED: 'Reembolsada',
         footer: 'CSCloudSolutions FinOps SaaS · Documento generado automáticamente por la plataforma.',
         demoNotice: 'DOCUMENTO DE DEMOSTRACIÓN — sin validez fiscal.',
     },
@@ -552,7 +552,7 @@ const INVOICE_PDF_I18N: Record<string, Record<string, string>> = {
         billedTo: 'Billed to', invoice: 'Invoice', issueDate: 'Issue date',
         status: 'Status', concept: 'Description', amount: 'Amount', plan: 'Plan',
         lineItem: 'CSCloudSolutions FinOps platform subscription',
-        total: 'Total', PAID: 'Paid', PENDING: 'Pending', FAILED: 'Failed',
+        total: 'Total', PAID: 'Paid', PENDING: 'Pending', FAILED: 'Failed', REFUND_PENDING: 'Refund under review', REFUNDED: 'Refunded',
         footer: 'CSCloudSolutions FinOps SaaS · Document generated automatically by the platform.',
         demoNotice: 'DEMONSTRATION DOCUMENT — not a valid tax receipt.',
     },
@@ -561,7 +561,7 @@ const INVOICE_PDF_I18N: Record<string, Record<string, string>> = {
         billedTo: 'Faturado para', invoice: 'Fatura', issueDate: 'Data de emissão',
         status: 'Status', concept: 'Descrição', amount: 'Valor', plan: 'Plano',
         lineItem: 'Assinatura da plataforma FinOps CSCloudSolutions',
-        total: 'Total', PAID: 'Paga', PENDING: 'Pendente', FAILED: 'Falhou',
+        total: 'Total', PAID: 'Paga', PENDING: 'Pendente', FAILED: 'Falhou', REFUND_PENDING: 'Reembolso em análise', REFUNDED: 'Reembolsada',
         footer: 'CSCloudSolutions FinOps SaaS · Documento gerado automaticamente pela plataforma.',
         demoNotice: 'DOCUMENTO DE DEMONSTRAÇÃO — sem validade fiscal.',
     },
@@ -576,8 +576,8 @@ export function generateSubscriptionInvoicePdf(
 ): Buffer {
     const L = INVOICE_PDF_I18N[locale] ?? INVOICE_PDF_I18N.es;
     const intlLocale = locale === 'pt-BR' ? 'pt-BR' : locale === 'en' ? 'en-US' : 'es-AR';
-    const money = (usd: number) =>
-        new Intl.NumberFormat(intlLocale, { style: 'currency', currency: 'USD' }).format(Number(usd) || 0);
+    const money = (amount: number) =>
+        new Intl.NumberFormat(intlLocale, { style: 'currency', currency: invoice.currency }).format(Number(amount) || 0);
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
@@ -626,7 +626,7 @@ export function generateSubscriptionInvoicePdf(
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(15, 23, 42);
     doc.text(L.lineItem, 24, y);
-    doc.text(money(invoice.amountUSD), 186, y, { align: 'right' });
+    doc.text(money(invoice.amount), 186, y, { align: 'right' });
 
     y += 14;
     doc.setDrawColor(203, 213, 225);
@@ -635,7 +635,7 @@ export function generateSubscriptionInvoicePdf(
     doc.setTextColor(0, 84, 166);
     doc.setFontSize(12);
     doc.text(L.total, 120, y);
-    doc.text(money(invoice.amountUSD), 186, y, { align: 'right' });
+    doc.text(money(invoice.amount), 186, y, { align: 'right' });
 
     // El aviso de demo va en el DOCUMENTO, no solo en la pantalla: un PDF se
     // descarga y circula suelto, sin el banner de "datos de ejemplo" al lado.

@@ -17,7 +17,8 @@ const factura: SaaSInvoiceItem = {
     invoiceNumber: "INV-2026-0842",
     billingDateIso: "2026-08-01T00:00:00.000Z",
     formattedDate: "01/08/2026",
-    amountUSD: 1200,
+    amount: 1200,
+    currency: "USD",
     status: "PAID",
 };
 
@@ -31,6 +32,14 @@ describe("factura de suscripcion en PDF", () => {
         expect(texto(pdf)).toContain("INV-2026-0842");
         expect(texto(pdf)).toContain("Enterprise");
         expect(texto(pdf)).toContain("$1,200.00");
+    });
+
+    it("usa la moneda del cobro y traduce el reembolso", () => {
+        const reembolsada: SaaSInvoiceItem = { ...factura, currency: "EUR", amount: 100.5, status: "REFUNDED" };
+        const pdf = texto(generateSubscriptionInvoicePdf(reembolsada, "T", "Pro", "en"));
+        expect(pdf).toContain("(Refunded)");
+        expect(pdf).toContain("100.50");
+        expect(pdf).not.toContain("$100.50");
     });
 
     it("redacta en el idioma pedido", () => {

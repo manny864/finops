@@ -16,8 +16,12 @@ export interface SaaSInvoiceItem {
      * que es la unica que conoce el locale activo.
      */
     billingDateIso: string;
-    amountUSD: number;
-    status: "PAID" | "PENDING" | "FAILED";
+    /** Importe en la moneda del cobro (`currency`): Paddle puede cobrar en USD o EUR. */
+    amount: number;
+    /** Código ISO 4217 de `amount`. */
+    currency: string;
+    /** REFUND_PENDING: reembolso pedido y esperando aprobación; REFUNDED: ya aprobado. */
+    status: "PAID" | "PENDING" | "FAILED" | "REFUND_PENDING" | "REFUNDED";
     downloadPdfUrl?: string;
     receiptUrl?: string;
 }

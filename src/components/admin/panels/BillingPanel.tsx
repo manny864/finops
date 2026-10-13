@@ -54,7 +54,7 @@ interface ColumnConfig {
 const columnasFacturacion = (t: (k: string) => string): ColumnConfig[] => [
     { id: "invoiceNumber", label: t("col_invoiceNumber"), visible: true, width: 220 },
     { id: "billingDate", label: t("col_billingDate"), visible: true, width: 180 },
-    { id: "amountUSD", label: t("col_amountUSD"), visible: true, width: 160 },
+    { id: "amount", label: t("col_amount"), visible: true, width: 160 },
     { id: "status", label: t("col_status"), visible: true, width: 140 },
     { id: "actions", label: t("col_actions"), visible: true, width: 140 },
 ];
@@ -308,7 +308,7 @@ export default function BillingPanel() {
             (inv) =>
                 inv.invoiceNumber.toLowerCase().includes(q) ||
                 formatDate(inv.billingDateIso).toLowerCase().includes(q) ||
-                String(inv.amountUSD).includes(q) ||
+                String(inv.amount).includes(q) ||
                 inv.status.toLowerCase().includes(q)
         );
     }, [billingData?.invoices, searchTerm, formatDate]);
@@ -709,15 +709,17 @@ export default function BillingPanel() {
                                             </td>
                                         )}
 
-                                        {columns.find((c) => c.id === "amountUSD")?.visible && (
+                                        {columns.find((c) => c.id === "amount")?.visible && (
                                             <td className="px-4 py-3 font-semibold text-[#0078D4] dark:text-blue-400 whitespace-nowrap">
-                                                ${inv.amountUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                                                {new Intl.NumberFormat(locale, { style: "currency", currency: inv.currency }).format(inv.amount)}
                                             </td>
                                         )}
 
                                         {columns.find((c) => c.id === "status")?.visible && (
                                             <td className="px-4 py-3 whitespace-nowrap">
-                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-[#0078D4] border border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800">
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold border ${inv.status === "REFUNDED" || inv.status === "REFUND_PENDING"
+                                                    ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800"
+                                                    : "bg-blue-50 text-[#0078D4] border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800"}`}>
                                                     {t.has(`invoiceStatus_${inv.status}` as never)
                                                         ? t(`invoiceStatus_${inv.status}` as never)
                                                         : inv.status}

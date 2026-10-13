@@ -386,20 +386,26 @@ describe.skipIf(!process.env.DB_PORT)("reembolsos, comisiones y cancelaciones co
   // ─────────────────────── HISTORIAL DE COBROS DEL PANEL ───────────────────────
 
   describe("historial de cobros (getTenantBillingDetails)", () => {
-    it("sale de BillingTransactions: sólo cobros completed en USD, el más nuevo primero, sin números de factura inventados", async () => {
+    it("sale de BillingTransactions: completed, refund_pending y refunded en su moneda, el más nuevo primero, sin fallidos", async () => {
       await cobro(T_HIST, "txn_01hist_viejo", null, hace(40), "29999");
       await cobro(T_HIST, "txn_01hist_nuevo", null, hace(5), "29999");
       await cobro(T_HIST, "txn_01hist_reemb", null, hace(20), "29999", "refunded");
+      await cobro(T_HIST, "txn_01hist_pend", null, hace(15), "29999", "refund_pending");
       await pool.query(
-        "INSERT INTO BillingTransactions (tenant_id, paddle_transaction_id, amount, currency, status, billed_at) VALUES (?, 'txn_01hist_eur', 100, 'EUR', 'completed', ?)",
+        "INSERT INTO BillingTransactions (tenant_id, paddle_transaction_id, amount, currency, status, billed_at) VALUES (?, 'txn_01hist_eur', 100.50, 'EUR', 'completed', ?)",
         [T_HIST, hace(10)]
       );
       await pool.query("INSERT INTO BillingTransactions (tenant_id, paddle_transaction_id, status) VALUES (?, 'txn_01hist_falla', 'payment_failed')", [T_HIST]);
 
       const { invoices } = await getTenantBillingDetails(T_HIST);
 
-      expect(invoices.map((i) => i.invoiceNumber)).toEqual(["txn_01hist_nuevo", "txn_01hist_viejo"]);
-      expect(invoices[0]).toMatchObject({ amountUSD: 299.99, status: "PAID" });
+      expect(invoices.map((i) => [i.invoiceNumber, i.status, i.currency, i.amount])).toEqual([
+        ["txn_01hist_nuevo", "PAID", "USD", 299.99],
+        ["txn_01hist_eur", "PAID", "EUR", 100.5],
+        ["txn_01hist_pend", "REFUND_PENDING", "USD", 299.99],
+        ["txn_01hist_reemb", "REFUNDED", "USD", 299.99],
+        ["txn_01hist_viejo", "PAID", "USD", 299.99],
+      ]);
       expect(invoices[0].downloadPdfUrl).toBeUndefined();
       expect(new Date(invoices[0].billingDateIso).getTime()).toBeGreaterThan(hace(6).getTime());
     });

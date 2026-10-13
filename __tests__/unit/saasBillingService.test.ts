@@ -41,7 +41,7 @@ describe("saasBilling.service", () => {
         expect(details.isEnterprise).toBe(true);
         expect(details.invoices.length).toBe(3);
         expect(details.invoices[0].invoiceNumber).toBe("INV-2026-0842");
-        expect(details.invoices[0].amountUSD).toBe(1200);
+        expect(details.invoices[0]).toMatchObject({ amount: 1200, currency: "USD" });
         expect(mocks.mockPoolQuery).not.toHaveBeenCalled();
     });
 
@@ -68,7 +68,7 @@ describe("saasBilling.service", () => {
             }
             if (sql.includes("FROM BillingTransactions")) {
                 return Promise.resolve([
-                    [{ id: 7, paddle_transaction_id: "txn_01real", amount: "499.00", billed_on: new Date("2026-08-01T00:00:00Z") }],
+                    [{ id: 7, paddle_transaction_id: "txn_01real", amount: "499.00", billed_on: new Date("2026-08-01T00:00:00Z"), currency: "USD", status: "completed" }],
                     [],
                 ]);
             }
@@ -84,11 +84,30 @@ describe("saasBilling.service", () => {
         expect(details.cancelAtPeriodEnd).toBe(false);
         // El historial sale de los cobros reales, sin número de factura ni PDF inventados.
         expect(details.invoices).toEqual([
-            { id: "7", invoiceNumber: "txn_01real", billingDateIso: "2026-08-01T00:00:00.000Z", amountUSD: 499, status: "PAID" },
+            { id: "7", invoiceNumber: "txn_01real", billingDateIso: "2026-08-01T00:00:00.000Z", amount: 499, currency: "USD", status: "PAID" },
         ]);
         const sqlHistorial = String(mocks.mockPoolQuery.mock.calls.map((c) => c[0]).find((q) => String(q).includes("BillingTransactions")));
-        expect(sqlHistorial).toContain("status = 'completed'");
+        expect(sqlHistorial).toContain("'completed', 'refund_pending', 'refunded'");
         expect(sqlHistorial).not.toContain("SaaSInvoices");
+    });
+
+    it("el historial trae la moneda del cobro y marca los reembolsos", async () => {
+        mocks.mockPoolQuery.mockImplementation((sql) =>
+            String(sql).includes("FROM BillingTransactions")
+                ? Promise.resolve([
+                      [
+                          { id: 3, paddle_transaction_id: "txn_a", amount: "100.50", currency: "EUR", status: "refund_pending", billed_on: new Date("2026-08-02T00:00:00Z") },
+                          { id: 2, paddle_transaction_id: "txn_b", amount: "50.00", currency: "USD", status: "refunded", billed_on: new Date("2026-08-01T00:00:00Z") },
+                      ],
+                      [],
+                  ])
+                : Promise.resolve([[], []])
+        );
+        const { invoices } = await getTenantBillingDetails("tenant-live-abc");
+        expect(invoices.map((i) => [i.status, i.currency, i.amount])).toEqual([
+            ["REFUND_PENDING", "EUR", 100.5],
+            ["REFUNDED", "USD", 50],
+        ]);
     });
 
     it("si no se puede leer el historial, la lista queda vacía y el resto del panel sigue", async () => {
