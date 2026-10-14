@@ -320,6 +320,7 @@ module "storage" {
   backup_monthly_retention_days = var.storage_backup_monthly_retention_days
   backup_yearly_retention_days  = var.storage_backup_yearly_retention_days
   shared_access_key_enabled     = var.storage_shared_access_key_enabled
+  flow_logs_retention_prefix    = var.network_flow_logs_enabled ? "insights-logs-flowlogflowevent/flowLogResourceID=/${upper(var.subscription_id)}_NETWORKWATCHERRG/NETWORKWATCHER_${upper(var.location)}_${upper(local.name_base)}-VNET-FLOWLOG" : null
   app_principal_id              = azurerm_user_assigned_identity.app.principal_id
   tags                          = var.tags
 }

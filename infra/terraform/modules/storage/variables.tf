@@ -50,6 +50,13 @@ variable "backup_retention_days" {
   default = 35
 }
 
+variable "flow_logs_retention_prefix" {
+  description = "Prefijo de blobs de VNet Flow Logs a conservar en la política lifecycle de la cuenta. Null desactiva la regla."
+  type        = string
+  default     = null
+  nullable    = true
+}
+
 variable "app_principal_id" {
   type = string
 }

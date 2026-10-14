@@ -267,7 +267,7 @@ done
 Archivos propios de staging (versionados):
 
 - `imports.tf`: los RG y el ACR que crea la persona en F0. Prod no tiene este archivo.
-- También importa la identidad administrada, su rol limitado a la Storage y el VNet Flow Log ya habilitados en staging. El módulo `stamp` gestiona esos recursos por AzAPI para conservar `allowSharedKeyAccess=false` y no reemplazar reglas de lifecycle de Storage; producción crea los equivalentes desde Terraform.
+- También importa la identidad administrada, su rol limitado a la Storage y el VNet Flow Log ya habilitados en staging. El módulo `stamp` gestiona esos recursos por AzAPI y declara en la política lifecycle de Storage la retención de 7 días de los blobs de Flow Logs, para preservar la regla que Azure creó al habilitarlos. Así se conserva `allowSharedKeyAccess=false` y no se reemplazan reglas existentes; producción crea los equivalentes desde Terraform.
 - `cron-jobs.tfvars`: un subconjunto **propio y reducido** (5 jobs: `sync`, `prewarm-dashboard`, `support-attachments-cleanup`, `trial-expiry` y `status-snapshot` cada 30 minutos), **no** un enlace al de prod. Con 0 réplicas mínimas, los 29 jobs de prod mantendrían despierta la app las 24 horas. `prewarm-dashboard` queda porque es el cron de prueba del camino cron → app (NAT y filtro de origen).
 
 ```hcl

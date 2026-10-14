@@ -103,6 +103,27 @@ resource "azurerm_storage_management_policy" "lifecycle" {
         }
       }
     }
+
+  }
+
+  dynamic "rule" {
+    for_each = var.flow_logs_retention_prefix == null ? {} : { flow_logs = var.flow_logs_retention_prefix }
+
+    content {
+      name    = "flowlogs-retention-7d"
+      enabled = true
+
+      filters {
+        prefix_match = [rule.value]
+        blob_types   = ["blockBlob"]
+      }
+
+      actions {
+        base_blob {
+          delete_after_days_since_modification_greater_than = 7
+        }
+      }
+    }
   }
 }
 
