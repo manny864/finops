@@ -46,7 +46,8 @@ it("uses targeted AcrPull propagation instead of deferring all stamp data source
     const production = readFileSync("infra/terraform/environments/prod/main.tf", "utf8");
     const stamp = readFileSync("infra/terraform/modules/stamp/main.tf", "utf8");
     expect(production).not.toMatch(/^\s*depends_on\s*=\s*\[module\.acr\]/m);
-    expect(stamp).toContain("depends_on      = [azurerm_role_assignment.acr_pull]");
+    expect(stamp).toContain("azurerm_role_assignment.acr_pull,");
+    expect(stamp).toContain("azurerm_role_assignment.jobs_acr_pull,");
     expect(stamp).toContain("time_sleep.acr_pull_propagation");
 });
 

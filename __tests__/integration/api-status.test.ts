@@ -268,7 +268,7 @@ describe("Status API", () => {
       mocks.mockPoolQuery.mockResolvedValueOnce([[]]);
       mocks.mockPoolQuery.mockResolvedValueOnce([[{ total_count: 100, down_count: 0, degraded_count: 0 }]]);
 
-      const req = makeReq("http://localhost:3000/api/cron/status-snapshot?secret=test-secret-123");
+      const req = makeReq("http://localhost:3000/api/cron/status-snapshot", { headers: { authorization: "Bearer test-secret-123" } });
       const res = await snapshotGET(req);
       const json = await res.json();
 
@@ -279,7 +279,7 @@ describe("Status API", () => {
     });
 
     it("should reject invalid secret", async () => {
-      const req = makeReq("http://localhost:3000/api/cron/status-snapshot?secret=wrong");
+      const req = makeReq("http://localhost:3000/api/cron/status-snapshot", { headers: { authorization: "Bearer wrong" } });
       const res = await snapshotGET(req);
 
       expect(res.status).toBe(401);
@@ -291,7 +291,7 @@ describe("Status API", () => {
       mocks.mockPoolQuery.mockResolvedValueOnce([[]]);
       mocks.mockPoolQuery.mockResolvedValueOnce([[{ total_count: 100, down_count: 0, degraded_count: 50 }]]);
 
-      const req = makeReq("http://localhost:3000/api/cron/status-snapshot?secret=test-secret-123");
+      const req = makeReq("http://localhost:3000/api/cron/status-snapshot", { headers: { authorization: "Bearer test-secret-123" } });
       const res = await snapshotGET(req);
 
       expect(res.status).toBe(200);

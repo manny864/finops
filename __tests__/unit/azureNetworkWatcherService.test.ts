@@ -303,7 +303,7 @@ describe("Network Watcher — comandos de remediacion", () => {
         '/subscriptions/s/resourceGroups/rg/providers/Microsoft.Network/networkWatchers/nw"; rm -rf ~; #',
       category: "ORPHAN_PURGE",
     });
-    expect(hostil.powershell).toContain('nw\\"');
+    expect(hostil.powershell).toContain("no apto");
     expect(hostil.powershell).not.toMatch(/-Name "nw"; rm/);
   });
 });

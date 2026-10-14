@@ -370,7 +370,7 @@ describe("Key Vault — comandos de remediacion", () => {
       vaultName: 'kv"; rm -rf ~; #',
       category: "ENABLE_RBAC",
     });
-    expect(c.cli).toContain('kv\\"');
+    expect(c.cli).toContain("no apto");
     expect(c.cli).not.toMatch(/--name "kv"; rm/);
   });
 });

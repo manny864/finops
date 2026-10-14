@@ -310,8 +310,8 @@ describe("Azure Workbooks — comandos de remediacion", () => {
       confidence: "HIGH",
       actionType: "X",
     });
-    // La comilla queda escapada: no cierra el string ni abre un comando nuevo.
+    // Fail-closed: un nombre hostil no genera script (AISEC-01).
     expect(hostil.cli).not.toMatch(/--name "evil"; rm/);
-    expect(hostil.cli).toContain('evil\\"');
+    expect(hostil.cli).toContain("no apto");
   });
 });

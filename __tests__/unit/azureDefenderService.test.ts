@@ -346,7 +346,7 @@ describe("Defender for Cloud — comandos de remediacion", () => {
       planKey: 'VM"; rm -rf ~; #',
       category: "GOVERN_AUTO_PROVISIONING",
     });
-    expect(hostil.cli).toContain('VM\\"');
+    expect(hostil.cli).toContain("no apto");
     expect(hostil.cli).not.toMatch(/--name "VM"; rm/);
   });
 });

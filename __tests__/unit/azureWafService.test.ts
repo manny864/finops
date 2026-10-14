@@ -421,7 +421,7 @@ describe("WAF — comandos de remediacion", () => {
       policyName: 'waf"; rm -rf ~; #',
       category: "PURGE_ORPHAN_POLICY",
     });
-    expect(c.cli).toContain('waf\\"');
+    expect(c.cli).toContain("no apto");
     expect(c.cli).not.toMatch(/--name "waf"; rm/);
   });
 });
