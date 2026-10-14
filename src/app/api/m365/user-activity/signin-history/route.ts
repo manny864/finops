@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { scriptSafeJson } from "@/lib/scriptSafeJson";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import { getUserSignInHistory } from "@/services/m365UserActivity.service";
@@ -16,12 +17,12 @@ export async function GET(request: NextRequest) {
         const userId = searchParams.get("userId");
 
         if (!tenantId || !userId) {
-            return NextResponse.json({ error: "Faltan tenantId o userId" }, { status: 400 });
+            return scriptSafeJson({ error: "Faltan tenantId o userId" }, { status: 400 });
         }
 
         // CRITICAL: isMockTenant check BEFORE requireTenantAccess
         if (isMockTenant(tenantId)) {
-            return NextResponse.json({
+            return scriptSafeJson({
                 success: true,
                 mock: true,
                 entries: generateMockSignInHistory(),
@@ -31,13 +32,13 @@ export async function GET(request: NextRequest) {
         await requireTenantAccess(request, tenantId);
 
         const entries = await getUserSignInHistory(tenantId, userId);
-        return NextResponse.json({ success: true, mock: false, entries });
+        return scriptSafeJson({ success: true, mock: false, entries });
     } catch (error: unknown) {
         if (error instanceof AuthError) {
-            return NextResponse.json({ error: error.message }, { status: error.status });
+            return scriptSafeJson({ error: error.message }, { status: error.status });
         }
         console.error("[m365/signin-history] Error:", error);
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+        return scriptSafeJson({ error: "Internal server error" }, { status: 500 });
     }
 }
 

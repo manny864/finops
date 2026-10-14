@@ -9,7 +9,8 @@
  * Zero-tolerance mock fallback on live tenants.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { scriptSafeJson } from "@/lib/scriptSafeJson";
 import { requireTenantRole, requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { bloqueoPorDelegacionDeLectura } from "@/lib/lighthouseAccess";
 import { azureErrorResponse } from "@/lib/apiErrors";
@@ -26,13 +27,13 @@ export async function GET(request: NextRequest) {
     const tenantId = searchParams.get("tenantId");
 
     if (!tenantId) {
-      return NextResponse.json({ error: "Missing tenantId parameter" }, { status: 400 });
+      return scriptSafeJson({ error: "Missing tenantId parameter" }, { status: 400 });
     }
 
     // 1. Check Demo/Mock tenant FIRST before any auth challenge
     if (isMockTenant(tenantId)) {
       const mockPayload = getMockAlertsPayload(tenantId);
-      return NextResponse.json(mockPayload);
+      return scriptSafeJson(mockPayload);
     }
 
     // 2. Strict RBAC validation for real/connected tenants
@@ -40,16 +41,16 @@ export async function GET(request: NextRequest) {
 
     // 3. Live Azure Resource Graph discovery (Zero fallback to mock on live tenant)
     const livePayload = await fetchLiveAlertsData(tenantId);
-    return NextResponse.json(livePayload);
+    return scriptSafeJson(livePayload);
   } catch (error) {
     // AuthError lleva su propio status (401/403): propagarlo en vez de
     // colapsarlo a 500, que hace ver una denegacion de permisos como una
     // caida del servidor. Mismo patron que sentinel/route.ts.
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return scriptSafeJson({ error: error.message }, { status: error.status });
     }
     console.error("[API Alerts Management] Error:", error);
-    return NextResponse.json(
+    return scriptSafeJson(
       { error: "Error interno procesando reglas de alerta de Azure Monitor" },
       { status: 500 }
     );
@@ -62,14 +63,14 @@ export async function POST(request: NextRequest) {
     const tenantId = searchParams.get("tenantId");
 
     if (!tenantId) {
-      return NextResponse.json({ error: "Missing tenantId parameter" }, { status: 400 });
+      return scriptSafeJson({ error: "Missing tenantId parameter" }, { status: 400 });
     }
 
     const body = await request.json().catch(() => ({}));
 
     // 1. Demo/Mock check
     if (isMockTenant(tenantId)) {
-      return NextResponse.json({
+      return scriptSafeJson({
         success: true,
         message: "Operación simulada en tenant de demostración",
         action: body.action || "TOGGLE_STATE",
@@ -86,11 +87,11 @@ export async function POST(request: NextRequest) {
     if (bloqueo) return bloqueo;
 
     if (body.action !== "TOGGLE_STATE" || typeof body.ruleId !== "string" || typeof body.isEnabled !== "boolean") {
-      return NextResponse.json({ error: "Acción inválida." }, { status: 400 });
+      return scriptSafeJson({ error: "Acción inválida." }, { status: 400 });
     }
     await cambiarEstadoEnAzure(tenantId, body.ruleId, body.isEnabled, "alertas", identity.email || "unknown");
 
-    return NextResponse.json({
+    return scriptSafeJson({
       success: true,
       action: "TOGGLE_STATE",
       ruleId: body.ruleId,
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return scriptSafeJson({ error: error.message }, { status: error.status });
     }
     // Un 4xx de Azure trae el motivo real (permiso que falta, regla borrada).
     return azureErrorResponse(error, "POST /api/intelligence/monitoring/alerts");

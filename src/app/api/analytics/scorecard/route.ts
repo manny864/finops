@@ -12,7 +12,8 @@
  * (gasto y cobertura por tag). Sin permisos de escritura.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { scriptSafeJson } from "@/lib/scriptSafeJson";
 import { CostManagementClient } from "@azure/arm-costmanagement";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
@@ -158,10 +159,10 @@ async function fetchBudgetsByTeam(tenantId: string): Promise<Map<string, number>
 export async function GET(request: NextRequest) {
   try {
     const tenantId = request.nextUrl.searchParams.get("tenantId");
-    if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
+    if (!tenantId) return scriptSafeJson({ error: "Falta tenantId" }, { status: 400 });
 
     if (isMockTenant(tenantId)) {
-      return NextResponse.json(getMockScorecardPayload(tenantId));
+      return scriptSafeJson(getMockScorecardPayload(tenantId));
     }
 
     await requireTenantAccess(request, tenantId);
@@ -239,12 +240,12 @@ export async function GET(request: NextRequest) {
       43200
     );
 
-    return NextResponse.json(payload);
+    return scriptSafeJson(payload);
   } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return scriptSafeJson({ error: error.message }, { status: error.status });
     }
     console.error("[API Scorecard] Error:", errorMessage(error));
-    return NextResponse.json({ error: "Error interno procesando el scorecard" }, { status: 500 });
+    return scriptSafeJson({ error: "Error interno procesando el scorecard" }, { status: 500 });
   }
 }

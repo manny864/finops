@@ -11,7 +11,8 @@
  * Zero tolerance for mock fallbacks on real tenants.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { scriptSafeJson } from "@/lib/scriptSafeJson";
 import { isMockTenant } from "@/lib/mockData";
 import { requireTenantAccess } from "@/lib/requestAuth";
 import { getAiSearchPayload } from "@/services/azureAiSearch.service";
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
   const tenantId = searchParams.get("tenantId");
 
   if (!tenantId) {
-    return NextResponse.json(
+    return scriptSafeJson(
       { error: "Missing tenantId query parameter" },
       { status: 400 }
     );
@@ -31,10 +32,10 @@ export async function GET(request: NextRequest) {
   if (isMockTenant(tenantId)) {
     try {
       const payload = await getAiSearchPayload(tenantId);
-      return NextResponse.json(payload);
+      return scriptSafeJson(payload);
     } catch (err) {
       console.error("[azure-ai/search] Mock generation failed:", err);
-      return NextResponse.json(
+      return scriptSafeJson(
         { error: "Failed to generate mock AI Search data" },
         { status: 500 }
       );
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
     await requireTenantAccess(request, tenantId);
   } catch (authErr: unknown) {
     const err = authErr as { message?: string; status?: number };
-    return NextResponse.json(
+    return scriptSafeJson(
       { error: err.message || "Unauthorized" },
       { status: err.status || 401 }
     );
@@ -55,10 +56,10 @@ export async function GET(request: NextRequest) {
   // ── Fetch live data ────────────────────────────────────────────────────
   try {
     const payload = await getAiSearchPayload(tenantId);
-    return NextResponse.json(payload);
+    return scriptSafeJson(payload);
   } catch (err) {
     console.error("[azure-ai/search] Live fetch failed:", err);
-    return NextResponse.json(
+    return scriptSafeJson(
       { error: "Failed to fetch AI Search data" },
       { status: 500 }
     );

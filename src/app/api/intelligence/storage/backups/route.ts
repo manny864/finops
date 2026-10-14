@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { scriptSafeJson } from "@/lib/scriptSafeJson";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import { getSubscriptionsForTenant } from "@/lib/azure";
@@ -288,18 +289,18 @@ export async function GET(request: NextRequest) {
         const tenantId = searchParams.get("tenantId");
 
         if (!tenantId) {
-            return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
+            return scriptSafeJson({ error: "Falta tenantId" }, { status: 400 });
         }
 
         const isMockParam = searchParams.get("mock") === "true";
         if (isMockTenant(tenantId) || tenantId.startsWith("mock-") || isMockParam) {
-            return NextResponse.json(getMockBackupsPayload(1));
+            return scriptSafeJson(getMockBackupsPayload(1));
         }
 
         try {
             await requireTenantAccess(request, tenantId);
         } catch (e) {
-            if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+            if (e instanceof AuthError) return scriptSafeJson({ error: e.message }, { status: e.status });
             throw e;
         }
 
@@ -534,10 +535,10 @@ export async function GET(request: NextRequest) {
             900
         );
 
-        return NextResponse.json(data);
+        return scriptSafeJson(data);
     } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
         console.error("[backups route] Error:", msg);
-        return NextResponse.json({ error: msg }, { status: 500 });
+        return scriptSafeJson({ error: msg }, { status: 500 });
     }
 }

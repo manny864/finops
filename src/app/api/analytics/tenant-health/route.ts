@@ -6,7 +6,8 @@
  * Para tenants reales: requireTenantAccess y tolerancia cero a fallbacks mock.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { scriptSafeJson } from "@/lib/scriptSafeJson";
 import { requireTenantTier, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
@@ -22,11 +23,11 @@ export async function GET(request: NextRequest) {
     await initializeDatabase();
     const tenantId = request.nextUrl.searchParams.get("tenantId");
     if (!tenantId) {
-      return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
+      return scriptSafeJson({ error: "Falta tenantId" }, { status: 400 });
     }
 
     if (isMockTenant(tenantId)) {
-      return NextResponse.json(getMockTenantHealthPayload(tenantId));
+      return scriptSafeJson(getMockTenantHealthPayload(tenantId));
     }
 
     await requireTenantTier(request, tenantId, "Enterprise");
@@ -108,13 +109,13 @@ export async function GET(request: NextRequest) {
       300 // 5 minutos de cache
     );
 
-    return NextResponse.json(payload);
+    return scriptSafeJson(payload);
   } catch (error) {
     if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
+      return scriptSafeJson({ error: error.message }, { status: error.status });
     }
     console.error("[API Tenant Health] Error:", errorMessage(error));
-    return NextResponse.json(
+    return scriptSafeJson(
       { error: "Error interno procesando la salud del tenant" },
       { status: 500 }
     );

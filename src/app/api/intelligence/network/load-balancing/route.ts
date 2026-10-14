@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { scriptSafeJson } from "@/lib/scriptSafeJson";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import { getAzureLoadBalancing } from "@/services/azureLoadBalancing.service";
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
         if (isMock) {
             const mockData = await getAzureLoadBalancing(tenantId);
-            return NextResponse.json(mockData, {
+            return scriptSafeJson(mockData, {
                 status: 200,
                 headers: {
                     "Cache-Control": "private, max-age=60, stale-while-revalidate=120",
@@ -44,14 +45,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             await requireTenantAccess(request, tenantId);
         } catch (e) {
             if (e instanceof AuthError) {
-                return NextResponse.json({ error: e.message }, { status: e.status });
+                return scriptSafeJson({ error: e.message }, { status: e.status });
             }
             throw e;
         }
 
         // 3. CONSULTA VIVA (TOLERANCIA CERO A FALLBACKS MOCK)
         const liveData = await getAzureLoadBalancing(tenantId);
-        return NextResponse.json(liveData, {
+        return scriptSafeJson(liveData, {
             status: 200,
             headers: {
                 "Cache-Control": "private, max-age=30, stale-while-revalidate=60",
@@ -59,10 +60,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         });
     } catch (error) {
         if (error instanceof AuthError) {
-            return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
+            return scriptSafeJson({ error: errorMessage(error) }, { status: errorStatus(error) });
         }
         console.error("Load Balancing API Route error:", error);
-        return NextResponse.json(
+        return scriptSafeJson(
             {
                 success: false,
                 error: errorMessage(error) || "Failed to fetch load balancing metrics",

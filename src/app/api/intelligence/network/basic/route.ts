@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { scriptSafeJson } from "@/lib/scriptSafeJson";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { soloSuscripcionesDelTenant } from "@/lib/scopeDelTenant";
 import { isMockTenant } from "@/lib/mockData";
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
         const tenantId = searchParams.get("tenantId") || request.headers.get("x-tenant-id");
 
         if (!tenantId) {
-            return NextResponse.json({ error: "Falta el parámetro tenantId" }, { status: 400 });
+            return scriptSafeJson({ error: "Falta el parámetro tenantId" }, { status: 400 });
         }
 
         const isMockParam = searchParams.get("mock") === "true";
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
         // ✅ PASO 1: Check de Mock PRIMERO (sin autenticación OAuth)
         if (isMock) {
             const mockData = getMockBasicNetworkingResponse(tenantId);
-            return NextResponse.json(mockData);
+            return scriptSafeJson(mockData);
         }
 
         // ✅ PASO 2: Autenticación estricta SOLO para tenants reales
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
             await requireTenantAccess(request, tenantId);
         } catch (e) {
             if (e instanceof AuthError) {
-                return NextResponse.json({ error: e.message }, { status: e.status });
+                return scriptSafeJson({ error: e.message }, { status: e.status });
             }
             throw e;
         }
@@ -59,12 +60,12 @@ export async function GET(request: NextRequest) {
             600
         );
 
-        return NextResponse.json(data);
+        return scriptSafeJson(data);
     } catch (error: unknown) {
         if (error instanceof AuthError) {
-            return NextResponse.json({ error: error.message }, { status: error.status });
+            return scriptSafeJson({ error: error.message }, { status: error.status });
         }
         console.error("[network/basic] error:", error);
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+        return scriptSafeJson({ error: "Internal server error" }, { status: 500 });
     }
 }
