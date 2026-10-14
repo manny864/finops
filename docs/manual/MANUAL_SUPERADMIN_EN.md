@@ -19,6 +19,7 @@
 
 Everything that changed for a tenant's user is in the **User Manual** and is included here in sections 3 to 12 (Perspectives and team scope, Leaderboard and gross margin, report subscriptions, fiscal year and budget rollover, end of support, Shift-Left, Cosmos DB, egress and link capacity, Azure Virtual Desktop, Storage, Marketplace, mobile app). What changed on the platform-operations side:
 
+- **Refunds and cancellation requests (8.4.3, 8.4.4, 14.2 and 14.3):** the customer requests a **prorated** refund of a charge within 7 days and the SuperAdmin can do it with no window and also **in full**; once approved, the service ends and commissions are adjusted. A cancellation that does not run on its own becomes a **request** that the SuperAdmin approves or rejects, with an email notice.
 - **Affiliate Program with its own partner panel (17):** the affiliate enters with a personal read-only link, without an account in any tenant; a referral's commission lasts **the first year** of each client (12 months counted from their first charge) and not forever.
 - **Attributing a customer to an affiliate manually (17.2):** for a customer an affiliate brought in who signed up without the link. The signup rules apply, it isn't retroactive, and who made it is recorded.
 - **Welcome email to the affiliate (17.1):** on creation they receive their name, their referral link and the link to their dashboard.
@@ -1314,6 +1315,27 @@ At the top you'll see your current usage: *"You are using 3 of 3 Azure subscript
 If the card shows *"Online purchase is not available"*, your account has no active paid subscription (for example, you're on a trial or your plan is managed commercially). Reach out and we'll sort it out.
 
 
+#### 8.4.3. Requesting a refund for a charge
+
+In **Administration → Billing**, next to the invoice history, the **Refunds** button opens the list of your charges (the latest 50). It is visible to the tenant's **Owner** and **Admins**.
+
+1. Each charge shows its **date**, the **item** (*Plan* or *Module: name*), the **amount**, **how much would be refunded today** ("X of Y days used") and its **status**: *Charged*, *Refund in progress* or *Refunded*.
+2. You can request a refund for a charge **within 7 days** of it being made. For an older one, write to support; the charge shows as *Outside the 7-day window*.
+3. The refund is **prorated**: you get back the part of the period you **did not use**. Days used are counted from the payment to your request, and any fraction of a day counts as a used day (asking after 3 hours already counts as 1 day). The amount includes the charge's taxes.
+4. Press **Refund**, write the **reason** (at least 5 characters; it is recorded in Paddle and in the audit log) and confirm with **Request the prorated refund of X**.
+
+> ⚠️ **Once the refund is approved, the service ends**, because what is returned is the unused time: a **module** is switched off, and if it was the **last charge of your plan**, access is cut immediately and the subscription is cancelled. A charge earlier than the latest one cuts nothing: that period has already been used.
+
+**How long it takes.** The request stays as *Refund in progress* while Paddle reviews it (on live accounts a person usually reviews it). When approved, the charge becomes *Refunded* and the effects above are applied. If Paddle **rejects** it, the charge goes back to *Charged* and you can request it again. While one is in progress you cannot request another refund for the same charge.
+
+**When it is not possible:** *Already refunded*, *Refund in progress*, *Outside the window*, *Not charged* (only completed charges are refunded), *Period already used* (nothing left to return) or *Period cannot be calculated*.
+
+#### 8.4.4. Cancelling your subscription
+
+In **Billing**, the **Cancel subscription** button requests the cancellation **at the end of the period you already paid**: you keep the service until that date and the button changes to *Cancellation scheduled*.
+
+If your account **cannot be cancelled automatically** (it is managed by contract, it is billed through the Azure Marketplace, or Paddle could not register the cancellation), your request **is not lost and does not return an error**: it becomes a **cancellation request** that our team reviews. You see the notice *"Your cancellation request is under review"* and the **Cancellation under review** badge; your subscription **stays active** and the button is disabled until it is resolved. You receive an **email** when it is approved or rejected (with the reason if rejected).
+
 ### 8.5. Notification Configuration (`/admin/notifications`, Professional+)
 
 Three supported channels: **Slack**, **Microsoft Teams**, **Email (SMTP)**. Besides the alerts you configure, these channels also receive automatic platform notices, such as **reservation expiry** at 90, 60 and 30 days (5.4.4).
@@ -1791,6 +1813,25 @@ Above the table you can pick **Activations** or **Cancellations** and set a date
 
 **Export CSV** downloads exactly what you're seeing — filters applied — including a **tenure in months** column (activation → cancellation, or activation → today if still active). It's built for the accounting report: opens correctly in Excel, with proper accents.
 
+
+### 14.2 Refunds for a tenant
+
+In **Tenants**, each row's **Refunds** button opens that customer's charges. It works like the customer's one (8.4.3) with two differences: there is **no 7-day window** (you can refund any charge) and, besides the prorated one, you can tick **Full refund of the charge (X), no proration**. Only a SuperAdmin on a corporate domain can request the full refund; for a charge whose period cannot be calculated, the full refund is the only option.
+
+- **The refund is requested from Paddle and the effects arrive when Paddle approves it** (webhook): the charge becomes *Refunded*, a module is switched off and, if it was the last charge of the plan, access is cut and the subscription is cancelled. The same happens with a refund made by hand in the Paddle dashboard.
+- **Commissions.** A **full** refund reverses the affiliate's and the sales rep's commission; a **prorated** one reduces it in the same proportion. If the commission **was already paid** it is not touched: it is annotated to be deducted from the next settlement. While a refund is *in progress*, that charge's commissions are **kept out of payout runs**.
+- **Requirement:** this environment's Paddle API key needs the `adjustment.write` permission.
+- Everything is recorded in the tenant's **audit log** (`REFUND_REQUESTED` when requested, `REFUND_APPLIED` when applied).
+
+### 14.3 Cancellation requests
+
+When a customer cancels and the cancellation **cannot run on its own** — no Paddle subscription (manual sign-up or Enterprise), billed through the Azure Marketplace, or Paddle rejected the request — nothing would execute it, so it becomes a **pending request** and you get an **email** (to `INTERNAL_CANCELLATION_ALERT_EMAIL`, or `AZURE_RECIPIENT_EMAIL` if unset). If nobody answers, the email **repeats every 3 days**. The customer keeps the service and sees the request *under review*.
+
+In **Tenants**, the **Cancellations** button (with a pending counter) opens the list, pending first. Each request shows the tenant, the plan, who asked, **why it is not automatic** and how many of the sales rep's **commission instalments** (and how much) the cancellation would cancel. **Review** opens the decision:
+
+- **Reject:** the note is **mandatory** (at least 5 characters) and is sent to the customer. Nothing else changes.
+- **Approve and run the cancellation:** with a Paddle subscription, it cancels it **at the end of the period** (if Paddle rejects it again, the request stays pending and you see the error; the *I already cancelled the subscription by hand in Paddle* box avoids asking Paddle again). Without a Paddle subscription, it records the cancellation here, cuts the not-yet-due commission instalments and sets how long the tenant keeps access (*Access until*; **mandatory** if the tenant has no access date, because without it the cancellation would leave it without service instantly).
+- Two SuperAdmins cannot resolve the same request at once. Everything is recorded in the audit log and the customer receives an email with the outcome.
 
 ## 15. Azure Marketplace
 

@@ -6229,3 +6229,136 @@ un `payment_failed`, que queda afuera; orden y moneda). `selectColumnasExisten.t
 **Tests.** `demoLeadTier.test.ts` (acepta los tres, descarta `enterprise` en minúscula, HTML y objetos con `toString`). **Sin
 verificar:** el envío real del formulario (reCAPTCHA y el mail por Graph); en el navegador sólo se comprobó que los tres botones
 muestran «Solicitar Demo» y que el primero abre el formulario sin cambiar de URL.
+
+## 50. Addendum 2026-10-13 — Reembolsos desde la plataforma y solicitudes de cancelación
+
+Cuatro commits (`7cca5cb`, `39c358a`, `c1f7917`, `0941637`) y la migración `20261013-035-solicitudes-de-cancelacion.sql`. El contrato
+de Paddle (`POST /adjustments`, `POST /subscriptions/{id}/cancel`) y el resumen operativo están en `docs/paddle-billing.md`; acá, las
+firmas, las fórmulas y los estados.
+
+### 50.1 Reembolsos: `src/services/refunds.service.ts`
+
+El servicio **pide** el reembolso a Paddle; los **efectos** los aplica el webhook cuando Paddle lo aprueba. Así quedan cubiertos
+también los reembolsos hechos a mano en el panel de Paddle y los que nacen `pending_approval` y se rechazan después.
+
+| Función | Contrato |
+|---|---|
+| `calcularProrrateo({ billedAt, periodo, lineas, ahora })` | Pura. `diasPeriodo = round((fin − inicio) / 86.400.000)`; `diasUsados = max(0, ceil((ahora − billedAt) / 86.400.000))`. Si `diasUsados ≥ diasPeriodo` → `periodo-agotado`; sin período o sin líneas → `sin-periodo`. Por línea: `floor(totalMinor × (diasPeriodo − diasUsados) / diasPeriodo)`, nunca más de lo cobrado. |
+| `datosDelCobro(rawEvent, addon?)` | Líneas (`details.line_items[].id` `txnitm_…` y `totals.total` en unidad menor) y período (`billing_period` del `transaction.completed` guardado en `raw_event`; si no viene —cobro único— la vigencia del pase: `TenantAddons.starts_at..expires_at`). |
+| `listarCobros(tenantId, esSuperAdmin)` | Hasta 50 cobros `completed`/`refund_pending`/`refunded`, con `reembolsable`, `motivo?`, `prorrateo?` y `motivoProrrateo?`. |
+| `solicitarReembolso(p)` | Valida motivo (5–500), modo y rol; reserva el cobro con `UPDATE … SET status='refund_pending' WHERE id=? AND status='completed'` (atómico: dos pedidos no mandan dos reembolsos); llama a Paddle (timeout 20 s); si Paddle falla, **libera** el cobro. Audita `REFUND_REQUESTED`. |
+| `liberarReembolsoRechazado(txn)` | `refund_pending` → `completed`. Idempotente. |
+| `aplicarReembolsoAprobado(txn, { soloSiPedido? })` | Marca `refunded`; revoca el módulo (y cancela su suscripción de Paddle **antes** de tocar la fila, para que un reintento del webhook la encuentre); si es el **último** cobro de la suscripción del tenant, `access_until = NOW()` y cancela en Paddle. Un 5xx de Paddle lanza (el webhook contesta 500 y Paddle reintenta); un 4xx se registra. Audita `REFUND_APPLIED`. |
+
+```ts
+type ModoReembolso = "proporcional" | "total";               // total: sólo SuperAdmin (corporativo + rol SUPERADMIN)
+type MotivoNoReembolsable = "ya-reembolsado" | "en-proceso" | "fuera-de-ventana"
+                          | "no-cobrado" | "periodo-agotado" | "sin-periodo";
+const VENTANA_REEMBOLSO_DIAS = 7;                            // Admin/Owner; el SuperAdmin no tiene ventana
+```
+
+Cuerpo a Paddle: `{ action: "refund", transaction_id, reason: "[email] motivo", type: "full" }` o
+`{ …, type: "partial", items: [{ item_id, type: "partial", amount }] }` (monto en unidad menor, impuestos incluidos).
+
+Estados de `BillingTransactions.status`: `completed` → `refund_pending` (pedido) → `refunded` (aprobado) **o** de vuelta a
+`completed` (rechazado). No hay tabla nueva: el pedido y el efecto quedan en `AuditTrailLogs`.
+
+**Un reembolso proporcional aprobado termina el servicio**; uno parcial hecho a mano en Paddle (el cobro no está `refund_pending`) sólo
+ajusta comisiones: `aplicarReembolsoAprobado(txn, { soloSiPedido: true })` no hace nada si el cobro no lo pedimos nosotros.
+
+**Rutas.** `GET /api/billing/refunds?tenantId=` y `POST /api/billing/refunds { tenantId, transactionId, reason, modo? }`: Admin/Owner del
+tenant o SuperAdmin; `transactionId` con forma `^txn_[a-z0-9]{26}$`; 5 pedidos/min por `(tenant, usuario)`
+(`rateLimiter.checkByKeyDistributed`); un tenant demo no tiene cobros. Errores con `status` (400/403/404/409/502).
+
+### 50.2 Webhook de Paddle (`handleAdjustment`) y comisiones
+
+| Ajuste | Efecto |
+|---|---|
+| `refund`/`chargeback` `approved` **total** | `revertirComision` + `aplicarReembolsoAprobado(txn)`; si algo lanza, el POST contesta 500 y Paddle reintenta (todo idempotente). |
+| `refund` `approved` **parcial** | `ajustarComisionesPorReembolsoParcial` + `aplicarReembolsoAprobado(txn, { soloSiPedido: true })`. |
+| `refund` `rejected` | `liberarReembolsoRechazado(txn)`. |
+
+`ajustarComisionesPorReembolsoParcial({ transactionId, adjustmentId, subtotalReembolsado })` (`commissions.service.ts`): la base de la
+comisión es el subtotal **pre-impuestos**, y el reembolso se mide en la misma unidad (`totals.subtotal` del ajuste), así que
+`base_nueva = max(base − reembolsado, 0)` y `monto = calcularMonto(base_nueva, commission_pct)`. Base cero → `REVERSED`. Sólo toca
+`PENDING`/`DUE`/`APPROVED`; una `PAID` queda con una nota para descontar de la liquidación siguiente (`pagadasARevisar`). Idempotente
+por ajuste: cada fila lleva la marca `[adj_…]` en `notes`; dos ajustes distintos sobre el mismo cobro se acumulan.
+
+`payoutRuns.service` excluye de la previsualización y de la corrida toda comisión cuyo cobro está `refund_pending`
+(`NOT EXISTS (SELECT 1 FROM BillingTransactions … status = 'refund_pending')`): si se pagara y Paddle aprobara después, ya no se podría
+revertir con un `UPDATE`.
+
+**La suscripción de un módulo no es el plan.** `subscription.canceled` de un add-on (`custom_data.addon_key`) llama a
+`TenantAddonsService.cancelRecurringAddon` y no toca al tenant; `subscription.past_due` de un add-on no lo suspende. Antes, cancelar o
+reembolsar un módulo pasaba **todo el tenant** a `CANCELED`, cortaba sus comisiones por churn y avisaba una baja.
+`recordTenantLifecycleTransition` llama a `cancelarComisionesPorChurn` en **toda** baja (`CANCELED`/`EXPIRED`), sea cual sea la vía.
+
+### 50.3 Solicitudes de cancelación: `src/services/cancellationRequests.service.ts`
+
+`cancelTenantSubscription` pide la baja a **Paddle** (`next_billing_period`) **antes** de marcar `cancel_at_period_end`; antes sólo
+marcaba y Paddle seguía cobrando. Si la baja **no se puede ejecutar sola**, el pedido del cliente no se pierde: crea una solicitud y
+responde `{ success: true, pendingApproval: true }`.
+
+```ts
+type MotivoSolicitud = "no-paddle-subscription"   // alta manual o Enterprise
+                     | "azure-marketplace"        // marketplace_source = azure_marketplace
+                     | "paddle-rejected";         // Paddle rechazó o no respondió (el detalle queda en `detail`)
+type EstadoSolicitud = "PENDING" | "APPROVED" | "REJECTED";
+```
+
+```sql
+CREATE TABLE CancellationRequests (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tenant_id VARCHAR(255) NOT NULL COLLATE utf8mb4_unicode_ci,   -- FK a Tenants, ON DELETE CASCADE
+  requested_by VARCHAR(255) NOT NULL,
+  reason_code ENUM('no-paddle-subscription','azure-marketplace','paddle-rejected') NOT NULL,
+  detail VARCHAR(1000) NULL,
+  status ENUM('PENDING','APPROVED','REJECTED') NOT NULL DEFAULT 'PENDING',
+  effective_date DATE NULL, resolved_by VARCHAR(255) NULL, resolved_at TIMESTAMP NULL,
+  resolution_note VARCHAR(1000) NULL, last_reminded_at TIMESTAMP NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_cancellation_tenant_status (tenant_id, status), KEY idx_cancellation_status_created (status, created_at)
+);
+```
+
+| Función | Contrato |
+|---|---|
+| `crearSolicitud({ tenantId, requestedBy, reasonCode, detail? })` | **Una sola `PENDING` por tenant**: `INSERT … SELECT … FROM DUAL WHERE NOT EXISTS (… status='PENDING')` (no hay índice único: MySQL no admite `CASCADE` en la FK de la columna base de una columna generada). Devuelve `{ id, creada }`; si creó, audita `CANCELLATION_REQUEST_CREATED` y avisa al SuperAdmin. |
+| `reintentarSiHuboBloqueo(op, intentos = 6)` | El `NOT EXISTS` toma bloqueos de hueco y MySQL aborta uno de dos pedidos simultáneos del mismo tenant (errno 1213/1205). Medido contra 8.0: **86 deadlocks en 750 pedidos** (30 por tenant) antes de reintentar; al reintentar, el ganador ya existe. Espera `10·i + rand(25)` ms. |
+| `listarSolicitudes(estado?)` | Hasta 100, pendientes primero, con plan, `tienePaddle` y `cuotasPendientes`/`montoPendiente` (cuotas `PENDING` del comercial que la baja cancelaría). |
+| `tieneSolicitudPendiente(tenantId)` | Alimenta `TenantBillingDetails.cancellationPending` (el panel muestra «Cancelación en revisión»). |
+| `resolverSolicitud({ id, decision, actor, nota?, fechaEfectiva?, omitirPaddle? })` | **Rechazar**: nota ≥ 5 caracteres, avisa al cliente, no toca nada más. **Aprobar**: con Paddle, cancela `next_billing_period` (si Paddle rechaza, la solicitud **vuelve a `PENDING`** y el error llega al SuperAdmin; `omitirPaddle` es la salida si la canceló a mano); sin Paddle, `cancel_at_period_end = TRUE`, `access_until = fechaEfectiva 23:59:59` y `recordTenantLifecycleTransition(…, "CANCELED", { reason: "voluntary_churn" })`. Sin Paddle y sin `access_until`, `fechaEfectiva` es obligatoria. La solicitud se toma con `UPDATE … WHERE id=? AND status='PENDING'` **antes** de ejecutar: dos SuperAdmin a la vez no la ejecutan dos veces. |
+| `recordarSolicitudesPendientes()` | Reenvía el aviso de las `PENDING` con más de `DIAS_ENTRE_RECORDATORIOS = 3` días desde el pedido o el último recordatorio (máx. 50). Lo llama `cron/subscription-expiry` (sin cron propio); un fallo no tumba el vencimiento. Devuelve `cancellationRemindersSent` en la respuesta del cron. |
+
+**Rutas (SuperAdmin).** `GET /api/superadmin/cancellation-requests?status=` y
+`POST /api/superadmin/cancellation-requests/{id} { decision: "approve"|"reject", note?, effectiveDate?, skipPaddle? }`.
+Correos: `getCancellationApprovalRequestEmailHtml` (al `correoInternoDeCancelaciones()`: `INTERNAL_CANCELLATION_ALERT_EMAIL`, luego
+`AZURE_RECIPIENT_EMAIL`, luego `sales@cscloudsolutions.com.ar`) y `getCancellationResolvedEmailHtml` (al solicitante).
+
+### 50.4 Interfaz
+
+| Pantalla | Cambio |
+|---|---|
+| `BillingPanel` (`/admin/billing`) | Botón **Reembolsos** en el encabezado del historial (no en demo) → `RefundsDialog`. Con `cancellationPending`: insignia ámbar «Cancelación en revisión», aviso y botón de cancelar deshabilitado; la respuesta con `pendingApproval` muestra «Recibimos tu solicitud…», no «programada». |
+| `RefundsDialog` (`components/billing/`) | Lista de cobros con fecha, concepto (Plan / Módulo), monto, «Se devuelve», «X de Y días usados» y estado; al elegir uno pide el motivo y confirma el proporcional. Para el SuperAdmin agrega la opción de reembolso **total** (y es la única cuando no hay prorrateo). |
+| `TenantManagementPanel` (SuperAdmin) | Botón **Reembolsos** por fila y botón **Cancelaciones** con el contador de pendientes → `CancellationRequestsDialog` (nota, «Acceso hasta», «Ya cancelé la suscripción a mano en Paddle», Aprobar / Rechazar). |
+| i18n | Namespaces `Refunds` y `CancellationRequests` y claves `AdminBilling.cancelPendingBanner`, `cancelRequested` y `cancellationInReview`, en es, en y pt-BR. |
+
+### 50.5 La auditoría que no dejaba rastro
+
+`registrarAuditoria(tenantId, evento, actor, descripcion)` (`src/lib/auditTrail.ts`) escribe en **`AuditTrailLogs`** (texto completo en
+`metadata_json.descripcion`; `resource_target_name` lleva el principio, la columna es de 255). Antes, los reembolsos, las cancelaciones y
+su solicitud escribían en `SecurityAuditTrail`, que **no tiene DDL en ninguna migración**: cada `INSERT` fallaba, el `catch` lo tragaba y
+no quedaba nada. Lo mostró correr el flujo contra un MySQL real (el mismo patrón que `SaaSInvoices`, 49.1). Es best-effort: un fallo de
+auditoría no tira abajo la operación, pero deja un `warn`. Eventos: `REFUND_REQUESTED`, `REFUND_APPLIED`,
+`CANCELLATION_REQUEST_CREATED/APPROVED/REJECTED`, `SUBSCRIPTION_CANCEL_REQUESTED`.
+
+### 50.6 Verificación
+
+Tests unitarios por servicio, ruta y diálogo (`refundsService`, `refundsRoute`, `refundsDialog`, `cancellationRequestsService`,
+`cancellationRequestsRoutes`, `cancellationRequestsDialog`, `comisionesReembolsoParcial`, `paddleWebhookReembolsos`) y, **contra MySQL
+real** (8.0 y 8.4), `reembolsosYCancelacionesSqlReal.test.ts` (prorrateo sobre el `raw_event` guardado, ajuste de comisiones,
+retención en la corrida de pago, churn en la baja, solicitudes) y `concurrenciaReembolsosYCancelacionesReal.test.ts` (pedidos
+simultáneos: una solicitud por tenant, un reembolso por cobro, una aprobación, y **sin errores de base**). Ambos se saltean sin `DB_PORT`
+(ver `docs/testing.md`). **Sin verificar:** un reembolso real contra Paddle en vivo (la API key necesita `adjustment.write`; el sandbox
+aprueba cada diez minutos) y la llegada del correo al SuperAdmin.

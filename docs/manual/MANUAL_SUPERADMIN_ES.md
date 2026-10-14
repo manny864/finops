@@ -19,6 +19,7 @@
 
 Todo lo que cambió para el usuario de un tenant está en el **Manual de Usuario** y se incluye acá en las secciones 3 a 12 (Perspectives y alcance por equipo, Leaderboard y margen bruto, suscripciones a reportes, año fiscal y arrastre de presupuesto, fin de soporte, Shift-Left, Cosmos DB, egress y capacidad de enlaces, Azure Virtual Desktop, Almacenamiento, Marketplace, app móvil). Lo que cambió del lado de la operación de la plataforma:
 
+- **Reembolsos y solicitudes de cancelación (8.4.3, 8.4.4, 14.2 y 14.3):** el cliente pide el reembolso **proporcional** de un cobro dentro de 7 días y el SuperAdmin puede hacerlo sin ventana y también **total**; al aprobarse, el servicio termina y las comisiones se ajustan. Una cancelación que no se ejecuta sola queda como **solicitud** que el SuperAdmin aprueba o rechaza, con aviso por correo.
 - **Programa de Afiliados con panel propio para el partner (17):** el afiliado entra con un enlace personal de sólo lectura, sin cuenta de ningún tenant; la comisión de un referido dura **el primer año** de cada cliente (12 meses corridos desde su primer cobro) y no para siempre.
 - **Atribuir un cliente a un afiliado a mano (17.2):** para el que trajo un afiliado y se registró sin el link. Rigen las reglas del alta, no es retroactiva y queda registrado quién la hizo.
 - **Mail de bienvenida al afiliado (17.1):** al darlo de alta le llegan su nombre, su link de referido y el enlace a su panel.
@@ -1318,6 +1319,27 @@ Si la tarjeta muestra *"La contratación en línea no está disponible"*, es por
 
 
 
+#### 8.4.3. Pedir el reembolso de un cobro
+
+En **Administración → Facturación**, junto al historial de facturas, el botón **Reembolsos** abre la lista de tus cobros (los últimos 50). Lo ven el **Owner** y los **Admin** del tenant.
+
+1. Cada cobro muestra su **fecha**, el **concepto** (*Plan* o *Módulo: nombre*), el **monto**, **cuánto se devolvería hoy** («X de Y días usados») y su **estado**: *Cobrado*, *Reembolso en proceso* o *Reembolsado*.
+2. Podés pedir el reembolso de un cobro **dentro de los 7 días** de haberse hecho. Para uno anterior, escribí a soporte; el cobro aparece como *Fuera de la ventana de 7 días*.
+3. El reembolso es **proporcional**: se devuelve la parte del período que **no usaste**. Los días usados se cuentan desde el pago hasta tu pedido, y cualquier fracción de día cuenta como día usado (pedirlo a las 3 horas ya cuenta 1 día). El importe incluye los impuestos del cobro.
+4. Presioná **Reembolsar**, escribí el **motivo** (mínimo 5 caracteres; queda registrado en Paddle y en la auditoría) y confirmá con **Pedir el reembolso proporcional de X**.
+
+> ⚠️ **Al aprobarse el reembolso, el servicio termina**, porque lo que se devuelve es el tiempo no usado: si era un **módulo**, se da de baja; si era el **último cobro de tu plan**, el acceso se corta de inmediato y la suscripción se cancela. Un cobro anterior al último no corta nada: ese período ya se usó.
+
+**Cuánto tarda.** El pedido queda en *Reembolso en proceso* mientras Paddle lo revisa (en cuentas reales suele revisarlo una persona). Cuando lo aprueba, el cobro pasa a *Reembolsado* y se aplican los efectos de arriba. Si Paddle lo **rechaza**, el cobro vuelve a *Cobrado* y podés pedirlo de nuevo. Mientras está en proceso no se puede pedir otro reembolso del mismo cobro.
+
+**Cuándo no se puede:** *Ya reembolsado*, *Reembolso en proceso*, *Fuera de la ventana*, *No cobrado* (sólo se reembolsan cobros completados), *Período ya usado* (no queda nada que devolver) o *No se puede calcular el período*.
+
+#### 8.4.4. Cancelar tu suscripción
+
+En **Facturación**, el botón **Cancelar suscripción** pide la baja **al final del período ya pago**: seguís con el servicio hasta esa fecha y el botón pasa a *Cancelación programada*.
+
+Si tu cuenta **no se puede dar de baja sola** (se gestiona por contrato, factura por el marketplace de Azure, o Paddle no pudo registrar la baja), tu pedido **no se pierde ni da error**: queda como **solicitud de cancelación** que revisa nuestro equipo. Ves el aviso *«Tu solicitud de cancelación está en revisión»* y la insignia **Cancelación en revisión**; tu suscripción **sigue activa** y el botón queda deshabilitado hasta que se resuelva. Te llega un **correo** cuando la aprueban o la rechazan (si la rechazan, con el motivo).
+
 ### 8.5. Configuración de Notificaciones (`/admin/notifications`, Professional+)
 
 Tres canales soportados: **Slack**, **Microsoft Teams**, **Email (SMTP)**. Además de las alertas que configurás, por estos canales llegan avisos automáticos de la plataforma, como el **vencimiento de reservas** a 90, 60 y 30 días (5.4.4).
@@ -1796,6 +1818,25 @@ Arriba de la tabla podés elegir **Altas** o **Bajas** y acotar un rango de fech
 
 **Exportar CSV** baja exactamente lo que estás viendo —con los filtros aplicados— e incluye una columna de **permanencia en meses** (alta → baja, o alta → hoy si sigue vigente). Está pensado para el informe contable: se abre bien en Excel, con acentos correctos.
 
+
+### 14.2 Reembolsos de un tenant
+
+En **Tenants**, el botón **Reembolsos** de cada fila abre los cobros de ese cliente. Funciona como el del cliente (8.4.3) con dos diferencias: **no hay ventana de 7 días** (podés reembolsar cualquier cobro) y, además del proporcional, podés marcar **Reembolso total del cobro (X), sin prorrateo**. Sólo un SuperAdmin con dominio corporativo puede pedir el total; para un cobro del que no se puede calcular el período, el total es la única opción.
+
+- **El reembolso se pide a Paddle y los efectos llegan cuando Paddle lo aprueba** (webhook): el cobro pasa a *Reembolsado*, un módulo se da de baja y, si era el último cobro del plan, se corta el acceso y se cancela la suscripción. Lo mismo ocurre con un reembolso hecho a mano en el panel de Paddle.
+- **Comisiones.** Un reembolso **total** revierte la comisión del afiliado y del comercial; uno **proporcional** la reduce en la misma proporción. Si la comisión **ya estaba pagada** no se toca: queda anotada para descontarla de la liquidación siguiente. Mientras un reembolso está *en proceso*, las comisiones de ese cobro **quedan fuera de las corridas de pago**.
+- **Requisito:** la API key de Paddle de este entorno necesita el permiso `adjustment.write`.
+- Todo queda en la **auditoría** del tenant (`REFUND_REQUESTED` al pedirlo, `REFUND_APPLIED` al aplicarse).
+
+### 14.3 Solicitudes de cancelación
+
+Cuando un cliente cancela y la baja **no se puede ejecutar sola** —no tiene suscripción de Paddle (alta manual o Enterprise), factura por el marketplace de Azure, o Paddle rechazó el pedido— nada la ejecutaría, así que queda como **solicitud pendiente** y te llega un **correo** (a `INTERNAL_CANCELLATION_ALERT_EMAIL`, o a `AZURE_RECIPIENT_EMAIL` si no está definido). Si nadie responde, el correo se **repite cada 3 días**. El cliente conserva el servicio y ve su pedido *en revisión*.
+
+En **Tenants**, el botón **Cancelaciones** (con un contador de pendientes) abre la lista, con las pendientes primero. Cada solicitud muestra el tenant, el plan, quién la pidió, **por qué no es automática** y cuántas **cuotas de comisión del comercial** (y por cuánto) se cancelarían con la baja. **Revisar** abre la decisión:
+
+- **Rechazar:** la nota es **obligatoria** (mínimo 5 caracteres) y se le envía al cliente. No cambia nada más.
+- **Aprobar y ejecutar la baja:** con suscripción de Paddle, la cancela **al final del período** (si Paddle la vuelve a rechazar, la solicitud sigue pendiente y ves el error; la casilla *Ya cancelé la suscripción a mano en Paddle* evita volver a pedírselo). Sin suscripción de Paddle, registra la baja acá, corta las cuotas de comisión no exigibles y fija hasta cuándo conserva el acceso (*Acceso hasta*; **obligatorio** si el tenant no tiene fecha de acceso, porque sin ella la baja lo dejaría sin servicio al instante).
+- Dos SuperAdmin no pueden resolver la misma solicitud a la vez. Todo queda en la auditoría y el cliente recibe un correo con el resultado.
 
 ## 15. Azure Marketplace
 

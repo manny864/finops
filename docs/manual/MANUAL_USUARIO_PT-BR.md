@@ -1217,6 +1217,27 @@ No topo você vê quanto está usando: *"Você está usando 3 de 3 assinaturas d
 Se o cartão mostrar *"A contratação on-line não está disponível"*, é porque sua conta não tem assinatura paga ativa (por exemplo, em trial ou com plano gerenciado comercialmente). Entre em contato que resolvemos.
 
 
+#### 8.4.3. Pedir o reembolso de uma cobrança
+
+Em **Administração → Faturamento**, ao lado do histórico de faturas, o botão **Reembolsos** abre a lista das suas cobranças (as últimas 50). Quem vê são o **Owner** e os **Admin** do tenant.
+
+1. Cada cobrança mostra a **data**, o **item** (*Plano* ou *Módulo: nome*), o **valor**, **quanto seria devolvido hoje** («X de Y dias usados») e o **status**: *Cobrado*, *Reembolso em andamento* ou *Reembolsado*.
+2. Você pode pedir o reembolso de uma cobrança **dentro de 7 dias** depois de ela ser feita. Para uma anterior, escreva ao suporte; a cobrança aparece como *Fora da janela de 7 dias*.
+3. O reembolso é **proporcional**: devolve-se a parte do período que você **não usou**. Os dias usados contam do pagamento até o seu pedido, e qualquer fração de dia conta como dia usado (pedir depois de 3 horas já conta 1 dia). O valor inclui os impostos da cobrança.
+4. Pressione **Reembolsar**, escreva o **motivo** (mínimo 5 caracteres; fica registrado no Paddle e na auditoria) e confirme com **Solicitar o reembolso proporcional de X**.
+
+> ⚠️ **Quando o reembolso é aprovado, o serviço termina**, porque o que se devolve é o tempo não usado: se era um **módulo**, ele é desativado; se era a **última cobrança do seu plano**, o acesso é cortado imediatamente e a assinatura é cancelada. Uma cobrança anterior à última não corta nada: esse período já foi usado.
+
+**Quanto demora.** O pedido fica como *Reembolso em andamento* enquanto o Paddle o revisa (em contas reais costuma revisar uma pessoa). Quando ele aprova, a cobrança passa a *Reembolsado* e os efeitos acima são aplicados. Se o Paddle **rejeita**, a cobrança volta a *Cobrado* e você pode pedir de novo. Enquanto há um em andamento, não é possível pedir outro reembolso da mesma cobrança.
+
+**Quando não é possível:** *Já reembolsado*, *Reembolso em andamento*, *Fora da janela*, *Não cobrado* (só se reembolsam cobranças concluídas), *Período já usado* (não resta nada a devolver) ou *Não é possível calcular o período*.
+
+#### 8.4.4. Cancelar sua assinatura
+
+Em **Faturamento**, o botão **Cancelar assinatura** pede a baixa **ao final do período já pago**: você continua com o serviço até essa data e o botão passa a *Cancelamento programado*.
+
+Se a sua conta **não pode ser cancelada sozinha** (é gerida por contrato, é faturada pelo marketplace da Azure, ou o Paddle não conseguiu registrar a baixa), o seu pedido **não se perde nem dá erro**: vira uma **solicitação de cancelamento** que a nossa equipe revisa. Você vê o aviso *«Sua solicitação de cancelamento está em análise»* e o selo **Cancelamento em análise**; sua assinatura **continua ativa** e o botão fica desabilitado até a resolução. Você recebe um **e-mail** quando ela for aprovada ou rejeitada (com o motivo, se rejeitada).
+
 ### 8.5. Configuração de Notificações (`/admin/notifications`, Professional+)
 
 Três canais suportados: **Slack**, **Microsoft Teams**, **Email (SMTP)**. Além dos alertas que você configura, por esses canais chegam avisos automáticos da plataforma, como o **vencimento de reservas** a 90, 60 e 30 dias (5.4.4).

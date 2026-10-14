@@ -411,6 +411,9 @@
 - [ ] **Método de pago** abre URL de Paddle en nueva tab.
 - [ ] **Historial de facturas** lista `BillingTransactions` (`completed`, `refund_pending`, `refunded`) DESC, máx. 50, cada una en su moneda (USD/EUR) y con su estado; los `payment_failed` no aparecen. «Descargar PDF» respeta la moneda.
 - [ ] **Cancelar suscripción** con confirm; acepta "immediately" o "next period".
+- [ ] **Cancelar sin suscripción de Paddle** (alta manual / Enterprise / marketplace): no da error, muestra «Cancelación en revisión» y deshabilita el botón; llega el correo al SuperAdmin.
+- [ ] **Reembolsos** (botón en el historial): lista los cobros con «Se devuelve» y «X de Y días usados»; un cobro de más de 7 días figura «Fuera de la ventana»; pedir uno proporcional lo pasa a «Reembolso en proceso»; al aprobarse (sandbox: ~10 min) queda «Reembolsado», un módulo se da de baja y, si era el último cobro del plan, se corta el acceso.
+- [ ] **SuperAdmin → Tenants → Reembolsos** permite el reembolso total y no tiene ventana; **Cancelaciones** muestra el contador, rechazar exige nota y aprobar sin Paddle exige «Acceso hasta» si el tenant no tiene fecha.
 
 ### Flujo end-to-end (sandbox)
 - [ ] `/pricing` → **Solicitar Demo** (Professional, Business y Enterprise) abre el formulario sin cambiar de URL; al enviarlo muestra el agradecimiento y el mail a ventas trae «Tier consultado».

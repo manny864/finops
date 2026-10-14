@@ -1217,6 +1217,27 @@ At the top you'll see your current usage: *"You are using 3 of 3 Azure subscript
 If the card shows *"Online purchase is not available"*, your account has no active paid subscription (for example, you're on a trial or your plan is managed commercially). Reach out and we'll sort it out.
 
 
+#### 8.4.3. Requesting a refund for a charge
+
+In **Administration → Billing**, next to the invoice history, the **Refunds** button opens the list of your charges (the latest 50). It is visible to the tenant's **Owner** and **Admins**.
+
+1. Each charge shows its **date**, the **item** (*Plan* or *Module: name*), the **amount**, **how much would be refunded today** ("X of Y days used") and its **status**: *Charged*, *Refund in progress* or *Refunded*.
+2. You can request a refund for a charge **within 7 days** of it being made. For an older one, write to support; the charge shows as *Outside the 7-day window*.
+3. The refund is **prorated**: you get back the part of the period you **did not use**. Days used are counted from the payment to your request, and any fraction of a day counts as a used day (asking after 3 hours already counts as 1 day). The amount includes the charge's taxes.
+4. Press **Refund**, write the **reason** (at least 5 characters; it is recorded in Paddle and in the audit log) and confirm with **Request the prorated refund of X**.
+
+> ⚠️ **Once the refund is approved, the service ends**, because what is returned is the unused time: a **module** is switched off, and if it was the **last charge of your plan**, access is cut immediately and the subscription is cancelled. A charge earlier than the latest one cuts nothing: that period has already been used.
+
+**How long it takes.** The request stays as *Refund in progress* while Paddle reviews it (on live accounts a person usually reviews it). When approved, the charge becomes *Refunded* and the effects above are applied. If Paddle **rejects** it, the charge goes back to *Charged* and you can request it again. While one is in progress you cannot request another refund for the same charge.
+
+**When it is not possible:** *Already refunded*, *Refund in progress*, *Outside the window*, *Not charged* (only completed charges are refunded), *Period already used* (nothing left to return) or *Period cannot be calculated*.
+
+#### 8.4.4. Cancelling your subscription
+
+In **Billing**, the **Cancel subscription** button requests the cancellation **at the end of the period you already paid**: you keep the service until that date and the button changes to *Cancellation scheduled*.
+
+If your account **cannot be cancelled automatically** (it is managed by contract, it is billed through the Azure Marketplace, or Paddle could not register the cancellation), your request **is not lost and does not return an error**: it becomes a **cancellation request** that our team reviews. You see the notice *"Your cancellation request is under review"* and the **Cancellation under review** badge; your subscription **stays active** and the button is disabled until it is resolved. You receive an **email** when it is approved or rejected (with the reason if rejected).
+
 ### 8.5. Notification Configuration (`/admin/notifications`, Professional+)
 
 Three supported channels: **Slack**, **Microsoft Teams**, **Email (SMTP)**. Besides the alerts you configure, these channels also receive automatic platform notices, such as **reservation expiry** at 90, 60 and 30 days (5.4.4).

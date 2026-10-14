@@ -739,7 +739,7 @@ Cada comisión pasa por estos estados, y los ves todos en tu panel:
 | **Cancelada** | Anulada a mano. |
 
 - Las transferencias se arman **por lote**: agrupamos todo lo que te corresponde en un pago, no una transferencia por comisión. Si hay un **mínimo**, el saldo que no lo alcanza se arrastra al pago siguiente.
-- **Si un cliente pide reembolso**, la comisión se anula si todavía no te la liquidamos. Si ya te la pagamos, se descuenta de la liquidación siguiente.
+- **Si un cliente pide reembolso**, la comisión se anula si todavía no te la liquidamos. Si el reembolso es **proporcional** (por el tiempo que no usó), la comisión se **reduce en la misma proporción** y, como lo devuelto es el tiempo no usado, el servicio termina. Si ya te la pagamos, se descuenta de la liquidación siguiente. Mientras el reembolso está en proceso, esa comisión **queda fuera del pago**.
 - Una comisión **Pagada** no se vuelve atrás desde el sistema: una corrección es una operación contable.
 
 **Lo que acordamos al firmar.** Preferimos decirlo ahora y no que lo descubras después. Estas cuatro cosas **no** están fijadas de antemano y se definen con vos en el acuerdo:

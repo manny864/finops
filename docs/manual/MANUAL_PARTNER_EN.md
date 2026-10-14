@@ -747,7 +747,7 @@ Each commission goes through these statuses, and you see all of them in your pan
 | **Cancelled** | Voided by hand. |
 
 - Transfers are put together **in batches**: we group everything owed to you into one payment, not one transfer per commission. If there is a **minimum**, a balance that does not reach it rolls over to the next payment.
-- **If a customer asks for a refund**, the commission is voided if we have not yet settled it with you. If we already paid you, it is deducted from the next settlement.
+- **If a customer asks for a refund**, the commission is voided if we have not yet settled it with you. If the refund is **prorated** (for the time they did not use), the commission is **reduced in the same proportion** and, since what is returned is the unused time, the service ends. If we already paid you, it is deducted from the next settlement. While the refund is in progress, that commission is **held out of the payment**.
 - A **Paid** commission is not reverted from the system: a correction is an accounting operation.
 
 **What we agree on when we sign.** We would rather say it now than have you discover it later. These four things are **not** fixed in advance and are defined with you in the agreement:

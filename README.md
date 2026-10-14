@@ -460,6 +460,23 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-10-13 — Reembolsos desde la plataforma y solicitudes de cancelación
+
+Detalle técnico en `docs/lld/00-lld-completo.md` §50 y operativo en `docs/paddle-billing.md`. Una migración nueva
+(`20261013-035-solicitudes-de-cancelacion.sql`, tabla `CancellationRequests`).
+
+- **Reembolsos.** El Admin/Owner del tenant pide el reembolso **proporcional** de un cobro (la parte del período no usada, dentro de
+  7 días) desde *Facturación → Reembolsos*; el SuperAdmin lo hace desde *Tenants → Reembolsos*, sin ventana y también **total**.
+  Se le pide a Paddle y los efectos llegan por webhook al aprobarse: cobro `refunded`, módulo dado de baja, y si era el último cobro del
+  plan se corta el acceso y se cancela la suscripción. Las comisiones se reducen en la misma proporción (o se revierten) y, mientras el
+  reembolso está en proceso, quedan fuera de las corridas de pago. **La API key de Paddle necesita `adjustment.write`.**
+- **Cancelaciones.** Cancelar ahora se le pide a Paddle (antes sólo se marcaba y Paddle seguía cobrando). Si la baja no se puede
+  ejecutar sola (sin suscripción de Paddle, marketplace de Azure, o Paddle la rechaza) queda una **solicitud** que el SuperAdmin aprueba o
+  rechaza desde *Tenants → Cancelaciones*, con aviso por correo (`INTERNAL_CANCELLATION_ALERT_EMAIL`, y recordatorio cada 3 días); el
+  cliente ve «Cancelación en revisión» y conserva el servicio.
+- **Dos defectos corregidos de paso.** Cancelar o reembolsar la suscripción de un **módulo** pasaba todo el tenant a `CANCELED`; y las
+  auditorías de estos flujos iban a `SecurityAuditTrail`, una tabla sin DDL, así que no dejaban rastro (ahora, `AuditTrailLogs`).
+
 ### 2026-10-13 — El historial de facturas sale de los cobros reales, y «Solicitar Demo» informa el tier
 
 Detalle técnico en `docs/lld/00-lld-completo.md` §49. Sin migraciones.

@@ -1220,6 +1220,27 @@ Si la tarjeta muestra *"La contratación en línea no está disponible"*, es por
 
 
 
+#### 8.4.3. Pedir el reembolso de un cobro
+
+En **Administración → Facturación**, junto al historial de facturas, el botón **Reembolsos** abre la lista de tus cobros (los últimos 50). Lo ven el **Owner** y los **Admin** del tenant.
+
+1. Cada cobro muestra su **fecha**, el **concepto** (*Plan* o *Módulo: nombre*), el **monto**, **cuánto se devolvería hoy** («X de Y días usados») y su **estado**: *Cobrado*, *Reembolso en proceso* o *Reembolsado*.
+2. Podés pedir el reembolso de un cobro **dentro de los 7 días** de haberse hecho. Para uno anterior, escribí a soporte; el cobro aparece como *Fuera de la ventana de 7 días*.
+3. El reembolso es **proporcional**: se devuelve la parte del período que **no usaste**. Los días usados se cuentan desde el pago hasta tu pedido, y cualquier fracción de día cuenta como día usado (pedirlo a las 3 horas ya cuenta 1 día). El importe incluye los impuestos del cobro.
+4. Presioná **Reembolsar**, escribí el **motivo** (mínimo 5 caracteres; queda registrado en Paddle y en la auditoría) y confirmá con **Pedir el reembolso proporcional de X**.
+
+> ⚠️ **Al aprobarse el reembolso, el servicio termina**, porque lo que se devuelve es el tiempo no usado: si era un **módulo**, se da de baja; si era el **último cobro de tu plan**, el acceso se corta de inmediato y la suscripción se cancela. Un cobro anterior al último no corta nada: ese período ya se usó.
+
+**Cuánto tarda.** El pedido queda en *Reembolso en proceso* mientras Paddle lo revisa (en cuentas reales suele revisarlo una persona). Cuando lo aprueba, el cobro pasa a *Reembolsado* y se aplican los efectos de arriba. Si Paddle lo **rechaza**, el cobro vuelve a *Cobrado* y podés pedirlo de nuevo. Mientras está en proceso no se puede pedir otro reembolso del mismo cobro.
+
+**Cuándo no se puede:** *Ya reembolsado*, *Reembolso en proceso*, *Fuera de la ventana*, *No cobrado* (sólo se reembolsan cobros completados), *Período ya usado* (no queda nada que devolver) o *No se puede calcular el período*.
+
+#### 8.4.4. Cancelar tu suscripción
+
+En **Facturación**, el botón **Cancelar suscripción** pide la baja **al final del período ya pago**: seguís con el servicio hasta esa fecha y el botón pasa a *Cancelación programada*.
+
+Si tu cuenta **no se puede dar de baja sola** (se gestiona por contrato, factura por el marketplace de Azure, o Paddle no pudo registrar la baja), tu pedido **no se pierde ni da error**: queda como **solicitud de cancelación** que revisa nuestro equipo. Ves el aviso *«Tu solicitud de cancelación está en revisión»* y la insignia **Cancelación en revisión**; tu suscripción **sigue activa** y el botón queda deshabilitado hasta que se resuelva. Te llega un **correo** cuando la aprueban o la rechazan (si la rechazan, con el motivo).
+
 ### 8.5. Configuración de Notificaciones (`/admin/notifications`, Professional+)
 
 Tres canales soportados: **Slack**, **Microsoft Teams**, **Email (SMTP)**. Además de las alertas que configurás, por estos canales llegan avisos automáticos de la plataforma, como el **vencimiento de reservas** a 90, 60 y 30 días (5.4.4).
