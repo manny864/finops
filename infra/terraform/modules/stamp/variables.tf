@@ -26,6 +26,16 @@ variable "tenant_id" {
   type = string
 }
 
+variable "subscription_id" {
+  type = string
+}
+
+variable "network_flow_logs_enabled" {
+  description = "Habilita VNet Flow Logs y Traffic Analytics sólo para staging y producción."
+  type        = bool
+  default     = false
+}
+
 # --- red ---
 variable "address_space" {
   type = list(string)

@@ -324,6 +324,73 @@ module "storage" {
   tags                          = var.tags
 }
 
+# Flow Logs se gestionan con AzAPI porque la versión actual de AzureRM no expone
+# la identidad administrada del recurso y su implementación de flow log puede
+# reemplazar las reglas de lifecycle existentes en Storage.
+resource "azurerm_user_assigned_identity" "network_flow_logs" {
+  count               = var.network_flow_logs_enabled ? 1 : 0
+  name                = "${var.name_prefix}-${var.project}-${var.environment}-vnet-flowlogs-mi"
+  location            = var.location
+  resource_group_name = module.network.resource_group_name
+  tags                = var.tags
+}
+
+resource "azurerm_role_assignment" "network_flow_logs_storage" {
+  count                = var.network_flow_logs_enabled ? 1 : 0
+  scope                = module.storage.id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = azurerm_user_assigned_identity.network_flow_logs[0].principal_id
+}
+
+resource "time_sleep" "network_flow_logs_rbac_propagation" {
+  count           = var.network_flow_logs_enabled ? 1 : 0
+  depends_on      = [azurerm_role_assignment.network_flow_logs_storage]
+  create_duration = "60s"
+}
+
+resource "azapi_resource" "network_flow_log" {
+  count     = var.network_flow_logs_enabled ? 1 : 0
+  type      = "Microsoft.Network/networkWatchers/flowLogs@2025-07-01"
+  name      = "${local.name_base}-vnet-flowlog"
+  location  = var.location
+  parent_id = "/subscriptions/${var.subscription_id}/resourceGroups/NetworkWatcherRG/providers/Microsoft.Network/networkWatchers/NetworkWatcher_${var.location}"
+
+  body = {
+    identity = {
+      type = "UserAssigned"
+      userAssignedIdentities = {
+        (azurerm_user_assigned_identity.network_flow_logs[0].id) = {}
+      }
+    }
+    properties = {
+      enabled = true
+      format = {
+        type    = "JSON"
+        version = 2
+      }
+      retentionPolicy = {
+        enabled = true
+        days    = 7
+      }
+      storageId        = module.storage.id
+      targetResourceId = module.network.vnet_id
+      flowAnalyticsConfiguration = {
+        networkWatcherFlowAnalyticsConfiguration = {
+          enabled                  = true
+          trafficAnalyticsInterval = 60
+          workspaceId              = module.monitoring.workspace_customer_id
+          workspaceRegion          = var.location
+          workspaceResourceId      = module.monitoring.workspace_id
+        }
+      }
+    }
+  }
+  tags                      = var.tags
+  schema_validation_enabled = false
+
+  depends_on = [time_sleep.network_flow_logs_rbac_propagation]
+}
+
 # IA de plataforma: Azure AI Services con private endpoint y Entra ID. Ver
 # modules/ai_services.
 locals {

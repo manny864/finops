@@ -5,6 +5,10 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 4.0"
     }
+    azapi = {
+      source  = "Azure/azapi"
+      version = "~> 2.0"
+    }
     random = {
       source  = "hashicorp/random"
       version = "~> 3.6"
@@ -52,6 +56,10 @@ provider "azurerm" {
   # (docs/security/endurecimiento-infraestructura-saas-2026-10-09.md, 7.6). Verificado el
   # 2026-10-11 en StorageBlobLogs: con este flag esa llamada entra con OAuth.
   storage_use_azuread = true
+}
+
+provider "azapi" {
+  skip_provider_registration = true
 }
 
 locals {
@@ -157,12 +165,13 @@ module "stamp" {
   source   = "../../modules/stamp"
   for_each = var.stamps
 
-  name_prefix = var.name_prefix
-  project     = var.project
-  environment = var.environment
-  data_region = each.key
-  location    = each.value.location
-  tenant_id   = var.tenant_id
+  subscription_id = var.subscription_id
+  name_prefix     = var.name_prefix
+  project         = var.project
+  environment     = var.environment
+  data_region     = each.key
+  location        = each.value.location
+  tenant_id       = var.tenant_id
 
   zone_redundant = each.value.zone_redundant
 
@@ -248,6 +257,7 @@ module "stamp" {
   security_tables_total_retention_days = each.value.security_tables_total_retention_days
   nat_gateway_enabled                  = each.value.nat_gateway_enabled
   storage_shared_access_key_enabled    = var.storage_shared_access_key_enabled
+  network_flow_logs_enabled            = contains(["prod", "stg"], var.environment)
   alert_email                          = var.alert_email
   monthly_budget_amount                = each.value.monthly_budget_amount
   budget_start_date                    = var.budget_start_date
