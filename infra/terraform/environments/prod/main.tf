@@ -256,6 +256,7 @@ module "stamp" {
   security_tables_retention_days       = each.value.security_tables_retention_days
   security_tables_total_retention_days = each.value.security_tables_total_retention_days
   nat_gateway_enabled                  = each.value.nat_gateway_enabled
+  apps_nsg_block_imds                  = each.value.apps_nsg_block_imds
   storage_shared_access_key_enabled    = var.storage_shared_access_key_enabled
   network_flow_logs_enabled            = contains(["prod", "stg"], var.environment)
   alert_email                          = var.alert_email

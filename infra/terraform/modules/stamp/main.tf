@@ -45,6 +45,7 @@ module "network" {
   tags                = var.tags
 
   nat_gateway_enabled = var.nat_gateway_enabled
+  apps_nsg_block_imds = var.apps_nsg_block_imds
 }
 
 module "private_dns" {

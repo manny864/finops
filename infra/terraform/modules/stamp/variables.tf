@@ -356,6 +356,12 @@ variable "nat_gateway_enabled" {
   default     = false
 }
 
+variable "apps_nsg_block_imds" {
+  description = "NSG en la subred de apps que deniega la salida a IMDS (modules/network/main.tf). Probar primero en staging."
+  type        = bool
+  default     = false
+}
+
 variable "storage_shared_access_key_enabled" {
   description = <<-DESC
     false = la cuenta de Storage de la app rechaza toda solicitud autorizada con la clave de

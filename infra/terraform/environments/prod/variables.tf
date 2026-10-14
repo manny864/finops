@@ -119,6 +119,9 @@ variable "stamps" {
     # NAT Gateway con IP fija de salida (modules/network/main.tf). Cambia la salida de TODO el
     # entorno: ver el runbook "Cerrar el origen" de docs/security/.
     nat_gateway_enabled = optional(bool, false)
+
+    # NSG que deniega la salida de los contenedores a IMDS (AISEC-03, modules/network/main.tf).
+    apps_nsg_block_imds = optional(bool, false)
   }))
 }
 

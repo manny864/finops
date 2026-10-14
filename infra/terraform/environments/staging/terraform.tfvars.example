@@ -54,6 +54,7 @@ stamps = {
 
     monthly_budget_amount = 150
     nat_gateway_enabled   = false # F2.5
+    apps_nsg_block_imds   = false # AISEC-03: true primero acá, verificar y después prod
     custom_domain_enabled = false # F2.3
 
     security_activity_alerts_enabled = false # son de la suscripción: sólo prod

@@ -44,3 +44,9 @@ variable "nat_gateway_idle_timeout_minutes" {
     error_message = "idle_timeout_in_minutes del NAT Gateway va de 4 a 120."
   }
 }
+
+variable "apps_nsg_block_imds" {
+  description = "Asocia a la subred de apps un NSG que deniega la salida a IMDS (service tag AzurePlatformIMDS). Ver main.tf."
+  type        = bool
+  default     = false
+}
