@@ -1,3 +1,5 @@
+import { escapeCssString, escapeHtml } from './escape';
+
 /**
  * pdfReportTemplate.ts — Plantilla Maestra HTML para Compilación de PDF A4
  * con estilos CSS Paged Media, cabeceras/pies de página y formateo ejecutivo.
@@ -12,31 +14,31 @@ export interface RenderPdfReportParams {
 }
 
 export function renderPdfReportHtml(params: RenderPdfReportParams): string {
-    const {
-        organizationName,
-        scopeDisplayName,
-        generationDate,
-        kpiGridHtml,
-        parsedContentHtml,
-    } = params;
+    const { kpiGridHtml, parsedContentHtml } = params;
+    const organizationName = escapeHtml(params.organizationName);
+    const scopeDisplayName = escapeHtml(params.scopeDisplayName);
+    const generationDate = escapeHtml(params.generationDate);
+    const cssOrganizationName = escapeCssString(params.organizationName);
+    const cssGenerationDate = escapeCssString(params.generationDate);
 
     return `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:" />
   <title>Reporte Ejecutivo FinOps · ${organizationName}</title>
   <style>
     @page {
       size: A4 portrait;
       margin: 18mm 15mm 18mm 15mm;
       @top-left {
-        content: "${organizationName} · Reporte Ejecutivo FinOps";
+        content: "${cssOrganizationName} · Reporte Ejecutivo FinOps";
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
         font-size: 8pt;
         color: #64748b;
       }
       @top-right {
-        content: "Generado: ${generationDate}";
+        content: "Generado: ${cssGenerationDate}";
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
         font-size: 8pt;
         color: #64748b;

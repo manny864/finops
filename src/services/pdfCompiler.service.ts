@@ -34,6 +34,28 @@ export async function compileExecutiveReportPdfBuffer(
     return compileHtmlToPdfBuffer(fullHtml, data, rawMarkdown);
 }
 
+type PwBrowser = Awaited<ReturnType<(typeof import('playwright'))['chromium']['launch']>>;
+
+/**
+ * AISEC-03: el HTML incluye texto del LLM. El sandbox de Chromium queda activo salvo que el
+ * contenedor no lo soporte (PDF_CHROMIUM_NO_SANDBOX=true, documentar en el despliegue).
+ */
+export function chromiumArgs(env: NodeJS.ProcessEnv = process.env): string[] {
+    const args = ['--disable-dev-shm-usage'];
+    if (env.PDF_CHROMIUM_NO_SANDBOX === 'true') args.push('--no-sandbox', '--disable-setuid-sandbox');
+    return args;
+}
+
+/** Contexto sin JavaScript, sin service workers y sin red: sólo data:/about:. */
+export async function newIsolatedPage(browser: PwBrowser) {
+    const context = await browser.newContext({ javaScriptEnabled: false, serviceWorkers: 'block' });
+    await context.route('**/*', (route) => {
+        const url = route.request().url();
+        return url.startsWith('data:') || url.startsWith('about:') ? route.continue() : route.abort();
+    });
+    return context.newPage();
+}
+
 /**
  * Compila HTML a PDF Buffer utilizando Playwright si está disponible,
  * o un generador estructurado de respaldo (jsPDF).
@@ -46,13 +68,10 @@ export async function compileHtmlToPdfBuffer(
     try {
         // Intentar compilar con Playwright Chromium
         const { chromium } = await import('playwright');
-        const browser = await chromium.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-        });
+        const browser = await chromium.launch({ headless: true, args: chromiumArgs() });
 
         try {
-            const page = await browser.newPage();
+            const page = await newIsolatedPage(browser);
             await page.setContent(htmlContent, { waitUntil: 'domcontentloaded', timeout: 15000 });
             const pdfUint8 = await page.pdf({
                 format: 'A4',

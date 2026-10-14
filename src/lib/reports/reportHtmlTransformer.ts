@@ -5,7 +5,10 @@
  * Transforma sintaxis Markdown (GFM, tablas con pipes, viñetas, blockquotes) en HTML semántico
  * con clases CSS corporativas (#0078D4 / #0F172A), zebra striping y callouts estilizados.
  */
-import { marked } from 'marked';
+import { marked, type Token } from 'marked';
+import sanitizeHtml from 'sanitize-html';
+import { guardAiMarkdown } from '@/lib/aiOutputGuard';
+import { isAllowedAiLink } from '@/lib/aiLinkPolicy';
 
 // Configurar marked con soporte GFM completo
 marked.setOptions({
@@ -31,11 +34,16 @@ export function parseExecutiveMarkdownToHtml(markdownText: string): string {
 
     const renderer = new marked.Renderer();
 
+    // AISEC-03: el texto viene del LLM. Los renderers usan los tokens (no `text` crudo),
+    // el HTML embebido se descarta y la salida pasa por sanitize-html antes de Chromium/email.
+    renderer.html = () => '';
+    renderer.image = ({ text }) => escapeHtml(text || '');
+
     // Renderizado de Tablas con wrapper responsivo y clases corporativas
     renderer.table = function ({ header, rows }) {
         let headerHtml = '';
         if (header) {
-            const cells = header.map((cell) => `<th>${cell.text}</th>`).join('');
+            const cells = header.map((cell) => `<th>${this.parser.parseInline(cell.tokens)}</th>`).join('');
             headerHtml = `<thead><tr>${cells}</tr></thead>`;
         }
 
@@ -43,7 +51,7 @@ export function parseExecutiveMarkdownToHtml(markdownText: string): string {
         if (rows && rows.length > 0) {
             const rowsHtml = rows
                 .map((row) => {
-                    const cells = row.map((cell) => `<td>${cell.text}</td>`).join('');
+                    const cells = row.map((cell) => `<td>${this.parser.parseInline(cell.tokens)}</td>`).join('');
                     return `<tr>${cells}</tr>`;
                 })
                 .join('');
@@ -54,12 +62,13 @@ export function parseExecutiveMarkdownToHtml(markdownText: string): string {
     };
 
     // Renderizado de Blockquotes como Callouts ejecutivos
-    renderer.blockquote = function ({ text }) {
-        return `<div class="report-callout"><div class="callout-icon">ℹ️</div><div class="callout-content">${text}</div></div>`;
+    renderer.blockquote = function ({ tokens }) {
+        return `<div class="report-callout"><div class="callout-icon">ℹ️</div><div class="callout-content">${this.parser.parse(tokens)}</div></div>`;
     };
 
     // Renderizado de Encabezados H1, H2, H3
-    renderer.heading = function ({ text, depth }) {
+    renderer.heading = function ({ tokens, depth }) {
+        const text = this.parser.parseInline(tokens);
         if (depth === 1) {
             return `<h1 class="report-h1">${text}</h1>`;
         } else if (depth === 2) {
@@ -74,17 +83,50 @@ export function parseExecutiveMarkdownToHtml(markdownText: string): string {
     renderer.list = function ({ ordered, items }) {
         const tag = ordered ? 'ol' : 'ul';
         const cls = ordered ? 'report-ol' : 'report-ul';
-        const itemsHtml = items.map((it) => `<li class="report-li">${it.text}</li>`).join('');
+        const itemsHtml = items
+            .map((it) => `<li class="report-li">${it.loose ? this.parser.parse(it.tokens) : this.parser.parseInline(flattenTextTokens(it.tokens))}</li>`)
+            .join('');
         return `<${tag} class="${cls}">${itemsHtml}</${tag}>`;
     };
 
     // Renderizado de código en línea y badges
     renderer.codespan = function ({ text }) {
-        return `<code class="report-code">${text}</code>`;
+        return `<code class="report-code">${escapeHtml(text)}</code>`;
     };
 
-    const parsed = marked.parse(cleanMarkdown, { renderer }) as string;
-    return parsed;
+    const parsed = marked.parse(guardAiMarkdown(cleanMarkdown), { renderer }) as string;
+    return sanitizeReportHtml(parsed);
+}
+
+const escapeHtml = (v: string) =>
+    v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+/** Ítem de lista compacto: sus bloques `text` se aplanan a sus tokens inline (sin <p>). */
+function flattenTextTokens(tokens: Token[]): Token[] {
+    return tokens.flatMap((t) => (t.type === 'text' && 'tokens' in t && t.tokens ? t.tokens : [t]));
+}
+
+/** Allowlist estricta para HTML que llega a Chromium (PDF) y al email. */
+export function sanitizeReportHtml(html: string): string {
+    return sanitizeHtml(html, {
+        allowedTags: [
+            'h1', 'h2', 'h3', 'h4', 'p', 'ul', 'ol', 'li', 'strong', 'em', 'del', 'code', 'pre',
+            'blockquote', 'br', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'div', 'span', 'a',
+        ],
+        allowedAttributes: { '*': ['class'], a: ['href'], th: ['align'], td: ['align'] },
+        allowedSchemes: ['https'],
+        allowedSchemesAppliedToAttributes: ['href'],
+        allowProtocolRelative: false,
+        disallowedTagsMode: 'discard',
+        // Enlace fuera de la allowlist: queda el texto, sin destino.
+        transformTags: {
+            a: (_tag, attribs): sanitizeHtml.Tag =>
+                isAllowedAiLink(attribs.href || '')
+                    ? { tagName: 'a', attribs: { href: attribs.href } }
+                    : { tagName: 'span', attribs: {} as sanitizeHtml.Attributes },
+        },
+        nonTextTags: ['script', 'style', 'textarea', 'noscript', 'iframe', 'object', 'embed', 'svg', 'math', 'template'],
+    });
 }
 
 /**
