@@ -136,8 +136,10 @@ export async function startImpersonation(params: {
       ]
     );
   } catch (err) {
-    // Si AuditTrailLogs aún no tiene todas las columnas, registrar en Notifications o log de sistema
-    console.warn("[sessionImpersonation] Error registrando audit log:", err);
+    // APPSEC-ID-07: sin auditoría no se inicia impersonación (no se emite cookie).
+    // El stop sigue siendo best-effort para no atrapar a nadie en la sesión.
+    console.error("[sessionImpersonation] Error registrando audit log:", err);
+    throw new Error("No se pudo auditar el inicio de impersonación.");
   }
 
   const encodedCookie = encodeSessionData(sessionData);

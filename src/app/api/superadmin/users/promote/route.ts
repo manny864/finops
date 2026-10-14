@@ -5,7 +5,7 @@ import { errorMessage, errorStatus } from '@/lib/apiErrors';
 
 export async function PATCH(request: NextRequest) {
     try {
-        await requireSuperAdmin(request);
+        const actor = await requireSuperAdmin(request);
 
         const connection = await pool.getConnection();
         try {
@@ -17,7 +17,7 @@ export async function PATCH(request: NextRequest) {
             }
 
             const [targetUserRows] = await connection.execute<any>(
-                `SELECT email FROM Users WHERE id = ?`,
+                `SELECT email, tenant_id FROM Users WHERE id = ?`,
                 [targetUserId]
             );
 
@@ -29,10 +29,24 @@ export async function PATCH(request: NextRequest) {
                  return NextResponse.json({ error: "Solo se puede promover a usuarios internos." }, { status: 403 });
             }
 
-            await connection.execute(
-                `UPDATE Users SET system_role = 'SUPERADMIN' WHERE id = ?`,
-                [targetUserId]
-            );
+            // APPSEC-ID-07: promoción y evento de auditoría en una transacción;
+            // sin auditoría persistida no hay promoción.
+            await connection.beginTransaction();
+            try {
+                await connection.execute(
+                    `UPDATE Users SET system_role = 'SUPERADMIN' WHERE id = ?`,
+                    [targetUserId]
+                );
+                await connection.execute(
+                    `INSERT INTO AuditTrailLogs (tenant_id, user_email, user_name, action_type, resource_target_id, resource_target_name, status, metadata_json)
+                     VALUES (?, ?, 'SuperAdmin Operator', 'SUPERADMIN_PROMOTED', ?, ?, 'SUCCESS', ?)`,
+                    [targetUserRows[0].tenant_id, actor.email, String(targetUserId), targetUserRows[0].email, JSON.stringify({ promotedBy: actor.email })]
+                );
+                await connection.commit();
+            } catch (e) {
+                await connection.rollback();
+                throw e;
+            }
 
             return NextResponse.json({ success: true, message: "Usuario promovido a SUPERADMIN exitosamente." });
         } finally {
