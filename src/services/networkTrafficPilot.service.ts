@@ -265,15 +265,15 @@ export async function getNetworkTrafficPilot(tenantId: string, days = 7): Promis
       try {
         const customerId = await resolveWorkspaceId(target.resourceId, armToken.token);
         const result = await queryWorkspace(customerId, boundedDays, logsToken.token);
-        return { target, result };
+        return { target, kind: "queried" as const, result };
       } catch (error) {
         if (!(error instanceof WorkspaceAccessError) || ![400, 403, 404].includes(error.status)) throw error;
-        return { target, issue: workspaceIssue(target.name, error) };
+        return { target, kind: "issue" as const, issue: workspaceIssue(target.name, error) };
       }
     }));
 
     for (const item of results) {
-      if ("issue" in item) {
+      if (item.kind === "issue") {
         issues.push(item.issue);
         continue;
       }
