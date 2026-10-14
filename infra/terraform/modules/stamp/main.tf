@@ -87,10 +87,36 @@ resource "azurerm_role_assignment" "acr_pull" {
   principal_id         = azurerm_user_assigned_identity.app.principal_id
 }
 
+# INFRA-03: identidad de cron jobs y migraciones, separada de la del web. Sólo
+# hace pull de la imagen y, para los cron, lee CRON_SECRET del vault; no puede
+# escribir secretos ni tocar blobs, así que comprometer un job no da esos permisos.
+resource "azurerm_user_assigned_identity" "jobs" {
+  name                = "${local.name_base}-jobs-id"
+  location            = var.location
+  resource_group_name = module.network.resource_group_name
+  tags                = var.tags
+}
+
+resource "azurerm_role_assignment" "jobs_acr_pull" {
+  scope                = var.acr_id
+  role_definition_name = "AcrPull"
+  principal_id         = azurerm_user_assigned_identity.jobs.principal_id
+}
+
+resource "azurerm_role_assignment" "jobs_kv_secrets_user" {
+  scope                = module.keyvault.id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_user_assigned_identity.jobs.principal_id
+}
+
 # En el primer deploy del stamp, Azure AD puede tardar en propagar AcrPull.
 # Sin esta espera, Container Apps y Jobs pueden fallar al hacer pull.
 resource "time_sleep" "acr_pull_propagation" {
-  depends_on      = [azurerm_role_assignment.acr_pull]
+  depends_on = [
+    azurerm_role_assignment.acr_pull,
+    azurerm_role_assignment.jobs_acr_pull,
+    azurerm_role_assignment.jobs_kv_secrets_user,
+  ]
   create_duration = "90s"
 }
 
@@ -593,7 +619,7 @@ module "cronjobs" {
   location            = var.location
   resource_group_name = module.network.resource_group_name
   environment_id      = azurerm_container_app_environment.this.id
-  identity_id         = azurerm_user_assigned_identity.app.id
+  identity_id         = azurerm_user_assigned_identity.jobs.id
   registry_server     = var.registry_server
   image_name          = var.image_name
   # Sin image_tag: los jobs no corren la app, corren `finops:cron`
@@ -633,12 +659,12 @@ resource "azurerm_container_app_job" "migrate" {
 
   identity {
     type         = "UserAssigned"
-    identity_ids = [azurerm_user_assigned_identity.app.id]
+    identity_ids = [azurerm_user_assigned_identity.jobs.id]
   }
 
   registry {
     server   = var.registry_server
-    identity = azurerm_user_assigned_identity.app.id
+    identity = azurerm_user_assigned_identity.jobs.id
   }
 
   dynamic "secret" {

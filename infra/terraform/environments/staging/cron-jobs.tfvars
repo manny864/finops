@@ -12,5 +12,5 @@ cron_jobs = {
   prewarm-dashboard           = { cron = "5 12 * * *", timeout_seconds = 1800, async_poll = true }
   support-attachments-cleanup = { cron = "0 2 * * *" }
   trial-expiry                = { cron = "0 22 * * *" }
-  status-snapshot             = { cron = "0,30 * * * *", timeout_seconds = 120, auth_mode = "query" }
+  status-snapshot             = { cron = "0,30 * * * *", timeout_seconds = 120 }
 }

@@ -183,7 +183,7 @@ cron_jobs = {
   report-subscriptions = { cron = "17 * * * *", timeout_seconds = 900 }
 
   # Alimenta /api/status y /status. Autentica por query param, no por header.
-  status-snapshot = { cron = "*/5 * * * *", timeout_seconds = 120, auth_mode = "query" }
+  status-snapshot = { cron = "*/5 * * * *", timeout_seconds = 120 }
 
   # Persiste en MySQL los contadores de llamadas a las APIs de Azure. Redis no
   # es un almacén: sin persistencia, con AllKeysLRU y TTL de 8 días, la

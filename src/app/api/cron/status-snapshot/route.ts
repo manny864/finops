@@ -65,9 +65,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const startedAt = Date.now();
   try {
     // Verify cron secret
-    const secret = request.nextUrl.searchParams.get("secret");
     const cronSecret = process.env.CRON_SECRET || process.env.VERCEL_CRON_SECRET;
-    if (!cronSecret || secret !== cronSecret) {
+    if (!cronSecret || request.headers.get("authorization") !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

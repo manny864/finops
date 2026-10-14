@@ -235,8 +235,8 @@ variable "allowed_ip_ranges" {
 variable "origin_cloudflare_only" {
   description = <<-DESC
     true = el ingress del app sólo acepta los rangos IPv4 de Cloudflare (catálogo
-    cloudflare_ips.tf) más origin_extra_allowed_ip_ranges. false (default) deja el
-    origen como está hoy: abierto a cualquier IP.
+    cloudflare_ips.tf) más origin_extra_allowed_ip_ranges (default: true). false deja
+    el origen abierto a cualquier IP y permite saltear el WAF de Cloudflare.
 
     NO activarlo sin recorrer el runbook "Cerrar el origen" de
     docs/security/endurecimiento-infraestructura-saas-2026-10-09.md. Hay tres
@@ -245,7 +245,7 @@ variable "origin_cloudflare_only" {
     validación del certificado gestionado (DigiCert).
   DESC
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "origin_extra_allowed_ip_ranges" {
