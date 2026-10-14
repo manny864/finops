@@ -24,6 +24,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (payload === undefined || payload === null) {
+      return NextResponse.json(
+        { error: { code: 'invalid_payload', message: 'Payload is required' } },
+        { status: 400 }
+      );
+    }
+
     // Check if user has MFA enabled
     const [rows] = await pool.query(
       `SELECT mfa_enabled FROM Users WHERE email = ? AND tenant_id = ?`,
@@ -53,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     // Create challenge
     const challengeId = uuidv4();
-    const payloadHash = payload ? hashPayload(payload) : null;
+    const payloadHash = hashPayload(payload);
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
     await pool.query(
