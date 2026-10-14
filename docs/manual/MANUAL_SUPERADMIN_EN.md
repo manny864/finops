@@ -1600,10 +1600,10 @@ The plan change (see section 8.4) has 3 possible proration modes when upgrading/
 
 From `/admin/billing` you also access the **payment management portal** (update card) and the **Invoice History**, which lists your actual charges (the latest 50, newest first):
 
-- **Number:** the Paddle transaction identifier. It is not our own tax invoice numbering.
-- **Amount:** in the **currency of the charge** (USD or EUR), as you were billed.
+- **Number:** digits only (for example, `000123`). It identifies the charge in the platform; it is not our own tax invoice numbering. The Paddle reference (`txn_…`) appears inside the PDF.
+- **Amount:** what was **charged**, taxes included, in the **currency of the charge** (USD or EUR).
 - **Status:** *Paid*, *Refund under review* (you requested a refund and it is not resolved yet) or *Refunded*. Failed payment attempts are not listed.
-- **Download PDF:** generates a receipt with the same data as the row.
+- **Download PDF:** downloads the invoice with the CSCloudSolutions logo: **Billed to** (your company name and the **tenant ID**), the number, the date, the detail with **subtotal, tax and total** (when the charge has them) and the payment data, including the Paddle reference.
 
 ### 11.8. 7-day free trial (self-service)
 

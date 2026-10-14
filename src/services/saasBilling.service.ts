@@ -18,6 +18,36 @@ import { cancelarSuscripcion } from "@/lib/paddleSubscriptions";
 import { registrarAuditoria } from "@/lib/auditTrail";
 import { crearSolicitud, tieneSolicitudPendiente, type MotivoSolicitud } from "@/services/cancellationRequests.service";
 import { normalizeTier } from "@/lib/tierLogic";
+import { minorUnitsToDecimalString } from "@/lib/money";
+
+/**
+ * Número de factura: SÓLO dígitos. Es el id del cobro (`BillingTransactions.id`, autoincremental y único) con ceros a la izquierda,
+ * no una numeración fiscal propia; la referencia de Paddle viaja aparte en `paddleTransactionId`.
+ */
+export function numeroDeFactura(id: unknown): string {
+    return String(id ?? "").replace(/\D/g, "").padStart(6, "0");
+}
+
+/**
+ * Subtotal, impuestos y total del cobro, del evento `transaction.completed` guardado (`details.totals`, en unidad menor de la
+ * moneda). `null` si no están: el PDF entonces sólo muestra el total y no inventa un impuesto.
+ */
+export function totalesDelCobro(rawEvent: unknown, currency: string): { subtotal: number; tax: number; total: number } | null {
+    let raw: any = rawEvent;
+    if (typeof raw === "string") {
+        try {
+            raw = JSON.parse(raw);
+        } catch {
+            return null;
+        }
+    }
+    const t = raw?.data?.details?.totals;
+    const subtotal = minorUnitsToDecimalString(t?.subtotal, currency);
+    const tax = minorUnitsToDecimalString(t?.tax, currency);
+    const total = minorUnitsToDecimalString(t?.total, currency);
+    if (subtotal === null || tax === null || total === null) return null;
+    return { subtotal: Number(subtotal), tax: Number(tax), total: Number(total) };
+}
 
 const ESTADO_DEL_COBRO: Record<string, SaaSInvoiceItem["status"]> = {
     completed: "PAID",
@@ -38,7 +68,7 @@ function getMockBillingDetails(tenantId: string): TenantBillingDetails {
     const invoices: SaaSInvoiceItem[] = [
         {
             id: "inv-mock-0842",
-            invoiceNumber: "INV-2026-0842",
+            invoiceNumber: "000842",
             billingDateIso: augDate.toISOString(),
             amount: 1200.0,
             currency: "USD",
@@ -46,7 +76,7 @@ function getMockBillingDetails(tenantId: string): TenantBillingDetails {
         },
         {
             id: "inv-mock-0742",
-            invoiceNumber: "INV-2026-0742",
+            invoiceNumber: "000742",
             billingDateIso: julDate.toISOString(),
             amount: 1200.0,
             currency: "USD",
@@ -54,7 +84,7 @@ function getMockBillingDetails(tenantId: string): TenantBillingDetails {
         },
         {
             id: "inv-mock-0642",
-            invoiceNumber: "INV-2026-0642",
+            invoiceNumber: "000642",
             billingDateIso: junDate.toISOString(),
             amount: 1200.0,
             currency: "USD",
@@ -64,6 +94,7 @@ function getMockBillingDetails(tenantId: string): TenantBillingDetails {
 
     return {
         tenantId,
+        companyName: "Demo Tenant",
         planTier: "Enterprise",
         status: "ACTIVE",
         billingCycle: "ANNUAL",
@@ -100,6 +131,7 @@ export async function getTenantBillingDetails(tenantId: string): Promise<TenantB
     let cancelAtPeriodEnd = false;
     let isEnterprise = false;
     let hasPaddleSubscription = false;
+    let companyName: string | undefined;
 
     // 1. El tier sale de `Tenants`, que es la fuente que usa el resto de la app
     //    para AUTORIZAR (`requireTenantTier`, cuotas, marketplace). Mostrar otra
@@ -115,7 +147,7 @@ export async function getTenantBillingDetails(tenantId: string): Promise<TenantB
     //    lo que pagara.
     try {
         const [tRows]: any = await pool.query(
-            `SELECT tier, subscription_status, marketplace_plan_id, marketplace_source, paddle_subscription_id
+            `SELECT tier, subscription_status, marketplace_plan_id, marketplace_source, paddle_subscription_id, company_name
                FROM Tenants WHERE tenant_id = ? LIMIT 1`,
             [tenantId]
         );
@@ -126,6 +158,7 @@ export async function getTenantBillingDetails(tenantId: string): Promise<TenantB
             status = (tRow.subscription_status as SaaSSubscriptionStatus) || "ACTIVE";
             isEnterprise = planTier === "Enterprise";
             hasPaddleSubscription = Boolean(tRow.paddle_subscription_id);
+            companyName = tRow.company_name || undefined;
 
             // Los tenants que entran por Azure Marketplace no tienen suscripcion de
             // Paddle: el ciclo se deriva de `marketplace_plan_id`, que es el unico
@@ -170,7 +203,7 @@ export async function getTenantBillingDetails(tenantId: string): Promise<TenantB
     const invoices: SaaSInvoiceItem[] = [];
     try {
         const [invRows]: any = await pool.query(
-            `SELECT id, paddle_transaction_id, amount, currency, status, COALESCE(billed_at, created_at) AS billed_on
+            `SELECT id, paddle_transaction_id, amount, currency, status, raw_event, COALESCE(billed_at, created_at) AS billed_on
                FROM BillingTransactions
               WHERE tenant_id = ? AND status IN ('completed', 'refund_pending', 'refunded')
               ORDER BY billed_at DESC, created_at DESC
@@ -180,12 +213,17 @@ export async function getTenantBillingDetails(tenantId: string): Promise<TenantB
 
         if (Array.isArray(invRows)) {
             for (const r of invRows) {
+                const currency = r.currency || "USD";
+                const totales = totalesDelCobro(r.raw_event, currency);
                 invoices.push({
                     id: String(r.id),
-                    invoiceNumber: r.paddle_transaction_id || String(r.id),
+                    invoiceNumber: numeroDeFactura(r.id),
+                    paddleTransactionId: r.paddle_transaction_id || undefined,
                     billingDateIso: new Date(r.billed_on).toISOString(),
-                    amount: Number(r.amount) || 0,
-                    currency: r.currency || "USD",
+                    // Lo cobrado: con el evento guardado es el total con impuestos; sin él, el importe de la fila.
+                    amount: totales ? totales.total : Number(r.amount) || 0,
+                    ...(totales ? { subtotal: totales.subtotal, tax: totales.tax } : {}),
+                    currency,
                     status: ESTADO_DEL_COBRO[r.status] ?? "PAID",
                 });
             }
@@ -196,6 +234,7 @@ export async function getTenantBillingDetails(tenantId: string): Promise<TenantB
 
     return {
         tenantId,
+        companyName,
         planTier,
         status,
         billingCycle,

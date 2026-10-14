@@ -392,20 +392,23 @@ describe.skipIf(!process.env.DB_PORT)("reembolsos, comisiones y cancelaciones co
       await cobro(T_HIST, "txn_01hist_reemb", null, hace(20), "29999", "refunded");
       await cobro(T_HIST, "txn_01hist_pend", null, hace(15), "29999", "refund_pending");
       await pool.query(
-        "INSERT INTO BillingTransactions (tenant_id, paddle_transaction_id, amount, currency, status, billed_at) VALUES (?, 'txn_01hist_eur', 100.50, 'EUR', 'completed', ?)",
-        [T_HIST, hace(10)]
+        "INSERT INTO BillingTransactions (tenant_id, paddle_transaction_id, amount, currency, status, billed_at, raw_event) VALUES (?, 'txn_01hist_eur', 100.50, 'EUR', 'completed', ?, ?)",
+        [T_HIST, hace(10), JSON.stringify({ data: { details: { totals: { subtotal: "10050", tax: "2111", total: "12161" } } } })]
       );
       await pool.query("INSERT INTO BillingTransactions (tenant_id, paddle_transaction_id, status) VALUES (?, 'txn_01hist_falla', 'payment_failed')", [T_HIST]);
 
       const { invoices } = await getTenantBillingDetails(T_HIST);
 
-      expect(invoices.map((i) => [i.invoiceNumber, i.status, i.currency, i.amount])).toEqual([
+      expect(invoices.map((i) => [i.paddleTransactionId, i.status, i.currency, i.amount])).toEqual([
         ["txn_01hist_nuevo", "PAID", "USD", 299.99],
-        ["txn_01hist_eur", "PAID", "EUR", 100.5],
+        ["txn_01hist_eur", "PAID", "EUR", 121.61], // total con impuestos, del evento guardado
         ["txn_01hist_pend", "REFUND_PENDING", "USD", 299.99],
         ["txn_01hist_reemb", "REFUNDED", "USD", 299.99],
         ["txn_01hist_viejo", "PAID", "USD", 299.99],
       ]);
+      expect(invoices[1]).toMatchObject({ subtotal: 100.5, tax: 21.11 });
+      expect(invoices[0].subtotal).toBeUndefined(); // sin totales en el evento guardado no se inventa un impuesto
+      expect(invoices.every((i) => /^\d{6,}$/.test(i.invoiceNumber))).toBe(true); // el número es sólo numérico
       expect(invoices[0].downloadPdfUrl).toBeUndefined();
       expect(new Date(invoices[0].billingDateIso).getTime()).toBeGreaterThan(hace(6).getTime());
     });

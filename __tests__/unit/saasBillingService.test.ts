@@ -40,7 +40,7 @@ describe("saasBilling.service", () => {
         expect(details.paymentGateway).toBe("PADDLE");
         expect(details.isEnterprise).toBe(true);
         expect(details.invoices.length).toBe(3);
-        expect(details.invoices[0].invoiceNumber).toBe("INV-2026-0842");
+        expect(details.invoices[0].invoiceNumber).toBe("000842");
         expect(details.invoices[0]).toMatchObject({ amount: 1200, currency: "USD" });
         expect(mocks.mockPoolQuery).not.toHaveBeenCalled();
     });
@@ -84,7 +84,7 @@ describe("saasBilling.service", () => {
         expect(details.cancelAtPeriodEnd).toBe(false);
         // El historial sale de los cobros reales, sin número de factura ni PDF inventados.
         expect(details.invoices).toEqual([
-            { id: "7", invoiceNumber: "txn_01real", billingDateIso: "2026-08-01T00:00:00.000Z", amount: 499, currency: "USD", status: "PAID" },
+            { id: "7", invoiceNumber: "000007", paddleTransactionId: "txn_01real", billingDateIso: "2026-08-01T00:00:00.000Z", amount: 499, currency: "USD", status: "PAID" },
         ]);
         const sqlHistorial = String(mocks.mockPoolQuery.mock.calls.map((c) => c[0]).find((q) => String(q).includes("BillingTransactions")));
         expect(sqlHistorial).toContain("'completed', 'refund_pending', 'refunded'");
@@ -108,6 +108,18 @@ describe("saasBilling.service", () => {
             ["REFUND_PENDING", "EUR", 100.5],
             ["REFUNDED", "USD", 50],
         ]);
+    });
+
+    it("con el evento guardado, el importe es el total cobrado y trae subtotal e impuestos", async () => {
+        const raw = { data: { details: { totals: { subtotal: "29999", tax: "6300", total: "36299" } } } };
+        mocks.mockPoolQuery.mockImplementation((sql) =>
+            String(sql).includes("FROM BillingTransactions")
+                ? Promise.resolve([[{ id: 12, paddle_transaction_id: "txn_x", amount: "299.99", currency: "USD", status: "completed", raw_event: JSON.stringify(raw), billed_on: new Date("2026-08-01T00:00:00Z") }], []])
+                : Promise.resolve([[{ tier: "Business", company_name: "Acme Corp" }], []])
+        );
+        const d = await getTenantBillingDetails("tenant-live-abc");
+        expect(d.companyName).toBe("Acme Corp");
+        expect(d.invoices[0]).toMatchObject({ invoiceNumber: "000012", amount: 362.99, subtotal: 299.99, tax: 63 });
     });
 
     it("si no se puede leer el historial, la lista queda vacía y el resto del panel sigue", async () => {

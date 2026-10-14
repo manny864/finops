@@ -6181,9 +6181,12 @@ Un fallo de la lectura deja la lista vacía y escribe un `console.warn` (el rest
 // src/types/saasBilling.types.ts
 export interface SaaSInvoiceItem {
   id: string;                 // BillingTransactions.id
-  invoiceNumber: string;      // paddle_transaction_id (o el id si fuera NULL)
+  invoiceNumber: string;      // SÓLO dígitos: el id con ceros a la izquierda (6), p. ej. "000123"
+  paddleTransactionId?: string; // txn_…: referencia del cobro, va en la información de pago del PDF
   billingDateIso: string;     // ISO crudo; el formato lo pone la pantalla (locale activo)
-  amount: number;             // en la moneda del cobro (antes: amountUSD)
+  amount: number;             // TOTAL cobrado en la moneda del cobro (antes: amountUSD)
+  subtotal?: number;          // antes de impuestos y los impuestos: sólo si el evento guardado trae details.totals
+  tax?: number;
   currency: string;           // ISO 4217: USD o EUR
   status: "PAID" | "PENDING" | "FAILED" | "REFUND_PENDING" | "REFUNDED";
   downloadPdfUrl?: string;    // siempre vacío: la pantalla cae a /api/billing/invoices/[id]/pdf
@@ -6198,17 +6201,24 @@ export interface SaaSInvoiceItem {
 | `refunded` | `REFUNDED` | Reembolsada / Refunded / Reembolsada |
 | `payment_failed` y demás | (no se lista) | — |
 
-**Qué no se inventa.** Paddle no entrega un número de factura ni un PDF propios, así que `invoiceNumber` es el id de la
-transacción y no hay `downloadPdfUrl`. El PDF lo arma la plataforma con los mismos datos que la fila (ver el contrato de
-`generateSubscriptionInvoicePdf`): con `Intl.NumberFormat({ style: 'currency', currency: invoice.currency })`, para que un cobro
+**Qué no se inventa.** Paddle no entrega un número de factura ni un PDF propios. `invoiceNumber` es el id del cobro
+(`numeroDeFactura`: sólo dígitos, no una numeración fiscal) y la referencia de Paddle viaja en `paddleTransactionId`; no hay `downloadPdfUrl`.
+`totalesDelCobro(raw_event, moneda)` lee `details.totals.{subtotal,tax,total}` (unidad menor) del evento guardado: con ellos `amount` es el total con
+impuestos y se llenan `subtotal` y `tax`; sin ellos `amount` es el de la fila y **no se inventa un impuesto**. El PDF lo arma la plataforma con los mismos datos que la fila: `generateSubscriptionInvoicePdf(invoice, { name, id }, planTier, locale, isDemo)`,
+con banda azul corporativa y título, «Facturado a» (`Tenants.company_name` y `tenant_id`), número, fecha, tabla de concepto, subtotal / impuestos / total,
+información de pago, el logo `public/CSCloudSolutionsText.png` (se lee del disco y se cachea; si falta, sale el nombre en texto) abajo a la derecha y como
+marca de agua diagonal (de abajo a la izquierda hacia arriba a la derecha, opacidad 7 %). Formatea con `Intl.NumberFormat({ style: 'currency', currency: invoice.currency })`, para que un cobro
 en EUR no salga rotulado en dólares. Un `currency` NULL en un cobro `completed` se toma como USD; el webhook siempre lo guarda.
 
 **Interfaz.** La columna de importe se formatea con `Intl.NumberFormat(locale, { style: "currency", currency })` (su id pasó
 de `amountUSD` a `amount` y su rótulo es «Monto / Amount / Valor», sin «USD»). Los estados de reembolso se pintan en ámbar y
 el resto en azul; las claves `AdminBilling.invoiceStatus_REFUND_PENDING` y `_REFUNDED` están en los tres catálogos.
 
-**Tests.** `saasBillingService.test.ts` (mapeo de estados y moneda, fallo de lectura),
-`subscriptionInvoicePdf.test.ts` (EUR y estado «Refunded») y, contra MySQL real,
+**Descarga.** `BillingPanel` baja el PDF con `descargarArchivoConSesion` (`src/lib/downloadFile.ts`): `window.open` no manda el `Authorization: Bearer` de MSAL y la
+ruta contestaba 401. Si la ruta falla, el panel muestra su mensaje.
+
+**Tests.** `saasBillingService.test.ts` (mapeo de estados y moneda, totales del evento, fallo de lectura),
+`subscriptionInvoicePdf.test.ts` (EUR, estado «Refunded», «Facturado a» con empresa e id, número numérico, desglose) y `downloadFile.test.ts` y, contra MySQL real,
 `__tests__/integration/reembolsosYCancelacionesSqlReal.test.ts` (cobros `completed`, `refunded`, `refund_pending`, uno en EUR y
 un `payment_failed`, que queda afuera; orden y moneda). `selectColumnasExisten.test.ts` ya no lista `saasinvoices` como deuda.
 

@@ -1599,10 +1599,10 @@ A mudança de plano (veja seção 8.4) tem 3 modos possíveis de rateio ao fazer
 
 Em `/admin/billing` você também acessa o **portal de gestão de pagamento** (atualizar cartão) e o **Histórico de Faturas**, que lista suas cobranças reais (as últimas 50, da mais recente para a mais antiga):
 
-- **Número:** o identificador da transação no Paddle. Não é uma numeração fiscal própria.
-- **Valor:** na **moeda da cobrança** (USD ou EUR), como você foi cobrado.
+- **Número:** somente dígitos (por exemplo, `000123`). Identifica a cobrança na plataforma; não é uma numeração fiscal própria. A referência do Paddle (`txn_…`) aparece dentro do PDF.
+- **Valor:** o que foi **cobrado**, com impostos, na **moeda da cobrança** (USD ou EUR).
 - **Status:** *Paga*, *Reembolso em análise* (você pediu um reembolso e ele ainda não foi resolvido) ou *Reembolsada*. Tentativas de cobrança que falharam não aparecem.
-- **Baixar PDF:** gera um comprovante com os mesmos dados da linha.
+- **Baixar PDF:** baixa a fatura com o logo da CSCloudSolutions: **Faturado para** (o nome da sua empresa e o **ID do tenant**), o número, a data, o detalhe com **subtotal, impostos e total** (quando a cobrança os traz) e os dados do pagamento, incluindo a referência do Paddle.
 
 ### 11.8. Teste gratuito de 7 dias (autoatendimento)
 

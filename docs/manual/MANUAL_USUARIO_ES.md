@@ -1475,10 +1475,10 @@ El cambio de plan (ver sección 8.4) tiene 3 modos de prorrateo posibles al hace
 
 Desde `/admin/billing` también accedés al **portal de gestión de pago** (actualizar tarjeta) y al **Historial de Facturas**, que lista tus cobros reales (los últimos 50, el más reciente primero):
 
-- **Número:** el identificador de la transacción en Paddle. No es una numeración fiscal propia.
-- **Monto:** en la **moneda del cobro** (USD o EUR), tal como se te cobró.
+- **Número:** sólo dígitos (por ejemplo, `000123`). Identifica el cobro en la plataforma; no es una numeración fiscal propia. La referencia de Paddle (`txn_…`) figura dentro del PDF.
+- **Monto:** lo **cobrado**, con impuestos, en la **moneda del cobro** (USD o EUR).
 - **Estado:** *Pagada*, *Reembolso en revisión* (pediste un reembolso y aún no se resolvió) o *Reembolsada*. Los intentos de cobro fallidos no aparecen.
-- **Descargar PDF:** genera un comprobante con los mismos datos de la fila.
+- **Descargar PDF:** baja la factura con el logo de CSCloudSolutions: **Facturado a** (el nombre de tu empresa y el **ID del tenant**), el número, la fecha, el detalle con **subtotal, impuestos y total** (cuando el cobro los trae) y los datos del pago, incluida la referencia de Paddle.
 
 ### 11.8. Trial gratuito de 7 días (autoservicio)
 

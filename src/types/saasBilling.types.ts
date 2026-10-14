@@ -8,7 +8,10 @@ export type SaaSSubscriptionStatus = "ACTIVE" | "PAST_DUE" | "CANCELED" | "TRIAL
 
 export interface SaaSInvoiceItem {
     id: string;
+    /** Sólo dígitos: el id del cobro (`BillingTransactions.id`) con ceros a la izquierda. */
     invoiceNumber: string;
+    /** Id de la transacción en Paddle (`txn_…`); referencia del cobro, va en la información de pago del PDF. */
+    paddleTransactionId?: string;
     /**
      * ISO crudo. NO viaja una fecha ya formateada: el servicio la armaba con
      * `toLocaleDateString("es-ES")` fijo, asi que la tabla mostraba la fecha en
@@ -16,8 +19,11 @@ export interface SaaSInvoiceItem {
      * que es la unica que conoce el locale activo.
      */
     billingDateIso: string;
-    /** Importe en la moneda del cobro (`currency`): Paddle puede cobrar en USD o EUR. */
+    /** Total cobrado en la moneda del cobro (`currency`): Paddle puede cobrar en USD o EUR. Incluye impuestos si el cobro los tiene. */
     amount: number;
+    /** Importe antes de impuestos y los impuestos. Sólo cuando el evento guardado del cobro trae los totales; si no, no se inventan. */
+    subtotal?: number;
+    tax?: number;
     /** Código ISO 4217 de `amount`. */
     currency: string;
     /** REFUND_PENDING: reembolso pedido y esperando aprobación; REFUNDED: ya aprobado. */
@@ -28,6 +34,8 @@ export interface SaaSInvoiceItem {
 
 export interface TenantBillingDetails {
     tenantId: string;
+    /** `Tenants.company_name`; sale en «Facturado a» de la factura. */
+    companyName?: string;
     planTier: SaaSPlanTier;
     status: SaaSSubscriptionStatus;
     billingCycle: "MONTHLY" | "ANNUAL";

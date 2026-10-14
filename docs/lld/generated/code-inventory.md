@@ -32,6 +32,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureActionGroups.service.ts` | 811 | `ACTION_TYPE_COLORS`, `redactReceiverUri`, `deriveActionType`, `calculateActionGroupsSummary`, `generateActionGroupsRecommendations`, `getMockActionGroupsPayload`, … |
 | `src/services/azureLoadBalancing.service.ts` | 783 | `getAzureLoadBalancing`, `getMockLoadBalancingData` |
 | `src/services/iacCostCatalog.ts` | 781 | `Attrs`, `MotivoSinTarifar`, `Componente`, `Resultado`, `ContextoLinea`, `EntradaTf`, … |
+| `src/services/billingReport.service.ts` | 763 | `MOCK_BILLING_LINES`, `MOCK_BILLING_DATA`, `getBillingReportData`, `generatePbidsConnector`, `serializeBillingCsv`, `generateBillingZipPackage`, … |
 | `src/services/azureInternetAccess.service.ts` | 758 | `getAzureInternetAccess`, `getMockInternetAccessData` |
 | `src/services/azureNetworkWatcher.service.ts` | 738 | `isDevOrTestScope`, `normalizeTrafficAnalyticsInterval`, `deriveFlowLogTargetKind`, `calcTrafficAnalyticsCost`, `processedGBAtInterval`, `calcConnectionMonitorCost`, … |
 | `src/services/executiveReportGenerator.service.ts` | 728 | `EXECUTIVE_HISTORY_MONTHS`, `HARD_WASTE_CONFIG`, `aggregateExecutiveTelemetry`, `EXECUTIVE_REPORT_SYSTEM_PROMPT`, `generateExecutiveReportAiMarkdown`, `buildExecutiveReportHtmlDocument`, … |
@@ -41,7 +42,6 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/externalSpend.service.ts` | 702 | `ExternalSpendError`, `reviewSchema`, `ReviewInput`, `commitmentSchema`, `CommitmentInput`, `getAiStatus`, … |
 | `src/services/azureCostAllocation.service.ts` | 695 | `normalizeStrategy`, `deriveSharedResourceType`, `isValidResourceType`, `deriveAllocationStatus`, `validateTargets`, `calculateAllocation`, … |
 | `src/services/azureUnitEconomics.service.ts` | 691 | `isValidMetricType`, `normalizeMetricType`, `normalizeIngestionMode`, `calcUnitCost`, `percentDelta`, `pearsonCorrelation`, … |
-| `src/services/billingReport.service.ts` | 656 | `MOCK_BILLING_LINES`, `MOCK_BILLING_DATA`, `getBillingReportData`, `generatePbidsConnector`, `serializeBillingCsv`, `generateBillingZipPackage`, … |
 | `src/services/azureScorecard.service.ts` | 653 | `sanitizeTeamTag`, `toDisplayCase`, `normalizeTeamName`, `groupByCanonicalTeam`, `calcTagHygieneScore`, `calcWasteScore`, … |
 | `src/services/affiliates.service.ts` | 652 | `EstadoComision`, `AfiliadoResuelto`, `ResultadoAtribucion`, `normalizarCodigo`, `calcularComision`, `buscarAfiliadoPorCodigo`, … |
 | `src/services/azureDefender.service.ts` | 643 | `normalizePlanName`, `normalizeSubPlan`, `classifyEnvironment`, `dominantEnvironment`, `unitPriceFor`, `calcPlanMonthlyCost`, … |
@@ -84,6 +84,7 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/supportTickets.service.ts` | 413 | `toCategory`, `toPriority`, `toStatus`, `toSenderRole`, `categoryToDb`, `priorityToDb`, … |
 | `src/services/azureMachineLearning.service.ts` | 410 | `generateMockAmlData`, `calculateAmlSummary`, `generateAmlRecommendations`, `buildAmlRemediationCommand`, `getLiveAmlData` |
 | `src/services/managedDisks.service.ts` | 407 | `DISK_TIER_RATES`, `extractVmNameFromManagedBy`, `detectDiskRedundancy`, `detectDiskEnvironment`, `resolveDiskTierCode`, `estimateMonthlyDiskCost`, … |
+| `src/services/saasBilling.service.ts` | 404 | `numeroDeFactura`, `totalesDelCobro`, `getTenantBillingDetails`, `getCustomerPortalUrl`, `cancelTenantSubscription` |
 | `src/services/iacCostEstimator.service.ts` | 403 | `AccionPlan`, `ClaseRecurso`, `RecursoPlaneado`, `ComponenteLinea`, `LineaEstimacion`, `Estimacion`, … |
 | `src/services/refunds.service.ts` | 400 | `VENTANA_REEMBOLSO_DIAS`, `MotivoNoReembolsable`, `ModoReembolso`, `DatosProrrateo`, `CobroReembolsable`, `ResultadoProrrateo`, … |
 | `src/services/azureContentSafety.service.ts` | 398 | `generateMockContentSafetyData`, `calculateContentSafetySummary`, `generateContentSafetyRecommendations`, `buildContentSafetyRemediationCommand`, `getLiveContentSafetyData` |
@@ -93,7 +94,6 @@ Un archivo por dominio funcional. Los llaman los route handlers, nunca la UI dir
 | `src/services/azureTtlEnforcement.service.ts` | 376 | `formatRelativeTime`, `formatDateIsoToLocal`, `computeTtlSummaryMetrics`, `getMockTtlSummaryMetrics`, `assembleLiveTtlSummary` |
 | `src/services/affiliatePortal.service.ts` | 369 | `hashTokenDePanel`, `generarTokenDePanel`, `pareceTokenDePanel`, `urlDelPanel`, `emitirEnlaceDePanel`, `revocarEnlaceDePanel`, … |
 | `src/services/reservationService.ts` | 367 | `ActiveReservationDetail`, `ReservationUtilizationTrend`, `parseReservationResourceId`, `getActiveReservations`, `getReservationUtilizationTrend`, `setReservationRenew`, … |
-| `src/services/saasBilling.service.ts` | 365 | `getTenantBillingDetails`, `getCustomerPortalUrl`, `cancelTenantSubscription` |
 | `src/services/copilotM365Integration.service.ts` | 364 | `GraphPermissionError`, `getSettings`, `provisionConnection`, `reindex`, `revokeConnection`, `getIndexLogs` |
 | `src/services/commitmentRecommendations.service.ts` | 362 | `CommitmentSimulationResponse`, `getSavingsPlanVsReservationComparison` |
 | `src/services/azureBackups.service.ts` | 356 | `BACKUP_RATES`, `detectVaultEnvironment`, `normalizeRedundancy`, `estimateMonthlyVaultCost`, `buildBackupRemediations`, `computeBackupsKpis`, … |

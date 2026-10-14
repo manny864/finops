@@ -49,7 +49,7 @@ export async function GET(
 
     const pdf = generateSubscriptionInvoicePdf(
       invoice,
-      isDemo ? "Demo Tenant" : tenantId,
+      { name: billing.companyName || tenantId, id: tenantId },
       billing.planTier || "Professional",
       locale,
       isDemo

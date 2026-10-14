@@ -5,6 +5,8 @@
 import Decimal from 'decimal.js';
 import JSZip from 'jszip';
 import { jsPDF } from 'jspdf';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import pool from '@/modules/storage/db';
 import { isMockTenant } from '@/lib/mockData';
 import { getMarkupSettings, getActiveOverrides } from '@/services/tenantPartnerMarkup.service';
@@ -531,45 +533,78 @@ export async function generateCustomerInvoicePdf(
  *
  * Distinta de `generateCustomerInvoicePdf`: aquella factura el consumo cloud
  * que el MSP le cobra a SUS clientes; esta es la factura del plan SaaS que el
- * tenant nos paga a nosotros, que antes no se podia descargar desde ningun
- * lado — el boton de Invoice History apuntaba a una ruta que no existia.
+ * tenant nos paga a nosotros.
  *
  * Toma el mismo `SaaSInvoiceItem` que pinta la tabla, asi el documento no
  * puede decir un importe distinto al de la fila que el usuario clickeo.
+ *
+ * Diseño: banda azul con el titulo, «Facturado a» con la empresa y el id del tenant, numero de factura SOLO numerico, tabla de
+ * concepto, subtotal / impuestos / total, datos del cobro, el logo de CSCloudSolutions abajo y como marca de agua en diagonal.
+ * Los colores son los corporativos (#0054A6, #0078D4, #00AEEF).
  */
 const INVOICE_PDF_I18N: Record<string, Record<string, string>> = {
     es: {
-        title: 'CSCloudSolutions · Factura de Suscripción',
-        billedTo: 'Facturado a', invoice: 'Factura', issueDate: 'Fecha de emisión',
-        status: 'Estado', concept: 'Concepto', amount: 'Importe', plan: 'Plan',
-        lineItem: 'Suscripción a la plataforma FinOps CSCloudSolutions',
-        total: 'Total', PAID: 'Pagada', PENDING: 'Pendiente', FAILED: 'Fallida', REFUND_PENDING: 'Reembolso en revisión', REFUNDED: 'Reembolsada',
+        title: 'CSCloudSolutions · Factura de Suscripción', heading: 'FACTURA',
+        billedTo: 'FACTURADO A', tenantId: 'ID del tenant', invoiceNo: 'FACTURA #', date: 'FECHA',
+        description: 'Descripción', price: 'Precio', quantity: 'Cantidad', total: 'Total', subtotal: 'Subtotal', tax: 'Impuestos',
+        lineItem: 'Suscripción a la plataforma FinOps CSCloudSolutions', plan: 'Plan',
+        paymentInfo: 'INFORMACIÓN DE PAGO', method: 'Medio de pago', processor: 'Paddle', transaction: 'Transacción', status: 'Estado',
+        PAID: 'Pagada', PENDING: 'Pendiente', FAILED: 'Fallida', REFUND_PENDING: 'Reembolso en revisión', REFUNDED: 'Reembolsada',
         footer: 'CSCloudSolutions FinOps SaaS · Documento generado automáticamente por la plataforma.',
         demoNotice: 'DOCUMENTO DE DEMOSTRACIÓN — sin validez fiscal.',
     },
     en: {
-        title: 'CSCloudSolutions · Subscription Invoice',
-        billedTo: 'Billed to', invoice: 'Invoice', issueDate: 'Issue date',
-        status: 'Status', concept: 'Description', amount: 'Amount', plan: 'Plan',
-        lineItem: 'CSCloudSolutions FinOps platform subscription',
-        total: 'Total', PAID: 'Paid', PENDING: 'Pending', FAILED: 'Failed', REFUND_PENDING: 'Refund under review', REFUNDED: 'Refunded',
+        title: 'CSCloudSolutions · Subscription Invoice', heading: 'INVOICE',
+        billedTo: 'BILLED TO', tenantId: 'Tenant ID', invoiceNo: 'INVOICE #', date: 'DATE',
+        description: 'Description', price: 'Price', quantity: 'Quantity', total: 'Total', subtotal: 'Subtotal', tax: 'Tax',
+        lineItem: 'CSCloudSolutions FinOps platform subscription', plan: 'Plan',
+        paymentInfo: 'PAYMENT INFORMATION', method: 'Payment method', processor: 'Paddle', transaction: 'Transaction', status: 'Status',
+        PAID: 'Paid', PENDING: 'Pending', FAILED: 'Failed', REFUND_PENDING: 'Refund under review', REFUNDED: 'Refunded',
         footer: 'CSCloudSolutions FinOps SaaS · Document generated automatically by the platform.',
         demoNotice: 'DEMONSTRATION DOCUMENT — not a valid tax receipt.',
     },
     'pt-BR': {
-        title: 'CSCloudSolutions · Fatura de Assinatura',
-        billedTo: 'Faturado para', invoice: 'Fatura', issueDate: 'Data de emissão',
-        status: 'Status', concept: 'Descrição', amount: 'Valor', plan: 'Plano',
-        lineItem: 'Assinatura da plataforma FinOps CSCloudSolutions',
-        total: 'Total', PAID: 'Paga', PENDING: 'Pendente', FAILED: 'Falhou', REFUND_PENDING: 'Reembolso em análise', REFUNDED: 'Reembolsada',
+        title: 'CSCloudSolutions · Fatura de Assinatura', heading: 'FATURA',
+        billedTo: 'FATURADO PARA', tenantId: 'ID do tenant', invoiceNo: 'FATURA #', date: 'DATA',
+        description: 'Descrição', price: 'Preço', quantity: 'Quantidade', total: 'Total', subtotal: 'Subtotal', tax: 'Impostos',
+        lineItem: 'Assinatura da plataforma FinOps CSCloudSolutions', plan: 'Plano',
+        paymentInfo: 'INFORMAÇÕES DE PAGAMENTO', method: 'Forma de pagamento', processor: 'Paddle', transaction: 'Transação', status: 'Status',
+        PAID: 'Paga', PENDING: 'Pendente', FAILED: 'Falhou', REFUND_PENDING: 'Reembolso em análise', REFUNDED: 'Reembolsada',
         footer: 'CSCloudSolutions FinOps SaaS · Documento gerado automaticamente pela plataforma.',
         demoNotice: 'DOCUMENTO DE DEMONSTRAÇÃO — sem validade fiscal.',
     },
 };
 
+const AZUL = [0, 84, 166] as const;      // #0054A6
+const AZUL_CLARO = [0, 120, 212] as const; // #0078D4
+const CIAN = [0, 174, 239] as const;     // #00AEEF
+const TINTA = [15, 23, 42] as const;
+const GRIS = [71, 85, 105] as const;
+
+// Logo para la factura. Se lee del `public/` de la imagen (el Dockerfile lo copia) y se cachea; si no está, la factura sale con el
+// nombre en texto en vez de fallar: un PDF sin logo sirve, uno que no se genera no.
+const LOGO_FACTURA = 'CSCloudSolutionsText.png';
+let logoFactura: Uint8Array | null | undefined;
+function cargarLogoFactura(): Uint8Array | null {
+    if (logoFactura !== undefined) return logoFactura;
+    try {
+        logoFactura = new Uint8Array(readFileSync(join(process.cwd(), 'public', LOGO_FACTURA)));
+    } catch {
+        logoFactura = null;
+    }
+    return logoFactura;
+}
+
+export interface TenantDeFactura {
+    /** Nombre de la empresa (`Tenants.company_name`). */
+    name: string;
+    /** `Tenants.tenant_id`. */
+    id: string;
+}
+
 export function generateSubscriptionInvoicePdf(
     invoice: SaaSInvoiceItem,
-    tenantName: string,
+    tenant: TenantDeFactura,
     planTier: string,
     locale: string = 'es',
     isDemo: boolean = false
@@ -580,76 +615,148 @@ export function generateSubscriptionInvoicePdf(
         new Intl.NumberFormat(intlLocale, { style: 'currency', currency: invoice.currency }).format(Number(amount) || 0);
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const logo = cargarLogoFactura();
+    const color = (c: readonly number[]) => doc.setTextColor(c[0], c[1], c[2]);
 
+    // Marca de agua: el logo en diagonal, de abajo a la izquierda hacia arriba a la derecha, muy tenue y ANTES de todo lo demás.
+    if (logo) {
+        doc.saveGraphicsState();
+        doc.setGState(doc.GState({ opacity: 0.07 }));
+        doc.addImage(logo, 'PNG', 28, 212, 170, 20.7, 'logo-marca', 'FAST', 38);
+        doc.restoreGraphicsState();
+    }
+
+    // Banda con el título, a sangre por la izquierda (como en el modelo).
+    doc.setFillColor(AZUL[0], AZUL[1], AZUL[2]);
+    doc.rect(0, 14, 104, 28, 'F');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
-    doc.setTextColor(0, 84, 166);
-    doc.text(L.title, 18, 20);
+    doc.setFontSize(30);
+    doc.setTextColor(255, 255, 255);
+    doc.text(L.heading, 14, 33);
 
-    doc.setDrawColor(0, 120, 212);
-    doc.setLineWidth(0.6);
-    doc.line(18, 25, 192, 25);
+    // Contacto, arriba a la derecha.
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    color(AZUL);
+    doc.text('finops.cscloudsolutions.com.ar', 196, 22, { align: 'right' });
+    doc.text('sales@cscloudsolutions.com.ar', 196, 28, { align: 'right' });
 
-    doc.setFillColor(248, 250, 252);
-    doc.roundedRect(18, 30, 174, 30, 2, 2, 'F');
-    doc.setDrawColor(203, 213, 225);
-    doc.roundedRect(18, 30, 174, 30, 2, 2, 'S');
+    // Quien emite.
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    color(AZUL);
+    doc.text('CSCloudSolutions', 14, 58);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    color(GRIS);
+    doc.text(L.title, 14, 64);
 
+    // Facturado a: la empresa y el id del tenant.
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
-    doc.setTextColor(15, 23, 42);
-    doc.text(`${L.billedTo}:`, 24, 38);
-    doc.text(`${L.status}:`, 24, 52);
-    doc.text(`${L.invoice}:`, 110, 38);
-    doc.text(`${L.issueDate}:`, 110, 45);
-    doc.text(`${L.plan}:`, 110, 52);
-
+    color(CIAN);
+    doc.text(L.billedTo, 14, 80);
+    doc.setFontSize(13);
+    color(TINTA);
+    doc.text(tenant.name, 14, 87);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(71, 85, 105);
-    doc.text(tenantName, 24, 44);
-    doc.text(L[invoice.status] ?? invoice.status, 45, 52);
-    doc.text(invoice.invoiceNumber, 142, 38);
-    // La fecha se formatea aca y no se usa `formattedDate`: ese campo lo arma
-    // el servicio con es-ES fijo, asi que en la UI inglesa venia en castellano.
-    doc.text(new Date(invoice.billingDateIso).toLocaleDateString(intlLocale), 142, 45);
-    doc.text(planTier, 142, 52);
+    doc.setFontSize(9);
+    color(GRIS);
+    doc.text(`${L.tenantId}: ${tenant.id}`, 14, 93);
 
-    let y = 74;
-    doc.setFillColor(0, 84, 166);
-    doc.rect(18, y - 6, 174, 9, 'F');
+    // Número (sólo dígitos) y fecha.
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(255, 255, 255);
-    doc.text(L.concept, 24, y);
-    doc.text(L.amount, 186, y, { align: 'right' });
+    doc.setFontSize(13);
+    color(AZUL_CLARO);
+    doc.text(`${L.invoiceNo} ${invoice.invoiceNumber}`, 14, 112);
+    color(AZUL);
+    // La fecha se formatea acá y no se usa `formattedDate`: ese campo lo armaba el servicio con es-ES fijo.
+    doc.text(`${L.date} ${new Date(invoice.billingDateIso).toLocaleDateString(intlLocale)}`, 196, 112, { align: 'right' });
 
-    y += 12;
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(15, 23, 42);
-    doc.text(L.lineItem, 24, y);
-    doc.text(money(invoice.amount), 186, y, { align: 'right' });
+    // Tabla: concepto, precio, cantidad y total.
+    const tieneDesglose = typeof invoice.subtotal === 'number';
+    const precioUnitario = tieneDesglose ? (invoice.subtotal as number) : invoice.amount;
+    let y = 128;
+    doc.setFontSize(10);
+    color(TINTA);
+    doc.text(L.description, 14, y);
+    doc.text(L.price, 128, y, { align: 'right' });
+    doc.text(L.quantity, 152, y, { align: 'center' });
+    color(AZUL);
+    doc.text(L.total, 196, y, { align: 'right' });
+    doc.setDrawColor(AZUL[0], AZUL[1], AZUL[2]);
+    doc.setLineWidth(0.6);
+    doc.line(14, y + 4, 196, y + 4);
 
     y += 14;
-    doc.setDrawColor(203, 213, 225);
-    doc.line(120, y - 6, 192, y - 6);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0, 84, 166);
-    doc.setFontSize(12);
-    doc.text(L.total, 120, y);
-    doc.text(money(invoice.amount), 186, y, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    color(TINTA);
+    const concepto = doc.splitTextToSize(`${L.lineItem} — ${L.plan} ${planTier}`, 84) as string[];
+    doc.text(concepto, 14, y);
+    doc.text(money(precioUnitario), 128, y, { align: 'right' });
+    doc.text('1', 152, y, { align: 'center' });
+    color(AZUL);
+    doc.text(money(precioUnitario), 196, y, { align: 'right' });
 
-    // El aviso de demo va en el DOCUMENTO, no solo en la pantalla: un PDF se
-    // descarga y circula suelto, sin el banner de "datos de ejemplo" al lado.
+    y += Math.max(10, concepto.length * 5 + 6);
+    doc.line(14, y, 196, y);
+
+    // Subtotal / impuestos / total. Sin desglose (cobro sin el evento guardado) sólo se muestra el total: no se inventa un impuesto.
+    y += 9;
+    doc.setFontSize(10);
+    if (tieneDesglose) {
+        color(AZUL);
+        doc.text(`${L.subtotal} ${money(invoice.subtotal as number)}`, 196, y, { align: 'right' });
+        y += 6;
+        doc.text(`${L.tax} ${money(invoice.tax ?? 0)}`, 196, y, { align: 'right' });
+        y += 7;
+    }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    color(AZUL);
+    doc.text(`${L.total} ${money(invoice.amount)}`, 196, y, { align: 'right' });
+
+    // Información de pago.
+    y += 22;
+    doc.setFontSize(11);
+    color(AZUL);
+    doc.text(L.paymentInfo, 14, y);
+    doc.setFontSize(9.5);
+    const fila = (etiqueta: string, valor: string, yy: number, x2 = 52) => {
+        doc.setFont('helvetica', 'bold');
+        color(TINTA);
+        doc.text(`${etiqueta}:`, 14, yy);
+        doc.setFont('helvetica', 'normal');
+        color(GRIS);
+        doc.text(valor, x2, yy);
+    };
+    fila(L.method, L.processor, y + 8);
+    if (invoice.paddleTransactionId) fila(L.transaction, invoice.paddleTransactionId, y + 14);
+    fila(L.status, L[invoice.status] ?? invoice.status, y + 20);
+
+    // El aviso de demo va en el DOCUMENTO, no solo en la pantalla: un PDF se descarga y circula suelto, sin el banner de
+    // "datos de ejemplo" al lado.
     if (isDemo) {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(9);
         doc.setTextColor(180, 83, 9);
-        doc.text(L.demoNotice, 18, y + 16);
+        doc.text(L.demoNotice, 14, y + 32);
+    }
+
+    // Logo abajo a la derecha, o el nombre si no se pudo leer.
+    if (logo) {
+        doc.addImage(logo, 'PNG', 126, 252, 70, 8.54, 'logo-marca', 'FAST');
+    } else {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        color(AZUL);
+        doc.text('CSCloudSolutions', 196, 258, { align: 'right' });
     }
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(148, 163, 184);
-    doc.text(L.footer, 18, 285);
+    doc.text(L.footer, 14, 285);
 
     return Buffer.from(doc.output('arraybuffer'));
 }
