@@ -14,12 +14,14 @@ describe("NSG de apps: bloqueo de IMDS", () => {
   const red = leer(`${TF}/modules/network/main.tf`);
   const nsg = red.slice(red.indexOf('resource "azurerm_network_security_group" "apps"'));
 
-  it("viene apagado en el módulo, en el stamp y en el mapa del entorno", () => {
+  it("apagado en los módulos; encendido en prod y stg salvo false explícito en el stamp", () => {
     expect(leer(`${TF}/modules/network/variables.tf`)).toMatch(/variable "apps_nsg_block_imds"[\s\S]*?default\s*=\s*false/);
     expect(leer(`${TF}/modules/stamp/variables.tf`)).toMatch(/variable "apps_nsg_block_imds"[\s\S]*?default\s*=\s*false/);
     expect(leer(`${TF}/modules/stamp/main.tf`)).toMatch(/apps_nsg_block_imds\s*=\s*var\.apps_nsg_block_imds/);
-    expect(leer(`${TF}/environments/prod/variables.tf`)).toMatch(/apps_nsg_block_imds\s*=\s*optional\(bool,\s*false\)/);
-    expect(leer(`${TF}/environments/prod/main.tf`)).toMatch(/apps_nsg_block_imds\s*=\s*each\.value\.apps_nsg_block_imds/);
+    expect(leer(`${TF}/environments/prod/variables.tf`)).toMatch(/apps_nsg_block_imds\s*=\s*optional\(bool\)/);
+    expect(leer(`${TF}/environments/prod/main.tf`)).toMatch(
+      /apps_nsg_block_imds\s*=\s*coalesce\(each\.value\.apps_nsg_block_imds,\s*contains\(\["prod", "stg"\], var\.environment\)\)/,
+    );
   });
 
   it("deniega la salida al service tag AzurePlatformIMDS, no a la IP", () => {

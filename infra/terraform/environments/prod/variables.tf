@@ -121,7 +121,8 @@ variable "stamps" {
     nat_gateway_enabled = optional(bool, false)
 
     # NSG que deniega la salida de los contenedores a IMDS (AISEC-03, modules/network/main.tf).
-    apps_nsg_block_imds = optional(bool, false)
+    # null = encendido en prod y stg, apagado en el resto; false lo apaga en ese stamp.
+    apps_nsg_block_imds = optional(bool)
   }))
 }
 
