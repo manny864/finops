@@ -14,6 +14,7 @@ import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
 import { isMockTenant } from "@/lib/demoTenant";
 import { errorMessage } from "@/lib/apiErrors";
+import { descargarArchivoConSesion } from "@/lib/downloadFile";
 import InfoTooltip from "@/components/InfoTooltip";
 import {
     SaaSInvoiceItem,
@@ -207,6 +208,21 @@ export default function BillingPanel() {
             return;
         }
         router.push("/upgrade");
+    };
+
+    const handleDownloadInvoice = async (inv: SaaSInvoiceItem) => {
+        // Un PDF externo (si algún día lo hay) es público; el que arma la plataforma pide la sesión, que `window.open`
+        // no manda: por eso contestaba «No autorizado».
+        if (inv.downloadPdfUrl) {
+            window.open(inv.downloadPdfUrl, "_blank", "noopener,noreferrer");
+            return;
+        }
+        try {
+            const url = `/api/billing/invoices/${inv.id}/pdf?tenantId=${encodeURIComponent(tenantId)}&locale=${encodeURIComponent(locale)}`;
+            await descargarArchivoConSesion(url, await getAuthHeaders(), `CSCloudSolutions-${inv.invoiceNumber}.pdf`);
+        } catch (e: any) {
+            setError(errorMessage(e));
+        }
     };
 
     const handleOpenCustomerPortal = async () => {
@@ -731,13 +747,7 @@ export default function BillingPanel() {
                                             <td className="px-4 py-3 whitespace-nowrap">
                                                 <button
                                                     type="button"
-                                                    onClick={() => {
-                                                        // La ruta pide tenantId y redacta el PDF en el
-                                                        // idioma activo; sin los dos parametros devolvia 400.
-                                                        const url = inv.downloadPdfUrl
-                                                            || `/api/billing/invoices/${inv.id}/pdf?tenantId=${encodeURIComponent(tenantId)}&locale=${encodeURIComponent(locale)}`;
-                                                        window.open(url, "_blank");
-                                                    }}
+                                                    onClick={() => handleDownloadInvoice(inv)}
                                                     className="inline-flex items-center gap-1 text-xs font-semibold text-[#0078D4] hover:text-[#0060AA] transition-colors"
                                                 >
                                                     <IconDownload size={14} className="text-[#0078D4]" />
