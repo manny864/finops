@@ -1,4 +1,5 @@
 import pool, { insertPlatformAiUsage } from '@/modules/storage/db';
+import { guardAiMarkdown } from "@/lib/aiOutputGuard";
 import crypto from 'crypto';
 import { generateText } from 'ai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
@@ -481,7 +482,8 @@ export async function getAssessment(metricsData: any, tenantId: string, opts: As
 
         if (now - createdAt < hours24) {
             console.log(`[AI Cache] Hit for hash ${hashPrompt}`);
-            return cachedRow.response_text;
+            // Entradas anteriores a AISEC-02 pueden no estar filtradas.
+            return guardAiMarkdown(String(cachedRow.response_text));
         }
     }
 
@@ -554,13 +556,20 @@ Reglas estrictas:
         outputTokens: usage.outputTokens || 0,
     });
 
-    // Save to cache (REPLACE INTO overwrites if it exists but is expired)
-    await pool.query(
-        'REPLACE INTO AiCache (hash_prompt, response_text, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
-        [hashPrompt, text]
-    );
+    // AISEC-02: si el guard tuvo que tocar la respuesta (imágenes/enlaces/HTML no
+    // permitidos, posible inyección) no se cachea: no se perpetúa 24 h.
+    const safe = guardAiMarkdown(text);
+    if (safe === text) {
+        // Save to cache (REPLACE INTO overwrites if it exists but is expired)
+        await pool.query(
+            'REPLACE INTO AiCache (hash_prompt, response_text, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
+            [hashPrompt, text]
+        );
+    } else {
+        console.warn(`[AI Guard] Respuesta filtrada para tenant ${tenantId}; no se cachea.`);
+    }
 
-    return text;
+    return safe;
 }
 
 export async function generateExecutiveReportEmailIntro(params: {

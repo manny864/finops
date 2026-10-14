@@ -11,6 +11,7 @@
  * DLP (IA-5): Redactado automático de datos antes del envío a proveedores externos.
  */
 import Decimal from 'decimal.js';
+import { guardAiMarkdown } from '@/lib/aiOutputGuard';
 import pool, { insertPlatformAiUsage } from '@/modules/storage/db';
 import { RowDataPacket } from 'mysql2';
 import { errorMessage } from '@/lib/apiErrors';
@@ -627,7 +628,8 @@ export async function generateExecutiveReportAiMarkdown(
         outputTokens: usage.outputTokens || 0,
     });
 
-    return text;
+    // AISEC-02: se persiste en report_markdown y va a PDF/email.
+    return guardAiMarkdown(text);
 }
 
 /**

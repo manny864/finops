@@ -13,6 +13,7 @@
  *   - Directiva 8: Iconografía Tabler sin emojis y botones corporativos con fondo blanco puro.
  */
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { SafeMarkdown } from "@/components/ui/SafeMarkdown";
 import { useTranslations, useLocale } from 'next-intl';
 
 /**
@@ -49,8 +50,6 @@ import {
 } from '@tabler/icons-react';
 import { isMockTenant } from '@/lib/demoTenant';
 import { getFreshIdToken } from '@/lib/msalToken';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import Decimal from 'decimal.js';
 import { useSearchParams } from 'next/navigation';
 import { errorMessage } from '@/lib/apiErrors';
@@ -776,7 +775,7 @@ export default function ExecutiveReportPanel() {
                             <div className="bg-slate-50/70 dark:bg-slate-800/40 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-inner">
                                 {aiReport ? (
                                     <div className="prose prose-sm dark:prose-invert max-w-none text-slate-800 dark:text-slate-200 leading-relaxed text-justify">
-                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{aiReport}</ReactMarkdown>
+                                        <SafeMarkdown>{aiReport}</SafeMarkdown>
                                     </div>
                                 ) : (
                                     <div className="text-center py-8 text-slate-400 text-xs">

@@ -13,12 +13,11 @@
  *   - Iconografía exclusiva Tabler Icons sin fondos de color.
  */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { SafeMarkdown } from "@/components/ui/SafeMarkdown";
 import { useTranslations } from "next-intl";
 import { useTenant } from "@/components/TenantProvider";
 import { useMsal } from "@azure/msal-react";
 import { getFreshIdToken } from "@/lib/msalToken";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import {
     IconAlertCircle,
     IconArrowUpRight,
@@ -601,7 +600,7 @@ export default function ExecutiveReportsHistoryPanel() {
                                     </div>
                                 ) : (
                                     <div className="prose prose-sm max-w-none text-slate-800 dark:text-slate-200 leading-relaxed text-justify">
-                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{previewContent}</ReactMarkdown>
+                                        <SafeMarkdown>{previewContent}</SafeMarkdown>
                                     </div>
                                 )}
                             </div>
