@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { guardAiMarkdownStream } from "@/lib/aiOutputGuard";
 import { streamText } from "ai";
 import { AIProviderFactory, redactForTenant, redactSerializedForTenant } from "@/modules/core/aiProvider";
 import { isMockTenant } from "@/lib/mockData";
@@ -273,7 +274,11 @@ ${prompt ?? ''}
 
         // Stream de texto plano (text/plain). El cliente lo lee con
         // response.body.getReader() y va appendeando tokens en tiempo real.
-        return result.toTextStreamResponse();
+        // AISEC-02: filtrado por párrafo antes de llegar al navegador.
+        return new Response(
+            result.textStream.pipeThrough(guardAiMarkdownStream()).pipeThrough(new TextEncoderStream()),
+            { headers: { "Content-Type": "text/plain; charset=utf-8" } },
+        );
     } catch (error: unknown) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("[Copilot] Error:", error instanceof Error ? error.stack || error.message : error);

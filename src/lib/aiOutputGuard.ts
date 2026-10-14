@@ -21,3 +21,24 @@ export function guardAiMarkdown(md: string): string {
       )
   );
 }
+
+/**
+ * Versión streaming (Copilot): acumula hasta fin de párrafo ("\n\n") y filtra ese bloque.
+ * Ni un enlace, ni su destino, ni una definición por referencia cruzan una línea en blanco,
+ * así que el resultado es igual a filtrar el texto completo.
+ */
+export function guardAiMarkdownStream(): TransformStream<string, string> {
+  let buf = "";
+  return new TransformStream<string, string>({
+    transform(chunk, controller) {
+      buf += chunk;
+      const cut = buf.lastIndexOf("\n\n");
+      if (cut === -1) return;
+      controller.enqueue(guardAiMarkdown(buf.slice(0, cut + 2)));
+      buf = buf.slice(cut + 2);
+    },
+    flush(controller) {
+      if (buf) controller.enqueue(guardAiMarkdown(buf));
+    },
+  });
+}

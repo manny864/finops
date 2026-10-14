@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { guardAiMarkdown } from "@/lib/aiOutputGuard";
 import pool from "@/modules/storage/db";
 import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
 import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
@@ -481,6 +482,8 @@ export async function GET(request: NextRequest) {
         if (!report && withStoredName && row.report_stored_name) {
             report = (await readExecutiveReportMarkdown(row.report_stored_name)) || "";
         }
+        // AISEC-02: reportes persistidos antes del guard de escritura.
+        report = guardAiMarkdown(report);
 
         return NextResponse.json({
             success: true,

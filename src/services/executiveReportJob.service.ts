@@ -10,6 +10,7 @@
  *   - Tolerancia cero a mock fallbacks en tenants vivos.
  */
 import pool, { initializeDatabase } from '@/modules/storage/db';
+import { guardAiMarkdown } from '@/lib/aiOutputGuard';
 import { isMockTenant } from '@/lib/mockData';
 import {
     aggregateExecutiveReportData,
@@ -484,7 +485,7 @@ export async function getExecutiveReportJobStatus(
         isCompleted,
         isFailed,
         error: row.error_message || undefined,
-        reportMarkdown: row.report_markdown || undefined,
+        reportMarkdown: row.report_markdown ? guardAiMarkdown(String(row.report_markdown)) : undefined,
         createdAt: row.created_at,
         completedAt: row.completed_at,
         scopeSubscriptionId: row.scope_subscription_id,
@@ -570,11 +571,13 @@ export async function getLatestCompletedReport(tenantId: string) {
     if (!row) return null;
 
     const data = await aggregateExecutiveReportData(tenantId, 'SUBSCRIPTION', row.scope_subscription_id || 'All');
-    data.aiMarkdown = row.report_markdown;
+    // AISEC-02: filas anteriores al guard de escritura.
+    const reportMarkdown = guardAiMarkdown(String(row.report_markdown));
+    data.aiMarkdown = reportMarkdown;
 
     return {
         reportId: String(row.id),
-        reportMarkdown: row.report_markdown,
+        reportMarkdown,
         data,
         completedAt: row.completed_at,
     };

@@ -81,3 +81,29 @@ describe("guardAiMarkdown", () => {
     expect(guardAiMarkdown(once)).toBe(once);
   });
 });
+
+describe("guardAiMarkdownStream (Copilot)", () => {
+  const run = async (chunks: string[]) => {
+    const src = new ReadableStream<string>({
+      start(c) {
+        chunks.forEach((x) => c.enqueue(x));
+        c.close();
+      },
+    });
+    let out = "";
+    const r = src.pipeThrough((await import("@/lib/aiOutputGuard")).guardAiMarkdownStream()).getReader();
+    for (;;) {
+      const { done, value } = await r.read();
+      if (done) return out;
+      out += value;
+    }
+  };
+
+  it("con cortes arbitrarios da lo mismo que filtrar el texto completo", async () => {
+    const md = "## T\n\nHola ![x](https://evil.example/?d=1) y [a](\n https://evil.example)\n\n| a |\n|---|\n| [d](https://learn.microsoft.com/x) |\n\n[a][r]\n\n[r]: https://evil.example\n";
+    for (const size of [1, 2, 3, 7, 16, md.length]) {
+      const chunks = md.match(new RegExp(`[\\s\\S]{1,${size}}`, "g"))!;
+      expect(await run(chunks)).toBe(guardAiMarkdown(md));
+    }
+  });
+});
