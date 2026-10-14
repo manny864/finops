@@ -10,6 +10,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import { errorMessage } from "@/lib/apiErrors";
 import InfoTooltip from "@/components/InfoTooltip";
 import type { CategoriaEgress, MapaEgress } from "@/services/networkEgress.service";
+import NetworkTrafficPilotBoard from "@/components/dashboard/NetworkTrafficPilotBoard";
 
 /**
  * MEJ-19 — a dónde se va la plata de transferencia de datos.
@@ -19,10 +20,9 @@ import type { CategoriaEgress, MapaEgress } from "@/services/networkEgress.servi
  * Gateway, que son los dos que sorprenden y los dos que se arreglan cambiando
  * arquitectura y no SKU.
  *
- * Sin Sankey: son seis categorías, y un diagrama de flujo para seis barras es una
- * dependencia nueva para decir lo mismo. Si algún día el desglose llega a nivel
- * de par origen-destino —que hoy la ingesta no da— ahí un Sankey dibuja algo que
- * una tabla no puede.
+ * El panel de piloto debajo consulta Traffic Analytics existente por pares
+ * origen-destino. El Sankey queda pendiente hasta validar esa atribución con
+ * telemetría real; los medidores de costos por sí solos no dan esa topología.
  */
 
 const ORDEN_VISUAL: CategoriaEgress[] = [
@@ -93,9 +93,12 @@ export default function NetworkEgressBoard() {
 
     if (error) {
         return (
-            <div className="rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 p-4 text-sm text-red-700 dark:text-red-300">
-                {t("loadError")}: {errorMessage(error)}
-            </div>
+            <>
+                <div className="rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 p-4 text-sm text-red-700 dark:text-red-300">
+                    {t("loadError")}: {errorMessage(error)}
+                </div>
+                <NetworkTrafficPilotBoard />
+            </>
         );
     }
 
@@ -205,6 +208,7 @@ export default function NetworkEgressBoard() {
                     </p>
                 </>
             )}
+            <NetworkTrafficPilotBoard />
         </div>
     );
 }

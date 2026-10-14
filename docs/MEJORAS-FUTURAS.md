@@ -34,7 +34,7 @@ código o en producción, y documenta *por qué* existe la oportunidad, no sólo
 | [MEJ-16](#mej-16--gestión-avanzada-de-compromisos-reservas-y-savings-plans) | Gestión avanzada de compromisos (Reservas y Savings Plans) con simulador de Breakeven, Mix Óptimo, límite de devolución $50k USD y alertas de expiración | Compromisos / FinOps | Alto | Medio | Hecha |
 | [MEJ-17](#mej-17--aks-finops-cockpit-costos-por-namespace-workload-y-eficiencia-de-contenedores) | AKS FinOps Cockpit (Costos por Namespace, Workload y Eficiencia de Contenedores con OpenCost/Add-on) | Cómputo / Kubernetes | Alto | Alto | Propuesta |
 | [MEJ-18](#mej-18--cosmos-db--cargas-nosql-finops-cockpit) | Cosmos DB & Cargas NoSQL FinOps Cockpit — los tres criterios de aceptación cumplidos; sin verificar contra una cuenta real porque no hay ninguna | Bases de Datos / NoSQL | Alto | Medio | Hecha |
-| [MEJ-19](#mej-19--mapa-de-tráfico-de-red-egress-y-fugas-de-datos) | Mapa de tráfico de red, egress y fugas de datos — núcleo hecho; faltan Sankey, P95 de ExpressRoute y el medidor de Private Link | Redes / Egress | Alto | Medio | Parcial |
+| [MEJ-19](#mej-19--mapa-de-tráfico-de-red-egress-y-fugas-de-datos) | Mapa de tráfico de red, egress y fugas de datos — piloto de flujos existentes, falta validar telemetría real antes del Sankey | Redes / Egress | Alto | Medio | Parcial |
 | [MEJ-20](#mej-20--shift-left-finops-integración-cicd-y-gatekeeper-de-iac) | Shift-Left FinOps: Integración CI/CD y Gatekeeper de IaC (PR Cost Estimator y Budget Gates) | Shift-Left / DevOps | Alto | Medio | Hecha |
 | [MEJ-21](#mej-21--orquestación-de-remediación-inteligente-conectores-itsm-y-generador-de-policy-as-code) | Orquestación de remediación con Rollback, conectores ITSM (Teams, Slack, Jira, ServiceNow) y generador de Azure Policy | Gobernanza / Automatización | Alto | Alto | Propuesta |
 | [MEJ-22](#mej-22--cambio-de-prioridad-de-tickets-por-agentes-de-soporte) | Cambio de prioridad de tickets por agentes desde la cola global y el Drawer | Soporte / Mesa de ayuda | Alto | Bajo | Hecha |
@@ -1904,7 +1904,7 @@ Azure Cosmos DB es uno de los servicios de mayor volatilidad financiera en Azure
 
 ## MEJ-19 — Mapa de Tráfico de Red, Egress y Fugas de Datos
 
-**Módulo:** Redes / Egress · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Parcial (núcleo 2026-09; criterio 3 hecho 2026-09-27)
+**Módulo:** Redes / Egress · **Impacto:** Alto · **Esfuerzo:** Medio · **Estado:** Parcial (núcleo 2026-09; P95 hecho 2026-09-27; piloto de Traffic Analytics solo lectura 2026-10-14)
 
 ### Contexto
 
@@ -2066,6 +2066,29 @@ Tests: `__tests__/unit/capacidadDeRed.test.ts` (20).
 - **El Sankey (criterio 1)**, con el mismo argumento de antes: son seis categorías y el desglose por
   par origen-destino no existe en la ingesta.
 - **Network Watcher Flow Logs**: dan GB, no costo.
+
+### Piloto de telemetría existente (2026-10-14)
+
+Se añadió una consulta **solo lectura** a los workspaces ya enlazados en Flow Logs activos con Traffic Analytics:
+`GET /api/intelligence/network/traffic-pilot`. No habilita ni modifica Flow Logs, Traffic Analytics, Log Analytics
+ni recursos de Azure. Consulta `NTANetAnalytics` para una ventana de 7 días (máximo 30) y agrega por subred,
+región y tipo de flujo; no devuelve direcciones IP. La pestaña Egress muestra los pares y el estado de cobertura.
+
+- Azure debe exponer los Flow Logs y `workspaceResourceId` mediante Resource Graph; cada workspace necesita
+  permisos de lectura de Azure Resource Manager y consulta de Log Analytics. Los errores de permisos,
+  workspaces inaccesibles y tablas/esquemas no disponibles se informan por separado; no se convierten en
+  cero flujos.
+- El resultado está limitado a los primeros 5 workspaces configurados y los 100 pares principales por
+  workspace; los límites se marcan como cobertura/muestra parcial. El volumen de telemetría no se interpreta
+  como costo facturado.
+- **Pendiente de validar contra un tenant real con Traffic Analytics ya habilitado:** disponibilidad de la
+  tabla y nombres de columnas para los esquemas del cliente, cobertura de subred/región, permisos requeridos,
+  latencia y volumen de filas. Hasta completar esta validación no se debe construir ni presentar el Sankey como
+  topología completa.
+- Private Link sigue dentro de la categoría de procesamiento de costos: separar su volumen requiere verificar
+  que los medidores existentes permitan atribuirlo al endpoint sin ambigüedad.
+- Contratos consultados: [esquema de Traffic Analytics](https://learn.microsoft.com/en-us/azure/network-watcher/traffic-analytics-schema)
+  y [acceso a la API de Azure Monitor Logs](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/api/access-api).
 
 ---
 
