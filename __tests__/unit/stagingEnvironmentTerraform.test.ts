@@ -47,11 +47,14 @@ describe("imports.tf de staging", () => {
   const imports = leer(`${STG}/imports.tf`);
   const ids = [...imports.matchAll(/id\s*=\s*"([^"]+)"/g)].map((m) => m[1]);
 
-  it("importa exactamente los dos RG y el ACR de staging, con sus direcciones del root", () => {
+  it("importa exactamente los dos RG, el ACR y los flow logs de staging, con sus direcciones del root", () => {
     expect(imports).toContain("to = azurerm_resource_group.global");
     expect(imports).toContain('to = module.stamp["us"].module.network.azurerm_resource_group.this');
     expect(imports).toContain("to = module.acr.azurerm_container_registry.this");
-    expect(ids).toHaveLength(3);
+    expect(imports).toContain('to = module.stamp["us"].azurerm_user_assigned_identity.network_flow_logs[0]');
+    expect(imports).toContain('to = module.stamp["us"].azurerm_role_assignment.network_flow_logs_storage[0]');
+    expect(imports).toContain('to = module.stamp["us"].azapi_resource.network_flow_log[0]');
+    expect(ids).toHaveLength(6);
   });
 
   it("todos los IDs son de staging (stg) y ninguno de prod", () => {
