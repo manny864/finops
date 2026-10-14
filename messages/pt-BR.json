@@ -16447,6 +16447,7 @@
     "pilotTitle": "Piloto: fluxos observados",
     "pilotSubtitle": "Consulta apenas workspaces já vinculados ao Traffic Analytics; não ativa nem altera a telemetria.",
     "pilotLoading": "Consultando a telemetria existente…",
+    "pilotLoadError": "Não foi possível consultar o Traffic Analytics",
     "pilotReady": "Há fluxos agregados por sub-rede e região. Essa evidência permite validar a atribuição antes de criar um Sankey.",
     "pilotPartial": "A cobertura é parcial: alguns workspaces ou configurações não puderam ser consultados.",
     "pilotNotConfigured": "Nenhum Flow Log ativo com Traffic Analytics configurado foi encontrado.",

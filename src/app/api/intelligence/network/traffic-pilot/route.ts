@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+import { AuthError, requireTenantTier } from "@/lib/requestAuth";
 import { errorMessage, errorStatus, serverError } from "@/lib/apiErrors";
 import { isMockTenant } from "@/lib/mockData";
 import { getNetworkTrafficPilot, type NetworkTrafficPilotResult } from "@/services/networkTrafficPilot.service";
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(demoTraffic(days));
     }
 
-    await requireTenantAccess(request, tenantId);
+    await requireTenantTier(request, tenantId, "Business");
     return NextResponse.json(await getNetworkTrafficPilot(tenantId, days));
   } catch (error) {
     if (error instanceof AuthError) {

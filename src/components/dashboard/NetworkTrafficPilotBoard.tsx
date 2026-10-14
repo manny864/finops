@@ -68,7 +68,7 @@ export default function NetworkTrafficPilotBoard() {
       {isLoading ? (
         <p className="text-sm text-slate-500">{t("pilotLoading")}</p>
       ) : error ? (
-        <p role="alert" className="text-sm text-red-700 dark:text-red-300">{t("loadError")}: {errorMessage(error)}</p>
+        <p role="alert" className="text-sm text-red-700 dark:text-red-300">{t("pilotLoadError")}: {errorMessage(error)}</p>
       ) : data ? (
         <>
           <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-500 dark:text-slate-400">

@@ -16447,6 +16447,7 @@
     "pilotTitle": "Pilot: observed flows",
     "pilotSubtitle": "Queries only workspaces already linked to Traffic Analytics; it does not enable or change telemetry.",
     "pilotLoading": "Querying existing telemetry…",
+    "pilotLoadError": "Could not query Traffic Analytics",
     "pilotReady": "Aggregated flows by subnet and region are available. This evidence helps validate attribution before building a Sankey.",
     "pilotPartial": "Coverage is partial: some workspaces or configurations could not be queried.",
     "pilotNotConfigured": "No active Flow Logs with Traffic Analytics configuration were found.",
