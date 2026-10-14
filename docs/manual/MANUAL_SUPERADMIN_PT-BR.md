@@ -1575,7 +1575,12 @@ A mudança de plano (veja seção 8.4) tem 3 modos possíveis de rateio ao fazer
 - **Rateio no próximo ciclo:** a mudança de preço completa é cobrada apenas na próxima renovação.
 - **Sem cobrança imediata:** a mudança de plano se aplica sem gerar nenhuma cobrança até o próximo ciclo.
 
-Em `/admin/billing` você também acessa o **portal de gestão de pagamento** (atualizar cartão) e o **histórico de faturas** para download.
+Em `/admin/billing` você também acessa o **portal de gestão de pagamento** (atualizar cartão) e o **Histórico de Faturas**, que lista suas cobranças reais (as últimas 50, da mais recente para a mais antiga):
+
+- **Número:** o identificador da transação no Paddle. Não é uma numeração fiscal própria.
+- **Valor:** na **moeda da cobrança** (USD ou EUR), como você foi cobrado.
+- **Status:** *Paga*, *Reembolso em análise* (você pediu um reembolso e ele ainda não foi resolvido) ou *Reembolsada*. Tentativas de cobrança que falharam não aparecem.
+- **Baixar PDF:** gera um comprovante com os mesmos dados da linha.
 
 ### 11.8. Teste gratuito de 7 dias (autoatendimento)
 

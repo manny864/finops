@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **490** rutas.
+Total: **494** rutas.
 
 La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archivo.
 `_CRON_SECRET_` = no usa guard de tenant; autentica con el header `Authorization: Bearer $CRON_SECRET`.
@@ -104,8 +104,10 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/billing/invoices` | GET | requireTenantRole | — | — |
 | `/api/billing/invoices/[id]/pdf` | GET | requireTenantRole | — | sí |
 | `/api/billing/marketplace` | GET, POST | requireTenantRole, requireTenantTier | — | sí |
+| `/api/billing/marketplace/checkout` | POST | requireTenantRole | — | sí |
 | `/api/billing/plan` | GET | requireTenantRole | — | — |
 | `/api/billing/portal` | GET | requireTenantRole | — | — |
+| `/api/billing/refunds` | GET, POST | requireTenantRole | — | sí |
 | `/api/billing/subscription` | PATCH, DELETE | requireTenantRole | — | — |
 | `/api/billing/subscription/preview` | POST | requireTenantRole | — | — |
 | `/api/budgets` | GET, POST, PUT, DELETE | requireTenantRole, requireTenantAccess | — | — |
@@ -436,6 +438,8 @@ La columna *Guard* es el guard de `src/lib/requestAuth.ts` presente en el archiv
 | `/api/superadmin/ai-global-config` | GET, PATCH | requireSuperAdmin | — | — |
 | `/api/superadmin/ai-global-config/delete-key` | POST | requireSuperAdmin | — | — |
 | `/api/superadmin/ai-global-config/test` | POST | requireSuperAdmin | — | — |
+| `/api/superadmin/cancellation-requests` | GET | requireSuperAdmin | — | — |
+| `/api/superadmin/cancellation-requests/[id]` | POST | requireSuperAdmin | — | — |
 | `/api/superadmin/commissions` | GET, POST | requireSuperAdmin | — | — |
 | `/api/superadmin/funnel` | GET | requireSuperAdmin | — | — |
 | `/api/superadmin/impersonate/start` | POST | requireSuperAdmin | — | — |

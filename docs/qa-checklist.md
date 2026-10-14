@@ -409,10 +409,11 @@
 - [ ] Countdown de trial si `subscription_status=TRIAL`.
 - [ ] **Cambiar plan** modal: selector tier × billing (monthly/yearly) + proration mode.
 - [ ] **Método de pago** abre URL de Paddle en nueva tab.
-- [ ] **Historial de facturas** lista BillingTransactions DESC.
+- [ ] **Historial de facturas** lista `BillingTransactions` (`completed`, `refund_pending`, `refunded`) DESC, máx. 50, cada una en su moneda (USD/EUR) y con su estado; los `payment_failed` no aparecen. «Descargar PDF» respeta la moneda.
 - [ ] **Cancelar suscripción** con confirm; acepta "immediately" o "next period".
 
 ### Flujo end-to-end (sandbox)
+- [ ] `/pricing` → **Solicitar Demo** (Professional, Business y Enterprise) abre el formulario sin cambiar de URL; al enviarlo muestra el agradecimiento y el mail a ventas trae «Tier consultado».
 - [ ] `/pricing` → click plan → overlay Paddle abre (sandbox env).
 - [ ] Pago con tarjeta test `4242 4242 4242 4242` → checkout completa.
 - [ ] Webhook `subscription.created` actualiza tier + paddle_subscription_id en DB.

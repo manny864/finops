@@ -2,7 +2,7 @@
 
 > Generado por `scripts/generate-lld.mjs`. No editar a mano.
 
-Total: **154** tablas. Migraciones aplicables: **156**.
+Total: **155** tablas. Migraciones aplicables: **157**.
 
 `schema.sql` es el baseline de referencia y **no se ejecuta**; `migrations/` es la
 fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.md`).
@@ -40,6 +40,7 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 | `Budgets` | sí | `20260628-001-core-bootstrap.sql` |
 | `BusinessMetrics` | — | `20260701-002-business-metrics.sql` |
 | `BusinessMetricsConfig` | — | `20260701-002-business-metrics.sql` |
+| `CancellationRequests` | — | `20261013-035-solicitudes-de-cancelacion.sql` |
 | `Commissions` | — | `20260913-006-comisiones-unificadas.sql` |
 | `CommitmentRenewalNotices` | — | `20261008-032-avisos-renovacion-compromisos.sql` |
 | `Commitments` | — | `20261008-031-compromisos.sql` |
@@ -322,3 +323,4 @@ fuente de verdad de todo cambio encima de él (ver `docs/lld/02-modelo-de-datos.
 - `migrations/20261008-032-avisos-renovacion-compromisos.sql`
 - `migrations/20261008-033-shift-left-descuento-del-cliente.sql`
 - `migrations/20261008-034-shift-left-presupuesto-por-repo.sql`
+- `migrations/20261013-035-solicitudes-de-cancelacion.sql`

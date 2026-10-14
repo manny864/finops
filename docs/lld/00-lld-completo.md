@@ -6150,3 +6150,82 @@ primeras corridas tras el deploy salieron sin errores, antes 4 de 9 los tenían;
 faltaban (no se sabe si algún tenant tiene recursos de esos servicios, porque el cron que lo mostraría no se autentica, 48.9:
 sólo se probó con el DDL real y datos de prueba), el
 `EXPLAIN` de las consultas con la ventana de fecha, y el efecto del `useMemo` en renders.
+
+## 49. Addendum 2026-10-13 — Historial de cobros del panel y «Solicitar Demo»
+
+Dos cambios chicos, sin migraciones y sin rutas nuevas. Suite completa: 5.509 tests en verde; `tsc` y ESLint (`--quiet`)
+limpios; el test contra MySQL real pasó en 8.0 y 8.4.
+
+### 49.1 `getTenantBillingDetails`: el historial sale de `BillingTransactions`
+
+**Defecto.** `src/services/saasBilling.service.ts` consultaba `SaaSInvoices`, que no está en ninguna migración (se comprobó
+aplicando las 157 desde cero en MySQL 8.0 y 8.4: `Table 'finops_app.SaaSInvoices' doesn't exist`). El `catch` se tragaba el
+error y `billingData.invoices`, que pinta `BillingPanel.tsx`, llegaba siempre vacío. Es la misma familia que el
+`TenantSaaSSubscriptions` inexistente de §37: una tabla equivocada no da error visible, da una lista vacía.
+
+**Consumidores de `invoices`** (consultados con el grafo): `GET /api/admin/billing` → `BillingPanel`;
+`GET /api/billing/invoices/[id]/pdf`, que busca la factura por `id` en esa misma lista; y `generateSubscriptionInvoicePdf`
+(`billingReport.service.ts`), que recibe el `SaaSInvoiceItem`. El tenant demo usa `getMockBillingDetails`, que no toca la base.
+
+```sql
+SELECT id, paddle_transaction_id, amount, currency, status, COALESCE(billed_at, created_at) AS billed_on
+  FROM BillingTransactions
+ WHERE tenant_id = ? AND status IN ('completed', 'refund_pending', 'refunded')
+ ORDER BY billed_at DESC, created_at DESC
+ LIMIT 50
+```
+
+Un fallo de la lectura deja la lista vacía y escribe un `console.warn` (el resto del panel sigue); ya no es un `catch` mudo.
+
+```ts
+// src/types/saasBilling.types.ts
+export interface SaaSInvoiceItem {
+  id: string;                 // BillingTransactions.id
+  invoiceNumber: string;      // paddle_transaction_id (o el id si fuera NULL)
+  billingDateIso: string;     // ISO crudo; el formato lo pone la pantalla (locale activo)
+  amount: number;             // en la moneda del cobro (antes: amountUSD)
+  currency: string;           // ISO 4217: USD o EUR
+  status: "PAID" | "PENDING" | "FAILED" | "REFUND_PENDING" | "REFUNDED";
+  downloadPdfUrl?: string;    // siempre vacío: la pantalla cae a /api/billing/invoices/[id]/pdf
+  receiptUrl?: string;
+}
+```
+
+| `BillingTransactions.status` | `SaaSInvoiceItem.status` | Etiqueta (es / en / pt-BR) |
+|---|---|---|
+| `completed` | `PAID` | Pagada / Paid / Paga |
+| `refund_pending` | `REFUND_PENDING` | Reembolso en revisión / Refund under review / Reembolso em análise |
+| `refunded` | `REFUNDED` | Reembolsada / Refunded / Reembolsada |
+| `payment_failed` y demás | (no se lista) | — |
+
+**Qué no se inventa.** Paddle no entrega un número de factura ni un PDF propios, así que `invoiceNumber` es el id de la
+transacción y no hay `downloadPdfUrl`. El PDF lo arma la plataforma con los mismos datos que la fila (ver el contrato de
+`generateSubscriptionInvoicePdf`): con `Intl.NumberFormat({ style: 'currency', currency: invoice.currency })`, para que un cobro
+en EUR no salga rotulado en dólares. Un `currency` NULL en un cobro `completed` se toma como USD; el webhook siempre lo guarda.
+
+**Interfaz.** La columna de importe se formatea con `Intl.NumberFormat(locale, { style: "currency", currency })` (su id pasó
+de `amountUSD` a `amount` y su rótulo es «Monto / Amount / Valor», sin «USD»). Los estados de reembolso se pintan en ámbar y
+el resto en azul; las claves `AdminBilling.invoiceStatus_REFUND_PENDING` y `_REFUNDED` están en los tres catálogos.
+
+**Tests.** `saasBillingService.test.ts` (mapeo de estados y moneda, fallo de lectura),
+`subscriptionInvoicePdf.test.ts` (EUR y estado «Refunded») y, contra MySQL real,
+`__tests__/integration/reembolsosYCancelacionesSqlReal.test.ts` (cobros `completed`, `refunded`, `refund_pending`, uno en EUR y
+un `payment_failed`, que queda afuera; orden y moneda). `selectColumnasExisten.test.ts` ya no lista `saasinvoices` como deuda.
+
+### 49.2 «Solicitar Demo» en la página de precios
+
+`PricingPage.tsx` ya no navega a `/demo`: el estado `demoTier: 'Professional' | 'Business' | 'Enterprise' | null` abre
+`DemoLeadModal` en modo `solicitud` desde el botón de cada tarjeta y desde el de la tabla comparativa
+(`FinOpsCapabilitiesTable`, que sólo tiene el de Professional). Se quitó `useRouter`, `goToDemo` y el flag
+`hasCompletedDemoLead` de esta pantalla.
+
+| Pieza | Cambio |
+|---|---|
+| `DemoLeadModal` | Props nuevas `solicitud?: boolean` y `tier?: string`. En modo solicitud usa otros textos (`DemoLead.request*`), al enviar muestra un agradecimiento y **no** llama a `onSuccess`. El portón de `/demo` (sin `solicitud`) queda igual. |
+| `POST /api/leads/demo` | Acepta `tier` en el cuerpo. El valor llega del navegador y va a un mail, así que pasa por `tierDeDemo()` (`src/lib/demoLeadTier.ts`), que sólo devuelve un valor de la lista `Professional`/`Business`/`Enterprise`; cualquier otro es `null`. |
+| Mail a ventas | Si hay tier, agrega «Tier consultado». El acceso desde `/demo` no lo manda y el mail sale como antes. |
+| i18n | `pricing.requestDemo` y `finopsPopup.requestDemo` (reemplazan a `pricing.tryNow`, «Demo Interactiva») y `DemoLead.requestTitle/Subtitle/Submit/SentTitle/SentBody`, en es, en y pt-BR. |
+
+**Tests.** `demoLeadTier.test.ts` (acepta los tres, descarta `enterprise` en minúscula, HTML y objetos con `toString`). **Sin
+verificar:** el envío real del formulario (reCAPTCHA y el mail por Graph); en el navegador sólo se comprobó que los tres botones
+muestran «Solicitar Demo» y que el primero abre el formulario sin cambiar de URL.

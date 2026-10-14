@@ -460,6 +460,21 @@ segundo.
 
 ## 📈 Recent Major Updates
 
+### 2026-10-13 — El historial de facturas sale de los cobros reales, y «Solicitar Demo» informa el tier
+
+Detalle técnico en `docs/lld/00-lld-completo.md` §49. Sin migraciones.
+
+- **Historial de facturas (`/admin/billing`).** Leía `SaaSInvoices`, una tabla que no existe en ninguna
+  migración, dentro de un `catch` mudo: la lista llegaba siempre vacía. Ahora sale de `BillingTransactions`
+  (cobros `completed`, `refund_pending` y `refunded`, el más reciente primero, hasta 50). Cada fila trae su
+  **moneda** (USD o EUR) y su estado (Pagada, Reembolso en revisión, Reembolsada). El «número de factura» es el
+  id de la transacción de Paddle: no se inventa numeración ni PDF propio; «Descargar PDF» arma el comprobante
+  con los mismos datos. `SaaSInvoiceItem` pasó de `amountUSD` a `amount` + `currency`.
+- **Página de precios.** El botón de demo de cada tier (y el de la tabla comparativa) dice **Solicitar Demo** y
+  ya no lleva a `/demo`: abre el formulario de contacto en la misma página, ventas recibe el pedido por mail con
+  el **tier consultado** (Professional, Business o Enterprise; el servidor sólo acepta esos tres) y el visitante
+  ve un agradecimiento. `/demo` sigue existiendo con su formulario de acceso.
+
 ### 2026-10-08 — Shift-Left: el costo de un Pull Request, con 18 tipos de recurso, Bicep y presupuesto
 
 Detalle técnico en `docs/lld/00-lld-completo.md` §45, arquitectónico en

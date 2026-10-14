@@ -1452,7 +1452,12 @@ El cambio de plan (ver sección 8.4) tiene 3 modos de prorrateo posibles al hace
 - **Prorrateo en el próximo ciclo:** el cambio de precio completo se cobra recién en la próxima renovación.
 - **Sin cobro inmediato:** el cambio de plan aplica sin generar ningún cargo hasta el ciclo siguiente.
 
-Desde `/admin/billing` también accedés al **portal de gestión de pago** (actualizar tarjeta) y al **historial de facturas** descargables.
+Desde `/admin/billing` también accedés al **portal de gestión de pago** (actualizar tarjeta) y al **Historial de Facturas**, que lista tus cobros reales (los últimos 50, el más reciente primero):
+
+- **Número:** el identificador de la transacción en Paddle. No es una numeración fiscal propia.
+- **Monto:** en la **moneda del cobro** (USD o EUR), tal como se te cobró.
+- **Estado:** *Pagada*, *Reembolso en revisión* (pediste un reembolso y aún no se resolvió) o *Reembolsada*. Los intentos de cobro fallidos no aparecen.
+- **Descargar PDF:** genera un comprobante con los mismos datos de la fila.
 
 ### 11.8. Trial gratuito de 7 días (autoservicio)
 

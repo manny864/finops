@@ -1449,7 +1449,12 @@ The plan change (see section 8.4) has 3 possible proration modes when upgrading/
 - **Next-cycle proration:** the full price change is charged only at the next renewal.
 - **No immediate charge:** the plan change applies without generating any charge until the next cycle.
 
-From `/admin/billing` you also access the **payment management portal** (update card) and the **downloadable invoice history**.
+From `/admin/billing` you also access the **payment management portal** (update card) and the **Invoice History**, which lists your actual charges (the latest 50, newest first):
+
+- **Number:** the Paddle transaction identifier. It is not our own tax invoice numbering.
+- **Amount:** in the **currency of the charge** (USD or EUR), as you were billed.
+- **Status:** *Paid*, *Refund under review* (you requested a refund and it is not resolved yet) or *Refunded*. Failed payment attempts are not listed.
+- **Download PDF:** generates a receipt with the same data as the row.
 
 ### 11.8. 7-day free trial (self-service)
 

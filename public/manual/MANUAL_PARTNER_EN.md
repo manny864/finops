@@ -194,7 +194,7 @@ What you can state, in the words of the platform's public **Trust Center**:
 
 It is the best first step: the prospect **sees the platform working with synthetic data** and without connecting their Azure.
 
-1. From the pricing page, the **Interactive Demo** button (or directly `https://finops.cscloudsolutions.com.ar/demo`). The `?tier=` parameter chooses which plan to show: `professional`, `business` or `enterprise`.
+1. On the pricing page, each plan's **Request Demo** button opens a contact form: sales receives the request, with the **plan the prospect looked at**, and arranges the demonstration. To let the prospect see the platform right away, send the direct link `https://finops.cscloudsolutions.com.ar/demo`; the `?tier=` parameter chooses which plan to show: `professional`, `business` or `enterprise`.
 2. The demo first asks for **contact details** (name, email, phone and company) with reCAPTCHA verification: it is also a way for CSCloudSolutions to record the interest.
 3. Then you sign in with the user `demo` and the password `demo`.
 4. A **demo mode** banner appears across the platform. Actions that modify something **are not saved** (for example, Perspectives are examples).

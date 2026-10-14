@@ -60,8 +60,8 @@ Una variable con 0 usos está declarada pero no la lee nadie: o es de build/infr
 | `PADDLE_ADDON_SUBSCRIPTION_PRICE_ID_PROFESSIONAL` | 0 | — |
 | `PADDLE_ADDON_TENANT_PRICE_ID_BUSINESS` | 1 | `src/lib/addonCatalog.ts` |
 | `PADDLE_ADDON_TENANT_PRICE_ID_PROFESSIONAL` | 1 | `src/lib/addonCatalog.ts` |
-| `PADDLE_API_KEY` | 13 | `src/app/api/billing/addons/capacity/route.ts`, `src/app/api/billing/addons/tenant/route.ts` |
-| `PADDLE_WEBHOOK_SECRET` | 1 | `src/app/api/webhooks/paddle/route.ts` |
+| `PADDLE_API_KEY` | 15 | `src/app/api/billing/addons/capacity/route.ts`, `src/app/api/billing/addons/tenant/route.ts` |
+| `PADDLE_WEBHOOK_SECRET` | 2 | `src/app/api/webhooks/paddle/route.ts`, `src/lib/checkoutBinding.ts` |
 | `PARTNER_MPN_ID` | 2 | `src/lib/partner/pal.ts`, `src/services/superAdminPartnerCenter.service.ts` |
 | `POWER_SCHEDULES_HEALTHCHECK_URL` | 0 | — |
 | `PREWARM_HEALTHCHECK_URL` | 0 | — |
