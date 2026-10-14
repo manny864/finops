@@ -18,7 +18,13 @@ vi.mock("next-intl", async () => {
 });
 
 const datos = vi.hoisted(() => ({ respuesta: null as any, error: undefined as any }));
-vi.mock("swr", () => ({ default: () => ({ data: datos.respuesta, error: datos.error, isLoading: false }) }));
+vi.mock("swr", () => ({
+    default: (key: string | null) => ({
+        data: key?.includes("/traffic-pilot") ? undefined : datos.respuesta,
+        error: datos.error,
+        isLoading: false,
+    }),
+}));
 vi.mock("@/components/TenantProvider", () => ({ useTenant: () => ({ selectedTenant: { id: "t1" } }) }));
 vi.mock("@azure/msal-react", () => ({ useMsal: () => ({ instance: {}, accounts: [{}] }) }));
 vi.mock("@/lib/msalToken", () => ({ getFreshIdToken: async () => "token" }));
