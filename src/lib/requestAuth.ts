@@ -490,6 +490,15 @@ async function resolverAccesoAlTenant(
   const allowSuperAdmin = options?.allowSuperAdmin ?? true;
 
   if (identity.tenantId === tenantId) {
+    // APPSEC-ID-06: una fila DISABLED revoca el acceso aunque el JWT siga vigente.
+    // Sin fila (usuario aún no provisionado) se mantiene el acceso por tid.
+    const [disabled] = await pool.query(
+      "SELECT 1 FROM Users WHERE tenant_id = ? AND account_status = 'DISABLED' AND (email = ? OR (entra_oid IS NOT NULL AND entra_oid = ?)) LIMIT 1",
+      [tenantId, identity.email, identity.claims.oid || ""]
+    );
+    if (Array.isArray(disabled) && disabled.length > 0) {
+      throw new AuthError("Cuenta deshabilitada.", 403, "ACCOUNT_DISABLED");
+    }
     return identity;
   }
 
@@ -497,7 +506,7 @@ async function resolverAccesoAlTenant(
   if (identity.email || identity.claims.oid) {
     try {
       const [userRows] = await pool.query(
-        "SELECT 1 FROM Users WHERE tenant_id = ? AND (email = ? OR (entra_oid IS NOT NULL AND entra_oid = ?)) LIMIT 1",
+        "SELECT 1 FROM Users WHERE tenant_id = ? AND account_status <> 'DISABLED' AND (email = ? OR (entra_oid IS NOT NULL AND entra_oid = ?)) LIMIT 1",
         [tenantId, identity.email, identity.claims.oid || ""]
       );
       if (Array.isArray(userRows) && (userRows as any[]).length > 0) {
@@ -630,7 +639,7 @@ export async function requireTenantRole(
   }
 
   const [rows] = await pool.query(
-    `SELECT role FROM Users WHERE tenant_id = ? AND (entra_oid = ? OR email = ?) LIMIT 1`,
+    `SELECT role FROM Users WHERE tenant_id = ? AND account_status <> 'DISABLED' AND (entra_oid = ? OR email = ?) LIMIT 1`,
     [tenantId, identity.claims.oid || "", identity.email || ""]
   );
   const row = Array.isArray(rows) && rows.length > 0 ? (rows[0] as { role?: string }) : null;
