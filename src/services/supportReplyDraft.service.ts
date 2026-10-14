@@ -1,4 +1,5 @@
 import { generateObject } from "ai";
+import { untrustedBlock } from "@/lib/promptSafe";
 import { z } from "zod";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import pool, { insertPlatformAiUsage } from "@/modules/storage/db";
@@ -191,7 +192,7 @@ export async function draftSupportReply(
                         model: ai.model,
                         schema: draftSchema,
                         system: systemPrompt(lang),
-                        prompt: `<context_data>\n${JSON.stringify(context)}\n</context_data>`,
+                        prompt: untrustedBlock("context_data", context),
                         maxOutputTokens: AI_FEATURES[FEATURE].maxOutputTokens,
                     })
                 )

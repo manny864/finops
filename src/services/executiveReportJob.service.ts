@@ -181,7 +181,7 @@ async function runMockJobProcess(
         await new Promise((r) => setTimeout(r, 1500));
         let markdown = aggregatedData.aiMarkdown || '';
         if (triggerAi) {
-            markdown = await generateExecutiveAssessment(aggregatedData, undefined, locale);
+            markdown = await generateExecutiveAssessment(aggregatedData, locale);
             aggregatedData.aiMarkdown = markdown;
         }
         update('COMPILING_PDF');
@@ -264,7 +264,7 @@ async function runRealJobProcess(
         await update('AI_SYNTHESIZING');
         let reportMarkdown = aggregatedData.aiMarkdown || '';
         if (triggerAi) {
-            reportMarkdown = await generateExecutiveAssessment(aggregatedData, undefined, locale);
+            reportMarkdown = await generateExecutiveAssessment(aggregatedData, locale);
             aggregatedData.aiMarkdown = reportMarkdown;
         }
 

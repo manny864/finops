@@ -1,4 +1,5 @@
 import { createHash } from "crypto";
+import { untrustedBlock } from "@/lib/promptSafe";
 import { generateObject } from "ai";
 import { z } from "zod";
 import type { RowDataPacket } from "mysql2";
@@ -212,7 +213,7 @@ export async function normalizeBillingCsv(
                     model: ai.model,
                     schema: csvMappingSchema,
                     system: SYSTEM_PROMPT,
-                    prompt: `<context_data>\n${JSON.stringify({ headers, sample })}\n</context_data>`,
+                    prompt: untrustedBlock("context_data", { headers, sample }),
                     maxOutputTokens: AI_FEATURES[FEATURE].maxOutputTokens,
                 })
             )

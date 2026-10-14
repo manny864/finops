@@ -111,6 +111,12 @@ export function renderPdfReportHtml(params: RenderPdfReportParams): string {
     }
 
     /* KPI Grid */
+    .ai-disclaimer {
+      font-size: 8.5pt;
+      color: #64748b;
+      font-style: italic;
+      margin: 0 0 10px;
+    }
     .kpi-grid {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
@@ -316,6 +322,9 @@ export function renderPdfReportHtml(params: RenderPdfReportParams): string {
 
   <!-- Grid de 10 KPIs ejecutivos -->
   ${kpiGridHtml}
+
+  <!-- AISEC-04: el texto de IA se lee contra la grilla de KPI (datos deterministas). -->
+  <div class="ai-disclaimer">Análisis generado con IA — verifique las cifras con la tabla de KPI.</div>
 
   <!-- Contenido parseado de las 6 secciones -->
   <div class="report-content">

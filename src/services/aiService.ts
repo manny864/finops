@@ -1,4 +1,5 @@
 import { generateText } from 'ai';
+import { untrustedBlock, UNTRUSTED_DATA_RULE } from '@/lib/promptSafe';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createAnthropic } from '@ai-sdk/anthropic';
@@ -299,7 +300,9 @@ Reglas estrictas:
 - Basa cada afirmación en números concretos del JSON (USD, %, conteos). No inventes.
 - Si falta una métrica, marca explícitamente: "Dato no disponible en este tenant".
 - Cierra con una tabla priorizada: decisión, impacto económico estimado, esfuerzo, dueño sugerido y plazo.
-- Redacta completamente en ${locale === 'es' ? 'Español' : locale === 'pt-BR' ? 'Portugués (Brasil)' : 'Inglés'} con tono ejecutivo, claro y accionable.`;
+- Redacta completamente en ${locale === 'es' ? 'Español' : locale === 'pt-BR' ? 'Portugués (Brasil)' : 'Inglés'} con tono ejecutivo, claro y accionable.
+
+${UNTRUSTED_DATA_RULE}`;
 
     // DLP (IA-5): metricsData sale hacia un proveedor externo. Este camino no
     // respetaba "Qué datos se comparten" — sólo lo hacía getAssessment.
@@ -309,7 +312,7 @@ Reglas estrictas:
     const { text, usage } = await generateText({
         model: model as any,
         system: systemPrompt,
-        prompt: `Here are the latest metrics for the tenant:\n\n${JSON.stringify(redactedMetrics, null, 2)}`
+        prompt: `Here are the latest metrics for the tenant:\n\n${untrustedBlock('context_data', JSON.stringify(redactedMetrics, null, 2))}`
     });
 
     insertPlatformAiUsage({

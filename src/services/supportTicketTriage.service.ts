@@ -1,4 +1,5 @@
 import { generateObject } from "ai";
+import { untrustedBlock } from "@/lib/promptSafe";
 import { z } from "zod";
 import pool, { insertPlatformAiUsage } from "@/modules/storage/db";
 import { AIProviderFactory, aiQueue, getDataSharingPrefs, withExponentialBackoff } from "@/modules/core/aiProvider";
@@ -110,7 +111,7 @@ export async function triageTicket(input: TriageInput): Promise<void> {
                         model: ai.model,
                         schema: triageSchema,
                         system: SYSTEM,
-                        prompt: `<context_data>\n${JSON.stringify(context)}\n</context_data>`,
+                        prompt: untrustedBlock("context_data", context),
                         maxOutputTokens: AI_FEATURES[FEATURE].maxOutputTokens,
                     })
                 )

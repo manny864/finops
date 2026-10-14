@@ -1,4 +1,5 @@
 import { createHash } from "crypto";
+import { untrustedBlock } from "@/lib/promptSafe";
 import { generateObject } from "ai";
 import { z } from "zod";
 import type { RowDataPacket } from "mysql2";
@@ -244,7 +245,7 @@ export async function suggestTagValuesWithAi(p: {
             model: ai.model,
             schema: suggestionsSchema(batch.vocabulary),
             system: SYSTEM_PROMPTS[p.mode],
-            prompt: `<context_data>\n${JSON.stringify(context)}\n</context_data>`,
+            prompt: untrustedBlock("context_data", context),
             maxOutputTokens: AI_FEATURES[FEATURE].maxOutputTokens,
           })
         )
