@@ -53,6 +53,12 @@ async function refreshMfaCache(tenantId: string): Promise<{ updated: number; err
     }
 }
 
+// Lista cerrada y canónica: evita que "owner"/"OWNER" esquive las comprobaciones
+// sensibles a mayúsculas, mientras los guards comparan en minúsculas (APPSEC-ID-02).
+const ROLES = ['Owner', 'Admin', 'Contributor', 'Colaborador', 'Reader', 'SuperAdmin'];
+const canonicalRole = (r: unknown) =>
+    typeof r === 'string' ? ROLES.find((x) => x.toLowerCase() === r.trim().toLowerCase()) : undefined;
+
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
@@ -328,7 +334,10 @@ export async function POST(request: NextRequest) {
                 // La pertenencia real queda validada por entra_oid + tenant RBAC.
 
                 let systemRole = 'USER';
-                const effectiveRole = user.role || 'Reader';
+                const effectiveRole = canonicalRole(user.role || 'Reader');
+                if (!effectiveRole) {
+                    return NextResponse.json({ error: "Rol inválido." }, { status: 400 });
+                }
 
                 // Owner solo puede otorgarlo un Owner existente o un SuperAdmin
                 // (transferencia de propiedad). Un Admin no puede crear/promover
@@ -392,7 +401,11 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
     try {
         const body = await request.json();
-        const { tenantId, userId, role, permissions } = body;
+        const { tenantId, userId, permissions } = body;
+        const role = body.role === undefined ? undefined : canonicalRole(body.role);
+        if (body.role !== undefined && !role) {
+            return NextResponse.json({ error: "Rol inválido." }, { status: 400 });
+        }
 
         // role, permissions, allowedModules y allowedSubscriptionIds son
         // independientes: se puede mandar cualquiera de ellos por separado.
