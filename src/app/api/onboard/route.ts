@@ -5,25 +5,60 @@ import { sendEmailAsync, getWelcomeEmailHtml, getInternalSignupAlertEmailHtml } 
 import { getUserLimit } from "@/lib/tierLogic";
 import { SUPERADMIN_BOOTSTRAP_TENANT_ID } from "@/lib/superAdminBootstrap";
 import { atribuirReferido } from "@/services/affiliates.service";
+import rateLimiter from "@/lib/rateLimiter";
+import { readJsonCapped, BodyLimitError } from "@/lib/readJsonCapped";
+import { trustedClientIp } from "@/lib/trustedClientIp";
+
+/** PERIM-04: el cliente llama una vez por LOGIN_SUCCESS; 10/min sobra para uso legítimo. */
+const ONBOARD_LIMIT_PER_MIN = 10;
+/** El body legítimo es `{"plan": "..."}`. */
+const ONBOARD_MAX_BODY_BYTES = 4 * 1024;
+const MAX_PLAN_LENGTH = 32;
 
 export async function POST(request: NextRequest) {
     try {
-        // Garantizamos que las tablas existan
-        await initializeDatabase();
-
-        // Use proper auth verification
+        // PERIM-04: identidad primero. Un JWT inválido no inicializa la base ni
+        // consume cuota de nadie.
         const identity = await requireRequestIdentity(request);
         const tenantId = identity.tenantId;
         const entraOid = identity.claims.oid || 'unknown';
         const email = identity.email;
-        
-        // Extraemos plan del body
-        let reqBody: any = {};
-        try {
-            reqBody = await request.json();
-        } catch {
-            // Ignore if no body
+
+        // Cuota por identidad verificada (tenant del token + usuario), no por un
+        // valor que el cliente pueda elegir.
+        const quota = await rateLimiter.checkByKeyDistributed(
+            `onboard:${tenantId}:${identity.claims.oid || email.toLowerCase()}`,
+            ONBOARD_LIMIT_PER_MIN
+        );
+        if (!quota.allowed) {
+            return NextResponse.json(
+                { success: false, error: 'Demasiados intentos de registro. Esperá un minuto y volvé a intentar.' },
+                { status: 429, headers: { 'Retry-After': '60' } }
+            );
         }
+
+        // Body opcional: sin body (o vacío) equivale a login común. Se lee con
+        // tope; JSON roto sigue tratándose como "sin plan", como antes.
+        let reqBody: Record<string, unknown> = {};
+        if (request.body) {
+            try {
+                const parsed = await readJsonCapped(request, ONBOARD_MAX_BODY_BYTES);
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                    reqBody = parsed as Record<string, unknown>;
+                }
+            } catch (e) {
+                if (e instanceof BodyLimitError && e.status === 413) {
+                    return NextResponse.json({ success: false, error: 'Payload demasiado grande.' }, { status: 413 });
+                }
+            }
+        }
+        if (reqBody.plan != null && (typeof reqBody.plan !== 'string' || reqBody.plan.length > MAX_PLAN_LENGTH)) {
+            return NextResponse.json({ success: false, error: 'Plan inválido.' }, { status: 400 });
+        }
+
+        // Garantizamos que las tablas existan (deduplicado por promesa y
+        // recordado por proceso; sólo después de autenticar y admitir).
+        await initializeDatabase();
         // Normalizado: los dos flujos de checkout del frontend usan convenciones
         // distintas para el mismo plan — SignupPageClient.tsx (/signup) manda
         // 'professional' y PricingPage.tsx manda 'pro'/'business' en minúscula.
@@ -41,7 +76,7 @@ export async function POST(request: NextRequest) {
         // null en un plan real, así que cualquier login creaba un tenant. Ahora
         // null significa lo que significa: "vengo a entrar, no a contratar" — y
         // sin fila previa no se crea nada.
-        const requestedPlan = reqBody.plan ? String(reqBody.plan).toLowerCase() : null;
+        const requestedPlan = typeof reqBody.plan === 'string' && reqBody.plan ? reqBody.plan.toLowerCase() : null;
         const isCheckoutIntent = requestedPlan !== null;
         const rawPlan = requestedPlan || 'professional';
         // 'essential' es alias legacy (tier descontinuado, ver migrations/): un
@@ -147,7 +182,9 @@ export async function POST(request: NextRequest) {
             if (plan === 'pro' || plan === 'business') {
                 const metadata = {
                     user_agent: request.headers.get('user-agent'),
-                    ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
+                    // Sólo la IP con contrato de proxy confiable (PERIM-05); XFF lo
+                    // escribe el cliente y no sirve como dato de auditoría.
+                    ip: trustedClientIp(request),
                     plan: plan,
                 };
                 const insertEventQuery = `
