@@ -104,6 +104,12 @@ resource "azurerm_resource_group" "tfstate" {
 }
 
 resource "azurerm_storage_account" "tfstate" {
+  # checkov:skip=CKV_AZURE_33:owner=CloudOps; expires=2027-01-15; Queue unused; Blob-only backend with Entra RBAC.
+  # checkov:skip=CKV_AZURE_59:owner=CloudOps; expires=2027-01-15; Public endpoint required by hosted runners; Deny plus temporary /32 ARM leases (INFRA-09 activation pending).
+  # checkov:skip=CKV_AZURE_206:owner=CloudOps; expires=2027-01-15; Single-region LRS accepted; versioning and 30-day recovery tested.
+  # checkov:skip=CKV_AZURE_36:owner=CloudOps; expires=2027-01-15; No trusted-service bypass needed; explicit runner /32 is narrower.
+  # checkov:skip=CKV2_AZURE_33:owner=CloudOps; expires=2027-01-15; No private runner route; Deny plus temporary /32 ARM leases (INFRA-09 activation pending).
+  # checkov:skip=CKV2_AZURE_1:owner=CloudOps; expires=2027-01-15; Microsoft-managed encryption accepted; no CMK compliance mandate.
   # Storage Account: sólo alfanumérico y máximo 24 caracteres, así que el token
   # "tfstate" se abrevia a "tf" — con el nombre completo el sufijo "sa" quedaba
   # truncado. El sufijo aleatorio es obligatorio: el nombre es único a nivel
@@ -117,9 +123,15 @@ resource "azurerm_storage_account" "tfstate" {
   allow_nested_items_to_be_public = false
   shared_access_key_enabled       = false
 
+  network_rules {
+    default_action = "Deny"
+    bypass         = ["None"]
+  }
+
   lifecycle {
     prevent_destroy = true
-    ignore_changes  = [tags]
+    # /32 temporales pertenecen al lease ARM del runner, no al apply.
+    ignore_changes = [tags, network_rules[0].ip_rules]
   }
 
   blob_properties {
@@ -172,6 +184,7 @@ resource "time_sleep" "operator_rbac_propagation" {
 }
 
 resource "azurerm_storage_container" "tfstate" {
+  # checkov:skip=CKV2_AZURE_21:owner=CloudOps; expires=2027-01-15; Backend Blob diagnostics not configured; Entra RBAC, versioning and ARM activity logs do not replace data-access logs.
   name                  = "tfstate"
   storage_account_id    = azurerm_storage_account.tfstate.id
   container_access_type = "private"
@@ -184,6 +197,7 @@ resource "azurerm_storage_container" "tfstate" {
 }
 
 resource "azurerm_storage_container" "tfstate_staging" {
+  # checkov:skip=CKV2_AZURE_21:owner=CloudOps; expires=2027-01-15; Backend Blob diagnostics not configured; Entra RBAC, versioning and ARM activity logs do not replace data-access logs.
   name                  = "tfstate-stg"
   storage_account_id    = azurerm_storage_account.tfstate.id
   container_access_type = "private"
@@ -196,6 +210,7 @@ resource "azurerm_storage_container" "tfstate_staging" {
 }
 
 resource "azurerm_storage_container" "tfstate_prod" {
+  # checkov:skip=CKV2_AZURE_21:owner=CloudOps; expires=2027-01-15; Backend Blob diagnostics not configured; Entra RBAC, versioning and ARM activity logs do not replace data-access logs.
   name                  = "tfstate-prod"
   storage_account_id    = azurerm_storage_account.tfstate.id
   container_access_type = "private"
@@ -218,6 +233,27 @@ resource "azurerm_management_lock" "tfstate" {
     azurerm_role_assignment.tfstate_blob_staging,
     azurerm_role_assignment.tfstate_blob_operator,
   ]
+}
+
+resource "azurerm_role_definition" "tfstate_firewall" {
+  name  = "${local.name_base}-backend-firewall"
+  scope = azurerm_resource_group.tfstate.id
+
+  permissions {
+    actions = [
+      "Microsoft.Storage/storageAccounts/read",
+      "Microsoft.Storage/storageAccounts/write",
+      "Microsoft.Resources/tags/read",
+      "Microsoft.Resources/tags/write",
+    ]
+  }
+  assignable_scopes = [azurerm_resource_group.tfstate.id]
+}
+
+resource "azurerm_role_assignment" "tfstate_firewall_staging" {
+  scope              = azurerm_storage_account.tfstate.id
+  role_definition_id = azurerm_role_definition.tfstate_firewall.role_definition_resource_id
+  principal_id       = var.staging_terraform_sp_object_id
 }
 
 output "backend_config" {

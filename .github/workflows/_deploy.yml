@@ -7,6 +7,8 @@
 #
 # Originalmente era el job `deploy` de deploy-azure.yml (ver su historia para el porqué de cada paso).
 name: deploy-reusable
+permissions:
+  contents: read
 
 on:
   workflow_call:

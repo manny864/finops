@@ -249,6 +249,7 @@ resource "azurerm_network_interface" "vm" {
 }
 
 resource "azurerm_windows_virtual_machine" "this" {
+  # checkov:skip=CKV_AZURE_50:owner=CloudOps; expires=2027-01-15; HybridWorkerForWindows extension required for backup worker; VM has no public IP and uses subnet NSG.
   name                = "vm-mysql-worker"
   resource_group_name = azurerm_resource_group.this.name
   location            = var.location
@@ -285,6 +286,7 @@ resource "azurerm_windows_virtual_machine" "this" {
 # ─────────────────────────────────────────────────────────────────────────────
 
 resource "azurerm_automation_account" "this" {
+  # checkov:skip=CKV2_AZURE_24:owner=CloudOps; expires=2027-01-15; Hybrid worker registration uses public Automation endpoint; Entra identity and private VM, no Automation PE.
   name                = "aa-mysql-backups"
   location            = var.location
   resource_group_name = azurerm_resource_group.this.name

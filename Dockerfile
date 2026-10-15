@@ -1,4 +1,5 @@
 # syntax=docker/dockerfile:1
+# checkov:skip=CKV_DOCKER_2:owner=CloudOps; expires=2027-01-15; Deploy checks /api/health after rollout; migrator execution status is monitored. No image-level HEALTHCHECK; adding a runtime probe remains deferred.
 #
 # SIN `RUN --mount=type=cache`. Los tenía, para que en el VPS los cache mounts
 # persistieran entre deploys (npm ci sin re-descargar, next build incremental).

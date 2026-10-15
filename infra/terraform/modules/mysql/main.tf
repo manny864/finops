@@ -1,6 +1,8 @@
 # VNet injection (delegated_subnet_id) en vez de private endpoint: el servidor
 # nace sin acceso público y sin PE que pagar.
 resource "azurerm_mysql_flexible_server" "this" {
+  # checkov:skip=CKV_AZURE_94:owner=CloudOps; expires=2027-01-15; Single-region deployment; native retention plus daily/monthly/yearly logical backups.
+  # checkov:skip=CKV2_AZURE_56:owner=CloudOps; expires=2027-01-15; VNet injection and private DNS instead of PE; no public server path.
   name                         = "${var.name_base}-mysql"
   resource_group_name          = var.resource_group_name
   location                     = var.location

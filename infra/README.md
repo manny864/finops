@@ -109,7 +109,9 @@ igual para saber qué apagar cuando el crédito termine.
 | `stamps.<clave>.ai_services_enabled` | `false` | Cuenta de Azure AI Services del stamp (`modules/ai_services`): private endpoint, `gpt-5.4-mini` Data Zone y la identidad de la app como credencial. Unos US$9/mes fijos más el consumo, con presupuesto propio de US$50. Ver *IA de plataforma* abajo |
 | `stamps.<clave>.ai_services_location` | `null` (la del stamp) | Región de la cuenta de IA. West US 2 no ofrece modelos de Azure OpenAI: `us` usa `westus3` |
 | `stamps.<clave>.ai_services_entra_auth` | `true` | Pasa la app a la cuenta nueva con Entra ID. En `false` crea sólo la infraestructura y la app sigue con la key |
-| `keyvault_private_endpoint_enabled` | `false` | Private endpoint del vault **y** cierre del acceso público. Rompe el plan/apply desde runners de GitHub — leer `docs/keyvault-network-hardening.md` antes de activarlo |
+| `keyvault_private_endpoint_enabled` | `true` | Private endpoint del vault; el endpoint público permanece detrás del firewall Deny para runners — leer `docs/keyvault-network-hardening.md` |
+| `blob_managed_identity_enabled` | `true` | Blob por identidad administrada; coherente con Shared Key apagada |
+| `storage_shared_access_key_enabled` | `false` | Sólo Entra ID; reactivar claves bloquea Checkov |
 
 ## IA de plataforma (`ai_services`)
 
@@ -127,5 +129,40 @@ propuesta de IA, sección 10.6.
 4. Apply con `ai_services_entra_auth = true`, con Azure IA como proveedor de
    plataforma en *IA — Configuración global*. Volver a `false` es la vuelta
    atrás, sin borrar la cuenta.
-5. `local_auth_enabled = false` en `modules/ai_services`, sacar `CKV_AZURE_236`
-   del `skip_check` de `terraform.yml` y borrar la key de Azure IA del panel.
+5. `local_auth_enabled` ya es `false` por defecto en `modules/ai_services`:
+   las cuentas nuevas no aceptan keys. Borrar la key heredada del panel sólo
+   después de verificar Entra ID; no afecta cuentas ajenas a este Terraform.
+   Checkov bloquea reactivar autenticación local, sin excepción global.
+
+## Análisis de seguridad de CI (INFRA-10)
+
+El job `scan` de `.github/workflows/terraform.yml` analiza Terraform,
+Dockerfile y GitHub Actions sin login, OIDC ni acceso al state. Checkov está
+fijado en `infra/checkov/requirements.txt`; el mismo ejecutable corre los
+controles negativos. SARIF es informativo: sólo su subida puede fallar sin
+bloquear, no el análisis.
+
+No hay skips globales ni baseline que silencie hallazgos nuevos. Las
+excepciones están junto al recurso, con dueño, fecha límite y riesgo/control
+compensatorio. `check-checkov-exceptions.py` bloquea excepciones vencidas,
+sin datos o con revisión a más de 120 días. Shared Key, autenticación local
+de AI y firewall de Key Vault son controles no suprimibles.
+
+La política local `CKV2_FINOPS_1` también detecta la eliminación del bloque
+de firewall del backend (el check nativo puede dejarlo como UNKNOWN). Sólo
+el Storage de la app mantiene una excepción específica: continúa público
+con RBAC/ABAC, no tiene aislamiento de red. Los demás riesgos aceptados
+siguen visibles en los comentarios; no significan remediación de esos recursos.
+
+Para reproducir sin copiar tfvars/state ignorados, instalar el requirements
+en un virtualenv, poner su `bin` en PATH y ejecutar desde la raíz:
+
+```bash
+python3 infra/scripts/check-checkov-exceptions.py
+python3 infra/scripts/test-checkov-regressions.py
+```
+
+La segunda orden copia sólo fuentes versionadas y archivos nuevos no ignorados
+del alcance del scan a un directorio temporal. Comprueba los tres frameworks,
+errores de parseo, política local y regresiones reales; elimina su copia al
+terminar. No usa secretos, planes ni providers locales.

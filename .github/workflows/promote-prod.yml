@@ -12,6 +12,7 @@
 name: promote-prod
 
 on:
+  # checkov:skip=CKV_GHA_7:owner=CloudOps; expires=2027-01-15; Manual promotion requires SHA and confirmation; verifier requires full hash, main ancestry and successful staging.
   workflow_dispatch:
     inputs:
       sha:

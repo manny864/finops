@@ -1,0 +1,11 @@
+metadata:
+  id: CKV2_FINOPS_1
+  name: Storage must explicitly deny default network access
+  category: NETWORKING
+definition:
+  cond_type: attribute
+  resource_types:
+    - azurerm_storage_account
+  attribute: network_rules.default_action
+  operator: equals
+  value: Deny

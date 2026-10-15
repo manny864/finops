@@ -313,11 +313,11 @@ variable "enable_delete_lock" {
 variable "blob_managed_identity_enabled" {
   description = "true = la app usa Blob por identidad administrada (AZURE_STORAGE_ACCOUNT_NAME). Ver runbook de Storage en docs/security/endurecimiento-infraestructura-saas-2026-10-09.md."
   type        = bool
-  default     = false
+  default     = true
 }
 
-# Apagar la clave de cuenta de Storage (modules/storage). true = como hoy. Sólo se pone en false
-# después de migrar la app, los backups y Terraform (docs/security/..., 7.6); un check lo vigila.
+# Shared Key apagada e identidad administrada activa por defecto (INFRA-10).
+# Volver a true requiere revisar la excepcion de CI y los clientes (runbook 7.6).
 #
 # Es una variable de nivel raíz, como blob_managed_identity_enabled, y NO un atributo de stamps:
 # Checkov no resuelve `each.value.<atributo>` y CKV2_AZURE_41 (Storage con SAS policy) exige ver
@@ -326,7 +326,7 @@ variable "blob_managed_identity_enabled" {
 variable "storage_shared_access_key_enabled" {
   description = "false = la cuenta de Storage de cada stamp rechaza toda solicitud autorizada con la clave de cuenta, incluidas las SAS firmadas con ella. Antes: app con identidad administrada, backups con la identidad de la VM y Terraform con storage_use_azuread. Rollback: true. Ver docs/security/endurecimiento-infraestructura-saas-2026-10-09.md, 7.6."
   type        = bool
-  default     = true
+  default     = false
 }
 
 # AISEC-09. Nivel raíz como storage_shared_access_key_enabled: rige para todos los stamps.

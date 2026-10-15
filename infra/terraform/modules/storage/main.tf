@@ -7,6 +7,12 @@
 # y no usa la clave de la cuenta, que está apagada (storage_shared_access_key_enabled = false).
 # El fallback con AZURE_STORAGE_CONNECTION_STRING sólo existe para desarrollo local y Docker.
 resource "azurerm_storage_account" "this" {
+  # checkov:skip=CKV_AZURE_33:owner=CloudOps; expires=2027-01-15; Queue unused; only Blob containers with Entra RBAC.
+  # checkov:skip=CKV_AZURE_59:owner=CloudOps; expires=2027-01-15; App Blob endpoint remains public; Entra RBAC and malware ABAC compensate but do not provide network isolation.
+  # checkov:skip=CKV2_AZURE_33:owner=CloudOps; expires=2027-01-15; App Blob has no PE; Entra RBAC and malware ABAC; network isolation remains a residual risk.
+  # checkov:skip=CKV2_FINOPS_1:owner=CloudOps; expires=2027-01-15; App Blob firewall not deployed; Entra RBAC and malware ABAC; no exception for the Terraform backend.
+  # checkov:skip=CKV_AZURE_206:owner=CloudOps; expires=2027-01-15; LRS stamps accepted in one region; Blob versioning and backup retention enabled.
+  # checkov:skip=CKV2_AZURE_1:owner=CloudOps; expires=2027-01-15; Microsoft-managed encryption accepted; no CMK compliance mandate.
   # Storage Account: sólo minúsculas y números, máximo 24. De ahí la variante
   # compacta de la convención.
   name                            = "${var.name_compact}sa"
@@ -46,6 +52,7 @@ resource "azurerm_storage_account" "this" {
 }
 
 resource "azurerm_storage_container" "app" {
+  # checkov:skip=CKV2_AZURE_21:owner=CloudOps; expires=2027-01-15; Checkov graph misses Blob subresource diagnostics; module.stamp.azurerm_monitor_diagnostic_setting.storage_blob enables allLogs.
   # Los nombres tienen que coincidir con AZURE_STORAGE_CONTAINER_* de la app.
   for_each              = toset(["support-attachments", "tenant-logos", "finops-cost-exports"])
   name                  = each.key
@@ -57,6 +64,7 @@ resource "azurerm_storage_container" "app" {
 # MySQL Flexible los backups son del servicio, así que este container queda
 # para los dumps lógicos del runbook de restore.
 resource "azurerm_storage_container" "backups" {
+  # checkov:skip=CKV2_AZURE_21:owner=CloudOps; expires=2027-01-15; Checkov graph misses Blob subresource diagnostics; module.stamp.azurerm_monitor_diagnostic_setting.storage_blob enables allLogs.
   name                  = "db-backups"
   storage_account_id    = azurerm_storage_account.this.id
   container_access_type = "private"
