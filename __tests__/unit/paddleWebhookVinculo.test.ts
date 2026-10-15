@@ -10,6 +10,13 @@ const { poolQuery, ejecutar, purchaseAddon, aplicarCapacidad } = vi.hoisted(() =
   aplicarCapacidad: vi.fn(),
 }));
 
+// PERIM-08: el inbox durable se prueba en webhookInboxPerim08.test.ts; acá pasa directo al handler.
+vi.mock("@/lib/webhookInbox", async (orig) => ({
+  ...(await orig<typeof import("@/lib/webhookInbox")>()),
+  processWebhookOnce: (_e: unknown, handler: () => Promise<Response>) => handler(),
+  paddleInboxEvent: () => ({ provider: "paddle", eventId: "evt_test", eventType: "test", cursorKey: "event:evt_test", occurredAt: null, enforceOrder: false }),
+}));
+
 vi.mock("@/modules/storage/db", () => ({
   default: {
     getConnection: vi.fn(async () => ({ execute: ejecutar, query: vi.fn(async () => [[{ tier: "Professional" }]]), release: vi.fn() })),

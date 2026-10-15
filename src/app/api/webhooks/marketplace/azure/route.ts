@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/modules/storage/db';
 import { recordTenantLifecycleTransition } from "@/services/tenantLifecycle.service";
-import { verifyWebhookJwt, getSubscription, MarketplaceVerifierNotConfigured } from '@/lib/marketplace/azure';
+import {
+  verifyWebhookJwt,
+  getSubscription,
+  getOperation,
+  MarketplaceVerifierNotConfigured,
+  MarketplaceOperationNotFound,
+  type AzureOperation,
+} from '@/lib/marketplace/azure';
+import { readJsonCapped, BodyLimitError } from '@/lib/readJsonCapped';
+import { processWebhookOnce, inboxUnavailableResponse, type InboxEvent } from '@/lib/webhookInbox';
 import { azurePlanToTier } from '@/lib/marketplace/planMapping';
 import { notifyInternalCancellation } from '@/lib/billingAlerts';
 import { applyTierChange } from '@/services/providerLifecycleService';
@@ -24,9 +33,32 @@ const ACTION_TO_STATUS: Record<string, string | null> = {
   Unsubscribed: 'CANCELED',
   Reinstated: 'ACTIVE',
   Renew: 'ACTIVE',
-  ChangePlan: 'ACTIVE',
-  ChangeQuantity: 'ACTIVE',
 };
+
+const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MAX_BODY_BYTES = 16 * 1024;
+const KNOWN_ACTIONS = new Set(['Suspended', 'Unsubscribed', 'Reinstated', 'Renew', 'ChangePlan', 'ChangeQuantity']);
+/** Operaciones que Microsoft no aplicó: no tienen efecto de nuestro lado. */
+const NOT_APPLIED_STATUSES = new Set(['Failed', 'Conflict']);
+
+/**
+ * Ámbito del cursor de orden. Plan y cantidad son independientes del estado: un cambio de
+ * plan atrasado no tiene por qué descartarse por una suspensión posterior, ni al revés.
+ * `Unsubscribed` se aplica siempre (una baja no se revierte) pero avanza el cursor, así un
+ * `Reinstated` atrasado no la deshace.
+ */
+function inboxEventFor(op: AzureOperation, subscriptionId: string): InboxEvent {
+  const scope = op.action === 'ChangePlan' ? 'plan' : op.action === 'ChangeQuantity' ? 'quantity' : 'status';
+  const occurredAt = op.timeStamp ? new Date(op.timeStamp) : null;
+  return {
+    provider: 'azure',
+    eventId: op.id.toLowerCase(),
+    eventType: op.action,
+    cursorKey: `sub:${subscriptionId.toLowerCase()}:${scope}`,
+    occurredAt: occurredAt && !Number.isNaN(occurredAt.getTime()) ? occurredAt : null,
+    enforceOrder: op.action !== 'Unsubscribed',
+  };
+}
 
 /**
  * POST /api/webhooks/marketplace/azure
@@ -34,6 +66,10 @@ const ACTION_TO_STATUS: Record<string, string | null> = {
  * Receives Azure Marketplace lifecycle events. JWT signed by Microsoft is
  * verified against AAD signing keys (jose) with mandatory audience
  * (AZURE_MARKETPLACE_AAD_APP_ID) and issuer allow-list. Fail-closed (PERIM-07).
+ *
+ * PERIM-08: el JWT no firma el body. Del aviso sólo se toman los IDs; acción, plan,
+ * cantidad y fecha salen de la operación en la Fulfillment API. Cada operación se
+ * aplica una vez (inbox durable) y un aviso atrasado no revierte un estado más nuevo.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -53,17 +89,58 @@ export async function POST(request: NextRequest) {
 
   let event: AzureWebhookEvent;
   try {
-    event = (await request.json()) as AzureWebhookEvent;
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    event = (await readJsonCapped(request, MAX_BODY_BYTES)) as AzureWebhookEvent;
+  } catch (error) {
+    const status = error instanceof BodyLimitError ? error.status : 400;
+    return NextResponse.json({ error: 'Invalid body' }, { status });
+  }
+  if (!event || typeof event !== 'object') {
+    return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
   }
 
-  const { action, subscriptionId, planId, quantity } = event;
-  if (!action || !subscriptionId) {
+  const { action, subscriptionId, id: operationId } = event;
+  if (typeof action !== 'string' || typeof subscriptionId !== 'string' || typeof operationId !== 'string') {
     return NextResponse.json(
-      { error: 'Missing required fields: action, subscriptionId' },
+      { error: 'Missing required fields: id, action, subscriptionId' },
       { status: 400 }
     );
+  }
+  if (!GUID.test(subscriptionId) || !GUID.test(operationId)) {
+    return NextResponse.json({ error: 'Invalid identifiers' }, { status: 400 });
+  }
+  if (!KNOWN_ACTIONS.has(action)) {
+    console.warn('[marketplace-webhook] unknown action ignored:', action.slice(0, 32));
+    return NextResponse.json({ message: 'Action ignored' });
+  }
+
+  let op: AzureOperation;
+  try {
+    op = await getOperation(subscriptionId, operationId);
+  } catch (error) {
+    if (error instanceof MarketplaceOperationNotFound) {
+      console.warn('[marketplace-webhook] operation not found in Fulfillment API');
+      return NextResponse.json({ error: 'Unknown operation' }, { status: 400 });
+    }
+    // Sin confirmar la operación no se aplica nada; Microsoft reintenta.
+    console.error('[marketplace-webhook] getOperation failed:', (error as Error).message);
+    return inboxUnavailableResponse();
+  }
+  if (
+    typeof op?.id !== 'string' || op.id.toLowerCase() !== operationId.toLowerCase() ||
+    typeof op.subscriptionId !== 'string' || op.subscriptionId.toLowerCase() !== subscriptionId.toLowerCase() ||
+    op.action !== action
+  ) {
+    console.warn('[marketplace-webhook] notification does not match Fulfillment operation');
+    return NextResponse.json({ error: 'Operation mismatch' }, { status: 400 });
+  }
+
+  return processWebhookOnce(inboxEventFor(op, subscriptionId), () => applyOperation(op, subscriptionId));
+}
+
+async function applyOperation(op: AzureOperation, subscriptionId: string): Promise<Response> {
+  const { action, planId, quantity } = op;
+  if (op.status && NOT_APPLIED_STATUSES.has(op.status)) {
+    return NextResponse.json({ message: 'Operation not applied by Marketplace' });
   }
 
   const connection = await pool.getConnection();
@@ -85,13 +162,14 @@ export async function POST(request: NextRequest) {
     // de `subscription_status` (el estado comercial nuestro, que también mueven
     // Paddle y las acciones de SuperAdmin). Mezclarlos haría que una suspensión
     // de Azure pisara el motivo real de una baja gestionada por otro canal.
+    // ChangePlan/ChangeQuantity no tocan el estado (PERIM-08): ordenan en otro
+    // ámbito, y uno atrasado reactivaría una suscripción suspendida después.
+    // Microsoft sólo admite esos cambios sobre suscripciones activas.
     const MARKETPLACE_STATUS: Record<string, string> = {
       Suspended: 'Suspended',
       Unsubscribed: 'Unsubscribed',
       Reinstated: 'Subscribed',
       Renew: 'Subscribed',
-      ChangePlan: 'Subscribed',
-      ChangeQuantity: 'Subscribed',
     };
     const mpStatus = MARKETPLACE_STATUS[action];
     if (mpStatus) {
@@ -177,7 +255,7 @@ export async function POST(request: NextRequest) {
     if (action === 'ChangeQuantity' && typeof quantity === 'number') {
       // Persist quantity in plan_id JSON marker for now; future schema can dedicate column
       await connection.query('UPDATE Tenants SET marketplace_plan_id = ? WHERE tenant_id = ?', [
-        `${planId || event.planId || 'unknown'}:qty=${quantity}`,
+        `${planId || 'unknown'}:qty=${quantity}`,
         tenant.tenant_id,
       ]);
     }
@@ -185,16 +263,10 @@ export async function POST(request: NextRequest) {
     await connection.query(
       `INSERT INTO MarketplaceEvents (tenant_id, marketplace, event_type, subscription_id, raw_payload, processed)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [tenant.tenant_id, 'azure', action, subscriptionId, JSON.stringify(event), true]
+      [tenant.tenant_id, 'azure', action, subscriptionId, JSON.stringify(op), true]
     );
 
     return NextResponse.json({ message: 'Event processed', tenantId: tenant.tenant_id });
-  } catch (error) {
-    console.error('Azure webhook error:', error);
-    return NextResponse.json(
-      { error: 'Failed to process webhook', details: (error as Error).message },
-      { status: 500 }
-    );
   } finally {
     connection.release();
   }

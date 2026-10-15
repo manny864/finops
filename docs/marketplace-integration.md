@@ -88,12 +88,22 @@ webhook refuses every request with 503. Unset it.
 | `Suspended` | `subscription_status='PAST_DUE'` |
 | `Unsubscribed` | `subscription_status='CANCELED'` |
 | `Reinstated`, `Renew` | `subscription_status='ACTIVE'` |
-| `ChangePlan` | Updates `tier` + `marketplace_plan_id` |
-| `ChangeQuantity` | Stored in `marketplace_plan_id` suffix (future: dedicated column) |
+| `ChangePlan` | Updates `tier` + `marketplace_plan_id` (does not change status) |
+| `ChangeQuantity` | Stored in `marketplace_plan_id` suffix (future: dedicated column; does not change status) |
+
+Action, plan, quantity and timestamp are taken from the Fulfillment API operation
+(`GET /subscriptions/{id}/operations/{operationId}`), not from the notification body: the
+JWT authenticates Microsoft but does not sign the body (PERIM-08). Operations with status
+`Failed`/`Conflict` have no effect.
 
 ## Security
 
 - **Azure webhook auth:** Validates RS256 JWT against the live AAD JWKS endpoint. Audience must equal `AZURE_MARKETPLACE_AAD_APP_ID`.
+- **Replay and ordering (PERIM-08):** each operation is applied once (`WebhookInbox`,
+  keyed by operation id) and an older operation never reverts a newer one
+  (`WebhookResourceCursor`, separate scopes for status, plan and quantity).
+  `Unsubscribed` is always applied. If the inbox or the Fulfillment API is down the
+  webhook answers 503 and Microsoft retries.
 - **Idempotency:** Tenant insertion is guarded by a uniqueness check on `(marketplace_subscription_id, marketplace_source)`. Webhooks for unknown subs return 200 (so Microsoft doesn't retry forever).
 - **Confused-deputy protection:** The Azure activation flow also calls Microsoft's `activateSubscription` API which requires our AAD client_credentials — only our backend can mark a subscription as fulfilled.
 

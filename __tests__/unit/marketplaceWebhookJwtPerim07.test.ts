@@ -15,6 +15,12 @@ const h = vi.hoisted(() => ({
     query: vi.fn(),
 }));
 
+// PERIM-08: el inbox durable se prueba en webhookInboxPerim08.test.ts; acá pasa directo al handler.
+vi.mock("@/lib/webhookInbox", async (orig) => ({
+  ...(await orig<typeof import("@/lib/webhookInbox")>()),
+  processWebhookOnce: (_e: unknown, handler: () => Promise<Response>) => handler()
+}));
+
 vi.mock("@/modules/storage/db", () => ({
     default: { getConnection: h.getConnection, query: h.query },
 }));
@@ -28,6 +34,8 @@ import {
 import { POST as webhookPOST } from "@/app/api/webhooks/marketplace/azure/route";
 
 const APP_ID = "11111111-2222-3333-4444-555555555555";
+const SUB_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+const OP_ID = "99999999-8888-7777-6666-555555555555";
 const ISS = "https://sts.windows.net/62e173e9-301e-423e-bcd4-29121ec1aa24/";
 
 let privateKey: CryptoKey;
@@ -40,7 +48,10 @@ beforeAll(async () => {
     const jwk: JWK = { ...(await exportJWK(pair.publicKey)), kid: "k1", alg: "RS256", use: "sig" };
     __setMarketplaceJwksForTests(createLocalJWKSet({ keys: [jwk] }));
 });
-afterAll(() => __setMarketplaceJwksForTests(null));
+afterAll(() => {
+    __setMarketplaceJwksForTests(null);
+    vi.unstubAllGlobals();
+});
 
 beforeEach(() => {
     vi.clearAllMocks();
@@ -136,7 +147,7 @@ describe("PERIM-07 — POST /api/webhooks/marketplace/azure", () => {
         webhookPOST(new NextRequest("https://app/api/webhooks/marketplace/azure", {
             method: "POST",
             headers: { "content-type": "application/json", ...(auth ? { authorization: auth } : {}) },
-            body: JSON.stringify({ action: "ChangePlan", subscriptionId: "sub-1", planId: "enterprise-monthly" }),
+            body: JSON.stringify({ id: OP_ID, action: "ChangePlan", subscriptionId: SUB_ID, planId: "enterprise-monthly" }),
         }));
 
     it("sin audiencia configurada: 503 y nunca llega a la base", async () => {
@@ -160,6 +171,12 @@ describe("PERIM-07 — POST /api/webhooks/marketplace/azure", () => {
     });
 
     it("token válido: pasa la verificación y llega al handler", async () => {
+        process.env.AZURE_MARKETPLACE_AAD_TENANT_ID = "t";
+        process.env.AZURE_MARKETPLACE_AAD_APP_SECRET = "s";
+        vi.stubGlobal("fetch", vi.fn(async (url: string) =>
+            String(url).includes("/oauth2/")
+                ? Response.json({ access_token: "tok", expires_in: 3600 })
+                : Response.json({ id: OP_ID, subscriptionId: SUB_ID, action: "ChangePlan", planId: "enterprise-monthly", status: "InProgress" })));
         const conn = { query: vi.fn(async () => [[]]), release: vi.fn() };
         h.getConnection.mockResolvedValue(conn);
         const res = await post(await bearer());

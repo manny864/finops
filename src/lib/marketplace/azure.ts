@@ -130,6 +130,40 @@ export async function getSubscription(subscriptionId: string): Promise<AzureSubs
   return (await resp.json()) as AzureSubscription;
 }
 
+export interface AzureOperation {
+  id: string;
+  activityId?: string;
+  subscriptionId: string;
+  offerId?: string;
+  publisherId?: string;
+  planId?: string;
+  quantity?: number;
+  action: string;
+  timeStamp?: string;
+  status?: string;
+}
+
+/** La Fulfillment API no conoce la operación: el aviso no corresponde a nada real. */
+export class MarketplaceOperationNotFound extends Error {
+  constructor() {
+    super('Marketplace operation not found');
+    this.name = 'MarketplaceOperationNotFound';
+  }
+}
+
+/**
+ * PERIM-08: el JWT del webhook autentica a Microsoft, pero NO firma el body. Los datos
+ * que se aplican (acción, plan, cantidad, fecha) salen de esta consulta, no del aviso.
+ */
+export async function getOperation(subscriptionId: string, operationId: string): Promise<AzureOperation> {
+  const resp = await fulfillmentFetch(
+    `/subscriptions/${encodeURIComponent(subscriptionId)}/operations/${encodeURIComponent(operationId)}`
+  );
+  if (resp.status === 404) throw new MarketplaceOperationNotFound();
+  if (!resp.ok) throw new Error(`getOperation failed: ${resp.status}`);
+  return (await resp.json()) as AzureOperation;
+}
+
 export async function activateSubscription(
   subscriptionId: string,
   planId: string,
