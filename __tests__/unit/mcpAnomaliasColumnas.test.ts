@@ -17,6 +17,11 @@ import { crearBaseFalsa } from "../helpers/baseFalsaDdl";
 
 const { query, TENANT } = vi.hoisted(() => ({ query: vi.fn(), TENANT: "8b41364f-581a-4e43-b7cb-13138dac5517" }));
 
+// Hermético: la cuota es estricta (PERIM-06) y sin Redis respondería 503. Acá se prueba la tool, no el limitador.
+vi.mock("@/lib/rateLimiter", async (orig) => ({
+    ...(await orig<object>()),
+    default: { checkByKeyDistributed: vi.fn(async () => ({ allowed: true, remaining: 99, resetAt: Date.now() + 60_000 })) },
+}));
 vi.mock("@/modules/storage/db", () => ({ default: { query: (...a: unknown[]) => query(...a) } }));
 vi.mock("@/services/mcpApiKey.service", () => ({ authenticateMcpToken: vi.fn(async () => ({ tenantId: TENANT, keyId: 1 })) }));
 

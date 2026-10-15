@@ -10,6 +10,11 @@ const mocks = vi.hoisted(() => {
     };
 });
 
+// Hermético: la cuota es estricta (PERIM-06) y sin Redis respondería 503. Acá se prueba la tool, no el limitador.
+vi.mock("@/lib/rateLimiter", async (orig) => ({
+    ...(await orig<object>()),
+    default: { checkByKeyDistributed: vi.fn(async () => ({ allowed: true, remaining: 99, resetAt: Date.now() + 60_000 })) },
+}));
 vi.mock("@/modules/storage/db", () => ({
     default: { query: mocks.mockPoolQuery, getConnection: vi.fn() },
     initializeDatabase: vi.fn().mockResolvedValue(undefined),

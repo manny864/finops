@@ -1,6 +1,7 @@
 // @vitest-environment node
 // AISEC-03 (aceptación): el PDF se genera sin ejecutar JS ni hacer peticiones salientes,
 // aun si el HTML trajera <script>/<img>/<iframe>/CSS remoto (defensa en profundidad).
+import { existsSync } from "node:fs";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -11,10 +12,14 @@ import { renderPdfReportHtml } from "@/lib/reports/templates/pdfReportTemplate";
 let chromium: (typeof import("playwright"))["chromium"] | null = null;
 try {
   const pw = await import("playwright");
-  if (pw.chromium.executablePath()) chromium = pw.chromium;
+  // executablePath() devuelve la ruta esperada aunque el navegador no esté instalado.
+  const exe = pw.chromium.executablePath();
+  if (exe && existsSync(exe)) chromium = pw.chromium;
 } catch {
   chromium = null;
 }
+// En CI el navegador se instala a propósito: si falta, es un error, no un skip silencioso.
+if (!chromium && process.env.CI) throw new Error("Chromium de Playwright no instalado en CI");
 
 describe.runIf(chromium)("Chromium aislado para PDF", () => {
   let server: http.Server;
