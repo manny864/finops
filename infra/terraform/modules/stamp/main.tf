@@ -425,7 +425,9 @@ resource "azapi_resource" "network_flow_log" {
   # aparte, y en `body` producía un diff perpetuo. Cada apply hacía un PUT del flow
   # log, Azure revalidaba los permisos de Traffic Analytics y el SP de staging
   # (acotado a su RG) fallaba con TAUserDoesNotHavePermissions. Por lo mismo, los
-  # dos campos vacíos que devuelve la API se declaran explícitamente.
+  # dos campos vacíos que devuelve la API se declaran explícitamente. Tampoco se
+  # fija schema_validation_enabled: el body valida contra el esquema, y cambiar
+  # solo ese atributo también dispara un PUT.
   identity {
     type         = "UserAssigned"
     identity_ids = [azurerm_user_assigned_identity.network_flow_logs[0].id]
@@ -457,8 +459,7 @@ resource "azapi_resource" "network_flow_log" {
       }
     }
   }
-  tags                      = var.tags
-  schema_validation_enabled = false
+  tags = var.tags
 
   depends_on = [time_sleep.network_flow_logs_rbac_propagation]
 }
