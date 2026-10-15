@@ -307,6 +307,8 @@ jobs:
       # `-var-file=cron-jobs.tfvars` (versionado en git) y Terraform resuelve
       # los -var-file en orden, ganando el último para una misma variable. Los
       # horarios se cambian en ese archivo, por PR; nunca editando el secret.
+      # Lo mismo con `-var-file=network.tfvars` (INFRA-06): los clientes autorizados a PE y
+      # MySQL se revisan por PR.
       #
       # Staging lee su propio secret (`TF_VARS`, del environment staging) y EXIGE que exista: si
       # faltara, nunca cae al de prod. El secret de prod ni siquiera se carga en el entorno del
@@ -411,9 +413,9 @@ jobs:
           # una cadena de shell es como se inyecta un flag de mas.
           if [ -n "$REPLACE_ADDR" ]; then
             echo "::warning title=Replace solicitado::Se va a RECREAR $REPLACE_ADDR (destroy + create)."
-            terraform plan -var-file=terraform.tfvars -var-file=cron-jobs.tfvars -replace="$REPLACE_ADDR" -out=tfplan
+            terraform plan -var-file=terraform.tfvars -var-file=cron-jobs.tfvars -var-file=network.tfvars -replace="$REPLACE_ADDR" -out=tfplan
           else
-            terraform plan -var-file=terraform.tfvars -var-file=cron-jobs.tfvars -out=tfplan
+            terraform plan -var-file=terraform.tfvars -var-file=cron-jobs.tfvars -var-file=network.tfvars -out=tfplan
           fi
 
       # Resumen auditable del plan: SÓLO dirección y acción, sin valores.
@@ -650,7 +652,7 @@ jobs:
           done
 
       - name: Detectar drift
-        run: terraform plan -var-file=terraform.tfvars -var-file=cron-jobs.tfvars -detailed-exitcode
+        run: terraform plan -var-file=terraform.tfvars -var-file=cron-jobs.tfvars -var-file=network.tfvars -detailed-exitcode
 
       # Corre pase lo que pase: si el plan o el apply fallan, la IP de este
       # runner NO debe quedar en la allowlist del vault.

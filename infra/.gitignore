@@ -8,4 +8,6 @@
 # DESPUÉS de terraform.tfvars, así que pisa el cron_jobs del secret TF_VARS_PROD.
 # Ver el encabezado de environments/prod/cron-jobs.tfvars.
 !cron-jobs.tfvars
+# network.tfvars (INFRA-06) también: prefijos privados de clientes autorizados a PE y MySQL.
+!network.tfvars
 crash.log

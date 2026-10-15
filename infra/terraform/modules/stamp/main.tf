@@ -46,6 +46,11 @@ module "network" {
 
   nat_gateway_enabled = var.nat_gateway_enabled
   apps_nsg_block_imds = var.apps_nsg_block_imds
+
+  segmentation_nsgs_enabled   = var.segmentation_nsgs_enabled
+  pe_extra_client_prefixes    = var.pe_extra_client_prefixes
+  mysql_extra_client_prefixes = var.mysql_extra_client_prefixes
+  egress_firewall_private_ip  = var.egress_firewall_private_ip
 }
 
 module "private_dns" {

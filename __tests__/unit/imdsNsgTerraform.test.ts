@@ -12,7 +12,8 @@ const leer = (ruta: string) => readFileSync(ruta, "utf8");
 
 describe("NSG de apps: bloqueo de IMDS", () => {
   const red = leer(`${TF}/modules/network/main.tf`);
-  const nsg = red.slice(red.indexOf('resource "azurerm_network_security_group" "apps"'));
+  const inicio = red.indexOf('resource "azurerm_network_security_group" "apps"');
+  const nsg = red.slice(inicio, red.indexOf('resource "azurerm_subnet_network_security_group_association" "apps"', inicio));
 
   it("apagado en los módulos; encendido en prod y stg salvo false explícito en el stamp", () => {
     expect(leer(`${TF}/modules/network/variables.tf`)).toMatch(/variable "apps_nsg_block_imds"[\s\S]*?default\s*=\s*false/);

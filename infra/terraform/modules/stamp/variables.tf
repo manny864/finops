@@ -494,3 +494,27 @@ variable "storage_malware_scan_cap_gb_per_month" {
   type        = number
   default     = 100
 }
+
+variable "segmentation_nsgs_enabled" {
+  description = "INFRA-06: NSG de entrada en las subredes de private endpoints y MySQL (modules/network/main.tf). Probar primero en staging."
+  type        = bool
+  default     = false
+}
+
+variable "pe_extra_client_prefixes" {
+  description = "CIDR, además de la subred de apps, autorizados a los private endpoints."
+  type        = list(string)
+  default     = []
+}
+
+variable "mysql_extra_client_prefixes" {
+  description = "CIDR, además de la subred de apps, autorizados a MySQL por 3306."
+  type        = list(string)
+  default     = []
+}
+
+variable "egress_firewall_private_ip" {
+  description = "IP privada del firewall de salida; null = sin UDR."
+  type        = string
+  default     = null
+}

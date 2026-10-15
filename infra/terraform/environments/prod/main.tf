@@ -281,11 +281,21 @@ module "stamp" {
   security_activity_alerts_enabled = each.value.security_activity_alerts_enabled
   security_policy_audit_enabled    = each.value.security_policy_audit_enabled
 
-  security_activity_log_export_enabled  = each.value.security_activity_log_export_enabled
-  security_tables_retention_days        = each.value.security_tables_retention_days
-  security_tables_total_retention_days  = each.value.security_tables_total_retention_days
-  nat_gateway_enabled                   = each.value.nat_gateway_enabled
-  apps_nsg_block_imds                   = coalesce(each.value.apps_nsg_block_imds, contains(["prod", "stg"], var.environment))
+  security_activity_log_export_enabled = each.value.security_activity_log_export_enabled
+  security_tables_retention_days       = each.value.security_tables_retention_days
+  security_tables_total_retention_days = each.value.security_tables_total_retention_days
+  nat_gateway_enabled                  = each.value.nat_gateway_enabled
+  apps_nsg_block_imds                  = coalesce(each.value.apps_nsg_block_imds, contains(["prod", "stg"], var.environment))
+
+  # INFRA-06. La VM de backup vive en una subred del módulo mysql_backup y se suma sola en el stamp por
+  # defecto; la referencia es a la variable (no al módulo) para no crear un ciclo stamp <-> mysql_backup.
+  segmentation_nsgs_enabled = try(var.network_segmentation[each.key].enabled, false)
+  pe_extra_client_prefixes  = try(var.network_segmentation[each.key].pe_extra_client_prefixes, [])
+  mysql_extra_client_prefixes = distinct(concat(
+    try(var.network_segmentation[each.key].mysql_extra_client_prefixes, []),
+    var.mysql_backup_enabled && each.key == var.default_stamp ? [var.mysql_backup_vm_subnet_prefix] : [],
+  ))
+  egress_firewall_private_ip            = try(var.network_segmentation[each.key].egress_firewall_private_ip, null)
   storage_shared_access_key_enabled     = var.storage_shared_access_key_enabled
   storage_malware_scanning_enabled      = var.storage_malware_scanning_enabled
   storage_malware_scan_cap_gb_per_month = var.storage_malware_scan_cap_gb_per_month

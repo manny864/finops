@@ -138,6 +138,8 @@ tfplan
 # -var-file DESPUÉS de terraform.tfvars (que sale del secret TF_VARS_PROD),
 # así que pisa el cron_jobs del secret. Ver el encabezado de ese archivo.
 !cron-jobs.tfvars
+# network.tfvars (INFRA-06) también: prefijos privados de clientes autorizados a PE y MySQL.
+!network.tfvars
 
 # ---------------------------------------------------------------------------
 # Directivas, SOPs, Skills, Agentes y Handoffs (Exclusivo Local)
