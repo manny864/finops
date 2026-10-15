@@ -55,6 +55,12 @@ Existing-vault adoption uses a data source; a create-only lock will not protect 
 
 ## 7. Validation proof
 
+- 2026-10-15 runner activation: `gh run view 38821261521 --json jobs`
+  confirms init/fmt/validate/plan, strict OIDC isolation, Checkov and cleanup.
+  `gh run view 38822480417 --log` confirms staging apply 0/1/0 and restoration.
+  `git diff --name-only 8a574277..82a9a6ec` confirms application build inputs
+  unchanged from successful CI Build 38819644667. Current scope and details in §9.
+
 - 2026-10-10 current apply validation: Terraform validate/fmt succeeded,
 	typecheck and production build succeeded; full suite 4,921 passed, 50 skipped.
 - Plan run 38086902781, commit e4ea027: 2 lock creates, 89 in-place updates,
@@ -96,3 +102,52 @@ the configured production maximum remains unchanged. Local Terraform validate/fm
 Obtain and review a current-commit remote plan before apply; destructive changes
 remain blocked. Do not change subscription or silently reduce capacity.
 Deployment and endpoint verification are complete for this apply.
+
+## 9. Runner activation - 2026-10-15
+
+Current authorization: publish and apply Terraform using the two existing Azure
+runners. Subscription and regions remain unchanged; no application image promotion.
+Staging apply completed in run 38822480417. Production preview 38821261521
+attempt 2: zero creates, one in-place Container App update, zero destroys.
+The sole delta removes APP_VERSION; the existing post-apply step restores it
+from the unchanged image SHA. No RBAC or network ACL changes remain in that plan.
+
+All validation checks pass:
+
+- Terraform/Azure CLI available and authenticated on environment-specific runners.
+- Backend initialization, fmt, validate and reviewed saved plan succeed.
+- Strict own-container access and cross-container/archive denial succeed with OIDC.
+- Current Checkov scan and all real negative mutations succeed on both runners.
+- Build verification: CI 38819644667 Build succeeded at 8a574277; diff to
+  82a9a6ec changes only a workflow, infrastructure tests and runner documentation,
+  not application source, build configuration or dependencies.
+- Static roles: pipeline data roles remain scoped to their own containers;
+  runner VMs have no managed identity or data roles. Operator grants unchanged.
+- No azd templates or main.tfvars.json are used by these existing Terraform roots.
+
+Validation proof:
+
+- Production run 38821261521 attempt 2 succeeded on main 82a9a6ec:
+  init, fmt, validate, plan, strict isolation, Checkov and cleanup all passed.
+- Staging apply 38822480417 succeeded: zero added, one changed, zero destroyed;
+  APP_VERSION restored to the unchanged image SHA.
+- Staging revision 0000024 Healthy/Running, 100% traffic; /api/health HTTP 200.
+- /api/status HTTP 503 is a stale public-status snapshot, confirmed in runtime
+  logs; it is not the health probe and is not claimed operational by this apply.
+- Hosted CI is blocked by account billing. Trusted-main dispatch scans retain
+  the same blocking checks on the appropriate VM without granting scan OIDC.
+
+Execution completed:
+
+- Production apply 38823749634: 0 added, 1 changed, 0 destroyed; safety guard,
+  OIDC isolation, APP_VERSION restoration and both firewall cleanups succeeded.
+- Production image remains dd476fac324fc3793e06d386de0ac30f790e282d; staging
+  remains 8725fc14148dc3af165225e09b267c15dccaa739. No application promotion.
+- Production revision 0000352 Healthy/Running with 100% traffic; both
+  https://finops.cscloudsolutions.com.ar/api/health and
+  https://finops-staging.cscloudsolutions.com.ar/api/health return 200 / ok.
+- Reconciler run 38824588719 succeeded on both named Azure runners; workflow
+  restored active after the serialized maintenance windows.
+- Live Storage: Deny / bypass None / Shared Key false; both runner subnets
+  Succeeded, no IP rules and no ARM lease. Each vault permits only its runner
+  subnet and has no temporary IP rules. INFRA-09 closure recorded in master plan.
