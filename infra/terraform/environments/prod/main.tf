@@ -227,6 +227,9 @@ module "stamp" {
     var.extra_env_vars,
     each.value.extra_env_vars,
     jsondecode(file("${path.module}/paddle-price-ids.json")),
+    # PERIM-03/05: la app sólo usa cf-connecting-ip como clave de cuota si el
+    # ingress está cerrado a Cloudflare; con el origen abierto lo elige el cliente.
+    { TRUST_CLOUDFLARE_CLIENT_IP = tostring(var.origin_cloudflare_only) },
   )
   key_vault_secret_ids = var.key_vault_secret_ids
   key_vault_secret_env = var.key_vault_secret_env

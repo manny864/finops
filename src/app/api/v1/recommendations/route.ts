@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { verifyApiKey, requireScope } from "@/lib/publicApiAuth";
 import rateLimiter from "@/lib/rateLimiter";
+import { preAuthAllowed, touchKeyLastUsed } from "@/lib/apiKeyGuards";
 import { collectAdvisorData } from "@/modules/collectors/azure/advisorCollector";
 import { parseAzureNumber } from "@/lib/advisorModel";
 import { errorMessage } from '@/lib/apiErrors';
@@ -9,6 +10,13 @@ import { errorMessage } from '@/lib/apiErrors';
 export async function GET(request: NextRequest) {
   const requestId = uuidv4();
   try {
+    // PERIM-03: presupuesto por IP confiable antes de consultar la clave en MySQL.
+    if (!(await preAuthAllowed(request, "apikey"))) {
+      return NextResponse.json(
+        { error: { code: "rate_limit_exceeded", message: "Too many requests", request_id: requestId } },
+        { status: 429, headers: { "X-Request-Id": requestId, "Retry-After": "60" } }
+      );
+    }
     const authResult = await verifyApiKey(request);
 
     if (!authResult) {
@@ -43,6 +51,8 @@ export async function GET(request: NextRequest) {
       `apikey:${authResult.keyId}`,
       authResult.rateLimitPerMin
     );
+
+    if (allowed) touchKeyLastUsed("PublicApiKeys", authResult.keyId);
 
     if (!allowed) {
       return NextResponse.json(

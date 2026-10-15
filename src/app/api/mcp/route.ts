@@ -17,6 +17,41 @@ import { motivoDelHallazgo } from "@/services/azureZombieAudit.service";
 import { getBudgetStatuses } from "@/services/budgetUtilization.service";
 import { getAdvisorExecutiveData } from "@/services/azureAdvisor.service";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import rateLimiter from "@/lib/rateLimiter";
+import { preAuthAllowed, touchKeyLastUsed } from "@/lib/apiKeyGuards";
+import { readJsonCapped, BodyLimitError } from "@/lib/readJsonCapped";
+
+/** PERIM-03: llamadas por clave y minuto; las herramientas pegan a Azure y MySQL. */
+const MCP_QUOTA_PER_MIN = 60;
+/** JSON-RPC de este bridge son pocos campos; 64 KB sobra y acota la memoria. */
+const MCP_MAX_BODY_BYTES = 64 * 1024;
+
+type JsonRpcId = string | number | null;
+type McpRequest = { method: string; params: Record<string, unknown>; id: JsonRpcId };
+
+function rpcError(code: number, message: string, id: JsonRpcId, status: number, headers?: Record<string, string>) {
+    return NextResponse.json({ jsonrpc: "2.0", error: { code, message }, id }, { status, headers });
+}
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+    return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+/** Valida la forma JSON-RPC antes de despachar; `null` = Invalid Request. */
+function parseMcpRequest(body: unknown): McpRequest | null {
+    if (!isPlainObject(body)) return null;
+    const { method, params, id } = body;
+    if (typeof method !== "string" || method.length === 0 || method.length > 64) return null;
+    if (!(id === undefined || id === null || typeof id === "number" ||
+        (typeof id === "string" && id.length <= 128))) return null;
+    if (params !== undefined && !isPlainObject(params)) return null;
+    const p = (params ?? {}) as Record<string, unknown>;
+    if (method === "tools/call") {
+        if (typeof p.name !== "string" || p.name.length === 0 || p.name.length > 64) return null;
+        if (p.arguments !== undefined && !isPlainObject(p.arguments)) return null;
+    }
+    return { method, params: p, id: (id ?? null) as JsonRpcId };
+}
 
 interface ToolDef {
     name: string;
@@ -254,6 +289,9 @@ const TOOLS: ToolDef[] = [
 ];
 
 export async function POST(request: NextRequest) {
+    if (!(await preAuthAllowed(request, "mcp"))) {
+        return rpcError(-32029, "Too many requests", null, 429, { "Retry-After": "60" });
+    }
     const auth = await authenticateMCP(request);
     if (!auth) {
         return NextResponse.json({
@@ -263,18 +301,27 @@ export async function POST(request: NextRequest) {
         }, { status: 401 });
     }
 
-    let body: any;
+    const quota = await rateLimiter.checkByKeyDistributed(`mcp-key:${auth.keyId}`, MCP_QUOTA_PER_MIN);
+    if (!quota.allowed) {
+        return rpcError(-32029, "Rate limit exceeded", null, 429, { "Retry-After": "60" });
+    }
+    touchKeyLastUsed("MCPApiKeys", auth.keyId);
+
+    let body: unknown;
     try {
-        body = await request.json();
-    } catch {
-        return NextResponse.json({
-            jsonrpc: "2.0",
-            error: { code: -32700, message: "Parse error" },
-            id: null,
-        }, { status: 400 });
+        body = await readJsonCapped(request, MCP_MAX_BODY_BYTES);
+    } catch (e) {
+        if (e instanceof BodyLimitError && e.status === 413) {
+            return rpcError(-32600, "Request body too large", null, 413);
+        }
+        return rpcError(-32700, "Parse error", null, 400);
     }
 
-    const { method, params, id } = body;
+    const rpc = parseMcpRequest(body);
+    if (!rpc) {
+        return rpcError(-32600, "Invalid Request", null, 400);
+    }
+    const { method, params, id } = rpc;
 
     try {
         if (method === "tools/list") {
@@ -292,8 +339,8 @@ export async function POST(request: NextRequest) {
         }
 
         if (method === "tools/call") {
-            const toolName = params?.name;
-            const args = params?.arguments || {};
+            const toolName = params.name as string;
+            const args = (params.arguments ?? {}) as Record<string, any>;
             const tool = TOOLS.find(t => t.name === toolName);
             if (!tool) {
                 return NextResponse.json({

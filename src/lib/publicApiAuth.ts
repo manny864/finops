@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextRequest } from "next/server";
 import pool from "@/modules/storage/db";
+import { looksLikeKey } from "@/lib/apiKeyGuards";
 
 export interface ApiAuthResult {
   tenantId: string;
@@ -41,7 +42,7 @@ export async function verifyApiKey(request: NextRequest): Promise<ApiAuthResult 
     token = xApiKey;
   }
 
-  if (!token || !token.startsWith("pak_")) {
+  if (!token || !looksLikeKey(token, "pak_")) {
     return null;
   }
 
@@ -69,9 +70,8 @@ export async function verifyApiKey(request: NextRequest): Promise<ApiAuthResult 
     const key = arr[0];
     const scopes = typeof key.scopes === "string" ? JSON.parse(key.scopes) : key.scopes;
 
-    // Update last_used_at asynchronously (fire-and-forget)
-    pool.query(`UPDATE PublicApiKeys SET last_used_at = NOW() WHERE id = ?`, [key.id]).catch(() => {});
-
+    // last_used_at lo actualiza la ruta con touchKeyLastUsed después de admitir
+    // la llamada (PERIM-03): una clave sobre cuota no genera escrituras.
     return {
       tenantId: key.tenant_id,
       keyId: key.id,

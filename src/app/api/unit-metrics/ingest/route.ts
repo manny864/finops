@@ -19,6 +19,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyApiKey, requireScope, ApiError } from "@/lib/publicApiAuth";
 import { invalidateCache } from "@/lib/cache";
 import { errorMessage } from "@/lib/apiErrors";
+import rateLimiter from "@/lib/rateLimiter";
+import { preAuthAllowed, touchKeyLastUsed } from "@/lib/apiKeyGuards";
+import { readJsonCapped, BodyLimitError } from "@/lib/readJsonCapped";
 import {
   upsertBusinessUnits,
   validateIngestBatch,
@@ -26,9 +29,18 @@ import {
 
 /** Tope de filas por lote: mantiene acotado el trabajo por request. */
 const MAX_BATCH = 400;
+/** Tope de bytes del body (PERIM-03): 400 filas holgadas, sin JSON ilimitado en memoria. */
+const MAX_BODY_BYTES = 256 * 1024;
+
+function tooManyRequests(error: string) {
+  return NextResponse.json({ error }, { status: 429, headers: { "Retry-After": "60" } });
+}
 
 export async function POST(request: NextRequest) {
   try {
+    if (!(await preAuthAllowed(request, "apikey"))) {
+      return tooManyRequests("Too many requests");
+    }
     const auth = await verifyApiKey(request);
     if (!auth) {
       return NextResponse.json(
@@ -41,7 +53,26 @@ export async function POST(request: NextRequest) {
     // repo: verbo:recurso, igual que read:cost / read:resources en /api/v1.
     requireScope(auth, "write:metrics");
 
-    const body = await request.json().catch(() => null);
+    // Misma clave de cuota que /api/v1: una API key tiene un único presupuesto
+    // por minuto, y se cobra antes de leer el body o escribir en MySQL.
+    const quota = await rateLimiter.checkByKeyDistributed(`apikey:${auth.keyId}`, auth.rateLimitPerMin);
+    if (!quota.allowed) {
+      return tooManyRequests("Rate limit exceeded");
+    }
+    touchKeyLastUsed("PublicApiKeys", auth.keyId);
+
+    let body: unknown;
+    try {
+      body = await readJsonCapped(request, MAX_BODY_BYTES);
+    } catch (e) {
+      if (e instanceof BodyLimitError) {
+        return NextResponse.json(
+          { error: e.status === 413 ? `El body excede ${MAX_BODY_BYTES} bytes` : "Body JSON invalido" },
+          { status: e.status }
+        );
+      }
+      throw e;
+    }
     if (body === null) {
       return NextResponse.json({ error: "Body JSON invalido" }, { status: 400 });
     }
