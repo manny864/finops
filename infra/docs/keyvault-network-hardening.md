@@ -136,6 +136,14 @@ perdido ni una terminación forzada, y Key Vault no tiene TTL para una IP rule. 
 - **SLA de cierre ante runner perdido:** TTL del lease + 15 min de cron (más el retraso
   del schedule de GitHub): ≤ ~90 min en plan-apply, ≤ ~60 min en drift.
 
+**Varias IPs de salida por runner (2026-10-15).** El runner sale a Internet por más de
+una IP (SNAT): ipify vio `.196` y Terraform salió por `.198`, con 403 `ForbiddenByFirewall`
+intermitente. `infra/scripts/kv-firewall-runner.sh` sondea el vault antes de abrir y abre
+(con lease, vía `kv-firewall-lease.sh`) cada `Client address` que reporta el 403. Después
+espera tres respuestas OK seguidas. Si igual el plan, el apply o el drift reciben un 403 de
+firewall con una IP nueva, `learn` la abre y el paso se reintenta. El cierre quita todas
+las IPs del job. Tope: 8 IPs por job.
+
 Lo definitivo sigue siendo un runner aislado con conectividad privada al vault (sin
 abrir IPs públicas); esto es la transición.
 
@@ -150,6 +158,7 @@ abrir IPs públicas); esto es la transición.
 | Output `key_vault_names` que consume el workflow | `environments/*/outputs.tf` |
 | Pasos "Abrir/Cerrar el Key Vault" en `plan-apply` y en `drift` | `.github/workflows/terraform.yml` |
 | Lease, cierre con reintentos y reconciliación (INFRA-05) | `infra/scripts/kv-firewall-lease.sh`, `.github/workflows/kv-firewall-reconcile.yml` |
+| Todas las IPs de salida del runner + reintento ante 403 de firewall | `infra/scripts/kv-firewall-runner.sh` |
 | `keyvault_private_endpoint_enabled` + `keyvault_network_acls_enabled` en `true` | `environments/prod/terraform.tfvars` |
 
 **Alcance de esos pasos:** corren también en `pull_request`, así que un PR

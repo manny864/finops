@@ -297,11 +297,11 @@ describe("INFRA-05 — contrato de los workflows", () => {
       expect(open).not.toMatch(/network-rule add/);
       const idxOut = open.indexOf('"$GITHUB_OUTPUT"');
       expect(idxOut).toBeGreaterThan(-1);
-      expect(idxOut).toBeLessThan(open.indexOf('kv-firewall-lease.sh" open'));
+      expect(idxOut).toBeLessThan(open.indexOf('kv-firewall-runner.sh" open'));
       const close = step(j, "name: Cerrar el Key Vault");
       expect(close).toMatch(/if: always\(\) && steps\.kv_firewall\.outputs\.runner_ip != ''/);
       expect(close).toMatch(/timeout-minutes: \d+/);
-      expect(close).toMatch(/kv-firewall-lease\.sh" close/);
+      expect(close).toMatch(/kv-firewall-runner\.sh" close/);
       expect(close).not.toMatch(/network-rule remove/);
       const container = (t: string) => t.match(/LEASE_CONTAINER: (.+)/)?.[1];
       expect(container(close)).toBe(container(open));
