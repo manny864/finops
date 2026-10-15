@@ -91,7 +91,10 @@ reconciliador. **No se hizo push**: los workflows remotos siguen en hosted Ubunt
 No aplicar Terraform desde una version anterior a estas ACL: puede retirar las
 subredes. Publicar configuracion y probar planes de ambos ambientes, OIDC,
 aislamiento de contenedores y reconciliacion antes de cerrar INFRA-09.
-Scan/builds/tests continuan en GitHub-hosted Linux.
+Builds/tests y scans de PR continuan en GitHub-hosted Linux. Por bloqueo de
+facturacion de runners hosted detectado durante la activacion, el scan
+bloqueante de dispatch manual desde `main` usa la VM del ambiente, sin OIDC.
+PRs y otras ramas no pueden seleccionar esos runners para el scan.
 
 Durante la transicion se conserva la apertura/cierre de IPs temporales y el cron
 de 15 minutos. Su retirada requiere migrar **todos** los consumidores y limpiar

@@ -73,7 +73,8 @@ jobs:
   # Gate estático: corre en cada PR y es lo que evita repetir defectos como el
   # WAF creado pero no asociado, o un storage con acceso público.
   scan:
-    runs-on: ubuntu-latest
+    # Only trusted main dispatches may use our VMs; PR scans remain hosted.
+    runs-on: ${{ fromJSON(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && format('["self-hosted","linux","x64","finops-{0}"]', inputs.environment == 'staging' && 'staging' || 'prod') || '["ubuntu-latest"]') }}
     # Sin id-token: no hace login en Azure. `actions: read` lo pide la subida
     # de SARIF en repos privados.
     permissions:

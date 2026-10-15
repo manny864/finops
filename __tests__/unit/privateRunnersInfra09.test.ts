@@ -9,6 +9,16 @@ const terraformAvailable = !spawnSync("terraform", ["version"]).error;
 const read = (path: string) => readFileSync(path, "utf8");
 
 describe("INFRA-09: private runner network inputs", () => {
+  it("only trusted main dispatch scans use self-hosted runners", () => {
+    const workflow = read(".github/workflows/terraform.yml");
+    const scan = workflow.match(/^  scan:\n([\s\S]*?)^  plan-apply:/m)?.[1];
+    expect(scan).toBeDefined();
+    expect(scan).toContain("github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'");
+    expect(scan).toContain('|| \'["ubuntu-latest"]\'');
+    expect(scan).not.toContain("id-token: write");
+    expect(scan).toContain("Probar regresiones contra Checkov real");
+  });
+
   for (const environment of ["prod", "staging"]) {
     it(`${environment}: runner subnets are a root input, not a segmentation stamp`, () => {
       expect(read(`${root}/${environment}/network.tfvars`)).toMatch(
