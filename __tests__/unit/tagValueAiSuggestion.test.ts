@@ -342,8 +342,9 @@ describe("suggestTagValuesWithAi", () => {
     expect(insertUsageMock).toHaveBeenCalledWith(
       expect.objectContaining({ tenantId: "t1", feature: "tag-value-normalization", inputTokens: 400, outputTokens: 60 })
     );
-    const cacheWrite = queryMock.mock.calls.find(([sql]) => String(sql).startsWith("REPLACE INTO AiCache"));
-    expect(JSON.parse(cacheWrite![1][1]).items).toHaveLength(2);
+    const cacheWrite = queryMock.mock.calls.find(([sql]) => String(sql).startsWith("INSERT INTO AiCache"));
+    expect(cacheWrite![1][1]).toBe("t1");
+    expect(JSON.parse(cacheWrite![1][2]).items).toHaveLength(2);
   });
 
   it("fill propone sólo entre los valores en uso", async () => {

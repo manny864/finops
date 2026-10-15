@@ -1,8 +1,8 @@
-import { createHash } from "crypto";
+import { untrustedBlock } from "@/lib/promptSafe";
 import { generateObject } from "ai";
 import { z } from "zod";
-import type { RowDataPacket } from "mysql2";
-import pool, { insertPlatformAiUsage } from "@/modules/storage/db";
+import { insertPlatformAiUsage } from "@/modules/storage/db";
+import { aiCacheGet, aiCacheKey, aiCacheSet } from "@/lib/aiCache";
 import {
   AIProviderFactory,
   aiQueue,
@@ -173,18 +173,18 @@ const SYSTEM_PROMPTS: Record<TagAiMode, string> = {
   ].join("\n"),
 };
 
-/** AiCache.hash_prompt es VARCHAR(64): la clave entra hasheada. */
+/** Mismo inventario y vocabulario = misma respuesta: se guarda 30 días (AISEC-05). */
+const CACHE_TTL_HOURS = 30 * 24;
+
 function cacheKey(tenantId: string, mode: TagAiMode, context: unknown): string {
-  return createHash("sha256")
-    .update(`tag-norm:${PROMPT_VERSION}:${tenantId}:${mode}:${JSON.stringify(context)}`)
-    .digest("hex");
+  return aiCacheKey(tenantId, `tag-norm:${PROMPT_VERSION}`, mode, JSON.stringify(context));
 }
 
-async function cachedItems(key: string, batch: TagAiBatch): Promise<AiItem[] | null> {
-  const [rows] = await pool.query<RowDataPacket[]>("SELECT response_text FROM AiCache WHERE hash_prompt = ?", [key]);
-  if (!rows[0]) return null;
+async function cachedItems(tenantId: string, key: string, batch: TagAiBatch): Promise<AiItem[] | null> {
+  const text = await aiCacheGet(tenantId, key);
+  if (text === null) return null;
   try {
-    const parsed = suggestionsSchema(batch.vocabulary).safeParse(JSON.parse(rows[0].response_text));
+    const parsed = suggestionsSchema(batch.vocabulary).safeParse(JSON.parse(text));
     return parsed.success && !validateAiItems(parsed.data.items, batch.targets, batch.vocabulary)
       ? parsed.data.items
       : null;
@@ -225,7 +225,7 @@ export async function suggestTagValuesWithAi(p: {
   });
 
   const key = cacheKey(p.tenantId, p.mode, context);
-  const cached = await cachedItems(key, batch);
+  const cached = await cachedItems(p.tenantId, key, batch);
   if (cached) return ok(cached);
 
   let ai: Awaited<ReturnType<typeof AIProviderFactory.getGeminiModel>>;
@@ -244,7 +244,7 @@ export async function suggestTagValuesWithAi(p: {
             model: ai.model,
             schema: suggestionsSchema(batch.vocabulary),
             system: SYSTEM_PROMPTS[p.mode],
-            prompt: `<context_data>\n${JSON.stringify(context)}\n</context_data>`,
+            prompt: untrustedBlock("context_data", context),
             maxOutputTokens: AI_FEATURES[FEATURE].maxOutputTokens,
           })
         )
@@ -272,10 +272,7 @@ export async function suggestTagValuesWithAi(p: {
     return { aiAvailable: false, reason: "validation" };
   }
   try {
-    await pool.query(
-      "REPLACE INTO AiCache (hash_prompt, response_text, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
-      [key, JSON.stringify({ items })]
-    );
+    await aiCacheSet(p.tenantId, key, JSON.stringify({ items }), CACHE_TTL_HOURS);
   } catch (e) {
     // La llamada ya se pagó: las sugerencias se devuelven aunque no queden guardadas.
     console.error(`[tagValueAiSuggestion] no se pudieron cachear las sugerencias: ${errorMessage(e)}`);

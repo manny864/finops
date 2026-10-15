@@ -51,6 +51,9 @@ export async function teardownTenant(
         await connection.execute(`DELETE FROM TaggingPolicies WHERE tenant_id = ?`, [tenantId]);
         await connection.execute(`DELETE FROM SavingsHistory WHERE tenant_id = ?`, [tenantId]);
 
+        // 4b. AISEC-05: respuestas de IA del tenant (RGPD).
+        await connection.execute(`DELETE FROM AiCache WHERE tenant_id = ?`, [tenantId]);
+
         // 5. Delete the tenant credentials / users mapping records
         await connection.execute(`DELETE FROM Users WHERE tenant_id = ?`, [tenantId]);
 

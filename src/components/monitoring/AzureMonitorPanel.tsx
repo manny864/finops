@@ -1,4 +1,5 @@
 "use client";
+import { toCsvText } from "@/lib/csvExport";
 import { useTranslations } from "next-intl";
 import { useTextoPorCategoria } from "@/lib/recommendationText";
 
@@ -500,11 +501,11 @@ export default function AzureMonitorPanel() {
       t("csvEstSavings"),
     ];
     const rows = filteredAlerts.map((a) => [
-      `"${a.name}"`,
+      a.name,
       a.alertType,
-      `"${a.targetResourceName}"`,
-      `"${a.resourceGroup}"`,
-      `"${a.subscriptionName}"`,
+      a.targetResourceName,
+      a.resourceGroup,
+      a.subscriptionName,
       a.location,
       a.currentSeverity,
       a.isEnabled ? (a.isFiring ? "Firing" : "Active") : "Disabled",
@@ -513,7 +514,7 @@ export default function AzureMonitorPanel() {
       a.costMtdUSD.toFixed(2),
       a.potentialSavingsUSD.toFixed(2),
     ]);
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const csvContent = "data:text/csv;charset=utf-8," + toCsvText(headers, rows);
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);

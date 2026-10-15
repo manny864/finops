@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { scriptSafeJson } from "@/lib/scriptSafeJson";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import {
@@ -14,13 +15,13 @@ export async function GET(request: NextRequest) {
     const forceMock = searchParams.get('mock') === 'true';
 
     if (!tenantId) {
-      return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
+      return scriptSafeJson({ error: "Falta tenantId" }, { status: 400 });
     }
 
     // 1. ORDEN CRÍTICO: isMockTenant DEBE evaluarse ANTES de requireTenantAccess
     if (forceMock || isMockTenant(tenantId)) {
       const data = generateMockMaturityData();
-      return NextResponse.json(data);
+      return scriptSafeJson(data);
     }
 
     // 2. Tenant Real: Validación obligatoria de RBAC
@@ -28,11 +29,11 @@ export async function GET(request: NextRequest) {
 
     // 3. Consulta en vivo sin fallbacks mock
     const payload = await getLiveMaturityData(tenantId);
-    return NextResponse.json(payload);
+    return scriptSafeJson(payload);
   } catch (error: unknown) {
-    if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+    if (error instanceof AuthError) return scriptSafeJson({ error: error.message }, { status: error.status });
     console.error("Maturity API Error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return scriptSafeJson({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
         const { tenantId, assessmentData } = body;
 
         if (!tenantId || !assessmentData) {
-            return NextResponse.json({ error: "Faltan parámetros requeridos: tenantId y assessmentData" }, { status: 400 });
+            return scriptSafeJson({ error: "Faltan parámetros requeridos: tenantId y assessmentData" }, { status: 400 });
         }
 
         const isMock = isMockTenant(tenantId);
@@ -84,15 +85,15 @@ export async function POST(request: NextRequest) {
             // Continuar si la BD no está configurada en entorno local
         }
 
-        return NextResponse.json({ 
+        return scriptSafeJson({ 
             success: true, 
             score: finalScore,
             level
         });
 
     } catch (error: unknown) {
-        if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
+        if (error instanceof AuthError) return scriptSafeJson({ error: error.message }, { status: error.status });
         console.error("Maturity Assessment API Error:", error);
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+        return scriptSafeJson({ error: "Internal server error" }, { status: 500 });
     }
 }

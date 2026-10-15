@@ -174,10 +174,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Mark challenge as consumed (success).
-    await pool.query(
-      `UPDATE MfaChallenges SET consumed_at = NOW() WHERE id = ?`,
+    const [claim] = await pool.query<any>(
+      `UPDATE MfaChallenges SET consumed_at = NOW() WHERE id = ? AND consumed_at IS NULL AND expires_at > NOW()`,
       [challenge_id]
     );
+    if (claim.affectedRows !== 1) {
+      return NextResponse.json(
+        { error: { code: 'challenge_already_used', message: 'Challenge already used' } },
+        { status: 400 }
+      );
+    }
 
     // Update mfa_last_used_at.
     await pool.query(

@@ -119,6 +119,10 @@ variable "stamps" {
     # NAT Gateway con IP fija de salida (modules/network/main.tf). Cambia la salida de TODO el
     # entorno: ver el runbook "Cerrar el origen" de docs/security/.
     nat_gateway_enabled = optional(bool, false)
+
+    # NSG que deniega la salida de los contenedores a IMDS (AISEC-03, modules/network/main.tf).
+    # null = encendido en prod y stg, apagado en el resto; false lo apaga en ese stamp.
+    apps_nsg_block_imds = optional(bool)
   }))
 }
 
@@ -226,6 +230,28 @@ variable "key_vault_secret_env" {
   default     = {}
 }
 
+variable "marketplace_aad_app_id" {
+  description = <<-DESC
+    Application (client) ID de la App Registration del publisher de Azure Marketplace.
+    Es la audiencia OBLIGATORIA del JWT del webhook (PERIM-07): sin ella
+    /api/webhooks/marketplace/azure responde 503 y Microsoft reintenta, así que
+    cambios de plan, suspensiones y bajas no se aplican. No es secreto (viaja como
+    `aud` en el JWT). Obligatoria con environment = "prod"; en staging, null deja el
+    webhook cerrado (no hay oferta de Marketplace apuntando ahí).
+  DESC
+  type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = var.marketplace_aad_app_id == null || can(regex(
+      "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+      var.marketplace_aad_app_id
+    ))
+    error_message = "marketplace_aad_app_id debe ser un GUID (Application ID de Entra ID) o null."
+  }
+}
+
 variable "allowed_ip_ranges" {
   type    = list(string)
   default = []
@@ -235,8 +261,8 @@ variable "allowed_ip_ranges" {
 variable "origin_cloudflare_only" {
   description = <<-DESC
     true = el ingress del app sólo acepta los rangos IPv4 de Cloudflare (catálogo
-    cloudflare_ips.tf) más origin_extra_allowed_ip_ranges. false (default) deja el
-    origen como está hoy: abierto a cualquier IP.
+    cloudflare_ips.tf) más origin_extra_allowed_ip_ranges (default: true). false deja
+    el origen abierto a cualquier IP y permite saltear el WAF de Cloudflare.
 
     NO activarlo sin recorrer el runbook "Cerrar el origen" de
     docs/security/endurecimiento-infraestructura-saas-2026-10-09.md. Hay tres
@@ -245,7 +271,7 @@ variable "origin_cloudflare_only" {
     validación del certificado gestionado (DigiCert).
   DESC
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "origin_extra_allowed_ip_ranges" {
@@ -301,6 +327,19 @@ variable "storage_shared_access_key_enabled" {
   description = "false = la cuenta de Storage de cada stamp rechaza toda solicitud autorizada con la clave de cuenta, incluidas las SAS firmadas con ella. Antes: app con identidad administrada, backups con la identidad de la VM y Terraform con storage_use_azuread. Rollback: true. Ver docs/security/endurecimiento-infraestructura-saas-2026-10-09.md, 7.6."
   type        = bool
   default     = true
+}
+
+# AISEC-09. Nivel raíz como storage_shared_access_key_enabled: rige para todos los stamps.
+variable "storage_malware_scanning_enabled" {
+  description = "Defender for Storage con escaneo antimalware al subir en la cuenta de cada stamp, y lectura de support-attachments sólo para blobs con 'No threats found' (ABAC). Activarlo reemplaza la asignación de rol Blob de la app (segundos sin acceso durante el apply). Rollback: false."
+  type        = bool
+  default     = false
+}
+
+variable "storage_malware_scan_cap_gb_per_month" {
+  description = "Tope mensual de GB escaneados por cuenta de Storage (controla el costo del escaneo). -1 = sin tope."
+  type        = number
+  default     = 100
 }
 
 variable "resource_lock_enabled" {

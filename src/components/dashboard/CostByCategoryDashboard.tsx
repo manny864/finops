@@ -1,4 +1,5 @@
 "use client";
+import { toCsvText } from "@/lib/csvExport";
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
@@ -177,14 +178,14 @@ export default function CostByCategoryDashboard() {
         if (!selectedCategory || !filteredResources.length) return;
         const headers = ["ResourceName", "Service", "ResourceGroup", "Region", "SKU", "CostMTD_USD"];
         const rows = filteredResources.map((r) => [
-            `"${r.name}"`,
-            `"${r.service}"`,
-            `"${r.resourceGroup}"`,
-            `"${r.region}"`,
-            `"${r.sku}"`,
+            r.name,
+            r.service,
+            r.resourceGroup,
+            r.region,
+            r.sku,
             r.cost.toFixed(2),
         ]);
-        const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
+        const csvContent = toCsvText(headers, rows);
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");

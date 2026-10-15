@@ -81,6 +81,10 @@ jobs:
           cache: 'npm'
           cache-dependency-path: package-lock.json
       - run: npm ci --no-audit --no-fund --prefer-offline --loglevel=error
+      # AISEC-03: pdfChromiumIsolation prueba con un Chromium real que el PDF no
+      # ejecuta JS ni sale a la red. Sin el binario se saltearía en silencio.
+      - name: Instalar Chromium headless de Playwright
+        run: npx playwright install --with-deps --only-shell chromium
       # En push a main sólo interesa que pasen; la instrumentación de
       # cobertura cuesta tiempo y el reporte no lo mira nadie fuera del PR.
       # `--reporter=json --outputFile` deja el resultado en un archivo ademas

@@ -76,6 +76,14 @@ locals {
   })
 
   stamp_hostnames = { for k, s in module.stamp : k => s.hostname }
+
+  # PERIM-07: audiencia del webhook de Marketplace. La variable dedicada manda;
+  # se acepta todavía el valor en extra_env_vars por compatibilidad con tfvars viejos.
+  legacy_marketplace_aad_app_id = trimspace(lookup(var.extra_env_vars, "AZURE_MARKETPLACE_AAD_APP_ID", ""))
+  marketplace_aad_app_id = (
+    var.marketplace_aad_app_id != null ? var.marketplace_aad_app_id :
+    local.legacy_marketplace_aad_app_id != "" ? local.legacy_marketplace_aad_app_id : null
+  )
 }
 
 # ---------------------------------------------------------------------------
@@ -86,6 +94,22 @@ resource "azurerm_resource_group" "global" {
   name     = "${local.global_name_base}-rg"
   location = var.global_location
   tags     = local.tags
+
+  lifecycle {
+    # PERIM-07: el webhook falla cerrado sin audiencia. En prod eso es una caída
+    # silenciosa del ciclo de vida Marketplace, así que se corta en el plan.
+    precondition {
+      condition     = var.environment != "prod" || local.marketplace_aad_app_id != null
+      error_message = "Falta marketplace_aad_app_id en prod: el webhook de Azure Marketplace respondería 503 a todos los eventos (PERIM-07)."
+    }
+    precondition {
+      condition = (
+        var.marketplace_aad_app_id == null || local.legacy_marketplace_aad_app_id == "" ||
+        lower(var.marketplace_aad_app_id) == lower(local.legacy_marketplace_aad_app_id)
+      )
+      error_message = "marketplace_aad_app_id y extra_env_vars.AZURE_MARKETPLACE_AAD_APP_ID difieren; dejá sólo la variable dedicada."
+    }
+  }
 }
 
 module "acr" {
@@ -227,6 +251,11 @@ module "stamp" {
     var.extra_env_vars,
     each.value.extra_env_vars,
     jsondecode(file("${path.module}/paddle-price-ids.json")),
+    # PERIM-03/05: la app sólo usa cf-connecting-ip como clave de cuota si el
+    # ingress está cerrado a Cloudflare; con el origen abierto lo elige el cliente.
+    { TRUST_CLOUDFLARE_CLIENT_IP = tostring(var.origin_cloudflare_only) },
+    # PERIM-07: audiencia obligatoria del JWT del webhook de Marketplace.
+    local.marketplace_aad_app_id == null ? {} : { AZURE_MARKETPLACE_AAD_APP_ID = local.marketplace_aad_app_id },
   )
   key_vault_secret_ids = var.key_vault_secret_ids
   key_vault_secret_env = var.key_vault_secret_env
@@ -252,20 +281,23 @@ module "stamp" {
   security_activity_alerts_enabled = each.value.security_activity_alerts_enabled
   security_policy_audit_enabled    = each.value.security_policy_audit_enabled
 
-  security_activity_log_export_enabled = each.value.security_activity_log_export_enabled
-  security_tables_retention_days       = each.value.security_tables_retention_days
-  security_tables_total_retention_days = each.value.security_tables_total_retention_days
-  nat_gateway_enabled                  = each.value.nat_gateway_enabled
-  storage_shared_access_key_enabled    = var.storage_shared_access_key_enabled
-  network_flow_logs_enabled            = contains(["prod", "stg"], var.environment)
-  alert_email                          = var.alert_email
-  monthly_budget_amount                = each.value.monthly_budget_amount
-  budget_start_date                    = var.budget_start_date
-  custom_domain_enabled                = each.value.custom_domain_enabled
-  custom_domain_name                   = each.value.custom_domain_name
-  custom_domain_certificate_name       = each.value.custom_domain_certificate_name
-  custom_domain_certificate_source     = each.value.custom_domain_certificate_source
-  custom_domain_byo_certificate_name   = each.value.custom_domain_byo_certificate_name
+  security_activity_log_export_enabled  = each.value.security_activity_log_export_enabled
+  security_tables_retention_days        = each.value.security_tables_retention_days
+  security_tables_total_retention_days  = each.value.security_tables_total_retention_days
+  nat_gateway_enabled                   = each.value.nat_gateway_enabled
+  apps_nsg_block_imds                   = coalesce(each.value.apps_nsg_block_imds, contains(["prod", "stg"], var.environment))
+  storage_shared_access_key_enabled     = var.storage_shared_access_key_enabled
+  storage_malware_scanning_enabled      = var.storage_malware_scanning_enabled
+  storage_malware_scan_cap_gb_per_month = var.storage_malware_scan_cap_gb_per_month
+  network_flow_logs_enabled             = contains(["prod", "stg"], var.environment)
+  alert_email                           = var.alert_email
+  monthly_budget_amount                 = each.value.monthly_budget_amount
+  budget_start_date                     = var.budget_start_date
+  custom_domain_enabled                 = each.value.custom_domain_enabled
+  custom_domain_name                    = each.value.custom_domain_name
+  custom_domain_certificate_name        = each.value.custom_domain_certificate_name
+  custom_domain_certificate_source      = each.value.custom_domain_certificate_source
+  custom_domain_byo_certificate_name    = each.value.custom_domain_byo_certificate_name
 
   ai_services_enabled    = each.value.ai_services_enabled
   ai_services_location   = each.value.ai_services_location

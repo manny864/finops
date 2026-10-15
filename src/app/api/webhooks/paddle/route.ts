@@ -9,6 +9,7 @@ import { errorMessage } from "@/lib/apiErrors";
 import { applyTierChange } from "@/services/providerLifecycleService";
 import { aplicarReembolsoAprobado, liberarReembolsoRechazado } from "@/services/refunds.service";
 import { verificarVinculo, preciosPagados, VinculoCheckout } from "@/lib/checkoutBinding";
+import { paddleInboxEvent, processWebhookOnce } from "@/lib/webhookInbox";
 
 /**
  * Tier actual del tenant ANTES de escribir el nuevo. Lo recibe
@@ -118,22 +119,12 @@ export async function POST(request: NextRequest) {
     const rawBody = await request.text();
     const signatureHeader = request.headers.get("paddle-signature") || "";
 
-    // paddle-signature format: ts=1671552777;h1=1a2b3c...
-    const parts = signatureHeader.split(";");
-    const tsPart = parts.find((p) => p.startsWith("ts="));
-    const h1Part = parts.find((p) => p.startsWith("h1="));
-
-    if (!tsPart || !h1Part) {
+    const signature = parsePaddleSignature(signatureHeader);
+    if (!signature) {
       return NextResponse.json({ error: "Invalid signature format" }, { status: 401 });
     }
-
-    const ts = tsPart.split("=")[1];
-    const h1 = h1Part.split("=")[1];
+    const { ts, h1s } = signature;
     const timestamp = Number(ts);
-
-    if (!Number.isFinite(timestamp)) {
-      return NextResponse.json({ error: "Invalid signature timestamp" }, { status: 401 });
-    }
 
     // Check replay window
     const now = Math.floor(Date.now() / 1000);
@@ -141,14 +132,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Stale webhook signature timestamp" }, { status: 401 });
     }
 
-    // Verify HMAC
-    const payloadToSign = `${ts}:${rawBody}`;
-    const hmac = crypto.createHmac("sha256", secret);
-    const digestHex = hmac.update(payloadToSign).digest("hex");
-    const received = Buffer.from(h1, "hex");
-    const expected = Buffer.from(digestHex, "hex");
-
-    if (received.length !== expected.length || !crypto.timingSafeEqual(received, expected)) {
+    // Verify HMAC. Durante una rotación del secreto Paddle puede mandar más de un h1:
+    // alcanza con que uno coincida.
+    const expected = crypto.createHmac("sha256", secret).update(`${ts}:${rawBody}`).digest();
+    const valid = h1s.some((h1) => {
+      const received = Buffer.from(h1, "hex");
+      return received.length === expected.length && crypto.timingSafeEqual(received, expected);
+    });
+    if (!valid) {
       console.error("[Webhooks] Invalid HMAC signature for Paddle.");
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
@@ -161,36 +152,84 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
     }
 
-    const eventType = payload.event_type;
-    const { tenantId, vinculo } = await resolverTenant(payload);
-
-    console.log(`[Webhooks] Processing event ${eventType} for Tenant ID: ${tenantId}`);
-
-    // Route by event type
-    switch (eventType) {
-      case "subscription.created":
-        return handleSubscriptionCreated(payload, tenantId, vinculo);
-      case "subscription.updated":
-        return handleSubscriptionUpdated(payload, tenantId, vinculo);
-      case "subscription.canceled":
-        return handleSubscriptionCanceled(payload, tenantId);
-      case "subscription.past_due":
-        return handleSubscriptionPastDue(payload, tenantId);
-      case "transaction.completed":
-        return handleTransactionCompleted(payload, tenantId, vinculo);
-      case "transaction.payment_failed":
-        return handleTransactionPaymentFailed(payload, tenantId);
-      case "adjustment.created":
-      case "adjustment.updated":
-        // `await` a propósito: si aplicar los efectos lanza, tiene que caer en el catch de abajo (500 + log) y no escaparse.
-        return await handleAdjustment(payload);
-      default:
-        console.log(`[Webhooks] Ignoring event type: ${eventType}`);
-        return NextResponse.json({ success: true, message: "Event ignored" });
+    // PERIM-08: deduplicación durable por event_id y orden por occurred_at (ambos firmados).
+    const inboxEvent = paddleInboxEvent(payload);
+    if (!inboxEvent) {
+      return NextResponse.json({ error: "Invalid event envelope" }, { status: 400 });
     }
+    return await processWebhookOnce(inboxEvent, () => dispatchPaddleEvent(payload), {
+      // Un `subscription.created` atrasado no restaura el estado viejo, pero sí vincula
+      // la suscripción al tenant: si no, las renovaciones y la baja no lo encontrarían.
+      onStale: payload.event_type === "subscription.created" ? () => linkStaleSubscription(payload) : undefined,
+    });
   } catch (error) {
     console.error("[Webhooks] Error interno:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}
+
+/**
+ * `ts=<segundos>;h1=<hex64>[;h1=<hex64>...]`. Exactamente un `ts` de sólo dígitos y uno o
+ * más `h1` de 64 hex; cualquier parte con otro formato invalida la cabecera.
+ */
+function parsePaddleSignature(header: string): { ts: string; h1s: string[] } | null {
+  if (header.length === 0 || header.length > 1024) return null;
+  let ts: string | null = null;
+  const h1s: string[] = [];
+  for (const part of header.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq <= 0) return null;
+    const key = part.slice(0, eq);
+    const value = part.slice(eq + 1);
+    if (key === "ts") {
+      if (ts !== null || !/^\d{1,12}$/.test(value)) return null;
+      ts = value;
+    } else if (key === "h1") {
+      if (!/^[0-9a-f]{64}$/.test(value)) return null;
+      h1s.push(value);
+    } else {
+      return null;
+    }
+  }
+  return ts !== null && h1s.length > 0 ? { ts, h1s } : null;
+}
+
+async function linkStaleSubscription(payload: any): Promise<Response> {
+  if (esSuscripcionDeAddon(payload)) return NextResponse.json({ success: true, stale: true });
+  const { tenantId } = await resolverTenant(payload);
+  if (tenantId && payload.data?.id) {
+    await pool.execute("UPDATE Tenants SET paddle_subscription_id = ? WHERE tenant_id = ?", [payload.data.id, tenantId]);
+  }
+  return NextResponse.json({ success: true, stale: true });
+}
+
+async function dispatchPaddleEvent(payload: any): Promise<Response> {
+  const eventType = payload.event_type;
+  const { tenantId, vinculo } = await resolverTenant(payload);
+
+  console.log(`[Webhooks] Processing event ${eventType} for Tenant ID: ${tenantId}`);
+
+  // Route by event type
+  switch (eventType) {
+    case "subscription.created":
+      return handleSubscriptionCreated(payload, tenantId, vinculo);
+    case "subscription.updated":
+      return handleSubscriptionUpdated(payload, tenantId, vinculo);
+    case "subscription.canceled":
+      return handleSubscriptionCanceled(payload, tenantId);
+    case "subscription.past_due":
+      return handleSubscriptionPastDue(payload, tenantId);
+    case "transaction.completed":
+      return handleTransactionCompleted(payload, tenantId, vinculo);
+    case "transaction.payment_failed":
+      return handleTransactionPaymentFailed(payload, tenantId);
+    case "adjustment.created":
+    case "adjustment.updated":
+      // `await` a propósito: si aplicar los efectos lanza, lo atrapa `processWebhookOnce` (500 + rollback, Paddle reintenta).
+      return await handleAdjustment(payload);
+    default:
+      console.log(`[Webhooks] Ignoring event type: ${eventType}`);
+      return NextResponse.json({ success: true, message: "Event ignored" });
   }
 }
 

@@ -114,3 +114,46 @@ resource "azurerm_subnet_nat_gateway_association" "apps" {
   # La IP tiene que estar asociada al NAT antes de que la subred empiece a salir por él.
   depends_on = [azurerm_nat_gateway_public_ip_association.this]
 }
+
+# ---------------------------------------------------------------------------
+# NSG de la subred de apps: corta el acceso a IMDS (169.254.169.254) desde los
+# contenedores (AISEC-03). Si un SSRF llega a salir (p. ej. del Chromium que arma
+# los PDF), no puede pedir tokens ni metadatos a IMDS.
+#
+# Una regla con destino "169.254.169.254" NO tiene efecto: Azure no somete IMDS a
+# los NSG salvo que se use el service tag AzurePlatformIMDS (learn.microsoft.com,
+# "Network security groups", Azure platform considerations).
+#
+# Container Apps no usa IMDS para la identidad administrada (usa IDENTITY_ENDPOINT),
+# pero los nodos del entorno viven en esta subred. Encender primero en staging y
+# verificar: health del app, token a Key Vault, pull del ACR y los cron jobs.
+#
+# Las reglas por defecto del NSG se mantienen (salida a VNet e internet). La
+# entrada pública del entorno no pasa por la subred, así que DenyAllInBound no la
+# corta. NO denegar 168.63.129.16 (DNS): el entorno deja de funcionar.
+# ---------------------------------------------------------------------------
+resource "azurerm_network_security_group" "apps" {
+  count               = var.apps_nsg_block_imds ? 1 : 0
+  name                = "${var.name_base}-snet-apps-nsg"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.this.name
+  tags                = var.tags
+
+  security_rule {
+    name                       = "DenyAzurePlatformIMDSOutbound"
+    priority                   = 100
+    direction                  = "Outbound"
+    access                     = "Deny"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "AzurePlatformIMDS"
+  }
+}
+
+resource "azurerm_subnet_network_security_group_association" "apps" {
+  count                     = var.apps_nsg_block_imds ? 1 : 0
+  subnet_id                 = azurerm_subnet.apps.id
+  network_security_group_id = azurerm_network_security_group.apps[0].id
+}

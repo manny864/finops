@@ -10,13 +10,49 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { authenticateMcpToken } from "@/services/mcpApiKey.service";
-import { errorMessage } from "@/lib/apiErrors";
+import { actionableCause, logSafeError } from "@/lib/publicErrors";
 import { assembleLiveAnomalies } from "@/services/azureAnomalyDetection.service";
 import { getActiveHardWaste } from "@/services/azureHardWaste.service";
 import { motivoDelHallazgo } from "@/services/azureZombieAudit.service";
 import { getBudgetStatuses } from "@/services/budgetUtilization.service";
 import { getAdvisorExecutiveData } from "@/services/azureAdvisor.service";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
+import rateLimiter, { RateLimitUnavailable } from "@/lib/rateLimiter";
+import { RATE_LIMIT_UNAVAILABLE_HEADERS } from "@/lib/rateLimitUnavailable";
+import { preAuthAllowed, touchKeyLastUsed } from "@/lib/apiKeyGuards";
+import { readJsonCapped, BodyLimitError } from "@/lib/readJsonCapped";
+
+/** PERIM-03: llamadas por clave y minuto; las herramientas pegan a Azure y MySQL. */
+const MCP_QUOTA_PER_MIN = 60;
+/** JSON-RPC de este bridge son pocos campos; 64 KB sobra y acota la memoria. */
+const MCP_MAX_BODY_BYTES = 64 * 1024;
+
+type JsonRpcId = string | number | null;
+type McpRequest = { method: string; params: Record<string, unknown>; id: JsonRpcId };
+
+function rpcError(code: number, message: string, id: JsonRpcId, status: number, headers?: Record<string, string>) {
+    return NextResponse.json({ jsonrpc: "2.0", error: { code, message }, id }, { status, headers });
+}
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+    return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+/** Valida la forma JSON-RPC antes de despachar; `null` = Invalid Request. */
+function parseMcpRequest(body: unknown): McpRequest | null {
+    if (!isPlainObject(body)) return null;
+    const { method, params, id } = body;
+    if (typeof method !== "string" || method.length === 0 || method.length > 64) return null;
+    if (!(id === undefined || id === null || typeof id === "number" ||
+        (typeof id === "string" && id.length <= 128))) return null;
+    if (params !== undefined && !isPlainObject(params)) return null;
+    const p = (params ?? {}) as Record<string, unknown>;
+    if (method === "tools/call") {
+        if (typeof p.name !== "string" || p.name.length === 0 || p.name.length > 64) return null;
+        if (p.arguments !== undefined && !isPlainObject(p.arguments)) return null;
+    }
+    return { method, params: p, id: (id ?? null) as JsonRpcId };
+}
 
 interface ToolDef {
     name: string;
@@ -30,6 +66,15 @@ async function authenticateMCP(request: NextRequest): Promise<{ tenantId: string
     if (!authHeader.toLowerCase().startsWith("bearer ")) return null;
     const token = authHeader.slice(7).trim();
     return authenticateMcpToken(token);
+}
+
+/**
+ * PERIM-09: nota de fallo con texto fijo. Sólo causas conocidas (RBAC, 429, permisos) dicen
+ * por qué; lo demás va con un `errorId` que correlaciona con el log, sin el mensaje original.
+ */
+function failureNote(label: string, what: string, e: unknown): string {
+    const errorId = logSafeError(label, e);
+    return `${what}: ${actionableCause(e) ?? "error interno"} (errorId ${errorId})`;
 }
 
 /**
@@ -56,8 +101,7 @@ function zombiesHandler(tool: string, lista: "waste" | "zombies"): ToolDef["hand
                 })),
             };
         } catch (e) {
-            console.error(`[mcp] ${tool} falló:`, errorMessage(e));
-            return { count: 0, [lista]: [], note: `No se pudo escanear Resource Graph: ${errorMessage(e) || "error desconocido"}` };
+            return { count: 0, [lista]: [], note: failureNote(`[mcp] ${tool}`, "No se pudo escanear Resource Graph", e) };
         }
     };
 }
@@ -73,8 +117,7 @@ function budgetsHandler(tool: string): ToolDef["handler"] {
             const budgets = await getBudgetStatuses(tenantId);
             return { count: budgets.length, budgets };
         } catch (e) {
-            console.error(`[mcp] ${tool} falló:`, errorMessage(e));
-            return { count: 0, budgets: [], note: `No se pudieron leer los presupuestos: ${errorMessage(e) || "error desconocido"}` };
+            return { count: 0, budgets: [], note: failureNote(`[mcp] ${tool}`, "No se pudieron leer los presupuestos", e) };
         }
     };
 }
@@ -138,7 +181,7 @@ const TOOLS: ToolDef[] = [
                     })),
                 };
             } catch (e) {
-                return { period: "30d", resources: [], note: `Tabla no disponible: ${errorMessage(e) || "?"}` };
+                return { period: "30d", resources: [], note: failureNote("[mcp] get_top_resources", "No se pudieron leer los costos por recurso", e) };
             }
         },
     },
@@ -195,8 +238,7 @@ const TOOLS: ToolDef[] = [
                 };
             } catch (e) {
                 // La tabla existe: lo que falló es la lectura. Se registra para que no sea sólo "no hay anomalías".
-                console.error("[mcp] get_anomalies_feed falló:", errorMessage(e));
-                return { count: 0, anomalies: [], note: `No se pudieron leer las anomalías: ${errorMessage(e) || "error desconocido"}` };
+                return { count: 0, anomalies: [], note: failureNote("[mcp] get_anomalies_feed", "No se pudieron leer las anomalías", e) };
             }
         },
     },
@@ -242,11 +284,10 @@ const TOOLS: ToolDef[] = [
                 const top = [...abiertas].sort((a, b) => b.estimated_savings_usd - a.estimated_savings_usd).slice(0, limit);
                 return { count: top.length, recommendations: top };
             } catch (e) {
-                console.error("[mcp] get_recommendations falló:", errorMessage(e));
                 return {
                     count: 0,
                     recommendations: [],
-                    note: `No se pudieron leer las recomendaciones de Azure Advisor: ${errorMessage(e) || "error desconocido"}`,
+                    note: failureNote("[mcp] get_recommendations", "No se pudieron leer las recomendaciones de Azure Advisor", e),
                 };
             }
         },
@@ -254,6 +295,22 @@ const TOOLS: ToolDef[] = [
 ];
 
 export async function POST(request: NextRequest) {
+    try {
+        return await handlePost(request);
+    } catch (e) {
+        // Cuota estricta (PERIM-06): Redis caído → 503 con envoltura JSON-RPC,
+        // sin autenticar ni ejecutar herramientas con un presupuesto por réplica.
+        if (e instanceof RateLimitUnavailable) {
+            return rpcError(-32003, "Service temporarily unavailable", null, 503, RATE_LIMIT_UNAVAILABLE_HEADERS);
+        }
+        throw e;
+    }
+}
+
+async function handlePost(request: NextRequest) {
+    if (!(await preAuthAllowed(request, "mcp", "reject"))) {
+        return rpcError(-32029, "Too many requests", null, 429, { "Retry-After": "60" });
+    }
     const auth = await authenticateMCP(request);
     if (!auth) {
         return NextResponse.json({
@@ -263,18 +320,27 @@ export async function POST(request: NextRequest) {
         }, { status: 401 });
     }
 
-    let body: any;
+    const quota = await rateLimiter.checkByKeyDistributed(`mcp-key:${auth.keyId}`, MCP_QUOTA_PER_MIN, undefined, "reject");
+    if (!quota.allowed) {
+        return rpcError(-32029, "Rate limit exceeded", null, 429, { "Retry-After": "60" });
+    }
+    touchKeyLastUsed("MCPApiKeys", auth.keyId);
+
+    let body: unknown;
     try {
-        body = await request.json();
-    } catch {
-        return NextResponse.json({
-            jsonrpc: "2.0",
-            error: { code: -32700, message: "Parse error" },
-            id: null,
-        }, { status: 400 });
+        body = await readJsonCapped(request, MCP_MAX_BODY_BYTES);
+    } catch (e) {
+        if (e instanceof BodyLimitError && e.status === 413) {
+            return rpcError(-32600, "Request body too large", null, 413);
+        }
+        return rpcError(-32700, "Parse error", null, 400);
     }
 
-    const { method, params, id } = body;
+    const rpc = parseMcpRequest(body);
+    if (!rpc) {
+        return rpcError(-32600, "Invalid Request", null, 400);
+    }
+    const { method, params, id } = rpc;
 
     try {
         if (method === "tools/list") {
@@ -292,8 +358,8 @@ export async function POST(request: NextRequest) {
         }
 
         if (method === "tools/call") {
-            const toolName = params?.name;
-            const args = params?.arguments || {};
+            const toolName = params.name as string;
+            const args = (params.arguments ?? {}) as Record<string, any>;
             const tool = TOOLS.find(t => t.name === toolName);
             if (!tool) {
                 return NextResponse.json({
@@ -307,7 +373,8 @@ export async function POST(request: NextRequest) {
                 jsonrpc: "2.0",
                 result: {
                     content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-                    isError: false,
+                    // Una lista vacía con `note` es un fallo, no "no hay datos" (PERIM-09).
+                    isError: typeof result?.note === "string",
                 },
                 id,
             });
@@ -331,9 +398,10 @@ export async function POST(request: NextRequest) {
             id,
         });
     } catch (err) {
+        const errorId = logSafeError("[mcp] execution", err, { method });
         return NextResponse.json({
             jsonrpc: "2.0",
-            error: { code: -32603, message: errorMessage(err) || "Internal error" },
+            error: { code: -32603, message: "Internal error", data: { errorId } },
             id,
         }, { status: 500 });
     }

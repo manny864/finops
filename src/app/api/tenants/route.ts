@@ -45,8 +45,13 @@ export async function GET(request: NextRequest) {
             isSuperAdmin = true;
         } catch {
             if (isSuperAdminBootstrapEmail(email, identity.tenantId)) {
-                isSuperAdmin = true;
                 try {
+                    // APPSEC-ID-03: bootstrap sólo si NO existe ningún SuperAdmin
+                    // (primer arranque). Con uno ya registrado, el prefijo de email
+                    // deja de conceder God Mode.
+                    const [existing] = await pool.query("SELECT 1 FROM Users WHERE system_role = 'SUPERADMIN' LIMIT 1");
+                    if (Array.isArray(existing) && existing.length > 0) throw new Error("SUPERADMIN ya existe");
+                    isSuperAdmin = true;
                     // Auto-provision tenant primero (FK requirement) y luego Users.
                     await pool.query(
                         'INSERT IGNORE INTO Tenants (tenant_id, company_name) VALUES (?, ?)',
@@ -60,6 +65,7 @@ export async function GET(request: NextRequest) {
                     );
                     console.log(`[tenants] auto-bootstrap SUPERADMIN: ${email}`);
                 } catch (bootstrapErr) {
+                    isSuperAdmin = false;
                     console.warn(`[tenants] no se pudo bootstrap SUPERADMIN ${email}:`, errorMessage(bootstrapErr));
                 }
             }
@@ -290,8 +296,9 @@ export async function DELETE(request: NextRequest) {
         // Usando process.env.PADDLE_API_KEY
         console.log(`[Billing] Finalizando facturacion para tenant: ${tenantId}`);
 
-        // Eliminar usuarios asociados
+        // Eliminar usuarios asociados y las respuestas de IA del tenant (AISEC-05).
         await pool.query('DELETE FROM Users WHERE tenant_id = ?', [tenantId]);
+        await pool.query('DELETE FROM AiCache WHERE tenant_id = ?', [tenantId]);
 
         // Eliminar Tenant
         await pool.query('DELETE FROM Tenants WHERE tenant_id = ?', [tenantId]);

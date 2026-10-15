@@ -108,7 +108,7 @@ describe("mcpApiKey.service", () => {
         );
     });
 
-    it("authenticateMcpToken authenticates valid key and updates last_used_at", async () => {
+    it("authenticateMcpToken authenticates valid key (last_used_at lo escribe la ruta tras la cuota)", async () => {
         mocks.mockPoolQuery.mockImplementation((sql) => {
             if (sql.includes("SELECT id, tenant_id FROM MCPApiKeys")) {
                 return Promise.resolve([[{ id: 10, tenant_id: "tenant-abc" }], []]);

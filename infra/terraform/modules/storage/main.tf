@@ -127,8 +127,41 @@ resource "azurerm_storage_management_policy" "lifecycle" {
   }
 }
 
+# AISEC-09: lectura condicionada al veredicto antimalware. Defender for Storage escribe la etiqueta
+# de índice "Malware Scanning scan result" en cada blob subido; para los containers listados, la app
+# sólo puede leer (no listar) blobs con "No threats found": los pendientes y los maliciosos quedan en
+# cuarentena (Blob responde 403 y la app lo traduce a 409). Patrón documentado por Microsoft
+# ("prevent access to unscanned or malicious files with ABAC").
+# Ojo: condition es ForceNew. Activarlo reemplaza la asignación y la app queda unos segundos sin
+# acceso a Blob durante el apply; los blobs subidos antes de activar el escaneo no tienen etiqueta y
+# quedan ilegibles hasta que el cron de retención (60 días) los borre.
+locals {
+  clean_scan_container_clause = join(" AND ", [
+    for c in var.require_clean_scan_containers :
+    "@Resource[Microsoft.Storage/storageAccounts/blobServices/containers:name] StringNotEquals '${c}'"
+  ])
+  app_blob_read_condition = length(var.require_clean_scan_containers) == 0 ? null : trimspace(<<-COND
+    (
+     (
+      !(ActionMatches{'Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read'} AND NOT SubOperationMatches{'Blob.List'})
+     )
+     OR
+     (
+      ${local.clean_scan_container_clause}
+     )
+     OR
+     (
+      @Resource[Microsoft.Storage/storageAccounts/blobServices/containers/blobs/tags:Malware Scanning scan result<$key_case_sensitive$>] StringEquals 'No threats found'
+     )
+    )
+  COND
+  )
+}
+
 resource "azurerm_role_assignment" "app_blob_contributor" {
   scope                = azurerm_storage_account.this.id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = var.app_principal_id
+  condition            = local.app_blob_read_condition
+  condition_version    = local.app_blob_read_condition == null ? null : "2.0"
 }

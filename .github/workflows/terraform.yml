@@ -210,7 +210,11 @@ jobs:
     # producción por lunes, uno de ellos sin que nadie lo mire (el del 2026-10-05
     # cayó por la propagación del firewall del Key Vault y dejó la corrida en rojo
     # aunque `drift` pasó). Por schedule corre sólo `drift`.
-    if: github.event_name != 'schedule'
+    # INFRA-01: el job autenticado a prod (plan ejecuta providers) solo corre por
+    # dispatch manual desde main; los PR quedan con fmt/validate/Checkov en `scan`.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    # INFRA-05: acota la vida del job; el TTL del lease del Key Vault es esto + 10.
+    timeout-minutes: 60
     runs-on: ubuntu-latest
     needs: scan
     permissions:
@@ -257,6 +261,9 @@ jobs:
         working-directory: infra/terraform/environments/${{ github.event.inputs.environment || 'prod' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
 
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
@@ -327,13 +334,23 @@ jobs:
       #
       # Se abre sólo la IP de este runner y sólo por lo que dure el job. El
       # paso de cierre corre con `if: always()`, incluso si el plan/apply
-      # revienta — de lo contrario la allowlist se llena de IPs muertas.
+      # revienta — de lo contrario la allowlist se llena de IPs muertas. Como
+      # always() no cubre un runner perdido, la apertura deja un lease con
+      # vencimiento y kv-firewall-reconcile.yml quita lo vencido (INFRA-05).
       #
       # Si el output todavía no existe (primer apply, antes de que el firewall
       # exista) el paso no hace nada y el job sigue: en ese momento el vault
       # está abierto y no hace falta permiso.
       - name: Abrir el Key Vault para este runner
         id: kv_firewall
+        env:
+          LEASE_ACCOUNT: ${{ secrets.TFSTATE_STORAGE }}
+          LEASE_CONTAINER: ${{ vars.TFSTATE_CONTAINER || 'tfstate' }}
+          LEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+          LEASE_OWNER: ${{ github.workflow }}/${{ github.job }} (${{ github.event_name }}, ${{ github.actor }})
+          LEASE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # timeout-minutes del job + margen: el lease no vence mientras el job pueda seguir vivo.
+          TTL_MINUTES: '70'
         run: |
           VAULTS=$(terraform output -json key_vault_names 2>/dev/null | jq -r '.[]?' || true)
           if [ -z "$VAULTS" ]; then
@@ -345,12 +362,15 @@ jobs:
           # archivo de outputs: sólo se acepta una IPv4. Otra cosa (HTML, un salto
           # de línea con otra variable) corta el job acá, antes de escribir nada.
           [[ "$IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || { echo "::error::api.ipify.org devolvió algo que no es una IPv4"; exit 1; }
+          VAULTS=$(echo $VAULTS | tr '\n' ' ')
+          # Outputs ANTES de la primera mutación: si el job muere a mitad de la apertura,
+          # el cierre igual sabe qué limpiar.
           echo "runner_ip=$IP" >> "$GITHUB_OUTPUT"
-          echo "vaults=$(echo $VAULTS | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
-          for V in $VAULTS; do
-            az keyvault network-rule add --name "$V" --ip-address "$IP" --only-show-errors >/dev/null
-            echo "Abierto $V para $IP"
-          done
+          echo "vaults=$VAULTS" >> "$GITHUB_OUTPUT"
+          # INFRA-05: lease (vault, IP, job, dueño, vencimiento) antes de abrir. Si el
+          # runner se pierde y el cierre no corre, kv-firewall-reconcile.yml quita la
+          # regla cuando vence el lease.
+          VAULTS="$VAULTS" RUNNER_IP="$IP" "$GITHUB_WORKSPACE/infra/scripts/kv-firewall-lease.sh" open
 
           # ESPERAR A QUE PROPAGUE, no un tiempo fijo.
           #
@@ -489,22 +509,23 @@ jobs:
       # runner NO debe quedar en la allowlist del vault.
       - name: Cerrar el Key Vault
         if: always() && steps.kv_firewall.outputs.runner_ip != ''
+        timeout-minutes: 5
         env:
+          LEASE_ACCOUNT: ${{ secrets.TFSTATE_STORAGE }}
+          LEASE_CONTAINER: ${{ vars.TFSTATE_CONTAINER || 'tfstate' }}
+          LEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
           VAULTS: ${{ steps.kv_firewall.outputs.vaults }}
           RUNNER_IP: ${{ steps.kv_firewall.outputs.runner_ip }}
-        run: |
-          FAILED=0
-          for V in $VAULTS; do
-            az keyvault network-rule remove \
-              --name "$V" --ip-address "$RUNNER_IP" \
-              --only-show-errors >/dev/null || { echo "::error::No se pudo quitar $RUNNER_IP de $V"; FAILED=1; }
-          done
-          exit "$FAILED"
+        # Reintenta y, si no puede, deja el job en rojo: nunca éxito silencioso. No quita
+        # la regla si otro job vigente tiene lease sobre la misma IP.
+        run: '"$GITHUB_WORKSPACE/infra/scripts/kv-firewall-lease.sh" close'
 
   # Detecta cambios hechos a mano en el portal. Corre los lunes a la mañana.
   drift:
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
+    # INFRA-05: el TTL del lease del Key Vault es esto + 10.
+    timeout-minutes: 30
     # Con environment, el sujeto del token OIDC es `environment:prod`, el mismo que
     # usan plan-apply y el deploy. Sin él era `ref:refs/heads/main`, una credencial
     # federada más sobre el service principal que sólo existía para este job.
@@ -560,13 +581,23 @@ jobs:
       #
       # Se abre sólo la IP de este runner y sólo por lo que dure el job. El
       # paso de cierre corre con `if: always()`, incluso si el plan/apply
-      # revienta — de lo contrario la allowlist se llena de IPs muertas.
+      # revienta — de lo contrario la allowlist se llena de IPs muertas. Como
+      # always() no cubre un runner perdido, la apertura deja un lease con
+      # vencimiento y kv-firewall-reconcile.yml quita lo vencido (INFRA-05).
       #
       # Si el output todavía no existe (primer apply, antes de que el firewall
       # exista) el paso no hace nada y el job sigue: en ese momento el vault
       # está abierto y no hace falta permiso.
       - name: Abrir el Key Vault para este runner
         id: kv_firewall
+        env:
+          LEASE_ACCOUNT: ${{ secrets.TFSTATE_STORAGE }}
+          LEASE_CONTAINER: tfstate
+          LEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+          LEASE_OWNER: ${{ github.workflow }}/${{ github.job }} (${{ github.event_name }}, ${{ github.actor }})
+          LEASE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # timeout-minutes del job + margen: el lease no vence mientras el job pueda seguir vivo.
+          TTL_MINUTES: '40'
         run: |
           VAULTS=$(terraform output -json key_vault_names 2>/dev/null | jq -r '.[]?' || true)
           if [ -z "$VAULTS" ]; then
@@ -578,12 +609,15 @@ jobs:
           # archivo de outputs: sólo se acepta una IPv4. Otra cosa (HTML, un salto
           # de línea con otra variable) corta el job acá, antes de escribir nada.
           [[ "$IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || { echo "::error::api.ipify.org devolvió algo que no es una IPv4"; exit 1; }
+          VAULTS=$(echo $VAULTS | tr '\n' ' ')
+          # Outputs ANTES de la primera mutación: si el job muere a mitad de la apertura,
+          # el cierre igual sabe qué limpiar.
           echo "runner_ip=$IP" >> "$GITHUB_OUTPUT"
-          echo "vaults=$(echo $VAULTS | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
-          for V in $VAULTS; do
-            az keyvault network-rule add --name "$V" --ip-address "$IP" --only-show-errors >/dev/null
-            echo "Abierto $V para $IP"
-          done
+          echo "vaults=$VAULTS" >> "$GITHUB_OUTPUT"
+          # INFRA-05: lease (vault, IP, job, dueño, vencimiento) antes de abrir. Si el
+          # runner se pierde y el cierre no corre, kv-firewall-reconcile.yml quita la
+          # regla cuando vence el lease.
+          VAULTS="$VAULTS" RUNNER_IP="$IP" "$GITHUB_WORKSPACE/infra/scripts/kv-firewall-lease.sh" open
 
           # ESPERAR A QUE PROPAGUE, no un tiempo fijo.
           #
@@ -622,15 +656,14 @@ jobs:
       # runner NO debe quedar en la allowlist del vault.
       - name: Cerrar el Key Vault
         if: always() && steps.kv_firewall.outputs.runner_ip != ''
+        timeout-minutes: 5
         env:
+          LEASE_ACCOUNT: ${{ secrets.TFSTATE_STORAGE }}
+          LEASE_CONTAINER: tfstate
+          LEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
           VAULTS: ${{ steps.kv_firewall.outputs.vaults }}
           RUNNER_IP: ${{ steps.kv_firewall.outputs.runner_ip }}
-        run: |
-          FAILED=0
-          for V in $VAULTS; do
-            az keyvault network-rule remove \
-              --name "$V" --ip-address "$RUNNER_IP" \
-              --only-show-errors >/dev/null || { echo "::error::No se pudo quitar $RUNNER_IP de $V"; FAILED=1; }
-          done
-          exit "$FAILED"
+        # Reintenta y, si no puede, deja el job en rojo: nunca éxito silencioso. No quita
+        # la regla si otro job vigente tiene lease sobre la misma IP.
+        run: '"$GITHUB_WORKSPACE/infra/scripts/kv-firewall-lease.sh" close'
 

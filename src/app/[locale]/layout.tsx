@@ -10,7 +10,7 @@ import AffiliateTracker from "@/components/AffiliateTracker";
 import CommandPalette from "@/components/CommandPalette";
 import GlobalCopilot from "@/components/GlobalCopilot";
 import BrowserNotificationProvider from "@/components/BrowserNotificationProvider";
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -53,6 +53,8 @@ export default async function RootLayout({
   const { locale } = await params;
   const messages = await getMessages();
 
+  // PERIM-01: nonce por request (src/proxy.ts) para el script inline de next-themes.
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
   const cookieStore = await cookies();
   const demoCookie = cookieStore.get('finops_demo_session');
   let demoSession = null;
@@ -66,7 +68,7 @@ export default async function RootLayout({
     <html lang={locale} suppressHydrationWarning className={`${montserrat.variable} ${openSans.variable}`}>
       <body className="font-sans antialiased text-gray-900 bg-gray-50">
         <NextIntlClientProvider messages={messages} locale={locale}>
-          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem nonce={nonce}>
             <Toaster richColors position="bottom-right" theme="system" />
             {/* Captura `?ref=` de los links de afiliado. Fuera de ClientShell y
                 sin Suspense: no usa useSearchParams, asi que no deopta el

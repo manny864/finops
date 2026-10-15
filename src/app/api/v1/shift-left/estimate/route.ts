@@ -18,6 +18,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { verifyApiKey, requireScope } from "@/lib/publicApiAuth";
 import rateLimiter from "@/lib/rateLimiter";
+import { preAuthAllowed, touchKeyLastUsed } from "@/lib/apiKeyGuards";
+import { readBodyCapped, BodyLimitError } from "@/lib/readJsonCapped";
 import pool from "@/modules/storage/db";
 import { errorMessage } from "@/lib/apiErrors";
 import { estimarPlan, estimarWhatIf } from "@/services/iacCostEstimator.service";
@@ -55,6 +57,10 @@ const HERRAMIENTAS = new Set(["terraform", "tofu"]);
 export async function POST(request: NextRequest) {
     const requestId = uuidv4();
     try {
+        // PERIM-03: presupuesto por IP confiable antes de consultar la clave en MySQL.
+        if (!(await preAuthAllowed(request, "apikey"))) {
+            return error("rate_limit_exceeded", "Too many requests", 429, requestId);
+        }
         const authResult = await verifyApiKey(request);
         if (!authResult) {
             return error("unauthorized", "Invalid or missing API key", 401, requestId);
@@ -70,18 +76,27 @@ export async function POST(request: NextRequest) {
             `apikey:${authResult.keyId}`,
             authResult.rateLimitPerMin
         );
+        if (allowed) touchKeyLastUsed("PublicApiKeys", authResult.keyId);
+
         if (!allowed) {
             return error("rate_limit_exceeded", "Rate limit exceeded", 429, requestId);
         }
 
-        const crudo = await request.text();
-        if (crudo.length > MAX_BYTES) {
-            return error(
-                "payload_too_large",
-                `El plan supera los ${MAX_BYTES / 1024 / 1024} MB`,
-                413,
-                requestId
-            );
+        // Lectura acotada (PERIM-03): request.text() cargaba el body entero antes
+        // de medirlo; un upload chunked sin Content-Length no tenía techo.
+        let crudo: string;
+        try {
+            crudo = (await readBodyCapped(request, MAX_BYTES)).toString("utf8");
+        } catch (e) {
+            if (e instanceof BodyLimitError && e.status === 413) {
+                return error(
+                    "payload_too_large",
+                    `El plan supera los ${MAX_BYTES / 1024 / 1024} MB`,
+                    413,
+                    requestId
+                );
+            }
+            crudo = "";
         }
 
         let cuerpo: any;

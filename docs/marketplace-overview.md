@@ -195,7 +195,8 @@ In `/admin/billing`:
    npm run dev
    # http://localhost:3000/marketplace/azure/landing?token=test_token_xyz
    ```
-   `MARKETPLACE_SKIP_VERIFY=true` skips webhook JWT verification — local only.
+   Webhook JWT verification can no longer be skipped (PERIM-07); to exercise the
+   webhook locally, sign a token as in `__tests__/unit/marketplaceWebhookJwtPerim07.test.ts`.
 
 2. **Run the integration tests:**
    ```bash

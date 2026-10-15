@@ -1,4 +1,5 @@
 "use client";
+import { toCsvText } from "@/lib/csvExport";
 import { ERROR_401 } from "@/lib/errorSentinels";
 import { useTranslations } from "next-intl";
 import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
@@ -545,7 +546,7 @@ export default function ApimFinopsDashboard() {
       i.isDevOrTest ? "Sí" : "No",
     ]);
 
-    const csvContent = [headers, ...rows].map((e) => e.join(",")).join("\n");
+    const csvContent = toCsvText(headers, rows);
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");

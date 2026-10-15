@@ -48,7 +48,8 @@ Async lifecycle events:
 - `getAadAccessToken()` — client_credentials with the AAD app registered in Partner Center, scoped to `20e940b3-4c77-4b0b-9a53-9e16a1b010a7/.default` (cached until 60s before expiry).
 - `resolveSubscription(token)` — POST `/api/saas/subscriptions/resolve` with `x-ms-marketplace-token`.
 - `activateSubscription(id, planId, quantity?)`, `getSubscription(id)`, `patchOperation(...)`.
-- `verifyWebhookJwt(authHeader)` — verifies RS256 JWT against `login.microsoftonline.com/common/discovery/keys` and audience = our AAD app ID. Bypassable via `MARKETPLACE_SKIP_VERIFY=true` for tests.
+- PERIM-09: these helpers throw `"<op> failed: <status>"` (with `status`) and never include the remote body. The activation route answers `{ error: "Unable to complete activation", errorId }` (502 if resolve fails, 500 if persistence fails) and logs only `errorId` + category.
+- `verifyWebhookJwt(authHeader)` — verifies RS256 JWT against `login.microsoftonline.com/common/discovery/keys` and audience = our AAD app ID (mandatory), issuer allow-list, RS256 only, `exp`/`iat` required. Fail-closed (PERIM-07): without `AZURE_MARKETPLACE_AAD_APP_ID` the webhook answers 503 and touches nothing; invalid credentials get 401 with no token details. There is no skip-verify mode; tests sign real JWTs with a local key (`__setMarketplaceJwksForTests`).
 
 ## Setup — Azure (Partner Center)
 
@@ -78,9 +79,8 @@ Async lifecycle events:
 
 ## Common
 
-```bash
-MARKETPLACE_SKIP_VERIFY=true   # local dev only: skip webhook JWT verification
-```
+`MARKETPLACE_SKIP_VERIFY` was removed (PERIM-07): if it is still set to `true` the
+webhook refuses every request with 503. Unset it.
 
 ## Webhook actions handled
 
@@ -89,12 +89,22 @@ MARKETPLACE_SKIP_VERIFY=true   # local dev only: skip webhook JWT verification
 | `Suspended` | `subscription_status='PAST_DUE'` |
 | `Unsubscribed` | `subscription_status='CANCELED'` |
 | `Reinstated`, `Renew` | `subscription_status='ACTIVE'` |
-| `ChangePlan` | Updates `tier` + `marketplace_plan_id` |
-| `ChangeQuantity` | Stored in `marketplace_plan_id` suffix (future: dedicated column) |
+| `ChangePlan` | Updates `tier` + `marketplace_plan_id` (does not change status) |
+| `ChangeQuantity` | Stored in `marketplace_plan_id` suffix (future: dedicated column; does not change status) |
+
+Action, plan, quantity and timestamp are taken from the Fulfillment API operation
+(`GET /subscriptions/{id}/operations/{operationId}`), not from the notification body: the
+JWT authenticates Microsoft but does not sign the body (PERIM-08). Operations with status
+`Failed`/`Conflict` have no effect.
 
 ## Security
 
 - **Azure webhook auth:** Validates RS256 JWT against the live AAD JWKS endpoint. Audience must equal `AZURE_MARKETPLACE_AAD_APP_ID`.
+- **Replay and ordering (PERIM-08):** each operation is applied once (`WebhookInbox`,
+  keyed by operation id) and an older operation never reverts a newer one
+  (`WebhookResourceCursor`, separate scopes for status, plan and quantity).
+  `Unsubscribed` is always applied. If the inbox or the Fulfillment API is down the
+  webhook answers 503 and Microsoft retries.
 - **Idempotency:** Tenant insertion is guarded by a uniqueness check on `(marketplace_subscription_id, marketplace_source)`. Webhooks for unknown subs return 200 (so Microsoft doesn't retry forever).
 - **Confused-deputy protection:** The Azure activation flow also calls Microsoft's `activateSubscription` API which requires our AAD client_credentials — only our backend can mark a subscription as fulfilled.
 

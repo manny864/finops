@@ -1,3 +1,4 @@
+import { UNSAFE_SCRIPT, bashQuote, isSafeAction } from "@/lib/shellSafe";
 import type { VisionVideoRemediationAction } from "@/types/azureVisionVideo.types";
 import type { ContentSafetyRemediationAction } from "@/types/azureContentSafety.types";
 import type { AmlRemediationAction } from "@/types/azureMachineLearning.types";
@@ -27,6 +28,7 @@ export function buildVisionVideoRemediationCommand(action: VisionVideoRemediatio
   cli: string;
   powershell: string;
 } {
+  if (!isSafeAction(action as unknown as Record<string, unknown>)) return UNSAFE_SCRIPT;
   return {
     cli:
       action.commandPayload ||
@@ -41,6 +43,7 @@ export function buildContentSafetyRemediationCommand(action: ContentSafetyRemedi
   cli: string;
   powershell: string;
 } {
+  if (!isSafeAction(action as unknown as Record<string, unknown>)) return UNSAFE_SCRIPT;
   return {
     cli:
       action.commandPayload ||
@@ -53,6 +56,7 @@ export function buildAmlRemediationCommand(action: AmlRemediationAction): {
   cli: string;
   powershell: string;
 } {
+  if (!isSafeAction(action as unknown as Record<string, unknown>)) return UNSAFE_SCRIPT;
   return {
     cli:
       action.commandPayload ||
@@ -65,6 +69,7 @@ export function buildDatabricksRemediationCommand(action: DatabricksRemediationA
   cli: string;
   powershell: string;
 } {
+  if (!isSafeAction(action as unknown as Record<string, unknown>)) return UNSAFE_SCRIPT;
   return {
     cli:
       action.commandPayload ||
@@ -77,6 +82,7 @@ export function buildSpeechLanguageRemediationCommand(action: SpeechLanguageReme
   cli: string;
   powershell: string;
 } {
+  if (!isSafeAction(action as unknown as Record<string, unknown>)) return UNSAFE_SCRIPT;
   return {
     cli:
       action.commandPayload ||
@@ -89,6 +95,7 @@ export function buildLogicAppsRemediationCommand(action: LogicAppRemediationActi
   cli: string;
   powershell: string;
 } {
+  if (!isSafeAction(action as unknown as Record<string, unknown>)) return UNSAFE_SCRIPT;
   return {
     cli: action.commandPayload || `az logic workflow show --id "${action.resourceId}"`,
     powershell: `#{cmt_la_ps_header}\n#{cmt_la_recurso} ${action.resourceId}\n${action.commandPayload || ""}`,
@@ -99,6 +106,7 @@ export function buildApimRemediationCommand(action: ApimRemediationAction): {
   cli: string;
   powershell: string;
 } {
+  if (!isSafeAction(action as unknown as Record<string, unknown>)) return UNSAFE_SCRIPT;
   const resourceName = action.resourceName || action.resourceId.split("/").pop() || "apim-instance";
   if (action.category === "DEV_SKU_DOWNGRADE") {
     return {
@@ -123,6 +131,7 @@ export function buildServiceBusRemediationCommand(action: ServiceBusRemediationA
   cli: string;
   powershell: string;
 } {
+  if (!isSafeAction(action as unknown as Record<string, unknown>)) return UNSAFE_SCRIPT;
   const resourceName = action.resourceName || action.resourceId.split("/").pop() || "sb-namespace";
   const rg = action.resourceId.split("/")[4] || "rg-servicebus";
 
@@ -165,6 +174,7 @@ export function buildEventGridRemediationCommand(action: EventGridRemediationAct
   cli: string;
   powershell: string;
 } {
+  if (!isSafeAction(action as unknown as Record<string, unknown>)) return UNSAFE_SCRIPT;
   const resourceName = action.resourceName || action.resourceId.split("/").pop() || "eg-resource";
   const rg = action.resourceId.split("/")[4] || "rg-eventgrid";
 
@@ -189,6 +199,7 @@ export function buildEventHubsRemediationCommand(action: EventHubsRemediationAct
   cli: string;
   powershell: string;
 } {
+  if (!isSafeAction(action as unknown as Record<string, unknown>)) return UNSAFE_SCRIPT;
   const resourceName = action.resourceName || action.resourceId.split("/").pop() || "eh-namespace";
   const rg = action.resourceId.split("/")[4] || "rg-eventhubs";
 
@@ -231,6 +242,7 @@ export function buildAdfRemediationCommand(action: AdfRemediationAction): {
   cli: string;
   powershell: string;
 } {
+  if (!isSafeAction(action as unknown as Record<string, unknown>)) return UNSAFE_SCRIPT;
   const resourceName = action.resourceName || action.resourceId.split("/").pop() || "adf-factory";
   const rg = action.resourceId.split("/")[4] || "rg-datafactory";
 
@@ -264,6 +276,7 @@ export function buildAppInsightsRemediationCommand(action: AppInsightsRemediatio
   cli: string;
   powershell: string;
 } {
+  if (!isSafeAction(action as unknown as Record<string, unknown>)) return UNSAFE_SCRIPT;
   const resourceName = action.resourceName || action.resourceId.split("/").pop() || "appi-resource";
   const rg = action.resourceId.split("/")[4] || "rg-monitoring";
 
@@ -308,6 +321,7 @@ export function buildLogAnalyticsRemediationCommand(action: LogAnalyticsRemediat
   cli: string;
   powershell: string;
 } {
+  if (!isSafeAction(action as unknown as Record<string, unknown>)) return UNSAFE_SCRIPT;
   const resourceName = action.resourceName || action.resourceId.split("/").pop() || "law-workspace";
   const rg = action.resourceId.split("/")[4] || "rg-monitoring";
 
@@ -353,6 +367,7 @@ export function buildAzureMonitorRemediationCommand(action: AzureMonitorRemediat
   cli: string;
   powershell: string;
 } {
+  if (!isSafeAction(action as unknown as Record<string, unknown>)) return UNSAFE_SCRIPT;
   const resourceName = action.resourceName || action.resourceId.split("/").pop() || "alert-rule";
   const rg = action.resourceId.split("/")[4] || "rg-monitoring";
 
@@ -360,7 +375,7 @@ export function buildAzureMonitorRemediationCommand(action: AzureMonitorRemediat
     return {
       cli:
         action.commandPayload ||
-        `az monitor scheduled-query update --name "${resourceName}" --resource-group "${rg}" --query "${action.recommendedQuery || "traces | where TimeGenerated > ago(5m)"}"`,
+        `az monitor scheduled-query update --name "${resourceName}" --resource-group "${rg}" --query ${bashQuote(action.recommendedQuery || "traces | where TimeGenerated > ago(5m)")}`,
       powershell: `# PowerShell Azure CLI - Optimizar Consulta KQL\nUpdate-AzScheduledQueryRule -ResourceGroupName "${rg}" -Name "${resourceName}"`,
     };
   }
@@ -396,6 +411,7 @@ export function buildSentinelRemediationCommand(action: SentinelRemediationActio
   cli: string;
   powershell: string;
 } {
+  if (!isSafeAction(action as unknown as Record<string, unknown>)) return UNSAFE_SCRIPT;
   const resourceName = action.resourceName || action.resourceId.split("/").pop() || "law-sentinel";
   const rg = action.resourceId.split("/")[4] || "rg-sentinel";
 
@@ -441,6 +457,7 @@ export function buildAlertRemediationCommand(action: AlertRemediationAction): {
   cli: string;
   powershell: string;
 } {
+  if (!isSafeAction(action as unknown as Record<string, unknown>)) return UNSAFE_SCRIPT;
   const ruleName = action.ruleName || action.ruleId.split("/").pop() || "alert-rule";
   const rg = action.ruleId.split("/")[4] || "rg-alerts";
 
@@ -476,6 +493,7 @@ export function buildActionGroupRemediationCommand(action: ActionGroupRemediatio
   cli: string;
   powershell: string;
 } {
+  if (!isSafeAction(action as unknown as Record<string, unknown>)) return UNSAFE_SCRIPT;
   const resourceName = action.resourceName || action.resourceId.split("/").pop() || "action-group";
   const rg = action.resourceId.split("/")[4] || "rg-alerts";
 
@@ -522,6 +540,7 @@ export function buildWorkbookRemediationCommand(action: WorkbookRemediationActio
   cli: string;
   powershell: string;
 } {
+  if (!isSafeAction(action as unknown as Record<string, unknown>)) return UNSAFE_SCRIPT;
   const parts = action.resourceId.split("/");
   const name = shellQuote(parts.pop() || "workbook");
   const rg = shellQuote(parts[4] || "rg-observability");
@@ -572,6 +591,7 @@ export function buildNetworkWatcherRemediationCommand(action: NetworkWatcherReme
   cli: string;
   powershell: string;
 } {
+  if (!isSafeAction(action as unknown as Record<string, unknown>)) return UNSAFE_SCRIPT;
   const parts = action.resourceId.split("/");
   const watcher = shellQuote(parts.pop() || "NetworkWatcher_eastus");
   const rg = shellQuote(parts[4] || "NetworkWatcherRG");
@@ -622,6 +642,7 @@ export function buildDefenderRemediationCommand(action: DefenderRemediationActio
   cli: string;
   powershell: string;
 } {
+  if (!isSafeAction(action as unknown as Record<string, unknown>)) return UNSAFE_SCRIPT;
   const sub = shellQuote(action.subscriptionId);
   const plan = shellQuote(action.planKey);
 
@@ -671,6 +692,7 @@ export function buildKeyVaultRemediationCommand(action: KeyVaultRemediationActio
   cli: string;
   powershell: string;
 } {
+  if (!isSafeAction(action as unknown as Record<string, unknown>)) return UNSAFE_SCRIPT;
   const parts = action.vaultId.split("/");
   const vault = shellQuote(action.vaultName || parts[parts.length - 1] || "kv");
   const rg = shellQuote(parts[4] || "rg");
@@ -721,6 +743,7 @@ export function buildEntraIdRemediationCommand(action: EntraIdRemediationAction)
   cli: string;
   powershell: string;
 } {
+  if (!isSafeAction(action as unknown as Record<string, unknown>)) return UNSAFE_SCRIPT;
   const target = shellQuote(action.targetId);
   const upnList = (action.affectedPrincipals || []).slice(0, 5);
   const upnBlock = upnList.length > 0 ? upnList.map((u) => `#   ${shellQuote(u)}`).join("\n") : "#   (ninguno)";
@@ -774,6 +797,7 @@ export function buildWafRemediationCommand(action: WafRemediationAction): {
   cli: string;
   powershell: string;
 } {
+  if (!isSafeAction(action as unknown as Record<string, unknown>)) return UNSAFE_SCRIPT;
   const parts = action.policyId.split("/");
   const policy = shellQuote(action.policyName || parts[parts.length - 1] || "wafPolicy");
   const rg = shellQuote(parts[4] || "rg");

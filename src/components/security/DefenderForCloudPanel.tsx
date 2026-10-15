@@ -1,4 +1,5 @@
 "use client";
+import { toCsvText } from "@/lib/csvExport";
 import { useTranslations } from "next-intl";
 
 import React, { useState, useMemo } from "react";
@@ -444,19 +445,19 @@ export default function DefenderForCloudPanel() {
       "Monthly Cost USD",
     ];
     const rows = filteredPlans.map((p) => [
-      `"${p.planDisplayName}"`,
-      `"${p.planKey}"`,
-      `"${p.category}"`,
-      `"${p.subscriptionName}"`,
-      `"${p.pricingTier}"`,
-      `"${p.subPlan || ""}"`,
+      p.planDisplayName,
+      p.planKey,
+      p.category,
+      p.subscriptionName,
+      p.pricingTier,
+      p.subPlan || "",
       p.coveredResourcesCount,
       p.uncoveredResourcesCount,
-      `"${p.coverageStatus}"`,
-      `"${p.dominantEnvironment}"`,
+      p.coverageStatus,
+      p.dominantEnvironment,
       p.monthlyCostUSD.toFixed(2),
     ]);
-    const csv = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const csv = "data:text/csv;charset=utf-8," + toCsvText(headers, rows);
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csv));
     link.setAttribute("download", `defender-for-cloud-${new Date().toISOString().split("T")[0]}.csv`);

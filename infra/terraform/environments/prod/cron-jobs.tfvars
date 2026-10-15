@@ -149,6 +149,9 @@ cron_jobs = {
   # Retención de adjuntos de soporte (60 días).
   support-attachments-cleanup = { cron = "0 2 * * *" } # 05:00 UTC
 
+  # AISEC-05 — AiCache vencida y filas legadas sin tenant_id.
+  ai-cache-purge = { cron = "20 2 * * *" } # 05:20 UTC
+
   # App Registrations por vencer.
   credential-expiry-alerts = { cron = "0 4 * * *" } # 07:00 UTC
 
@@ -183,7 +186,7 @@ cron_jobs = {
   report-subscriptions = { cron = "17 * * * *", timeout_seconds = 900 }
 
   # Alimenta /api/status y /status. Autentica por query param, no por header.
-  status-snapshot = { cron = "*/5 * * * *", timeout_seconds = 120, auth_mode = "query" }
+  status-snapshot = { cron = "*/5 * * * *", timeout_seconds = 120 }
 
   # Persiste en MySQL los contadores de llamadas a las APIs de Azure. Redis no
   # es un almacén: sin persistencia, con AllKeysLRU y TTL de 8 días, la

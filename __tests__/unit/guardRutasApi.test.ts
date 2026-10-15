@@ -79,6 +79,7 @@ const PUBLICAS: Record<string, string> = {
     "src/app/api/commitments/breakeven/route.ts": "calculo matematico de breakeven sin datos de tenant",
     "src/app/api/leads/route.ts": "formulario de contacto anonimo",
     "src/app/api/leads/demo/route.ts": "pedido de demo anonimo",
+    "src/app/api/csp-report/route.ts": "reportes CSP del navegador (PERIM-01): body con tope, rate limit, sin datos de tenant",
     "src/app/api/v1/docs/route.ts": "documentacion de la API publica",
     "src/app/api/v1/openapi.json/route.ts": "spec OpenAPI de la API publica",
     "src/app/api/templates/powerbi/route.ts": "catalogo estatico de plantillas",

@@ -16,8 +16,9 @@ export type LoadTestTarget = 'health' | 'status' | 'probe';
 const TARGET_PATHS: Record<LoadTestTarget, string> = {
     // /api/health: no toca DB/Redis — mide el techo puro del proceso Node.
     health: '/api/health',
-    // /api/status: hace SELECT 1 + queries de agregación — mide el techo
-    // real incluyendo el pool de conexiones MySQL bajo concurrencia.
+    // /api/status: público; desde PERIM-02 sirve el último snapshot desde una
+    // caché de proceso (≤1 lectura MySQL cada 30 s por réplica). Mide el techo
+    // de un endpoint cacheado, no el del pool MySQL; para eso está probe.
     status: '/api/status',
     // /api/loadtest/probe: mismo endpoint que usa el flujo externo con
     // JMeter/k6 (ver docs/loadtest.md) — requiere el Bearer token del

@@ -53,7 +53,8 @@ export async function POST(request: NextRequest) {
         const data = await aggregateExecutiveTelemetry(tenantId, scope, scopeId);
         const pdfBuffer = await compileExecutiveReportPdfBuffer(data, reportMarkdown);
         const pdfBase64 = pdfBuffer.toString('base64');
-        const fileBaseName = `Reporte-Ejecutivo-FinOps-${tenantId}`;
+        // AISEC-05: el adjunto no lleva el tenantId (se reenvía fuera de la plataforma).
+        const fileBaseName = `Reporte-Ejecutivo-FinOps-${new Date().toISOString().slice(0, 10)}`;
 
         await dispatchExecutiveReportEmail({
             tenantName,

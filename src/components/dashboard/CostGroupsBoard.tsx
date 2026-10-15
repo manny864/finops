@@ -1,4 +1,5 @@
 "use client";
+import { toCsvText } from "@/lib/csvExport";
 import React, { useMemo, useState } from "react";
 import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
@@ -491,19 +492,19 @@ export default function CostGroupsBoard() {
         if (!groups.length) return;
         const headers = ["Cost Group", "Daily Avg (USD)", "Period Cost (USD)", "Monthly Billed (USD)", "Budget (USD)", "Forecast (USD)", "Owner", "Subscriptions", "Resource Groups", "Resources", "Last Updated"];
         const rows = groups.map(g => [
-            `"${g.name.replace(/"/g, '""')}"`,
+            g.name,
             g.avgDailyCost.toFixed(2),
             g.periodCost.toFixed(2),
             g.monthlyBilledCost.toFixed(2),
             g.budget.toFixed(2),
             g.forecast.toFixed(2),
-            `"${(g.owner || '').replace(/"/g, '""')}"`,
+            (g.owner || ''),
             g.subscriptions,
             g.resourceGroups,
             g.resources,
-            `"${g.lastUpdated || ''}"`,
+            g.lastUpdated || '',
         ]);
-        const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+        const csvContent = "\uFEFF" + toCsvText(headers, rows);
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");

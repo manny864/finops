@@ -1,4 +1,5 @@
 "use client";
+import { toCsvText } from "@/lib/csvExport";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -474,7 +475,7 @@ export default function UnitEconomicsPanel() {
       p.unitCostUSD === null ? "" : p.unitCostUSD.toFixed(8),
       p.targetUnitCostUSD?.toFixed(8) ?? "",
     ]);
-    const csv = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const csv = "data:text/csv;charset=utf-8," + toCsvText(headers, rows);
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csv));
     link.setAttribute("download", `unit-economics-${new Date().toISOString().split("T")[0]}.csv`);

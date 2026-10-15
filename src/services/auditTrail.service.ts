@@ -12,6 +12,7 @@ import {
     AuditTrailFilterParams,
     AuditTrailPaginatedResponse,
 } from "@/types/auditTrail.types";
+import { csvQuote } from "@/lib/csvExport";
 
 /**
  * Genera el dataset sintético completo de auditoría para tenants de demostración.
@@ -445,7 +446,8 @@ export function serializeAuditTrailCsv(
 
     const headers = Object.keys(FALLBACK).map((k) => rotulo(k, FALLBACK[k]));
 
-    const comilla = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    // AISEC-07: email, nombre y recurso los escribe el usuario: sin fórmulas.
+    const comilla = csvQuote;
     const estado = (s: string) => rotulo(`status_${s}`, s);
 
     const rows = items.map((i) => [

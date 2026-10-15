@@ -11,6 +11,9 @@ export default defineConfig({
         css: false,
         include: ["__tests__/**/*.test.{ts,tsx}", "src/**/*.test.{ts,tsx}"],
         exclude: ["**/node_modules/**", "**/.next/**", "__tests__/e2e/**"],
+        // next-intl/middleware importa "next/server" sin extensión y Node ESM no lo resuelve
+        // (next no tiene "exports"): se procesa con Vite para que aplique el alias de abajo.
+        server: { deps: { inline: [/next-intl/] } },
         coverage: {
             provider: "v8",
             reporter: ["text", "json-summary", "html"],
@@ -24,8 +27,9 @@ export default defineConfig({
         },
     },
     resolve: {
-        alias: {
-            "@": path.resolve(__dirname, "./src"),
-        },
+        alias: [
+            { find: /^next\/server$/, replacement: "next/server.js" },
+            { find: "@", replacement: path.resolve(__dirname, "./src") },
+        ],
     },
 });

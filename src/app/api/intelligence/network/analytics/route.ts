@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { scriptSafeJson } from "@/lib/scriptSafeJson";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant } from "@/lib/mockData";
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
         const tenantId = searchParams.get("tenantId");
 
         if (!tenantId) {
-            return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
+            return scriptSafeJson({ error: "Falta tenantId" }, { status: 400 });
         }
 
         const isMockParam = searchParams.get("mock") === "true";
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
             tenantId === "demo_tenant" ||
             isMockParam
         ) {
-            return NextResponse.json(getMockNetworkAnalyticsResponse(tier));
+            return scriptSafeJson(getMockNetworkAnalyticsResponse(tier));
         }
 
         // ✅ PASO 2: Auth estricta SOLO para tenants reales
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
             await requireTenantAccess(request, tenantId);
         } catch (e) {
             if (e instanceof AuthError) {
-                return NextResponse.json({ error: e.message }, { status: e.status });
+                return scriptSafeJson({ error: e.message }, { status: e.status });
             }
             throw e;
         }
@@ -54,12 +55,12 @@ export async function GET(request: NextRequest) {
             600
         );
 
-        return NextResponse.json(data);
+        return scriptSafeJson(data);
     } catch (error: unknown) {
         if (error instanceof AuthError) {
-            return NextResponse.json({ error: error.message }, { status: error.status });
+            return scriptSafeJson({ error: error.message }, { status: error.status });
         }
         console.error("[api/intelligence/network/analytics] Error:", error);
-        return NextResponse.json({ error: "Error interno procesando análisis de red" }, { status: 500 });
+        return scriptSafeJson({ error: "Error interno procesando análisis de red" }, { status: 500 });
     }
 }

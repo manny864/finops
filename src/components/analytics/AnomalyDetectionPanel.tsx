@@ -1,4 +1,5 @@
 "use client";
+import { toCsvText } from "@/lib/csvExport";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -389,9 +390,9 @@ export default function AnomalyDetectionPanel() {
       a.zScore.toFixed(2),
       a.severity,
       a.state,
-      `"${a.rootCauses[0]?.serviceName || "N/A"}"`,
+      a.rootCauses[0]?.serviceName || "N/A",
     ]);
-    const csv = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const csv = "data:text/csv;charset=utf-8," + toCsvText(headers, rows);
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csv));
     link.setAttribute("download", `finops-anomalies-${new Date().toISOString().split("T")[0]}.csv`);

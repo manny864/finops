@@ -1,4 +1,5 @@
 "use client";
+import { toCsvText } from "@/lib/csvExport";
 
 import React, { useState, useMemo } from "react";
 import useSWR from "swr";
@@ -528,8 +529,8 @@ export default function FinOpsScorecardPanel() {
     const headers = ["Rank", "Team", "Merged Aliases", "Monthly Spend USD", "Resources", "Tags", "Waste", "Commitments", "Budget", "Overall", "Status"];
     const rows = filtered.map((t) => [
       t.rank,
-      `"${t.teamName}"`,
-      `"${t.mergedAliases.join(" | ")}"`,
+      t.teamName,
+      t.mergedAliases.join(" | "),
       t.monthlySpendUSD.toFixed(2),
       t.managedResourcesCount,
       t.tagHygieneScore,
@@ -537,9 +538,9 @@ export default function FinOpsScorecardPanel() {
       t.commitmentScore,
       t.budgetDisciplineScore,
       t.overallScore,
-      `"${t.status}"`,
+      t.status,
     ]);
-    const csv = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const csv = "data:text/csv;charset=utf-8," + toCsvText(headers, rows);
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csv));
     link.setAttribute("download", `finops-scorecard-${new Date().toISOString().split("T")[0]}.csv`);

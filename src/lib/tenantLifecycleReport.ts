@@ -1,4 +1,5 @@
 import type { SuperAdminTenantItem } from "@/types/superAdminTenants.types";
+import { csvEscape } from "@/lib/csvExport";
 
 /**
  * MEJ-12, criterio 3: filtro por rango de fechas del ciclo de vida y armado del
@@ -61,10 +62,7 @@ const CSV_HEADERS = [
 
 /** Un campo CSV seguro: comillas dobladas y el campo entrecomillado si hace
  *  falta. Un nombre de empresa con coma partía la fila en dos. */
-function csvField(value: unknown): string {
-  const s = value === null || value === undefined ? "" : String(value);
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
+const csvField = csvEscape; // AISEC-07: también neutraliza fórmulas
 
 export function buildLifecycleCsv(tenants: SuperAdminTenantItem[], now: Date = new Date()): string {
   const rows = tenants.map((t) => [

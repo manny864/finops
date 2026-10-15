@@ -45,6 +45,7 @@ module "network" {
   tags                = var.tags
 
   nat_gateway_enabled = var.nat_gateway_enabled
+  apps_nsg_block_imds = var.apps_nsg_block_imds
 }
 
 module "private_dns" {
@@ -87,10 +88,36 @@ resource "azurerm_role_assignment" "acr_pull" {
   principal_id         = azurerm_user_assigned_identity.app.principal_id
 }
 
+# INFRA-03: identidad de cron jobs y migraciones, separada de la del web. Sólo
+# hace pull de la imagen y, para los cron, lee CRON_SECRET del vault; no puede
+# escribir secretos ni tocar blobs, así que comprometer un job no da esos permisos.
+resource "azurerm_user_assigned_identity" "jobs" {
+  name                = "${local.name_base}-jobs-id"
+  location            = var.location
+  resource_group_name = module.network.resource_group_name
+  tags                = var.tags
+}
+
+resource "azurerm_role_assignment" "jobs_acr_pull" {
+  scope                = var.acr_id
+  role_definition_name = "AcrPull"
+  principal_id         = azurerm_user_assigned_identity.jobs.principal_id
+}
+
+resource "azurerm_role_assignment" "jobs_kv_secrets_user" {
+  scope                = module.keyvault.id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_user_assigned_identity.jobs.principal_id
+}
+
 # En el primer deploy del stamp, Azure AD puede tardar en propagar AcrPull.
 # Sin esta espera, Container Apps y Jobs pueden fallar al hacer pull.
 resource "time_sleep" "acr_pull_propagation" {
-  depends_on      = [azurerm_role_assignment.acr_pull]
+  depends_on = [
+    azurerm_role_assignment.acr_pull,
+    azurerm_role_assignment.jobs_acr_pull,
+    azurerm_role_assignment.jobs_kv_secrets_user,
+  ]
   create_duration = "90s"
 }
 
@@ -322,7 +349,40 @@ module "storage" {
   shared_access_key_enabled     = var.storage_shared_access_key_enabled
   flow_logs_retention_prefix    = var.network_flow_logs_enabled ? "insights-logs-flowlogflowevent/flowLogResourceID=/${upper(var.subscription_id)}_NETWORKWATCHERRG/NETWORKWATCHER_${upper(var.location)}_${upper(local.name_base)}-VNET-FLOWLOG" : null
   app_principal_id              = azurerm_user_assigned_identity.app.principal_id
+  require_clean_scan_containers = var.storage_malware_scanning_enabled ? ["support-attachments"] : []
   tags                          = var.tags
+}
+
+# AISEC-09: Defender for Storage con escaneo antimalware al subir, configurado por cuenta (pisa el
+# nivel suscripción, que gestiona modules/defender sólo desde prod). El resultado va como etiqueta
+# de índice del blob y la asignación de rol de la app (modules/storage) bloquea la lectura de
+# support-attachments hasta que diga "No threats found". Sólo se escanea lo que suben usuarios:
+# backups, exports de costos y flow logs quedan afuera por costo.
+resource "azapi_resource" "storage_malware_scanning" {
+  count     = var.storage_malware_scanning_enabled ? 1 : 0
+  type      = "Microsoft.Security/defenderForStorageSettings@2025-06-01"
+  name      = "current"
+  parent_id = module.storage.id
+
+  body = {
+    properties = {
+      isEnabled                         = true
+      overrideSubscriptionLevelSettings = true
+      malwareScanning = {
+        blobScanResultsOptions = "BlobIndexTags"
+        onUpload = {
+          isEnabled     = true
+          capGBPerMonth = var.storage_malware_scan_cap_gb_per_month
+          filters = {
+            excludeBlobsWithPrefix = ["db-backups/", "finops-cost-exports/", "insights-logs-"]
+          }
+        }
+      }
+      sensitiveDataDiscovery = {
+        isEnabled = false
+      }
+    }
+  }
 }
 
 # Flow Logs se gestionan con AzAPI porque la versión actual de AzureRM no expone
@@ -593,7 +653,7 @@ module "cronjobs" {
   location            = var.location
   resource_group_name = module.network.resource_group_name
   environment_id      = azurerm_container_app_environment.this.id
-  identity_id         = azurerm_user_assigned_identity.app.id
+  identity_id         = azurerm_user_assigned_identity.jobs.id
   registry_server     = var.registry_server
   image_name          = var.image_name
   # Sin image_tag: los jobs no corren la app, corren `finops:cron`
@@ -633,12 +693,12 @@ resource "azurerm_container_app_job" "migrate" {
 
   identity {
     type         = "UserAssigned"
-    identity_ids = [azurerm_user_assigned_identity.app.id]
+    identity_ids = [azurerm_user_assigned_identity.jobs.id]
   }
 
   registry {
     server   = var.registry_server
-    identity = azurerm_user_assigned_identity.app.id
+    identity = azurerm_user_assigned_identity.jobs.id
   }
 
   dynamic "secret" {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { guardAiMarkdownStream } from "@/lib/aiOutputGuard";
 import { streamText } from "ai";
 import { AIProviderFactory, redactForTenant, redactSerializedForTenant } from "@/modules/core/aiProvider";
 import { isMockTenant } from "@/lib/mockData";
@@ -8,6 +9,7 @@ import pool, { initializeDatabase, insertPlatformAiUsage } from "@/modules/stora
 import { getCopilotConfig } from "@/lib/copilotConfig";
 import { sanitizeCopilotHistory } from "@/lib/copilotHistory";
 import { isAiGloballyEnabled } from "@/services/aiService";
+import { untrustedBlock } from "@/lib/promptSafe";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -189,13 +191,12 @@ ${wantsExecutiveReport ? `EXECUTIVE_REPORT_MODE (mandatory):
 - If a metric is missing, explicitly mark it as "Dato no disponible en este tenant" and continue.
 - Close with a prioritized action table: decisión, impacto económico estimado, esfuerzo, dueño sugerido, plazo.` : ''}`;
 
-        const userMessage = `<page_context>${pageContext ?? ''}</page_context>
-<context_data>
-${dataString}
-</context_data>
-<user_question>
-${prompt ?? ''}
-</user_question>`;
+        // AISEC-04: los bloques escapan < y >; un tag con "</context_data>" ya no los cierra.
+        const userMessage = [
+            untrustedBlock("page_context", String(pageContext ?? ''), 500),
+            untrustedBlock("context_data", dataString),
+            untrustedBlock("user_question", String(prompt ?? ''), 2000),
+        ].join("\n");
 
         // Sólo el turno NUEVO lleva los bloques de contexto: repetir el payload
         // en cada turno viejo multiplicaría los tokens de entrada y encima con
@@ -273,7 +274,11 @@ ${prompt ?? ''}
 
         // Stream de texto plano (text/plain). El cliente lo lee con
         // response.body.getReader() y va appendeando tokens en tiempo real.
-        return result.toTextStreamResponse();
+        // AISEC-02: filtrado por párrafo antes de llegar al navegador.
+        return new Response(
+            result.textStream.pipeThrough(guardAiMarkdownStream()).pipeThrough(new TextEncoderStream()),
+            { headers: { "Content-Type": "text/plain; charset=utf-8" } },
+        );
     } catch (error: unknown) {
         if (error instanceof AuthError) return NextResponse.json({ error: error.message }, { status: error.status });
         console.error("[Copilot] Error:", error instanceof Error ? error.stack || error.message : error);

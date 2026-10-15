@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useRef } from 'react';
+import { SafeMarkdown } from "@/components/ui/SafeMarkdown";
 import { usePathname } from 'next/navigation';
 import { MessageSquare, MessageSquarePlus, X, Send, Loader2 } from 'lucide-react';
 import { useAIContext } from '@/hooks/useAIContext';
@@ -10,8 +11,6 @@ import { hasAccess } from '@/lib/tierLogic';
 import { compactPayloadString } from '@/lib/copilotPayload';
 import { captureAutoPageSnapshot, deriveLabelFromPathname } from '@/lib/autoPageContext';
 import { isMockTenant } from '@/lib/demoTenant';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { fetchWithAuthRetry } from '@/lib/msalToken';
 
 /** Nombre por defecto de `useAIContext` cuando ninguna página llamó a
@@ -745,8 +744,7 @@ export default function GlobalCopilot() {
                                     m.content
                                 ) : (
                                     <div className="markdown-body text-[13px] leading-relaxed">
-                                        <ReactMarkdown
-                                            remarkPlugins={[remarkGfm]}
+                                        <SafeMarkdown
                                             components={{
                                                 p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
                                                 ul: ({node, ...props}) => <ul className="list-disc ml-5 mb-2 space-y-1" {...props} />,
@@ -777,7 +775,7 @@ export default function GlobalCopilot() {
                                             }}
                                         >
                                             {m.content}
-                                        </ReactMarkdown>
+                                        </SafeMarkdown>
                                     </div>
                                 )}
                             </div>

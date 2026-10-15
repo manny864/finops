@@ -11,6 +11,8 @@
  * DLP (IA-5): Redactado automático de datos antes del envío a proveedores externos.
  */
 import Decimal from 'decimal.js';
+import { untrustedBlock, UNTRUSTED_DATA_RULE } from '@/lib/promptSafe';
+import { guardAiMarkdown } from '@/lib/aiOutputGuard';
 import pool, { insertPlatformAiUsage } from '@/modules/storage/db';
 import { RowDataPacket } from 'mysql2';
 import { errorMessage } from '@/lib/apiErrors';
@@ -593,7 +595,6 @@ function buildLanguageDirective(locale: string): string {
  */
 export async function generateExecutiveReportAiMarkdown(
     data: ExecutiveReportFullData,
-    userInstructions?: string,
     locale: string = 'es'
 ): Promise<string> {
     const tenantId = data.tenantId;
@@ -606,13 +607,14 @@ export async function generateExecutiveReportAiMarkdown(
         withExponentialBackoff(() =>
             generateText({
                 model: model as any,
+                // AISEC-04: sin texto libre del usuario en el system (se quitó userInstructions).
                 system: EXECUTIVE_REPORT_SYSTEM_PROMPT
                     + buildLanguageDirective(locale)
-                    + (userInstructions ? `\n\nINSTRUCCIONES ADICIONALES DEL USUARIO:\n${userInstructions}` : ''),
+                    + `\n\n${UNTRUSTED_DATA_RULE}`,
                 // Analisis numerico: la temperatura por defecto de cada proveedor
                 // deja margen para que el modelo "redondee" cifras del JSON.
                 temperature: 0.2,
-                prompt: `Analiza la telemetría viva de este tenant y genera el Reporte Ejecutivo FinOps completo:\n\n${dataString}`,
+                prompt: `Analiza la telemetría viva de este tenant y genera el Reporte Ejecutivo FinOps completo:\n\n${untrustedBlock('context_data', dataString)}`,
             })
         )
     );
@@ -627,7 +629,8 @@ export async function generateExecutiveReportAiMarkdown(
         outputTokens: usage.outputTokens || 0,
     });
 
-    return text;
+    // AISEC-02: se persiste en report_markdown y va a PDF/email.
+    return guardAiMarkdown(text);
 }
 
 /**

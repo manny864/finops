@@ -184,6 +184,11 @@ defender_enabled = true
 # los rangos de Cloudflare para que nadie pegue al origen directo.
 allowed_ip_ranges = []
 
+# PERIM-07: Application ID de la App Registration del publisher de Azure
+# Marketplace (el mismo que declara Partner Center). Es la audiencia obligatoria
+# del JWT del webhook; en prod el plan falla si falta. No es secreto.
+marketplace_aad_app_id = "<GUID de la app registration del publisher>"
+
 # El resto del .env que NO es secreto. Los secretos van por key_vault_secret_ids.
 extra_env_vars = {
   NEXT_PUBLIC_SSO_ENABLED   = "true"
@@ -265,3 +270,7 @@ tags = {
   CostCenter = "FINOPS"
   Product    = "FinOps"
 }
+
+# AISEC-09: escaneo antimalware de Defender for Storage + lectura de adjuntos de soporte sólo si están
+# limpios (ABAC). Activar en staging primero. ROLLBACK: false.
+storage_malware_scanning_enabled = true

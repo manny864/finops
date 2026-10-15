@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextRequest } from "next/server";
 import pool from "@/modules/storage/db";
+import { looksLikeKey } from "@/lib/apiKeyGuards";
 
 export interface ApiAuthResult {
   tenantId: string;
@@ -29,6 +30,17 @@ export function generateApiKey(): { plaintext: string; hash: string; prefix: str
   return { plaintext, hash, prefix };
 }
 
+/**
+ * El limitador exige un entero positivo (PERIM-06). Un valor ausente o no numérico
+ * cae al default de alta (60); uno ≤ 0 o fraccionario se lleva al entero ≥ 1 más
+ * cercano por debajo, para no volver más permisiva una clave restringida.
+ */
+function normalizeRateLimit(value: unknown): number {
+  const n = value == null || value === '' ? NaN : Number(value);
+  if (!Number.isFinite(n)) return 60;
+  return Math.max(1, Math.min(Math.trunc(n), 1_000_000));
+}
+
 export async function verifyApiKey(request: NextRequest): Promise<ApiAuthResult | null> {
   const authHeader = request.headers.get("authorization") || "";
   const xApiKey = request.headers.get("x-api-key") || "";
@@ -41,7 +53,7 @@ export async function verifyApiKey(request: NextRequest): Promise<ApiAuthResult 
     token = xApiKey;
   }
 
-  if (!token || !token.startsWith("pak_")) {
+  if (!token || !looksLikeKey(token, "pak_")) {
     return null;
   }
 
@@ -69,15 +81,14 @@ export async function verifyApiKey(request: NextRequest): Promise<ApiAuthResult 
     const key = arr[0];
     const scopes = typeof key.scopes === "string" ? JSON.parse(key.scopes) : key.scopes;
 
-    // Update last_used_at asynchronously (fire-and-forget)
-    pool.query(`UPDATE PublicApiKeys SET last_used_at = NOW() WHERE id = ?`, [key.id]).catch(() => {});
-
+    // last_used_at lo actualiza la ruta con touchKeyLastUsed después de admitir
+    // la llamada (PERIM-03): una clave sobre cuota no genera escrituras.
     return {
       tenantId: key.tenant_id,
       keyId: key.id,
       name: key.name,
       scopes: Array.isArray(scopes) ? scopes : [],
-      rateLimitPerMin: key.rate_limit_per_min,
+      rateLimitPerMin: normalizeRateLimit(key.rate_limit_per_min),
     };
   } catch (error) {
     console.error("Error verifying API key:", error);

@@ -7,7 +7,8 @@
  * - Tenants reales: Requieren validación con requireTenantAccess(request, tenantId).
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { scriptSafeJson } from "@/lib/scriptSafeJson";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import {
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
     const isMockExplicit = searchParams.get("mock") === "true";
 
     if (!tenantId) {
-      return NextResponse.json(
+      return scriptSafeJson(
         { error: "Falta parámetro requerido: tenantId" },
         { status: 400 }
       );
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
       tenantId.startsWith("mock-")
     ) {
       const mockData = generateMockAzureMonitorData();
-      return NextResponse.json({
+      return scriptSafeJson({
         success: true,
         ...mockData,
       });
@@ -48,20 +49,20 @@ export async function GET(request: NextRequest) {
     // Consulta en vivo a Azure Resource Graph + CostSnapshots
     const liveData = await fetchAzureMonitorData(tenantId);
 
-    return NextResponse.json({
+    return scriptSafeJson({
       success: true,
       ...liveData,
     });
   } catch (error: unknown) {
     if (error instanceof AuthError) {
-      return NextResponse.json(
+      return scriptSafeJson(
         { error: error.message },
         { status: error.status }
       );
     }
 
     console.error("[Azure Monitor API Error]:", error);
-    return NextResponse.json(
+    return scriptSafeJson(
       { error: "Error interno procesando Azure Monitor & Alertas" },
       { status: 500 }
     );

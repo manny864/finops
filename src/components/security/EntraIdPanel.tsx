@@ -1,4 +1,5 @@
 "use client";
+import { toCsvText } from "@/lib/csvExport";
 import { useTranslations } from "next-intl";
 import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
 import { EDS_SKU_MONTHLY_USD, INACTIVE_USER_DAYS } from "@/types/azureEntraId.types";
@@ -161,9 +162,7 @@ function LicenseAuditDrawer({
   const exportList = () => {
     const csv =
       "data:text/csv;charset=utf-8," +
-      ["UserPrincipalName,SkuPartNumber,Action", ...principals.map((p) => `"${p}","${action.targetId}",RemoveLicense`)].join(
-        "\n"
-      );
+      toCsvText(["UserPrincipalName", "SkuPartNumber", "Action"], principals.map((p) => [p, action.targetId, "RemoveLicense"]));
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csv));
     link.setAttribute("download", `desasignacion-${action.targetId}-${new Date().toISOString().split("T")[0]}.csv`);
@@ -435,21 +434,21 @@ export default function EntraIdPanel() {
       "Potential Savings USD",
     ];
     const rows = filteredResources.map((r) => [
-      `"${r.name}"`,
-      `"${r.displayName}"`,
-      `"${t(TYPE_LABELS[r.resourceType])}"`,
-      `"${r.principalIdentifier || ""}"`,
-      `"${r.subscriptionName}"`,
-      `"${r.skuTier}"`,
-      `"${r.assignedLicenses.join(" | ")}"`,
-      `"${r.lastSignInDate || ""}"`,
+      r.name,
+      r.displayName,
+      t(TYPE_LABELS[r.resourceType]),
+      r.principalIdentifier || "",
+      r.subscriptionName,
+      r.skuTier,
+      r.assignedLicenses.join(" | "),
+      r.lastSignInDate || "",
       r.inactiveDays ?? "",
       r.isAccountEnabled,
-      `"${r.activityStatus}"`,
+      r.activityStatus,
       r.monthlyCostUSD.toFixed(2),
       r.potentialSavingsUSD.toFixed(2),
     ]);
-    const csv = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const csv = "data:text/csv;charset=utf-8," + toCsvText(headers, rows);
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csv));
     link.setAttribute("download", `entra-id-governance-${new Date().toISOString().split("T")[0]}.csv`);

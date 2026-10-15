@@ -356,6 +356,12 @@ variable "nat_gateway_enabled" {
   default     = false
 }
 
+variable "apps_nsg_block_imds" {
+  description = "NSG en la subred de apps que deniega la salida a IMDS (modules/network/main.tf). Probar primero en staging."
+  type        = bool
+  default     = false
+}
+
 variable "storage_shared_access_key_enabled" {
   description = <<-DESC
     false = la cuenta de Storage de la app rechaza toda solicitud autorizada con la clave de
@@ -475,4 +481,16 @@ variable "security_tables_total_retention_days" {
   description = "Retención total (días) de las tablas de seguridad del workspace. Rollback: igualarla a la interactiva."
   type        = number
   default     = 0
+}
+
+variable "storage_malware_scanning_enabled" {
+  description = "AISEC-09: Defender for Storage con escaneo antimalware al subir en la cuenta del stamp, y lectura de support-attachments sólo para blobs marcados limpios (ABAC)."
+  type        = bool
+  default     = false
+}
+
+variable "storage_malware_scan_cap_gb_per_month" {
+  description = "Tope mensual de GB escaneados por la cuenta (costo). -1 = sin tope."
+  type        = number
+  default     = 100
 }

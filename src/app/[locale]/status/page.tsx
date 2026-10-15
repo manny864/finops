@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
+import { readPublicStatus, type PublicStatusDto } from "@/lib/publicStatus";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("Status");
@@ -9,21 +10,7 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-interface Component {
-  name: string;
-  status: "operational" | "degraded" | "down";
-  latency_ms?: number;
-}
-
-interface StatusData {
-  status: "operational" | "degraded" | "down";
-  timestamp: string;
-  components: Component[];
-  uptime_30d_pct: number;
-  degraded_30d_pct: number;
-  incidents_last_30d: number;
-  version: string;
-}
+type Component = PublicStatusDto["components"][number];
 
 interface Incident {
   id: number;
@@ -33,30 +20,6 @@ interface Incident {
   startedAt: string;
   resolvedAt: string | null;
   description?: string;
-}
-
-async function getStatusData(): Promise<StatusData> {
-  try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"}/api/status`,
-      {
-        headers: { Accept: "application/json" },
-      }
-    );
-    if (!response.ok) throw new Error("Failed to fetch status");
-    return response.json();
-  } catch (e) {
-    console.error("Status fetch error:", e);
-    return {
-      status: "down",
-      timestamp: new Date().toISOString(),
-      components: [],
-      uptime_30d_pct: 0,
-      degraded_30d_pct: 0,
-      incidents_last_30d: 0,
-      version: "unknown",
-    };
-  }
 }
 
 async function getIncidents(): Promise<Incident[]> {
@@ -86,10 +49,13 @@ function StatusBadge({ status, t }: { status: string; t: StatusT }) {
   if (status === "degraded") {
     return <span className={`${baseClass} bg-yellow-100 text-yellow-800`}>{t("badgeDegraded")}</span>;
   }
-  return <span className={`${baseClass} bg-red-100 text-red-800`}>{t("badgeDown")}</span>;
+  if (status === "down") {
+    return <span className={`${baseClass} bg-red-100 text-red-800`}>{t("badgeDown")}</span>;
+  }
+  return <span className={`${baseClass} bg-gray-100 text-gray-800`}>{t("badgeUnknown")}</span>;
 }
 
-function ComponentCard({ component, t }: { component: Component; t: StatusT }) {
+function ComponentCard({ component }: { component: Component }) {
   const statusColor = {
     operational: "border-green-200 bg-green-50",
     degraded: "border-yellow-200 bg-yellow-50",
@@ -108,9 +74,6 @@ function ComponentCard({ component, t }: { component: Component; t: StatusT }) {
         <h3 className="font-semibold text-gray-900">{component.name}</h3>
         <span className="text-lg">{statusIndicator[component.status]}</span>
       </div>
-      {component.latency_ms !== undefined && component.latency_ms > 0 && (
-        <p className="text-sm text-gray-600">{t("latencyLabel", { ms: component.latency_ms })}</p>
-      )}
     </div>
   );
 }
@@ -153,7 +116,8 @@ function StatusBadgeSmall({ status, t }: { status: string; t: StatusT }) {
 
 export default async function StatusPage() {
   const t = await getTranslations("Status");
-  const statusData = await getStatusData();
+  // Sin snapshot reciente el estado es desconocido: no se inventa "caído" ni 0%.
+  const statusData = await readPublicStatus();
   const incidents = await getIncidents();
 
   return (
@@ -172,20 +136,26 @@ export default async function StatusPage() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                {statusData.status === "operational" && t("bannerOperational")}
-                {statusData.status === "degraded" && t("bannerDegraded")}
-                {statusData.status === "down" && t("bannerDown")}
+                {!statusData && t("bannerUnknown")}
+                {statusData?.status === "operational" && t("bannerOperational")}
+                {statusData?.status === "degraded" && t("bannerDegraded")}
+                {statusData?.status === "down" && t("bannerDown")}
               </h2>
-              <p className="text-gray-600 text-sm">{t("lastUpdated", { date: new Date(statusData.timestamp).toLocaleString() })}</p>
+              <p className="text-gray-600 text-sm">
+                {statusData
+                  ? t("lastUpdated", { date: new Date(statusData.timestamp).toLocaleString() })
+                  : t("unknownBody")}
+              </p>
             </div>
             <div>
-              <StatusBadge status={statusData.status} t={t} />
+              <StatusBadge status={statusData?.status ?? "unknown"} t={t} />
             </div>
           </div>
         </div>
 
+        {statusData && (<>
         {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
             <p className="text-gray-600 text-sm font-semibold mb-1">{t("metricUptime")}</p>
             <p className="text-3xl font-bold text-gray-900">{statusData.uptime_30d_pct.toFixed(2)}%</p>
@@ -197,10 +167,6 @@ export default async function StatusPage() {
             <p className="text-gray-600 text-sm font-semibold mb-1">{t("metricIncidents")}</p>
             <p className="text-3xl font-bold text-gray-900">{statusData.incidents_last_30d}</p>
           </div>
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-gray-500">
-            <p className="text-gray-600 text-sm font-semibold mb-1">{t("metricVersion")}</p>
-            <p className="text-lg font-mono text-gray-900 truncate" title={statusData.version}>{statusData.version.slice(0, 7)}</p>
-          </div>
         </div>
 
         {/* Components Grid */}
@@ -208,10 +174,11 @@ export default async function StatusPage() {
           <h3 className="text-xl font-bold text-gray-900 mb-4">{t("componentsTitle")}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {statusData.components.map((component) => (
-              <ComponentCard key={component.name} component={component} t={t} />
+              <ComponentCard key={component.name} component={component} />
             ))}
           </div>
         </div>
+        </>)}
 
         {/* Recent Incidents */}
         <div className="mb-8">
@@ -255,7 +222,7 @@ export default async function StatusPage() {
 
         {/* Footer */}
         <div className="mt-12 pt-8 border-t border-gray-200 text-center text-sm text-gray-600">
-          <p>{t("footer", { time: new Date(statusData.timestamp).toLocaleTimeString() })}</p>
+          {statusData && <p>{t("footer", { time: new Date(statusData.timestamp).toLocaleTimeString() })}</p>}
         </div>
       </div>
     </div>

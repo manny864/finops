@@ -10,6 +10,7 @@
 import crypto from "crypto";
 import pool from "@/modules/storage/db";
 import { isMockTenant } from "@/lib/mockData";
+import { looksLikeKey } from "@/lib/apiKeyGuards";
 import { McpApiKeyItem, CreateMcpKeyResponse } from "@/types/mcpApiKey.types";
 
 /**
@@ -230,7 +231,7 @@ export async function revokeMcpKey(tenantId: string, keyId: string | number): Pr
 export async function authenticateMcpToken(
     rawToken: string
 ): Promise<{ tenantId: string; keyId: number } | null> {
-    if (!rawToken || (!rawToken.startsWith("mcp_") && !rawToken.startsWith("mcp_live_"))) {
+    if (!rawToken || !looksLikeKey(rawToken.trim(), "mcp_")) {
         return null;
     }
 
@@ -246,8 +247,7 @@ export async function authenticateMcpToken(
         if (!arr || arr.length === 0) return null;
 
         const key = arr[0];
-        // Fire-and-forget timestamp update
-        void pool.query(`UPDATE MCPApiKeys SET last_used_at = NOW() WHERE id = ?`, [key.id]).catch(() => {});
+        // last_used_at lo actualiza la ruta tras admitir la llamada (PERIM-03).
 
         return { tenantId: key.tenant_id, keyId: key.id };
     } catch {

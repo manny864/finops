@@ -29,6 +29,10 @@ const EXCEPCIONES: Record<string, string> = {
         "consumo de cuota de API de la casa: la columna guarda 'sin-tenant' para " +
         "las llamadas que no informan uno, y el histórico tiene que sobrevivir a " +
         "la baja del cliente para poder explicar el throttling de ese período",
+    AiCache:
+        "tenant_id admite '__platform__' (narración de Advisor con el modelo de la casa), que no " +
+        "es un tenant: se purga a mano en la baja (tenantTeardownService y DELETE /api/tenants) y " +
+        "por vencimiento (cron ai-cache-purge) — AISEC-05",
     Tenants: "es la tabla padre",
 };
 

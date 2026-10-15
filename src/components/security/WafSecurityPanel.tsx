@@ -1,4 +1,5 @@
 "use client";
+import { toCsvText } from "@/lib/csvExport";
 import { useTranslations } from "next-intl";
 import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
 
@@ -274,18 +275,18 @@ const tw = useTranslations("WafSecurity");
       "Orphan",
     ];
     const rows = filteredPolicies.map((p) => [
-      `"${p.name}"`,
-      `"${p.hostPlatform}"`,
-      `"${p.mode}"`,
-      `"${p.state}"`,
-      `"${p.location}"`,
-      `"${p.resourceGroup}"`,
-      `"${p.subscriptionName}"`,
-      `"${p.managedRuleSet}"`,
+      p.name,
+      p.hostPlatform,
+      p.mode,
+      p.state,
+      p.location,
+      p.resourceGroup,
+      p.subscriptionName,
+      p.managedRuleSet,
       p.customRulesCount,
       p.hasGeoFilterRule,
       p.hasRateLimitRule,
-      `"${p.associatedEndpoints.join(" | ")}"`,
+      p.associatedEndpoints.join(" | "),
       p.totalRequestsMTD,
       p.blockedRequestsCount,
       p.detectedRequestsCount,
@@ -293,7 +294,7 @@ const tw = useTranslations("WafSecurity");
       p.monthlyCostUSD.toFixed(2),
       p.isOrphan,
     ]);
-    const csv = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const csv = "data:text/csv;charset=utf-8," + toCsvText(headers, rows);
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csv));
     link.setAttribute("download", `azure-waf-${new Date().toISOString().split("T")[0]}.csv`);

@@ -1,8 +1,8 @@
-import { createHash } from "crypto";
+import { sanitizeLabel, untrustedBlock } from "@/lib/promptSafe";
 import { generateObject } from "ai";
 import { z } from "zod";
-import type { RowDataPacket } from "mysql2";
-import pool, { insertPlatformAiUsage } from "@/modules/storage/db";
+import { insertPlatformAiUsage } from "@/modules/storage/db";
+import { aiCacheGet, aiCacheKey, aiCacheSet } from "@/lib/aiCache";
 import {
     AIProviderFactory,
     aiQueue,
@@ -135,10 +135,11 @@ export function applyCsvMapping(rows: Record<string, unknown>[], m: CsvColumnMap
         const billed = parseCsvAmount(get(row, "BilledCost"), decimal);
         const effective = get(row, "EffectiveCost");
         return {
-            ProviderName: get(row, "ProviderName") || provider,
-            SubAccountId: get(row, "SubAccountId"),
-            ServiceName: get(row, "ServiceName") || "Unknown",
-            ChargeCategory: get(row, "ChargeCategory") || "Usage",
+            // AISEC-06: etiquetas del CSV → sin controles/bidi y con largo acotado.
+            ProviderName: sanitizeLabel(get(row, "ProviderName")) || sanitizeLabel(provider) || "Unknown",
+            SubAccountId: sanitizeLabel(get(row, "SubAccountId")),
+            ServiceName: sanitizeLabel(get(row, "ServiceName")) || "Unknown",
+            ChargeCategory: sanitizeLabel(get(row, "ChargeCategory"), 40) || "Usage",
             UsageDate: toIsoDate(get(row, "UsageDate"), m.dateFormat),
             BilledCost: billed,
             // Como en el atajo FOCUS: sin costo efectivo se usa el facturado.
@@ -147,18 +148,18 @@ export function applyCsvMapping(rows: Record<string, unknown>[], m: CsvColumnMap
     });
 }
 
-/** AiCache.hash_prompt es VARCHAR(64): la clave de la propuesta entra hasheada. */
+/** El mapeo de un mismo juego de columnas no cambia: se guarda 30 días (AISEC-05). */
+const CACHE_TTL_HOURS = 30 * 24;
+
 function cacheKey(tenantId: string, headers: string[]): string {
-    return createHash("sha256")
-        .update(`csv-mapping:v1:${tenantId}:${JSON.stringify([...headers].sort())}`)
-        .digest("hex");
+    return aiCacheKey(tenantId, "csv-mapping:v1", JSON.stringify([...headers].sort()));
 }
 
-async function cachedMapping(key: string, headers: string[]): Promise<CsvColumnMapping | null> {
-    const [rows] = await pool.query<RowDataPacket[]>("SELECT response_text FROM AiCache WHERE hash_prompt = ?", [key]);
-    if (!rows[0]) return null;
+async function cachedMapping(tenantId: string, key: string, headers: string[]): Promise<CsvColumnMapping | null> {
+    const text = await aiCacheGet(tenantId, key);
+    if (text === null) return null;
     try {
-        const parsed = csvMappingSchema.safeParse(JSON.parse(rows[0].response_text));
+        const parsed = csvMappingSchema.safeParse(JSON.parse(text));
         return parsed.success && !validateCsvMapping(parsed.data, headers) ? parsed.data : null;
     } catch {
         return null;
@@ -195,7 +196,7 @@ export async function normalizeBillingCsv(
 
     // La caché va antes del gate: reusar un mapeo no manda datos ni gasta cuota.
     const key = cacheKey(tenantId, headers);
-    const cached = await cachedMapping(key, headers);
+    const cached = await cachedMapping(tenantId, key, headers);
     if (cached) return applyCsvMapping(rows, cached);
 
     const gate = await checkAiFeature(tenantId, FEATURE, userKey);
@@ -212,7 +213,7 @@ export async function normalizeBillingCsv(
                     model: ai.model,
                     schema: csvMappingSchema,
                     system: SYSTEM_PROMPT,
-                    prompt: `<context_data>\n${JSON.stringify({ headers, sample })}\n</context_data>`,
+                    prompt: untrustedBlock("context_data", { headers, sample }),
                     maxOutputTokens: AI_FEATURES[FEATURE].maxOutputTokens,
                 })
             )
@@ -235,10 +236,7 @@ export async function normalizeBillingCsv(
         throw new CsvMappingError("invalid_mapping");
     }
     try {
-        await pool.query(
-            "REPLACE INTO AiCache (hash_prompt, response_text, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
-            [key, JSON.stringify(object)]
-        );
+        await aiCacheSet(tenantId, key, JSON.stringify(object), CACHE_TTL_HOURS);
     } catch (e) {
         // La llamada ya se pagó: el archivo se procesa igual aunque el mapeo no quede guardado.
         console.error(`[normalizeBillingCsv] no se pudo cachear el mapeo: ${errorMessage(e)}`);

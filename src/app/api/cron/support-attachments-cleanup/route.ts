@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
         await initializeDatabase();
 
         const [rows]: any = await pool.query(
-            `SELECT id, stored_name FROM SupportTicketAttachments
+            `SELECT id, tenant_id, stored_name FROM SupportTicketAttachments
              WHERE created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? DAY)
              LIMIT 500`,
             [SUPPORT_ATTACHMENT_RETENTION_DAYS]
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 
         let deleted = 0;
         for (const row of rows || []) {
-            await deleteAttachmentFile(row.stored_name);
+            await deleteAttachmentFile(row.tenant_id, row.stored_name);
             await pool.query("DELETE FROM SupportTicketAttachments WHERE id = ?", [row.id]);
             deleted++;
         }

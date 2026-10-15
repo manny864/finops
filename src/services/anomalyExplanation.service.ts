@@ -1,4 +1,5 @@
 import { createHash } from "crypto";
+import { untrustedBlock } from "@/lib/promptSafe";
 import { generateObject } from "ai";
 import { z } from "zod";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
@@ -230,7 +231,7 @@ export async function getAnomalyExplanation(p: {
                         model: ai.model,
                         schema: explanationSchema,
                         system: systemPrompt(p.locale),
-                        prompt: `<context_data>\n${JSON.stringify(context)}\n</context_data>`,
+                        prompt: untrustedBlock("context_data", context),
                         maxOutputTokens: AI_FEATURES[FEATURE].maxOutputTokens,
                     })
                 )

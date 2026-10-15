@@ -58,7 +58,8 @@ valor real (`src/lib/marketplace/planMapping.ts`, fijado en
 
 **El Application ID tiene que ser el MISMO que `AZURE_MARKETPLACE_AAD_APP_ID`.**
 No es sólo una credencial: `verifyWebhookJwt()` valida la audiencia del JWT
-contra esa variable (`azure.ts:208`). Si Partner Center declara un app id y
+contra esa variable y, si falta, el webhook responde 503 sin procesar nada
+(PERIM-07: antes la audiencia quedaba sin chequear). Si Partner Center declara un app id y
 producción tiene otro, el resolve puede andar y **todos** los webhooks de ciclo
 de vida se rechazan con "audience mismatch" — cambios de plan, suspensiones y
 bajas dejan de llegar, sin que la compra inicial dé ningún síntoma.
@@ -110,7 +111,7 @@ Faltan las tres credenciales de la App Registration:
 | Variable | Dónde va | Estado |
 |---|---|---|
 | `AZURE_MARKETPLACE_AAD_TENANT_ID` | `extra_env_vars` (no es secreto) | **falta** |
-| `AZURE_MARKETPLACE_AAD_APP_ID` | `extra_env_vars` (no es secreto) | **falta** |
+| `AZURE_MARKETPLACE_AAD_APP_ID` | variable `marketplace_aad_app_id` (no es secreto; el plan de prod falla si falta) | configurado |
 | `AZURE_MARKETPLACE_AAD_APP_SECRET` | Key Vault → `infraSecrets.ts` lo hidrata | sin verificar (403 sobre el vault) |
 
 Las dos primeras **no están mapeadas en `infraSecrets.ts` ni en el Container
@@ -250,13 +251,23 @@ funcionar y el síntoma es el mismo "not configured".
 
 ### 4.3 Las dos env vars no secretas
 
-En `infra/terraform/environments/prod/terraform.tfvars`, dentro de
-`extra_env_vars`, junto a `AZURE_MARKETPLACE_OFFER_ID`:
+En `infra/terraform/environments/prod/terraform.tfvars`, el tenant va dentro de
+`extra_env_vars`, junto a `AZURE_MARKETPLACE_OFFER_ID`, y el app ID va en su
+variable dedicada (PERIM-07: el plan de prod falla si está vacía, porque sin
+audiencia el webhook responde 503):
 
 ```hcl
+marketplace_aad_app_id = "<application-client-id>"
+
+extra_env_vars = {
   AZURE_MARKETPLACE_AAD_TENANT_ID = "<directory-tenant-id>"
-  AZURE_MARKETPLACE_AAD_APP_ID    = "<application-client-id>"
+  # ...
+}
 ```
+
+Por compatibilidad, si `marketplace_aad_app_id` está vacía se usa
+`extra_env_vars.AZURE_MARKETPLACE_AAD_APP_ID`. Si están las dos y difieren, el
+plan falla.
 
 El archivo está gitignoreado: CI lo escribe desde el secret `TF_VARS_PROD`, así
 que hay que resubirlo y correr el workflow de Terraform.

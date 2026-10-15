@@ -349,8 +349,7 @@ describe("Entra ID — comandos de remediacion", () => {
       category: "RECLAIM_USER_LICENSE",
       affectedPrincipals: ['evil"; rm -rf ~; #@x.com'],
     });
-    expect(c.cli).toContain('SKU\\"');
-    expect(c.cli).toContain('evil\\"');
+    expect(c.cli).toContain("no apto");
   });
 
   it("sin principales afectados el bloque no queda vacio ni roto", () => {

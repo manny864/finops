@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import type { ResultSetHeader } from 'mysql2';
 import pool from '@/modules/storage/db';
 import { hashPayload } from './mfaCrypto';
 import { AuthError } from './requestAuth';
@@ -39,6 +40,7 @@ export async function enforceMfaIfEnabled(
  * 2. Challenge was consumed (verified)
  * 3. Challenge was consumed within the last 60 seconds
  * 4. Challenge operation and payload hash match
+ * 5. Challenge is single-use (se elimina al consumirlo)
  */
 export async function requireMfaChallenge(
   request: NextRequest,
@@ -53,37 +55,25 @@ export async function requireMfaChallenge(
     throw new AuthError('MFA challenge required', 403);
   }
 
-  // Get challenge
-  const [rows] = await pool.query(
-    `SELECT * FROM MfaChallenges WHERE id = ? AND user_email = ? AND tenant_id = ? AND operation = ?`,
-    [challengeId, userEmail, tenantId, expectedOperation]
+  // APPSEC-ID-05: el payload es obligatorio y el challenge debe haberse emitido con él.
+  if (payload === undefined) {
+    throw new AuthError('MFA payload required', 403);
+  }
+
+  // APPSEC-ID-04: consumo atómico y de un solo uso. El DELETE condicional valida
+  // dueño, operación, payload, verificación (<=60s) y vigencia a la vez; si dos
+  // requests compiten, sólo una afecta la fila.
+  const [res] = await pool.query<ResultSetHeader>(
+    `DELETE FROM MfaChallenges
+      WHERE id = ? AND user_email = ? AND tenant_id = ? AND operation = ?
+        AND payload_hash = ?
+        AND consumed_at IS NOT NULL
+        AND consumed_at >= NOW() - INTERVAL 60 SECOND
+        AND expires_at > NOW()`,
+    [challengeId, userEmail, tenantId, expectedOperation, hashPayload(payload)]
   );
 
-  if (!Array.isArray(rows) || rows.length === 0) {
-    throw new AuthError('MFA challenge not found or invalid', 403);
-  }
-
-  const challenge = rows[0] as any;
-
-  // Check if consumed
-  if (!challenge.consumed_at) {
-    throw new AuthError('MFA challenge not yet verified', 403);
-  }
-
-  // Check payload hash if provided
-  if (payload !== undefined && challenge.payload_hash) {
-    const expectedHash = hashPayload(payload);
-    if (challenge.payload_hash !== expectedHash) {
-      throw new AuthError('Payload mismatch', 403);
-    }
-  }
-
-  // Check if consumed recently (within 60 seconds)
-  const consumedAt = new Date(challenge.consumed_at);
-  const now = new Date();
-  const secondsElapsed = (now.getTime() - consumedAt.getTime()) / 1000;
-
-  if (secondsElapsed > 60) {
-    throw new AuthError('MFA challenge expired', 403);
+  if (res.affectedRows !== 1) {
+    throw new AuthError('MFA challenge invalid, expired or already used', 403);
   }
 }

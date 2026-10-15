@@ -312,7 +312,7 @@ export async function insertCostCategorySnapshotRow(tenantId: string, date: stri
  * `tenant_health` es el historico por chequeo. `Tenants.sync_status` /
  * `last_error_message` es el estado denormalizado del ultimo sync, y es lo que
  * lee el panel de Cuentas Cloud (`tenantAccountStatus.service.ts`) y el health
- * check de `/api/status`.
+ * check del cron `status-snapshot` (que publica `/api/status`).
  *
  * Escribia solo la primera. El efecto en produccion: un tenant sin credenciales
  * guardadas fallaba con "Azure client credentials are not configured", el

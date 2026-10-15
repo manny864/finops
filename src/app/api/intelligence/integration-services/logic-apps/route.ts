@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { scriptSafeJson } from "@/lib/scriptSafeJson";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import {
@@ -16,12 +17,12 @@ export async function GET(request: NextRequest) {
     const forceMock = request.nextUrl.searchParams.get("mock") === "true";
 
     if (!tenantId) {
-      return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
+      return scriptSafeJson({ error: "Falta tenantId" }, { status: 400 });
     }
 
     // 1. ORDEN CRÍTICO: El check isMockTenant DEBE evaluarse ANTES de requireTenantAccess
     if (forceMock || isMockTenant(tenantId)) {
-      return NextResponse.json(generateMockLogicAppsData());
+      return scriptSafeJson(generateMockLogicAppsData());
     }
 
     // 2. Tenant Real: Validación obligatoria de RBAC
@@ -29,12 +30,12 @@ export async function GET(request: NextRequest) {
 
     // 3. Consulta en vivo sin fallbacks mock
     const payload = await getLiveLogicAppsData(tenantId);
-    return NextResponse.json(payload);
+    return scriptSafeJson(payload);
   } catch (err: unknown) {
     if (err instanceof AuthError) {
-      return NextResponse.json({ error: err.message }, { status: err.status });
+      return scriptSafeJson({ error: err.message }, { status: err.status });
     }
     console.error("[azure-logic-apps] route error:", err instanceof Error ? err.message : err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return scriptSafeJson({ error: "Internal server error" }, { status: 500 });
   }
 }

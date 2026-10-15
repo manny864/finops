@@ -1,3 +1,5 @@
+import { escapeHtml } from './escape';
+
 /**
  * emailReportTemplate.ts — Plantilla de Correo Electrónico Transaccional con CSS 100% Inlined
  * compatible con Microsoft Outlook Desktop, Apple Mail y Gmail.
@@ -15,15 +17,15 @@ export interface RenderEmailReportParams {
 }
 
 export function renderEmailReportHtml(params: RenderEmailReportParams): string {
-    const {
-        tenantName,
-        scopeDisplayName,
-        generationDate,
-        introMessage,
-        kpiHighlights,
+    const { kpiHighlights,
         parsedContentHtml,
         reportUrl = 'https://finops.cscloudsolutions.com.ar',
     } = params;
+    // AISEC-03: nombre/alcance del tenant y la intro generada por IA van como texto.
+    const tenantName = escapeHtml(params.tenantName);
+    const scopeDisplayName = escapeHtml(params.scopeDisplayName);
+    const generationDate = escapeHtml(params.generationDate);
+    const introMessage = params.introMessage ? escapeHtml(params.introMessage) : undefined;
 
     const defaultIntro = `Le compartimos el Reporte Ejecutivo de FinOps correspondiente al período actual para <strong>${tenantName}</strong>, generado mediante inteligencia artificial sobre la telemetría viva de su infraestructura en Microsoft Azure. En el documento PDF adjunto encontrará el desglose pormenorizado de costos, ahorros proyectados y planes de remediación.`;
 

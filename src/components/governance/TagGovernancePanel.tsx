@@ -608,7 +608,7 @@ export default function TagGovernancePanel() {
       csvEscape(Object.entries(r.currentTags).map(([k, v]) => `${k}=${v}`).join("; ")),
     ]);
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.map(csvEscape).join(","), ...rows.map((e) => e.join(","))].join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);

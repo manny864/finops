@@ -1,4 +1,5 @@
 "use client";
+import { toCsvText } from "@/lib/csvExport";
 import { useTranslations } from "next-intl";
 import { useTextoPorCategoria } from "@/lib/recommendationText";
 
@@ -493,10 +494,10 @@ export default function SentinelPanel() {
       t("csvEstSavings"),
     ];
     const rows = filteredWorkspaces.map((w) => [
-      `"${w.name}"`,
+      w.name,
       w.location,
-      `"${w.resourceGroup}"`,
-      `"${w.subscriptionName}"`,
+      w.resourceGroup,
+      w.subscriptionName,
       w.lawPricingTier,
       w.retentionInDays,
       w.dailyCapGB ? `${w.dailyCapGB} GB` : t("unlimited"),
@@ -504,7 +505,7 @@ export default function SentinelPanel() {
       w.totalRealCostUSD.toFixed(2),
       w.potentialSavingsUSD.toFixed(2),
     ]);
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const csvContent = "data:text/csv;charset=utf-8," + toCsvText(headers, rows);
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);

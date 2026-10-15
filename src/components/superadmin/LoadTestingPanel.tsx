@@ -377,7 +377,7 @@ export default function LoadTestingPanel() {
                                 onChange={(e) => setTargetEndpoint(e.target.value as LoadTestEndpoint)}
                                 className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-[#0078D4]"
                             >
-                                <option value="/api/status">{t("targetOptionStatus") || "/api/status (con DB — techo real MySQL)"}</option>
+                                <option value="/api/status">{t("targetOptionStatus") || "/api/status (caché — sin MySQL por petición)"}</option>
                                 <option value="/api/health">{t("targetOptionHealth") || "/api/health (sin DB — techo del procesador)"}</option>
                                 <option value="/api/loadtest/probe">{t("targetOptionProbe") || "/api/loadtest/probe (autenticado SP — DB + Redis)"}</option>
                                 <option value="/api/v1/costs">{t("targetOptionCosts") || "/api/v1/costs (consulta de costos)"}</option>

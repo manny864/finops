@@ -143,6 +143,18 @@ describe("applyCsvMapping", () => {
         });
     });
 
+    it("AISEC-06: las etiquetas del CSV salen sin controles/bidi y con largo acotado", () => {
+        const mapping: CsvColumnMapping = {
+            provider: "",
+            mappings: [{ sourceColumn: "Svc", focusField: "ServiceName" }, { sourceColumn: "Cost", focusField: "BilledCost" }],
+            dateFormat: "YMD",
+        };
+        const [out] = applyCsvMapping([{ Svc: "VM\u2066\r\n" + "y".repeat(400), Cost: "1" }], mapping);
+        expect(out.ServiceName).not.toMatch(/[\r\n\u2066]/);
+        expect(out.ServiceName.length).toBeLessThanOrEqual(120);
+        expect(out.ProviderName).toBe("Unknown");
+    });
+
     it("con decimales con coma lee bien todo el archivo, también el valor ambiguo", () => {
         const rows = [{ Svc: "VM", Cost: "1.234" }, { Svc: "VM", Cost: "12,5" }];
         const mapping: CsvColumnMapping = {
@@ -210,9 +222,10 @@ describe("normalizeBillingCsv", () => {
         expect(prompt).not.toContain("rg-secret");
         expect(maxOutputTokens).toBe(800);
         expect(insertUsageMock).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "t1", feature: "billing-csv-column-mapping", source: "platform" }));
-        const [sql, [key, json]] = queryMock.mock.calls[1];
-        expect(sql).toContain("REPLACE INTO AiCache");
-        expect(key).toBe(queryMock.mock.calls[0][1][0]);
+        const [sql, [key, tenant, json]] = queryMock.mock.calls[1];
+        expect(sql).toContain("INSERT INTO AiCache");
+        expect(tenant).toBe("t1");
+        expect(queryMock.mock.calls[0][1]).toEqual([key, "t1"]);
         expect(JSON.parse(json)).toEqual(MAPPING);
     });
 

@@ -1,6 +1,7 @@
 "use client";
 
 import MockBanner from '@/components/MockBanner';
+import { SafeMarkdown } from "@/components/ui/SafeMarkdown";
 import React, { useState, useRef, useCallback } from 'react';
 import Papa from 'papaparse';
 import { useMsal } from '@azure/msal-react';
@@ -9,8 +10,6 @@ import { getFreshIdToken } from '@/lib/msalToken';
 import { isMockTenant } from '@/lib/demoTenant';
 import { UploadCloud, FileText, CheckCircle2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { useLocale, useTranslations } from 'next-intl';
 
 /** Una fila del resumen que calcula el servidor (agregado por servicio y categoría). */
@@ -269,8 +268,7 @@ export default function CSVUploadPage() {
                         {/* remark-gfm es obligatorio: el prompt del assessment pide
                             tablas (KPIs, matriz de decisiones) y sin este plugin
                             ReactMarkdown las deja como texto plano con pipes. */}
-                        <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
+                        <SafeMarkdown
                             components={{
                                 // Las tablas de KPIs son anchas: scroll propio con
                                 // scrollbar visible en macOS, sin romper la página.
@@ -319,7 +317,7 @@ export default function CSVUploadPage() {
                                                      text-[#0078D4] text-[12.5px] font-mono">{children}</code>
                                 ),
                             }}
-                        >{assessmentResult}</ReactMarkdown>
+                        >{assessmentResult}</SafeMarkdown>
                     </div>
                 </div>
             )}

@@ -1,4 +1,5 @@
 "use client";
+import { toCsvText } from "@/lib/csvExport";
 import { useTranslations } from "next-intl";
 import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
 
@@ -511,22 +512,22 @@ export default function NetworkWatcherPanel() {
       "Total Real Cost USD",
     ];
     const rows = filteredWatchers.map((w) => [
-      `"${w.name}"`,
-      `"${w.location}"`,
-      `"${w.resourceGroup}"`,
-      `"${w.subscriptionName}"`,
+      w.name,
+      w.location,
+      w.resourceGroup,
+      w.subscriptionName,
       w.flowLogsCount,
       w.trafficAnalytics10MinCount,
       w.trafficAnalytics60MinCount,
       w.connectionMonitorsCount,
-      `"${w.linkedStorageAccountName || ""}"`,
-      w.storageRetentionDays === 0 ? `"${t("retentionInfinite")}"` : w.storageRetentionDays,
+      w.linkedStorageAccountName || "",
+      w.storageRetentionDays === 0 ? t("retentionInfinite") : w.storageRetentionDays,
       w.estimatedTrafficAnalyticsCostUSD.toFixed(2),
       w.estimatedConnectionMonitorCostUSD.toFixed(2),
       w.estimatedStorageCostUSD.toFixed(2),
       w.totalEstimatedRealCostUSD.toFixed(2),
     ]);
-    const csv = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const csv = "data:text/csv;charset=utf-8," + toCsvText(headers, rows);
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csv));
     link.setAttribute("download", `azure-network-watcher-${new Date().toISOString().split("T")[0]}.csv`);

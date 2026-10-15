@@ -32,7 +32,10 @@ milisegundos; en frío, el escaneo de zombis tarda **30 s o más** (el catálogo
 5 con 2,5 s de pausa). Un cliente con timeout corto puede cortar ese primer pedido: el escaneo no se cancela, sigue en el servidor y deja la
 caché lista para el reintento.
 
-Si la fuente falla, la tool responde `{ "count": 0, ..., "note": "<motivo>" }` y lo registra en el log (`[mcp] <tool> falló:`).
+Si la fuente falla, la tool responde `{ "count": 0, ..., "note": "<qué falló>: <causa> (errorId <uuid>)" }` con `isError: true`
+y lo registra en el log (`[mcp] <tool> failed`, con el mismo `errorId` y la categoría del error). La causa es un texto fijo
+(falta de rol Lector, 429 o permisos de Azure) o "error interno"; nunca el mensaje original del driver o SDK (PERIM-09).
+Un fallo no atrapado responde JSON-RPC `-32603 "Internal error"` con `data.errorId`.
 Una lista vacía **sin** `note` sí significa "no hay". Un presupuesto cuyo gasto no se pudo leer sale con `spentUSD: null`,
 `usagePct: null` y `status: "unknown"`, no con 0.
 

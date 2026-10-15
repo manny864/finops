@@ -14,6 +14,8 @@ This FinOps SaaS implements end-to-end Paddle Billing integration with the follo
 2. **Webhook Handler** (`/api/webhooks/paddle/route.ts`)
    - Verifies HMAC signatures (SHA-256)
    - Enforces 5-minute replay window
+   - Strict `paddle-signature` format: one `ts` (digits) and one or more `h1` (64 lowercase hex); during a secret rotation any matching `h1` is accepted
+   - Durable dedup by `event_id` and ordering by `occurred_at` (`WebhookInbox` / `WebhookResourceCursor`, PERIM-08): a redelivery is not applied twice and an older `subscription.*` event does not overwrite a newer one. `subscription.canceled` is always applied; a late `subscription.created` only links `paddle_subscription_id`. If the handler fails the transaction rolls back and Paddle retries; if the inbox is unavailable the webhook answers 503
    - Handles 6 event types (see Event Types below)
    - Single source of truth for subscription state
 
@@ -266,7 +268,13 @@ import crypto from "crypto";
 
 const secret = process.env.PADDLE_WEBHOOK_SECRET;
 const timestamp = Math.floor(Date.now() / 1000);
-const body = JSON.stringify({ event_type: "subscription.created", data: {} });
+// event_id y occurred_at son obligatorios (PERIM-08): sin ellos el webhook responde 400.
+const body = JSON.stringify({
+  event_id: "evt_01h04vsc0qhwtsbsxh3422wjs4",
+  event_type: "subscription.created",
+  occurred_at: new Date().toISOString(),
+  data: { id: "sub_01h04vsc0qhwtsbsxh3422wjs4" },
+});
 
 const payloadToSign = `${timestamp}:${body}`;
 const h1 = crypto.createHmac("sha256", secret).update(payloadToSign).digest("hex");
@@ -373,7 +381,7 @@ curl -X POST http://localhost:3000/api/webhooks/paddle \
 ## Security Considerations
 
 1. **HMAC Verification:** All webhooks must pass signature verification before processing
-2. **Replay Window:** 5-minute window prevents replay attacks
+2. **Replay Window:** 5-minute window prevents replay attacks; within it, `event_id` dedup (PERIM-08) prevents re-applying an event
 3. **Database:** BillingTransactions.raw_event stores full payload for audit
 4. **Auth:** All endpoints require `requireTenantRole` with OWNER permission (billing-sensitive)
 5. **API Keys:** Production keys never committed; use env-based secrets only

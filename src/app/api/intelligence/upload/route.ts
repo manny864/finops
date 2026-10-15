@@ -6,6 +6,7 @@ import { requireRequestIdentity, assertTenantTier, AuthError } from "@/lib/reque
 import rateLimiter from "@/lib/rateLimiter";
 import { errorMessage, errorStatus, serverError } from '@/lib/apiErrors';
 import { AI_FEATURES, checkAiFeature } from "@/lib/aiFeatureGate";
+import { BodyLimitError, readJsonCapped } from "@/lib/readJsonCapped";
 
 /** Max rows accepted to prevent CPU/memory abuse and AI token drain. */
 const MAX_ROWS = 10_000;
@@ -13,6 +14,37 @@ const MAX_ROWS = 10_000;
 const RL_LIMIT = 5;
 const RL_WINDOW_MS = 5 * 60_000;
 const ASSESSMENT_FEATURE = "billing-upload-assessment";
+
+/**
+ * AISEC-06: topes antes de parsear y por celda. Holgados para un export completo de
+ * Azure (60-100 columnas, Tags/AdditionalInfo en JSON, 10.000 filas con la clave
+ * repetida en cada una); configurables por env.
+ */
+const envInt = (name: string, def: number) => {
+    const n = Number(process.env[name]);
+    return Number.isInteger(n) && n > 0 ? n : def;
+};
+const MAX_BODY_BYTES = envInt("BILLING_UPLOAD_MAX_BYTES", 32 * 1024 * 1024);
+const MAX_COLUMNS = envInt("BILLING_UPLOAD_MAX_COLUMNS", 200);
+const MAX_CELL_CHARS = envInt("BILLING_UPLOAD_MAX_CELL_CHARS", 4096);
+const MAX_KEY_CHARS = 128;
+const FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+/** null = filas válidas; si no, el motivo (400). */
+function unsafeRowsReason(rows: unknown[]): string | null {
+    for (const row of rows) {
+        if (!row || typeof row !== "object" || Array.isArray(row)) return "Fila inválida: se esperaba un objeto.";
+        const keys = Object.keys(row);
+        if (keys.length === 0 || keys.length > MAX_COLUMNS) return `Número de columnas fuera de rango (máx. ${MAX_COLUMNS}).`;
+        for (const k of keys) {
+            if (FORBIDDEN_KEYS.has(k) || k.length > MAX_KEY_CHARS) return "Nombre de columna no permitido.";
+            const v = (row as Record<string, unknown>)[k];
+            if (v !== null && typeof v !== "string" && typeof v !== "number") return "Tipo de celda inválido.";
+            if (typeof v === "string" && v.length > MAX_CELL_CHARS) return `Celda demasiado larga (máx. ${MAX_CELL_CHARS} caracteres).`;
+        }
+    }
+    return null;
+}
 
 export async function POST(request: NextRequest) {
     try {
@@ -32,9 +64,9 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const body = await request.json();
+        const body = (await readJsonCapped(request, MAX_BODY_BYTES)) as { data?: unknown; locale?: unknown } | null;
 
-        if (!body.data || !Array.isArray(body.data)) {
+        if (!body || typeof body !== "object" || !body.data || !Array.isArray(body.data)) {
             return NextResponse.json({ error: "Invalid CSV payload. Expected JSON array in 'data' field." }, { status: 400 });
         }
 
@@ -47,6 +79,9 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        const unsafe = unsafeRowsReason(rawData);
+        if (unsafe) return NextResponse.json({ error: unsafe }, { status: 400 });
+
         const focusData = await normalizeBillingCsv(rawData, tenantId, email);
 
         // Aggregate by ServiceName and ChargeCategory to keep the payload sent to the
@@ -54,7 +89,8 @@ export async function POST(request: NextRequest) {
         const aggregated: Record<string, FocusCostEntry> = {};
         
         focusData.forEach(entry => {
-            const key = `${entry.ServiceName}-${entry.ChargeCategory}`;
+            // JSON y no "a-b": con guion, ("a-b","c") y ("a","b-c") caían en el mismo grupo.
+            const key = JSON.stringify([entry.ServiceName, entry.ChargeCategory]);
             if (!aggregated[key]) {
                 aggregated[key] = {
                     BilledCost: 0,
@@ -97,6 +133,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true, assessment: assessmentMarkdown, mappedEntries: summaryData.length });
 
     } catch (error) {
+        if (error instanceof BodyLimitError) {
+            return NextResponse.json(
+                { error: error.status === 413 ? `Payload demasiado grande (máx. ${Math.round(MAX_BODY_BYTES / 1048576)} MB).` : error.message },
+                { status: error.status }
+            );
+        }
         if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         if (error instanceof CsvMappingError) {
             // La UI traduce `reason`; `error` queda para quien llame a la API directo.

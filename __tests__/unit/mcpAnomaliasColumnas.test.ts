@@ -17,6 +17,11 @@ import { crearBaseFalsa } from "../helpers/baseFalsaDdl";
 
 const { query, TENANT } = vi.hoisted(() => ({ query: vi.fn(), TENANT: "8b41364f-581a-4e43-b7cb-13138dac5517" }));
 
+// Hermético: la cuota es estricta (PERIM-06) y sin Redis respondería 503. Acá se prueba la tool, no el limitador.
+vi.mock("@/lib/rateLimiter", async (orig) => ({
+    ...(await orig<object>()),
+    default: { checkByKeyDistributed: vi.fn(async () => ({ allowed: true, remaining: 99, resetAt: Date.now() + 60_000 })) },
+}));
 vi.mock("@/modules/storage/db", () => ({ default: { query: (...a: unknown[]) => query(...a) } }));
 vi.mock("@/services/mcpApiKey.service", () => ({ authenticateMcpToken: vi.fn(async () => ({ tenantId: TENANT, keyId: 1 })) }));
 
@@ -121,7 +126,9 @@ describe("MCP get_anomalies_feed", () => {
         const r = await llamar("get_anomalies_feed");
 
         expect(r.count).toBe(0);
-        expect(r.note).toContain("Connection lost");
+        // PERIM-09: el mensaje del driver no sale; el errorId correlaciona con el log.
+        expect(r.note).not.toContain("Connection lost");
+        expect(r.note).toMatch(/error interno \(errorId [0-9a-f-]{36}\)/);
         expect(r.note).not.toMatch(/no disponible/i);
         // Sin esta línea el fallo sólo se veía como "no hay anomalías".
         expect(consolaError.mock.calls.some(([m]) => String(m).startsWith("[mcp] get_anomalies_feed"))).toBe(true);

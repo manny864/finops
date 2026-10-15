@@ -64,3 +64,9 @@ variable "app_principal_id" {
 variable "tags" {
   type = map(string)
 }
+
+variable "require_clean_scan_containers" {
+  description = "AISEC-09: containers cuyos blobs la app sólo puede leer si Defender for Storage los marcó 'No threats found'. Vacío = sin condición."
+  type        = list(string)
+  default     = []
+}

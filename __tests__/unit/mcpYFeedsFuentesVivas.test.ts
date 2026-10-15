@@ -28,6 +28,11 @@ const { query, scanLiveZombies, getBudgetConsumption, getAdvisorExecutiveData, c
     TENANT: "8b41364f-581a-4e43-b7cb-13138dac5517",
 }));
 
+// Hermético: la cuota es estricta (PERIM-06) y sin Redis respondería 503. Acá se prueba la tool, no el limitador.
+vi.mock("@/lib/rateLimiter", async (orig) => ({
+    ...(await orig<object>()),
+    default: { checkByKeyDistributed: vi.fn(async () => ({ allowed: true, remaining: 99, resetAt: Date.now() + 60_000 })) },
+}));
 vi.mock("@/modules/storage/db", () => ({ default: { query: (...a: unknown[]) => query(...a) }, initializeDatabase: vi.fn() }));
 vi.mock("@/services/mcpApiKey.service", () => ({ authenticateMcpToken: vi.fn(async () => ({ tenantId: TENANT, keyId: 1 })) }));
 vi.mock("@/lib/cache", () => ({
@@ -281,7 +286,7 @@ describe("MCP get_waste_zombies y get_zombie_resources", () => {
     });
 
     it("si el escaneo falla lo dice y lo registra: no se lee como 'no hay' ni culpa a una tabla", async () => {
-        scanLiveZombies.mockRejectedValue(new Error("ARG 429: demasiadas solicitudes"));
+        scanLiveZombies.mockRejectedValue(Object.assign(new Error("ARG 429: demasiadas solicitudes sig=SECRETO"), { statusCode: 429 }));
 
         for (const [tool, lista] of [["get_waste_zombies", "waste"], ["get_zombie_resources", "zombies"]] as const) {
             const r = await llamar(tool);
@@ -289,6 +294,8 @@ describe("MCP get_waste_zombies y get_zombie_resources", () => {
             expect(r.count).toBe(0);
             expect(r[lista]).toEqual([]);
             expect(r.note).toContain("429");
+            // PERIM-09: causa con texto fijo, nunca el mensaje original.
+            expect(r.note).not.toContain("SECRETO");
             expect(r.note).not.toMatch(/tabla|no disponible/i);
             // Sin esta línea el fallo sólo se veía como "no hay desperdicio".
             expect(errorDeLaTool(tool)).toBe(true);
@@ -354,7 +361,9 @@ describe("MCP get_budgets_status y get_budget_status", () => {
 
             expect(r.count).toBe(0);
             expect(r.budgets).toEqual([]);
-            expect(r.note).toContain("Connection lost");
+            // PERIM-09: el mensaje del driver no sale; el errorId correlaciona con el log.
+            expect(r.note).not.toContain("Connection lost");
+            expect(r.note).toMatch(/error interno \(errorId [0-9a-f-]{36}\)/);
             expect(r.note).not.toMatch(/no disponible/i);
             expect(errorDeLaTool(tool)).toBe(true);
         }
@@ -465,7 +474,7 @@ describe("feed de Power BI", () => {
     });
 
     it("zombies: si el escaneo falla responde 500, no una tabla vacía que Power BI importaría sin error", async () => {
-        scanLiveZombies.mockRejectedValue(new Error("ARG 429: demasiadas solicitudes"));
+        scanLiveZombies.mockRejectedValue(Object.assign(new Error("ARG 429: demasiadas solicitudes sig=SECRETO"), { statusCode: 429 }));
 
         const { status, cuerpo } = await pedirFeed("zombies");
 

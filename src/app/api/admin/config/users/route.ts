@@ -53,6 +53,12 @@ async function refreshMfaCache(tenantId: string): Promise<{ updated: number; err
     }
 }
 
+// Lista cerrada y canónica: evita que "owner"/"OWNER" esquive las comprobaciones
+// sensibles a mayúsculas, mientras los guards comparan en minúsculas (APPSEC-ID-02).
+const ROLES = ['Owner', 'Admin', 'Contributor', 'Colaborador', 'Reader', 'SuperAdmin'];
+const canonicalRole = (r: unknown) =>
+    typeof r === 'string' ? ROLES.find((x) => x.toLowerCase() === r.trim().toLowerCase()) : undefined;
+
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
@@ -328,7 +334,10 @@ export async function POST(request: NextRequest) {
                 // La pertenencia real queda validada por entra_oid + tenant RBAC.
 
                 let systemRole = 'USER';
-                const effectiveRole = user.role || 'Reader';
+                const effectiveRole = canonicalRole(user.role || 'Reader');
+                if (!effectiveRole) {
+                    return NextResponse.json({ error: "Rol inválido." }, { status: 400 });
+                }
 
                 // Owner solo puede otorgarlo un Owner existente o un SuperAdmin
                 // (transferencia de propiedad). Un Admin no puede crear/promover
@@ -337,12 +346,17 @@ export async function POST(request: NextRequest) {
                     return NextResponse.json({ error: "Solo el Owner del tenant (o un SuperAdmin) puede asignar el rol Owner." }, { status: 403 });
                 }
 
+                // Roles globales: solo un SuperAdmin real los otorga (APPSEC-ID-01).
+                if (effectiveRole === 'SuperAdmin' && !isSuperAdmin) {
+                    return NextResponse.json({ error: "Solo un SuperAdmin puede asignar el rol SuperAdmin." }, { status: 403 });
+                }
+
                 if (effectiveRole === 'SuperAdmin') {
                     if (tenantId !== SUPERADMIN_BOOTSTRAP_TENANT_ID || !user.email.toLowerCase().endsWith('@cscloudsolutions.com.ar')) {
                         return NextResponse.json({ error: `El rol SuperAdmin solo puede asignarse a usuarios de CSCloudSolutions en el tenant principal.` }, { status: 403 });
                     }
                     systemRole = 'SUPERADMIN';
-                } else if (isSuperAdminBootstrapEmail(user.email, tenantId)) {
+                } else if (isSuperAdmin && isSuperAdminBootstrapEmail(user.email, tenantId)) {
                     systemRole = 'SUPERADMIN';
                 }
 
@@ -362,10 +376,10 @@ export async function POST(request: NextRequest) {
                 await connection.execute(
                     `INSERT INTO Users (entra_oid, tenant_id, email, display_name, role, system_role, permissions, allowed_modules, invited_by)
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                     ON DUPLICATE KEY UPDATE email = VALUES(email), display_name = VALUES(display_name), role = VALUES(role), system_role = VALUES(system_role),
+                     ON DUPLICATE KEY UPDATE email = VALUES(email), display_name = VALUES(display_name), role = VALUES(role), system_role = IF(?, VALUES(system_role), system_role),
                                              permissions = COALESCE(VALUES(permissions), permissions),
                                              allowed_modules = COALESCE(VALUES(allowed_modules), allowed_modules)`,
-                    [user.entraOid, tenantId, user.email, user.displayName || null, effectiveRole === 'SuperAdmin' ? 'Admin' : effectiveRole, systemRole, permissionsJson, modulesJson, identity.email]
+                    [user.entraOid, tenantId, user.email, user.displayName || null, effectiveRole === 'SuperAdmin' ? 'Admin' : effectiveRole, systemRole, permissionsJson, modulesJson, identity.email, isSuperAdmin ? 1 : 0]
                 );
                 if (isNewUser) {
                     existingOids.add(user.entraOid);
@@ -387,7 +401,11 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
     try {
         const body = await request.json();
-        const { tenantId, userId, role, permissions } = body;
+        const { tenantId, userId, permissions } = body;
+        const role = body.role === undefined ? undefined : canonicalRole(body.role);
+        if (body.role !== undefined && !role) {
+            return NextResponse.json({ error: "Rol inválido." }, { status: 400 });
+        }
 
         // role, permissions, allowedModules y allowedSubscriptionIds son
         // independientes: se puede mandar cualquiera de ellos por separado.
@@ -445,17 +463,25 @@ export async function PUT(request: NextRequest) {
 
             if (role !== undefined) {
                 let systemRole = 'USER';
+                if (role === 'SuperAdmin' && !isSuperAdmin) {
+                    return NextResponse.json({ error: 'Solo un SuperAdmin puede asignar el rol SuperAdmin.' }, { status: 403 });
+                }
                 if (role === 'SuperAdmin') {
                     if (tenantId !== SUPERADMIN_BOOTSTRAP_TENANT_ID || !targetEmail.toLowerCase().endsWith('@cscloudsolutions.com.ar')) {
                         return NextResponse.json({ error: 'El rol SuperAdmin solo puede asignarse a usuarios de CSCloudSolutions en el tenant principal.' }, { status: 403 });
                     }
                     systemRole = 'SUPERADMIN';
-                } else if (isSuperAdminBootstrapEmail(targetEmail, tenantId)) {
+                } else if (isSuperAdmin && isSuperAdminBootstrapEmail(targetEmail, tenantId)) {
                     systemRole = 'SUPERADMIN';
                 }
                 const dbRole = role === 'SuperAdmin' ? 'Admin' : role;
-                setClauses.push('role = ?', 'system_role = ?');
-                params.push(dbRole, systemRole);
+                setClauses.push('role = ?');
+                params.push(dbRole);
+                // Un no-SuperAdmin nunca modifica el rol global existente.
+                if (isSuperAdmin) {
+                    setClauses.push('system_role = ?');
+                    params.push(systemRole);
+                }
             }
 
             if (permissions !== undefined) {
