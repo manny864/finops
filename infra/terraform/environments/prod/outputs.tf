@@ -88,3 +88,10 @@ output "custom_domain_dns_instructions" {
 output "key_vault_names" {
   value = { for k, s in module.stamp : k => s.key_vault_name }
 }
+
+# INFRA-05: reglas PERMANENTES del firewall de cada vault, por nombre de vault. Lo lee
+# kv-firewall-reconcile.yml para no tocarlas: toda regla /32 que no esté acá ni tenga
+# un lease vigente es una IP de runner huérfana y se quita.
+output "key_vault_permanent_ip_rules" {
+  value = { for k, s in module.stamp : s.key_vault_name => var.stamps[k].keyvault_allowed_ip_rules }
+}

@@ -1,0 +1,92 @@
+# INFRA-05 — Reconciliador del firewall del Key Vault.
+#
+# terraform.yml abre la IP de su runner en el firewall del vault y la cierra con
+# `if: always()`. Eso no cubre un runner perdido ni una terminación forzada, y Key
+# Vault no tiene TTL para una IP rule. Por eso la apertura deja antes un lease con
+# vencimiento (blob `kv-firewall-leases/<vault>/<ip>/<job>` en el contenedor del
+# tfstate) y este workflow, en otro runner y por su cuenta, quita las reglas /32
+# que no son permanentes y no tienen lease vigente.
+#
+# SLA de cierre ante runner perdido: TTL del lease (timeout del job + 10 min: 70 en
+# plan-apply, 40 en drift) + período de este cron (15 min, más el retraso que
+# GitHub le agregue al schedule). Una falla al quitar una regla deja este workflow
+# en rojo (alerta), nunca éxito silencioso. Lógica y pruebas:
+# infra/scripts/kv-firewall-lease.sh y __tests__/unit/kvFirewallLeaseInfra05.test.ts.
+name: kv-firewall-reconcile
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  # Limpieza rápida apenas termina (o se cancela) una corrida de Terraform. No
+  # reemplaza al cron: si ese evento no llega, el cron igual pasa.
+  workflow_run:
+    workflows: [terraform]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Mismo subject OIDC (`environment:<env>`) y mismos secrets/vars que plan-apply.
+    environment: ${{ matrix.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    concurrency:
+      group: kv-firewall-reconcile-${{ matrix.environment }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [prod, staging]
+    defaults:
+      run:
+        working-directory: infra/terraform/environments/${{ matrix.environment }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.9.8
+          terraform_wrapper: false
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Terraform init
+        run: |
+          terraform init -input=false \
+            -backend-config="resource_group_name=${{ secrets.TFSTATE_RG }}" \
+            -backend-config="storage_account_name=${{ secrets.TFSTATE_STORAGE }}" \
+            -backend-config="container_name=${{ vars.TFSTATE_CONTAINER || 'tfstate' }}" \
+            -backend-config="use_azuread_auth=true" \
+            -backend-config="use_oidc=true" \
+            -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
+            -backend-config="client_id=${{ secrets.AZURE_CLIENT_ID }}" \
+            -backend-config="key=${{ matrix.environment }}/terraform.tfstate"
+      - name: Quitar reglas temporales vencidas o huérfanas
+        env:
+          LEASE_ACCOUNT: ${{ secrets.TFSTATE_STORAGE }}
+          LEASE_CONTAINER: ${{ vars.TFSTATE_CONTAINER || 'tfstate' }}
+        run: |
+          VAULTS=$(terraform output -json key_vault_names 2>/dev/null | jq -r '.[]?' | tr '\n' ' ' || true)
+          if [ -z "${VAULTS// }" ]; then
+            echo "Sin key_vault_names en el state de ${{ matrix.environment }} — nada que reconciliar."
+            exit 0
+          fi
+          PERMANENT_FILE=$(mktemp)
+          # Sin el output (state aplicado antes de INFRA-05) no se sabe qué es permanente:
+          # el script sólo quita reglas con lease vencido y avisa.
+          if PERM=$(terraform output -json key_vault_permanent_ip_rules 2>/dev/null); then
+            jq -r 'to_entries[] | .key as $v | .value[] | "\($v) \(.)"' <<< "$PERM" > "$PERMANENT_FILE"
+            export PERMANENT_KNOWN=1
+          fi
+          VAULTS="$VAULTS" PERMANENT_FILE="$PERMANENT_FILE" \
+            "$GITHUB_WORKSPACE/infra/scripts/kv-firewall-lease.sh" reconcile

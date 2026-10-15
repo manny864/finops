@@ -113,6 +113,29 @@ infraestructura nueva. Costo: el private endpoint, ~USD 7/mes por vault.
 Requiere que el `remove` corra siempre (`if: always()`), o la allowlist se
 llena de IPs muertas de runners.
 
+**INFRA-05 — cierre independiente del runner.** `if: always()` no cubre un runner
+perdido ni una terminación forzada, y Key Vault no tiene TTL para una IP rule. Por eso:
+
+- La apertura (`infra/scripts/kv-firewall-lease.sh open`) escribe **antes** de tocar el
+  firewall un lease por vault: blob `kv-firewall-leases/<vault>/<ip>/<run_id>-<attempt>-<job>`
+  en el contenedor del tfstate, con vault, IP, job, dueño, URL de la corrida y
+  vencimiento (metadata `expires`). Si el lease no se puede escribir, no se abre nada.
+- El vencimiento es el `timeout-minutes` del job + 10 min (plan-apply 60 → 70, drift 30 → 40).
+- El cierre (`close`) borra su lease, no quita la regla si otro job vigente tiene lease
+  sobre la misma IP, reintenta 5 veces y, si no puede, deja el job en rojo.
+- `.github/workflows/kv-firewall-reconcile.yml` corre cada 15 min y al terminar cada
+  corrida de `terraform`, en otro runner, para prod y staging. Quita toda regla /32 que
+  no sea permanente (output `key_vault_permanent_ip_rules`) y no tenga lease vigente, y
+  borra los leases vencidos. Nunca toca reglas permanentes ni CIDR más anchos que /32.
+  Si el output de permanentes todavía no está en el state, sólo quita reglas con lease
+  vencido. Una regla quitada por vencimiento sale como warning; no poder quitarla deja el
+  workflow en rojo.
+- **SLA de cierre ante runner perdido:** TTL del lease + 15 min de cron (más el retraso
+  del schedule de GitHub): ≤ ~90 min en plan-apply, ≤ ~60 min en drift.
+
+Lo definitivo sigue siendo un runner aislado con conectividad privada al vault (sin
+abrir IPs públicas); esto es la transición.
+
 **Cómo quedó implementado:**
 
 | Pieza | Dónde |
@@ -123,6 +146,8 @@ llena de IPs muertas de runners.
 | Paso por el stamp y los tres environments | `modules/stamp/`, `environments/*/` |
 | Output `key_vault_names` que consume el workflow | `environments/*/outputs.tf` |
 | Pasos "Abrir/Cerrar el Key Vault" en `plan-apply` y en `drift` | `.github/workflows/terraform.yml` |
+| Lease, cierre con reintentos y reconciliación (INFRA-05) | `infra/scripts/kv-firewall-lease.sh`, `.github/workflows/kv-firewall-reconcile.yml` |
+| Output `key_vault_permanent_ip_rules` que lee el reconciliador | `environments/prod/outputs.tf` |
 | `keyvault_private_endpoint_enabled` + `keyvault_network_acls_enabled` en `true` | `environments/prod/terraform.tfvars` |
 
 **Alcance de esos pasos:** corren también en `pull_request`, así que un PR
