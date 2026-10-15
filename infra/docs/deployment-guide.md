@@ -82,10 +82,26 @@ y operación de cualquier lease, preservar una copia restringida y usar
 `terraform state push` con las validaciones de lineage/serial activas; no usar
 `-force` ni automatizar `force-unlock`.
 
-**Red sin VMs (activa desde 2026-10-15; cierre operativo pendiente).** El bootstrap configura
+**Transicion a runners Azure (2026-10-15; publicacion pendiente).** Se desplegaron
+dos `Standard_B2s_v2` en westus2, una por ambiente, con servicios de runner online
+y sin entrada SSH. Las subredes independientes usan `Microsoft.Storage.Global`
+hacia el backend y `Microsoft.KeyVault` hacia su propio vault. Cinco sondeos
+autenticados consecutivos por VM funcionaron y el vault ajeno rechazo por
+`ForbiddenByFirewall`. No se movio el state ni se habilito default Allow.
+Ver [configuracion, costo, mantenimiento y baja](../terraform/runners/README.md).
+
+Los selectores de plan/apply, drift y reconciliacion estan cambiados **localmente**,
+sin push. Los workflows remotos siguen usando hosted Ubuntu y mantienen la
+intermitencia anterior. Las pruebas por VM usaron tokens temporales del operador:
+falta publicar y comprobar OIDC, planes, aislamiento y reconciliacion en Actions.
+INFRA-09 permanece abierto. Mantener las ACL de subred en el tfvars del bootstrap
+y en `network.tfvars`; no aplicar una version anterior que las retire.
+
+**Red temporal de runners hosted (activa desde 2026-10-15).** El bootstrap configura
 `default_action = "Deny"` y `bypass = ["None"]`. El endpoint continúa público,
-pero sólo admite las IPv4 `/32` temporales de los consumidores autorizados;
-Shared Key continúa apagada. No se crean VMs, subredes, NAT ni IPs públicas.
+pero admite las IPv4 `/32` temporales y las dos subredes autorizadas;
+Shared Key continúa apagada. El mecanismo temporal se conserva durante la
+transicion: no se desactivo el reconciliador de 15 minutos.
 
 **Evidencia real (#134 / #135):** bootstrap aplicado con una única actualización
 in-place de la cuenta, sin drift posterior. Sin regla local, una identidad Entra

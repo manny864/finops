@@ -56,9 +56,9 @@ def main():
             print(f"{report['check_type']}: {report['summary']}", flush=True)
         mutations = [
             ("backend Allow", "infra/terraform/bootstrap/main.tf",
-             'default_action = "Deny"', 'default_action = "Allow"', "CKV2_FINOPS_1"),
+             'default_action             = "Deny"', 'default_action             = "Allow"', "CKV2_FINOPS_1"),
             ("backend missing firewall", "infra/terraform/bootstrap/main.tf",
-             '  network_rules {\n    default_action = "Deny"\n    bypass         = ["None"]\n  }\n',
+             '  network_rules {\n    default_action             = "Deny"\n    bypass                     = ["None"]\n    virtual_network_subnet_ids = var.runner_subnet_ids\n  }\n',
              "", "CKV2_FINOPS_1"),
             ("backend Shared Key", "infra/terraform/bootstrap/main.tf",
              "shared_access_key_enabled       = false", "shared_access_key_enabled       = true",
@@ -90,7 +90,7 @@ def main():
         account = re.search(r'resource "azurerm_storage_account" "tfstate" \{.*?\n\}', backend, re.S)[0]
         account = re.sub(r"^\s*# checkov:skip=.*\n", "\n", account, flags=re.M)
         account = account.replace('"tfstate" {', '"unreviewed" {', 1)
-        account = account.replace('default_action = "Deny"', 'default_action = "Allow"')
+        account = account.replace('default_action             = "Deny"', 'default_action             = "Allow"')
         target = root / "infra/terraform/bootstrap/unreviewed.tf"
         target.write_text(account)
         scan(root, "CKV_AZURE_59")

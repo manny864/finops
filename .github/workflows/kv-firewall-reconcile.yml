@@ -30,7 +30,7 @@ permissions:
 
 jobs:
   reconcile:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, "finops-${{ matrix.environment }}"]
     timeout-minutes: 10
     # Mismo subject OIDC (`environment:<env>`) y mismos secrets/vars que plan-apply.
     environment: ${{ matrix.environment }}

@@ -57,6 +57,7 @@ Diagrama completo en `docs/architecture.mmd`.
 ```text
 terraform/
   bootstrap/          storage account del estado remoto
+  runners/            runners Azure separados para Terraform de prod/staging
   environments/
     dev/  prod/       plano de control + N stamps
   modules/
