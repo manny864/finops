@@ -180,7 +180,7 @@ variable "image_name" {
 }
 
 variable "migrate_image_tag" {
-  description = "Tag para el job de migraciones; se construye con --target builder. Ver modules/stamp/variables.tf."
+  description = "Tag para el job de migraciones; se construye con --target migrator (builder sin root, INFRA-08). Ver modules/stamp/variables.tf."
   type        = string
   default     = "builder"
 }

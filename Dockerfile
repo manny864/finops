@@ -48,6 +48,17 @@ ENV NEXT_PUBLIC_CLIENT_ID=$NEXT_PUBLIC_CLIENT_ID \
 
 RUN npm run build
 
+# Imagen del job de migraciones (INFRA-08). Necesita scripts/, migraciones, tsx y
+# node_modules completos, que el runner podado no tiene; por eso parte de builder.
+# Corre sin root. A propósito NO se hace chown de /app: el código y node_modules
+# quedan de root y el usuario sólo los lee. Escribe únicamente en su $HOME
+# (logs/cache de npm) y en /tmp (cache de tsx).
+FROM builder AS migrator
+RUN addgroup --system --gid 1002 migrate \
+ && adduser --system --uid 1002 --ingroup migrate --home /home/migrate migrate
+USER migrate
+CMD ["npm", "run", "migrate"]
+
 # Production image, copy all the files and run next
 FROM base AS runner
 WORKDIR /app
