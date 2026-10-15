@@ -105,10 +105,10 @@ resource "azurerm_resource_group" "tfstate" {
 
 resource "azurerm_storage_account" "tfstate" {
   # checkov:skip=CKV_AZURE_33:owner=CloudOps; expires=2027-01-15; Queue unused; Blob-only backend with Entra RBAC.
-  # checkov:skip=CKV_AZURE_59:owner=CloudOps; expires=2027-01-15; Public endpoint required by hosted runners; Deny plus temporary /32 ARM leases (INFRA-09 activation pending).
+  # checkov:skip=CKV_AZURE_59:owner=CloudOps; expires=2027-01-15; Public endpoint required by hosted runners; Deny plus temporary /32 ARM leases; CI connectivity remains intermittent.
   # checkov:skip=CKV_AZURE_206:owner=CloudOps; expires=2027-01-15; Single-region LRS accepted; versioning and 30-day recovery tested.
   # checkov:skip=CKV_AZURE_36:owner=CloudOps; expires=2027-01-15; No trusted-service bypass needed; explicit runner /32 is narrower.
-  # checkov:skip=CKV2_AZURE_33:owner=CloudOps; expires=2027-01-15; No private runner route; Deny plus temporary /32 ARM leases (INFRA-09 activation pending).
+  # checkov:skip=CKV2_AZURE_33:owner=CloudOps; expires=2027-01-15; No private runner route; Deny plus temporary /32 ARM leases; CI connectivity remains intermittent.
   # checkov:skip=CKV2_AZURE_1:owner=CloudOps; expires=2027-01-15; Microsoft-managed encryption accepted; no CMK compliance mandate.
   # Storage Account: sólo alfanumérico y máximo 24 caracteres, así que el token
   # "tfstate" se abrevia a "tf" — con el nombre completo el sufijo "sa" quedaba
