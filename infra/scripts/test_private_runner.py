@@ -61,6 +61,13 @@ class PrivateRunnerTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("refusing cleanup", result.stderr)
 
+    def test_runner_hook_paths_have_supported_script_extensions(self):
+        import re
+        paths = re.findall(r"Environment=ACTIONS_RUNNER_HOOK_JOB_(?:STARTED|COMPLETED)=([^\\]+)",
+                           runner.REGISTER)
+        self.assertEqual(len(paths), 2)
+        self.assertTrue(all(path.endswith(".sh") for path in paths))
+
 
 if __name__ == "__main__":
     unittest.main()
