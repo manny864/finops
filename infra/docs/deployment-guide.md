@@ -82,10 +82,31 @@ y operación de cualquier lease, preservar una copia restringida y usar
 `terraform state push` con las validaciones de lineage/serial activas; no usar
 `-force` ni automatizar `force-unlock`.
 
-**Red sin VMs (preparada; pendiente publicar y activar).** El bootstrap configura
+**Red sin VMs (activa desde 2026-10-15; cierre operativo pendiente).** El bootstrap configura
 `default_action = "Deny"` y `bypass = ["None"]`. El endpoint continúa público,
 pero sólo admite las IPv4 `/32` temporales de los consumidores autorizados;
 Shared Key continúa apagada. No se crean VMs, subredes, NAT ni IPs públicas.
+
+**Evidencia real (#134 / #135):** bootstrap aplicado con una única actualización
+in-place de la cuenta, sin drift posterior. Sin regla local, una identidad Entra
+con permisos de datos recibe `AuthorizationFailure` en ambos contenedores.
+Planes completos con `Deny`: staging `38790400020`, prod `38792939271`.
+Reconciliación completa de ambos ambientes: `38791331427`.
+Se preservó una lease vigente y luego se simuló un runner perdido dejando su
+regla con metadata vencida: otro runner la retiró por ARM, antes de Blob
+(`38792920840`, paso de limpieza correcto aunque el job falló después al abrir
+su propio acceso; el otro job de la matriz fue cancelado por la cola compartida).
+
+**Bloqueo de cierre:** también hubo fallos de conectividad 403 en runners reales
+(`38787386456`, `38789557884`, `38791414688`). La espera de propagación mejora
+la preparación pero no elimina todos los fallos; una corrida verde no garantiza
+conectividad en la siguiente. INFRA-09 sigue abierto por esta intermitencia.
+No se atribuye cada fallo a una región concreta sin evidencia del origen
+efectivo hacia Blob. Falta elegir una ruta estable: runners fuera de la red
+Azure afectada, egress controlado o migración del backend con revisión de región
+y residencia. No se cambiaron runners ni residencia sin autorización.
+El firewall queda en `Deny` por la orden de activación; ante un runner afectado
+CI falla cerrado. El reconciliador sigue activo, sin fallback automático a `Allow`.
 
 `infra/scripts/tfstate-firewall.py open` obtiene la IPv4 pública, registra primero
 `TFStateFirewallLease` (dueño, vencimiento e IPs) como tag ARM y luego agrega la

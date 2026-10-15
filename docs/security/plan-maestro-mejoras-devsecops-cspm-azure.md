@@ -26,7 +26,7 @@ Esta ampliación complementa P0/P1/P2 y STRIDE-07; no los marca como resueltos. 
 | ✅ INFRA-07 | Media | [keyvault/main.tf](../../infra/terraform/modules/keyvault/main.tf), 7–14, 22–49; [prod/variables.tf](../../infra/terraform/environments/prod/variables.tf) | Firewall/PE tienen defaults desactivados. Con `create=false`, las ACL y protecciones del recurso creado no administran el vault existente. Un PE no elimina el endpoint público. | 10/10 |
 | ✅ INFRA-08 | Media | [Dockerfile](../../Dockerfile), 24–49, 58–67; [_deploy.yml](../../.github/workflows/_deploy.yml), 131; [stamp/main.tf](../../infra/terraform/modules/stamp/main.tf), 656–662 | Runtime usa `nextjs`, pero migraciones usan la imagen builder, sin `USER`, con fuentes/devDependencies. No-root del runtime no protege ese job. | 10/10 |
 | INFRA-09 | Media | [bootstrap/main.tf](../../infra/terraform/bootstrap/main.tf), 105–107, 118–121, 140–144 | Backend privado a nivel de contenedor y autenticado, pero sin restricción de red en bootstrap y con rol de datos a nivel de cuenta. Riesgo de alcance transversal si se compromete el principal. No hay lectura anónima demostrada. | 9/10 |
-| INFRA-10 | Baja | [terraform.yml](../../.github/workflows/terraform.yml), 72–84, 183–207 | Skips globales pueden ocultar regresiones de red/Shared Key/autenticación local. Framework sólo Terraform. Checkov sí bloquea; `continue-on-error` corresponde al upload SARIF. | 10/10 |
+| ✅ INFRA-10 | Baja | [terraform.yml](../../.github/workflows/terraform.yml), 72–84, 183–207 | Skips globales pueden ocultar regresiones de red/Shared Key/autenticación local. Framework sólo Terraform. Checkov sí bloquea; `continue-on-error` corresponde al upload SARIF. | 10/10 |
 | INFRA-11 | Baja | [Dockerfile](../../Dockerfile), 14; [_deploy.yml](../../.github/workflows/_deploy.yml); [promote-prod.yml](../../.github/workflows/promote-prod.yml), 58–70 | Base por tag y reconstrucción de prod: mismo commit no garantiza mismo artefacto que staging. Tags SHA pueden sobrescribirse. Endurecimiento de reproducibilidad, no CVE o sustitución demostrada. | 9/10 |
 
 ### INFRA-01 — Separar código no confiable e identidad de producción
@@ -260,21 +260,30 @@ Fijar base a digest verificado de Node 22 Alpine con actualización automatizada
 `tfstate-prod` (el antiguo mezclaba copias de ambientes), retención de contenedores
 y lock aplicados. Recuperación/versionado y lease comprobados con blobs de prueba;
 plan del bootstrap sin drift. Workflows preparados para verificar aislamiento
-cruzado y del archivo, y `init -lockfile=readonly`. **No cerrado:** preparada la
-alternativa sin VMs: `/32` temporal, lease en tags ARM, cierre `always()` y
-reconciliación independiente del acceso Blob. Rol de staging y ciclo ARM local
-comprobados; falta publicar workflows, validar ambos ambientes y activar/probar
-`Deny` sin bloquear CI. El vencimiento requiere reconciliación; no es expiración
-nativa de Azure. Los runners Azure en la misma región que Storage no pueden
-usar esta ruta por IP y requieren revisión antes de activar el firewall.
+cruzado y del archivo, y `init -lockfile=readonly`. Firewall `Deny`/bypass `None`
+**activo**, sin VMs nuevas; workflows publicados en #134/#135 con `/32`
+temporal, lease ARM, cierre `always()` y reconciliación independiente de Blob.
+Denegación autenticada sin regla comprobada en ambos contenedores. Planes
+staging `38790400020` y prod `38792939271` correctos con Deny, reconciliador
+de ambos ambientes `38791331427` correcto. El runner independiente
+`38792920840` retiró por ARM una regla local simulada como vencida antes de
+intentar abrir su propio acceso; falló después por conectividad de ese runner.
+**No cerrado:** persisten fallos 403 intermitentes de runners alojados, incluso
+con propagación acotada y sondeos consecutivos. Debe decidirse una ruta estable;
+no se migró residencia del state ni se aumentó el costo/cambió plataforma de
+runners sin aprobación. CI falla cerrado; no se vuelve a Allow automáticamente.
+El vencimiento requiere reconciliación; no es expiración nativa de Azure.
 Ver [operación y recuperación](../../infra/docs/deployment-guide.md#protección-del-state--infra-09-2026-10-15).
-**INFRA-10 implementado localmente (pendiente publicar):** Checkov 3.3.26 analiza
+**INFRA-10 resuelto y publicado (#134):** Checkov 3.3.26 analiza
 Terraform, Dockerfile y workflows; sin skips globales ni baseline. Excepciones
 por recurso con CloudOps, vencimiento y compensación/riesgo explícito; validador
 bloqueante de fechas y controles protegidos. Defaults Shared Key/local auth
 apagados y Blob por identidad administrada. Política local de Deny que también
 detecta eliminar el firewall. Controles negativos ejecutan el scanner real
-sobre copias aisladas sin tfvars/state. No se aplicó Terraform ni se hizo push.
+sobre copias aisladas sin tfvars/state. CI completo `38783433358` y scan
+`38783433406` correctos; main CI `38785089430` correcto. Los análisis también
+pasaron en los dispatch de staging/prod. No se aplicaron cambios del stamp;
+el único apply de esta activación modificó el firewall del backend.
 Ver [operación del scan](../../infra/README.md#análisis-de-seguridad-de-ci-infra-10).
 
 El bootstrap usa TLS 1.2, Shared Key deshabilitada, contenedor privado y acceso de datos por RBAC. CI usa `use_azuread_auth=true` y `use_oidc=true`. No hay evidencia de backend con SAS anónimo ni una vulnerabilidad demostrada por SAS. Confirmar cualquier SAS operativo fuera de este flujo sin copiarlo al plan.
@@ -303,7 +312,7 @@ Checkov no está desactivado: scan sin OIDC, versión fijada en requirements y r
 
 ### Registro de cierre (2026-10-15)
 
-Hallazgos remediados, mergeados a `main`, desplegados en staging y promovidos a prod. Cada cambio incluye tests de contrato con control negativo (mutaciones detectadas). Pendientes del plan: INFRA-09, INFRA-10, INFRA-11, STRIDE-01..09 e INT-01..05.
+Hallazgos remediados, mergeados a `main` y desplegados en los ambientes correspondientes; INFRA-10 es un control de CI compartido, no un despliegue de aplicación. Cada cambio incluye tests de contrato con control negativo (mutaciones detectadas). Pendientes del plan: INFRA-09, INFRA-11, STRIDE-01..09 e INT-01..05.
 
 | ID | Estado | Commits |
 |---|---|---|
@@ -315,6 +324,7 @@ Hallazgos remediados, mergeados a `main`, desplegados en staging y promovidos a 
 | INFRA-06 | ✅ Resuelto | 7ffed68, 711d37e, feeb2e5, 9a24e82 |
 | INFRA-07 | ✅ Resuelto | a07fb98, cec6cbf |
 | INFRA-08 | ✅ Resuelto | 4dc6950 |
+| INFRA-10 | ✅ Resuelto | 1af9a77, 900d87c (#134) |
 | APPSEC-ID-01 | ✅ Resuelto | 5de0f9f |
 | APPSEC-ID-02 | ✅ Resuelto | 06130ef |
 | APPSEC-ID-03 | ✅ Resuelto | e35c0ff |
