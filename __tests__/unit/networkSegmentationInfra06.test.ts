@@ -125,9 +125,10 @@ describe("INFRA-06: flags, asociaciones y salida", () => {
     expect(recurso("azurerm_subnet_route_table_association", "apps_egress")).toMatch(/subnet_id\s*=\s*azurerm_subnet\.apps\.id/);
   });
 
-  it("staging encendido; prod declara la web corporativa antes de encender", () => {
+  it("staging y prod encendidos; prod declara la web corporativa", () => {
     expect(leer(`${STG}/network.tfvars`)).toMatch(/us\s*=\s*\{\s*enabled\s*=\s*true/);
     const prod = leer(`${PROD}/network.tfvars`);
+    expect(prod).toMatch(/\n\s*enabled\s*=\s*true/);
     expect(prod).toMatch(/mysql_extra_client_prefixes\s*=\s*\[[\s\S]*?"10\.50\.40\.0\/24"/);
   });
 

@@ -4,8 +4,8 @@
 # La subred de la VM de backup (mysql_backup_vm_subnet_prefix) se suma sola: no listarla acá.
 network_segmentation = {
   us = {
-    # Apagado hasta verificarlo en staging (environments/staging/network.tfvars).
-    enabled = false
+    # Verificado en staging (NSGs + prueba negativa desde una subred no autorizada).
+    enabled = true
 
     mysql_extra_client_prefixes = [
       # Web corporativa cscloudsolutions (App Service cscs-asp-wus2-prod, RG cscs-webpage-wus2-prod):
