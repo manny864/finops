@@ -9,6 +9,7 @@
 # en la VNet del stamp: Private Link admite el endpoint en otra región que el
 # recurso.
 resource "azurerm_cognitive_account" "this" {
+  # checkov:skip=CKV2_AZURE_22:owner=CloudOps; expires=2027-01-15; Microsoft-managed encryption accepted; private endpoint and Entra auth, no CMK mandate.
   name                = var.name
   location            = var.location
   resource_group_name = var.resource_group_name

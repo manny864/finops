@@ -260,10 +260,22 @@ Fijar base a digest verificado de Node 22 Alpine con actualización automatizada
 `tfstate-prod` (el antiguo mezclaba copias de ambientes), retención de contenedores
 y lock aplicados. Recuperación/versionado y lease comprobados con blobs de prueba;
 plan del bootstrap sin drift. Workflows preparados para verificar aislamiento
-cruzado y del archivo, y `init -lockfile=readonly`. **No cerrado:** falta una ruta
-de runner/reconciliación que permita restringir la red del backend sin bloquear CI.
+cruzado y del archivo, y `init -lockfile=readonly`. **No cerrado:** preparada la
+alternativa sin VMs: `/32` temporal, lease en tags ARM, cierre `always()` y
+reconciliación independiente del acceso Blob. Rol de staging y ciclo ARM local
+comprobados; falta publicar workflows, validar ambos ambientes y activar/probar
+`Deny` sin bloquear CI. El vencimiento requiere reconciliación; no es expiración
+nativa de Azure. Los runners Azure en la misma región que Storage no pueden
+usar esta ruta por IP y requieren revisión antes de activar el firewall.
 Ver [operación y recuperación](../../infra/docs/deployment-guide.md#protección-del-state--infra-09-2026-10-15).
-INFRA-10 sigue pendiente.
+**INFRA-10 implementado localmente (pendiente publicar):** Checkov 3.3.26 analiza
+Terraform, Dockerfile y workflows; sin skips globales ni baseline. Excepciones
+por recurso con CloudOps, vencimiento y compensación/riesgo explícito; validador
+bloqueante de fechas y controles protegidos. Defaults Shared Key/local auth
+apagados y Blob por identidad administrada. Política local de Deny que también
+detecta eliminar el firewall. Controles negativos ejecutan el scanner real
+sobre copias aisladas sin tfvars/state. No se aplicó Terraform ni se hizo push.
+Ver [operación del scan](../../infra/README.md#análisis-de-seguridad-de-ci-infra-10).
 
 El bootstrap usa TLS 1.2, Shared Key deshabilitada, contenedor privado y acceso de datos por RBAC. CI usa `use_azuread_auth=true` y `use_oidc=true`. No hay evidencia de backend con SAS anónimo ni una vulnerabilidad demostrada por SAS. Confirmar cualquier SAS operativo fuera de este flujo sin copiarlo al plan.
 
@@ -275,7 +287,7 @@ Distinguir controles:
 
 Separar acceso de datos por contenedor/ambiente, eliminar privilegios heredados innecesarios y validar compatibilidad del backend al limitar scope. Endurecer endpoint con firewall/PE sólo después de dar conectividad al runner y bootstrap. Habilitar recuperación/versionado y probar restauración compatible con leases. State puede contener secretos aunque estén marcados `sensitive`; proteger planes y outputs como datos sensibles, con acceso/retención mínimos.
 
-Checkov no está desactivado: scan sin OIDC, action fijada a SHA y resultados bloqueantes. Sustituir skips globales por excepciones locales documentadas (motivo, dueño, vencimiento y control compensatorio); revisar especialmente red, Shared Key y autenticación local. Ampliar análisis a Dockerfile y workflows usando frameworks soportados por la versión fijada y baselines explícitos. Un SHA de action no fija necesariamente el digest de su imagen transitiva.
+Checkov no está desactivado: scan sin OIDC, versión fijada en requirements y resultados bloqueantes. Se sustituyeron los skips globales por excepciones locales documentadas (motivo, dueño, vencimiento y control compensatorio/riesgo residual). Se amplió a Dockerfile y workflows sin baseline de hallazgos. La versión de Checkov está fijada, no todo el árbol de dependencias de pip; sigue siendo un riesgo residual de reproducibilidad, no una garantía de instalación hermética.
 
 **Aceptación:** una regresión de Shared Key/red falla en CI; subir SARIF no es condición de bloqueo; PR no obtiene state productivo; aislamiento entre ambientes probado; restauración y locking documentados; ninguna excepción nueva se acepta sin revisión.
 

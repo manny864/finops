@@ -15,8 +15,8 @@ import { RUTAS_PRODUCCION, renderizarWorker } from "../../infra/scripts/renderiz
  *  - La VM de backups tiene SU rol de datos, sólo sobre el contenedor, y el runbook worker sube
  *    con esa identidad: sin SAS, sin clave de cuenta y verificando el código de salida de cada
  *    paso (un `mysqldump | gzip` dejaba pasar dumps truncados).
- *  - Apagar Shared Key es un interruptor del stamp que por defecto NO cambia nada, y un check
- *    impide apagarlo con la app todavía en la connection string.
+ *  - Shared Key está apagada por defecto con identidad administrada activa (INFRA-10), y un
+ *    check impide apagarla con la app todavía en la connection string.
  *
  * El runbook se publica FUERA de Terraform (`content` está en ignore_changes), así que el
  * heredoc es la fuente de verdad pero no se ejecuta solo: acá se renderiza con los valores por
@@ -75,10 +75,15 @@ describe("Shared Key: interruptor del stamp", () => {
   const stampVars = leer(`${TF}/modules/stamp/variables.tf`);
   const prodVars = leer(`${PROD}/variables.tf`);
 
-  it("viene encendido en todos lados: apagarlo es una decisión, no un default", () => {
-    expect(stampVars).toMatch(/variable "storage_shared_access_key_enabled"[\s\S]*?default\s*=\s*true/);
-    expect(prodVars).toMatch(/variable "storage_shared_access_key_enabled"[\s\S]*?default\s*=\s*true/);
-    expect(leer(`${TF}/modules/storage/variables.tf`)).toMatch(/variable "shared_access_key_enabled"[\s\S]*?default\s*=\s*true/);
+  it("viene apagada con identidad administrada activa: defaults coherentes de INFRA-10", () => {
+    const variable = (source: string, name: string) =>
+      source.match(new RegExp(`variable "${name}" \\{[\\s\\S]*?\\n\\}`))?.[0] ?? "";
+    for (const source of [stampVars, prodVars]) {
+      expect(variable(source, "storage_shared_access_key_enabled")).toMatch(/default\s*=\s*false/);
+      expect(variable(source, "blob_managed_identity_enabled")).toMatch(/default\s*=\s*true/);
+    }
+    expect(variable(leer(`${TF}/modules/storage/variables.tf`), "shared_access_key_enabled"))
+      .toMatch(/default\s*=\s*false/);
   });
 
   it("el stamp ya no lo fija en true: lo toma de su variable", () => {

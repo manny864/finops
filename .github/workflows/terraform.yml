@@ -8,6 +8,7 @@
 name: terraform
 
 on:
+  # checkov:skip=CKV_GHA_7:owner=CloudOps; expires=2027-01-15; Dispatch selects a validated environment and explicit apply confirmation; no authenticated PR jobs.
   workflow_dispatch:
     inputs:
       environment:
@@ -42,6 +43,12 @@ on:
   pull_request:
     paths:
       - 'infra/terraform/**'
+      - 'infra/checkov/**'
+      - 'infra/scripts/check-checkov-exceptions.py'
+      - 'infra/scripts/test-checkov-regressions.py'
+      - '__tests__/unit/checkovInfra10.test.ts'
+      - '.github/workflows/**'
+      - 'Dockerfile'
   schedule:
     # Drift detection: lunes 07:00 UTC.
     - cron: '0 7 * * 1'
@@ -76,118 +83,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Validar excepciones locales y vencimientos
+        run: python3 infra/scripts/check-checkov-exceptions.py
+
+      - name: Instalar Checkov versionado
+        run: |
+          python3 -m venv "$RUNNER_TEMP/checkov"
+          "$RUNNER_TEMP/checkov/bin/pip" install --disable-pip-version-check -q -r infra/checkov/requirements.txt
+          echo "$RUNNER_TEMP/checkov/bin" >> "$GITHUB_PATH"
+
       - name: Checkov
-        # Fijado por commit SHA inmutable (v12) para mitigar riesgos de cadena de suministro (P0)
-        uses: bridgecrewio/checkov-action@c13aafd679d3814a25067d10fcaf98c4f7594931 # v12
-        with:
-          directory: infra/terraform
-          framework: terraform
-          quiet: true
-          output_format: cli,sarif
-          output_file_path: console,checkov.sarif
-          # Reglas silenciadas a propósito, con motivo. Revisado 2026-07-29 al
-          # correr Checkov por primera vez sobre infra/ (27 hallazgos): lo que
-          # sigue es lo que quedó como decisión consciente después de arreglar
-          # lo barato (secrets sin expiration_date/content_type, SAS policy,
-          # logging de blob) — ver los commits de esa fecha.
-          #
-          #  CKV_AZURE_109, CKV_AZURE_189 — Key Vault con acceso público: el
-          #    private endpoint es opcional por costo
-          #    (keyvault_private_endpoint_enabled, ~USD 7/mes). RBAC +
-          #    managed identity cubren el acceso mientras tanto. Pasar a
-          #    privado exige una ruta de red hacia el vault desde donde se
-          #    opera hoy (laptop + GitHub-hosted runners) — hoy no existe.
-          #  CKV_AZURE_206 — Storage LRS: el directorio de tenants usa RAGRS,
-          #    el resto no guarda datos.
-          #  CKV_AZURE_59, CKV2_AZURE_33 — Storage accounts (tfstate y del
-          #    stamp) con red pública: sin private endpoint, mismo motivo que
-          #    el Key Vault — GitHub-hosted runners tienen IP dinámica y no
-          #    hay VPN/bastion para llegar por red privada.
-          #  CKV_AZURE_33 — Logging del servicio Queue: ninguna de las dos
-          #    storage accounts usa Queue, sólo Blob.
-          #  CKV2_AZURE_1 — Cifrado con Customer Managed Key: sin mandato de
-          #    compliance que lo exija: las claves gestionadas por Microsoft
-          #    ya cifran en reposo con AES-256.
-          #  CKV2_AZURE_21 — SÍ está resuelto en infra real: hay un
-          #    azurerm_monitor_diagnostic_setting apuntando a
-          #    "${storage_account_id}/blobServices/default" con
-          #    category_group=allLogs (modules/stamp/main.tf). Sigue en esta
-          #    lista porque el check de grafo de Checkov no reconoce un
-          #    diagnostic setting sobre un sub-recurso (blobServices) como
-          #    asociado al container — limitación de la herramienta, no
-          #    ausencia de logging. Verificado 2026-07-29: sin el diagnostic
-          #    setting Y sin el skip, sigue marcando FAILED igual.
-          #  CKV2_AZURE_40 — Shared Key en la cuenta de Storage del stamp. En prod y
-          #    en staging está APAGADA (storage_shared_access_key_enabled = false en
-          #    TF_VARS; fase 4 de C-01, 2026-10-12) y la app, los backups y Terraform ya
-          #    entran por Entra ID. Sigue en la lista porque el job de scan no tiene los
-          #    tfvars (viven en un secret) y Checkov ve el default de la variable, que
-          #    sigue en true para que apagarla sea una decisión explícita de cada
-          #    ambiente. Si algún día el default pasa a false, se puede sacar de acá.
-          #    Ver docs/security/endurecimiento-infraestructura-saas-2026-10-09.md, 7.6.
-          #  CKV2_AZURE_56 — MySQL Flexible sin private endpoint: usa VNet
-          #    injection (delegated_subnet_id) en su lugar, que deja el
-          #    servidor igual de privado sin pagar el PE — Checkov sólo
-          #    reconoce el mecanismo de private endpoint.
-          #  CKV_AZURE_94 — MySQL sin backups geo-redundantes: deployment de
-          #    región única (mysql_geo_redundant_backup=false por defecto);
-          #    doble costo de backup sin un segundo stamp que lo aproveche.
-          #  CKV_AZURE_20 — Sin teléfono de contacto en Defender: sólo email.
-          #    No hay un teléfono de guardia que declarar hoy; agregar uno acá
-          #    sería inventarlo. Si se define un número de soporte, cargarlo
-          #    en modules/defender (variable "alert_phone") y sacar este skip.
-          #  CKV_AZURE_43 — Nombre de la storage account del stamp: Checkov no
-          #    resuelve la interpolación "${var.name_compact}sa" contra el
-          #    patrón que exige (minúsculas, alfanumérico, 3-24). La variable
-          #    YA tiene una validation block idéntica a esa regla
-          #    (modules/storage/variables.tf) — falso positivo conocido de
-          #    Checkov con nombres calculados en vez de literales.
-          #  CKV2_AZURE_32 — Key Vault sin private endpoint (variante del
-          #    check CKV_AZURE_109/189, mismo recurso): mismo motivo, ver ahí.
-          #
-          # Agregados 2026-07-30 al sumar modules/mysql_backup (apagado por
-          # default, mysql_backup_enabled=false — Checkov igual escanea el
-          # código del módulo aunque su count sea 0):
-          #  CKV_AZURE_50 — "VM extensions no instaladas": el módulo instala
-          #    a propósito la extensión HybridWorkerForWindows
-          #    (azurerm_virtual_machine_extension), el mecanismo oficial de
-          #    Azure para registrar un Hybrid Runbook Worker — es el
-          #    propósito central de la VM, no un descuido.
-          #  CKV2_AZURE_24 — Automation Account con red pública: el Hybrid
-          #    Worker se registra contra el endpoint público del Automation
-          #    Account (hybrid_service_url) desde una VM sin IP pública.
-          #    Restringir la red exigiría Private Link para Automation
-          #    (recurso aparte, mismo trade-off de costo que el Key
-          #    Vault/Storage de más arriba) — fuera del alcance de esta fase.
-          #  CKV_AZURE_139, 163, 164, 165, 166, 233, 237 — ACR en SKU Basic:
-          #    georreplicación, zona redundante, endpoints dedicados,
-          #    firewall/red privada y content trust son todas features
-          #    exclusivas de Premium (~USD 45/mes más que Basic: ~USD 50
-          #    contra ~USD 5 por registry unit, Retail Prices API del
-          #    2026-10-10; cada región replicada suma otros ~USD 50). Con un
-          #    solo stamp no hay georreplicación que aprovechar. El escaneo de
-          #    vulnerabilidades (163) ya está cubierto igual: el plan
-          #    "Containers" de Defender for Cloud escanea imágenes en
-          #    cualquier SKU de ACR (defender_resource_types en
-          #    environments/prod/variables.tf).
-          #
-          # Agregados 2026-10-08 al sumar modules/ai_services (apagado por
-          # default, ai_services_enabled=false):
-          #  CKV2_AZURE_22 — Cuenta de Azure AI sin Customer Managed Key: mismo
-          #    motivo que CKV2_AZURE_1 (Azure AI también cifra en reposo con
-          #    AES-256 y claves gestionadas por Microsoft).
-          #  CKV_AZURE_236 — Cuenta de Azure AI con keys habilitadas: es el
-          #    paso 1 de la transición a Entra ID (local_auth_enabled en
-          #    modules/ai_services), con la key de fallback. SACARLO en el
-          #    paso 2, cuando local_auth_enabled pase a false.
-          skip_check: >-
-            CKV_AZURE_109,CKV_AZURE_189,CKV_AZURE_206,CKV_AZURE_59,
-            CKV2_AZURE_33,CKV_AZURE_33,CKV2_AZURE_1,CKV2_AZURE_21,
-            CKV2_AZURE_40,CKV2_AZURE_56,CKV_AZURE_94,CKV_AZURE_139,
-            CKV_AZURE_163,CKV_AZURE_164,CKV_AZURE_165,CKV_AZURE_166,
-            CKV_AZURE_233,CKV_AZURE_237,CKV_AZURE_20,CKV_AZURE_43,
-            CKV2_AZURE_32,CKV_AZURE_50,CKV2_AZURE_24,CKV2_AZURE_22,
-            CKV_AZURE_236
+        run: |
+          checkov --directory . --framework terraform dockerfile github_actions \
+            --config-file infra/checkov/config.yml --quiet \
+            --output cli --output sarif --output-file-path console,checkov.sarif
+
+      - name: Probar regresiones contra Checkov real
+        run: python3 infra/scripts/test-checkov-regressions.py
 
       # continue-on-error: este repo es privado y no tiene GitHub Advanced
       # Security, así que Code Scanning no está habilitado — la subida falla
@@ -206,6 +118,9 @@ jobs:
           sarif_file: checkov.sarif
 
   plan-apply:
+    concurrency:
+      group: tfstate-firewall
+      cancel-in-progress: false
     # En el cron semanal este job corría ADEMÁS de `drift`, o sea dos planes de
     # producción por lunes, uno de ellos sin que nadie lo mire (el del 2026-10-05
     # cayó por la propagación del firewall del Key Vault y dejó la corrida en rojo
@@ -250,6 +165,11 @@ jobs:
     # no se confunda con un apply exitoso.
     environment: ${{ github.event.inputs.environment || 'prod' }}
     env:
+      TFSTATE_STORAGE: ${{ secrets.TFSTATE_STORAGE }}
+      TFSTATE_RG: ${{ secrets.TFSTATE_RG }}
+      TFSTATE_CONTAINER: ${{ vars.TFSTATE_CONTAINER || 'tfstate' }}
+      TFSTATE_LEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}-plan
+      TFSTATE_TTL_MINUTES: '70'
       # El SP de staging no puede registrar proveedores de recursos a nivel suscripcion (sus roles
       # son solo sobre sus RG) y el provider lo intenta al iniciar. Con `none` no lo intenta; los
       # proveedores ya estan registrados porque la suscripcion es la misma que la de prod. Prod
@@ -270,10 +190,14 @@ jobs:
           terraform_version: 1.9.8
 
       - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        id: backend_login
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Abrir acceso temporal al backend
+        run: python3 "$GITHUB_WORKSPACE/infra/scripts/tfstate-firewall.py" open
 
       - name: Verificar aislamiento del backend
         env:
@@ -551,8 +475,15 @@ jobs:
         # la regla si otro job vigente tiene lease sobre la misma IP.
         run: '"$GITHUB_WORKSPACE/infra/scripts/kv-firewall-runner.sh" close'
 
+      - name: Cerrar acceso temporal al backend
+        if: always() && steps.backend_login.outcome == 'success'
+        run: python3 "$GITHUB_WORKSPACE/infra/scripts/tfstate-firewall.py" close
+
   # Detecta cambios hechos a mano en el portal. Corre los lunes a la mañana.
   drift:
+    concurrency:
+      group: tfstate-firewall
+      cancel-in-progress: false
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
     # INFRA-05: el TTL del lease del Key Vault es esto + 10.
@@ -561,6 +492,12 @@ jobs:
     # usan plan-apply y el deploy. Sin él era `ref:refs/heads/main`, una credencial
     # federada más sobre el service principal que sólo existía para este job.
     environment: ${{ matrix.environment }}
+    env:
+      TFSTATE_STORAGE: ${{ secrets.TFSTATE_STORAGE }}
+      TFSTATE_RG: ${{ secrets.TFSTATE_RG }}
+      TFSTATE_CONTAINER: ${{ vars.TFSTATE_CONTAINER || 'tfstate' }}
+      TFSTATE_LEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}-drift
+      TFSTATE_TTL_MINUTES: '40'
     permissions:
       id-token: write
       contents: read
@@ -578,10 +515,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
       - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        id: backend_login
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Abrir acceso temporal al backend
+        run: python3 "$GITHUB_WORKSPACE/infra/scripts/tfstate-firewall.py" open
       - name: Init
         run: |
           terraform init -input=false -lockfile=readonly \
@@ -707,3 +647,7 @@ jobs:
         # Reintenta y, si no puede, deja el job en rojo: nunca éxito silencioso. No quita
         # la regla si otro job vigente tiene lease sobre la misma IP.
         run: '"$GITHUB_WORKSPACE/infra/scripts/kv-firewall-runner.sh" close'
+
+      - name: Cerrar acceso temporal al backend
+        if: always() && steps.backend_login.outcome == 'success'
+        run: python3 "$GITHUB_WORKSPACE/infra/scripts/tfstate-firewall.py" close

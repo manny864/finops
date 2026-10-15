@@ -6,6 +6,15 @@ import { expect, it } from "vitest";
 
 const read = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
 
+it("INFRA-09: ejecuta los controles de lease ARM, fallos y reconciliación", () => {
+  const result = spawnSync("python3", ["infra/scripts/test_tfstate_firewall.py"], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    timeout: 30_000,
+  });
+  expect(result.status, result.stderr).toBe(0);
+});
+
 it("INFRA-09: cada identidad tiene datos sólo en su contenedor y el backend tiene recuperación", () => {
   const bootstrap = read("infra/terraform/bootstrap/main.tf");
   for (const name of ["tfstate_blob_prod", "tfstate_blob_staging"]) {
@@ -20,6 +29,8 @@ it("INFRA-09: cada identidad tiene datos sólo en su contenedor y el backend tie
   expect(bootstrap).toMatch(/versioning_enabled\s*=\s*true/);
   expect(bootstrap).toMatch(/lock_level\s*=\s*"CanNotDelete"/);
   expect(bootstrap).toMatch(/prevent_destroy\s*=\s*true/);
+  expect(bootstrap).toMatch(/default_action\s*=\s*"Deny"/);
+  expect(bootstrap).toMatch(/bypass\s*=\s*\["None"\]/);
   for (const file of ["terraform.yml", "kv-firewall-reconcile.yml"]) {
     const wf = read(`.github/workflows/${file}`);
     const inits = wf.split("\n").filter((line) => /terraform init/.test(line) && !line.includes("-backend=false"));
@@ -27,7 +38,15 @@ it("INFRA-09: cada identidad tiene datos sólo en su contenedor y el backend tie
     for (const init of inits) expect(init).toContain("-lockfile=readonly");
     expect(wf).not.toMatch(/LEASE_CONTAINER: tfstate/);
     expect(wf).not.toContain('-backend-config="container_name=tfstate"');
+    const opens = [...wf.matchAll(/tfstate-firewall\.py" open/g)];
+    const closes = [...wf.matchAll(/tfstate-firewall\.py" close/g)];
+    expect(opens).toHaveLength(file === "terraform.yml" ? 2 : 1);
+    expect(closes).toHaveLength(opens.length);
+    expect(wf.match(/group: tfstate-firewall/g)).toHaveLength(opens.length);
+    expect(wf.match(/if: always\(\) && steps\.backend_login\.outcome == 'success'/g)).toHaveLength(opens.length);
   }
+  const rc = read(".github/workflows/kv-firewall-reconcile.yml");
+  expect(rc.indexOf('tfstate-firewall.py" reconcile')).toBeLessThan(rc.indexOf('tfstate-firewall.py" open'));
 });
 
 it("INFRA-09: el control cruzado falla cerrado, sin confundir errores de red con aislamiento", () => {

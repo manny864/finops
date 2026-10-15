@@ -1,0 +1,4 @@
+download-external-modules: false
+skip-download: true
+external-checks-dir:
+  - infra/checkov/policies

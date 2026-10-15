@@ -1,4 +1,11 @@
 resource "azurerm_container_registry" "this" {
+  # checkov:skip=CKV_AZURE_237:owner=CloudOps; expires=2027-01-15; Dedicated data endpoints require Premium; Basic registry uses Entra identities and admin is disabled.
+  # checkov:skip=CKV_AZURE_233:owner=CloudOps; expires=2027-01-15; Zone redundancy requires Premium; single-region Basic accepted.
+  # checkov:skip=CKV_AZURE_164:owner=CloudOps; expires=2027-01-15; Content trust requires Premium; SHA-tag promotion gates remain, immutable artifacts pending INFRA-11.
+  # checkov:skip=CKV_AZURE_165:owner=CloudOps; expires=2027-01-15; Geo-replication requires Premium; single-region Basic accepted.
+  # checkov:skip=CKV_AZURE_166:owner=CloudOps; expires=2027-01-15; Quarantine policy requires Premium; Defender Containers scans images without SKU upgrade.
+  # checkov:skip=CKV_AZURE_163:owner=CloudOps; expires=2027-01-15; Legacy SKU-based check; Defender Containers enabled by module.defender covers Basic registry.
+  # checkov:skip=CKV_AZURE_139:owner=CloudOps; expires=2027-01-15; Private networking requires Premium; Basic public endpoint restricted by Entra RBAC, no admin credentials.
   # Igual que Storage: sólo alfanumérico.
   name                = "${var.name_compact}cr"
   resource_group_name = var.resource_group_name

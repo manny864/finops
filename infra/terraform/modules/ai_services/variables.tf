@@ -40,13 +40,12 @@ variable "resource_group_id" {
 
 variable "local_auth_enabled" {
   description = <<-DESC
-    Keys de la cuenta. true es el paso 1 de la transición: la app usa Entra
-    ID y la key queda de fallback. El paso 2, validado en prod, la pone en
-    false (sólo Entra ID) y se sacan las keys de GlobalSettings y del
-    entorno. Ese día sale CKV_AZURE_236 de la lista de Checkov del workflow.
+    false por defecto: sólo Entra ID para cuentas administradas por este módulo.
+    true habilita keys y CKV_AZURE_236 bloquea ese cambio en CI; revisar la
+    politica antes de cualquier rollback. No modifica cuentas fuera del módulo.
   DESC
   type        = bool
-  default     = true
+  default     = false
 }
 
 # Modelo por defecto, verificado el 2026-10-08:

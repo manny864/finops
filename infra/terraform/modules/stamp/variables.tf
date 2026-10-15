@@ -336,10 +336,11 @@ variable "blob_managed_identity_enabled" {
     true = el app le habla a Blob con la identidad administrada (le agrega
     AZURE_STORAGE_ACCOUNT_NAME, que azureBlobStorage.ts prefiere sobre la connection
     string). Hace falta el rol Storage Blob Data Contributor de la identidad sobre la
-    cuenta, que ya existe. La connection string no se saca: apagar el flag es el rollback.
+    cuenta, que ya existe. Predeterminado true junto con Shared Key apagada;
+    volver a connection string requiere habilitar la clave y revisar la excepcion de CI.
   DESC
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "security_activity_alerts_enabled" {
@@ -377,7 +378,7 @@ variable "storage_shared_access_key_enabled" {
     docs/security/endurecimiento-infraestructura-saas-2026-10-09.md, 7.6.
   DESC
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "resource_lock_enabled" {

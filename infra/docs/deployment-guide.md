@@ -82,11 +82,57 @@ y operación de cualquier lease, preservar una copia restringida y usar
 `terraform state push` con las validaciones de lineage/serial activas; no usar
 `-force` ni automatizar `force-unlock`.
 
-**Pendiente: red.** El endpoint sigue público, con Shared Key apagada y RBAC.
-Los runners GitHub-hosted y el reconciliador necesitan esa ruta. No activar
-firewall `Deny`/deshabilitar acceso público hasta disponer de runner privado o
-egress fijo autorizado para **todos** los consumidores, incluido bootstrap y
-reconciliación. INFRA-09 permanece abierto por este requisito.
+**Red sin VMs (preparada; pendiente publicar y activar).** El bootstrap configura
+`default_action = "Deny"` y `bypass = ["None"]`. El endpoint continúa público,
+pero sólo admite las IPv4 `/32` temporales de los consumidores autorizados;
+Shared Key continúa apagada. No se crean VMs, subredes, NAT ni IPs públicas.
+
+`infra/scripts/tfstate-firewall.py open` obtiene la IPv4 pública, registra primero
+`TFStateFirewallLease` (dueño, vencimiento e IPs) como tag ARM y luego agrega la
+regla. Prueba lectura Entra del contenedor propio antes del primer acceso al
+state. Reintenta sólo el rechazo de red, nunca interpreta un fallo RBAC como
+éxito y nunca abre rangos mayores ni cambia a `Allow`.
+
+Todos los jobs autenticados (plan/apply, drift y reconciliación de ambos
+ambientes) comparten el grupo `tfstate-firewall`, sin cancelar al job activo.
+**Límite deliberado:** el tag no implementa compare-and-swap; los operadores
+manuales deben detener/esperar estos jobs antes de usar el script. Una lease
+ajena vigente se rechaza; no ejecutar dos operadores simultáneamente.
+GitHub conserva sólo un job pendiente por grupo: puede cancelar otro que
+estuviese en espera. Comprobar las ejecuciones de ambos ambientes y relanzar
+las canceladas; la programación periódica no es una garantía de plazo.
+
+El cierre `always()` va después del cierre de Key Vault, porque este último
+todavía necesita Blob. Quita primero las reglas propias y después el tag,
+preservando los demás tags y las reglas no gestionadas. Un fallo conserva la
+lease para reintentar. TTL: plan/apply 70 min, drift 40 min, reconciliador 20 min
+(timeouts de jobs 60/30/10 min). Cada 15 min el reconciliador elimina las leases
+vencidas **por ARM, antes de Terraform init**, por lo que no necesita que el
+firewall Blob siga abierto. El vencimiento es metadata: Azure no retira la
+regla automáticamente; una caída de Actions/ARM puede retrasar la retirada.
+
+El rol de staging permite sólo leer/escribir la cuenta y sus tags, sin listar
+claves ni conceder nuevos permisos de datos. Azure agrupa la modificación de
+ACL en `storageAccounts/write`: no existe una acción exclusiva para firewall.
+Por ello staging puede modificar otra configuración de esta cuenta compartida;
+el aislamiento de contenedores es de datos, no de administración.
+
+**Despliegue seguro:** crear primero el rol/asignación; publicar los workflows
+y comprobar apertura/cierre en ambos ambientes todavía con `Allow`. Con Actions
+inactivo, abrir una lease local y aplicar bootstrap; el `ignore_changes` de
+`ip_rules` conserva esa `/32`. Usar las variables `TFSTATE_STORAGE`,
+`TFSTATE_RG`, `TFSTATE_CONTAINER` (`tfstate-prod` o `tfstate-stg`),
+`TFSTATE_LEASE_ID` (único) y `TFSTATE_TTL_MINUTES` (1..70). Cerrar siempre al
+terminar. Verificar entonces denegación sin regla, planes staging/prod y
+reconciliación de una lease vencida. No cerrar INFRA-09 antes de estas pruebas.
+
+**Límite de conectividad:** la salida hacia Blob puede diferir de ipify; además,
+Storage no admite reglas IP para clientes Azure en su misma región. Si un runner
+queda en esa situación, el script falla cerrado, sin habilitar `Allow` como
+fallback. Validar los runners reales antes de activar `Deny`; si ocurre, esta
+alternativa no basta para ese runner y debe revisarse la conectividad.
+Para recuperación usar las mismas operaciones ARM con una lease propia, no
+deshabilitar el firewall ni borrar reglas ajenas.
 
 ## 2. Ambiente
 

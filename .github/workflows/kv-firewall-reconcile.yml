@@ -38,8 +38,14 @@ jobs:
       id-token: write
       contents: read
     concurrency:
-      group: kv-firewall-reconcile-${{ matrix.environment }}
+      group: tfstate-firewall
       cancel-in-progress: false
+    env:
+      TFSTATE_STORAGE: ${{ secrets.TFSTATE_STORAGE }}
+      TFSTATE_RG: ${{ secrets.TFSTATE_RG }}
+      TFSTATE_CONTAINER: ${{ vars.TFSTATE_CONTAINER || 'tfstate' }}
+      TFSTATE_LEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}-reconcile-${{ matrix.environment }}
+      TFSTATE_TTL_MINUTES: '20'
     strategy:
       fail-fast: false
       matrix:
@@ -57,10 +63,16 @@ jobs:
           terraform_version: 1.9.8
           terraform_wrapper: false
       - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        id: backend_login
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      # ARM no depende del Blob: limpia incluso si el runner anterior perdió acceso.
+      - name: Reconciliar reglas del backend sin acceder al Blob
+        run: python3 "$GITHUB_WORKSPACE/infra/scripts/tfstate-firewall.py" reconcile
+      - name: Abrir acceso temporal al backend
+        run: python3 "$GITHUB_WORKSPACE/infra/scripts/tfstate-firewall.py" open
       - name: Terraform init
         run: |
           terraform init -input=false -lockfile=readonly \
@@ -124,3 +136,7 @@ jobs:
           fi
           VAULTS="$VAULTS" PERMANENT_FILE="$PERMANENT_FILE" \
             "$GITHUB_WORKSPACE/infra/scripts/kv-firewall-lease.sh" reconcile
+
+      - name: Cerrar acceso temporal al backend
+        if: always() && steps.backend_login.outcome == 'success'
+        run: python3 "$GITHUB_WORKSPACE/infra/scripts/tfstate-firewall.py" close
