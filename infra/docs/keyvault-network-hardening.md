@@ -74,6 +74,13 @@ Otros dos vaults de la suscripción quedan **fuera** de este Terraform y siguen 
 público abierto y sin purge protection: `cscs-kv-wus2-prod` (web corporativa) y
 `kvcscse22c35` (`rg-cscs-linkedin-mcp`). Se endurecen desde sus propios dueños.
 
+**Lock de prod y role assignments.** El vault de prod tiene el lock `CanNotDelete`
+`cscs-finops-prod-wus2-kv-lock`, que también bloquea borrar role assignments con scope en el
+vault (409 `ScopeLocked`). Al aplicar INFRA-07 en prod (2026-10-15) se quitó el lock, se borró
+el assignment viejo a nivel vault, se recreó el lock con el mismo nombre y notas, y se re-aplicó
+Terraform (sin cambios). Hay que repetir esto con cualquier cambio futuro que borre o reemplace
+un rol sobre el vault de prod.
+
 ## Inventario real
 
 Todo el SaaS vive en **CSCS-LandingZone** (`ec03e8ce-ceee-4638-b303-64ae431d5b1e`),
