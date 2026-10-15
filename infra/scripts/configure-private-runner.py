@@ -60,12 +60,13 @@ if [ ! -f .service ]; then
   ./svc.sh install actions
 fi
 service=$(cat .service)
-cat > /usr/local/lib/finops-runner-job-completed <<'COMPLETED_HOOK'
+install -m 0755 /usr/local/lib/finops-runner-job-started /usr/local/lib/finops-runner-job-started.sh
+cat > /usr/local/lib/finops-runner-job-completed.sh <<'COMPLETED_HOOK'
 @@COMPLETED_HOOK@@
 COMPLETED_HOOK
-chmod 0755 /usr/local/lib/finops-runner-job-completed
+chmod 0755 /usr/local/lib/finops-runner-job-completed.sh
 install -d -m 0755 "/etc/systemd/system/$service.d"
-printf '[Service]\\nEnvironment=ACTIONS_RUNNER_HOOK_JOB_STARTED=/usr/local/lib/finops-runner-job-started\\nEnvironment=ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/usr/local/lib/finops-runner-job-completed\\n' > "/etc/systemd/system/$service.d/trusted-jobs.conf"
+printf '[Service]\\nEnvironment=ACTIONS_RUNNER_HOOK_JOB_STARTED=/usr/local/lib/finops-runner-job-started.sh\\nEnvironment=ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/usr/local/lib/finops-runner-job-completed.sh\\n' > "/etc/systemd/system/$service.d/trusted-jobs.conf"
 systemctl daemon-reload
 systemctl enable "$service"
 systemctl restart "$service"

@@ -13,19 +13,19 @@ set -euo pipefail
 service=$(cat /opt/actions-runner/.service)
 systemctl is-active --quiet "$service"
 systemctl is-enabled --quiet "$service"
-test "$(stat -c '%U:%a' /usr/local/lib/finops-runner-job-started)" = 'root:755'
-test "$(stat -c '%U:%a' /usr/local/lib/finops-runner-job-completed)" = 'root:755'
-runuser -u actions -- env GITHUB_WORKSPACE=/opt/actions-runner/_work/finops/finops /usr/local/lib/finops-runner-job-completed
+test "$(stat -c '%U:%a' /usr/local/lib/finops-runner-job-started.sh)" = 'root:755'
+test "$(stat -c '%U:%a' /usr/local/lib/finops-runner-job-completed.sh)" = 'root:755'
+runuser -u actions -- env GITHUB_WORKSPACE=/opt/actions-runner/_work/finops/finops /usr/local/lib/finops-runner-job-completed.sh
 export GITHUB_REPOSITORY=manny864/finops GITHUB_REF=refs/heads/main GITHUB_EVENT_NAME=workflow_dispatch
 export GITHUB_WORKFLOW_REF=manny864/finops/.github/workflows/terraform.yml@refs/heads/main
-/usr/local/lib/finops-runner-job-started
-if GITHUB_REF=refs/pull/1/merge /usr/local/lib/finops-runner-job-started; then
+/usr/local/lib/finops-runner-job-started.sh
+if GITHUB_REF=refs/pull/1/merge /usr/local/lib/finops-runner-job-started.sh; then
   echo 'PR hook unexpectedly accepted' >&2; exit 1
 fi
-if GITHUB_EVENT_NAME=pull_request /usr/local/lib/finops-runner-job-started; then
+if GITHUB_EVENT_NAME=pull_request /usr/local/lib/finops-runner-job-started.sh; then
   echo 'PR event unexpectedly accepted' >&2; exit 1
 fi
-if GITHUB_WORKFLOW_REF=manny864/finops/.github/workflows/ci.yml@refs/heads/main /usr/local/lib/finops-runner-job-started; then
+if GITHUB_WORKFLOW_REF=manny864/finops/.github/workflows/ci.yml@refs/heads/main /usr/local/lib/finops-runner-job-started.sh; then
   echo 'Unapproved workflow unexpectedly accepted' >&2; exit 1
 fi
 python3 - <<'PY'
