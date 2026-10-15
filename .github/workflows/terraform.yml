@@ -353,6 +353,7 @@ jobs:
           LEASE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           # timeout-minutes del job + margen: el lease no vence mientras el job pueda seguir vivo.
           TTL_MINUTES: '70'
+          IPS_FILE: ${{ runner.temp }}/kv-firewall-ips
         run: |
           VAULTS=$(terraform output -json key_vault_names 2>/dev/null | jq -r '.[]?' || true)
           if [ -z "$VAULTS" ]; then
@@ -369,54 +370,51 @@ jobs:
           # el cierre igual sabe qué limpiar.
           echo "runner_ip=$IP" >> "$GITHUB_OUTPUT"
           echo "vaults=$VAULTS" >> "$GITHUB_OUTPUT"
-          # INFRA-05: lease (vault, IP, job, dueño, vencimiento) antes de abrir. Si el
-          # runner se pierde y el cierre no corre, kv-firewall-reconcile.yml quita la
-          # regla cuando vence el lease.
-          VAULTS="$VAULTS" RUNNER_IP="$IP" "$GITHUB_WORKSPACE/infra/scripts/kv-firewall-lease.sh" open
-
-          # ESPERAR A QUE PROPAGUE, no un tiempo fijo.
+          # INFRA-05: cada IP se abre con lease (vault, IP, job, dueño, vencimiento) vía
+          # kv-firewall-lease.sh. Si el runner se pierde y el cierre no corre,
+          # kv-firewall-reconcile.yml quita la regla cuando vence el lease.
           #
-          # Acá había `sleep 20`. No alcanza: el 2026-09-14 el plan arrancó 38 s
-          # después de abrir la regla y murió igual con
-          #   403 ForbiddenByFirewall ... Client address: 4.154.245.224
-          # para la MISMA IP que el paso acababa de autorizar. La propagación al
-          # data plane del Key Vault no tiene un tiempo garantizado, así que
-          # cualquier número fijo es una carrera que se gana a veces -- y cuando
-          # se pierde, el apply de infraestructura queda rojo por nada.
-          #
-          # Sólo se espera mientras el error sea del FIREWALL: un 403 por RBAC o
-          # cualquier otra falla corta el bucle en vez de comerse el timeout
-          # entero por un problema que esperar no resuelve.
-          for V in $VAULTS; do
-            for i in $(seq 1 24); do
-              if SALIDA=$(az keyvault secret list --vault-name "$V" --maxresults 1 --only-show-errors 2>&1); then
-                echo "Data plane de $V accesible (intento $i)"
-                break
-              fi
-              if ! echo "$SALIDA" | grep -q "ForbiddenByFirewall"; then
-                echo "$V responde algo que no es el firewall; se sigue sin esperar más."
-                break
-              fi
-              if [ "$i" -eq 24 ]; then
-                echo "::warning title=Key Vault::$V sigue rechazando al runner tras 120 s; el plan puede fallar con 403."
-              fi
-              sleep 5
-            done
-          done
+          # VARIAS IPs, no sólo la de ipify: el runner sale por más de una IP (SNAT). El
+          # 2026-10-15 ipify vio .196 y Terraform salió por .198 (403 ForbiddenByFirewall).
+          # El script sondea el vault antes de abrir y abre cada "Client address" que
+          # reporta el 403; después espera a que el data plane responda varias veces
+          # SEGUIDAS (no un tiempo fijo: el 2026-09-14 un `sleep 20` no alcanzó), abriendo
+          # las IPs nuevas que aparezcan. Sólo se espera mientras el error sea del
+          # FIREWALL: un 403 por RBAC corta la espera.
+          VAULTS="$VAULTS" RUNNER_IP="$IP" "$GITHUB_WORKSPACE/infra/scripts/kv-firewall-runner.sh" open
 
       - name: Terraform plan
         env:
           REPLACE_ADDR: ${{ inputs.replace }}
+          VAULTS: ${{ steps.kv_firewall.outputs.vaults }}
+          LEASE_ACCOUNT: ${{ secrets.TFSTATE_STORAGE }}
+          LEASE_CONTAINER: ${{ vars.TFSTATE_CONTAINER || 'tfstate' }}
+          LEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+          LEASE_OWNER: ${{ github.workflow }}/${{ github.job }} (${{ github.event_name }}, ${{ github.actor }})
+          LEASE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TTL_MINUTES: '70'
+          IPS_FILE: ${{ runner.temp }}/kv-firewall-ips
         run: |
           # El -replace se pasa como argumento separado y sin `eval`: una
           # direccion de recurso viene con corchetes y comillas, y expandirla en
           # una cadena de shell es como se inyecta un flag de mas.
+          ARGS=(-var-file=terraform.tfvars -var-file=cron-jobs.tfvars -var-file=network.tfvars -out=tfplan)
           if [ -n "$REPLACE_ADDR" ]; then
             echo "::warning title=Replace solicitado::Se va a RECREAR $REPLACE_ADDR (destroy + create)."
-            terraform plan -var-file=terraform.tfvars -var-file=cron-jobs.tfvars -var-file=network.tfvars -replace="$REPLACE_ADDR" -out=tfplan
-          else
-            terraform plan -var-file=terraform.tfvars -var-file=cron-jobs.tfvars -var-file=network.tfvars -out=tfplan
+            ARGS+=(-replace="$REPLACE_ADDR")
           fi
+          # Si el vault rechaza una IP de salida que el paso de apertura no vio, se
+          # abre (con lease) y se reintenta. El plan no cambia nada, reintentar es seguro.
+          ERR="$RUNNER_TEMP/tf-plan.err"
+          for INTENTO in 1 2 3; do
+            if terraform plan "${ARGS[@]}" 2>"$ERR"; then cat "$ERR" >&2; break; fi
+            cat "$ERR" >&2
+            if [ "$INTENTO" -lt 3 ] && [ -n "$VAULTS" ] && "$GITHUB_WORKSPACE/infra/scripts/kv-firewall-runner.sh" learn "$ERR"; then
+              echo "::warning title=Key Vault::El runner salió por una IP que no estaba abierta; se abrió y se reintenta el plan."
+              continue
+            fi
+            exit 1
+          done
 
       # Resumen auditable del plan: SÓLO dirección y acción, sin valores.
       #
@@ -461,7 +459,29 @@ jobs:
 
       - name: Terraform apply
         if: github.event_name == 'workflow_dispatch' && inputs.confirm == (inputs.environment == 'staging' && 'APPLY-STAGING' || 'APPLY-PROD')
-        run: terraform apply -auto-approve tfplan
+        env:
+          VAULTS: ${{ steps.kv_firewall.outputs.vaults }}
+          LEASE_ACCOUNT: ${{ secrets.TFSTATE_STORAGE }}
+          LEASE_CONTAINER: ${{ vars.TFSTATE_CONTAINER || 'tfstate' }}
+          LEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+          LEASE_OWNER: ${{ github.workflow }}/${{ github.job }} (${{ github.event_name }}, ${{ github.actor }})
+          LEASE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TTL_MINUTES: '70'
+          IPS_FILE: ${{ runner.temp }}/kv-firewall-ips
+        # Mismo reintento que el plan ante una IP de salida nueva. Es seguro: si el
+        # apply alcanzó a cambiar algo, Terraform rechaza el tfplan como "stale" y el
+        # job falla igual que antes, sin aplicar nada dos veces.
+        run: |
+          ERR="$RUNNER_TEMP/tf-apply.err"
+          for INTENTO in 1 2; do
+            if terraform apply -auto-approve tfplan 2>"$ERR"; then cat "$ERR" >&2; break; fi
+            cat "$ERR" >&2
+            if [ "$INTENTO" -lt 2 ] && [ -n "$VAULTS" ] && "$GITHUB_WORKSPACE/infra/scripts/kv-firewall-runner.sh" learn "$ERR"; then
+              echo "::warning title=Key Vault::El runner salió por una IP que no estaba abierta; se abrió y se reintenta el apply."
+              continue
+            fi
+            exit 1
+          done
 
       # ── Devolver APP_VERSION, que el apply se lleva puesta ──────────────────
       #
@@ -518,9 +538,11 @@ jobs:
           LEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
           VAULTS: ${{ steps.kv_firewall.outputs.vaults }}
           RUNNER_IP: ${{ steps.kv_firewall.outputs.runner_ip }}
+          IPS_FILE: ${{ runner.temp }}/kv-firewall-ips
+        # Cierra TODAS las IPs que abrió el job (la de ipify y las aprendidas de los 403).
         # Reintenta y, si no puede, deja el job en rojo: nunca éxito silencioso. No quita
         # la regla si otro job vigente tiene lease sobre la misma IP.
-        run: '"$GITHUB_WORKSPACE/infra/scripts/kv-firewall-lease.sh" close'
+        run: '"$GITHUB_WORKSPACE/infra/scripts/kv-firewall-runner.sh" close'
 
   # Detecta cambios hechos a mano en el portal. Corre los lunes a la mañana.
   drift:
@@ -600,6 +622,7 @@ jobs:
           LEASE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           # timeout-minutes del job + margen: el lease no vence mientras el job pueda seguir vivo.
           TTL_MINUTES: '40'
+          IPS_FILE: ${{ runner.temp }}/kv-firewall-ips
         run: |
           VAULTS=$(terraform output -json key_vault_names 2>/dev/null | jq -r '.[]?' || true)
           if [ -z "$VAULTS" ]; then
@@ -616,43 +639,44 @@ jobs:
           # el cierre igual sabe qué limpiar.
           echo "runner_ip=$IP" >> "$GITHUB_OUTPUT"
           echo "vaults=$VAULTS" >> "$GITHUB_OUTPUT"
-          # INFRA-05: lease (vault, IP, job, dueño, vencimiento) antes de abrir. Si el
-          # runner se pierde y el cierre no corre, kv-firewall-reconcile.yml quita la
-          # regla cuando vence el lease.
-          VAULTS="$VAULTS" RUNNER_IP="$IP" "$GITHUB_WORKSPACE/infra/scripts/kv-firewall-lease.sh" open
-
-          # ESPERAR A QUE PROPAGUE, no un tiempo fijo.
+          # INFRA-05: cada IP se abre con lease (vault, IP, job, dueño, vencimiento) vía
+          # kv-firewall-lease.sh. Si el runner se pierde y el cierre no corre,
+          # kv-firewall-reconcile.yml quita la regla cuando vence el lease.
           #
-          # Acá había `sleep 20`. No alcanza: el 2026-09-14 el plan arrancó 38 s
-          # después de abrir la regla y murió igual con
-          #   403 ForbiddenByFirewall ... Client address: 4.154.245.224
-          # para la MISMA IP que el paso acababa de autorizar. La propagación al
-          # data plane del Key Vault no tiene un tiempo garantizado, así que
-          # cualquier número fijo es una carrera que se gana a veces -- y cuando
-          # se pierde, el apply de infraestructura queda rojo por nada.
-          #
-          # Sólo se espera mientras el error sea del FIREWALL: un 403 por RBAC o
-          # cualquier otra falla corta el bucle en vez de comerse el timeout
-          # entero por un problema que esperar no resuelve.
-          for V in $VAULTS; do
-            for i in $(seq 1 24); do
-              if SALIDA=$(az keyvault secret list --vault-name "$V" --maxresults 1 --only-show-errors 2>&1); then
-                echo "Data plane de $V accesible (intento $i)"
-                break
-              fi
-              if ! echo "$SALIDA" | grep -q "ForbiddenByFirewall"; then
-                echo "$V responde algo que no es el firewall; se sigue sin esperar más."
-                break
-              fi
-              if [ "$i" -eq 24 ]; then
-                echo "::warning title=Key Vault::$V sigue rechazando al runner tras 120 s; el plan puede fallar con 403."
-              fi
-              sleep 5
-            done
-          done
+          # VARIAS IPs, no sólo la de ipify: el runner sale por más de una IP (SNAT). El
+          # 2026-10-15 ipify vio .196 y Terraform salió por .198 (403 ForbiddenByFirewall).
+          # El script sondea el vault antes de abrir y abre cada "Client address" que
+          # reporta el 403; después espera a que el data plane responda varias veces
+          # SEGUIDAS (no un tiempo fijo: el 2026-09-14 un `sleep 20` no alcanzó), abriendo
+          # las IPs nuevas que aparezcan. Sólo se espera mientras el error sea del
+          # FIREWALL: un 403 por RBAC corta la espera.
+          VAULTS="$VAULTS" RUNNER_IP="$IP" "$GITHUB_WORKSPACE/infra/scripts/kv-firewall-runner.sh" open
 
       - name: Detectar drift
-        run: terraform plan -var-file=terraform.tfvars -var-file=cron-jobs.tfvars -var-file=network.tfvars -detailed-exitcode
+        env:
+          VAULTS: ${{ steps.kv_firewall.outputs.vaults }}
+          LEASE_ACCOUNT: ${{ secrets.TFSTATE_STORAGE }}
+          LEASE_CONTAINER: tfstate
+          LEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+          LEASE_OWNER: ${{ github.workflow }}/${{ github.job }} (${{ github.event_name }}, ${{ github.actor }})
+          LEASE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TTL_MINUTES: '40'
+          IPS_FILE: ${{ runner.temp }}/kv-firewall-ips
+        # -detailed-exitcode: 2 es drift (se reporta, no se reintenta); 1 es error, y si es
+        # un 403 de firewall por una IP de salida nueva, se abre y se reintenta.
+        run: |
+          ERR="$RUNNER_TEMP/tf-drift.err"
+          for INTENTO in 1 2 3; do
+            RC=0
+            terraform plan -var-file=terraform.tfvars -var-file=cron-jobs.tfvars -var-file=network.tfvars -detailed-exitcode 2>"$ERR" || RC=$?
+            cat "$ERR" >&2
+            [ "$RC" -eq 1 ] || exit "$RC"
+            if [ "$INTENTO" -lt 3 ] && [ -n "$VAULTS" ] && "$GITHUB_WORKSPACE/infra/scripts/kv-firewall-runner.sh" learn "$ERR"; then
+              echo "::warning title=Key Vault::El runner salió por una IP que no estaba abierta; se abrió y se reintenta."
+              continue
+            fi
+            exit 1
+          done
 
       # Corre pase lo que pase: si el plan o el apply fallan, la IP de este
       # runner NO debe quedar en la allowlist del vault.
@@ -665,7 +689,9 @@ jobs:
           LEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
           VAULTS: ${{ steps.kv_firewall.outputs.vaults }}
           RUNNER_IP: ${{ steps.kv_firewall.outputs.runner_ip }}
+          IPS_FILE: ${{ runner.temp }}/kv-firewall-ips
+        # Cierra TODAS las IPs que abrió el job (la de ipify y las aprendidas de los 403).
         # Reintenta y, si no puede, deja el job en rojo: nunca éxito silencioso. No quita
         # la regla si otro job vigente tiene lease sobre la misma IP.
-        run: '"$GITHUB_WORKSPACE/infra/scripts/kv-firewall-lease.sh" close'
+        run: '"$GITHUB_WORKSPACE/infra/scripts/kv-firewall-runner.sh" close'
 

@@ -134,8 +134,10 @@ describe("INFRA-06: flags, asociaciones y salida", () => {
   it("network.tfvars se versiona y se pasa después del secret en todos los plan", () => {
     for (const g of [".gitignore", "infra/.gitignore"]) expect(leer(g)).toMatch(/^!network\.tfvars$/m);
     const wf = leer(".github/workflows/terraform.yml");
-    const planes = wf.split("\n").filter((l) => /^\s*(run:\s*)?terraform plan /.test(l));
-    expect(planes.length).toBe(3);
+    const planes = wf.split("\n").filter((l) => !/^\s*#/.test(l) && /-var-file=terraform\.tfvars/.test(l));
+    // plan-apply arma los argumentos en un array (ARGS) para poder reintentar; drift los pasa directo.
+    expect(planes.length).toBe(2);
+    expect(wf).toMatch(/terraform plan "\$\{ARGS\[@\]\}"/);
     for (const p of planes) expect(p).toMatch(/-var-file=terraform\.tfvars -var-file=cron-jobs\.tfvars -var-file=network\.tfvars/);
   });
 });

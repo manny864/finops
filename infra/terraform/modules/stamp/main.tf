@@ -421,15 +421,21 @@ resource "azapi_resource" "network_flow_log" {
   location  = var.location
   parent_id = "/subscriptions/${var.subscription_id}/resourceGroups/NetworkWatcherRG/providers/Microsoft.Network/networkWatchers/NetworkWatcher_${var.location}"
 
+  # La identidad va en el bloque `identity` y no dentro de `body`: azapi la lee
+  # aparte, y en `body` producía un diff perpetuo. Cada apply hacía un PUT del flow
+  # log, Azure revalidaba los permisos de Traffic Analytics y el SP de staging
+  # (acotado a su RG) fallaba con TAUserDoesNotHavePermissions. Por lo mismo, los
+  # dos campos vacíos que devuelve la API se declaran explícitamente.
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.network_flow_logs[0].id]
+  }
+
   body = {
-    identity = {
-      type = "UserAssigned"
-      userAssignedIdentities = {
-        (azurerm_user_assigned_identity.network_flow_logs[0].id) = {}
-      }
-    }
     properties = {
-      enabled = true
+      enabled                  = true
+      enabledFilteringCriteria = ""
+      recordTypes              = ""
       format = {
         type    = "JSON"
         version = 2
