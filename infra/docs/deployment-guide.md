@@ -90,7 +90,9 @@ Shared Key continúa apagada. No se crean VMs, subredes, NAT ni IPs públicas.
 `infra/scripts/tfstate-firewall.py open` obtiene la IPv4 pública, registra primero
 `TFStateFirewallLease` (dueño, vencimiento e IPs) como tag ARM y luego agrega la
 regla. Prueba lectura Entra del contenedor propio antes del primer acceso al
-state. Reintenta sólo el rechazo de red, nunca interpreta un fallo RBAC como
+state. Tras agregar una regla espera 60 segundos de propagación y exige tres
+lecturas consecutivas separadas por cinco segundos; acota el sondeo a 36 intentos.
+Reintenta sólo el rechazo de red, nunca interpreta un fallo RBAC como
 éxito y nunca abre rangos mayores ni cambia a `Allow`.
 
 Todos los jobs autenticados (plan/apply, drift y reconciliación de ambos
