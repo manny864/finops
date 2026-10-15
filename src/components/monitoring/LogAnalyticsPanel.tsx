@@ -1,4 +1,5 @@
 "use client";
+import { toCsvText } from "@/lib/csvExport";
 import { useTranslations } from "next-intl";
 import { useTextoPorCategoria } from "@/lib/recommendationText";
 
@@ -558,7 +559,7 @@ export default function LogAnalyticsPanel() {
     ]);
     const csvContent =
       "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+      toCsvText(headers, rows);
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);

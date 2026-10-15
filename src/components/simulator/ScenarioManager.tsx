@@ -1,4 +1,5 @@
 "use client";
+import { csvEscape } from "@/lib/csvExport";
 import React, { useEffect, useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useProviderTranslations } from "@/lib/useProviderTranslations";
@@ -60,8 +61,7 @@ function fmt(amount: number, currency = "USD") {
 
 /** Escapa un valor para una celda CSV (RFC 4180). */
 function csvCell(value: string | number | boolean | null | undefined): string {
-    const s = value === null || value === undefined ? "" : String(value);
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    return csvEscape(value);
 }
 
 /** Dispara la descarga de un string como archivo en el browser. */
@@ -98,7 +98,7 @@ function scenarioToCsv(s: SavedScenario): string {
         ["Storage (proyectado)", s.breakdown.storage],
         ["Network (proyectado)", s.breakdown.network],
     ];
-    return ["Campo,Valor", ...rows.map(([k, v]) => `${csvCell(k)},${csvCell(v)}`)].join("\n");
+    return [["Campo", "Valor"].map(csvCell).join(","), ...rows.map(([k, v]) => `${csvCell(k)},${csvCell(v)}`)].join("\n");
 }
 
 /** CSV con todos los escenarios guardados, uno por fila. */

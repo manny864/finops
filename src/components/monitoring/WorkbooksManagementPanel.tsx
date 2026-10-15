@@ -1,4 +1,5 @@
 "use client";
+import { toCsvText } from "@/lib/csvExport";
 import { useTranslations } from "next-intl";
 import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
 
@@ -489,21 +490,21 @@ export default function WorkbooksManagementPanel() {
       "Estimated Monthly Cost USD",
     ];
     const rows = filteredWorkbooks.map((w) => [
-      `"${w.displayName}"`,
-      `"${w.name}"`,
-      `"${w.workbookType}"`,
-      `"${w.resourceGroup}"`,
-      `"${w.subscriptionName}"`,
-      `"${WORKBOOK_SOURCE_LABELS[w.primaryDataSource]}"`,
-      `"${w.autoRefreshInterval || "Desactivado"}"`,
-      `"${w.lastModifiedDate}"`,
+      w.displayName,
+      w.name,
+      w.workbookType,
+      w.resourceGroup,
+      w.subscriptionName,
+      WORKBOOK_SOURCE_LABELS[w.primaryDataSource],
+      w.autoRefreshInterval || "Desactivado",
+      w.lastModifiedDate,
       w.daysSinceModified,
-      `"${w.healthStatus}"`,
+      w.healthStatus,
       w.totalScanGBPerRun,
       w.estimatedMonthlyRuns,
       w.estimatedQueryCostUSD.toFixed(2),
     ]);
-    const csv = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const csv = "data:text/csv;charset=utf-8," + toCsvText(headers, rows);
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csv));
     link.setAttribute("download", `azure-workbooks-${new Date().toISOString().split("T")[0]}.csv`);

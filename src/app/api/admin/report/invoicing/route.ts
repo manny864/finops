@@ -15,6 +15,7 @@ import { getActiveOverrides, getMarkupSettings } from "@/services/tenantPartnerM
 import Decimal from "decimal.js";
 import { toMoneyNumber } from "@/lib/moneyDecimal";
 import { urlPublica } from "@/lib/urlPublica";
+import { csvQuote } from "@/lib/csvExport";
 
 const MOCK_LINES = [
     { date: "2026-06-01", customerId: "cust-001", customerName: "ACME Corp", subscriptionId: "sub-prod-001", service: "Virtual Machines", resourceGroup: "rg-prod-acme", originalCost: 1230.50, adjustedCost: 1415.08 },
@@ -51,7 +52,7 @@ function serializeCSV(lines: any[], period: string): string {
     const header = "date,customerId,customerName,subscriptionId,service,resourceGroup,originalCost,adjustedCost\r\n";
     const rows = lines.map(l =>
         [l.date, l.customerId, l.customerName ?? "", l.subscriptionId ?? "", l.service, l.resourceGroup, l.originalCost, l.adjustedCost]
-            .map(v => `"${String(v).replace(/"/g, '""')}"`)
+            .map(csvQuote) // AISEC-07
             .join(",")
     );
     return header + rows.join("\r\n");

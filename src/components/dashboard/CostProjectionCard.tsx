@@ -1,4 +1,5 @@
 "use client";
+import { toCsvText } from "@/lib/csvExport";
 import React, { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
@@ -97,7 +98,7 @@ export default function CostProjectionCard({ showFullPageLink = true }: Props) {
             ...trailing12.map((p) => [p.month, "Real", p.cost.toFixed(2), "", ""]),
             ...result.projection.map((p) => [p.month, t("cost_projection_projected"), p.projectedCost.toFixed(2), p.lowerBound.toFixed(2), p.upperBound.toFixed(2)]),
         ];
-        const csv = rows.map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+        const csv = toCsvText(rows[0], rows.slice(1));
         const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");

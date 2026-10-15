@@ -1,4 +1,5 @@
 "use client";
+import { toCsvText } from "@/lib/csvExport";
 import { useTranslations } from "next-intl";
 
 import React, { useState, useMemo } from "react";
@@ -357,13 +358,13 @@ export default function TenantHealthPanel() {
     ];
     const rows = actionPlan.map((a) => [
       a.id,
-      `"${t(`plan_${a.actionType}`)}"`,
+      t(`plan_${a.actionType}`),
       a.pillar,
       a.healthPointsGain,
       a.estimatedSavingsUSD.toFixed(2),
       a.priority,
     ]);
-    const csv = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const csv = "data:text/csv;charset=utf-8," + toCsvText(headers, rows);
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csv));
     link.setAttribute("download", `tenant-health-actions-${new Date().toISOString().split("T")[0]}.csv`);

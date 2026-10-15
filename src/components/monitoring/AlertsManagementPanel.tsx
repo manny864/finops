@@ -1,4 +1,5 @@
 "use client";
+import { toCsvText } from "@/lib/csvExport";
 import { useTranslations } from "next-intl";
 import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
 
@@ -755,19 +756,19 @@ export default function AlertsManagementPanel() {
       "Is Inefficient",
     ];
     const rows = filteredAlerts.map((a) => [
-      `"${a.name}"`,
-      `"${a.alertTypeDisplayName}"`,
-      `"${a.resourceGroup}"`,
-      `"${a.subscriptionName}"`,
-      `"${a.severity}"`,
-      `"${a.isEnabled ? "Enabled" : "Disabled"}"`,
-      `"${a.targetResourceName}"`,
-      `"${a.evaluationFrequency}"`,
+      a.name,
+      a.alertTypeDisplayName,
+      a.resourceGroup,
+      a.subscriptionName,
+      a.severity,
+      a.isEnabled ? "Enabled" : "Disabled",
+      a.targetResourceName,
+      a.evaluationFrequency,
       a.monthlyCostUSD.toFixed(2),
       a.isOrphan ? "YES" : "NO",
       a.isInefficient ? "YES" : "NO",
     ]);
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const csvContent = "data:text/csv;charset=utf-8," + toCsvText(headers, rows);
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);

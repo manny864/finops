@@ -1,4 +1,5 @@
 "use client";
+import { toCsvText } from "@/lib/csvExport";
 import { useTranslations } from "next-intl";
 import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
 
@@ -528,13 +529,13 @@ export default function KeyVaultPanel() {
       "Total Monthly Cost USD",
     ];
     const rows = filteredVaults.map((v) => [
-      `"${v.name}"`,
-      `"${v.skuName}"`,
-      `"${v.location}"`,
-      `"${v.resourceGroup}"`,
-      `"${v.subscriptionName}"`,
-      `"${v.authModel}"`,
-      `"${v.publicNetworkAccess}"`,
+      v.name,
+      v.skuName,
+      v.location,
+      v.resourceGroup,
+      v.subscriptionName,
+      v.authModel,
+      v.publicNetworkAccess,
       v.privateEndpointsCount,
       v.secretsCount,
       v.keysCount,
@@ -549,7 +550,7 @@ export default function KeyVaultPanel() {
       v.managedHsmPoolCostUSD.toFixed(2),
       v.monthlyCostUSD.toFixed(2),
     ]);
-    const csv = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const csv = "data:text/csv;charset=utf-8," + toCsvText(headers, rows);
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csv));
     link.setAttribute("download", `azure-key-vault-${new Date().toISOString().split("T")[0]}.csv`);

@@ -1,4 +1,5 @@
 "use client";
+import { toCsvText } from "@/lib/csvExport";
 import { useTranslations } from "next-intl";
 import React, { useState, useMemo } from "react";
 import { useLocale } from "next-intl";
@@ -166,20 +167,20 @@ export default function CoinRecommendationsModal({
         ];
 
         const rows = filteredItems.map((r) => [
-            `"${r.id}"`,
-            `"${(r.name || "").replace(/"/g, '""')}"`,
-            `"${CATEGORY_LABELS[r.category] || r.category}"`,
-            `"${r.impact || "Medium"}"`,
-            `"${(r.impactedResource || "").replace(/"/g, '""')}"`,
-            `"${(r.resourceGroup || "").replace(/"/g, '""')}"`,
-            `"${(r.subscriptionName || "").replace(/"/g, '""')}"`,
+            r.id,
+            (r.name || ""),
+            CATEGORY_LABELS[r.category] || r.category,
+            r.impact || "Medium",
+            (r.impactedResource || ""),
+            (r.resourceGroup || ""),
+            (r.subscriptionName || ""),
             r.estimatedMonthlySavingsUsd || 0,
-            `"${r.status}"`,
-            `"${r.snoozedUntil || ""}"`,
-            `"${r.targetModuleUrl || ""}"`,
+            r.status,
+            r.snoozedUntil || "",
+            r.targetModuleUrl || "",
         ]);
 
-        const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+        const csvContent = "data:text/csv;charset=utf-8," + toCsvText(headers, rows);
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);

@@ -26,6 +26,7 @@ import {
   type RegionDistribution,
   type ResourceTypeDistribution,
 } from "@/types/azureGovernanceReporting.types";
+import { csvQuote } from "@/lib/csvExport";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Normalización
@@ -414,7 +415,7 @@ export function buildCsvRows(payload: GovernanceReportingPayload, tr: CsvTransla
 /** Serializa a CSV escapando comillas y separadores. */
 export function toCsv(rows: string[][]): string {
   return rows
-    .map((r) => r.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
+    .map((r) => r.map(csvQuote).join(",")) // AISEC-07: nombres de tipo/región/principal sin fórmulas
     .join("\n");
 }
 

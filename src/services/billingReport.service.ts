@@ -24,6 +24,7 @@ import type {
     BillingLineDetailItem,
     MapVirtualCustomerPayload,
 } from '@/types/billingReport.types';
+import { csvQuote } from '@/lib/csvExport';
 
 const NO_CUSTOMER_ID = 'unassigned';
 const NO_CUSTOMER_LABEL = 'Sin identificar (facturación EA/MCA sin cliente CSP)';
@@ -366,7 +367,7 @@ export function serializeBillingCsv(lines: BillingLineDetailItem[]): string {
             l.originalCostUSD.toFixed(2),
             l.adjustedCostUSD.toFixed(2),
         ]
-            .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+            .map(csvQuote) // AISEC-07
             .join(',')
     );
     return header + rows.join('\r\n');

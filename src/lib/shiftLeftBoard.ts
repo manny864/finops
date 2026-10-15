@@ -74,8 +74,8 @@ export function serieDeTendencia(items: FilaEstimacion[], repo: string): PuntoTe
  * un autor llamado `=HYPERLINK(...)` se ejecutaría al abrir el archivo.
  */
 export function celdaDeTexto(valor: unknown): string {
-    const s = String(valor ?? "");
-    return csvEscape(/^[=+\-@\t\r]/.test(s) ? `'${s}` : s);
+    // csvEscape ya neutraliza (AISEC-07); se fuerza string para que un número no se salte el prefijo.
+    return csvEscape(String(valor ?? ""));
 }
 
 const COLUMNAS = [

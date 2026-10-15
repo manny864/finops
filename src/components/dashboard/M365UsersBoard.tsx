@@ -1,4 +1,5 @@
 "use client";
+import { toCsvText } from "@/lib/csvExport";
 import React, { useState, useMemo, useEffect } from "react";
 import useSWR from "swr";
 import { useTenant } from "@/components/TenantProvider";
@@ -426,7 +427,7 @@ function UserActivityTab() {
             (r.assignedSkus || []).map((s: any) => s.displayName).join("; "),
             r.monthlyCostUSD.toFixed(2),
         ]);
-        const csv = [headers, ...csvRows].map(row => row.map((c: string) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+        const csv = toCsvText(headers, csvRows);
         const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");

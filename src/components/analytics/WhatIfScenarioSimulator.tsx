@@ -1,4 +1,5 @@
 "use client";
+import { toCsvText } from "@/lib/csvExport";
 import { useLocale, useTranslations } from "next-intl";
 import { AlcanceNoAplicado, usePerspectiveScope } from "@/components/PerspectiveScopeSelector";
 
@@ -483,13 +484,13 @@ export default function WhatIfScenarioSimulator() {
     ];
     const rows = savedScenariosList.map((s) => [
       s.id,
-      `"${s.nameKey ? t(s.nameKey) : s.name}"`,
+      s.nameKey ? t(s.nameKey) : s.name,
       s.baseCostUSD.toFixed(2),
       s.projectedCostUSD.toFixed(2),
       s.deltaPercentage,
       s.createdAt,
     ]);
-    const csv = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const csv = "data:text/csv;charset=utf-8," + toCsvText(headers, rows);
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csv));
     link.setAttribute("download", `whatif-scenarios-${new Date().toISOString().split("T")[0]}.csv`);

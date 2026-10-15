@@ -21,6 +21,7 @@
 
 import { filasDeCosto, listarPerspectivas } from "@/services/perspectivesData.service";
 import { repartir } from "@/services/perspectives.service";
+import { csvEscape } from "@/lib/csvExport";
 
 export interface AlcanceDelReporte {
     perspectiveId?: number | null;
@@ -48,11 +49,8 @@ function esc(s: unknown): string {
         ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
 }
 
-/** Escapa para CSV: una coma en el nombre del grupo partiría la fila. */
-function csvCampo(s: unknown): string {
-    const v = String(s ?? "");
-    return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
-}
+/** Escapa para CSV (comas, comillas y fórmulas — AISEC-07). */
+const csvCampo = csvEscape;
 
 /** Mes en curso y mes anterior completo. */
 export function periodosDelReporte(referencia = new Date()): { actual: Periodo; previo: Periodo } {

@@ -1,4 +1,5 @@
 "use client";
+import { toCsvText } from "@/lib/csvExport";
 import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
 import { ERROR_401 } from "@/lib/errorSentinels";
 import { useTranslations } from "next-intl";
@@ -575,7 +576,7 @@ export default function AppInsightsDashboard() {
     ]);
     const csvContent =
       "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+      toCsvText(headers, rows);
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);

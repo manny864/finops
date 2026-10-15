@@ -1,4 +1,5 @@
 "use client";
+import { toCsvText } from "@/lib/csvExport";
 import { useTranslations } from "next-intl";
 import React, { useState, useMemo } from "react";
 import {
@@ -116,22 +117,22 @@ export default function CommitmentRecommendationsDrilldownModal({
             item.id,
             item.type,
             item.term,
-            `"${item.skuName}"`,
-            `"${item.resourceFamily}"`,
-            `"${item.region}"`,
+            item.skuName,
+            item.resourceFamily,
+            item.region,
             item.recommendedHourlyCommitmentUSD
-                ? `"$${item.recommendedHourlyCommitmentUSD}/hr"`
+                ? `$${item.recommendedHourlyCommitmentUSD}/hr`
                 : item.recommendedQuantity,
             item.currentCostOnDemandUSD.toFixed(2),
             item.projectedCostWithCommitmentUSD.toFixed(2),
             item.estimatedMonthlySavingsUSD.toFixed(2),
             `${item.savingsPercentage}%`,
-            `"${item.subscriptionName || item.subscriptionId || "Shared"}"`,
+            item.subscriptionName || item.subscriptionId || "Shared",
         ]);
 
         const csvContent =
             "data:text/csv;charset=utf-8," +
-            [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+            toCsvText(headers, rows);
 
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");

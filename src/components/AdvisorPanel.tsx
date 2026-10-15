@@ -1,4 +1,5 @@
 "use client";
+import { csvQuote } from "@/lib/csvExport";
 
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useMsal } from "@azure/msal-react";
@@ -355,7 +356,7 @@ export default function AdvisorPanel() {
       });
     });
 
-    const esc = (s: string) => `"${(s || "").replace(/"/g, '""')}"`;
+    const esc = csvQuote;
     const csvContent = [headers.map(esc).join(","), ...rows.map((r) => r.map(esc).join(","))].join("\n");
     const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");

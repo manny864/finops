@@ -1,4 +1,5 @@
 "use client";
+import { toCsvText } from "@/lib/csvExport";
 import { useTranslations } from "next-intl";
 import { useTextoPorCategoria, resolverComentarios } from "@/lib/recommendationText";
 import { ACTION_GROUP_CHANNELS } from "@/types/azureActionGroups.types";
@@ -771,13 +772,13 @@ export default function ActionGroupsBoard() {
       "Specialized Cost USD",
     ];
     const rows = filteredGroups.map((ag) => [
-      `"${ag.name}"`,
-      `"${ag.shortName || ""}"`,
-      `"${ag.resourceGroup}"`,
-      `"${ag.subscriptionName}"`,
-      `"${t(`channel_${ag.specializedActionType}`)}"`,
-      `"${ag.state}"`,
-      `"${ag.healthStatus}"`,
+      ag.name,
+      ag.shortName || "",
+      ag.resourceGroup,
+      ag.subscriptionName,
+      t(`channel_${ag.specializedActionType}`),
+      ag.state,
+      ag.healthStatus,
       ag.emailReceiversCount,
       ag.webhookReceiversCount,
       ag.logicAppReceiversCount,
@@ -786,7 +787,7 @@ export default function ActionGroupsBoard() {
       ag.totalNotificationsMTD,
       ag.specializedCostUSD.toFixed(2),
     ]);
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const csvContent = "data:text/csv;charset=utf-8," + toCsvText(headers, rows);
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);

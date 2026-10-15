@@ -45,15 +45,13 @@ import {
 } from "@/services/affiliatePortal.service";
 import { enviarBienvenidaPartner } from "@/services/affiliates.service";
 import { urlPublica } from "@/lib/urlPublica";
+import { csvEscape } from "@/lib/csvExport";
 
 const ESTADOS: EstadoComision[] = ["PENDING", "DUE", "APPROVED", "PAID", "REVERSED", "CANCELLED"];
 const TIPOS: TipoBeneficiario[] = ["affiliate", "sales_rep"];
 
-/** Escapa un campo para CSV: la razón social de un tenant puede traer comas. */
-function campoCsv(valor: unknown): string {
-    const s = String(valor ?? "");
-    return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
+/** Escapa un campo para CSV: la razón social puede traer comas o empezar con `=` (AISEC-07). */
+const campoCsv = csvEscape;
 
 export async function GET(request: NextRequest) {
     try {
