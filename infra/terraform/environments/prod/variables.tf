@@ -413,3 +413,21 @@ variable "mysql_backup_schedule_start_time" {
   type        = string
   default     = "2026-08-01T09:00:00-03:00"
 }
+
+# INFRA-06: segmentación de red por stamp (clave = la de `stamps`). Vive en network.tfvars, VERSIONADO
+# en git y pasado como -var-file después del secret: los clientes autorizados se revisan por PR.
+variable "network_segmentation" {
+  description = "Por stamp: NSG de entrada en PE y MySQL, clientes extra autorizados y firewall de salida opcional. Ver modules/network/main.tf e infra/docs/network-segmentation.md."
+  type = map(object({
+    enabled                     = optional(bool, false)
+    pe_extra_client_prefixes    = optional(list(string), [])
+    mysql_extra_client_prefixes = optional(list(string), [])
+    egress_firewall_private_ip  = optional(string)
+  }))
+  default = {}
+
+  validation {
+    condition     = alltrue([for k in keys(var.network_segmentation) : contains(keys(var.stamps), k)])
+    error_message = "network_segmentation sólo admite claves que existan en stamps."
+  }
+}

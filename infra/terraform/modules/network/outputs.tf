@@ -42,3 +42,11 @@ output "apps_nsg_id" {
   description = "NSG de la subred de apps, o null si apps_nsg_block_imds está apagado."
   value       = var.apps_nsg_block_imds ? azurerm_network_security_group.apps[0].id : null
 }
+
+output "private_endpoint_nsg_id" {
+  value = var.segmentation_nsgs_enabled ? azurerm_network_security_group.private_endpoint[0].id : null
+}
+
+output "mysql_nsg_id" {
+  value = var.segmentation_nsgs_enabled ? azurerm_network_security_group.mysql[0].id : null
+}

@@ -33,7 +33,7 @@ terraform init \
   -backend-config="container_name=tfstate" \
   -backend-config="use_azuread_auth=true" \
   -backend-config="key=prod.tfstate"
-terraform plan -var-file=terraform.tfvars -var-file=cron-jobs.tfvars -out tfplan
+terraform plan -var-file=terraform.tfvars -var-file=cron-jobs.tfvars -var-file=network.tfvars -out tfplan
 terraform apply tfplan
 ```
 
@@ -57,6 +57,10 @@ Consecuencias prácticas:
   ganar y el cambio no tendría efecto.
 - Si se corre un `plan` a mano **sin** el segundo `-var-file`, se planifican los
   crons viejos del secret. Pasar siempre los dos.
+
+`network.tfvars` (INFRA-06) sigue la misma regla: está versionado, va después del
+secret y declara la segmentación de red por stamp (NSG de PE y MySQL, clientes
+autorizados, firewall de salida). Ver [network-segmentation.md](network-segmentation.md).
 
 Esto se hizo así después del incidente de 429 del 2026-09-16: `cron_jobs` estaba
 duplicado (el ejemplo en git, el valor real dentro del secret), las dos copias
