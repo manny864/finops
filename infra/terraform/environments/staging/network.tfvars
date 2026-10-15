@@ -8,7 +8,8 @@ network_segmentation = {
     enabled = true
   }
 
-  keyvault_runner_subnet_ids = {
-    us = ["/subscriptions/ec03e8ce-ceee-4638-b303-64ae431d5b1e/resourceGroups/cscs-finops-staging-runner-rg/providers/Microsoft.Network/virtualNetworks/cscs-finops-staging-runner-vnet/subnets/runner"]
-  }
+}
+
+keyvault_runner_subnet_ids = {
+  us = ["/subscriptions/ec03e8ce-ceee-4638-b303-64ae431d5b1e/resourceGroups/cscs-finops-staging-runner-rg/providers/Microsoft.Network/virtualNetworks/cscs-finops-staging-runner-vnet/subnets/runner"]
 }
