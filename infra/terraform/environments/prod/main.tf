@@ -105,7 +105,8 @@ resource "azurerm_resource_group" "global" {
     precondition {
       condition = (
         var.marketplace_aad_app_id == null || local.legacy_marketplace_aad_app_id == "" ||
-        lower(var.marketplace_aad_app_id) == lower(local.legacy_marketplace_aad_app_id)
+        # Terraform no cortocircuita `||`: sin el condicional, lower(null) rompe el plan cuando la variable es null.
+        lower(var.marketplace_aad_app_id == null ? "" : var.marketplace_aad_app_id) == lower(local.legacy_marketplace_aad_app_id)
       )
       error_message = "marketplace_aad_app_id y extra_env_vars.AZURE_MARKETPLACE_AAD_APP_ID difieren; dejá sólo la variable dedicada."
     }
