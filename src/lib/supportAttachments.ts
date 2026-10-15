@@ -2,7 +2,8 @@
  * Almacenamiento de adjuntos del sistema de soporte.
  *
  * - Tipos permitidos: jpg/jpeg/png (firma completa + marcador de fin, sin datos
- *   extra al final: AISEC-08 anti-polyglot), txt y json (UTF-8 sin NUL; json parseable).
+ *   extra al final: AISEC-08 anti-polyglot; además se re-codifican con sharp), txt y
+ *   json (UTF-8 sin NUL; json parseable).
  * - Tamaño máximo: 5 MB por archivo. Máximo 10 adjuntos por ticket.
  * - Los archivos se guardan como `<prefijo-tenant>/<uuid>.<ext>` (AISEC-05; nunca
  *   con el nombre original, evita path traversal / colisiones) en el container
@@ -111,6 +112,34 @@ export function validateAttachment(fileName: string, bytes: Buffer): AttachmentV
         }
     }
     return { ok: true, ext, mime: spec.mime };
+}
+
+// Tope de píxeles al decodificar (anti decompression bomb): ~40 MP sobra para capturas.
+const REENCODE_MAX_PIXELS = 40_000_000;
+
+/**
+ * AISEC-08 (defensa adicional): decodifica la imagen y la vuelve a codificar con
+ * sharp. Lo que se guarda son sólo los píxeles: se descartan EXIF/XMP/ICC, chunks
+ * de texto y cualquier payload incrustado. Aplica la orientación EXIF antes de
+ * perderla. Si sharp no puede decodificarla, el archivo se rechaza.
+ */
+export async function reencodeImage(ext: string, bytes: Buffer): Promise<AttachmentValidation & { bytes?: Buffer }> {
+    const kind = ALLOWED[ext.toLowerCase()]?.image;
+    if (!kind) return { ok: true, bytes };
+    const { default: sharp } = await import("sharp");
+    let out: Buffer;
+    try {
+        const img = sharp(bytes, { failOn: "error", limitInputPixels: REENCODE_MAX_PIXELS }).rotate();
+        out = kind === "png"
+            ? await img.png({ compressionLevel: 9 }).toBuffer()
+            : await img.jpeg({ quality: 90, mozjpeg: true }).toBuffer();
+    } catch {
+        return { ok: false, error: "La imagen está dañada o no se pudo procesar." };
+    }
+    if (out.length > SUPPORT_ATTACHMENT_MAX_BYTES) {
+        return { ok: false, error: "El archivo supera el máximo de 5 MB." };
+    }
+    return { ok: true, bytes: out };
 }
 
 function mimeForExt(ext: string): string {

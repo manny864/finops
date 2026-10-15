@@ -6,6 +6,7 @@ import rateLimiter from "@/lib/rateLimiter";
 import { BodyLimitError, readBodyCapped } from "@/lib/readJsonCapped";
 import {
     validateAttachment,
+    reencodeImage,
     saveAttachment,
     deleteAttachmentFile,
     SUPPORT_ATTACHMENT_MAX_BYTES,
@@ -90,12 +91,18 @@ export async function POST(
             return NextResponse.json({ error: `Máximo ${SUPPORT_ATTACHMENT_MAX_PER_TICKET} adjuntos por ticket.` }, { status: 409 });
         }
 
-        const bytes = Buffer.from(await file.arrayBuffer());
         const originalName = (file.name || "archivo").slice(0, 255);
-        const validation = validateAttachment(originalName, bytes);
+        const raw = Buffer.from(await file.arrayBuffer());
+        const validation = validateAttachment(originalName, raw);
         if (!validation.ok) {
             return NextResponse.json({ error: validation.error }, { status: 415 });
         }
+        // Las imágenes se guardan re-codificadas (sin metadatos ni payloads incrustados).
+        const reencoded = await reencodeImage(validation.ext!, raw);
+        if (!reencoded.ok || !reencoded.bytes) {
+            return NextResponse.json({ error: reencoded.error }, { status: 415 });
+        }
+        const bytes = reencoded.bytes;
 
         const asSupport = identity.isCorporateDomain && (await hasSystemRole(identity.email, "SUPERADMIN"));
 
