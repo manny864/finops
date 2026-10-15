@@ -92,7 +92,8 @@ def main(command):
     if container not in ("tfstate-prod", "tfstate-stg"):
         raise ValueError("Invalid backend container")
     lease = lease or {"owner": owner, "expires": int(time.time()) + ttl * 60, "ips": []}
-    for attempt in range(24):
+    consecutive = 0
+    for attempt in range(36):
         with urllib.request.urlopen("https://api.ipify.org", timeout=15) as response:
             ip = ipv4(response.read(64).decode().strip())
         if ip not in lease["ips"]:
@@ -113,18 +114,23 @@ def main(command):
             az("storage", "account", "network-rule", "add", "--account-name", name,
                "--resource-group", group, "--ip-address", ip)
             rules.append({"ipAddressOrRange": ip})
+            # ARM completion precedes propagation to Storage data-plane frontends.
+            time.sleep(60)
+            consecutive = 0
         try:
             az("rest", "--method", "get",
                "--url", f"https://{name}.blob.core.windows.net/{container}?restype=container&comp=list&maxresults=1",
                "--resource", "https://storage.azure.com/", "--headers", "x-ms-version=2023-11-03")
-            print("Backend data plane accessible; ARM lease registered.")
-            return
+            consecutive += 1
+            if consecutive == 3:
+                print("Backend data plane stable across three probes; ARM lease registered.")
+                return
         except RuntimeError as error:
             if "<Code>AuthorizationFailure</Code>" not in str(error):
                 raise
-            if attempt == 23:
-                raise RuntimeError("Backend firewall still denies the runner; no wider rule was added") from error
-            time.sleep(5)
+            consecutive = 0
+        time.sleep(5)
+    raise RuntimeError("Backend firewall access did not stabilize; no wider rule was added")
 
 
 if __name__ == "__main__":

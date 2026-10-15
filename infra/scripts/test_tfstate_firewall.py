@@ -142,7 +142,7 @@ class FirewallCheck(unittest.TestCase):
 
         with patch.object(fw, "az", side_effect=az):
             fw.main("open")
-        self.assertEqual(probes, 3)
+        self.assertEqual(probes, 5)
         self.assertEqual(sum("add" in call for call in self.calls), 1)
         self.assertFalse(any("Allow" in call for call in self.calls))
 
@@ -165,7 +165,7 @@ class FirewallCheck(unittest.TestCase):
 
         with patch.object(fw, "az", side_effect=az), self.assertRaisesRegex(RuntimeError, "no wider"):
             fw.main("open")
-        self.assertEqual(probes, 24)
+        self.assertEqual(probes, 36)
         self.assertEqual(fw.load_lease(self.account)["ips"], ["8.8.8.8"])
 
     def test_more_than_eight_ips_is_rejected(self):
