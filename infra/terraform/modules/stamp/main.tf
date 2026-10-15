@@ -349,7 +349,40 @@ module "storage" {
   shared_access_key_enabled     = var.storage_shared_access_key_enabled
   flow_logs_retention_prefix    = var.network_flow_logs_enabled ? "insights-logs-flowlogflowevent/flowLogResourceID=/${upper(var.subscription_id)}_NETWORKWATCHERRG/NETWORKWATCHER_${upper(var.location)}_${upper(local.name_base)}-VNET-FLOWLOG" : null
   app_principal_id              = azurerm_user_assigned_identity.app.principal_id
+  require_clean_scan_containers = var.storage_malware_scanning_enabled ? ["support-attachments"] : []
   tags                          = var.tags
+}
+
+# AISEC-09: Defender for Storage con escaneo antimalware al subir, configurado por cuenta (pisa el
+# nivel suscripción, que gestiona modules/defender sólo desde prod). El resultado va como etiqueta
+# de índice del blob y la asignación de rol de la app (modules/storage) bloquea la lectura de
+# support-attachments hasta que diga "No threats found". Sólo se escanea lo que suben usuarios:
+# backups, exports de costos y flow logs quedan afuera por costo.
+resource "azapi_resource" "storage_malware_scanning" {
+  count     = var.storage_malware_scanning_enabled ? 1 : 0
+  type      = "Microsoft.Security/defenderForStorageSettings@2025-06-01"
+  name      = "current"
+  parent_id = module.storage.id
+
+  body = {
+    properties = {
+      isEnabled                         = true
+      overrideSubscriptionLevelSettings = true
+      malwareScanning = {
+        blobScanResultsOptions = "BlobIndexTags"
+        onUpload = {
+          isEnabled     = true
+          capGBPerMonth = var.storage_malware_scan_cap_gb_per_month
+          filters = {
+            excludeBlobsWithPrefix = ["db-backups/", "finops-cost-exports/", "insights-logs-"]
+          }
+        }
+      }
+      sensitiveDataDiscovery = {
+        isEnabled = false
+      }
+    }
+  }
 }
 
 # Flow Logs se gestionan con AzAPI porque la versión actual de AzureRM no expone

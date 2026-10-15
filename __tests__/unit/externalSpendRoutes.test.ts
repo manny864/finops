@@ -195,7 +195,9 @@ describe("GET /api/intelligence/external-spend/[id]/file", () => {
         m.svc.getDocumentFile.mockResolvedValue({ name: 'fac"tura;x.pdf', mime: "application/pdf", bytes: Buffer.from("%PDF-1.7") });
         const res = await fileGET(get("/5/file?tenantId=t1"), ctx("5"));
         expect(res.status).toBe(200);
-        expect(res.headers.get("Content-Disposition")).toBe('attachment; filename="fac_tura_x.pdf"');
+        expect(res.headers.get("Content-Disposition")).toBe(`attachment; filename="fac_tura_x.pdf"; filename*=UTF-8''fac%22tura%3Bx.pdf`);
+        expect(res.headers.get("Content-Security-Policy")).toBe("default-src 'none'; sandbox");
+        expect(res.headers.get("Cross-Origin-Resource-Policy")).toBe("same-origin");
         expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
         expect(res.headers.get("Cache-Control")).toBe("private, no-store");
         expect(Buffer.from(await res.arrayBuffer()).toString()).toBe("%PDF-1.7");

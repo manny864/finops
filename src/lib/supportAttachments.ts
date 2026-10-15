@@ -17,7 +17,8 @@ import { promises as fs } from "fs";
 import path from "path";
 import crypto from "crypto";
 import { resolveTenantStoredName, tenantBlobPrefix, tenantStoredName } from "@/lib/tenantBlobPath";
-import { isBlobStorageEnabled, uploadBlob, downloadBlobOrNull, deleteBlob } from "@/lib/azureBlobStorage";
+import { isBlobStorageEnabled, uploadBlob, downloadBlob, deleteBlob } from "@/lib/azureBlobStorage";
+import { errorMessage, errorStatus } from "@/lib/apiErrors";
 
 export const SUPPORT_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 export const SUPPORT_ATTACHMENT_MAX_PER_TICKET = 10;
@@ -142,8 +143,21 @@ export async function reencodeImage(ext: string, bytes: Buffer): Promise<Attachm
     return { ok: true, bytes: out };
 }
 
-function mimeForExt(ext: string): string {
-    return ALLOWED[ext.toLowerCase()]?.mime || "application/octet-stream";
+/**
+ * AISEC-09: con Defender for Storage + la condición ABAC de Terraform, Blob niega
+ * (403) la lectura de un adjunto hasta que el escaneo lo marca limpio; si es
+ * malware, para siempre. No es "no existe" ni un fallo de infraestructura.
+ */
+export class AttachmentScanBlockedError extends Error {
+    constructor() {
+        super("El archivo está en análisis antimalware o fue bloqueado.");
+    }
+}
+
+/** Mime a servir, derivado de la extensión del nombre en disco (no del valor guardado en BD). */
+export function mimeForExt(ext: string): string {
+    const mime = ALLOWED[ext.toLowerCase()]?.mime || "application/octet-stream";
+    return mime.startsWith("text/") ? `${mime}; charset=utf-8` : mime;
 }
 
 /** Guarda el buffer como <prefijo-tenant>/<uuid>.<ext> y devuelve el stored_name. */
@@ -166,7 +180,13 @@ export async function readAttachment(tenantId: string, rawName: string): Promise
     const storedName = resolveTenantStoredName(tenantId, rawName, STORED_NAME_RE);
     if (!storedName) return null;
     if (isBlobStorageEnabled()) {
-        return downloadBlobOrNull(SUPPORT_ATTACHMENT_CONTAINER, storedName, "readAttachment");
+        try {
+            return await downloadBlob(SUPPORT_ATTACHMENT_CONTAINER, storedName);
+        } catch (e) {
+            if (errorStatus(e) === 403) throw new AttachmentScanBlockedError();
+            console.error(`[blob] readAttachment: no se pudo bajar ${SUPPORT_ATTACHMENT_CONTAINER}/${storedName}:`, errorMessage(e));
+            return null;
+        }
     }
     try {
         return await fs.readFile(path.join(getSupportUploadDir(), storedName));

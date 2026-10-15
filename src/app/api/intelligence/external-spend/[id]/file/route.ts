@@ -3,6 +3,7 @@ import { requireTenantTier } from "@/lib/requestAuth";
 import { serverError } from "@/lib/apiErrors";
 import { ExternalSpendError, getDocumentFile } from "@/services/externalSpend.service";
 import { errorResponse, parseId } from "../../shared";
+import { attachmentDownloadHeaders } from "@/lib/attachmentDownload";
 
 /**
  * El original, para compararlo con lo extraído. Siempre como adjunto y con
@@ -28,14 +29,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             });
         }
         if (!file) return NextResponse.json({ error: "El original ya no está disponible (retención de 365 días)." }, { status: 410 });
-        const safeName = file.name.replace(/[^\w.\- ]/g, "_");
         return new NextResponse(new Uint8Array(file.bytes), {
-            headers: {
-                "Content-Type": file.mime,
-                "Content-Disposition": `attachment; filename="${safeName}"`,
-                "X-Content-Type-Options": "nosniff",
-                "Cache-Control": "private, no-store",
-            },
+            headers: attachmentDownloadHeaders(file.name, file.mime),
         });
     } catch (e) {
         return errorResponse(e, "GET /api/intelligence/external-spend/[id]/file");

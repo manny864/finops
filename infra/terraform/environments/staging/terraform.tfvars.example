@@ -17,6 +17,7 @@ budget_start_date = "2026-10-01T00:00:00Z"
 
 blob_managed_identity_enabled     = true
 storage_shared_access_key_enabled = false # C-01 fase 4: se ensayó acá (2026-10-12) antes que en prod
+storage_malware_scanning_enabled  = true  # AISEC-09: aplicar acá antes que en prod
 
 allowed_ip_ranges              = []
 origin_cloudflare_only         = false # F2.5

@@ -265,3 +265,7 @@ tags = {
   CostCenter = "FINOPS"
   Product    = "FinOps"
 }
+
+# AISEC-09: escaneo antimalware de Defender for Storage + lectura de adjuntos de soporte sólo si están
+# limpios (ABAC). Activar en staging primero. ROLLBACK: false.
+storage_malware_scanning_enabled = true

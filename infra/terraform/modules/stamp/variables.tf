@@ -482,3 +482,15 @@ variable "security_tables_total_retention_days" {
   type        = number
   default     = 0
 }
+
+variable "storage_malware_scanning_enabled" {
+  description = "AISEC-09: Defender for Storage con escaneo antimalware al subir en la cuenta del stamp, y lectura de support-attachments sólo para blobs marcados limpios (ABAC)."
+  type        = bool
+  default     = false
+}
+
+variable "storage_malware_scan_cap_gb_per_month" {
+  description = "Tope mensual de GB escaneados por la cuenta (costo). -1 = sin tope."
+  type        = number
+  default     = 100
+}

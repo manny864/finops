@@ -307,6 +307,19 @@ variable "storage_shared_access_key_enabled" {
   default     = true
 }
 
+# AISEC-09. Nivel raíz como storage_shared_access_key_enabled: rige para todos los stamps.
+variable "storage_malware_scanning_enabled" {
+  description = "Defender for Storage con escaneo antimalware al subir en la cuenta de cada stamp, y lectura de support-attachments sólo para blobs con 'No threats found' (ABAC). Activarlo reemplaza la asignación de rol Blob de la app (segundos sin acceso durante el apply). Rollback: false."
+  type        = bool
+  default     = false
+}
+
+variable "storage_malware_scan_cap_gb_per_month" {
+  description = "Tope mensual de GB escaneados por cuenta de Storage (controla el costo del escaneo). -1 = sin tope."
+  type        = number
+  default     = 100
+}
+
 variable "resource_lock_enabled" {
   description = "Feature flag de locks de borrado en recursos de datos. Default desactivado para evitar ScopeLocked en despliegues."
   type        = bool
