@@ -21,9 +21,9 @@ variable "tenant_id" {
 }
 
 variable "create" {
-  description = "false = usar el Key Vault existente del proyecto."
+  description = "true = el módulo crea y administra el vault (firewall, PE, purge protection). false = referenciar uno existente, que el módulo NO endurece."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "existing_vault_name" {
@@ -38,7 +38,7 @@ variable "existing_vault_resource_group" {
 
 variable "private_endpoint_enabled" {
   type    = bool
-  default = false
+  default = true
 }
 
 variable "subnet_id" {
@@ -79,7 +79,7 @@ variable "enable_delete_lock" {
 variable "network_acls_enabled" {
   description = "Activa el firewall del vault (default_action = Deny). Requiere que el pipeline abra su IP; ver infra/docs/keyvault-network-hardening.md."
   type        = bool
-  default     = false
+  default     = true
 }
 
 # IPs o CIDRs permanentes (oficina, VPN). La IP efímera del runner NO va acá:

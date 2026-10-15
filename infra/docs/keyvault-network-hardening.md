@@ -28,6 +28,52 @@ runbook si hubiera que repetirlo en otro stamp.
 El inventario de abajo es del **2026-08-22** y su tabla ya no describe el
 presente — ver la nota del 2026-09-07 sobre staging.
 
+## Límites del vault (INFRA-07, 2026-10-15)
+
+Estado en vivo (`az keyvault show`) de los dos vaults del SaaS: `cscs-finops-prod-wus2-kv`
+y `cscs-finops-stg-wus2-kv` son recursos administrados por Terraform (`keyvault_create = true`),
+con `defaultAction: Deny`, `bypass: AzureServices`, `ipRules: []` fuera de las corridas del
+pipeline, private endpoint, RBAC, soft-delete de 30 días y purge protection. El endpoint
+público sigue `Enabled` **a propósito**: es la única ruta de los runners de GitHub
+(opción 1 de abajo). Un PE no lo elimina; lo que lo cierra es el `Deny`.
+
+Qué cambió en el código:
+
+- **Defaults seguros.** `create`, `private_endpoint_enabled` y `network_acls_enabled` pasan a
+  `true` en `modules/keyvault`, `modules/stamp` y `environments/{prod,dev}/variables.tf`. Un
+  stamp nuevo nace cerrado; abrirlo es explícito (la plantilla de staging lo hace para el
+  primer apply, ver su comentario).
+- **`create = false` ya no es un no-op silencioso.** Con data source el módulo no administra
+  ACL, purge protection ni lock del vault existente; pedir `network_acls_enabled` o
+  `allowed_ip_rules` en ese modo falla en el plan (precondición). Un vault ajeno se importa o
+  se endurece desde su dueño de IaC.
+- **Identidad de jobs acotada a un secreto.** `Key Vault Secrets User` sobre
+  `<vault>/secrets/<cron_secret_name>`, no sobre el vault: un cron comprometido no lee
+  credenciales de tenants (`tenant-*`) ni los demás `infra-*`.
+- **migrate sin Key Vault.** No lo usa (`scripts/migrate.ts` sólo necesita `DB_*`, inline) y
+  ya no recibe `AZURE_KEYVAULT_*`, que apuntaban a la identidad del web.
+
+Matriz identidad → rol en el vault:
+
+| Identidad | Rol | Alcance | Por qué |
+|---|---|---|---|
+| web (`*-id`) | Key Vault Secrets Officer | vault | escribe/borra `tenant-*` desde la UI y lee `infra-*` |
+| jobs (`*-jobs-id`) | Key Vault Secrets User | sólo `infra-cron-secret` | referencia de secreto de los cron |
+| migrate (`*-jobs-id`) | — (no lo usa) | — | secretos inline |
+| SP de Terraform | Key Vault Secrets Officer | vault | administra `infra-db-password` e `infra-cron-secret` |
+
+**Pendiente, decisión de diseño: separar el vault de tenants del de infraestructura.**
+El web crea secretos `tenant-<id>-*` con nombres que no existen de antemano, así que no se le
+puede asignar un rol por secreto: necesita Officer sobre el vault, incluidos los `infra-*`. Separarlos dejaría Officer sólo sobre el
+vault de tenants y lectura sobre los secretos de infra, de modo que un web comprometido no
+podría modificar ni borrar `infra-*` (leerlos sí, porque los usa). Costo: un vault nuevo por
+ambiente, migrar los `tenant-*` de prod y que `tenantCredentials.ts` use su propia URL. No se
+hizo en INFRA-07 porque mueve credenciales de clientes en prod; queda para una fase propia.
+
+Otros dos vaults de la suscripción quedan **fuera** de este Terraform y siguen con acceso
+público abierto y sin purge protection: `cscs-kv-wus2-prod` (web corporativa) y
+`kvcscse22c35` (`rg-cscs-linkedin-mcp`). Se endurecen desde sus propios dueños.
+
 ## Inventario real
 
 Todo el SaaS vive en **CSCS-LandingZone** (`ec03e8ce-ceee-4638-b303-64ae431d5b1e`),
