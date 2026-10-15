@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
  * dev y cuando el token de cliente del build es de sandbox (`test_`). Estos tests cuidan las dos mitades: que staging pueda
  * cobrar en sandbox y que un build de prod, con token `live_`, NUNCA los incluya (menor privilegio).
  */
-const archivos = { "next.config.ts": readFileSync("next.config.ts", "utf8"), "src/proxy.ts": readFileSync("src/proxy.ts", "utf8") };
+const archivos = { "next.config.ts": readFileSync("next.config.ts", "utf8"), "src/lib/cspNonce.ts": readFileSync("src/lib/cspNonce.ts", "utf8") };
 
 const condicion = (fuente: string) => fuente.match(/const usaPaddleSandbox = (.+);/)?.[1] ?? "";
 const esDev = (fuente: string) => fuente.match(/const isDev = (.+);/)?.[1] ?? "";
@@ -40,8 +40,8 @@ describe.each(Object.entries(archivos))("CSP de %s", (_nombre, fuente) => {
 });
 
 describe("las dos CSP usan el mismo criterio", () => {
-  it("la condición es idéntica en next.config.ts y en proxy.ts", () => {
-    expect(condicion(archivos["next.config.ts"])).toBe(condicion(archivos["src/proxy.ts"]));
+  it("la condición es idéntica en next.config.ts y en cspNonce.ts (la CSP con nonce del proxy)", () => {
+    expect(condicion(archivos["next.config.ts"])).toBe(condicion(archivos["src/lib/cspNonce.ts"]));
   });
 
   it("el criterio coincide con el que usa el navegador para elegir el entorno de Paddle.js", () => {
