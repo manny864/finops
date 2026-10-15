@@ -274,9 +274,12 @@ variable "cron_jobs" {
 }
 
 # --- key vault ---
+# INFRA-07: defaults seguros. Un vault creado por el módulo nace con firewall Deny y
+# private endpoint; create = false (vault existente por data source) hay que pedirlo
+# explícitamente y no admite firewall (ver la precondición en modules/keyvault).
 variable "keyvault_create" {
   type    = bool
-  default = false
+  default = true
 }
 
 variable "keyvault_existing_name" {
@@ -291,13 +294,13 @@ variable "keyvault_existing_resource_group" {
 
 variable "keyvault_private_endpoint_enabled" {
   type    = bool
-  default = false
+  default = true
 }
 
 variable "keyvault_network_acls_enabled" {
   description = "Firewall del vault en default_action = Deny. Ver infra/docs/keyvault-network-hardening.md."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "keyvault_allowed_ip_rules" {

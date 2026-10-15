@@ -208,6 +208,8 @@ Plan sugerido, en orden: (1) mover esos dos `CREATE TABLE` a migraciones; (2) qu
 
 **Aceptación:** matriz identidad→recurso→rol→propósito aprobada; web, cron, migración y Terraform usan principales separados; las pruebas negativas confirman que cada principal no puede leer ni escribir fuera de su función; las credenciales de base de datos de runtime no son administrativas.
 
+> **2026-10-15 (INFRA-03/07):** cron y migrate usan la identidad `*-jobs-id`, separada del web. En el vault, esa identidad sólo tiene `Secrets User` sobre `infra-cron-secret`, y migrate no usa Key Vault. Los vaults nacen con firewall Deny y PE por defecto. Sigue abierto separar el vault de tenants del de infraestructura; la matriz y la decisión están en `infra/docs/keyvault-network-hardening.md`.
+
 ### P1 — Confirmar Defender, auditoría, diagnósticos y alertas
 
 **Estado: lo verificable está cerrado; las alertas quedaron preparadas y apagadas.**

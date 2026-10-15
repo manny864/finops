@@ -109,10 +109,21 @@ resource "azurerm_role_assignment" "jobs_acr_pull" {
   principal_id         = azurerm_user_assigned_identity.jobs.principal_id
 }
 
+# INFRA-07: lectura acotada al secreto del cron, no a todo el vault. Los jobs sólo
+# referencian CRON_SECRET (migrate recibe sus secretos inline y no usa Key Vault);
+# con el rol a nivel vault un job comprometido leía credenciales de tenants y los
+# demás secretos infra-*. create_before_destroy: al mover el scope, la asignación
+# nueva existe antes de que se borre la anterior y los cron no pierden el secreto.
 resource "azurerm_role_assignment" "jobs_kv_secrets_user" {
-  scope                = module.keyvault.id
+  scope                = "${module.keyvault.id}/secrets/${var.cron_secret_name}"
   role_definition_name = "Key Vault Secrets User"
   principal_id         = azurerm_user_assigned_identity.jobs.principal_id
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  depends_on = [azurerm_key_vault_secret.cron, data.azurerm_key_vault_secret.cron]
 }
 
 # En el primer deploy del stamp, Azure AD puede tardar en propagar AcrPull.
@@ -126,10 +137,9 @@ resource "time_sleep" "acr_pull_propagation" {
   create_duration = "90s"
 }
 
-# El proyecto YA tiene un Key Vault en producción con las credenciales por
-# tenant (tenantCredentials.ts) y los secretos de infra (infraSecrets.ts:
-# infra-db-password, infra-redis-password, infra-cron-secret). Se referencia,
-# no se recrea.
+# Vault del stamp: credenciales por tenant (tenantCredentials.ts) y secretos de
+# infra (infraSecrets.ts). Lo crea y administra el módulo (keyvault_create = true
+# por defecto, INFRA-07); create = false sólo referencia uno existente.
 module "keyvault" {
   source                        = "../keyvault"
   name_base_short               = local.name_base_short
@@ -687,6 +697,16 @@ module "cronjobs" {
 
 # Migraciones: misma imagen, disparo manual desde el pipeline antes de
 # actualizar la app. Reemplaza al `npm run migrate` por SSH.
+# INFRA-07: migrate corre con la identidad de jobs y no lee Key Vault (scripts/migrate.ts
+# sólo usa DB_*, que recibe inline). Las variables de Key Vault de la app apuntan a la
+# identidad del web, que este job no tiene: se quitan para que nadie las use desde acá.
+locals {
+  migrate_env = {
+    for k, v in local.app_env : k => v
+    if !contains(["AZURE_KEYVAULT_ENABLED", "AZURE_KEYVAULT_URL", "AZURE_KEYVAULT_MI_CLIENT_ID"], k)
+  }
+}
+
 resource "azurerm_container_app_job" "migrate" {
   # 32 caracteres máximo, igual que los cron jobs: la base con región de Azure
   # no entra. Se usa la base con la región lógica del stamp.
@@ -732,7 +752,7 @@ resource "azurerm_container_app_job" "migrate" {
       command = ["npm", "run", "migrate"]
 
       dynamic "env" {
-        for_each = local.app_env
+        for_each = local.migrate_env
         content {
           name  = env.key
           value = env.value

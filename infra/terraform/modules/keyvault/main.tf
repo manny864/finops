@@ -1,13 +1,22 @@
 # El proyecto YA tiene un Key Vault en producción: credenciales de Azure por
 # tenant (src/lib/secrets/tenantCredentials.ts) y secretos de infra
 # (infraSecrets.ts: infra-db-password, infra-redis-password, infra-cron-secret).
-# Por defecto este módulo lo REFERENCIA en vez de crear uno nuevo: recrearlo
-# obligaría a recargar todos los secrets a mano. create = true sólo para un
-# vault nuevo (ej. ambiente dev).
+# INFRA-07: por defecto el módulo CREA y administra el vault (firewall Deny, PE,
+# purge protection, RBAC); prod y staging ya lo usan así. create = false sólo
+# referencia uno existente por data source: las ACL, la purge protection y el
+# lock de abajo NO se le aplican, así que pedir firewall o IPs en ese modo es un
+# error, no un no-op silencioso. Un vault ajeno se endurece desde su dueño de IaC.
 data "azurerm_key_vault" "existing" {
   count               = var.create ? 0 : 1
   name                = var.existing_vault_name
   resource_group_name = var.existing_vault_resource_group
+
+  lifecycle {
+    precondition {
+      condition     = !var.network_acls_enabled && length(var.allowed_ip_rules) == 0
+      error_message = "create = false: el firewall (network_acls_enabled / allowed_ip_rules) no se aplica a un vault existente. Importalo y usá create = true, o endurecelo desde su dueño de IaC."
+    }
+  }
 }
 
 resource "azurerm_key_vault" "this" {
@@ -56,8 +65,8 @@ locals {
   vault_name = var.create ? azurerm_key_vault.this[0].name : data.azurerm_key_vault.existing[0].name
 }
 
-# Private endpoint opcional: ~USD 7/mes. En fase 1 se deja en false y el vault
-# queda con acceso público pero protegido por RBAC + managed identity.
+# Private endpoint: la app y los jobs entran por acá (DNS privado del stamp); el
+# endpoint público queda sólo para el runner, detrás del firewall Deny.
 resource "azurerm_private_endpoint" "vault" {
   count               = var.private_endpoint_enabled ? 1 : 0
   name                = "${var.name_base_short}-kv-pe"
@@ -65,6 +74,13 @@ resource "azurerm_private_endpoint" "vault" {
   resource_group_name = var.resource_group_name
   subnet_id           = var.subnet_id
   tags                = var.tags
+
+  lifecycle {
+    precondition {
+      condition     = var.subnet_id != null && var.private_dns_zone_id != null
+      error_message = "private_endpoint_enabled requiere subnet_id y private_dns_zone_id."
+    }
+  }
 
   private_service_connection {
     name                           = "psc-vault"
