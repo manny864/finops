@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { escapeHtml } from "@/lib/htmlEscape";
 import rateLimiter from "@/lib/rateLimiter";
+import { trustedClientIp } from "@/lib/trustedClientIp";
 
 export async function POST(req: NextRequest) {
     try {
@@ -17,12 +18,19 @@ export async function POST(req: NextRequest) {
         if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(String(email))) {
             return NextResponse.json({ success: false, error: "Email inválido" }, { status: 400 });
         }
-        const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown';
+        // PERIM-05: sólo la IP del proxy confiable; X-Forwarded-For lo elige quien
+        // llama. Sin contrato de proxy, todos comparten un bucket. El tope global
+        // acota los envíos reales por MS Graph aunque se roten IPs.
+        const ip = trustedClientIp(req) ?? 'untrusted';
         // Distribuido (Redis) en vez de en memoria: per-proceso permitía
         // saltear el límite escalando horizontalmente o reiniciando el
         // contenedor (degrada a memoria si Redis no responde, ver rateLimiter.ts).
-        const rl = await rateLimiter.checkByKeyDistributed(`leads:enterprise:${ip}`, 5, 60 * 60 * 1000); // 5/hora por IP
-        if (!rl.allowed) {
+        const HOUR = 60 * 60 * 1000;
+        const [rl, global] = await Promise.all([
+            rateLimiter.checkByKeyDistributed(`leads:enterprise:${ip}`, 5, HOUR), // 5/hora por IP
+            rateLimiter.checkByKeyDistributed('leads:enterprise:global', 50, HOUR),
+        ]);
+        if (!rl.allowed || !global.allowed) {
             return NextResponse.json({ success: false, error: "Demasiadas solicitudes. Intenta más tarde." }, { status: 429 });
         }
 

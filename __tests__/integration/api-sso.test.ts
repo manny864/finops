@@ -49,7 +49,7 @@ vi.mock("@/lib/requestAuth", () => ({
 
 // El rate limiter no es objeto de estas pruebas; se mockea para que siempre
 // permita y no acumule estado entre tests (el fallback en memoria compartiría
-// la key `sso-start:unknown` entre casos y dispararía 429 falsos).
+// la key `sso-start:tenant:tenant123` entre casos y dispararía 429 falsos).
 vi.mock("@/lib/rateLimiter", () => ({
     default: {
         checkByKeyDistributed: vi.fn().mockResolvedValue({ allowed: true, remaining: 99, resetAt: new Date() }),

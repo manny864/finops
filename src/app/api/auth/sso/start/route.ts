@@ -3,9 +3,14 @@ import { isWorkOSConfigured, getWorkOS } from "@/lib/workosClient";
 import pool from "@/modules/storage/db";
 import crypto from "crypto";
 import rateLimiter from "@/lib/rateLimiter";
+import { trustedClientIp } from "@/lib/trustedClientIp";
 
 const STATE_COOKIE = 'finops_sso_state';
 const STATE_TTL_SECONDS = 10 * 60;
+const SSO_START_PER_CLIENT_PER_MIN = 20;
+const SSO_START_GLOBAL_PER_MIN = 600;
+const TENANT_ID_RE = /^[A-Za-z0-9._-]{1,64}$/;
+const MAX_DOMAIN_LENGTH = 253;
 
 /**
  * GET /api/auth/sso/start?domain=acme.com&tenantId=xxx
@@ -29,12 +34,25 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // Throttle pre-login por IP (endpoint sin autenticación): 20/min (A-4).
-        const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim()
-            || request.headers.get('x-real-ip') || 'unknown';
-        const rl = await rateLimiter.checkByKeyDistributed(`sso-start:${ip}`, 20, 60_000);
-        if (!rl.allowed) {
-            return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+        if (!TENANT_ID_RE.test(tenantId) || domain.length > MAX_DOMAIN_LENGTH) {
+            return NextResponse.json({ error: "Invalid domain or tenantId" }, { status: 400 });
+        }
+
+        // Throttle pre-login (A-4, PERIM-05). La IP sólo cuenta si la escribió el
+        // proxy confiable; X-Forwarded-For lo elige quien llama y rotarlo evadía
+        // la cuota. Sin contrato de proxy, la cuota es por tenant destino. El tope
+        // global acota el total aunque se roten tenants.
+        const ip = trustedClientIp(request);
+        const clientKey = ip ? `sso-start:ip:${ip}` : `sso-start:tenant:${tenantId}`;
+        const [perClient, global] = await Promise.all([
+            rateLimiter.checkByKeyDistributed(clientKey, SSO_START_PER_CLIENT_PER_MIN, 60_000),
+            rateLimiter.checkByKeyDistributed('sso-start:global', SSO_START_GLOBAL_PER_MIN, 60_000),
+        ]);
+        if (!perClient.allowed || !global.allowed) {
+            return NextResponse.json(
+                { error: "Too many requests" },
+                { status: 429, headers: { 'Retry-After': '60' } }
+            );
         }
 
         if (!isWorkOSConfigured()) {

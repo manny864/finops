@@ -149,12 +149,17 @@ describe("colector de reportes CSP", () => {
 
     it("registra la violación redactada y responde 204", async () => {
         const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
-        const res = await reportPOST(post(JSON.stringify({ "csp-report": { "document-uri": "https://a.com/p?tok=S", "blocked-uri": "inline" } })));
-        expect(res.status).toBe(204);
-        expect(spy).toHaveBeenCalledOnce();
-        expect(String(spy.mock.calls[0][1])).not.toContain("tok=S");
-        expect(rateMock).toHaveBeenCalledWith("csp-report:1.2.3.4", 20, 60_000);
-        spy.mockRestore();
+        process.env.TRUST_CLOUDFLARE_CLIENT_IP = "true";
+        try {
+            const res = await reportPOST(post(JSON.stringify({ "csp-report": { "document-uri": "https://a.com/p?tok=S", "blocked-uri": "inline" } })));
+            expect(res.status).toBe(204);
+            expect(spy).toHaveBeenCalledOnce();
+            expect(String(spy.mock.calls[0][1])).not.toContain("tok=S");
+            expect(rateMock).toHaveBeenCalledWith("csp-report:1.2.3.4", 20, 60_000);
+        } finally {
+            delete process.env.TRUST_CLOUDFLARE_CLIENT_IP;
+            spy.mockRestore();
+        }
     });
 
     it("descarta en silencio: content-type ajeno, rate limit, body > 16 KB, JSON inválido", async () => {
