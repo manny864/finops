@@ -124,6 +124,9 @@ jobs:
       # `--quiet` porque los ~3.400 warnings de deuda no son gate (ver MEJ-09 y
       # docs/lint-debt.md); lo que corta son los errores.
       - run: npm run lint -- --quiet
+      # AISEC-03: pdfChromiumIsolation necesita un Chromium real; en CI su ausencia es error.
+      - name: Instalar Chromium headless de Playwright
+        run: npx playwright install --with-deps --only-shell chromium
       - name: Run tests
         run: npm test -- --reporter=default --reporter=json --outputFile=vitest-report.json
         env:
