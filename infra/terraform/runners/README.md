@@ -63,7 +63,7 @@ ni elimina todo rastro de un job malicioso: las VMs persistentes y las etiquetas
 **no** son una frontera fuerte entre workflows del mismo repositorio personal.
 No ejecutar codigo no confiable y no otorgar sudo al usuario `actions`.
 
-## Conectividad y publicacion pendiente
+## Conectividad publicada y aplicada
 
 Las dos subredes estan autorizadas en el Storage `cscsfinopsmgmtqak5xmsa`;
 cada una solo en su propio vault. Propiedad de configuracion:
@@ -86,19 +86,52 @@ python3 infra/scripts/verify-private-runner.py staging
 python3 infra/scripts/verify-private-runner.py prod
 ```
 
-Los selectores `runs-on` estan preparados localmente para plan/apply, drift y
-reconciliador. **No se hizo push**: los workflows remotos siguen en hosted Ubuntu.
-No aplicar Terraform desde una version anterior a estas ACL: puede retirar las
-subredes. Publicar configuracion y probar planes de ambos ambientes, OIDC,
-aislamiento de contenedores y reconciliacion antes de cerrar INFRA-09.
+Configuracion publicada en PRs #137 a #140, integrada en `82a9a6e`.
+Bootstrap aplicado sin cambios de recursos y con ambas subredes en su state.
+Plan/apply, drift y reconciliador seleccionan la VM de su ambiente; los hooks
+instalados usan extension `.sh`, requerida por Actions.
+
+Evidencia real de Actions del 2026-10-15:
+
+| Operacion | Run | Resultado |
+|---|---|---|
+| Preview staging | `38821258087`, intento 2 | Correcto |
+| Apply staging | `38822480417` | 0 altas, 1 cambio, 0 bajas |
+| Preview prod | `38821261521`, intento 2 | Correcto |
+| Apply prod | `38823749634` | 0 altas, 1 cambio, 0 bajas |
+| Reconciliador prod y staging | `38824588719` | Ambos correctos |
+
+Los jobs autenticados usaron OIDC y comprobaron acceso propio y denegacion
+cruzada/archivo. Los unicos cambios del stamp fueron quitar `APP_VERSION`,
+restaurada por el paso existente desde la imagen sin cambiarla. Ambos
+`/api/health` devolvieron 200 y las revisiones con trafico quedaron Healthy.
+Storage verificado en Deny/bypass None, Shared Key apagada, ambas subredes
+Succeeded y sin reglas IP ni lease ARM residual; cada vault conserva solo su
+subred y ninguna IP temporal. INFRA-09 cerrado con esta evidencia.
+Desde el operador fuera de esas subredes, ambos contenedores rechazaron
+lectura autenticada tras el cierre final, sin agregar reglas para comprobarlo.
+No aplicar Terraform desde una version anterior a estas ACL: puede retirarlas.
+
 Builds/tests y scans de PR continuan en GitHub-hosted Linux. Por bloqueo de
 facturacion de runners hosted detectado durante la activacion, el scan
 bloqueante de dispatch manual desde `main` usa la VM del ambiente, sin OIDC.
 PRs y otras ramas no pueden seleccionar esos runners para el scan.
+No se declara CI hosted verde mientras persista ese bloqueo de cuenta.
+
+Los jobs autenticados comparten la cola `tfstate-firewall`: GitHub conserva
+solo un pendiente y puede cancelar otro antes de iniciarlo. Para mantenimiento,
+pausar temporalmente el reconciliador, esperar los jobs activos y ejecutar
+staging/prod en serie; restaurar siempre el workflow, tambien ante errores.
+`gh run rerun <id> --failed` permite repetir el plan cancelado conservando el
+scan exitoso. El reconciliador quedo activo tras la ventana de aplicacion.
 
 Durante la transicion se conserva la apertura/cierre de IPs temporales y el cron
 de 15 minutos. Su retirada requiere migrar **todos** los consumidores y limpiar
 leases anteriores. Este despliegue no elimina silenciosamente ese mecanismo.
+Las VMs deben seguir disponibles para esos consumidores; no hay autoapagado.
+
+El endpoint publico `/api/status` de staging respondio 503 por snapshot vencido,
+confirmado en logs. No equivale al health probe ni queda remediado por este apply.
 
 ## State y mantenimiento
 

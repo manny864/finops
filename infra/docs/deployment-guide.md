@@ -82,7 +82,7 @@ y operación de cualquier lease, preservar una copia restringida y usar
 `terraform state push` con las validaciones de lineage/serial activas; no usar
 `-force` ni automatizar `force-unlock`.
 
-**Transicion a runners Azure (2026-10-15; publicacion pendiente).** Se desplegaron
+**Runners Azure publicados y aplicados (2026-10-15).** Se desplegaron
 dos `Standard_B2s_v2` en westus2, una por ambiente, con servicios de runner online
 y sin entrada SSH. Las subredes independientes usan `Microsoft.Storage.Global`
 hacia el backend y `Microsoft.KeyVault` hacia su propio vault. Cinco sondeos
@@ -90,12 +90,22 @@ autenticados consecutivos por VM funcionaron y el vault ajeno rechazo por
 `ForbiddenByFirewall`. No se movio el state ni se habilito default Allow.
 Ver [configuracion, costo, mantenimiento y baja](../terraform/runners/README.md).
 
-Los selectores de plan/apply, drift y reconciliacion estan cambiados **localmente**,
-sin push. Los workflows remotos siguen usando hosted Ubuntu y mantienen la
-intermitencia anterior. Las pruebas por VM usaron tokens temporales del operador:
-falta publicar y comprobar OIDC, planes, aislamiento y reconciliacion en Actions.
-INFRA-09 permanece abierto. Mantener las ACL de subred en el tfvars del bootstrap
-y en `network.tfvars`; no aplicar una version anterior que las retire.
+Los cambios de plan/apply, drift y reconciliacion se publicaron en #137 a #140
+(`main` en `82a9a6e`). Bootstrap aplicado conservando ambas subredes.
+Applies reales staging `38822480417` y prod `38823749634` correctos en sus
+respectivas VMs, con OIDC y aislamiento estricto de contenedores/archivo.
+Cada apply tuvo 0 altas, 1 cambio y 0 bajas: solo `APP_VERSION`, restaurada
+desde la imagen existente sin promover codigo. Reconciliador de ambos ambientes
+`38824588719` correcto y workflow activo. Ambos `/api/health` devolvieron 200.
+INFRA-09 cerrado; conservar las ACL de subred en el tfvars del bootstrap y en
+`network.tfvars`, sin aplicar una version anterior que las retire.
+
+El bloqueo de facturacion de GitHub-hosted impide CI nuevo en esos runners.
+Solo el scan bloqueante de dispatch confiable desde `main` usa la VM del
+ambiente, sin OIDC; PRs/builds/tests siguen hosted. Los scans y sus controles
+negativos reales pasaron en ambos applies; no se declara resuelta la facturacion.
+El `/api/status` de staging tiene un snapshot vencido (503); el health probe
+es `/api/health`, no ese snapshot. No se cambio el cron de estado en este apply.
 
 **Red temporal de runners hosted (activa desde 2026-10-15).** El bootstrap configura
 `default_action = "Deny"` y `bypass = ["None"]`. El endpoint continúa público,
@@ -113,14 +123,14 @@ regla con metadata vencida: otro runner la retiró por ARM, antes de Blob
 (`38792920840`, paso de limpieza correcto aunque el job falló después al abrir
 su propio acceso; el otro job de la matriz fue cancelado por la cola compartida).
 
-**Bloqueo de cierre:** también hubo fallos de conectividad 403 en runners reales
+**Incidente anterior de conectividad:** hubo fallos 403 en runners hosted
 (`38787386456`, `38789557884`, `38791414688`). La espera de propagación mejora
 la preparación pero no elimina todos los fallos; una corrida verde no garantiza
-conectividad en la siguiente. INFRA-09 sigue abierto por esta intermitencia.
+conectividad en la siguiente. La ruta estable ahora son las subredes de runners
+Azure autorizadas por service endpoint, no una regla de IP publica propagada.
 No se atribuye cada fallo a una región concreta sin evidencia del origen
-efectivo hacia Blob. Falta elegir una ruta estable: runners fuera de la red
-Azure afectada, egress controlado o migración del backend con revisión de región
-y residencia. No se cambiaron runners ni residencia sin autorización.
+efectivo hacia Blob. Las VMs se desplegaron por autorizacion posterior del
+usuario; no se movio el backend ni se cambio su region/residencia.
 El firewall queda en `Deny` por la orden de activación; ante un runner afectado
 CI falla cerrado. El reconciliador sigue activo, sin fallback automático a `Allow`.
 
@@ -156,14 +166,15 @@ ACL en `storageAccounts/write`: no existe una acción exclusiva para firewall.
 Por ello staging puede modificar otra configuración de esta cuenta compartida;
 el aislamiento de contenedores es de datos, no de administración.
 
-**Despliegue seguro:** crear primero el rol/asignación; publicar los workflows
-y comprobar apertura/cierre en ambos ambientes todavía con `Allow`. Con Actions
-inactivo, abrir una lease local y aplicar bootstrap; el `ignore_changes` de
+**Mantenimiento seguro:** conservar `Deny` y ambas subredes autorizadas.
+Pausar el reconciliador y esperar jobs activos antes de operar manualmente;
+restaurarlo siempre al terminar, incluso con errores. Abrir una lease local
+propia si se necesita aplicar bootstrap fuera de las VMs; el `ignore_changes` de
 `ip_rules` conserva esa `/32`. Usar las variables `TFSTATE_STORAGE`,
 `TFSTATE_RG`, `TFSTATE_CONTAINER` (`tfstate-prod` o `tfstate-stg`),
 `TFSTATE_LEASE_ID` (único) y `TFSTATE_TTL_MINUTES` (1..70). Cerrar siempre al
-terminar. Verificar entonces denegación sin regla, planes staging/prod y
-reconciliación de una lease vencida. No cerrar INFRA-09 antes de estas pruebas.
+terminar. Verificar denegación sin regla/subred autorizada, planes staging/prod
+y reconciliación de una lease vencida. Las pruebas de activacion constan arriba.
 
 **Límite de conectividad:** la salida hacia Blob puede diferir de ipify; además,
 Storage no admite reglas IP para clientes Azure en su misma región. Si un runner

@@ -256,7 +256,7 @@ Fijar base a digest verificado de Node 22 Alpine con actualización automatizada
 
 ### INFRA-09 / INFRA-10 — State, locks y análisis sin puntos ciegos
 
-**Estado (2026-10-15):** INFRA-09 en curso: RBAC por contenedor, prod migrado a
+**Estado (2026-10-15):** INFRA-09 resuelto: RBAC por contenedor, prod migrado a
 `tfstate-prod` (el antiguo mezclaba copias de ambientes), retención de contenedores
 y lock aplicados. Recuperación/versionado y lease comprobados con blobs de prueba;
 plan del bootstrap sin drift. Workflows preparados para verificar aislamiento
@@ -268,14 +268,27 @@ staging `38790400020` y prod `38792939271` correctos con Deny, reconciliador
 de ambos ambientes `38791331427` correcto. El runner independiente
 `38792920840` retiró por ARM una regla local simulada como vencida antes de
 intentar abrir su propio acceso; falló después por conectividad de ese runner.
-**No cerrado:** persisten fallos 403 intermitentes de runners alojados, incluso
+**Bloqueo anterior:** hubo fallos 403 intermitentes de runners alojados, incluso
 con propagación acotada y sondeos consecutivos. Por orden posterior del usuario
 se desplegaron dos runners Azure `B2s_v2` en westus2, separados por ambiente,
 sin SSH público y con service endpoints. Ambos están online; cinco sondeos
 autenticados por VM a su contenedor/vault pasaron, y el vault ajeno rechazó por
 firewall. Cómputo estimado USD 121,47/mes entre ambas, más discos/IPs/tráfico.
-Los cambios de workflows y ACL declarativas están locales, **sin push**:
-falta validar los jobs reales con OIDC antes del cierre. No se movió el state.
+Configuracion publicada en #137 a #140 (`82a9a6e`), bootstrap aplicado con ambas
+subredes. Applies staging `38822480417` y prod `38823749634` correctos en sus
+VMs con OIDC y aislamiento estricto propio/cruzado/archivo. Planes revisados:
+0 altas, 1 cambio y 0 bajas por ambiente, solo `APP_VERSION`, restaurada desde
+la imagen sin promover codigo. Reconciliador `38824588719` correcto en ambas
+VMs y activo. Ambos `/api/health` devolvieron 200. Storage en Deny/bypass None,
+Shared Key apagada, subredes Succeeded, sin IPs temporales ni lease ARM residual;
+cada vault conserva solo su subred. No se movió el state. **Cierre INFRA-09.**
+Riesgos residuales: VMs persistentes requieren mantenimiento; la cola compartida
+puede cancelar jobs pendientes (operar en serie y relanzarlos). El mecanismo
+temporal y cron de 15 minutos se conservan, sin expiracion nativa de Azure.
+Facturacion de runners hosted bloquea CI nuevo; los dispatch confiables de main
+ejecutan el mismo scan bloqueante en la VM sin OIDC, no codigo de PR.
+El snapshot publico de estado de staging esta vencido (503), distinto del
+health probe; no se remedia con este cambio de conectividad.
 Ver [operación de runners](../../infra/terraform/runners/README.md).
 CI falla cerrado; no se vuelve a Allow automáticamente.
 El vencimiento requiere reconciliación; no es expiración nativa de Azure.
@@ -288,8 +301,8 @@ apagados y Blob por identidad administrada. Política local de Deny que también
 detecta eliminar el firewall. Controles negativos ejecutan el scanner real
 sobre copias aisladas sin tfvars/state. CI completo `38783433358` y scan
 `38783433406` correctos; main CI `38785089430` correcto. Los análisis también
-pasaron en los dispatch de staging/prod. No se aplicaron cambios del stamp;
-el único apply de esta activación modificó el firewall del backend.
+pasaron en los dispatch de staging/prod. En la activación original de INFRA-10
+no se aplicaron cambios del stamp; su único apply modificó el firewall del backend.
 Ver [operación del scan](../../infra/README.md#análisis-de-seguridad-de-ci-infra-10).
 
 El bootstrap usa TLS 1.2, Shared Key deshabilitada, contenedor privado y acceso de datos por RBAC. CI usa `use_azuread_auth=true` y `use_oidc=true`. No hay evidencia de backend con SAS anónimo ni una vulnerabilidad demostrada por SAS. Confirmar cualquier SAS operativo fuera de este flujo sin copiarlo al plan.
@@ -318,7 +331,7 @@ Checkov no está desactivado: scan sin OIDC, versión fijada en requirements y r
 
 ### Registro de cierre (2026-10-15)
 
-Hallazgos remediados, mergeados a `main` y desplegados en los ambientes correspondientes; INFRA-10 es un control de CI compartido, no un despliegue de aplicación. Cada cambio incluye tests de contrato con control negativo (mutaciones detectadas). Pendientes del plan: INFRA-09, INFRA-11, STRIDE-01..09 e INT-01..05.
+Hallazgos remediados, mergeados a `main` y desplegados en los ambientes correspondientes; INFRA-10 es un control de CI compartido, no un despliegue de aplicación. Cada cambio incluye tests de contrato con control negativo (mutaciones detectadas). Pendientes del plan: INFRA-11, STRIDE-01..09 e INT-01..05.
 
 | ID | Estado | Commits |
 |---|---|---|
@@ -330,6 +343,7 @@ Hallazgos remediados, mergeados a `main` y desplegados en los ambientes correspo
 | INFRA-06 | ✅ Resuelto | 7ffed68, 711d37e, feeb2e5, 9a24e82 |
 | INFRA-07 | ✅ Resuelto | a07fb98, cec6cbf |
 | INFRA-08 | ✅ Resuelto | 4dc6950 |
+| INFRA-09 | ✅ Resuelto | f806d8a, ffb3511, d1259aa, 8a57427, 82a9a6e (#135, #137–#140) |
 | INFRA-10 | ✅ Resuelto | 1af9a77, 900d87c (#134) |
 | APPSEC-ID-01 | ✅ Resuelto | 5de0f9f |
 | APPSEC-ID-02 | ✅ Resuelto | 06130ef |
