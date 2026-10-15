@@ -26,7 +26,9 @@ env:
   MIGRATE_JOB: ${{ inputs.migrate_job }}
   # Tag aparte para las migraciones: la imagen de runtime es un standalone de
   # Next podado y NO puede correr `npm run migrate` (no tiene scripts/, ni
-  # migrations/, ni tsx). Este tag se construye con --target builder.
+  # migrations/, ni tsx). Este tag se construye con --target migrator: el
+  # builder completo pero con USER no-root (INFRA-08). El sufijo sigue siendo
+  # `builder` porque Terraform (migrate_image_tag) y los tags del ACR lo usan.
   MIGRATE_TAG_SUFFIX: builder
 
 jobs:
@@ -129,7 +131,7 @@ jobs:
             -t "$ACR.azurecr.io/$IMAGE:$MIGRATE_TAG_SUFFIX" \
             --cache-from "$ACR.azurecr.io/$IMAGE:$MIGRATE_TAG_SUFFIX" \
             "${BUILD_ARGS[@]}" \
-            --target builder \
+            --target migrator \
             -f Dockerfile . \
             || { echo "Build de imagen de migraciones falló"; exit 1; }
 

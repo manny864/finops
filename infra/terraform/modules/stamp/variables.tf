@@ -177,9 +177,10 @@ variable "migrate_image_tag" {
     Tag que usa el job de migraciones. NO es el mismo que el de la app: la
     imagen de runtime es un standalone de Next podado y no tiene scripts/,
     ni migrations/, ni tsx — `npm run migrate` ahí falla con "tsx: not found".
-    Este tag se construye con `--target builder`, que sí tiene el código
-    fuente, los .sql y el node_modules completo:
-      az acr build --registry <acr> --image finops:builder --target builder .
+    Este tag se construye con `--target migrator` (INFRA-08): el stage builder,
+    que sí tiene el código fuente, los .sql y el node_modules completo, pero
+    corriendo con un usuario no-root. El nombre del tag sigue siendo `builder`:
+      az acr build --registry <acr> --image finops:builder --target migrator .
   DESC
   type        = string
   default     = "builder"
