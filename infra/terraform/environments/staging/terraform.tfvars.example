@@ -80,3 +80,8 @@ stamps = {
     }
   }
 }
+
+# PERIM-07: sin oferta de Marketplace apuntando a staging, la audiencia queda sin
+# definir y el webhook responde 503 (fail-closed). Para probar contra una oferta
+# preview/sandbox, poné acá el Application ID de esa app registration.
+# marketplace_aad_app_id = "<GUID>"

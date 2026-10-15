@@ -76,6 +76,14 @@ locals {
   })
 
   stamp_hostnames = { for k, s in module.stamp : k => s.hostname }
+
+  # PERIM-07: audiencia del webhook de Marketplace. La variable dedicada manda;
+  # se acepta todavía el valor en extra_env_vars por compatibilidad con tfvars viejos.
+  legacy_marketplace_aad_app_id = trimspace(lookup(var.extra_env_vars, "AZURE_MARKETPLACE_AAD_APP_ID", ""))
+  marketplace_aad_app_id = (
+    var.marketplace_aad_app_id != null ? var.marketplace_aad_app_id :
+    local.legacy_marketplace_aad_app_id != "" ? local.legacy_marketplace_aad_app_id : null
+  )
 }
 
 # ---------------------------------------------------------------------------
@@ -86,6 +94,22 @@ resource "azurerm_resource_group" "global" {
   name     = "${local.global_name_base}-rg"
   location = var.global_location
   tags     = local.tags
+
+  lifecycle {
+    # PERIM-07: el webhook falla cerrado sin audiencia. En prod eso es una caída
+    # silenciosa del ciclo de vida Marketplace, así que se corta en el plan.
+    precondition {
+      condition     = var.environment != "prod" || local.marketplace_aad_app_id != null
+      error_message = "Falta marketplace_aad_app_id en prod: el webhook de Azure Marketplace respondería 503 a todos los eventos (PERIM-07)."
+    }
+    precondition {
+      condition = (
+        var.marketplace_aad_app_id == null || local.legacy_marketplace_aad_app_id == "" ||
+        lower(var.marketplace_aad_app_id) == lower(local.legacy_marketplace_aad_app_id)
+      )
+      error_message = "marketplace_aad_app_id y extra_env_vars.AZURE_MARKETPLACE_AAD_APP_ID difieren; dejá sólo la variable dedicada."
+    }
+  }
 }
 
 module "acr" {
@@ -230,6 +254,8 @@ module "stamp" {
     # PERIM-03/05: la app sólo usa cf-connecting-ip como clave de cuota si el
     # ingress está cerrado a Cloudflare; con el origen abierto lo elige el cliente.
     { TRUST_CLOUDFLARE_CLIENT_IP = tostring(var.origin_cloudflare_only) },
+    # PERIM-07: audiencia obligatoria del JWT del webhook de Marketplace.
+    local.marketplace_aad_app_id == null ? {} : { AZURE_MARKETPLACE_AAD_APP_ID = local.marketplace_aad_app_id },
   )
   key_vault_secret_ids = var.key_vault_secret_ids
   key_vault_secret_env = var.key_vault_secret_env

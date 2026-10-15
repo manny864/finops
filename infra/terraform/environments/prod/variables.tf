@@ -230,6 +230,28 @@ variable "key_vault_secret_env" {
   default     = {}
 }
 
+variable "marketplace_aad_app_id" {
+  description = <<-DESC
+    Application (client) ID de la App Registration del publisher de Azure Marketplace.
+    Es la audiencia OBLIGATORIA del JWT del webhook (PERIM-07): sin ella
+    /api/webhooks/marketplace/azure responde 503 y Microsoft reintenta, así que
+    cambios de plan, suspensiones y bajas no se aplican. No es secreto (viaja como
+    `aud` en el JWT). Obligatoria con environment = "prod"; en staging, null deja el
+    webhook cerrado (no hay oferta de Marketplace apuntando ahí).
+  DESC
+  type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = var.marketplace_aad_app_id == null || can(regex(
+      "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+      var.marketplace_aad_app_id
+    ))
+    error_message = "marketplace_aad_app_id debe ser un GUID (Application ID de Entra ID) o null."
+  }
+}
+
 variable "allowed_ip_ranges" {
   type    = list(string)
   default = []
