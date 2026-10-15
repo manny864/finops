@@ -38,7 +38,7 @@ it("INFRA-09: el control cruzado falla cerrado, sin confundir errores de red con
 set -eu
 echo "$*" >> "$CALLS"
 case "$*" in
-  *"--container-name $OWN "*)
+  *"blob.core.windows.net/$OWN?"*)
     [ "$MODE" != own-denied ] || { echo AuthorizationPermissionMismatch >&2; exit 1; }
     echo 1 ;;
   *)
@@ -46,26 +46,31 @@ case "$*" in
       cross-allowed) echo 1 ;;
       network) echo ConnectionError >&2; exit 1 ;;
       missing) echo ContainerNotFound >&2; exit 1 ;;
-      *) echo AuthorizationPermissionMismatch >&2; exit 1 ;;
+      generic-authorization) echo 'You do not have the required permissions needed to perform this operation.' >&2; exit 1 ;;
+      *) echo '<Code>AuthorizationPermissionMismatch</Code>' >&2; exit 1 ;;
     esac ;;
 esac
 `);
     chmodSync(join(dir, "az"), 0o755);
     for (const [environment, own] of [["prod", "tfstate-prod"], ["staging", "tfstate-stg"]]) {
-      for (const mode of ["denied", "cross-allowed", "network", "missing", "own-denied", "wrong-container"]) {
+      for (const mode of ["denied", "cross-allowed", "network", "missing", "own-denied", "wrong-container", "generic-authorization", "bad-account", "bad-environment"]) {
         const calls = join(dir, "calls");
         writeFileSync(calls, "");
         const result = spawnSync("bash", [script], {
           encoding: "utf8",
           env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, OWN: own, MODE: mode, CALLS: calls,
-            TFSTATE_STORAGE: "teststate", TFSTATE_CONTAINER: mode === "wrong-container" ? "wrong" : own,
-            TFSTATE_ENVIRONMENT: environment },
+            TFSTATE_STORAGE: mode === "bad-account" ? "bad/name" : "teststate",
+            TFSTATE_CONTAINER: mode === "wrong-container" ? "wrong" : own,
+            TFSTATE_ENVIRONMENT: mode === "bad-environment" ? "unknown" : environment },
         });
         expect(result.status, `${environment}: ${mode}: ${result.stderr}`).toBe(mode === "denied" ? 0 : 1);
         if (mode === "denied") {
           const commands = readFileSync(calls, "utf8").trim().split("\n");
           expect(commands).toHaveLength(3);
-          for (const command of commands) expect(command).toContain("--auth-mode login");
+          for (const command of commands) {
+            expect(command).toContain("--resource https://storage.azure.com/");
+            expect(command).toContain("https://teststate.blob.core.windows.net/");
+          }
         }
       }
     }
