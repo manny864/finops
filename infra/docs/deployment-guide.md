@@ -60,7 +60,9 @@ bootstrap y sus backups fuera de Git.
 
 `check-tfstate-isolation.sh` verifica lectura propia y denegación RBAC del otro
 ambiente **y del archivo antiguo**; no considera un error de red evidencia de
-aislamiento. Plan/apply y drift lo ejecutan con OIDC. Los `init` del backend
+aislamiento. Usa `az rest` con Entra ID para conservar el código XML de Azure:
+`az storage` lo reemplaza por un mensaje genérico. Plan/apply y drift lo ejecutan
+con OIDC. Los `init` del backend
 usan `-lockfile=readonly`; los leases del reconciliador usan el mismo contenedor
 que el state del ambiente. Los administradores con Owner/User Access
 Administrator todavía pueden reasignar permisos: esto no es aislamiento frente
