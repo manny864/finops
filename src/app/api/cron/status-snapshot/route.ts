@@ -30,9 +30,14 @@ async function checkDatabaseHealth(): Promise<{ status: ComponentStatus; latency
 async function checkAzureSyncHealth(): Promise<{ status: ComponentStatus; ratio: number }> {
   try {
     const [rows]: any = await pool.query(
-      `SELECT COUNT(*) as total, 
+      // Mismo filtro que el cron de sync (src/app/api/cron/sync/route.ts): un
+      // tenant en trial/pending o archivado para Azure nunca se sincroniza y no
+      // puede degradar el estado público que se publica desde este snapshot.
+      `SELECT COUNT(*) as total,
               SUM(CASE WHEN sync_status='OK' THEN 1 ELSE 0 END) as ok_count
-       FROM Tenants`
+       FROM Tenants
+        WHERE status = 'active'
+          AND (provider_archived IS NULL OR provider_archived <> 'azure')`
     );
     if (!rows || rows.length === 0 || rows[0].total === 0) {
       return { status: "operational", ratio: 1.0 };
