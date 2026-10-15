@@ -244,4 +244,9 @@ describe("flow log: sin diff perpetuo (TAUserDoesNotHavePermissions en staging)"
     expect(bloque).toMatch(/enabledFilteringCriteria = ""/);
     expect(bloque).toMatch(/recordTypes {14}= ""/);
   });
+
+  it("no fija schema_validation_enabled (cambiarlo también dispara un PUT)", () => {
+    const codigo = bloque.split("\n").filter((l) => !l.trim().startsWith("#")).join("\n");
+    expect(codigo).not.toMatch(/schema_validation_enabled/);
+  });
 });
