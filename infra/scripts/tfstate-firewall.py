@@ -81,6 +81,7 @@ def main(command):
         raise ValueError("Usage: tfstate-firewall.py open|close|reconcile")
     if lease and lease["expires"] <= int(time.time()):
         cleanup(account, lease)
+        account = az("storage", "account", "show", "--name", name, "--resource-group", group)
         lease = None
     if lease and lease["owner"] != owner:
         raise RuntimeError("Another backend lease is active; refusing concurrent mutation")
@@ -107,8 +108,11 @@ def main(command):
                 raise ValueError("ARM lease exceeds the Storage tag limit")
             az("tag", "update", "--resource-id", account["id"], "--operation", "Merge",
                "--tags", TAG + "=" + encoded)
+        rules = account["networkRuleSet"]["ipRules"]
+        if not any(rule["ipAddressOrRange"] in (ip, ip + "/32") for rule in rules):
             az("storage", "account", "network-rule", "add", "--account-name", name,
                "--resource-group", group, "--ip-address", ip)
+            rules.append({"ipAddressOrRange": ip})
         try:
             az("rest", "--method", "get",
                "--url", f"https://{name}.blob.core.windows.net/{container}?restype=container&comp=list&maxresults=1",

@@ -51,6 +51,12 @@ class FirewallCheck(unittest.TestCase):
                 self.account["tags"].pop(fw.TAG, None)
             else:
                 self.account["tags"][fw.TAG] = args[-1].split("=", 1)[1]
+        if args[:4] == ("storage", "account", "network-rule", "add"):
+            self.account["networkRuleSet"]["ipRules"].append({"ipAddressOrRange": args[-1]})
+        if args[:4] == ("storage", "account", "network-rule", "remove"):
+            self.account["networkRuleSet"]["ipRules"] = [
+                rule for rule in self.account["networkRuleSet"]["ipRules"]
+                if rule["ipAddressOrRange"] not in (args[-1], args[-1] + "/32")]
         return None
 
     def lease(self, owner="run-1", expires=2000):
@@ -95,6 +101,18 @@ class FirewallCheck(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             fw.main("open")
         self.assertEqual(fw.load_lease(self.account)["ips"], ["8.8.8.8"])
+
+    def test_repeated_open_repairs_a_partially_added_rule(self):
+        self.lease()
+        fw.main("open")
+        self.assertTrue(any("add" in call for call in self.calls))
+
+    def test_expired_runner_ip_can_be_reused_after_cleanup(self):
+        self.lease(owner="previous-run", expires=999)
+        self.account["networkRuleSet"]["ipRules"] = [{"ipAddressOrRange": "8.8.8.8"}]
+        fw.main("open")
+        self.assertEqual(fw.load_lease(self.account)["owner"], "run-1")
+        self.assertEqual(self.account["networkRuleSet"]["ipRules"], [{"ipAddressOrRange": "8.8.8.8"}])
 
     def test_unmanaged_rule_is_not_adopted_or_removed(self):
         self.account["networkRuleSet"]["ipRules"] = [{"ipAddressOrRange": "8.8.8.8/32"}]
