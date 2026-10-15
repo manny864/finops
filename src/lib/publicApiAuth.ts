@@ -30,6 +30,17 @@ export function generateApiKey(): { plaintext: string; hash: string; prefix: str
   return { plaintext, hash, prefix };
 }
 
+/**
+ * El limitador exige un entero positivo (PERIM-06). Un valor ausente o no numérico
+ * cae al default de alta (60); uno ≤ 0 o fraccionario se lleva al entero ≥ 1 más
+ * cercano por debajo, para no volver más permisiva una clave restringida.
+ */
+function normalizeRateLimit(value: unknown): number {
+  const n = value == null || value === '' ? NaN : Number(value);
+  if (!Number.isFinite(n)) return 60;
+  return Math.max(1, Math.min(Math.trunc(n), 1_000_000));
+}
+
 export async function verifyApiKey(request: NextRequest): Promise<ApiAuthResult | null> {
   const authHeader = request.headers.get("authorization") || "";
   const xApiKey = request.headers.get("x-api-key") || "";
@@ -77,7 +88,7 @@ export async function verifyApiKey(request: NextRequest): Promise<ApiAuthResult 
       keyId: key.id,
       name: key.name,
       scopes: Array.isArray(scopes) ? scopes : [],
-      rateLimitPerMin: key.rate_limit_per_min,
+      rateLimitPerMin: normalizeRateLimit(key.rate_limit_per_min),
     };
   } catch (error) {
     console.error("Error verifying API key:", error);

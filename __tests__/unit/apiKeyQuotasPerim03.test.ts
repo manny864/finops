@@ -298,3 +298,18 @@ describe("PERIM-03 — /api/v1/shift-left/estimate", () => {
         expect(res.status).toBe(413);
     });
 });
+
+describe("PERIM-06 — rate_limit_per_min se normaliza antes del limitador", () => {
+    it.each([
+        [0, 1],
+        [-5, 1],
+        [2.7, 2],
+        [null, 60],
+        ["abc", 60],
+        [5_000_000, 1_000_000],
+    ])("rate_limit_per_min=%s → límite %s (entero positivo, nunca más permisivo que lo pedido)", async (raw, expected) => {
+        primeDb({ pak: { ...keyRow(["read:costs"]), rate_limit_per_min: raw as unknown as number } });
+        await meGET(new NextRequest("https://app/api/v1/me", { headers: { "x-api-key": PAK } }));
+        expect(h.checkByKeyDistributed).toHaveBeenCalledWith("apikey:7", expected);
+    });
+});
