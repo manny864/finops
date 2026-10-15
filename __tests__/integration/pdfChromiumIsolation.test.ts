@@ -1,7 +1,6 @@
 // @vitest-environment node
 // AISEC-03 (aceptación): el PDF se genera sin ejecutar JS ni hacer peticiones salientes,
 // aun si el HTML trajera <script>/<img>/<iframe>/CSS remoto (defensa en profundidad).
-import { existsSync } from "node:fs";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -12,9 +11,11 @@ import { renderPdfReportHtml } from "@/lib/reports/templates/pdfReportTemplate";
 let chromium: (typeof import("playwright"))["chromium"] | null = null;
 try {
   const pw = await import("playwright");
-  // executablePath() devuelve la ruta esperada aunque el navegador no esté instalado.
-  const exe = pw.chromium.executablePath();
-  if (exe && existsSync(exe)) chromium = pw.chromium;
+  // executablePath() devuelve una ruta aunque el binario no esté (y en headless se usa otro,
+  // el headless shell): la única prueba fiable es lanzarlo.
+  const probe = await pw.chromium.launch({ headless: true });
+  await probe.close();
+  chromium = pw.chromium;
 } catch {
   chromium = null;
 }
