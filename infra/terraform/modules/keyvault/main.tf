@@ -13,7 +13,7 @@ data "azurerm_key_vault" "existing" {
 
   lifecycle {
     precondition {
-      condition     = !var.network_acls_enabled && length(var.allowed_ip_rules) == 0
+      condition     = !var.network_acls_enabled && length(var.allowed_ip_rules) == 0 && length(var.allowed_subnet_ids) == 0
       error_message = "create = false: el firewall (network_acls_enabled / allowed_ip_rules) no se aplica a un vault existente. Importalo y usá create = true, o endurecelo desde su dueño de IaC."
     }
   }
@@ -46,8 +46,9 @@ resource "azurerm_key_vault" "this" {
       default_action = "Deny"
       # Sin este bypass, las referencias a secrets del Container App y los
       # servicios de plataforma de Azure quedan afuera junto con todo lo demás.
-      bypass   = "AzureServices"
-      ip_rules = var.allowed_ip_rules
+      bypass                     = "AzureServices"
+      ip_rules                   = var.allowed_ip_rules
+      virtual_network_subnet_ids = var.allowed_subnet_ids
     }
   }
 

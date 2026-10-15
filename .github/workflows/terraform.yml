@@ -130,7 +130,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     # INFRA-05: acota la vida del job; el TTL del lease del Key Vault es esto + 10.
     timeout-minutes: 60
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, "${{ inputs.environment == 'staging' && 'finops-staging' || 'finops-prod' }}"]
     needs: scan
     permissions:
       id-token: write
@@ -184,6 +184,10 @@ jobs:
         with:
           ref: main
           persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
 
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
@@ -485,7 +489,7 @@ jobs:
       group: tfstate-firewall
       cancel-in-progress: false
     if: github.event_name == 'schedule'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, "finops-${{ matrix.environment }}"]
     # INFRA-05: el TTL del lease del Key Vault es esto + 10.
     timeout-minutes: 30
     # Con environment, el sujeto del token OIDC es `environment:prod`, el mismo que
@@ -513,6 +517,9 @@ jobs:
         working-directory: infra/terraform/environments/${{ matrix.environment }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
       - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
         id: backend_login

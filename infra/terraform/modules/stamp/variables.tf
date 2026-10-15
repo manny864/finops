@@ -310,6 +310,12 @@ variable "keyvault_allowed_ip_rules" {
   default     = []
 }
 
+variable "keyvault_allowed_subnet_ids" {
+  description = "Subredes de runners con acceso de red al vault del stamp."
+  type        = list(string)
+  default     = []
+}
+
 # --- observabilidad y coste ---
 variable "log_retention_days" {
   type    = number

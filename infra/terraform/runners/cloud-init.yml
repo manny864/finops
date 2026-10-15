@@ -1,0 +1,75 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - git
+  - jq
+  - unzip
+  - python3
+  - python3-venv
+  - unattended-upgrades
+users:
+  - default
+  - name: actions
+    system: false
+    lock_passwd: true
+    shell: /bin/bash
+write_files:
+  - path: /usr/local/lib/finops-runner-job-started
+    owner: root:root
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      test "${GITHUB_REPOSITORY:-}" = "manny864/finops"
+      test "${GITHUB_REF:-}" = "refs/heads/main"
+      case "${GITHUB_EVENT_NAME:-}" in
+        workflow_dispatch|schedule|workflow_run) ;;
+        *) echo "::error::Private runners accept only trusted main jobs" >&2; exit 1 ;;
+      esac
+      case "${GITHUB_WORKFLOW_REF:-}" in
+        manny864/finops/.github/workflows/terraform.yml@refs/heads/main|manny864/finops/.github/workflows/kv-firewall-reconcile.yml@refs/heads/main) ;;
+        *) echo "::error::Workflow not authorized for private runners" >&2; exit 1 ;;
+      esac
+  - path: /usr/local/sbin/install-finops-runner
+    owner: root:root
+    permissions: '0700'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      trap 'echo "Runner setup failed at line $LINENO" >&2' ERR
+      install -d -m 0755 /etc/apt/keyrings
+      curl --fail --silent --show-error --location https://packages.microsoft.com/keys/microsoft.asc |
+        gpg --dearmor --output /etc/apt/keyrings/microsoft.gpg
+      chmod 0644 /etc/apt/keyrings/microsoft.gpg
+      echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ noble main' > /etc/apt/sources.list.d/azure-cli.list
+      apt-get update -qq
+      DEBIAN_FRONTEND=noninteractive apt-get install -y azure-cli
+      work=$(mktemp -d)
+      trap 'rm -f "$work/terraform.zip" "$work/SHA256SUMS" "$work/runner.tar.gz"; rmdir "$work"' EXIT
+      cd "$work"
+      curl --fail --silent --show-error --location https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_amd64.zip -o terraform.zip
+      curl --fail --silent --show-error --location https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_SHA256SUMS -o SHA256SUMS
+      expected=$(awk '$2 == "terraform_1.9.8_linux_amd64.zip" {print $1}' SHA256SUMS)
+      test "${#expected}" = 64
+      echo "$expected  terraform.zip" | sha256sum --check -
+      unzip -p terraform.zip terraform > /usr/local/bin/terraform
+      chmod 0755 /usr/local/bin/terraform
+      curl --fail --silent --show-error --location https://github.com/actions/runner/releases/download/v2.338.0/actions-runner-linux-x64-2.338.0.tar.gz -o runner.tar.gz
+      echo 'af4b794c1bc41d73d40535e3fe092a39f9679cd8d965954c2aca25a05ca41d32  runner.tar.gz' | sha256sum --check -
+      install -d -m 0755 -o actions -g actions /opt/actions-runner
+      tar xzf runner.tar.gz -C /opt/actions-runner
+      /opt/actions-runner/bin/installdependencies.sh
+      chown -R actions:actions /opt/actions-runner
+      # The job user must not inherit the image administrator's passwordless sudo.
+      test "$(id -u actions)" -ne 0
+      if id -nG actions | grep -qw sudo; then
+        gpasswd -d actions sudo
+      fi
+      systemctl enable --now unattended-upgrades
+      touch /var/lib/cloud/instance/finops-runner-ready
+runcmd:
+  - [/usr/local/sbin/install-finops-runner]

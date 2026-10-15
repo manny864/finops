@@ -261,7 +261,7 @@ Fijar base a digest verificado de Node 22 Alpine con actualización automatizada
 y lock aplicados. Recuperación/versionado y lease comprobados con blobs de prueba;
 plan del bootstrap sin drift. Workflows preparados para verificar aislamiento
 cruzado y del archivo, y `init -lockfile=readonly`. Firewall `Deny`/bypass `None`
-**activo**, sin VMs nuevas; workflows publicados en #134/#135 con `/32`
+**activo**; workflows publicados en #134/#135 con `/32`
 temporal, lease ARM, cierre `always()` y reconciliación independiente de Blob.
 Denegación autenticada sin regla comprobada en ambos contenedores. Planes
 staging `38790400020` y prod `38792939271` correctos con Deny, reconciliador
@@ -269,9 +269,15 @@ de ambos ambientes `38791331427` correcto. El runner independiente
 `38792920840` retiró por ARM una regla local simulada como vencida antes de
 intentar abrir su propio acceso; falló después por conectividad de ese runner.
 **No cerrado:** persisten fallos 403 intermitentes de runners alojados, incluso
-con propagación acotada y sondeos consecutivos. Debe decidirse una ruta estable;
-no se migró residencia del state ni se aumentó el costo/cambió plataforma de
-runners sin aprobación. CI falla cerrado; no se vuelve a Allow automáticamente.
+con propagación acotada y sondeos consecutivos. Por orden posterior del usuario
+se desplegaron dos runners Azure `B2s_v2` en westus2, separados por ambiente,
+sin SSH público y con service endpoints. Ambos están online; cinco sondeos
+autenticados por VM a su contenedor/vault pasaron, y el vault ajeno rechazó por
+firewall. Cómputo estimado USD 121,47/mes entre ambas, más discos/IPs/tráfico.
+Los cambios de workflows y ACL declarativas están locales, **sin push**:
+falta validar los jobs reales con OIDC antes del cierre. No se movió el state.
+Ver [operación de runners](../../infra/terraform/runners/README.md).
+CI falla cerrado; no se vuelve a Allow automáticamente.
 El vencimiento requiere reconciliación; no es expiración nativa de Azure.
 Ver [operación y recuperación](../../infra/docs/deployment-guide.md#protección-del-state--infra-09-2026-10-15).
 **INFRA-10 resuelto y publicado (#134):** Checkov 3.3.26 analiza

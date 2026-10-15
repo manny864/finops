@@ -1,0 +1,2 @@
+subscription_id = "<subscription-id>"
+admin_public_key = "ssh-ed25519 <public-key>"

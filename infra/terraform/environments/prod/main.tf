@@ -186,6 +186,12 @@ module "global_diagnostics" {
 # Stamps. Hoy uno; la clave del mapa es el valor de Tenants.data_residency.
 # ---------------------------------------------------------------------------
 
+variable "keyvault_runner_subnet_ids" {
+  description = "Subredes autorizadas al vault por stamp; versionadas en network.tfvars."
+  type        = map(list(string))
+  default     = {}
+}
+
 module "stamp" {
   source   = "../../modules/stamp"
   for_each = var.stamps
@@ -272,6 +278,7 @@ module "stamp" {
   keyvault_private_endpoint_enabled = each.value.keyvault_private_endpoint_enabled
   keyvault_network_acls_enabled     = each.value.keyvault_network_acls_enabled
   keyvault_allowed_ip_rules         = each.value.keyvault_allowed_ip_rules
+  keyvault_allowed_subnet_ids       = lookup(var.keyvault_runner_subnet_ids, each.key, [])
 
   log_retention_days               = var.log_retention_days
   log_daily_quota_gb               = var.log_daily_quota_gb

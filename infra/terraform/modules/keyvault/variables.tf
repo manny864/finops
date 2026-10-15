@@ -90,3 +90,9 @@ variable "allowed_ip_rules" {
   type        = list(string)
   default     = []
 }
+
+variable "allowed_subnet_ids" {
+  description = "Subredes de runners con service endpoint Microsoft.KeyVault."
+  type        = list(string)
+  default     = []
+}
