@@ -48,6 +48,7 @@ Async lifecycle events:
 - `getAadAccessToken()` — client_credentials with the AAD app registered in Partner Center, scoped to `20e940b3-4c77-4b0b-9a53-9e16a1b010a7/.default` (cached until 60s before expiry).
 - `resolveSubscription(token)` — POST `/api/saas/subscriptions/resolve` with `x-ms-marketplace-token`.
 - `activateSubscription(id, planId, quantity?)`, `getSubscription(id)`, `patchOperation(...)`.
+- PERIM-09: these helpers throw `"<op> failed: <status>"` (with `status`) and never include the remote body. The activation route answers `{ error: "Unable to complete activation", errorId }` (502 if resolve fails, 500 if persistence fails) and logs only `errorId` + category.
 - `verifyWebhookJwt(authHeader)` — verifies RS256 JWT against `login.microsoftonline.com/common/discovery/keys` and audience = our AAD app ID (mandatory), issuer allow-list, RS256 only, `exp`/`iat` required. Fail-closed (PERIM-07): without `AZURE_MARKETPLACE_AAD_APP_ID` the webhook answers 503 and touches nothing; invalid credentials get 401 with no token details. There is no skip-verify mode; tests sign real JWTs with a local key (`__setMarketplaceJwksForTests`).
 
 ## Setup — Azure (Partner Center)

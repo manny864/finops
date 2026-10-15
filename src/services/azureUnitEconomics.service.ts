@@ -481,8 +481,8 @@ export async function upsertBusinessUnits(input: {
 /** Valida un lote de ingesta y separa filas buenas de rechazadas con su motivo. */
 export function validateIngestBatch(
   raw: unknown
-): { valid: Array<{ metricDate: string; metricType: UnitMetricType; unitCount: number }>; rejected: Array<{ index: number; reason: string }> } {
-  const valid: Array<{ metricDate: string; metricType: UnitMetricType; unitCount: number }> = [];
+): { valid: Array<{ index: number; metricDate: string; metricType: UnitMetricType; unitCount: number }>; rejected: Array<{ index: number; reason: string }> } {
+  const valid: Array<{ index: number; metricDate: string; metricType: UnitMetricType; unitCount: number }> = [];
   const rejected: Array<{ index: number; reason: string }> = [];
   const items = Array.isArray(raw) ? raw : [raw];
 
@@ -506,7 +506,7 @@ export function validateIngestBatch(
       rejected.push({ index, reason: "unitCount debe ser un número >= 0" });
       return;
     }
-    valid.push({ metricDate, metricType: o.metricType, unitCount });
+    valid.push({ index, metricDate, metricType: o.metricType, unitCount });
   });
 
   return { valid, rejected };

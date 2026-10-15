@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/modules/storage/db";
 import { authenticateMcpToken } from "@/services/mcpApiKey.service";
-import { errorMessage } from "@/lib/apiErrors";
+import { actionableCause, logSafeError } from "@/lib/publicErrors";
 import { assembleLiveAnomalies } from "@/services/azureAnomalyDetection.service";
 import { getActiveHardWaste } from "@/services/azureHardWaste.service";
 import { motivoDelHallazgo } from "@/services/azureZombieAudit.service";
@@ -69,6 +69,15 @@ async function authenticateMCP(request: NextRequest): Promise<{ tenantId: string
 }
 
 /**
+ * PERIM-09: nota de fallo con texto fijo. Sólo causas conocidas (RBAC, 429, permisos) dicen
+ * por qué; lo demás va con un `errorId` que correlaciona con el log, sin el mensaje original.
+ */
+function failureNote(label: string, what: string, e: unknown): string {
+    const errorId = logSafeError(label, e);
+    return `${what}: ${actionableCause(e) ?? "error interno"} (errorId ${errorId})`;
+}
+
+/**
  * `get_waste_zombies` y `get_zombie_resources`: el desperdicio duro vigente del escaneo de Resource Graph (el que
  * cuentan la pantalla de Recursos Zombis y el reporte ejecutivo), de mayor a menor plata. Sólo difieren en el nombre
  * de la lista. En frío espera el escaneo (30 s o más). Si falla lo dice en `note` y lo registra: un vacío acá se lee
@@ -92,8 +101,7 @@ function zombiesHandler(tool: string, lista: "waste" | "zombies"): ToolDef["hand
                 })),
             };
         } catch (e) {
-            console.error(`[mcp] ${tool} falló:`, errorMessage(e));
-            return { count: 0, [lista]: [], note: `No se pudo escanear Resource Graph: ${errorMessage(e) || "error desconocido"}` };
+            return { count: 0, [lista]: [], note: failureNote(`[mcp] ${tool}`, "No se pudo escanear Resource Graph", e) };
         }
     };
 }
@@ -109,8 +117,7 @@ function budgetsHandler(tool: string): ToolDef["handler"] {
             const budgets = await getBudgetStatuses(tenantId);
             return { count: budgets.length, budgets };
         } catch (e) {
-            console.error(`[mcp] ${tool} falló:`, errorMessage(e));
-            return { count: 0, budgets: [], note: `No se pudieron leer los presupuestos: ${errorMessage(e) || "error desconocido"}` };
+            return { count: 0, budgets: [], note: failureNote(`[mcp] ${tool}`, "No se pudieron leer los presupuestos", e) };
         }
     };
 }
@@ -174,7 +181,7 @@ const TOOLS: ToolDef[] = [
                     })),
                 };
             } catch (e) {
-                return { period: "30d", resources: [], note: `Tabla no disponible: ${errorMessage(e) || "?"}` };
+                return { period: "30d", resources: [], note: failureNote("[mcp] get_top_resources", "No se pudieron leer los costos por recurso", e) };
             }
         },
     },
@@ -231,8 +238,7 @@ const TOOLS: ToolDef[] = [
                 };
             } catch (e) {
                 // La tabla existe: lo que falló es la lectura. Se registra para que no sea sólo "no hay anomalías".
-                console.error("[mcp] get_anomalies_feed falló:", errorMessage(e));
-                return { count: 0, anomalies: [], note: `No se pudieron leer las anomalías: ${errorMessage(e) || "error desconocido"}` };
+                return { count: 0, anomalies: [], note: failureNote("[mcp] get_anomalies_feed", "No se pudieron leer las anomalías", e) };
             }
         },
     },
@@ -278,11 +284,10 @@ const TOOLS: ToolDef[] = [
                 const top = [...abiertas].sort((a, b) => b.estimated_savings_usd - a.estimated_savings_usd).slice(0, limit);
                 return { count: top.length, recommendations: top };
             } catch (e) {
-                console.error("[mcp] get_recommendations falló:", errorMessage(e));
                 return {
                     count: 0,
                     recommendations: [],
-                    note: `No se pudieron leer las recomendaciones de Azure Advisor: ${errorMessage(e) || "error desconocido"}`,
+                    note: failureNote("[mcp] get_recommendations", "No se pudieron leer las recomendaciones de Azure Advisor", e),
                 };
             }
         },
@@ -368,7 +373,8 @@ async function handlePost(request: NextRequest) {
                 jsonrpc: "2.0",
                 result: {
                     content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-                    isError: false,
+                    // Una lista vacía con `note` es un fallo, no "no hay datos" (PERIM-09).
+                    isError: typeof result?.note === "string",
                 },
                 id,
             });
@@ -392,9 +398,10 @@ async function handlePost(request: NextRequest) {
             id,
         });
     } catch (err) {
+        const errorId = logSafeError("[mcp] execution", err, { method });
         return NextResponse.json({
             jsonrpc: "2.0",
-            error: { code: -32603, message: errorMessage(err) || "Internal error" },
+            error: { code: -32603, message: "Internal error", data: { errorId } },
             id,
         }, { status: 500 });
     }

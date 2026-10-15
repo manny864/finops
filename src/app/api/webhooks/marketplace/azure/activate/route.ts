@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/modules/storage/db';
 import { resolveSubscription, activateSubscription } from '@/lib/marketplace/azure';
 import { azurePlanToTier } from '@/lib/marketplace/planMapping';
+import { logSafeError } from '@/lib/publicErrors';
 
 interface ActivationRequest {
   token: string;
@@ -30,11 +31,9 @@ export async function POST(request: NextRequest) {
   try {
     resolved = await resolveSubscription(body.token);
   } catch (error) {
-    console.error('Azure resolveSubscription error:', error);
-    return NextResponse.json(
-      { error: 'Failed to resolve marketplace token', details: (error as Error).message },
-      { status: 502 }
-    );
+    // PERIM-09: ni el mensaje del proveedor ni el token van a la respuesta o al log.
+    const errorId = logSafeError('[marketplace-activate] resolve', error);
+    return NextResponse.json({ error: 'Unable to complete activation', errorId }, { status: 502 });
   }
 
   const subscriptionId = resolved.id || resolved.subscription?.id;
@@ -109,7 +108,7 @@ export async function POST(request: NextRequest) {
     try {
       await activateSubscription(subscriptionId, planId, resolved.quantity);
     } catch (error) {
-      console.error('Azure activateSubscription API error:', error);
+      logSafeError('[marketplace-activate] activateSubscription', error);
       // Continue: tenant is created, Microsoft will retry via webhooks if needed
     }
 
@@ -139,11 +138,8 @@ export async function POST(request: NextRequest) {
     if ((error as { code?: string }).code === 'ER_DUP_ENTRY') {
       return NextResponse.json({ error: 'Subscription already registered' }, { status: 409 });
     }
-    console.error('Azure activation DB error:', error);
-    return NextResponse.json(
-      { error: 'Failed to activate subscription', details: (error as Error).message },
-      { status: 500 }
-    );
+    const errorId = logSafeError('[marketplace-activate] persistence', error);
+    return NextResponse.json({ error: 'Unable to complete activation', errorId }, { status: 500 });
   } finally {
     connection.release();
   }

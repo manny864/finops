@@ -121,7 +121,9 @@ describe("MCP get_anomalies_feed", () => {
         const r = await llamar("get_anomalies_feed");
 
         expect(r.count).toBe(0);
-        expect(r.note).toContain("Connection lost");
+        // PERIM-09: el mensaje del driver no sale; el errorId correlaciona con el log.
+        expect(r.note).not.toContain("Connection lost");
+        expect(r.note).toMatch(/error interno \(errorId [0-9a-f-]{36}\)/);
         expect(r.note).not.toMatch(/no disponible/i);
         // Sin esta línea el fallo sólo se veía como "no hay anomalías".
         expect(consolaError.mock.calls.some(([m]) => String(m).startsWith("[mcp] get_anomalies_feed"))).toBe(true);

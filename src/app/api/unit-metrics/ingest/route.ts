@@ -18,7 +18,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyApiKey, requireScope, ApiError } from "@/lib/publicApiAuth";
 import { invalidateCache } from "@/lib/cache";
-import { errorMessage } from "@/lib/apiErrors";
+import { logSafeError } from "@/lib/publicErrors";
 import rateLimiter, { RateLimitUnavailable } from "@/lib/rateLimiter";
 import { rateLimitUnavailableResponse } from "@/lib/rateLimitUnavailable";
 import { preAuthAllowed, touchKeyLastUsed } from "@/lib/apiKeyGuards";
@@ -105,7 +105,9 @@ export async function POST(request: NextRequest) {
         });
         ingested++;
       } catch (e) {
-        failed.push({ index: i, reason: errorMessage(e, "Error al persistir la fila") });
+        // PERIM-09: el mensaje del driver no sale; `index` es la posición en el lote original.
+        logSafeError("[unit-metrics] row persistence", e, { index: valid[i].index });
+        failed.push({ index: valid[i].index, reason: "Error al persistir la fila" });
       }
     }
 
@@ -124,7 +126,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof ApiError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    console.error("[API Unit Metrics Ingest] Error:", error);
-    return NextResponse.json({ error: "Error interno procesando la ingesta" }, { status: 500 });
+    const errorId = logSafeError("[unit-metrics] ingest", error);
+    return NextResponse.json({ error: "Error interno procesando la ingesta", errorId }, { status: 500 });
   }
 }

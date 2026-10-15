@@ -77,8 +77,8 @@ export async function getAadAccessToken(): Promise<string> {
     body: body.toString(),
   });
   if (!resp.ok) {
-    const txt = await resp.text();
-    throw new Error(`AAD token request failed: ${resp.status} ${txt}`);
+    // PERIM-09: el cuerpo remoto no entra en la excepción (puede traer detalles de la app).
+    throw Object.assign(new Error(`AAD token request failed: ${resp.status}`), { status: resp.status });
   }
   const json = (await resp.json()) as { access_token: string; expires_in: number };
   tokenCache = {
@@ -116,8 +116,7 @@ export async function resolveSubscription(token: string): Promise<AzureResolvedS
     }
   );
   if (!resp.ok) {
-    const txt = await resp.text();
-    throw new Error(`resolveSubscription failed: ${resp.status} ${txt}`);
+    throw Object.assign(new Error(`resolveSubscription failed: ${resp.status}`), { status: resp.status });
   }
   return (await resp.json()) as AzureResolvedSubscription;
 }
@@ -173,9 +172,8 @@ export async function activateSubscription(
     method: 'POST',
     body: JSON.stringify({ planId, quantity }),
   });
-  if (!resp.ok && resp.status !== 200) {
-    const txt = await resp.text();
-    throw new Error(`activateSubscription failed: ${resp.status} ${txt}`);
+  if (!resp.ok) {
+    throw Object.assign(new Error(`activateSubscription failed: ${resp.status}`), { status: resp.status });
   }
 }
 
