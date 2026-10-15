@@ -68,6 +68,11 @@ que el state del ambiente. Los administradores con Owner/User Access
 Administrator todavía pueden reasignar permisos: esto no es aislamiento frente
 a administradores de la suscripción.
 
+Después de cambiar providers, generar también sus hashes para los runners con
+`terraform providers lock -platform=linux_amd64` y commitear el lockfile. Los
+hashes del ZIP (`zh:`) no bastan para `validate` si `init -lockfile=readonly`
+no puede registrar el hash del paquete Linux extraído (`h1:`).
+
 **Recuperación comprobada:** en blobs de prueba (no en el state real), adquirir
 un lease de 60 segundos, confirmar que una escritura sin su ID falla con
 `LeaseIdMissing`, liberarlo, sobrescribir el blob, descargar su versión anterior,
