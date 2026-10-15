@@ -58,7 +58,8 @@ valor real (`src/lib/marketplace/planMapping.ts`, fijado en
 
 **El Application ID tiene que ser el MISMO que `AZURE_MARKETPLACE_AAD_APP_ID`.**
 No es sólo una credencial: `verifyWebhookJwt()` valida la audiencia del JWT
-contra esa variable (`azure.ts:208`). Si Partner Center declara un app id y
+contra esa variable y, si falta, el webhook responde 503 sin procesar nada
+(PERIM-07: antes la audiencia quedaba sin chequear). Si Partner Center declara un app id y
 producción tiene otro, el resolve puede andar y **todos** los webhooks de ciclo
 de vida se rechazan con "audience mismatch" — cambios de plan, suspensiones y
 bajas dejan de llegar, sin que la compra inicial dé ningún síntoma.

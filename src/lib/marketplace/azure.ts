@@ -1,4 +1,4 @@
-import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
+import { createRemoteJWKSet, jwtVerify, type JWTPayload, type JWTVerifyGetKey } from 'jose';
 
 const FULFILLMENT_API_BASE = 'https://marketplaceapi.microsoft.com/api/saas';
 const FULFILLMENT_API_VERSION = '2018-08-31';
@@ -164,9 +164,15 @@ export async function patchOperation(
   }
 }
 
-const aadJwks = createRemoteJWKSet(
+const remoteAadJwks = createRemoteJWKSet(
   new URL('https://login.microsoftonline.com/common/discovery/keys')
 );
+let aadJwks: JWTVerifyGetKey = remoteAadJwks;
+
+/** Sólo tests: firmar JWT reales con claves locales en vez de un bypass sin firma. */
+export function __setMarketplaceJwksForTests(keys: JWTVerifyGetKey | null): void {
+  aadJwks = keys ?? remoteAadJwks;
+}
 
 /**
  * Trusted Marketplace publisher issuers. The Microsoft SaaS Fulfillment service
@@ -189,28 +195,53 @@ function isAllowedIssuer(iss: unknown): boolean {
   return false;
 }
 
+/** Falta configuración del verificador: el webhook no puede autenticar nada (→ 503). */
+export class MarketplaceVerifierNotConfigured extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MarketplaceVerifierNotConfigured';
+  }
+}
+
+/** Credencial ausente o inválida (→ 401). El mensaje es para logs, no para la respuesta. */
+export class MarketplaceWebhookAuthError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MarketplaceWebhookAuthError';
+  }
+}
+
+/**
+ * PERIM-07: falla cerrado. Sin `AZURE_MARKETPLACE_AAD_APP_ID` no se verifica
+ * nada (antes `audience: undefined` desactivaba el chequeo de destino y un JWT
+ * de un issuer permitido emitido para otra app pasaba). `MARKETPLACE_SKIP_VERIFY`
+ * ya no existe en ningún entorno: los tests firman con claves locales.
+ */
 export async function verifyWebhookJwt(authHeader: string | null): Promise<JWTPayload> {
-  if (!authHeader?.startsWith('Bearer ')) {
-    throw new Error('Missing Bearer token');
+  const audience = process.env.AZURE_MARKETPLACE_AAD_APP_ID?.trim();
+  if (!audience) {
+    throw new MarketplaceVerifierNotConfigured('AZURE_MARKETPLACE_AAD_APP_ID is not configured');
   }
-  const token = authHeader.slice(7).trim();
-  if (!token) throw new Error('Empty token');
-
   if (process.env.MARKETPLACE_SKIP_VERIFY === 'true') {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('MARKETPLACE_SKIP_VERIFY is not allowed in production');
-    }
-    const [, payload] = token.split('.');
-    if (!payload) throw new Error('Invalid JWT format');
-    return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as JWTPayload;
+    throw new MarketplaceVerifierNotConfigured('MARKETPLACE_SKIP_VERIFY is no longer supported; unset it');
   }
 
-  const expectedAudience = process.env.AZURE_MARKETPLACE_AAD_APP_ID;
-  const { payload } = await jwtVerify(token, aadJwks, {
-    audience: expectedAudience,
-  });
+  const match = /^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/.exec(authHeader?.trim() ?? '');
+  if (!match) throw new MarketplaceWebhookAuthError('Missing or malformed Bearer token');
+
+  let payload: JWTPayload;
+  try {
+    ({ payload } = await jwtVerify(match[1], aadJwks, {
+      audience,
+      algorithms: ['RS256'],
+      requiredClaims: ['iss', 'aud', 'exp', 'iat'],
+      clockTolerance: 5,
+    }));
+  } catch (e) {
+    throw new MarketplaceWebhookAuthError(`JWT verification failed: ${(e as { code?: string }).code ?? 'unknown'}`);
+  }
   if (!isAllowedIssuer(payload.iss)) {
-    throw new Error(`Untrusted webhook issuer: ${String(payload.iss)}`);
+    throw new MarketplaceWebhookAuthError('Untrusted webhook issuer');
   }
   return payload;
 }

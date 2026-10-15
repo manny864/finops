@@ -77,13 +77,12 @@ describe('assertSafeWebhookUrl', () => {
   });
 });
 
-describe('marketplace: skip-verify blocked in production', () => {
-  // We can't safely toggle NODE_ENV in vitest (read-only), but we can verify the
-  // implementation guards production via a string assertion to ensure the guard
-  // doesn't drift.
-  it('Azure verifyWebhookJwt source contains the production guard', async () => {
+describe('marketplace: skip-verify removed (PERIM-07)', () => {
+  it('Azure verifyWebhookJwt never decodes a token without verifying it', async () => {
     const fs = await import('fs');
     const src = fs.readFileSync('src/lib/marketplace/azure.ts', 'utf8');
-    expect(src).toMatch(/MARKETPLACE_SKIP_VERIFY[\s\S]*NODE_ENV[\s\S]*production/);
+    const fn = src.slice(src.indexOf('export async function verifyWebhookJwt'));
+    expect(fn).not.toMatch(/Buffer\.from\([^)]*base64url/);
+    expect(fn).toMatch(/MARKETPLACE_SKIP_VERIFY[\s\S]*throw new MarketplaceVerifierNotConfigured/);
   });
 });

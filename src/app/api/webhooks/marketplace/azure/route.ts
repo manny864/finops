@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/modules/storage/db';
 import { recordTenantLifecycleTransition } from "@/services/tenantLifecycle.service";
-import { verifyWebhookJwt, getSubscription } from '@/lib/marketplace/azure';
+import { verifyWebhookJwt, getSubscription, MarketplaceVerifierNotConfigured } from '@/lib/marketplace/azure';
 import { azurePlanToTier } from '@/lib/marketplace/planMapping';
 import { notifyInternalCancellation } from '@/lib/billingAlerts';
 import { applyTierChange } from '@/services/providerLifecycleService';
@@ -32,16 +32,23 @@ const ACTION_TO_STATUS: Record<string, string | null> = {
  * POST /api/webhooks/marketplace/azure
  *
  * Receives Azure Marketplace lifecycle events. JWT signed by Microsoft is
- * verified against AAD signing keys (jose) unless MARKETPLACE_SKIP_VERIFY=true.
+ * verified against AAD signing keys (jose) with mandatory audience
+ * (AZURE_MARKETPLACE_AAD_APP_ID) and issuer allow-list. Fail-closed (PERIM-07).
  */
 export async function POST(request: NextRequest) {
   try {
     await verifyWebhookJwt(request.headers.get('authorization'));
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Webhook authentication failed', details: (error as Error).message },
-      { status: 401 }
-    );
+    // Sin detalles del token en la respuesta: sólo en logs.
+    if (error instanceof MarketplaceVerifierNotConfigured) {
+      console.error('[marketplace-webhook] verifier not configured:', error.message);
+      return NextResponse.json(
+        { error: 'Webhook verifier not configured' },
+        { status: 503, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+    console.warn('[marketplace-webhook] authentication failed:', (error as Error).message);
+    return NextResponse.json({ error: 'Webhook authentication failed' }, { status: 401 });
   }
 
   let event: AzureWebhookEvent;
