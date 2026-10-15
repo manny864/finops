@@ -143,6 +143,18 @@ describe("applyCsvMapping", () => {
         });
     });
 
+    it("AISEC-06: las etiquetas del CSV salen sin controles/bidi y con largo acotado", () => {
+        const mapping: CsvColumnMapping = {
+            provider: "",
+            mappings: [{ sourceColumn: "Svc", focusField: "ServiceName" }, { sourceColumn: "Cost", focusField: "BilledCost" }],
+            dateFormat: "YMD",
+        };
+        const [out] = applyCsvMapping([{ Svc: "VM\u2066\r\n" + "y".repeat(400), Cost: "1" }], mapping);
+        expect(out.ServiceName).not.toMatch(/[\r\n\u2066]/);
+        expect(out.ServiceName.length).toBeLessThanOrEqual(120);
+        expect(out.ProviderName).toBe("Unknown");
+    });
+
     it("con decimales con coma lee bien todo el archivo, también el valor ambiguo", () => {
         const rows = [{ Svc: "VM", Cost: "1.234" }, { Svc: "VM", Cost: "12,5" }];
         const mapping: CsvColumnMapping = {

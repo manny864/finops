@@ -110,4 +110,66 @@ describe("POST /api/intelligence/upload", () => {
         expect((await res.json()).reason).toBe(reason);
         expect(assessmentMock).not.toHaveBeenCalled();
     });
+
+    describe("AISEC-06 — topes del body y de las filas", () => {
+        const raw = (body: string, headers: Record<string, string> = {}) =>
+            new NextRequest("http://localhost/api/intelligence/upload", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", ...headers },
+                body,
+            });
+
+        it("rechaza con 413 por Content-Length declarado sin leer el body", async () => {
+            const res = await POST(raw("{}", { "content-length": String(64 * 1024 * 1024) }));
+            expect(res.status).toBe(413);
+            expect(normalizeMock).not.toHaveBeenCalled();
+        });
+
+        it("corta con 413 al pasar el tope aunque no haya Content-Length (stream)", async () => {
+            const big = new TextEncoder().encode(" ".repeat(1024 * 1024));
+            let sent = 0;
+            const stream = new ReadableStream<Uint8Array>({
+                pull(c) {
+                    if (sent++ < 40) c.enqueue(big);
+                    else c.close();
+                },
+            });
+            const req = new NextRequest("http://localhost/api/intelligence/upload", {
+                method: "POST",
+                body: stream,
+                // @ts-expect-error duplex es requerido por undici para bodies en stream
+                duplex: "half",
+            });
+            const res = await POST(req);
+            expect(res.status).toBe(413);
+            expect(sent).toBeLessThan(40);
+        });
+
+        it("JSON inválido → 400", async () => {
+            expect((await POST(raw("{nope"))).status).toBe(400);
+        });
+
+        it.each([
+            ["demasiadas columnas", [Object.fromEntries(Array.from({ length: 201 }, (_, i) => [`c${i}`, "1"]))]],
+            ["celda gigante", [{ Service: "x".repeat(4097), Cost: "1" }]],
+            ["columna __proto__", [JSON.parse('{"__proto__": "x", "Cost": "1"}')]],
+            ["nombre de columna gigante", [{ ["k".repeat(129)]: "1" }]],
+            ["celda objeto", [{ Service: { nested: true }, Cost: "1" }]],
+            ["fila que no es objeto", ["hola"]],
+            ["fila vacía", [{}]],
+        ])("%s → 400 sin llegar a la IA", async (_label, data) => {
+            const res = await POST(upload({}, data as object[]));
+            expect(res.status).toBe(400);
+            expect(normalizeMock).not.toHaveBeenCalled();
+        });
+
+        it("la agregación no mezcla ('a-b','c') con ('a','b-c')", async () => {
+            normalizeMock.mockResolvedValue([
+                { ServiceName: "a-b", ChargeCategory: "c", BilledCost: 1, EffectiveCost: 1 },
+                { ServiceName: "a", ChargeCategory: "b-c", BilledCost: 2, EffectiveCost: 2 },
+            ]);
+            await POST(upload());
+            expect(assessmentMock.mock.calls[0][0]).toHaveLength(2);
+        });
+    });
 });

@@ -465,7 +465,9 @@ export async function getAssessment(metricsData: any, tenantId: string, opts: As
     // docs/security/audit-2026-07-05.md.
     const redactedMetrics = await redactForTenant(tenantId, metricsData);
     const dataString = JSON.stringify(redactedMetrics);
-    const language = ASSESSMENT_LANGUAGE[opts.locale ?? 'es'] ?? ASSESSMENT_LANGUAGE.es;
+    // AISEC-06: hasOwn, no `[locale] ??`: "constructor" o "__proto__" devolvían Object.prototype.*.
+    const locale = opts.locale ?? 'es';
+    const language = Object.hasOwn(ASSESSMENT_LANGUAGE, locale) ? ASSESSMENT_LANGUAGE[locale] : ASSESSMENT_LANGUAGE.es;
     const currency = opts.currency === undefined ? 'USD' : opts.currency;
     // Usa la config/key del tenant (no la global) para respetar el aislamiento por
     // tenant y la key configurada por cada cliente (IA-1).
@@ -639,10 +641,11 @@ export function isAlreadyFocusFormat(rawCsvData: any[]): boolean {
 
 export function mapNativeFocusRows(rawCsvData: any[]): any[] {
     return rawCsvData.map((row) => ({
-        ProviderName: String(row.ProviderName ?? '').trim() || 'Unknown',
-        SubAccountId: String(row.SubAccountId ?? row.BillingAccountId ?? '').trim(),
-        ServiceName: String(row.ServiceName ?? '').trim() || 'Unknown',
-        ChargeCategory: String(row.ChargeCategory ?? '').trim() || 'Usage',
+        // AISEC-06: etiquetas del CSV → sin controles/bidi y con largo acotado (van al prompt y a la UI).
+        ProviderName: sanitizeLabel(row.ProviderName) || 'Unknown',
+        SubAccountId: sanitizeLabel(row.SubAccountId ?? row.BillingAccountId),
+        ServiceName: sanitizeLabel(row.ServiceName) || 'Unknown',
+        ChargeCategory: sanitizeLabel(row.ChargeCategory, 40) || 'Usage',
         UsageDate: focusDate(row),
         BilledCost: num(row.BilledCost),
         // Si EffectiveCost viene vacío se cae a BilledCost: dejarlo en 0

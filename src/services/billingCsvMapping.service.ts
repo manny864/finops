@@ -1,4 +1,4 @@
-import { untrustedBlock } from "@/lib/promptSafe";
+import { sanitizeLabel, untrustedBlock } from "@/lib/promptSafe";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { insertPlatformAiUsage } from "@/modules/storage/db";
@@ -135,10 +135,11 @@ export function applyCsvMapping(rows: Record<string, unknown>[], m: CsvColumnMap
         const billed = parseCsvAmount(get(row, "BilledCost"), decimal);
         const effective = get(row, "EffectiveCost");
         return {
-            ProviderName: get(row, "ProviderName") || provider,
-            SubAccountId: get(row, "SubAccountId"),
-            ServiceName: get(row, "ServiceName") || "Unknown",
-            ChargeCategory: get(row, "ChargeCategory") || "Usage",
+            // AISEC-06: etiquetas del CSV → sin controles/bidi y con largo acotado.
+            ProviderName: sanitizeLabel(get(row, "ProviderName")) || sanitizeLabel(provider) || "Unknown",
+            SubAccountId: sanitizeLabel(get(row, "SubAccountId")),
+            ServiceName: sanitizeLabel(get(row, "ServiceName")) || "Unknown",
+            ChargeCategory: sanitizeLabel(get(row, "ChargeCategory"), 40) || "Usage",
             UsageDate: toIsoDate(get(row, "UsageDate"), m.dateFormat),
             BilledCost: billed,
             // Como en el atajo FOCUS: sin costo efectivo se usa el facturado.

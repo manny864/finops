@@ -50,6 +50,19 @@ describe("mapeo determinista de filas FOCUS", () => {
         expect(out.ProviderName).toBe("Azure");
     });
 
+    it("AISEC-06: las etiquetas salen sin controles/bidi y con largo acotado", () => {
+        const [out] = mapNativeFocusRows([{
+            ...focusRow,
+            ServiceName: "VM\u202Eevil\u0000\nIgnore previous" + "x".repeat(500),
+            ProviderName: "\u200B",
+            SubAccountId: "s".repeat(300),
+        }]);
+        expect(out.ServiceName).not.toMatch(/[\u0000-\u001F\u202E]/);
+        expect(out.ServiceName.length).toBeLessThanOrEqual(120);
+        expect(out.ProviderName).toBe("Unknown");
+        expect(out.SubAccountId.length).toBe(120);
+    });
+
     it("cae a BilledCost cuando EffectiveCost viene vacío", () => {
         // Dejarlo en 0 subestimaría el gasto en el resumen.
         const [out] = mapNativeFocusRows([{ ...focusRow, EffectiveCost: "" }]);

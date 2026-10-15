@@ -67,6 +67,15 @@ describe("getAssessment", () => {
         expect(system()).toContain("sin símbolo ni código de moneda");
     });
 
+    it.each(["constructor", "__proto__", "toString", "hasOwnProperty"])(
+        "AISEC-06: locale=%s (propiedad heredada) cae en español, no inyecta una función en el prompt",
+        async (locale) => {
+            await getAssessment(METRICS, "t1", { locale });
+            expect(system()).toContain("en español formal");
+            expect(system()).not.toMatch(/function|native code|\[object/);
+        }
+    );
+
     it("un idioma desconocido cae en español", async () => {
         await getAssessment(METRICS, "t1", { locale: "fr" });
         expect(system()).toContain("en español formal");
