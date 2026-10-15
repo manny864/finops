@@ -14,7 +14,8 @@ network_segmentation = {
     ]
   }
 
-  keyvault_runner_subnet_ids = {
-    us = ["/subscriptions/ec03e8ce-ceee-4638-b303-64ae431d5b1e/resourceGroups/cscs-finops-prod-runner-rg/providers/Microsoft.Network/virtualNetworks/cscs-finops-prod-runner-vnet/subnets/runner"]
-  }
+}
+
+keyvault_runner_subnet_ids = {
+  us = ["/subscriptions/ec03e8ce-ceee-4638-b303-64ae431d5b1e/resourceGroups/cscs-finops-prod-runner-rg/providers/Microsoft.Network/virtualNetworks/cscs-finops-prod-runner-vnet/subnets/runner"]
 }
