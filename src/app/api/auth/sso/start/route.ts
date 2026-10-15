@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { isWorkOSConfigured, getWorkOS } from "@/lib/workosClient";
 import pool from "@/modules/storage/db";
 import crypto from "crypto";
-import rateLimiter from "@/lib/rateLimiter";
+import rateLimiter, { RateLimitUnavailable } from "@/lib/rateLimiter";
+import { rateLimitUnavailableResponse } from "@/lib/rateLimitUnavailable";
 import { trustedClientIp } from "@/lib/trustedClientIp";
 
 const STATE_COOKIE = 'finops_sso_state';
@@ -41,12 +42,13 @@ export async function GET(request: NextRequest) {
         // Throttle pre-login (A-4, PERIM-05). La IP sólo cuenta si la escribió el
         // proxy confiable; X-Forwarded-For lo elige quien llama y rotarlo evadía
         // la cuota. Sin contrato de proxy, la cuota es por tenant destino. El tope
-        // global acota el total aunque se roten tenants.
+        // global acota el total aunque se roten tenants. Estricto (PERIM-06): con
+        // Redis caído responde 503, no un presupuesto por réplica.
         const ip = trustedClientIp(request);
         const clientKey = ip ? `sso-start:ip:${ip}` : `sso-start:tenant:${tenantId}`;
         const [perClient, global] = await Promise.all([
-            rateLimiter.checkByKeyDistributed(clientKey, SSO_START_PER_CLIENT_PER_MIN, 60_000),
-            rateLimiter.checkByKeyDistributed('sso-start:global', SSO_START_GLOBAL_PER_MIN, 60_000),
+            rateLimiter.checkByKeyDistributed(clientKey, SSO_START_PER_CLIENT_PER_MIN, 60_000, 'reject'),
+            rateLimiter.checkByKeyDistributed('sso-start:global', SSO_START_GLOBAL_PER_MIN, 60_000, 'reject'),
         ]);
         if (!perClient.allowed || !global.allowed) {
             return NextResponse.json(
@@ -109,6 +111,7 @@ export async function GET(request: NextRequest) {
         });
         return response;
     } catch (err) {
+        if (err instanceof RateLimitUnavailable) return rateLimitUnavailableResponse();
         console.error("SSO start error:", err);
         return NextResponse.json({ error: "SSO start failed" }, { status: 500 });
     }

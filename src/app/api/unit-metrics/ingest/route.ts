@@ -19,7 +19,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyApiKey, requireScope, ApiError } from "@/lib/publicApiAuth";
 import { invalidateCache } from "@/lib/cache";
 import { errorMessage } from "@/lib/apiErrors";
-import rateLimiter from "@/lib/rateLimiter";
+import rateLimiter, { RateLimitUnavailable } from "@/lib/rateLimiter";
+import { rateLimitUnavailableResponse } from "@/lib/rateLimitUnavailable";
 import { preAuthAllowed, touchKeyLastUsed } from "@/lib/apiKeyGuards";
 import { readJsonCapped, BodyLimitError } from "@/lib/readJsonCapped";
 import {
@@ -38,7 +39,9 @@ function tooManyRequests(error: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    if (!(await preAuthAllowed(request, "apikey"))) {
+    // Cuota estricta (PERIM-06): con Redis caído responde 503 en vez de
+    // multiplicar el presupuesto de la clave por el número de réplicas.
+    if (!(await preAuthAllowed(request, "apikey", "reject"))) {
       return tooManyRequests("Too many requests");
     }
     const auth = await verifyApiKey(request);
@@ -55,7 +58,7 @@ export async function POST(request: NextRequest) {
 
     // Misma clave de cuota que /api/v1: una API key tiene un único presupuesto
     // por minuto, y se cobra antes de leer el body o escribir en MySQL.
-    const quota = await rateLimiter.checkByKeyDistributed(`apikey:${auth.keyId}`, auth.rateLimitPerMin);
+    const quota = await rateLimiter.checkByKeyDistributed(`apikey:${auth.keyId}`, auth.rateLimitPerMin, undefined, "reject");
     if (!quota.allowed) {
       return tooManyRequests("Rate limit exceeded");
     }
@@ -117,6 +120,7 @@ export async function POST(request: NextRequest) {
     const status = failed.length === 0 ? 200 : ingested > 0 ? 207 : 400;
     return NextResponse.json({ success: failed.length === 0, ingested, rejected: failed }, { status });
   } catch (error) {
+    if (error instanceof RateLimitUnavailable) return rateLimitUnavailableResponse();
     if (error instanceof ApiError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }

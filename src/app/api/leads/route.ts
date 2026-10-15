@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { escapeHtml } from "@/lib/htmlEscape";
-import rateLimiter from "@/lib/rateLimiter";
+import rateLimiter, { RateLimitUnavailable } from "@/lib/rateLimiter";
+import { rateLimitUnavailableResponse } from "@/lib/rateLimitUnavailable";
 import { trustedClientIp } from "@/lib/trustedClientIp";
 
 export async function POST(req: NextRequest) {
@@ -24,11 +25,12 @@ export async function POST(req: NextRequest) {
         const ip = trustedClientIp(req) ?? 'untrusted';
         // Distribuido (Redis) en vez de en memoria: per-proceso permitía
         // saltear el límite escalando horizontalmente o reiniciando el
-        // contenedor (degrada a memoria si Redis no responde, ver rateLimiter.ts).
+        // contenedor. Estricto (PERIM-06): si Redis no responde, 503 en vez de
+        // un presupuesto por réplica, porque cada lead dispara un mail real.
         const HOUR = 60 * 60 * 1000;
         const [rl, global] = await Promise.all([
-            rateLimiter.checkByKeyDistributed(`leads:enterprise:${ip}`, 5, HOUR), // 5/hora por IP
-            rateLimiter.checkByKeyDistributed('leads:enterprise:global', 50, HOUR),
+            rateLimiter.checkByKeyDistributed(`leads:enterprise:${ip}`, 5, HOUR, 'reject'), // 5/hora por IP
+            rateLimiter.checkByKeyDistributed('leads:enterprise:global', 50, HOUR, 'reject'),
         ]);
         if (!rl.allowed || !global.allowed) {
             return NextResponse.json({ success: false, error: "Demasiadas solicitudes. Intenta más tarde." }, { status: 429 });
@@ -112,6 +114,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, message: "Lead captured successfully" });
 
     } catch (error) {
+        if (error instanceof RateLimitUnavailable) return rateLimitUnavailableResponse();
         console.error("[Leads] Error processing lead", error);
         return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 });
     }

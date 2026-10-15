@@ -17,7 +17,8 @@ import { motivoDelHallazgo } from "@/services/azureZombieAudit.service";
 import { getBudgetStatuses } from "@/services/budgetUtilization.service";
 import { getAdvisorExecutiveData } from "@/services/azureAdvisor.service";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
-import rateLimiter from "@/lib/rateLimiter";
+import rateLimiter, { RateLimitUnavailable } from "@/lib/rateLimiter";
+import { RATE_LIMIT_UNAVAILABLE_HEADERS } from "@/lib/rateLimitUnavailable";
 import { preAuthAllowed, touchKeyLastUsed } from "@/lib/apiKeyGuards";
 import { readJsonCapped, BodyLimitError } from "@/lib/readJsonCapped";
 
@@ -289,7 +290,20 @@ const TOOLS: ToolDef[] = [
 ];
 
 export async function POST(request: NextRequest) {
-    if (!(await preAuthAllowed(request, "mcp"))) {
+    try {
+        return await handlePost(request);
+    } catch (e) {
+        // Cuota estricta (PERIM-06): Redis caído → 503 con envoltura JSON-RPC,
+        // sin autenticar ni ejecutar herramientas con un presupuesto por réplica.
+        if (e instanceof RateLimitUnavailable) {
+            return rpcError(-32003, "Service temporarily unavailable", null, 503, RATE_LIMIT_UNAVAILABLE_HEADERS);
+        }
+        throw e;
+    }
+}
+
+async function handlePost(request: NextRequest) {
+    if (!(await preAuthAllowed(request, "mcp", "reject"))) {
         return rpcError(-32029, "Too many requests", null, 429, { "Retry-After": "60" });
     }
     const auth = await authenticateMCP(request);
@@ -301,7 +315,7 @@ export async function POST(request: NextRequest) {
         }, { status: 401 });
     }
 
-    const quota = await rateLimiter.checkByKeyDistributed(`mcp-key:${auth.keyId}`, MCP_QUOTA_PER_MIN);
+    const quota = await rateLimiter.checkByKeyDistributed(`mcp-key:${auth.keyId}`, MCP_QUOTA_PER_MIN, undefined, "reject");
     if (!quota.allowed) {
         return rpcError(-32029, "Rate limit exceeded", null, 429, { "Retry-After": "60" });
     }

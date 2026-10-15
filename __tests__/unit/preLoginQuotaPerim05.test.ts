@@ -22,7 +22,10 @@ const h = vi.hoisted(() => {
     };
 });
 
-vi.mock("@/lib/rateLimiter", () => ({ default: { checkByKeyDistributed: h.check } }));
+vi.mock("@/lib/rateLimiter", async (orig) => ({
+    RateLimitUnavailable: (await orig<typeof import("@/lib/rateLimiter")>()).RateLimitUnavailable,
+    default: { checkByKeyDistributed: h.check },
+}));
 vi.mock("@/modules/storage/db", () => ({ default: { query: h.query } }));
 vi.mock("@/lib/workosClient", () => ({
     isWorkOSConfigured: () => true,
@@ -69,8 +72,8 @@ describe("PERIM-05 — /api/auth/sso/start", () => {
     it("con proxy confiable la clave es cf-connecting-ip, no XFF", async () => {
         process.env.TRUST_CLOUDFLARE_CLIENT_IP = "true";
         await sso({ "cf-connecting-ip": "203.0.113.7", "x-forwarded-for": "6.6.6.6" });
-        expect(h.check).toHaveBeenCalledWith("sso-start:ip:203.0.113.7", 20, 60_000);
-        expect(h.check).toHaveBeenCalledWith("sso-start:global", 600, 60_000);
+        expect(h.check).toHaveBeenCalledWith("sso-start:ip:203.0.113.7", 20, 60_000, "reject");
+        expect(h.check).toHaveBeenCalledWith("sso-start:global", 600, 60_000, "reject");
     });
 
     it("con proxy confiable, IPs distintas tienen buckets distintos", async () => {
@@ -120,7 +123,7 @@ describe("PERIM-05 — /api/leads", () => {
         expect(fetchSpy).toHaveBeenCalledTimes(5);
         const keys = h.check.mock.calls.map((c) => c[0]);
         expect(keys.some((k) => /10\.0\.|1\.1\.1\.1|unknown/.test(k))).toBe(false);
-        expect(h.check).toHaveBeenCalledWith("leads:enterprise:global", 50, 3_600_000);
+        expect(h.check).toHaveBeenCalledWith("leads:enterprise:global", 50, 3_600_000, "reject");
         fetchSpy.mockRestore();
     });
 });

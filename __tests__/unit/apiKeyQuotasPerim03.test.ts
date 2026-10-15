@@ -29,7 +29,8 @@ vi.mock("@/modules/storage/db", () => ({
     default: { query: h.query, getConnection: vi.fn() },
     initializeDatabase: vi.fn(),
 }));
-vi.mock("@/lib/rateLimiter", () => ({
+vi.mock("@/lib/rateLimiter", async (orig) => ({
+    RateLimitUnavailable: (await orig<typeof import("@/lib/rateLimiter")>()).RateLimitUnavailable,
     default: { checkByKeyDistributed: h.checkByKeyDistributed },
 }));
 vi.mock("@/lib/cache", () => ({
@@ -126,7 +127,7 @@ describe("PERIM-03 — ingesta", () => {
         expect(res.status).toBe(429);
         expect(res.headers.get("retry-after")).toBe("60");
         expect(h.upsert).not.toHaveBeenCalled();
-        expect(h.checkByKeyDistributed).toHaveBeenCalledWith("apikey:7", 2);
+        expect(h.checkByKeyDistributed).toHaveBeenCalledWith("apikey:7", 2, undefined, "reject");
     });
 
     it("comparte presupuesto con /api/v1: misma clave de cuota", async () => {
@@ -140,7 +141,7 @@ describe("PERIM-03 — ingesta", () => {
         primeDb({ pak: keyRow(["read:cost"]) });
         expect((await ingestPOST(ingestReq(JSON.stringify([row])))).status).toBe(403);
         expect(h.upsert).not.toHaveBeenCalled();
-        expect(h.checkByKeyDistributed).not.toHaveBeenCalledWith("apikey:7", expect.anything());
+        expect(h.checkByKeyDistributed).not.toHaveBeenCalledWith("apikey:7", expect.anything(), undefined, "reject");
     });
 
     it("body chunked sobredimensionado sin Content-Length falla con 413", async () => {
@@ -223,7 +224,7 @@ describe("PERIM-03 — presupuesto pre-auth por IP confiable", () => {
         const res = await ingestPOST(ingestReq("[]", { "cf-connecting-ip": "203.0.113.9", "x-forwarded-for": "198.51.100.1" }));
         expect(res.status).toBe(429);
         expect(h.query).not.toHaveBeenCalled();
-        expect(h.checkByKeyDistributed).toHaveBeenLastCalledWith("preauth:apikey:203.0.113.9", PREAUTH_LIMIT_PER_MIN, 60_000);
+        expect(h.checkByKeyDistributed).toHaveBeenLastCalledWith("preauth:apikey:203.0.113.9", PREAUTH_LIMIT_PER_MIN, 60_000, "reject");
     });
 
     it("MCP también corta antes de autenticar", async () => {

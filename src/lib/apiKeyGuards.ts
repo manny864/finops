@@ -8,14 +8,22 @@
  *   llamada, como mucho uno por clave y minuto por réplica, y loguea errores.
  */
 import pool from "@/modules/storage/db";
-import rateLimiter from "@/lib/rateLimiter";
+import rateLimiter, { type RateLimitFailurePolicy } from "@/lib/rateLimiter";
 import { trustedClientIp } from "@/lib/trustedClientIp";
 
 export const PREAUTH_LIMIT_PER_MIN = 120;
 const TOUCH_INTERVAL_MS = 60_000;
 const TOUCH_MAX_TRACKED = 10_000;
 
-export async function preAuthAllowed(request: Request, bucket: string): Promise<boolean> {
+/**
+ * Con `failurePolicy: "reject"` y Redis caído lanza `RateLimitUnavailable`
+ * (PERIM-06); el default `memory` conserva el comportamiento de /api/v1.
+ */
+export async function preAuthAllowed(
+  request: Request,
+  bucket: string,
+  failurePolicy: RateLimitFailurePolicy = "memory"
+): Promise<boolean> {
   const ip = trustedClientIp(request);
   // Sin IP confiable no hay clave de cuota que el cliente no pueda rotar; quedan
   // la validación de formato y la cuota por clave.
@@ -23,7 +31,8 @@ export async function preAuthAllowed(request: Request, bucket: string): Promise<
   const { allowed } = await rateLimiter.checkByKeyDistributed(
     `preauth:${bucket}:${ip}`,
     PREAUTH_LIMIT_PER_MIN,
-    60_000
+    60_000,
+    failurePolicy
   );
   return allowed;
 }
