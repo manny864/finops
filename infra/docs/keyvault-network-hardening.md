@@ -125,10 +125,13 @@ perdido ni una terminación forzada, y Key Vault no tiene TTL para una IP rule. 
   sobre la misma IP, reintenta 5 veces y, si no puede, deja el job en rojo.
 - `.github/workflows/kv-firewall-reconcile.yml` corre cada 15 min y al terminar cada
   corrida de `terraform`, en otro runner, para prod y staging. Quita toda regla /32 que
-  no sea permanente (output `key_vault_permanent_ip_rules`) y no tenga lease vigente, y
-  borra los leases vencidos. Nunca toca reglas permanentes ni CIDR más anchos que /32.
-  Si el output de permanentes todavía no está en el state, sólo quita reglas con lease
-  vencido. Una regla quitada por vencimiento sale como warning; no poder quitarla deja el
+  no sea permanente y no tenga lease vigente, y borra los leases vencidos. Nunca toca
+  reglas permanentes ni CIDR más anchos que /32. Las permanentes salen de
+  `keyvault_allowed_ip_rules` del tfvars del ambiente (secret `TF_VARS_PROD` / `TF_VARS`
+  de staging), evaluado con `terraform console` sin backend: no depende del último apply
+  ni toma el lock del state. Si no se puede evaluar, sólo quita reglas con lease vencido.
+  Una IP permanente agregada a mano también tiene que estar en ese tfvars, o el
+  reconciliador la trata como huérfana. Una regla quitada por vencimiento sale como warning; no poder quitarla deja el
   workflow en rojo.
 - **SLA de cierre ante runner perdido:** TTL del lease + 15 min de cron (más el retraso
   del schedule de GitHub): ≤ ~90 min en plan-apply, ≤ ~60 min en drift.
@@ -147,7 +150,6 @@ abrir IPs públicas); esto es la transición.
 | Output `key_vault_names` que consume el workflow | `environments/*/outputs.tf` |
 | Pasos "Abrir/Cerrar el Key Vault" en `plan-apply` y en `drift` | `.github/workflows/terraform.yml` |
 | Lease, cierre con reintentos y reconciliación (INFRA-05) | `infra/scripts/kv-firewall-lease.sh`, `.github/workflows/kv-firewall-reconcile.yml` |
-| Output `key_vault_permanent_ip_rules` que lee el reconciliador | `environments/prod/outputs.tf` |
 | `keyvault_private_endpoint_enabled` + `keyvault_network_acls_enabled` en `true` | `environments/prod/terraform.tfvars` |
 
 **Alcance de esos pasos:** corren también en `pull_request`, así que un PR

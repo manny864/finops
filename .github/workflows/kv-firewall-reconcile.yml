@@ -5,7 +5,8 @@
 # Vault no tiene TTL para una IP rule. Por eso la apertura deja antes un lease con
 # vencimiento (blob `kv-firewall-leases/<vault>/<ip>/<job>` en el contenedor del
 # tfstate) y este workflow, en otro runner y por su cuenta, quita las reglas /32
-# que no son permanentes y no tienen lease vigente.
+# que no son permanentes (keyvault_allowed_ip_rules del tfvars) y no tienen lease
+# vigente.
 #
 # SLA de cierre ante runner perdido: TTL del lease (timeout del job + 10 min: 70 en
 # plan-apply, 40 en drift) + período de este cron (15 min, más el retraso que
@@ -71,21 +72,54 @@ jobs:
             -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
             -backend-config="client_id=${{ secrets.AZURE_CLIENT_ID }}" \
             -backend-config="key=${{ matrix.environment }}/terraform.tfstate"
+      # Reglas PERMANENTES = `keyvault_allowed_ip_rules` de cada stamp en el tfvars del
+      # ambiente (la fuente de verdad, no el último apply). Se evalúa con `terraform console`
+      # en un directorio aparte que sólo tiene variables.tf: sin backend, sin state (no toma
+      # el lock que puede tener un plan/apply en curso) y sin providers.
+      - name: Leer reglas permanentes del tfvars
+        id: permanent
+        env:
+          AMBIENTE: ${{ matrix.environment }}
+          TF_VARS_STAGING: ${{ secrets.TF_VARS }}
+          TF_VARS_PROD_VALOR: ${{ matrix.environment != 'staging' && secrets.TF_VARS_PROD || '' }}
+        run: |
+          D=$(mktemp -d)
+          cp -L variables.tf cron-jobs.tfvars "$D"/
+          if [ "$AMBIENTE" = "staging" ]; then VALOR="$TF_VARS_STAGING"; else VALOR="$TF_VARS_PROD_VALOR"; fi
+          if [ -z "$VALOR" ]; then
+            echo "::warning::Sin tfvars de $AMBIENTE: no se sabe qué reglas son permanentes."
+            exit 0
+          fi
+          printf '%s\n' "$VALOR" > "$D/terraform.tfvars"
+          cd "$D"
+          terraform init -input=false -backend=false >/dev/null
+          if PERM=$(echo 'jsonencode({ for k, s in var.stamps : k => s.keyvault_allowed_ip_rules })' \
+              | terraform console -var-file=terraform.tfvars -var-file=cron-jobs.tfvars | jq -r .) \
+             && jq -e 'type == "object"' <<< "$PERM" >/dev/null; then
+            echo "$PERM" > "$RUNNER_TEMP/kv-permanent-by-stamp.json"
+            echo "known=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No se pudo evaluar keyvault_allowed_ip_rules de $AMBIENTE."
+          fi
+          rm -rf "$D"
+
       - name: Quitar reglas temporales vencidas o huérfanas
         env:
           LEASE_ACCOUNT: ${{ secrets.TFSTATE_STORAGE }}
           LEASE_CONTAINER: ${{ vars.TFSTATE_CONTAINER || 'tfstate' }}
+          PERMANENT_KNOWN_STEP: ${{ steps.permanent.outputs.known }}
         run: |
-          VAULTS=$(terraform output -json key_vault_names 2>/dev/null | jq -r '.[]?' | tr '\n' ' ' || true)
+          NAMES=$(terraform output -json key_vault_names 2>/dev/null || echo '{}')
+          VAULTS=$(jq -r '.[]?' <<< "$NAMES" | tr '\n' ' ')
           if [ -z "${VAULTS// }" ]; then
             echo "Sin key_vault_names en el state de ${{ matrix.environment }} — nada que reconciliar."
             exit 0
           fi
+          # Líneas "<vault> <ip|cidr>": stamp → vault por el output del state, stamp → reglas por el tfvars.
           PERMANENT_FILE=$(mktemp)
-          # Sin el output (state aplicado antes de INFRA-05) no se sabe qué es permanente:
-          # el script sólo quita reglas con lease vencido y avisa.
-          if PERM=$(terraform output -json key_vault_permanent_ip_rules 2>/dev/null); then
-            jq -r 'to_entries[] | .key as $v | .value[] | "\($v) \(.)"' <<< "$PERM" > "$PERMANENT_FILE"
+          if [ "$PERMANENT_KNOWN_STEP" = 1 ]; then
+            jq -r --slurpfile perm "$RUNNER_TEMP/kv-permanent-by-stamp.json" \
+              'to_entries[] | .value as $v | ($perm[0][.key] // [])[] | "\($v) \(.)"' <<< "$NAMES" > "$PERMANENT_FILE"
             export PERMANENT_KNOWN=1
           fi
           VAULTS="$VAULTS" PERMANENT_FILE="$PERMANENT_FILE" \

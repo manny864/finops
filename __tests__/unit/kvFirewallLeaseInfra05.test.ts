@@ -313,13 +313,26 @@ describe("INFRA-05 — contrato de los workflows", () => {
     expect(rc).toContain("- cron: '*/15 * * * *'");
     expect(rc).toMatch(/workflow_run:\n\s+workflows: \[terraform\]\n\s+types: \[completed\]/);
     expect(rc).toMatch(/kv-firewall-lease\.sh" reconcile/);
-    expect(rc).toMatch(/key_vault_permanent_ip_rules/);
+    expect(rc).toMatch(/s\.keyvault_allowed_ip_rules/);
+    // Sin backend: no toma el lock del state que puede tener un apply en curso.
+    expect(rc).toMatch(/terraform init -input=false -backend=false/);
     expect(rc).toMatch(/environment: \[prod, staging\]/);
     expect(rc).toMatch(/fail-fast: false/);
   });
 
-  it("Terraform expone las reglas permanentes por vault", () => {
-    const out = readFileSync(join(process.cwd(), "infra/terraform/environments/prod/outputs.tf"), "utf8");
-    expect(out).toMatch(/output "key_vault_permanent_ip_rules"[\s\S]*keyvault_allowed_ip_rules/);
+  it("el mapeo stamp→vault y stamp→reglas produce las líneas que lee el script", () => {
+    const step = rc.slice(rc.indexOf("name: Quitar reglas temporales"));
+    const filtro = step.match(/'(to_entries\[\][^']+)'/)?.[1];
+    expect(filtro).toBeTruthy();
+    const base = mkdtempSync(join(tmpdir(), "kv-fw-jq-"));
+    dirs.push(base);
+    const perm = join(base, "perm.json");
+    writeFileSync(perm, JSON.stringify({ us: ["192.0.2.10", "192.0.2.0/28"], eu: [] }));
+    const r = spawnSync("jq", ["-r", "--slurpfile", "perm", perm, filtro!], {
+      input: JSON.stringify({ us: "kv-us", eu: "kv-eu", ap: "kv-ap" }),
+      encoding: "utf8",
+    });
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim().split("\n")).toEqual(["kv-us 192.0.2.10", "kv-us 192.0.2.0/28"]);
   });
 });
