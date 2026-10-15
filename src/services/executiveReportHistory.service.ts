@@ -429,7 +429,7 @@ export async function rehydrateReportData(tenantId: string, reportId: string): P
 
     let report = String(row.report_markdown || '');
     if (!report && row.report_stored_name) {
-        report = (await readExecutiveReportMarkdown(String(row.report_stored_name))) || '';
+        report = (await readExecutiveReportMarkdown(tenantId, String(row.report_stored_name))) || '';
     }
     // AISEC-02: reportes persistidos antes del guard de escritura.
     report = guardAiMarkdown(report);
@@ -472,7 +472,7 @@ export async function deleteReportFromHistory(tenantId: string, reportId: string
 
     if (row.report_stored_name) {
         try {
-            await deleteExecutiveReportMarkdown(row.report_stored_name);
+            await deleteExecutiveReportMarkdown(tenantId, row.report_stored_name);
         } catch {
             // best-effort
         }

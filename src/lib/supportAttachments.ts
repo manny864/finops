@@ -3,8 +3,8 @@
  *
  * - Tipos permitidos: jpg/jpeg/png (validados por magic bytes), txt y json.
  * - Tamaño máximo: 5 MB por archivo. Máximo 10 adjuntos por ticket.
- * - Los archivos se guardan como `<uuid>.<ext>` (nunca con el nombre
- *   original, evita path traversal / colisiones) en el container
+ * - Los archivos se guardan como `<prefijo-tenant>/<uuid>.<ext>` (AISEC-05; nunca
+ *   con el nombre original, evita path traversal / colisiones) en el container
  *   "support-attachments" de Azure Blob Storage (ver
  *   src/lib/azureBlobStorage.ts) si AZURE_STORAGE_CONNECTION_STRING está
  *   configurado; si no, cae a filesystem local bajo SUPPORT_UPLOAD_DIR
@@ -14,6 +14,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import crypto from "crypto";
+import { resolveTenantStoredName, tenantBlobPrefix, tenantStoredName } from "@/lib/tenantBlobPath";
 import { isBlobStorageEnabled, uploadBlob, downloadBlobOrNull, deleteBlob } from "@/lib/azureBlobStorage";
 
 export const SUPPORT_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -79,23 +80,25 @@ function mimeForExt(ext: string): string {
     return ALLOWED[ext.toLowerCase()]?.mime || "application/octet-stream";
 }
 
-/** Guarda el buffer como <uuid>.<ext> y devuelve el stored_name. */
-export async function saveAttachment(bytes: Buffer, ext: string): Promise<string> {
-    const storedName = `${crypto.randomUUID()}.${ext}`;
+/** Guarda el buffer como <prefijo-tenant>/<uuid>.<ext> y devuelve el stored_name. */
+export async function saveAttachment(tenantId: string, bytes: Buffer, ext: string): Promise<string> {
+    const storedName = tenantStoredName(tenantId, `${crypto.randomUUID()}.${ext}`);
     if (isBlobStorageEnabled()) {
         await uploadBlob(SUPPORT_ATTACHMENT_CONTAINER, storedName, bytes, mimeForExt(ext));
         return storedName;
     }
     const dir = getSupportUploadDir();
-    await fs.mkdir(dir, { recursive: true });
+    await fs.mkdir(path.join(dir, tenantBlobPrefix(tenantId)), { recursive: true, mode: 0o700 });
     await fs.writeFile(path.join(dir, storedName), bytes, { mode: 0o600 });
     return storedName;
 }
 
-export async function readAttachment(storedName: string): Promise<Buffer | null> {
+export async function readAttachment(tenantId: string, rawName: string): Promise<Buffer | null> {
     // stored_name viene de la DB (UUID generado por nosotros), pero igual se
-    // valida el formato para que nunca pueda escapar del directorio/container.
-    if (!STORED_NAME_RE.test(storedName)) return null;
+    // valida el formato para que nunca pueda escapar del directorio/container
+    // ni apuntar a la carpeta de otro tenant (AISEC-05).
+    const storedName = resolveTenantStoredName(tenantId, rawName, STORED_NAME_RE);
+    if (!storedName) return null;
     if (isBlobStorageEnabled()) {
         return downloadBlobOrNull(SUPPORT_ATTACHMENT_CONTAINER, storedName, "readAttachment");
     }
@@ -106,8 +109,9 @@ export async function readAttachment(storedName: string): Promise<Buffer | null>
     }
 }
 
-export async function deleteAttachmentFile(storedName: string): Promise<void> {
-    if (!STORED_NAME_RE.test(storedName)) return;
+export async function deleteAttachmentFile(tenantId: string, rawName: string): Promise<void> {
+    const storedName = resolveTenantStoredName(tenantId, rawName, STORED_NAME_RE);
+    if (!storedName) return;
     if (isBlobStorageEnabled()) {
         try {
             await deleteBlob(SUPPORT_ATTACHMENT_CONTAINER, storedName);

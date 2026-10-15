@@ -271,7 +271,7 @@ async function runRealJobProcess(
         await update('COMPILING_PDF');
         let storedName: string | null = null;
         try {
-            storedName = await saveExecutiveReportMarkdown(reportMarkdown);
+            storedName = await saveExecutiveReportMarkdown(tenantId, reportMarkdown);
         } catch (storageError) {
             console.warn('[runRealJobProcess] Blob storage save failed:', storageError);
         }

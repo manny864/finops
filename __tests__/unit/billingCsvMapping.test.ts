@@ -210,9 +210,10 @@ describe("normalizeBillingCsv", () => {
         expect(prompt).not.toContain("rg-secret");
         expect(maxOutputTokens).toBe(800);
         expect(insertUsageMock).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "t1", feature: "billing-csv-column-mapping", source: "platform" }));
-        const [sql, [key, json]] = queryMock.mock.calls[1];
-        expect(sql).toContain("REPLACE INTO AiCache");
-        expect(key).toBe(queryMock.mock.calls[0][1][0]);
+        const [sql, [key, tenant, json]] = queryMock.mock.calls[1];
+        expect(sql).toContain("INSERT INTO AiCache");
+        expect(tenant).toBe("t1");
+        expect(queryMock.mock.calls[0][1]).toEqual([key, "t1"]);
         expect(JSON.parse(json)).toEqual(MAPPING);
     });
 

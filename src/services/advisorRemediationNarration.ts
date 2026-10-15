@@ -1,12 +1,11 @@
-import crypto from "crypto";
 import { generateText } from "ai";
-import pool, { insertPlatformAiUsage } from "@/modules/storage/db";
+import { insertPlatformAiUsage } from "@/modules/storage/db";
 import { AIProviderFactory, aiQueue, withExponentialBackoff } from "@/modules/core/aiProvider";
 import { interpolate } from "@/lib/advisorRemediation";
 import type { AdvisorRecommendation } from "@/types/azureAdvisor.types";
-import type { RowDataPacket } from "mysql2";
+import { AI_CACHE_PLATFORM_SCOPE, aiCacheGet, aiCacheKey, aiCacheSet } from "@/lib/aiCache";
 
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const CACHE_TTL_HOURS = 24;
 
 /**
  * Reescribe con IA la `actionDescription` de cada recomendacion (MEJ-06).
@@ -19,13 +18,17 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
  * recomendacion conserva el texto determinista que `generateAdvisorRemediationAction`
  * ya le habia puesto. No hay downgrade visible ni error hacia el caller.
  *
- * Cachea por `ruleKey + locale`, no por recomendacion ni por tenant: el
+ * Cachea por `ruleKey + locale`, no por recomendacion: el
  * prompt que se manda a la IA es la plantilla generica con placeholders
  * {name}/{skuText}/{cpuText}, NUNCA los valores concretos del recurso, asi
  * que no hay dato de un tenant que pueda filtrarse a otro y compartir la
  * cache entre tenants es seguro. Con ~9 reglas posibles en total, esto baja
  * el costo de "decenas de llamadas por tenant" (estimado en la propuesta) a
  * "unidades por dia, para toda la plataforma".
+ *
+ * AISEC-05: la cache compartida es SOLO para el modelo de la plataforma. Con BYOK
+ * el endpoint y el modelo los controla el tenant: su salida queda en su propio
+ * alcance, si no podria envenenar el texto que ven los demas tenants.
  */
 export async function narrateAdvisorRecommendations(
   recs: AdvisorRecommendation[],
@@ -51,20 +54,15 @@ export async function narrateAdvisorRecommendations(
     return; // Tenant sin IA configurada: se conserva el texto determinista.
   }
 
+  const scope = config.source === "platform" ? AI_CACHE_PLATFORM_SCOPE : tenantId;
   const rewritten = new Map<string, string>();
   await Promise.all(
     Array.from(templatesByRuleKey.entries()).map(async ([ruleKey, template]) => {
-      const hash = crypto
-        .createHash("sha256")
-        .update(`advisor-remediation:v1:${ruleKey}:${locale}`)
-        .digest("hex");
+      const hash = aiCacheKey(scope, "advisor-remediation:v1", modelName, ruleKey, locale);
       try {
-        const [rows] = await pool.query<RowDataPacket[]>(
-          "SELECT response_text, created_at FROM AiCache WHERE hash_prompt = ?",
-          [hash]
-        );
-        if (rows[0] && Date.now() - new Date(rows[0].created_at).getTime() < CACHE_TTL_MS) {
-          rewritten.set(ruleKey, rows[0].response_text);
+        const cached = await aiCacheGet(scope, hash);
+        if (cached !== null) {
+          rewritten.set(ruleKey, cached);
           return;
         }
 
@@ -104,12 +102,8 @@ Reglas estrictas:
           outputTokens: usage.outputTokens || 0,
         });
 
-        // Cache COMPARTIDA entre tenants a proposito (ver doc de la funcion):
-        // sin tenantId en el hash.
-        await pool.query(
-          "REPLACE INTO AiCache (hash_prompt, response_text, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
-          [hash, finalText]
-        );
+        // Compartida entre tenants solo con el modelo de la plataforma (ver doc).
+        await aiCacheSet(scope, hash, finalText, CACHE_TTL_HOURS);
       } catch (err) {
         console.error(`[AdvisorNarration] Fallo reescribiendo ruleKey=${ruleKey}:`, err);
         // Sin entrada en `rewritten`: el caller conserva el texto determinista.

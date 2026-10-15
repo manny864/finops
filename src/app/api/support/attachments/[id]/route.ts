@@ -35,7 +35,7 @@ export async function GET(
             return NextResponse.json({ error: "Adjunto no encontrado." }, { status: 404 });
         }
 
-        const bytes = await readAttachment(rows[0].stored_name);
+        const bytes = await readAttachment(tenantId, rows[0].stored_name);
         if (!bytes) {
             return NextResponse.json({ error: "El archivo ya no está disponible (retención de 60 días)." }, { status: 410 });
         }

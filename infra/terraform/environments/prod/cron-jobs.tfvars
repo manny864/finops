@@ -149,6 +149,9 @@ cron_jobs = {
   # Retención de adjuntos de soporte (60 días).
   support-attachments-cleanup = { cron = "0 2 * * *" } # 05:00 UTC
 
+  # AISEC-05 — AiCache vencida y filas legadas sin tenant_id.
+  ai-cache-purge = { cron = "20 2 * * *" } # 05:20 UTC
+
   # App Registrations por vencer.
   credential-expiry-alerts = { cron = "0 4 * * *" } # 07:00 UTC
 

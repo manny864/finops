@@ -76,7 +76,7 @@ export async function POST(
         }
 
         const asSupport = identity.isCorporateDomain && (await hasSystemRole(identity.email, "SUPERADMIN"));
-        const storedName = await saveAttachment(bytes, validation.ext!);
+        const storedName = await saveAttachment(tenantId, bytes, validation.ext!);
         // `messageId` es opcional: si viene, el adjunto se muestra dentro de la
         // burbuja de ese mensaje; si no, queda a nivel ticket como antes.
         const rawMessageId = form.get("messageId");
@@ -114,12 +114,12 @@ export async function POST(
 async function cleanupExpiredAttachments(): Promise<void> {
     try {
         const [rows]: any = await pool.query(
-            `SELECT id, stored_name FROM SupportTicketAttachments
+            `SELECT id, tenant_id, stored_name FROM SupportTicketAttachments
              WHERE created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? DAY) LIMIT 50`,
             [SUPPORT_ATTACHMENT_RETENTION_DAYS]
         );
         for (const row of rows || []) {
-            await deleteAttachmentFile(row.stored_name);
+            await deleteAttachmentFile(row.tenant_id, row.stored_name);
             await pool.query("DELETE FROM SupportTicketAttachments WHERE id = ?", [row.id]);
         }
     } catch (e) {

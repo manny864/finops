@@ -1,6 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import crypto from "crypto";
+import { resolveTenantStoredName, tenantBlobPrefix, tenantStoredName } from "@/lib/tenantBlobPath";
 import { isBlobStorageEnabled, uploadBlob, downloadBlob, deleteBlob } from "@/lib/azureBlobStorage";
 
 export const EXECUTIVE_REPORT_RETENTION_DAYS = 90;
@@ -13,21 +14,23 @@ function getExecutiveReportUploadDir(): string {
   return process.env.EXECUTIVE_REPORT_UPLOAD_DIR || path.join(process.cwd(), "data", "executive-reports");
 }
 
-export async function saveExecutiveReportMarkdown(markdown: string): Promise<string> {
-  const storedName = `${crypto.randomUUID()}.md`;
+/** AISEC-05: se guarda en la carpeta del tenant (`<prefijo>/<uuid>.md`). */
+export async function saveExecutiveReportMarkdown(tenantId: string, markdown: string): Promise<string> {
+  const storedName = tenantStoredName(tenantId, `${crypto.randomUUID()}.md`);
   const bytes = Buffer.from(markdown, "utf-8");
   if (isBlobStorageEnabled()) {
     await uploadBlob(EXECUTIVE_REPORT_CONTAINER, storedName, bytes, "text/markdown; charset=utf-8");
     return storedName;
   }
   const dir = getExecutiveReportUploadDir();
-  await fs.mkdir(dir, { recursive: true });
+  await fs.mkdir(path.join(dir, tenantBlobPrefix(tenantId)), { recursive: true, mode: 0o700 });
   await fs.writeFile(path.join(dir, storedName), bytes, { mode: 0o600 });
   return storedName;
 }
 
-export async function readExecutiveReportMarkdown(storedName: string): Promise<string | null> {
-  if (!STORED_NAME_RE.test(storedName)) return null;
+export async function readExecutiveReportMarkdown(tenantId: string, rawName: string): Promise<string | null> {
+  const storedName = resolveTenantStoredName(tenantId, rawName, STORED_NAME_RE);
+  if (!storedName) return null;
   if (isBlobStorageEnabled()) {
     const bytes = await downloadBlob(EXECUTIVE_REPORT_CONTAINER, storedName);
     return bytes ? bytes.toString("utf-8") : null;
@@ -40,8 +43,9 @@ export async function readExecutiveReportMarkdown(storedName: string): Promise<s
   }
 }
 
-export async function deleteExecutiveReportMarkdown(storedName: string): Promise<void> {
-  if (!STORED_NAME_RE.test(storedName)) return;
+export async function deleteExecutiveReportMarkdown(tenantId: string, rawName: string): Promise<void> {
+  const storedName = resolveTenantStoredName(tenantId, rawName, STORED_NAME_RE);
+  if (!storedName) return;
   if (isBlobStorageEnabled()) {
     try {
       await deleteBlob(EXECUTIVE_REPORT_CONTAINER, storedName);

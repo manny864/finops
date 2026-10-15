@@ -1,7 +1,7 @@
 import pool, { insertPlatformAiUsage } from '@/modules/storage/db';
 import { sanitizeLabel, untrustedBlock, UNTRUSTED_DATA_RULE } from '@/lib/promptSafe';
 import { guardAiMarkdown } from "@/lib/aiOutputGuard";
-import crypto from 'crypto';
+import { aiCacheGet, aiCacheKey, aiCacheSet } from '@/lib/aiCache';
 import { generateText } from 'ai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
@@ -449,6 +449,9 @@ export interface AssessmentOptions {
     currency?: string | null;
 }
 
+/** v2: bloque <context_data> (AISEC-04). Subirla invalida lo cacheado con el prompt anterior. */
+const ASSESSMENT_PROMPT_VERSION = 'assessment:v2';
+
 export async function getAssessment(metricsData: any, tenantId: string, opts: AssessmentOptions = {}): Promise<string> {
     if (!tenantId) {
         // Aislamiento multi-tenant obligatorio: sin tenantId el caché podría
@@ -462,38 +465,20 @@ export async function getAssessment(metricsData: any, tenantId: string, opts: As
     // docs/security/audit-2026-07-05.md.
     const redactedMetrics = await redactForTenant(tenantId, metricsData);
     const dataString = JSON.stringify(redactedMetrics);
-    // El hash incluye el tenantId para que dos tenants con el mismo payload
-    // NO compartan la misma entrada de caché (fuga cross-tenant IA-1).
     const language = ASSESSMENT_LANGUAGE[opts.locale ?? 'es'] ?? ASSESSMENT_LANGUAGE.es;
     const currency = opts.currency === undefined ? 'USD' : opts.currency;
-    // El idioma y la moneda cambian la respuesta: van en la clave de caché.
-    // assessment:v2 = prompt con bloque <context_data> (AISEC-04): invalida lo cacheado con el prompt viejo.
-    const hashPrompt = crypto.createHash('sha256').update(`assessment:v2:${tenantId}:${language}:${currency}:${dataString}`).digest('hex');
-
-    // Query Cache
-    const [rows] = await pool.query<RowDataPacket[]>(
-        'SELECT response_text, created_at FROM AiCache WHERE hash_prompt = ?',
-        [hashPrompt]
-    );
-
-    if (rows.length > 0) {
-        const cachedRow = rows[0];
-        const createdAt = new Date(cachedRow.created_at).getTime();
-        const now = Date.now();
-        const hours24 = 24 * 60 * 60 * 1000;
-
-        if (now - createdAt < hours24) {
-            console.log(`[AI Cache] Hit for hash ${hashPrompt}`);
-            // Entradas anteriores a AISEC-02 pueden no estar filtradas.
-            return guardAiMarkdown(String(cachedRow.response_text));
-        }
-    }
-
-    console.log(`[AI Cache] Miss for hash ${hashPrompt}. Calling Gemini...`);
-
-    // Call Gemini — usa la config/key del tenant (no la global) para respetar
-    // el aislamiento por tenant y la key configurada por cada cliente (IA-1).
+    // Usa la config/key del tenant (no la global) para respetar el aislamiento por
+    // tenant y la key configurada por cada cliente (IA-1).
     const { model, modelName, config } = await AIProviderFactory.getGeminiModel(tenantId);
+
+    // AISEC-05: fila con tenant_id y vencimiento; la clave lleva versión de prompt,
+    // modelo, idioma y moneda (todo cambia la respuesta).
+    const cacheKey = aiCacheKey(tenantId, ASSESSMENT_PROMPT_VERSION, modelName, language, currency ?? '', dataString);
+    const cached = await aiCacheGet(tenantId, cacheKey);
+    if (cached !== null) {
+        // Entradas anteriores a AISEC-02 pueden no estar filtradas.
+        return guardAiMarkdown(cached);
+    }
     const enMoneda = currency ? ` (${currency})` : '';
     const porMes = currency ? `${currency}/mes` : 'por mes';
     const porAnio = currency ? `${currency}/año` : 'por año';
@@ -564,11 +549,7 @@ ${UNTRUSTED_DATA_RULE}`;
     // permitidos, posible inyección) no se cachea: no se perpetúa 24 h.
     const safe = guardAiMarkdown(text);
     if (safe === text) {
-        // Save to cache (REPLACE INTO overwrites if it exists but is expired)
-        await pool.query(
-            'REPLACE INTO AiCache (hash_prompt, response_text, created_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
-            [hashPrompt, text]
-        );
+        await aiCacheSet(tenantId, cacheKey, text, 24);
     } else {
         console.warn(`[AI Guard] Respuesta filtrada para tenant ${tenantId}; no se cachea.`);
     }

@@ -37,16 +37,16 @@ async function cleanupExpiredExecutiveReportJobs(): Promise<void> {
     try {
         const withStoredName = await hasStoredNameColumn();
         const [rows] = await pool.query(
-            `SELECT id${withStoredName ? ", report_stored_name" : ""}
+            `SELECT id, tenant_id${withStoredName ? ", report_stored_name" : ""}
              FROM ExecutiveReportJobs
              WHERE created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? DAY)
              ORDER BY id ASC
              LIMIT 50`,
             [EXECUTIVE_REPORT_RETENTION_DAYS]
         );
-        for (const row of rows as Array<{ id: number; report_stored_name?: string | null }>) {
+        for (const row of rows as Array<{ id: number; tenant_id: string; report_stored_name?: string | null }>) {
             if (row.report_stored_name) {
-                await deleteExecutiveReportMarkdown(row.report_stored_name);
+                await deleteExecutiveReportMarkdown(row.tenant_id, row.report_stored_name);
             }
             await pool.query(`DELETE FROM ExecutiveReportJobs WHERE id = ?`, [row.id]);
         }
@@ -195,7 +195,7 @@ async function processExecutiveReportJob(params: {
         const report = await getAssessment(metricsData, tenantId);
         let storedName: string | null = null;
         try {
-            storedName = await saveExecutiveReportMarkdown(report);
+            storedName = await saveExecutiveReportMarkdown(tenantId, report);
         } catch (storageError) {
             console.warn("[executive-report-jobs] blob/local report storage failed:", storageError);
         }
@@ -480,7 +480,7 @@ export async function GET(request: NextRequest) {
         const row = rows[0];
         let report = row.report_markdown || "";
         if (!report && withStoredName && row.report_stored_name) {
-            report = (await readExecutiveReportMarkdown(row.report_stored_name)) || "";
+            report = (await readExecutiveReportMarkdown(tenantId, row.report_stored_name)) || "";
         }
         // AISEC-02: reportes persistidos antes del guard de escritura.
         report = guardAiMarkdown(report);

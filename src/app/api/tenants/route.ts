@@ -296,8 +296,9 @@ export async function DELETE(request: NextRequest) {
         // Usando process.env.PADDLE_API_KEY
         console.log(`[Billing] Finalizando facturacion para tenant: ${tenantId}`);
 
-        // Eliminar usuarios asociados
+        // Eliminar usuarios asociados y las respuestas de IA del tenant (AISEC-05).
         await pool.query('DELETE FROM Users WHERE tenant_id = ?', [tenantId]);
+        await pool.query('DELETE FROM AiCache WHERE tenant_id = ?', [tenantId]);
 
         // Eliminar Tenant
         await pool.query('DELETE FROM Tenants WHERE tenant_id = ?', [tenantId]);
