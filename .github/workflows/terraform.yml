@@ -275,9 +275,16 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Verificar aislamiento del backend
+        env:
+          TFSTATE_STORAGE: ${{ secrets.TFSTATE_STORAGE }}
+          TFSTATE_CONTAINER: ${{ vars.TFSTATE_CONTAINER || 'tfstate' }}
+          TFSTATE_ENVIRONMENT: ${{ inputs.environment }}
+        run: bash "$GITHUB_WORKSPACE/infra/scripts/check-tfstate-isolation.sh"
+
       - name: Terraform init
         run: |
-          terraform init \
+          terraform init -input=false -lockfile=readonly \
             -backend-config="resource_group_name=${{ secrets.TFSTATE_RG }}" \
             -backend-config="storage_account_name=${{ secrets.TFSTATE_STORAGE }}" \
             -backend-config="container_name=${{ vars.TFSTATE_CONTAINER || 'tfstate' }}" \
@@ -577,15 +584,21 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - name: Init
         run: |
-          terraform init \
+          terraform init -input=false -lockfile=readonly \
             -backend-config="resource_group_name=${{ secrets.TFSTATE_RG }}" \
             -backend-config="storage_account_name=${{ secrets.TFSTATE_STORAGE }}" \
-            -backend-config="container_name=tfstate" \
+            -backend-config="container_name=${{ vars.TFSTATE_CONTAINER || 'tfstate' }}" \
             -backend-config="use_azuread_auth=true" \
             -backend-config="use_oidc=true" \
             -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
             -backend-config="client_id=${{ secrets.AZURE_CLIENT_ID }}" \
             -backend-config="key=${{ matrix.environment }}/terraform.tfstate"
+      - name: Verificar aislamiento del backend
+        env:
+          TFSTATE_STORAGE: ${{ secrets.TFSTATE_STORAGE }}
+          TFSTATE_CONTAINER: ${{ vars.TFSTATE_CONTAINER || 'tfstate' }}
+          TFSTATE_ENVIRONMENT: ${{ matrix.environment }}
+        run: bash "$GITHUB_WORKSPACE/infra/scripts/check-tfstate-isolation.sh"
       # Mismo motivo que en el job plan-apply: terraform.tfvars está gitignored.
       # El `-var-file=cron-jobs.tfvars` del plan de drift tiene que estar acá
       # también: sin él, el drift se calcularía contra el cron_jobs viejo del
@@ -616,7 +629,7 @@ jobs:
         id: kv_firewall
         env:
           LEASE_ACCOUNT: ${{ secrets.TFSTATE_STORAGE }}
-          LEASE_CONTAINER: tfstate
+          LEASE_CONTAINER: ${{ vars.TFSTATE_CONTAINER || 'tfstate' }}
           LEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
           LEASE_OWNER: ${{ github.workflow }}/${{ github.job }} (${{ github.event_name }}, ${{ github.actor }})
           LEASE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -656,7 +669,7 @@ jobs:
         env:
           VAULTS: ${{ steps.kv_firewall.outputs.vaults }}
           LEASE_ACCOUNT: ${{ secrets.TFSTATE_STORAGE }}
-          LEASE_CONTAINER: tfstate
+          LEASE_CONTAINER: ${{ vars.TFSTATE_CONTAINER || 'tfstate' }}
           LEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
           LEASE_OWNER: ${{ github.workflow }}/${{ github.job }} (${{ github.event_name }}, ${{ github.actor }})
           LEASE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -685,7 +698,7 @@ jobs:
         timeout-minutes: 5
         env:
           LEASE_ACCOUNT: ${{ secrets.TFSTATE_STORAGE }}
-          LEASE_CONTAINER: tfstate
+          LEASE_CONTAINER: ${{ vars.TFSTATE_CONTAINER || 'tfstate' }}
           LEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
           VAULTS: ${{ steps.kv_firewall.outputs.vaults }}
           RUNNER_IP: ${{ steps.kv_firewall.outputs.runner_ip }}
@@ -694,4 +707,3 @@ jobs:
         # Reintenta y, si no puede, deja el job en rojo: nunca éxito silencioso. No quita
         # la regla si otro job vigente tiene lease sobre la misma IP.
         run: '"$GITHUB_WORKSPACE/infra/scripts/kv-firewall-runner.sh" close'
-

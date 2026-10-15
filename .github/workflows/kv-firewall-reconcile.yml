@@ -63,7 +63,7 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - name: Terraform init
         run: |
-          terraform init -input=false \
+          terraform init -input=false -lockfile=readonly \
             -backend-config="resource_group_name=${{ secrets.TFSTATE_RG }}" \
             -backend-config="storage_account_name=${{ secrets.TFSTATE_STORAGE }}" \
             -backend-config="container_name=${{ vars.TFSTATE_CONTAINER || 'tfstate' }}" \
