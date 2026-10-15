@@ -22,17 +22,76 @@ terraform init && terraform apply
 terraform output backend_config   # copiar al pipeline / a los -backend-config
 ```
 
+El bootstrap requiere `terraform_sp_object_id` (prod) y
+`staging_terraform_sp_object_id` (staging), distintos entre sí. La primera creación
+puede necesitar `grant_bootstrap_operator_access=true`; al terminar, aplicar con
+`false` para retirar ese permiso temporal. Los roles de operadores externos no
+son gestionados por esta opción.
+
+### Protección del state — INFRA-09 (2026-10-15)
+
+| Ambiente | Contenedor | Key | Identidad de datos |
+|---|---|---|---|
+| Prod | `tfstate-prod` | `prod/terraform.tfstate` | SP de Terraform de prod |
+| Staging | `tfstate-stg` | `staging/terraform.tfstate` | SP de Terraform de staging |
+| Archivo anterior | `tfstate` | Copias históricas de ambos ambientes | Ninguno de los SP de pipelines |
+
+Configurar `TFSTATE_CONTAINER` en **cada GitHub environment** según esta tabla.
+Separar sólo las keys no aísla datos: el contenedor antiguo también tenía una
+copia de staging. Se copió únicamente el blob de prod al contenedor nuevo,
+con lease del origen y comparación byte a byte, antes de cambiar el environment
+y revocar el rol sobre el archivo. No borrar las copias históricas durante la
+ventana de recuperación.
+
+El bootstrap administra ambos contenedores activos y conserva el antiguo. La
+cuenta tiene versionado, soft-delete de blobs y contenedores de 30 días,
+`prevent_destroy` y un lock ARM `CanNotDelete`. El lock **no** impide escrituras,
+borrados ni leases del plano de datos. Para borrar/reemplazar asignaciones RBAC,
+retirar el lock durante la operación y restaurar su mismo nombre, scope y notas
+incluso si ésta falla. Crear primero el permiso nuevo, esperar propagación,
+verificar acceso y recién entonces retirar el anterior.
+
+La migración del bootstrap retiró del state el viejo `time_sleep.rbac_propagation`
+(sólo un temporizador local) para eliminar sus dependencias históricas circulares.
+Se importaron el contenedor/rol de staging que ya existían. El rol amplio y el
+permiso temporal se retiraron antes de crear el lock; el plan final no debe
+proponer borrar almacenamiento ni contenedores. Conservar el state local del
+bootstrap y sus backups fuera de Git.
+
+`check-tfstate-isolation.sh` verifica lectura propia y denegación RBAC del otro
+ambiente **y del archivo antiguo**; no considera un error de red evidencia de
+aislamiento. Plan/apply y drift lo ejecutan con OIDC. Los `init` del backend
+usan `-lockfile=readonly`; los leases del reconciliador usan el mismo contenedor
+que el state del ambiente. Los administradores con Owner/User Access
+Administrator todavía pueden reasignar permisos: esto no es aislamiento frente
+a administradores de la suscripción.
+
+**Recuperación comprobada:** en blobs de prueba (no en el state real), adquirir
+un lease de 60 segundos, confirmar que una escritura sin su ID falla con
+`LeaseIdMissing`, liberarlo, sobrescribir el blob, descargar su versión anterior,
+subirla de nuevo y comparar su contenido byte a byte. Borrar sólo el blob de
+prueba. Para recuperar un state real, detener workflows, comprobar propietario
+y operación de cualquier lease, preservar una copia restringida y usar
+`terraform state push` con las validaciones de lineage/serial activas; no usar
+`-force` ni automatizar `force-unlock`.
+
+**Pendiente: red.** El endpoint sigue público, con Shared Key apagada y RBAC.
+Los runners GitHub-hosted y el reconciliador necesitan esa ruta. No activar
+firewall `Deny`/deshabilitar acceso público hasta disponer de runner privado o
+egress fijo autorizado para **todos** los consumidores, incluido bootstrap y
+reconciliación. INFRA-09 permanece abierto por este requisito.
+
 ## 2. Ambiente
 
 ```bash
 cd saas/infra/terraform/environments/prod
 cp terraform.tfvars.example terraform.tfvars   # completar; NO commitear
-terraform init \
+terraform init -lockfile=readonly \
   -backend-config="resource_group_name=<rg>" \
   -backend-config="storage_account_name=<sa>" \
-  -backend-config="container_name=tfstate" \
+  -backend-config="container_name=tfstate-prod" \
   -backend-config="use_azuread_auth=true" \
-  -backend-config="key=prod.tfstate"
+  -backend-config="key=prod/terraform.tfstate"
 terraform plan -var-file=terraform.tfvars -var-file=cron-jobs.tfvars -var-file=network.tfvars -out tfplan
 terraform apply tfplan
 ```

@@ -53,10 +53,15 @@ variable "environment" {
 variable "terraform_sp_object_id" {
   description = <<-DESC
     objectId del service principal que corre el pipeline. Es quien lee y
-    escribe el estado, así que necesita rol de DATOS sobre la storage —
+    escribe el estado de prod, así que necesita rol de DATOS sobre su contenedor —
     Contributor sobre la suscripción no alcanza, es control plane.
     Obtenerlo con: az ad sp show --id <appId> --query id -o tsv
   DESC
+  type        = string
+}
+
+variable "staging_terraform_sp_object_id" {
+  description = "objectId del SP de staging; sólo recibe acceso al contenedor tfstate-stg."
   type        = string
 }
 
@@ -64,7 +69,8 @@ variable "grant_bootstrap_operator_access" {
   description = <<-DESC
     Da acceso de datos también a quien corre este bootstrap. Hace falta para
     crear el container en esta misma corrida; una vez creado se puede poner en
-    false y aplicar de nuevo, y el estado queda accesible SÓLO para el SP.
+    false y aplicar de nuevo para retirar esta asignación temporal. No retira
+    roles de operadores administrados fuera de este bootstrap.
   DESC
   type        = bool
   default     = true
@@ -90,6 +96,11 @@ locals {
 resource "azurerm_resource_group" "tfstate" {
   name     = "${local.name_base}-rg"
   location = var.location
+
+  lifecycle {
+    # El etiquetado lo administra CloudOps fuera del bootstrap.
+    ignore_changes = [tags]
+  }
 }
 
 resource "azurerm_storage_account" "tfstate" {
@@ -106,26 +117,46 @@ resource "azurerm_storage_account" "tfstate" {
   allow_nested_items_to_be_public = false
   shared_access_key_enabled       = false
 
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes  = [tags]
+  }
+
   blob_properties {
     versioning_enabled = true
     delete_retention_policy {
       days = 30
     }
+    container_delete_retention_policy {
+      days = 30
+    }
   }
 }
 
-# El que importa: sin esto el pipeline no puede leer ni escribir el estado.
-# Ser Contributor de la suscripción NO alcanza — es un rol de control plane y
-# el acceso al contenido de un blob es plano de datos.
-resource "azurerm_role_assignment" "tfstate_blob_sp" {
-  scope                = azurerm_storage_account.tfstate.id
+# Cada SP recibe datos sólo en su contenedor. Contributor de la suscripción
+# no sustituye el rol de datos; los administradores RBAC aún pueden reasignarlo.
+resource "azurerm_role_assignment" "tfstate_blob_prod" {
+  scope                = "${azurerm_storage_account.tfstate.id}/blobServices/default/containers/${azurerm_storage_container.tfstate_prod.name}"
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = var.terraform_sp_object_id
 }
 
+resource "azurerm_role_assignment" "tfstate_blob_staging" {
+  scope                = "${azurerm_storage_account.tfstate.id}/blobServices/default/containers/${azurerm_storage_container.tfstate_staging.name}"
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = var.staging_terraform_sp_object_id
+
+  lifecycle {
+    precondition {
+      condition     = var.staging_terraform_sp_object_id != var.terraform_sp_object_id
+      error_message = "Prod y staging deben usar identidades de backend distintas."
+    }
+  }
+}
+
 # Temporal: el humano que corre este bootstrap necesita acceso de datos para
 # crear el container. Después se puede poner grant_bootstrap_operator_access
-# en false y volver a aplicar — el estado queda sólo para el SP.
+# en false y volver a aplicar para retirar esta asignación.
 resource "azurerm_role_assignment" "tfstate_blob_operator" {
   count                = var.grant_bootstrap_operator_access ? 1 : 0
   scope                = azurerm_storage_account.tfstate.id
@@ -135,8 +166,8 @@ resource "azurerm_role_assignment" "tfstate_blob_operator" {
 
 # El RBAC de datos tarda en propagar; sin la espera, el container falla con 403
 # la mitad de las veces.
-resource "time_sleep" "rbac_propagation" {
-  depends_on      = [azurerm_role_assignment.tfstate_blob_sp, azurerm_role_assignment.tfstate_blob_operator]
+resource "time_sleep" "operator_rbac_propagation" {
+  depends_on      = [azurerm_role_assignment.tfstate_blob_operator]
   create_duration = "60s"
 }
 
@@ -145,14 +176,55 @@ resource "azurerm_storage_container" "tfstate" {
   storage_account_id    = azurerm_storage_account.tfstate.id
   container_access_type = "private"
 
-  depends_on = [time_sleep.rbac_propagation]
+  depends_on = [time_sleep.operator_rbac_propagation]
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "azurerm_storage_container" "tfstate_staging" {
+  name                  = "tfstate-stg"
+  storage_account_id    = azurerm_storage_account.tfstate.id
+  container_access_type = "private"
+
+  depends_on = [time_sleep.operator_rbac_propagation]
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "azurerm_storage_container" "tfstate_prod" {
+  name                  = "tfstate-prod"
+  storage_account_id    = azurerm_storage_account.tfstate.id
+  container_access_type = "private"
+
+  depends_on = [time_sleep.operator_rbac_propagation]
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "azurerm_management_lock" "tfstate" {
+  name       = "${local.name_base}-state-lock"
+  scope      = azurerm_storage_account.tfstate.id
+  lock_level = "CanNotDelete"
+  notes      = "INFRA-09: proteger el backend; no sustituye el lease ni el RBAC de datos."
+
+  depends_on = [
+    azurerm_role_assignment.tfstate_blob_prod,
+    azurerm_role_assignment.tfstate_blob_staging,
+    azurerm_role_assignment.tfstate_blob_operator,
+  ]
 }
 
 output "backend_config" {
   value = {
     resource_group_name  = azurerm_resource_group.tfstate.name
     storage_account_name = azurerm_storage_account.tfstate.name
-    container_name       = azurerm_storage_container.tfstate.name
+    container_name       = azurerm_storage_container.tfstate_prod.name
     use_azuread_auth     = true
   }
 }

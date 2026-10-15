@@ -256,6 +256,15 @@ Fijar base a digest verificado de Node 22 Alpine con actualización automatizada
 
 ### INFRA-09 / INFRA-10 — State, locks y análisis sin puntos ciegos
 
+**Estado (2026-10-15):** INFRA-09 en curso: RBAC por contenedor, prod migrado a
+`tfstate-prod` (el antiguo mezclaba copias de ambientes), retención de contenedores
+y lock aplicados. Recuperación/versionado y lease comprobados con blobs de prueba;
+plan del bootstrap sin drift. Workflows preparados para verificar aislamiento
+cruzado y del archivo, y `init -lockfile=readonly`. **No cerrado:** falta una ruta
+de runner/reconciliación que permita restringir la red del backend sin bloquear CI.
+Ver [operación y recuperación](../../infra/docs/deployment-guide.md#protección-del-state--infra-09-2026-10-15).
+INFRA-10 sigue pendiente.
+
 El bootstrap usa TLS 1.2, Shared Key deshabilitada, contenedor privado y acceso de datos por RBAC. CI usa `use_azuread_auth=true` y `use_oidc=true`. No hay evidencia de backend con SAS anónimo ni una vulnerabilidad demostrada por SAS. Confirmar cualquier SAS operativo fuera de este flujo sin copiarlo al plan.
 
 Distinguir controles:
