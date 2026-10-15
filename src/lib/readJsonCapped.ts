@@ -9,7 +9,8 @@ export class BodyLimitError extends Error {
     }
 }
 
-export async function readJsonCapped(request: Request, maxBytes: number): Promise<unknown> {
+/** Lee el body crudo cortando en `maxBytes` mientras llega (AISEC-06/08). */
+export async function readBodyCapped(request: Request, maxBytes: number): Promise<Buffer> {
     const declared = Number(request.headers.get("content-length"));
     if (Number.isFinite(declared) && declared > maxBytes) throw new BodyLimitError(413, "Payload demasiado grande.");
     if (!request.body) throw new BodyLimitError(400, "Body vacío.");
@@ -27,8 +28,13 @@ export async function readJsonCapped(request: Request, maxBytes: number): Promis
         }
         chunks.push(value);
     }
+    return Buffer.concat(chunks);
+}
+
+export async function readJsonCapped(request: Request, maxBytes: number): Promise<unknown> {
+    const body = await readBodyCapped(request, maxBytes);
     try {
-        return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+        return JSON.parse(body.toString("utf8"));
     } catch {
         throw new BodyLimitError(400, "JSON inválido.");
     }

@@ -1,7 +1,8 @@
 /**
  * Almacenamiento de adjuntos del sistema de soporte.
  *
- * - Tipos permitidos: jpg/jpeg/png (validados por magic bytes), txt y json.
+ * - Tipos permitidos: jpg/jpeg/png (firma completa + marcador de fin, sin datos
+ *   extra al final: AISEC-08 anti-polyglot), txt y json (UTF-8 sin NUL; json parseable).
  * - Tamaño máximo: 5 MB por archivo. Máximo 10 adjuntos por ticket.
  * - Los archivos se guardan como `<prefijo-tenant>/<uuid>.<ext>` (AISEC-05; nunca
  *   con el nombre original, evita path traversal / colisiones) en el container
@@ -22,15 +23,41 @@ export const SUPPORT_ATTACHMENT_MAX_PER_TICKET = 10;
 export const SUPPORT_ATTACHMENT_RETENTION_DAYS = 60;
 export const SUPPORT_ATTACHMENT_CONTAINER = process.env.AZURE_STORAGE_CONTAINER_SUPPORT_ATTACHMENTS || "support-attachments";
 
-const ALLOWED: Record<string, { mime: string; magic?: number[][] }> = {
-    jpg: { mime: "image/jpeg", magic: [[0xff, 0xd8, 0xff]] },
-    jpeg: { mime: "image/jpeg", magic: [[0xff, 0xd8, 0xff]] },
-    png: { mime: "image/png", magic: [[0x89, 0x50, 0x4e, 0x47]] },
+// Margen para el envoltorio multipart (boundary, cabeceras de las partes, tenantId, messageId).
+export const SUPPORT_ATTACHMENT_MULTIPART_OVERHEAD = 64 * 1024;
+
+const PNG_SIG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+// Chunk IEND completo: largo 0, tipo "IEND", CRC fijo.
+const PNG_IEND = [0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82];
+const JPEG_SOI = [0xff, 0xd8, 0xff];
+const JPEG_EOI = [0xff, 0xd9];
+
+function hasAt(bytes: Buffer, sig: number[], at: number): boolean {
+    return at >= 0 && sig.every((b, i) => bytes[at + i] === b);
+}
+
+// Firma al inicio y marcador de fin exactamente al final: rechaza imágenes con
+// HTML/script/ZIP pegado detrás (polyglots).
+function isCleanImage(kind: "png" | "jpeg", bytes: Buffer): boolean {
+    if (kind === "png") {
+        return bytes.length > PNG_SIG.length + PNG_IEND.length
+            && hasAt(bytes, PNG_SIG, 0)
+            && hasAt(bytes, PNG_IEND, bytes.length - PNG_IEND.length);
+    }
+    return bytes.length > JPEG_SOI.length + JPEG_EOI.length
+        && hasAt(bytes, JPEG_SOI, 0)
+        && hasAt(bytes, JPEG_EOI, bytes.length - JPEG_EOI.length);
+}
+
+const ALLOWED: Record<string, { mime: string; image?: "png" | "jpeg" }> = {
+    jpg: { mime: "image/jpeg", image: "jpeg" },
+    jpeg: { mime: "image/jpeg", image: "jpeg" },
+    png: { mime: "image/png", image: "png" },
     txt: { mime: "text/plain" },
     json: { mime: "application/json" },
 };
 
-const STORED_NAME_RE = /^[0-9a-f-]{36}\.(jpg|jpeg|png|txt|json)$/i;
+const STORED_NAME_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|jpeg|png|txt|json)$/i;
 
 export function getSupportUploadDir(): string {
     return process.env.SUPPORT_UPLOAD_DIR || path.join(process.cwd(), "data", "support-attachments");
@@ -44,8 +71,8 @@ export interface AttachmentValidation {
 }
 
 /**
- * Valida extensión, tamaño y contenido (magic bytes para imágenes; UTF-8
- * decodificable para txt/json). Devuelve el mime canónico a persistir —
+ * Valida extensión, tamaño y contenido (firma + fin de archivo para imágenes;
+ * UTF-8 sin NUL para txt/json, y JSON parseable para json). Devuelve el mime canónico a persistir —
  * nunca confiamos en el Content-Type que declara el cliente.
  */
 export function validateAttachment(fileName: string, bytes: Buffer): AttachmentValidation {
@@ -60,17 +87,27 @@ export function validateAttachment(fileName: string, bytes: Buffer): AttachmentV
     if (bytes.length > SUPPORT_ATTACHMENT_MAX_BYTES) {
         return { ok: false, error: "El archivo supera el máximo de 5 MB." };
     }
-    if (spec.magic) {
-        const matches = spec.magic.some((sig) => sig.every((b, i) => bytes[i] === b));
-        if (!matches) {
-            return { ok: false, error: "El contenido del archivo no coincide con su extensión." };
+    if (spec.image) {
+        if (!isCleanImage(spec.image, bytes)) {
+            return { ok: false, error: "El contenido del archivo no coincide con su extensión o tiene datos extra al final." };
         }
     } else {
-        // txt/json: debe ser texto UTF-8 decodificable (rechaza binarios renombrados).
+        // txt/json: texto UTF-8 decodificable y sin NUL (rechaza binarios renombrados).
+        let text: string;
         try {
-            new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+            text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
         } catch {
             return { ok: false, error: "El archivo de texto no es UTF-8 válido." };
+        }
+        if (bytes.includes(0)) {
+            return { ok: false, error: "El archivo de texto contiene bytes nulos." };
+        }
+        if (ext === "json") {
+            try {
+                JSON.parse(text.replace(/^\uFEFF/, ""));
+            } catch {
+                return { ok: false, error: "El archivo JSON no es válido." };
+            }
         }
     }
     return { ok: true, ext, mime: spec.mime };

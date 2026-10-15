@@ -3,25 +3,47 @@ import pool from "@/modules/storage/db";
 import { requireTenantAccess, hasSystemRole, AuthError } from "@/lib/requestAuth";
 import { serverError } from "@/lib/apiErrors";
 import rateLimiter from "@/lib/rateLimiter";
+import { BodyLimitError, readBodyCapped } from "@/lib/readJsonCapped";
 import {
     validateAttachment,
     saveAttachment,
     deleteAttachmentFile,
     SUPPORT_ATTACHMENT_MAX_BYTES,
     SUPPORT_ATTACHMENT_MAX_PER_TICKET,
+    SUPPORT_ATTACHMENT_MULTIPART_OVERHEAD,
     SUPPORT_ATTACHMENT_RETENTION_DAYS,
 } from "@/lib/supportAttachments";
 
 // RBAC: pertenencia al tenant (anti-IDOR: ticket WHERE id AND tenant_id).
 // POST multipart/form-data con campos `tenantId` y `file`.
-// Tipos: jpg/jpeg/png (magic bytes) o txt/json (UTF-8), máx 5 MB.
+// Tipos: jpg/jpeg/png (firma + fin, sin datos extra) o txt/json (UTF-8), máx 5 MB.
+// AISEC-08: el body se corta en 5 MB + overhead multipart mientras llega, antes de
+// parsearlo; `messageId` debe ser un mensaje de este ticket.
+
+async function readCappedFormData(request: NextRequest): Promise<FormData> {
+    const body = await readBodyCapped(request, SUPPORT_ATTACHMENT_MAX_BYTES + SUPPORT_ATTACHMENT_MULTIPART_OVERHEAD);
+    return new Request(request.url, {
+        method: "POST",
+        headers: { "content-type": request.headers.get("content-type") || "" },
+        body: new Uint8Array(body),
+    }).formData();
+}
 
 export async function POST(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const form = await request.formData();
+        let form: FormData;
+        try {
+            form = await readCappedFormData(request);
+        } catch (e) {
+            if (e instanceof BodyLimitError) {
+                const error = e.status === 413 ? "El archivo supera el máximo de 5 MB." : e.message;
+                return NextResponse.json({ error }, { status: e.status });
+            }
+            return NextResponse.json({ error: "Formulario multipart inválido." }, { status: 400 });
+        }
         const tenantId = typeof form.get("tenantId") === "string" ? (form.get("tenantId") as string) : "";
         if (!tenantId) {
             return NextResponse.json({ error: "Falta el tenantId." }, { status: 400 });
@@ -76,27 +98,51 @@ export async function POST(
         }
 
         const asSupport = identity.isCorporateDomain && (await hasSystemRole(identity.email, "SUPERADMIN"));
-        const storedName = await saveAttachment(tenantId, bytes, validation.ext!);
+
         // `messageId` es opcional: si viene, el adjunto se muestra dentro de la
-        // burbuja de ese mensaje; si no, queda a nivel ticket como antes.
+        // burbuja de ese mensaje; si no, queda a nivel ticket. Debe pertenecer a
+        // este ticket (ya filtrado por tenant) y, salvo soporte, no ser nota interna.
+        let messageId: number | null = null;
         const rawMessageId = form.get("messageId");
-        const messageId = Number(rawMessageId);
-        const [result]: any = await pool.query(
-            `INSERT INTO SupportTicketAttachments
-                (ticket_id, message_id, tenant_id, uploaded_by_email, uploaded_by_role, original_name, stored_name, mime_type, size_bytes)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                ticketId,
-                Number.isInteger(messageId) && messageId > 0 ? messageId : null,
-                tenantId,
-                identity.email,
-                asSupport ? "support" : "user",
-                originalName,
-                storedName,
-                validation.mime,
-                bytes.length,
-            ]
-        );
+        if (rawMessageId !== null && rawMessageId !== "") {
+            const m = typeof rawMessageId === "string" && /^\d{1,10}$/.test(rawMessageId) ? Number(rawMessageId) : NaN;
+            if (!Number.isSafeInteger(m) || m <= 0) {
+                return NextResponse.json({ error: "Mensaje inválido." }, { status: 400 });
+            }
+            const [own]: any = await pool.query(
+                "SELECT id, is_internal_note FROM SupportTicketMessages WHERE id = ? AND ticket_id = ?",
+                [m, ticketId]
+            );
+            if (!own?.length || (!asSupport && Number(own[0].is_internal_note) === 1)) {
+                return NextResponse.json({ error: "Mensaje inválido." }, { status: 400 });
+            }
+            messageId = m;
+        }
+
+        const storedName = await saveAttachment(tenantId, bytes, validation.ext!);
+        let result: any;
+        try {
+            [result] = await pool.query(
+                `INSERT INTO SupportTicketAttachments
+                    (ticket_id, message_id, tenant_id, uploaded_by_email, uploaded_by_role, original_name, stored_name, mime_type, size_bytes)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    ticketId,
+                    messageId,
+                    tenantId,
+                    identity.email,
+                    asSupport ? "support" : "user",
+                    originalName,
+                    storedName,
+                    validation.mime,
+                    bytes.length,
+                ]
+            );
+        } catch (e) {
+            // Sin fila no hay quién lo limpie: borrar el blob recién subido.
+            await deleteAttachmentFile(tenantId, storedName);
+            throw e;
+        }
 
         // Limpieza oportunista (no bloqueante) de adjuntos fuera de retención.
         void cleanupExpiredAttachments();
