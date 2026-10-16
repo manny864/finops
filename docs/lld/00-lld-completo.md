@@ -7120,3 +7120,41 @@ existente adapta solo el permiso sintetico para mantener su alcance aislado.
 Suite sin servicios6273pass/188skip,564archivos correctos/11omitidos;
 lint/typecheck/build nativo correctos. No se repiten gates SQL/Redis/Blob;
 ultima matriz real previa118casos en dc04cd0. Pendiente rollout/global.
+
+### 52.20 Solicitante ligado al JWT y revalidado en worker/correo
+
+El inicio real ya no sustituye email ausente por user@cscloudsolutions.com:
+exige email verificado no vacio antes de persistir, incluso si el body
+ofrece un destinatario. El handler captura email y OID exclusivamente de
+la identidad autenticada; el body no puede sustituirlos. El servicio real
+tambien exige email. La ruta demo mantiene su identidad sintetica.
+
+El worker comprueba Users DISABLED por tenant y email/OID y el alcance
+actual mediante alcanceDelUsuario antes de recolectar. OID se transporta
+al worker en memoria, no se agrega una columna ni recuperacion de jobs.
+Un alcance asignado se deniega con SCOPE_ROUTE_NOT_AWARE, igual que en
+las rutas de reportes que no pueden acotarse. Lookup fallido o ambiguo
+no habilita datos: falla el job antes de recoleccion.
+
+Inmediatamente antes del bloque de envio vuelve a comprobar pertenencia
+de suscripcion, suspension y alcance del solicitante. Revocacion o fallo
+SQL impiden dispatchExecutiveReportEmail y no marcan emailed_to_requester_at.
+Se conserva el contrato existente de correo opcional: el reporte ya
+compilado para el tenant queda COMPLETED y el rechazo de envio se registra
+como Email dispatch error; no se declara envio exitoso.
+
+No se cambia STRIDE03: sin fila Users/alcance se conserva acceso por
+directorio, no se exige rol nuevo ni se interpreta borrar un usuario
+como suspension. No se garantiza cancelacion atomica de un envio ya
+iniciado ni invalidacion inmediata del cache Azure60s. Tampoco se cancela
+recoleccion en curso; el resultado queda sujeto a los guards de lectura
+existentes, y el correo se vuelve a comprobar antes de salir.
+
+Catorce regresiones siempre activas cubren email vacio/espacios, body
+forjado, email/OID del JWT, suspension/alcance/fallos de ambos lookups
+antes de recolectar y tras generar, suscripcion revocada antes de enviar
+y opcion sin correo. Se usan handlers/worker reales y SQL, catalogo Azure,
+colectores, Blob, notificaciones y transporte de correo sustituidos;
+no se envia correo ni se consulta cloud. Suite sinservicios6287pass/188skip,
+565archivos correctos/11omitidos; lint/typecheck/build nativo correctos. Ultima matriz real
+previa118casos en dc04cd0; estos casos no afirman SQL/JWT/Azure reales.

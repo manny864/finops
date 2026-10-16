@@ -10,7 +10,7 @@ vi.mock("@/modules/storage/db", () => ({ default: { query }, initializeDatabase:
 vi.mock("@/lib/scopeDelTenant", () => ({ exigirSuscripcionDelTenant: guard }));
 vi.mock("@/lib/requestAuth", async (original) => ({
     ...(await original<Record<string, unknown>>()),
-    requireTenantAccess: vi.fn(async () => ({ email: "synthetic-requester@example.test" })),
+    requireTenantAccess: vi.fn(async () => ({ email: "synthetic-requester@example.test", claims: {} })),
 }));
 vi.mock("@/services/executiveReportGenerator.service", () => ({
     aggregateExecutiveReportData: aggregate, generateExecutiveAssessment: vi.fn(), dispatchExecutiveReportEmail: vi.fn(),
@@ -22,7 +22,8 @@ import { AuthError } from "@/lib/requestAuth";
 let nextId = 800;
 const tenant = "synthetic-job-scope-tenant";
 const payload = (extra: Partial<StartReportJobPayload> = {}): StartReportJobPayload => ({
-    tenantId: tenant, scope: "SUBSCRIPTION", scopeId: "synthetic-owned-subscription", ...extra,
+    tenantId: tenant, scope: "SUBSCRIPTION", scopeId: "synthetic-owned-subscription",
+    requestedByEmail: "synthetic-requester@example.test", ...extra,
 });
 beforeEach(() => {
     vi.clearAllMocks();

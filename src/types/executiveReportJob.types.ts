@@ -60,6 +60,7 @@ export interface StartReportJobPayload {
     triggerAiAnalysis?: boolean;
     sendEmailNotification?: boolean;
     requestedByEmail?: string;
+    requestedByOid?: string;
 }
 
 export interface StartReportJobResponse {

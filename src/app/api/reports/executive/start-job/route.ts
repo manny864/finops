@@ -37,10 +37,15 @@ export async function POST(request: NextRequest) {
         }
 
         let requesterEmail = 'demo@cscloudsolutions.com.ar';
+        let requesterOid: string | undefined;
 
         if (!isMockTenant(tenantId)) {
             const identity = await requireTenantAccess(request, tenantId);
-            requesterEmail = identity.email || 'user@cscloudsolutions.com';
+            requesterEmail = identity.email.trim();
+            requesterOid = identity.claims.oid;
+            if (!requesterEmail) {
+                throw new AuthError('Falta identidad del solicitante.', 401, 'IDENTITY_EMAIL_REQUIRED');
+            }
             // El job guarda el scopeId y lo usa después como suscripción en Azure.
             if (scope !== 'TENANT_ALL') await exigirSuscripcionDelTenant(tenantId, scopeId);
         }
@@ -54,6 +59,7 @@ export async function POST(request: NextRequest) {
             triggerAiAnalysis,
             sendEmailNotification,
             requestedByEmail: requesterEmail,
+            requestedByOid: requesterOid,
         });
 
         return NextResponse.json(res);

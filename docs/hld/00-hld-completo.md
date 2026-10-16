@@ -2056,3 +2056,12 @@ convierte en consulta de suscripcion sin validacion. Fallo worker marca
 FAILED sin datos. El helper conserva cache de pertenencia60s; no implica
 revocacion inmediata ni reautorizacion humana al enviar. Once regresiones,
 suite sinservicios6273pass/188skip;detalleLLD52.19,sinrollout.
+
+El solicitante real del job exige email verificado y captura OID del JWT,
+sin destinatario sintetico ni sustitucion desde body. Worker vuelve a
+comprobar suspension/alcance antes de recolectar y, junto con pertenencia
+de suscripcion, antes del correo. Rechazo/falloSQL impide envio y se
+registra sin marcar timestamp de envio; reporte ya generado conserva
+su estado completado para el tenant. Catorce regresiones;sinservicios
+6287pass/188skip;detalleLLD52.20. No cambia membresia STRIDE03 ni cancela
+atomicamente recoleccion/envio en curso;pertenenciaAzure conserva cache60s.

@@ -14,6 +14,8 @@ import { guardAiMarkdown } from '@/lib/aiOutputGuard';
 import { isMockTenant } from '@/lib/mockData';
 import { exigirSuscripcionDelTenant } from '@/lib/scopeDelTenant';
 import { AuthError } from '@/lib/requestAuth';
+import { alcanceDelUsuario } from '@/services/userScope.service';
+import type { RowDataPacket } from 'mysql2';
 import {
     aggregateExecutiveReportData,
     generateExecutiveAssessment,
@@ -58,6 +60,18 @@ function getStepProgress(step: ReportJobStep): { progress: number; label: string
     }
 }
 
+async function exigirAccesoDelSolicitante(tenantId: string, email: string, oid?: string): Promise<void> {
+    if (!email.trim()) throw new AuthError('Falta identidad del solicitante.', 401, 'IDENTITY_EMAIL_REQUIRED');
+    const [disabled] = await pool.query<RowDataPacket[]>(
+        "SELECT 1 FROM Users WHERE tenant_id = ? AND account_status = 'DISABLED' AND (email = ? OR (entra_oid IS NOT NULL AND entra_oid = ?)) LIMIT 1",
+        [tenantId, email, oid || ''],
+    );
+    if (disabled.length) throw new AuthError('Cuenta deshabilitada.', 403, 'ACCOUNT_DISABLED');
+    if (await alcanceDelUsuario(tenantId, email, oid)) {
+        throw new AuthError('El alcance asignado no permite este reporte.', 403, 'SCOPE_ROUTE_NOT_AWARE');
+    }
+}
+
 /**
  * Inicia un job asíncrono para generar el reporte ejecutivo.
  */
@@ -72,7 +86,8 @@ export async function startExecutiveReportJob(
         locale = 'es',
         triggerAiAnalysis = true,
         sendEmailNotification = false,
-        requestedByEmail = 'user@cscloudsolutions.com',
+        requestedByEmail = '',
+        requestedByOid,
     } = payload;
 
     if (!['TENANT_ALL', 'SUBSCRIPTION', 'RESOURCE_GROUP'].includes(scope)) {
@@ -115,6 +130,9 @@ export async function startExecutiveReportJob(
     }
 
     // Tenant Real: Persistencia en MySQL y ejecución en segundo plano
+    if (!requestedByEmail.trim()) {
+        throw new AuthError('Falta identidad del solicitante.', 401, 'IDENTITY_EMAIL_REQUIRED');
+    }
     await exigirSuscripcionDelTenant(tenantId, scopeId);
     await initializeDatabase();
 
@@ -142,7 +160,7 @@ export async function startExecutiveReportJob(
     activeJobsCache.set(jobId, state);
 
     // Disparar worker no bloqueante
-    void runRealJobProcess(jobId, tenantId, scopeId, scopeName, locale, triggerAiAnalysis, sendEmailNotification, requestedByEmail);
+    void runRealJobProcess(jobId, tenantId, scopeId, scopeName, locale, triggerAiAnalysis, sendEmailNotification, requestedByEmail, requestedByOid);
 
     return {
         success: true,
@@ -243,7 +261,8 @@ async function runRealJobProcess(
     locale: string,
     triggerAi: boolean,
     sendEmail: boolean,
-    requestedByEmail: string
+    requestedByEmail: string,
+    requestedByOid?: string,
 ) {
     const update = async (step: ReportJobStep) => {
         const item = activeJobsCache.get(jobId);
@@ -269,6 +288,7 @@ async function runRealJobProcess(
 
     try {
         await exigirSuscripcionDelTenant(tenantId, scopeSubscriptionId);
+        await exigirAccesoDelSolicitante(tenantId, requestedByEmail, requestedByOid);
         await update('COLLECTING_METRICS');
         const scope = (scopeSubscriptionId === 'All' ? 'TENANT_ALL' : 'SUBSCRIPTION') as ExecutiveReportScope;
         const aggregatedData = await aggregateExecutiveReportData(tenantId, scope, scopeSubscriptionId);
@@ -344,6 +364,8 @@ async function runRealJobProcess(
         // Enviar por correo si fue solicitado
         if (sendEmail && requestedByEmail) {
             try {
+                await exigirSuscripcionDelTenant(tenantId, scopeSubscriptionId);
+                await exigirAccesoDelSolicitante(tenantId, requestedByEmail, requestedByOid);
                 const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
                 doc.setFont('helvetica', 'bold');
                 doc.text('CSCloudSolutions - Reporte Ejecutivo FinOps', 20, 20);
