@@ -61,6 +61,13 @@ export async function POST(request: NextRequest) {
         // Guard inline: `local/no-unauth-tenant-id` está para que la
         // autorización se lea en el handler y no en un helper.
         const identidad = await requireTenantRole(request, tenantId, ["Owner", "Admin"]);
+        const authorEmail = identidad.email.trim();
+        if (!authorEmail) {
+            throw new AuthError(
+                "La identidad autenticada no tiene un email para crear suscripciones.",
+                401, "IDENTITY_EMAIL_REQUIRED",
+            );
+        }
 
         if (!TIPOS_DE_REPORTE.includes(String(reportType))) {
             return NextResponse.json(
@@ -110,7 +117,7 @@ export async function POST(request: NextRequest) {
                 scope ? JSON.stringify(scope) : null,
                 JSON.stringify(destinatarios),
                 frequency, dow, dom,
-                identidad?.email || null,
+                authorEmail,
             ]
         );
 

@@ -1022,6 +1022,12 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
                 day_of_week: 4, day_of_month: null, recipients_json: ["synthetic-new@example.test"],
                 scope_json: { perspectiveId: 1, grupo: "allowed" }, last_sent_at: null }]);
         });
+        it("an Admin JWT without email cannot create an unattributed subscription", async () => {
+            await db.query("UPDATE Users SET role = 'Admin' WHERE tenant_id = ? AND email = ?", [actor.id, actor.email]);
+            expect((await create({ createdBy: actor.email }, { ...actor, email: "" })).status).toBe(401);
+            const [rows] = await db.query<RowDataPacket[]>("SELECT id FROM ReportSubscriptions");
+            expect(rows).toHaveLength(2);
+        });
         it("Admin cannot delete another tenant's ID and can delete only an owned subscription", async () => {
             await db.query("UPDATE Users SET role = 'Admin' WHERE tenant_id = ? AND email = ?", [actor.id, actor.email]);
             expect((await remove(202, actor.id, actor)).status).toBe(404);

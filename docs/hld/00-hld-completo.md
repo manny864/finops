@@ -2034,3 +2034,9 @@ por Perspective/grupo local. No se detecta cruce de tenant en esos caminos;
 no se cambia codigo productivo ni se envia correo. Matriz117,
 suite6380pass/76skip. Cron/entrega efectiva fuera de este alcance;
 detalle LLD52.16, sin rollout ni cierre global.
+
+Crear suscripciones humanas exige email verificado ademas de Admin/Owner,
+para no persistir created_by vacio que el cron no pueda vincular a una cuenta
+suspendida. JWT de Admin por OID sin email devuelve401 antes de SQL/envio;
+procesos historicos sin autor no cambian. Un caso SQL y dos unitarios;
+matriz118, suite6383pass/76skip. Detalle LLD52.17, sin rollout.

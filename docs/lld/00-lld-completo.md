@@ -7051,3 +7051,19 @@ revalidacion del autor al enviar ni aislamiento efectivo Azure.
 Matriz117 casos con Blob; suite6380pass/76skip,564archivos correctos/8omitidos;
 typecheck, lint del archivo y diff-check correctos. Sin codigo productivo
 nuevo, sin rollout ni cierre global del inventario SQL/KQL/objetos.
+
+### 52.17 Autor verificable al crear suscripciones humanas
+
+POST /api/reports/subscriptions exige identity.email no vacio tras la guarda
+Admin/Owner, antes de INSERT o enviarAhora. Un JWT con OID de Admin pero sin
+email antes guardaba created_by=NULL; el cron no podia asociarlo luego con
+Users.account_status y lo trataba como suscripcion de proceso sin autor.
+Ahora devuelve401 IDENTITY_EMAIL_REQUIRED; createdBy del body no lo suple.
+Con email valido persiste el autor verificado como antes. No se modifica
+el tratamiento historico de procesos sin autor ni se desactivan filas reales.
+
+Un caso JWT/MySQL real reproduce Admin por OID sin email y verifica401 sin
+INSERT; dos unitarios comprueban email vacio/espacios antes de SQL o envio,
+incluso con enviarAhora=true y createdBy falsificado. Matriz118 con Blob;
+suite6383pass/76skip,565archivos correctos/8omitidos; lint/typecheck/build
+nativo correctos. Sin correo real, sin prueba de cron/Graph ni rollout.
