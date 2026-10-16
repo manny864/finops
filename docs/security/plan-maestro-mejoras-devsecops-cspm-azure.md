@@ -365,7 +365,7 @@ Checkov no está desactivado: scan sin OIDC, versión fijada en requirements y r
 
 ### Registro de cierre (2026-10-15)
 
-Hallazgos originalmente remediados, mergeados a `main` y desplegados en los ambientes correspondientes; INFRA-10 es un control de CI compartido, no un despliegue de aplicación. Cada cambio incluye tests de contrato con control negativo (mutaciones detectadas). APPSEC-ID-05 requirio un complemento financiero posterior en PR #143: ese complemento no esta mergeado ni desplegado. Pendientes del plan: ese rollout, INFRA-11, STRIDE-01..09 e INT-01..05.
+Hallazgos originalmente remediados, mergeados a `main` y desplegados en los ambientes correspondientes; INFRA-10 es un control de CI compartido, no un despliegue de aplicación. Cada cambio incluye tests de contrato con control negativo (mutaciones detectadas). APPSEC-ID-05 requirio un complemento financiero posterior en PR #143, mergeado (`fbcee6d`) y desplegado el 2026-10-16. El estado vigente de INFRA-11, STRIDE-01..09 e INT-01..05 esta en [Estado consolidado y pendientes](#estado-consolidado-y-pendientes-2026-10-16).
 
 | ID | Estado | Commits |
 |---|---|---|
@@ -383,7 +383,7 @@ Hallazgos originalmente remediados, mergeados a `main` y desplegados en los ambi
 | APPSEC-ID-02 | ✅ Resuelto | 06130ef |
 | APPSEC-ID-03 | ✅ Resuelto | e35c0ff |
 | APPSEC-ID-04 | ✅ Resuelto | bc23930 |
-| APPSEC-ID-05 | Complemento implementado; rollout pendiente | bc23930; complemento en #143 |
+| APPSEC-ID-05 | ✅ Resuelto (complemento desplegado 2026-10-16) | bc23930; complemento en #143 (`fbcee6d`) |
 | APPSEC-ID-06 | ✅ Resuelto | 8257c85 |
 | APPSEC-ID-07 | ✅ Resuelto | 915464f |
 | PERIM-01 | ✅ Resuelto | d2d623f |
@@ -404,6 +404,37 @@ Hallazgos originalmente remediados, mergeados a `main` y desplegados en los ambi
 | AISEC-07 | ✅ Resuelto | 42ac122 |
 | AISEC-08 | ✅ Resuelto | 724d14e, ae4c696 |
 | AISEC-09 | ✅ Resuelto | 5c7008e |
+
+### Estado consolidado y pendientes (2026-10-16)
+
+**Despliegue vigente:** PR #143 (`fbcee6d`), #146 (`222b2aa`) y #147 (`eafc1e3`) mergeados a `main`. Staging (run `38947699534`) y prod (`promote-prod` run `38949797195`) ejecutan `222b2aa` con el mismo digest runtime, SBOM y procedencia SLSA verificados por el pipeline; `/api/health` 200 en ambos. Todo el codigo de remediacion descrito como "local" en STRIDE/INT/INFRA-11 esta ahora desplegado; lo que sigue abierto son verificaciones efectivas, decisiones y operaciones.
+
+| ID | Estado | Resuelto | Pendiente para cerrar | Bloqueo / responsable |
+|---|---|---|---|---|
+| INFRA-11 | 🟡 Parcial | Base por digest, SBOM + procedencia SLSA v1 exigidas (#146), deploy y promocion por digest sin rebuild | Firma criptografica y verificacion de firma antes del deploy | Attestations privadas requieren GitHub Enterprise Cloud; decidir alternativa (p. ej. Notation/Key Vault) |
+| APPSEC-ID-05 | ✅ Resuelto | Complemento financiero desplegado | — | — |
+| STRIDE-01 / INT-02 | 🟢 Desplegado, evidencia pendiente | Transicion legacy corregida y desplegada | Evidencia de prueba negativa en staging | Equipo app |
+| STRIDE-02 / INT-04 | 🟡 Parcial | Factory Cost Management, revalidacion ARM, catalogo fail-closed | Matriz end-to-end de dos tenants sobre reportes, exports y caches; revisar generador tenant-wide etiquetado como suscripcion | Equipo app; contrato funcional del generador |
+| STRIDE-03 | 🔴 Bloqueado | Bloqueo `DISABLED` y membresia activa para operaciones por rol | Decidir si la lectura exige membresia SaaS `ACTIVE` o se admite por directorio Entra; implementar y probar | **Decision del propietario del producto** |
+| STRIDE-04 | 🟡 Parcial | Catalogo de acciones, revalidacion, claims durables desplegados | Revisar Custom Roles y asignaciones efectivas del SP en Azure | Operaciones Azure |
+| STRIDE-05 / STRIDE-06 / INT-01 | 🟢 Desplegado, evidencia pendiente | Transporte DNS-pinned sin redirects en todos los emisores | Pruebas con proveedores (Slack/Teams/webhook) y credenciales sinteticas en staging; ITSM real no existe aun | Equipo app |
+| STRIDE-07 | 🟡 Parcial | Secretos por job soportados; query auth retirada | Provisionar `CRON_JOB_SECRET_<JOB>` en Key Vault/Terraform, activar `CRON_REQUIRE_SCOPED_SECRETS`, verificar los 14 jobs, rotar la compartida; luego audiencia Entra | Operaciones: ventana de rotacion |
+| STRIDE-08 | 🟢 Desplegado, evidencia pendiente | Self-fetch solo a origen interno validado | Verificar dashboard/whiteboard en staging | Equipo app |
+| STRIDE-09 / INT-05 | 🟡 Parcial | Escape KQL unificado, catalogos de orden SQL | Inventario exhaustivo: 1.210 llamadas candidatas en 369 archivos (154 templates interpolados) | Equipo app |
+| INT-03 | ✅ Ejecutado | Migracion `enc:v2` en staging y prod (ver INT-03) | Incorporar refs APP_SECRET a `TF_VARS`/`TF_VARS_PROD` antes del proximo apply; retirar clave legacy tras la ventana de rollback | Operaciones: actualizar secrets de GitHub |
+
+**Pendientes transversales:**
+
+| Tema | Estado | Accion requerida |
+|---|---|---|
+| Drift Terraform de INT-03 | 🔴 Riesgo activo | Las referencias Key Vault de `APP_SECRET_ENCRYPTION_KEY`/`APP_SECRET_LEGACY_V1_KEY` se crearon fuera de Terraform. Un apply sin actualizar `key_vault_secret_ids`/`key_vault_secret_env` las elimina y rompe el descifrado `enc:v2`. |
+| RBAC minimo privilegio | 🔴 Pendiente de autorizacion | App con `Key Vault Secrets Officer` sobre todo el vault y `Storage Blob Data Contributor` sobre toda la cuenta; prod Terraform con Contributor + User Access Administrator a nivel suscripcion. Requiere ventana de transicion aprobada. |
+| Clave legacy `app-secret-legacy-v1-key` | ⏳ Programado | Es copia de `infra-azure-client-secret`; retirar tras la ventana de rollback y antes de rotar ese secreto. Conservar backups `int03-pre-20261016` hasta entonces. |
+| GitHub Actions | ✅ Resuelto | El bloqueo de facturacion desaparecio al hacer publico el repositorio; CI y Terraform vuelven a ejecutarse. Si se vuelve privado, reaparece el limite (alternativa: runners self-hosted). |
+| Secret scanning alerta #1 | 🟡 Abierta | Client secret Entra en historial (commit `76a4fdf`, `scripts/inject_secret.py`). No coincide con credenciales vigentes del tenant actual (probablemente revocado). Confirmar revocacion, cerrar la alerta y decidir limpieza de historial o visibilidad del repo. |
+| Proteccion de rama/environments | 🟡 Pendiente | `main` sin branch protection y environments sin reglas de aprobacion; recomendable antes de mantener el repo publico. |
+
+**Criterio de cierre global:** no se declara cerrado el plan mientras STRIDE-03 no tenga decision, INFRA-11 no tenga firma verificada, RBAC y credenciales de cron no esten migrados y la cobertura SQL/KQL/caches no sea exhaustiva.
 
 ## Cómo continuar
 
@@ -746,7 +777,7 @@ del flujo real; las pruebas sinteticas no sustituyen esa comprobacion.
 **Prioridad:** P1 de corrección.  
 **Clasificación:** vulnerabilidad confirmada; severidad media; confianza 9/10.  
 **STRIDE:** Elevation of Privilege, Tampering y Repudiation.  
-**Estado:** Corregido localmente; pendiente de evidencia desplegada indicada arriba.
+**Estado (2026-10-16):** Corregido y desplegado en staging y prod (`222b2aa`); pendiente la evidencia de prueba negativa en staging indicada arriba.
 
 **Evidencia y mecanismo:**
 
@@ -1192,7 +1223,7 @@ La cuota `checkByKey` es en memoria por proceso. Cuota distribuida no reemplaza 
 
 ### APPSEC-ID-05 — Payload completo y obligatorio para step-up
 
-**Estado:** correccion original bc23930 desplegada; complemento financiero implementado y validado en PR #143, pendiente merge/rollout — ver [registro de cierre](#registro-de-cierre-2026-10-15).
+**Estado (2026-10-16):** ✅ Resuelto: correccion original bc23930 y complemento financiero de PR #143 (`fbcee6d`) desplegados en staging y prod (`222b2aa`) — ver [registro de cierre](#registro-de-cierre-2026-10-15).
 
 **Correccion adicional verificada:** la emision/consumo ya exigian payload, pero las dos rutas de markup y el cliente seguian enviando solo `{tenantId}`. Ahora `markupStepUpPayload()` compartido proyecta en orden fijo accion `save_partner_markup`, tenant objetivo, porcentaje, tarifa e interruptor. La UI captura una sola vez los valores para challenge y PUT; el servidor reconstruye el DTO tras validar tipos/rangos, default `isMarkupEnabled=true` y plan. Input/plan invalido no consume el challenge. Legacy POST exige Admin/Owner, rango numerico valido y otro DTO `{action:"set_legacy_markup",tenantId,markupPercentage}`; no acepta un challenge de la ruta canonica. Challenges previos ligados solo al tenant se rechazan y deben emitirse de nuevo; se conserva MFA opt-in.
 
