@@ -151,7 +151,7 @@ jobs:
             docker buildx imagetools inspect "$REF" --format '{{json .SBOM}}' >"image-evidence/$TARGET-sbom.json"
             docker buildx imagetools inspect "$REF" --format '{{json .Provenance}}' >"image-evidence/$TARGET-provenance.json"
             jq -e '.. | objects | select(.spdxVersion? and .documentNamespace?)' "image-evidence/$TARGET-sbom.json" >/dev/null
-            jq -e '.. | objects | select(.buildType? and .materials?)' "image-evidence/$TARGET-provenance.json" >/dev/null
+            jq -e '.. | objects | select((.buildType? and .materials?) or (.buildDefinition?.buildType? and .buildDefinition?.resolvedDependencies?))' "image-evidence/$TARGET-provenance.json" >/dev/null
             echo "${TARGET^^}_IMAGE=$REF" >>"$GITHUB_ENV"
           done
         env:
