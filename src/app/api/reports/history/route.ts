@@ -21,7 +21,10 @@ export async function GET(request: NextRequest) {
         const search = searchParams.get('search') || '';
         const scopeFilter = searchParams.get('scopeFilter') || 'ALL';
         const emailFilter = searchParams.get('emailFilter') || 'ALL';
-        const sortBy = (searchParams.get('sortBy') || 'date') as 'date' | 'cost' | 'savings';
+        const sortBy = searchParams.get('sortBy') || 'date';
+        if (sortBy !== 'date' && sortBy !== 'cost' && sortBy !== 'savings') {
+            return NextResponse.json({ error: "Unsupported sort column" }, { status: 400 });
+        }
 
         if (!tenantId) return NextResponse.json({ error: 'Falta tenantId' }, { status: 400 });
 

@@ -6,6 +6,7 @@ import {
     DataLakeRedundancy,
 } from "@/types/dataLakeGen2.types";
 import { getResourceGraphClient } from "@/lib/azure";
+import { escapeKql } from "@/lib/kql";
 
 /**
  * Standard Azure Data Lake Gen2 Baseline Pricing Reference Rates (USD/GB-month)
@@ -278,7 +279,7 @@ export async function fetchAllDataLakeAccountsFromARG(tenantId: string, subscrip
     if (!subscriptionIds || subscriptionIds.length === 0) return [];
     try {
         const client = await getResourceGraphClient(tenantId);
-        const subsQuery = subscriptionIds.map((s) => `'${s}'`).join(", ");
+        const subsQuery = subscriptionIds.map((s) => `'${escapeKql(s)}'`).join(", ");
         const query = `
             Resources
             | where type =~ 'microsoft.storage/storageaccounts'

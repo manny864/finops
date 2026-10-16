@@ -873,6 +873,8 @@ con MySQL real; no confundir mocks de concurrencia con esa evidencia.
 
 ### STRIDE-09 — Completar revisión de SQL/KQL dinámico
 
+**Avance (2026-10-15):** unificado escape de literales en inventario (incluidos tags descubiertos), tarifas, herencia, networking, backups, discos, ADLS y sostenibilidad; `escapeKql` tambien representa controles/saltos de linea sin romper el literal. La busqueda OR del inventario queda parentizada para no omitir otros filtros. TTL valida su catalogo en runtime y herencia valida limite entero acotado; orden SQL de historial se rechaza fuera del catalogo en servicio y API. Pruebas adversariales cubren comillas, backslashes, controles, estructura numerica, busqueda/tags y parametros de historial con dos tenants. **Cobertura pendiente:** inventario AST local detecto 1.210 llamadas candidatas `query/execute` en 369 archivos (154 templates interpolados), no todas son SQL ni hallazgos. Revisados estos consumidores y SQL de historial/portal; no se certifica la matriz completa ni ausencia general de inyeccion.
+
 **Prioridad:** P1 de cobertura.  
 **Clasificación:** no se confirmó inyección en las rutas KQL examinadas.  
 **STRIDE:** Tampering, Information Disclosure y Denial of Service.  
@@ -2432,6 +2434,8 @@ El fragmento es una pauta de validación de clave, no reemplaza la gestión vers
 **Pruebas de aceptación:** probar IDs malformados, otra suscripción del mismo tenant, una suscripción de otro tenant, cambio de recurso entre aprobación y ejecución, roles Reader/Admin/Owner, todas las acciones destructivas y los permisos efectivos del Service Principal en staging aislado. Ninguna prueba debe ejecutar cambios destructivos sobre recursos de clientes.
 
 ### INT-05 — Cerrar la matriz de inyección KQL y SQL
+
+**Avance (2026-10-15):** mismo bloque y limites de STRIDE-09. Escape reutilizado, catalogos runtime y pruebas agregadas; la matriz end-to-end exhaustiva permanece pendiente y no se cierra por haber agregado un helper.
 
 **Severidad:** no se confirmó vulnerabilidad en las rutas revisadas; cobertura incompleta (P2).  
 **KQL:** el helper `escapeKql` existente escapa `\` y `'` y se utiliza en los consumidores de cost groups revisados; filtros específicos se limitan a listas permitidas. Revisar el resto de consultas ARG/KQL y unificar su construcción: literales mediante helper, tipos de recurso/operadores/columnas mediante allow-list, nunca interpolar fragmentos de consulta provistos por usuario. Validar aparte que las suscripciones consultadas pertenezcan al tenant autorizado; escapar una cadena no confiere autorización.

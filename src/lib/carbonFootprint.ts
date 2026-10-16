@@ -1,4 +1,5 @@
 import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
+import { escapeKql } from "@/lib/kql";
 import {
     calculateEmissions,
     calculateDiskEmissions,
@@ -65,7 +66,7 @@ async function computeCarbonFootprint(tenantId: string, subscriptionId: string):
         }
 
         const subFilter = subscriptionId && subscriptionId.toLowerCase() !== "all"
-            ? `| where subscriptionId =~ '${subscriptionId}'` : "";
+            ? `| where subscriptionId =~ '${escapeKql(subscriptionId)}'` : "";
 
         // 1) VMs activas
         const vmQuery = `

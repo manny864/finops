@@ -81,6 +81,7 @@ export async function getExecutiveReportHistory(params: {
         emailFilter = 'ALL',
         sortBy = 'date',
     } = params;
+    if (!["date", "cost", "savings"].includes(sortBy)) throw new Error("Unsupported report history sort column.");
 
     const safePage = Math.max(1, page);
     const safePageSize = [15, 30, 45, 60].includes(pageSize) ? pageSize : 15;

@@ -30,6 +30,7 @@ async function fetchRetailPrice(sku: string, location: string, isReservation: bo
 }
 
 import { getResourceGraphClient } from "@/lib/azure";
+import { escapeKql } from "@/lib/kql";
 import { getRetailPricing } from "./pricingService";
 import { errorMessage } from '@/lib/apiErrors';
 
@@ -60,7 +61,7 @@ export async function calculateReservationSavings(tenantId: string, credential: 
         const query = `
             Resources
             | where type in~ ('Microsoft.Compute/virtualMachines', 'Microsoft.Web/serverfarms', 'Microsoft.Sql/servers/databases')
-            ${subscriptionId && subscriptionId !== 'All' ? `| where subscriptionId =~ '${subscriptionId}'` : ''}
+            ${subscriptionId && subscriptionId !== 'All' ? `| where subscriptionId =~ '${escapeKql(subscriptionId)}'` : ''}
             | project name, type, location, vmSize = tostring(properties.hardwareProfile.vmSize), skuName = tostring(sku.name)
         `;
         

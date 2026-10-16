@@ -1,4 +1,5 @@
 import { getResourceGraphClient, getAzureCredential } from "@/lib/azure";
+import { escapeKql } from "@/lib/kql";
 import pool from "@/modules/storage/db";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import { getResourceCostsById } from "@/modules/collectors/azure/resourceInventoryService";
@@ -26,7 +27,7 @@ export async function fetchLiveNetworkInventory(tenantId: string, subscriptionId
     try {
         const arg = await getResourceGraphClient(tenantId);
         const subFilter = subscriptionIds && subscriptionIds.length > 0
-            ? `| where subscriptionId in~ (${subscriptionIds.map((s) => `'${s}'`).join(",")})`
+            ? `| where subscriptionId in~ (${subscriptionIds.map((s) => `'${escapeKql(s)}'`).join(",")})`
             : "";
 
         const query = `
