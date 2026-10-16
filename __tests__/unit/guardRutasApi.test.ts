@@ -56,6 +56,7 @@ const MECANISMOS = [
     "requireTenantRole",
     "requireLoadTestServicePrincipal",
     "CRON_SECRET",
+    "cronSecretForJob",
     "x-cron-auth",
     "verifyApiKey",
     "authenticateMcpToken",

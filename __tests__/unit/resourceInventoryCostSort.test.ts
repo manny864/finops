@@ -19,6 +19,10 @@ vi.mock('@/lib/azure', () => ({
     getAzureCredential: async () => ({ fake: true }),
     getSubscriptionsForTenant: async () => ['sub-a'],
     getResourceGraphClient: async () => ({ resources: (q: { query: string }) => argResources(q) }),
+    getCostManagementClient: async () => {
+        const { CostManagementClient } = await import("@azure/arm-costmanagement");
+        return new CostManagementClient({ getToken: async () => null });
+    },
 }));
 
 // Lo que responde Resource Graph en cada test (ver mockResourceGraph).

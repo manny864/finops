@@ -3,6 +3,10 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 // Mock de credencial + suscripciones
 vi.mock("@/lib/azure", () => ({
     getAzureCredential: vi.fn().mockResolvedValue({}),
+    getCostManagementClient: async () => {
+        const { CostManagementClient } = await import("@azure/arm-costmanagement");
+        return new CostManagementClient({ getToken: async () => null });
+    },
     getSubscriptionsForTenant: vi.fn().mockResolvedValue(["sub-1"]),
     // El servicio resuelve el nombre real de la suscripcion con este mapa.
     // Antes lo inventaba: `Sub (${sub.slice(0,8)}...)`, o sea el GUID recortado,
@@ -96,4 +100,3 @@ describe("commitmentSimulatorService", () => {
         expect(r.success).toBe(true);
     });
 });
-
