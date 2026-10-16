@@ -754,6 +754,8 @@ con MySQL real; no confundir mocks de concurrencia con esa evidencia.
 
 ### STRIDE-03 — Definir membresía de aplicación y suspensión de usuarios
 
+**Decision pendiente (2026-10-15):** se conserva la lectura por directorio coincidente y el bloqueo `DISABLED` existente de APPSEC-ID-06. Se solicito decidir si toda lectura exige alta activa en `Users`; el propietario no estaba disponible. No se cambia una politica de admision sin confirmacion ni se presenta este hallazgo como cerrado. Las operaciones por rol siguen exigiendo membresia activa o la excepcion SuperAdmin existente.
+
 **Prioridad:** P1 de decisión de política.  
 **Clasificación:** riesgo condicionado a la política de acceso; no es fuga entre directorios confirmada.  
 **STRIDE:** Spoofing en la interpretación de identidad, Information Disclosure y Elevation of Privilege.  
@@ -2325,6 +2327,8 @@ Infra: activar **Microsoft Defender for Storage (malware scanning)** en la cuent
 
 ### INT-01 — Cerrar DNS rebinding y redirecciones SSRF
 
+**Avance (2026-10-15):** implementacion y evidencia local en STRIDE-05/06; transporte compartido DNS-pinned y sin redirects. Pendientes de despliegue y pruebas de proveedor permanecen abiertos.
+
 **Severidad:** Media (riesgo condicionado; vulnerabilidad confirmable de TOCTOU en el flujo).  
 **Evidencia:** [webhookSecurity.ts](../../src/lib/webhookSecurity.ts), `assertResolvesPublic()` valida las respuestas de `dns.lookup()`, pero el resultado no queda ligado al socket del `fetch` posterior. Los emisores reales en [notifications.ts](../../src/lib/notifications.ts) validan la URL y después usan `fetch` sin fijar la resolución ni desactivar redirects. El endpoint de prueba ITSM [test-itsm/route.ts](../../src/app/api/admin/config/integrations/test-itsm/route.ts) sí usa `redirect: 'error'`; esa defensa no es uniforme.
 
@@ -2377,6 +2381,8 @@ Este patrón requiere adaptar nombres, autorización y transacción al esquema r
 **Pruebas de aceptación:** miembro sin rol aprobador recibe 403; solicitante no puede autoaprobar; tenant distinto no puede encontrar/modificar solicitud; dos aprobaciones concurrentes no producen dos resoluciones; el endpoint legacy no puede crear una aprobación consumible por el ejecutor.
 
 ### INT-03 — Eliminar el fallback criptográfico inseguro
+
+**Avance (2026-10-15):** nuevas escrituras `enc:v2` exigen `APP_SECRET_ENCRYPTION_KEY` dedicada (32 bytes hex/base64 canonico), sin semillas publicas ni fallback a MFA, autenticacion o DB. Lectura `enc:v1` requiere `APP_SECRET_LEGACY_V1_KEY` explicita; envelopes invalidos/versiones desconocidas fallan cerrados. Migrador transaccional `scripts/rotate-app-secrets.ts`: dry-run por defecto, autenticacion y verificacion de todos los valores AI/ITSM/globales, bloqueo de filas y rollback integral al aplicar. Runbook: [app-secret-rotation.md](app-secret-rotation.md). **Gate pendiente:** aprovisionar referencias versionadas, inventariar material previo, backup/restauracion verificados, dry-run y migracion por entorno antes de desplegar este runtime. No se rotaron claves ni datos reales.
 
 **Severidad:** Media; alta si la aplicación se despliega sin la clave dedicada y se persisten secretos.  
 **Evidencia:** [secretCrypto.ts](../../src/lib/secretCrypto.ts), `resolveKeyMaterial()` puede terminar en una semilla literal del código y `hasEncryptionKey()` trata ese resultado como configuración válida. Esto hace que la aplicación no falle cerrada si faltan las variables previas. No se confirmó si producción tiene `MFA_ENCRYPTION_KEY` configurada.

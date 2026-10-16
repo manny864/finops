@@ -1,15 +1,18 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
-import { encryptSecret, decryptSecret, isEncrypted } from '@/lib/secretCrypto';
+import crypto from 'node:crypto';
+import { encryptSecret, decryptSecret, isEncrypted, hasEncryptionKey, reencryptSecret } from '@/lib/secretCrypto';
 
 // Clave de test determinística (32 bytes / 64 hex). No es un secreto real.
 const TEST_KEY = 'a'.repeat(64);
 
 beforeAll(() => {
-    process.env.MFA_ENCRYPTION_KEY = TEST_KEY;
+    process.env.APP_SECRET_ENCRYPTION_KEY = TEST_KEY;
 });
 
 afterEach(() => {
-    process.env.MFA_ENCRYPTION_KEY = TEST_KEY;
+    process.env.APP_SECRET_ENCRYPTION_KEY = TEST_KEY;
+    delete process.env.APP_SECRET_LEGACY_V1_KEY;
+    delete process.env.MFA_ENCRYPTION_KEY;
     delete process.env.AZURE_KEYVAULT_CACHE_KEY;
 });
 
@@ -20,9 +23,9 @@ describe('secretCrypto', () => {
         expect(decryptSecret(enc)).toBe(plain);
     });
 
-    it('produce el formato enc:v1:iv:tag:ciphertext', () => {
+    it('produce el formato enc:v2:iv:tag:ciphertext', () => {
         const enc = encryptSecret('hello');
-        expect(enc.startsWith('enc:v1:')).toBe(true);
+        expect(enc.startsWith('enc:v2:')).toBe(true);
         expect(enc.split(':')).toHaveLength(5); // enc, v1, iv, tag, ciphertext
         expect(isEncrypted(enc)).toBe(true);
     });
@@ -63,10 +66,42 @@ describe('secretCrypto', () => {
         expect(() => decryptSecret('enc:v1:onlyonepart')).toThrow(/Malformed/);
     });
 
-    it('usa fallback AZURE_KEYVAULT_CACHE_KEY cuando MFA_ENCRYPTION_KEY no está', () => {
-        delete process.env.MFA_ENCRYPTION_KEY;
+    it('no cifra con claves MFA/cache o con una semilla publica', () => {
+        delete process.env.APP_SECRET_ENCRYPTION_KEY;
+        process.env.MFA_ENCRYPTION_KEY = TEST_KEY;
         process.env.AZURE_KEYVAULT_CACHE_KEY = TEST_KEY;
-        const enc = encryptSecret('fallback-key');
-        expect(decryptSecret(enc)).toBe('fallback-key');
+        expect(hasEncryptionKey()).toBe(false);
+        expect(() => encryptSecret('must-not-be-stored')).toThrow(/APP_SECRET_ENCRYPTION_KEY/);
+    });
+
+    it.each(['short-passphrase', 'f'.repeat(63), '!'.repeat(44)])('rechaza clave nueva debil o malformada', (key) => {
+        process.env.APP_SECRET_ENCRYPTION_KEY = key;
+        expect(() => encryptSecret('secret')).toThrow(/32 bytes/);
+    });
+
+    it('lee v1 solo con clave legacy explicita y migra a v2 verificable', () => {
+        const key = crypto.createHash('sha256').update('synthetic-old-passphrase').digest();
+        const iv = crypto.randomBytes(12);
+        const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+        const encrypted = Buffer.concat([cipher.update('legacy-secret', 'utf8'), cipher.final()]);
+        const v1 = `enc:v1:${iv.toString('hex')}:${cipher.getAuthTag().toString('hex')}:${encrypted.toString('hex')}`;
+        expect(() => decryptSecret(v1)).toThrow(/APP_SECRET_LEGACY_V1_KEY/);
+        process.env.APP_SECRET_LEGACY_V1_KEY = 'synthetic-old-passphrase';
+        expect(decryptSecret(v1)).toBe('legacy-secret');
+        const migrated = reencryptSecret(v1);
+        expect(migrated).toMatch(/^enc:v2:/);
+        delete process.env.APP_SECRET_LEGACY_V1_KEY;
+        expect(decryptSecret(migrated)).toBe('legacy-secret');
+    });
+
+    it('rechaza versiones futuras y envelopes malformados sin tratarlos como plaintext', () => {
+        expect(() => decryptSecret('enc:v3:iv:tag:body')).toThrow(/Malformed/);
+        expect(() => encryptSecret('enc:v2:invalid')).toThrow(/Malformed/);
+        expect(() => decryptSecret('enc:v2:zz:zz:zz')).toThrow(/Malformed/);
+    });
+
+    it('acepta una clave dedicada base64 de 32 bytes', () => {
+        process.env.APP_SECRET_ENCRYPTION_KEY = Buffer.alloc(32, 23).toString('base64');
+        expect(decryptSecret(encryptSecret('secret'))).toBe('secret');
     });
 });
