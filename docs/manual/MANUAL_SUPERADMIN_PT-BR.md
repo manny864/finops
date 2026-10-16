@@ -545,7 +545,7 @@ Três propriedades que a tornam auditável:
 4. **Ver divisão** calcula, sem salvar nada, quanto do gasto do período cai em cada grupo e quanto fica *Não atribuído*, com a porcentagem de cobertura. Mudar a ordem das regras muda a divisão na prévia.
 5. **Salvar** aplica as regras.
 
-**Excluir** uma Perspective pede confirmação com o nome à vista: as regras também são apagadas, e quem a tinha atribuída como alcance deixa de tê-la.
+**Excluir** uma Perspective pede confirmação com o nome à vista e também apaga suas regras. Se houver usuários com esse alcance atribuído, o servidor rejeita a exclusão: um Admin ou Owner deve primeiro reatribuí-los ou remover explicitamente o alcance em Usuários e Acessos. A exclusão não restaura silenciosamente o acesso ao tenant inteiro.
 
 **«Não atribuído» e «Sem dados para avaliar» não são a mesma coisa.** *Não atribuído* é o gasto que nenhuma regra alcançou: é o que falta taguear ou regra por escrever. *Sem dados para avaliar* aparece quando as regras precisam de um dado que a plataforma ainda não ingere para essas linhas —por exemplo, regras por tag em um tenant cuja sincronização de custos não traz tags em nível de recurso—: não é um problema do seu tagueamento. Configurar o **export FOCUS do Azure** completa essas tags.
 
@@ -1249,7 +1249,7 @@ Pela API: `POST /api/admin/user-scopes` (`tenantId`, `email`, `perspectiveId` e 
 
 - **Um alcance por usuário.** Atribuir outro substitui o anterior.
 - **Somente Reader e Colaborador.** Um usuário **Admin ou Owner não pode ter alcance**: poderia emitir para si uma chave de API —que é do tenant, não dele— e contornar o recorte.
-- Se a Perspective é excluída, o alcance de quem a tinha atribuída é eliminado junto.
+- Uma Perspective não pode ser excluída enquanto houver usuários com esse alcance atribuído; primeiro é preciso reatribuí-los ou remover explicitamente o alcance.
 
 **O que a pessoa restrita vê.** Somente as telas que hoje sabem se restringir a um grupo, todas recortadas à sua parcela: o **Whiteboard**; em **Consumo e Orçamento**, as abas Grupos de Custos, Orçamento por Grupos de Custos e Gastos e Projeção; em **Analítica Avançada**, o Scorecard (Fama); e em **Armazenamento**, a aba *Storage Accounts*. O resto responde com acesso negado. O menu lateral mostra só esses lugares: cada hub a leva direto à sua primeira aba permitida e, dentro, as abas que não sabem se restringir não aparecem. O seletor de Perspective fica fixo com cadeado e as Visões não são mostradas. É um produto pequeno de propósito: cresce à medida que mais painéis aprendem a se restringir.
 

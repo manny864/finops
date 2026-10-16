@@ -2003,3 +2003,12 @@ sin asignacion mantiene el comportamiento previo; cron conserva su excepcion
 explicita y la politica de membresia no cambia. El rollout requiere UserScopes
 migrada y accesible. Un caso MySQL real y cinco unitarios verifican este limite;
 matriz 91 casos, suite6344pass/76skip. Detalle en LLD52.12, sin rollout.
+
+El borrado de una Perspective con alcances asignados ahora devuelve409 en
+vez de devolver silenciosamente a esos usuarios la vista completa del tenant.
+Se exige reasignar o retirar el alcance explicitamente; transaccion/bloqueo
+del padre y FK existente serializan nuevas asignaciones. Sin usuarios,
+el borrado de Perspective/reglas se conserva; no cambia la purga del tenant
+ni se protege SQL administrativo externo. Siete casos SQL y cuatro unitarios
+amplian la matriz a98; suite6355pass/76skip. Manuales e indice de soporte
+actualizados. Detalle en LLD52.13, sin rollout.

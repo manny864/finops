@@ -4292,15 +4292,19 @@ recurso a exactamente un grupo, así que Perspective + grupo es la unidad natura
 "su porción" pasaría a ser una unión y habría que decidir sobre qué base se calculan los
 porcentajes. **Levantar el UNIQUE más adelante es una migración y un `OR` en el predicado; bajarlo
 después de haber permitido varias, no.** Verificado contra el MySQL local: el segundo `INSERT` del
-mismo usuario actualiza en vez de duplicar, y borrar la Perspective se lleva el alcance por cascada
-—sin eso el usuario quedaría con un alcance colgado que no resuelve y le niega todo—.
+mismo usuario actualiza en vez de duplicar. **Corrección de seguridad en rama (2026-10-16):**
+el endpoint impide borrar una Perspective mientras haya alcances asignados (409);
+primero se reasignan o retiran explícitamente. El borrado toma un bloqueo del padre en
+transacción para serializar nuevas asignaciones mediante la FK existente. La cascada
+del esquema no se modifica, incluida la purga de un tenant. Pendiente rollout.
 
 #### 8. Lo construido
 
 - `migrations/20260926-001-user-scopes.sql`.
-- `src/services/userScope.service.ts` — lectura y escritura. `alcanceDelUsuario` **falla abierto** a
-  propósito: si la tabla no existe todavía, lo que se pierde es el recorte y no el control de
-  acceso, y fallar cerrado dejaría a todos sin plataforma por una migración pendiente.
+- `src/services/userScope.service.ts` — lectura y escritura. **Corrección de seguridad en rama
+  (2026-10-16):** `alcanceDelUsuario` registra y propaga errores SQL; el guard devuelve503,
+  sin eliminar el recorte. Solo una consulta exitosa sin fila significa acceso sin alcance.
+  El rollout exige UserScopes migrada y accesible.
 - `src/lib/scopeAwareRoutes.ts` — las dos listas y el matcher por (ruta, método).
 - `requestAuth.aplicarAlcance()` — el corte, envolviendo los seis `return identity` que tenía
   `requireTenantAccess`. Está separado en su propia función exportada para poder probarlo sin

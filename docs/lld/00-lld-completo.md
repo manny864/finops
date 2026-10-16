@@ -6951,3 +6951,34 @@ parametrizada, fila ausente/asignada y error propagado con log; dos tests del
 guard comprueban 503. Matriz 91 casos con Blob; suite6344pass/76skip,
 562 archivos correctos/8omitidos. Lint/typecheck/build nativo correctos.
 Pendiente rollout, no cierre global del inventario de autorizacion.
+
+### 52.13 Borrado de Perspectives sin ampliar permisos por cascada
+
+DELETE /api/intelligence/perspectives conserva Admin/Owner y pertenencia por
+tenant. eliminarPerspectiva abre una transaccion, bloquea la fila del padre
+con SELECT ... FOR UPDATE y consulta asignaciones con lectura bloqueante
+antes del DELETE. Si existe cualquier referencia UserScopes devuelve409
+PERSPECTIVE_IN_USE y revierte; incluso una referencia con tenant inconsistente
+impide borrar el padre. Primero hay que reasignar al usuario o quitarle el
+alcance explicitamente por el flujo administrativo. La UI existente muestra
+el error del servidor y conserva la Perspective seleccionada.
+
+El bloqueo del padre serializa inserciones/reasignaciones mediante la FK
+fk_userscope_perspective existente de la migracion 20260926-001: una asignacion
+que gana conserva padre/alcance y el borrado falla; si gana el borrado,
+la asignacion falla por FK en vez de persistir sin padre. La FK es requisito,
+no se sustituye por un check no atomico. No se modifica la migracion aplicada
+ni la cascada del esquema, por lo que la purga del tenant conserva su modelo.
+Este control cubre el endpoint, no borrados SQL administrativos externos.
+Sin referencias, se eliminan Perspective y reglas como antes; ID ajeno o
+inexistente devuelve404 sin revelar asignaciones. SQL falla sin continuar.
+
+Siete casos adicionales con handlers/JWT/MySQL reales prueban Reader403,
+target ajeno403, ID ajeno404, referencia409 e integridad de reglas/alcance,
+retiro explicito seguido de borrado200, referencia inconsistente,
+indisponibilidad503 y carrera asignacion/borrado. Fixture incorpora las FKs
+de cascada de UserScopes y reglas. Cuatro unitarios verifican orden de
+bloqueos/parametros, commit, rollback y release. Matriz98 con Blob;
+suite6355pass/76skip,563archivos correctos/8omitidos; lint/typecheck/build
+nativo correctos. Manuales ES/EN/PT-BR y su indice de soporte regenerados.
+Implementado en rama, pendiente rollout y cobertura global.

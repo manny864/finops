@@ -6,7 +6,10 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 
 let db: Pool;
 vi.mock("@/modules/storage/db", () => ({
-    default: { query: (...args: Parameters<Pool["query"]>) => db.query(...args) },
+    default: {
+        query: (...args: Parameters<Pool["query"]>) => db.query(...args),
+        getConnection: () => db.getConnection(),
+    },
     initializeDatabase: async () => {},
 }));
 vi.mock("next-intl/server", () => ({
@@ -40,6 +43,7 @@ import { PATCH as markNotificationsAlias } from "@/app/api/notifications/mark-re
 import { deleteNotification, markNotificationAsRead } from "@/services/tenantNotifications.service";
 import { POST as dismissAnnouncement } from "@/app/api/announcements/dismiss/route";
 import { requireTenantAccess } from "@/lib/requestAuth";
+import { DELETE as deletePerspective } from "@/app/api/intelligence/perspectives/route";
 
 const tenants = [
     { id: "a0000000-0000-4000-8000-000000000001", email: "reader@alpha.example", marker: "alpha-only-record" },
@@ -130,8 +134,12 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
             ResourceId VARCHAR(512), Tags JSON, date DATE, ChargePeriodStart DATETIME,
             EffectiveCost DECIMAL(12,2), BilledCost DECIMAL(12,2), cost_usd DECIMAL(12,2))`);
         await db.query(`CREATE TABLE Perspectives (id INT PRIMARY KEY, tenant_id VARCHAR(64), name VARCHAR(120), description TEXT)`);
+        await db.query(`ALTER TABLE UserScopes ADD CONSTRAINT fk_userscope_perspective
+            FOREIGN KEY (perspective_id) REFERENCES Perspectives(id) ON DELETE CASCADE`);
         await db.query(`CREATE TABLE PerspectiveRules (id INT PRIMARY KEY, perspective_id INT,
             group_name VARCHAR(120), match_type VARCHAR(40), match_key VARCHAR(120), match_value VARCHAR(120), sort_order INT)`);
+        await db.query(`ALTER TABLE PerspectiveRules ADD CONSTRAINT fk_rule_perspective
+            FOREIGN KEY (perspective_id) REFERENCES Perspectives(id) ON DELETE CASCADE`);
         await db.query(`CREATE TABLE Notifications (id INT PRIMARY KEY, tenant_id VARCHAR(64),
             user_email VARCHAR(120), is_read BOOLEAN DEFAULT false, read_at DATETIME,
             title VARCHAR(120), message TEXT, title_key VARCHAR(120), message_key VARCHAR(120),
@@ -670,6 +678,84 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
                 await db.query("DELETE FROM UserScopes WHERE tenant_id = ? AND user_email = ?",
                     [tenants[0].id, tenants[0].email]);
             }
+        });
+
+        describe("deleting a perspective cannot silently remove an access restriction", () => {
+            const actor = tenants[0];
+            const scopedEmail = "scoped@alpha.example";
+            const remove = (id: number, target = actor.id) => deletePerspective(new NextRequest(
+                request("/api/intelligence/perspectives", target, actor, `&id=${id}`), { method: "DELETE" }));
+            beforeEach(async () => {
+                await db.query("UPDATE Users SET role = 'Admin' WHERE tenant_id = ? AND email = ?", [actor.id, actor.email]);
+                await db.query("INSERT INTO Perspectives VALUES (1001, ?, 'Synthetic protected', NULL)", [actor.id]);
+                await db.query("INSERT INTO Perspectives VALUES (1002, ?, 'Synthetic foreign', NULL)", [tenants[1].id]);
+                await db.query(`INSERT INTO PerspectiveRules VALUES
+                    (1001, 1001, 'allowed', 'resource_group', NULL, 'synthetic-rg', 0)`);
+            });
+            afterEach(async () => {
+                await db.query("DELETE FROM UserScopes WHERE perspective_id IN (1001, 1002)");
+                await db.query("DELETE FROM Perspectives WHERE id IN (1001, 1002)");
+                await db.query("UPDATE Users SET role = 'Reader' WHERE tenant_id = ? AND email = ?", [actor.id, actor.email]);
+            });
+            it("requires Admin/Owner even for an unassigned own perspective", async () => {
+                await db.query("UPDATE Users SET role = 'Reader' WHERE tenant_id = ? AND email = ?", [actor.id, actor.email]);
+                expect((await remove(1001)).status).toBe(403);
+                const [rows] = await db.query<RowDataPacket[]>("SELECT id FROM Perspectives WHERE id = 1001");
+                expect(rows).toHaveLength(1);
+            });
+            it("does not delete a foreign perspective ID", async () => {
+                expect((await remove(1002)).status).toBe(404);
+                const [rows] = await db.query<RowDataPacket[]>("SELECT id FROM Perspectives WHERE id = 1002");
+                expect(rows).toHaveLength(1);
+            });
+            it("rejects a foreign tenant target before deleting", async () => {
+                expect((await remove(1002, tenants[1].id)).status).toBe(403);
+                const [rows] = await db.query<RowDataPacket[]>("SELECT id FROM Perspectives WHERE id = 1002");
+                expect(rows).toHaveLength(1);
+            });
+            it("keeps assigned restrictions and allows deletion only after explicit release", async () => {
+                await db.query("INSERT INTO UserScopes VALUES (?, ?, 1001, 'allowed')", [actor.id, scopedEmail]);
+                const response = await remove(1001);
+                expect(response.status).toBe(409);
+                const [rows] = await db.query<RowDataPacket[]>("SELECT * FROM UserScopes WHERE user_email = ?", [scopedEmail]);
+                expect(rows).toMatchObject([{ tenant_id: actor.id, perspective_id: 1001, group_name: "allowed" }]);
+                const [rules] = await db.query<RowDataPacket[]>("SELECT id FROM PerspectiveRules WHERE perspective_id = 1001");
+                expect(rules).toHaveLength(1);
+                await db.query("DELETE FROM UserScopes WHERE tenant_id = ? AND user_email = ?", [actor.id, scopedEmail]);
+                expect((await remove(1001)).status).toBe(200);
+                const [deletedRules] = await db.query<RowDataPacket[]>("SELECT id FROM PerspectiveRules WHERE perspective_id = 1001");
+                expect(deletedRules).toEqual([]);
+                expect((await remove(1001)).status).toBe(404);
+            });
+            it("also protects an inconsistent foreign-tenant assignment referencing the same parent", async () => {
+                await db.query("INSERT INTO UserScopes VALUES (?, ?, 1001, 'allowed')", [tenants[1].id, scopedEmail]);
+                expect((await remove(1001)).status).toBe(409);
+                const [rows] = await db.query<RowDataPacket[]>("SELECT * FROM UserScopes WHERE user_email = ?", [scopedEmail]);
+                expect(rows).toHaveLength(1);
+            });
+            it("fails without deleting when assignment storage is unavailable", async () => {
+                await db.query("RENAME TABLE UserScopes TO UserScopesUnavailable");
+                try {
+                    expect((await remove(1001)).status).toBe(503);
+                    const [rows] = await db.query<RowDataPacket[]>("SELECT id FROM Perspectives WHERE id = 1001");
+                    expect(rows).toHaveLength(1);
+                } finally {
+                    await db.query("RENAME TABLE UserScopesUnavailable TO UserScopes");
+                }
+            });
+            it("serializes concurrent assignment and deletion without losing a successful assignment", async () => {
+                const assigned = db.query("INSERT INTO UserScopes VALUES (?, ?, 1001, 'allowed')", [actor.id, scopedEmail])
+                    .then(() => true, (error: unknown) => {
+                        expect(error).toMatchObject({ code: "ER_NO_REFERENCED_ROW_2" });
+                        return false;
+                    });
+                const [saved, response] = await Promise.all([assigned, remove(1001)]);
+                expect(response.status).toBe(saved ? 409 : 200);
+                const [rows] = await db.query<RowDataPacket[]>("SELECT * FROM UserScopes WHERE user_email = ?", [scopedEmail]);
+                expect(rows).toHaveLength(saved ? 1 : 0);
+                const [perspectives] = await db.query<RowDataPacket[]>("SELECT id FROM Perspectives WHERE id = 1001");
+                expect(perspectives).toHaveLength(saved ? 1 : 0);
+            });
         });
         beforeAll(async () => {
             for (const [index, tenant] of tenants.entries()) {
