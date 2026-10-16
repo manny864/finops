@@ -774,8 +774,10 @@ del flujo real; las pruebas sinteticas no sustituyen esa comprobacion.
 
 `tenantAuditIsolation.mysql.test.ts` ejecuta los cuatro handlers reales, `requestAuth` (firma RS256, issuer/audience y roles), servicio y MySQL 8.4 desechable; solo sustituye discovery/JWKS de Entra con claves sinteticas y traducciones CSV. 27 casos cubren dos lectores concurrentes, conteos, JSON/NDJSON/CSV, sustitucion de tenant, acceso anonimo con/sin `mock=true`, revocacion DISABLED, filtros con email ajeno/metacaracteres SQL y membresia cruzada explicita autorizada. AiCache real verifica claves distintas para payload identico, lecturas cruzadas nulas y proteccion contra sobrescritura. Otros 12 casos sin MySQL impiden regresion del bypass y conservan la demo anonima. CI incorpora MySQL por digest y un paso obligatorio de estas pruebas y persistencia de aprobaciones/cifrado, sin credenciales ni datos de aplicacion; ejecucion hosted sigue bloqueada por billing. No es una prueba HTTP desplegada ni cobertura de todos los reportes, blobs o Redis/SWR.
 
+**Extension del mismo defecto:** `/api/admin/billing` tenia la misma alternativa `mock=true` antes de `getTenantBillingDetails(tenantId)`, que lee `Tenants` y `BillingTransactions` reales. Se elimina tambien; solo la demo sintetica omite OAuth. La matriz ampliada tiene 31 casos SQL reales y 15 regresiones siempre activas: cinco handlers en total, con compania y transaccion de factura distintas por tenant y verificacion positiva de importe/ID. No hay llamadas a Paddle ni operaciones de cobro. Los flags de otros endpoints que devuelven exclusivamente generadores sinteticos no se equiparan a este bypass de datos reales ni se eliminan indiscriminadamente.
+
 **Prioridad:** P1 de evaluación y cierre de cobertura.  
-**Clasificación:** bypass de autorizacion confirmado en las tres rutas de auditoria citadas y corregido en rama, pendiente rollout; cobertura de otras superficies incompleta.
+**Clasificación:** bypass de autorizacion confirmado en tres rutas de auditoria y consulta de facturacion, corregido en rama, pendiente rollout; cobertura de otras superficies incompleta.
 **STRIDE:** Information Disclosure, Tampering y Elevation of Privilege.  
 **Estado:** Pendiente de inventario y pruebas end-to-end.
 

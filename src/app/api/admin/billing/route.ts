@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Directiva 1: Mock tenant primero sin requerir OAuth
-        if (isMockTenant(tenantId) || searchParams.get("mock") === "true") {
+        if (isMockTenant(tenantId)) {
             const billingDetails = await getTenantBillingDetails(tenantId);
             return NextResponse.json({ success: true, ...billingDetails, mock: true });
         }

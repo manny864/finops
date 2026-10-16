@@ -1934,3 +1934,9 @@ desechable, incluyendo rol, suspension, formatos, filtros y membresia cruzada
 explicitamente autorizada; AiCache se verifico con SQL real. CI agrega el
 servicio MySQL fijado por digest y un gate dedicado. No hay despliegue ni
 certificacion global de reportes/Redis/SWR por estas pruebas.
+
+La misma correccion se extendio a `/api/admin/billing`: el flag tambien podia
+exponer plan, compania y facturas reales sin autorizacion. La matriz ampliada
+cubre cinco handlers (cuatro de auditoria y uno de facturacion), con 31 casos
+SQL y 15 regresiones sin DB; comprueba tambien IDs e importes de facturas
+propias sin llamar a Paddle ni cobrar.

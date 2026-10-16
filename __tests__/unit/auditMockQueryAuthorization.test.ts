@@ -14,12 +14,14 @@ import { GET as report } from "@/app/api/admin/audit-trail/route";
 import { GET as reportLegacy } from "@/app/api/admin/audit/route";
 import { GET as exportTrail } from "@/app/api/admin/audit-trail/export/route";
 import { GET as exportLegacy } from "@/app/api/admin/audit/export/route";
+import { GET as billing } from "@/app/api/admin/billing/route";
 
 const routes = [
     { path: "/api/admin/audit-trail", handler: report },
     { path: "/api/admin/audit", handler: reportLegacy },
     { path: "/api/admin/audit-trail/export", handler: exportTrail },
     { path: "/api/admin/audit/export", handler: exportLegacy },
+    { path: "/api/admin/billing", handler: billing },
 ];
 
 beforeEach(() => {
@@ -44,7 +46,7 @@ describe.each(routes)("$path mock query authorization", ({ path, handler }) => {
         ));
         expect(response.status).toBe(200);
         const text = await response.text();
-        expect(text).toContain("ROTATE_APP_SECRET");
+        expect(text).toContain(handler === billing ? "inv-mock-0842" : "ROTATE_APP_SECRET");
         expect(guard).not.toHaveBeenCalled();
         expect(query).not.toHaveBeenCalled();
     });

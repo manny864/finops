@@ -6743,3 +6743,10 @@ para esta matriz y `securityPersistence.mysql.test.ts`. No agrega runners
 ni secretos. Este gate aun no se ejecuto hosted por billing. La evidencia
 local es de handlers con DB real, no HTTP desplegado, Entra real ni cobertura
 de todos los objetos/reportes/Redis/SWR; esos limites permanecen abiertos.
+
+La extension a `/api/admin/billing` elimina el mismo bypass antes de
+`getTenantBillingDetails`, que consulta Tenants/BillingTransactions. Se agregan
+fixtures SQL de compania/transaccion distintas y factura propia con importe/ID
+verificados, sin usar Paddle. Totales ampliados: cinco handlers, 31 casos
+con MySQL y 15 regresiones siempre activas; acceso legitimo, membresia cruzada
+explicita, bloqueo anonimo/ajeno/DISABLED y demo sintetica preservados.

@@ -16,6 +16,7 @@ import { GET as report } from "@/app/api/admin/audit-trail/route";
 import { GET as reportLegacy } from "@/app/api/admin/audit/route";
 import { GET as exportTrail } from "@/app/api/admin/audit-trail/export/route";
 import { GET as exportLegacy } from "@/app/api/admin/audit/export/route";
+import { GET as billing } from "@/app/api/admin/billing/route";
 import { aiCacheGet, aiCacheKey, aiCacheSet } from "@/lib/aiCache";
 
 const tenants = [
@@ -79,6 +80,15 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
         await db.query(`CREATE TABLE AiCache (
             hash_prompt VARCHAR(64) PRIMARY KEY, tenant_id VARCHAR(64), response_text TEXT,
             created_at DATETIME, expires_at DATETIME)`);
+        await db.query(`CREATE TABLE Tenants (
+            tenant_id VARCHAR(64) PRIMARY KEY, tier VARCHAR(40), subscription_status VARCHAR(40),
+            marketplace_plan_id VARCHAR(64), marketplace_source VARCHAR(40),
+            paddle_subscription_id VARCHAR(64), company_name VARCHAR(120), cancel_at_period_end BOOLEAN)`);
+        await db.query(`CREATE TABLE BillingTransactions (
+            id INT PRIMARY KEY AUTO_INCREMENT, tenant_id VARCHAR(64), paddle_transaction_id VARCHAR(120),
+            amount DECIMAL(12,2), currency VARCHAR(3), status VARCHAR(40),
+            raw_event JSON, billed_at DATETIME, created_at DATETIME)`);
+        await db.query("CREATE TABLE CancellationRequests (id INT PRIMARY KEY, tenant_id VARCHAR(64), status VARCHAR(40))");
         for (const tenant of tenants) {
             await db.query("INSERT INTO Users VALUES (?, ?, ?, 'Reader', 'ACTIVE', NULL)",
                 [tenant.id, tenant.email, tenant.id]);
@@ -86,6 +96,13 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
                 (tenant_id, user_email, resource_id, resource_name, action_type, status, created_at, timestamp)
                 VALUES (?, ?, ?, ?, 'START_VM', 'SUCCESS', UTC_TIMESTAMP(), UTC_TIMESTAMP())`,
                 [tenant.id, tenant.email, `/${tenant.marker}`, tenant.marker]);
+            await db.query(`INSERT INTO Tenants
+                (tenant_id, tier, subscription_status, company_name, cancel_at_period_end)
+                VALUES (?, 'Business', 'ACTIVE', ?, false)`, [tenant.id, tenant.marker]);
+            await db.query(`INSERT INTO BillingTransactions
+                (tenant_id, paddle_transaction_id, amount, currency, status, billed_at, created_at)
+                VALUES (?, ?, 100.00, 'USD', 'completed', UTC_TIMESTAMP(), UTC_TIMESTAMP())`,
+                [tenant.id, `transaction-${tenant.marker}`]);
         }
     });
     afterAll(async () => {
@@ -104,6 +121,7 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
         { path: "/api/admin/audit", handler: reportLegacy, formats: ["json", "ndjson", "csv"] },
         { path: "/api/admin/audit-trail/export", handler: exportTrail, formats: ["json", "ndjson", "csv"] },
         { path: "/api/admin/audit/export", handler: exportLegacy, formats: ["json", "ndjson", "csv"] },
+        { path: "/api/admin/billing", handler: billing, formats: ["json"] },
     ];
     for (const route of routes) {
         for (const format of route.formats) {
@@ -117,6 +135,11 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
                         expect(text).not.toContain(tenants[1 - index].marker);
                         if (route.handler === report) expect(JSON.parse(text).totalCount).toBe(1);
                         if (route.handler === reportLegacy && format === "json") expect(JSON.parse(text).total).toBe(1);
+                        if (route.handler === billing) {
+                            expect(JSON.parse(text).invoices).toMatchObject([
+                                { paddleTransactionId: `transaction-${tenant.marker}`, amount: 100 },
+                            ]);
+                        }
                     }
                 }));
             });
@@ -147,7 +170,7 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
                 await db.query("UPDATE Users SET account_status='ACTIVE' WHERE tenant_id=?", [tenant.id]);
             }
         });
-        it(`${route.path}: another tenant's email and SQL metacharacters cannot expand the report`, async () => {
+        if (route.handler !== billing) it(`${route.path}: another tenant's email and SQL metacharacters cannot expand the report`, async () => {
             for (const filter of [tenants[1].email, "' OR 1=1 -- "]) {
                 const response = await route.handler(request(route.path, tenants[0].id, tenants[0],
                     `&format=json&userEmail=${encodeURIComponent(filter)}`));
