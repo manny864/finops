@@ -2080,3 +2080,9 @@ pertenencia actual de suscripcion tanto en cache como en SQL; el cache
 reciente conserva scopeID del job. Cinco regresiones adicionales,
 sinservicios6307pass/197skip;lint/typecheck/build correctos.
 DetalleLLD52.22;cacheAzure60s preservado,sinrevocacioninstantanea.
+
+El envio ejecutivo manual reautoriza identidad y suscripcion despues
+de compilar el adjunto, antes del transporte. Usa company_name real del
+tenant. Ocho regresiones nuevas+cinco Lighthouse=13pass focales;
+typecheck/lint/build correctos, sin full ni cloud repetidos.
+DetalleLLD52.23;politica de destinatarios y STRIDE03 sin cambios.

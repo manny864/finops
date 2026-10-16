@@ -16,6 +16,7 @@ import {
 } from '@/services/executiveReportGenerator.service';
 import { compileExecutiveReportPdfBuffer } from '@/services/pdfCompiler.service';
 import type { ExecutiveReportScope } from '@/types/executiveReport.types';
+import type { RowDataPacket } from 'mysql2';
 
 export async function POST(request: NextRequest) {
     try {
@@ -46,8 +47,8 @@ export async function POST(request: NextRequest) {
             await requireTenantAccess(request, tenantId);
             // Fuera de TENANT_ALL el scopeId llega como suscripción a Azure.
             if (scope !== 'TENANT_ALL') await exigirSuscripcionDelTenant(tenantId, scopeId);
-            const [tRows] = await pool.query<any[]>('SELECT name FROM Tenants WHERE tenant_id = ? LIMIT 1', [tenantId]);
-            tenantName = tRows[0]?.name || tenantId;
+            const [tRows] = await pool.query<RowDataPacket[]>('SELECT company_name FROM Tenants WHERE tenant_id = ? LIMIT 1', [tenantId]);
+            tenantName = tRows[0]?.company_name || tenantId;
         }
 
         const data = await aggregateExecutiveTelemetry(tenantId, scope, scopeId);
@@ -56,6 +57,10 @@ export async function POST(request: NextRequest) {
         // AISEC-05: el adjunto no lleva el tenantId (se reenvía fuera de la plataforma).
         const fileBaseName = `Reporte-Ejecutivo-FinOps-${new Date().toISOString().slice(0, 10)}`;
 
+        if (!isMockTenant(tenantId)) {
+            await requireTenantAccess(request, tenantId);
+            if (scope !== 'TENANT_ALL') await exigirSuscripcionDelTenant(tenantId, scopeId);
+        }
         await dispatchExecutiveReportEmail({
             tenantName,
             recipientEmail,

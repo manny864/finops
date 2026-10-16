@@ -7225,3 +7225,23 @@ Suite sin servicios6307pass/197skip,566archivos/12omitidos; lint,
 typecheck y build nativo correctos. Estas regresiones usan SQL y helper
 de pertenencia sustituidos. La corrida MySQL6416pass/98skip de52.21
 es previa; no se presenta como repetida en este bloque.
+
+### 52.23 Reautorizacion del envio ejecutivo manual
+
+POST reports/executive/send-email vuelve a ejecutar requireTenantAccess
+despues de recolectar/compilar PDF y antes de despachar; para un scope
+distinto de TENANT_ALL tambien vuelve a exigir suscripcion del tenant.
+Una suspension, permiso Perspective nuevo, JWT expirado o fallo de lookup
+no alcanza dispatchExecutiveReportEmail. Se preserva la politica actual
+de destinatarios manuales y la ruta demo; no agrega rol ni cambia STRIDE03.
+La consulta del nombre usa company_name, columna existente en Tenants,
+en lugar de name, para que la ruta real no falle antes de compilar.
+
+Ocho regresiones con handler real y dependencias sustituidas cubren
+orden de checks, suspension/alcance/expiracion, pertenencia revocada,
+fallo SQL, TENANT_ALL y demo. Junto a cinco guards Lighthouse existentes:
+13pass. Typecheck, lint global y build nativo correctos. No se repite
+full suite ni gates reales; ultima full sinservicios6307pass/197skip es
+previa a estas ocho regresiones. Sin correo ni cloud reales.
+No garantiza cancelacion atomica despues del ultimo check ni elimina
+la cache de pertenencia60s.

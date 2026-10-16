@@ -810,6 +810,8 @@ Catorce casos SQL nuevos ejecutan handlers y JWT reales: GET moderno/legacy solo
 
 **Lectura tras cambio de pertenencia:** polling/jobactivo/latest exigen suscripcion del tenant antes de devolver cache o SQL; cache reciente conserva scopeID original. Cinco regresiones adicionales, helpers/SQL sustituidos; fullsinservicios6307pass/197skip,566archivos/12omitidos;lint/typecheck/build correctos. HLD/LLD52.22. CorridaMySQL de52.21 previa,no repetida; TTL60s preservado,sin revocacion Azure instantanea. Falta cobertura global/rollout.
 
+**Correo ejecutivo manual:** revalida identidad y pertenencia tras compilar PDF, antes de transporte; suspension/alcance/expiracion o lookup fallido no despachan. Query corregida a Tenants.company_name existente. Ocho regresiones con handler real/dependencias sustituidas y cinco guards Lighthouse:13pass;typecheck/lint/build correctos. Full/gates reales no repetidos;6307pass/197skip es previo a estas ocho. HLD/LLD52.23. Sin cambio de destinatarios/roles/STRIDE03, sin cancelacion atomica ni revocacionAzure inmediata (TTL60s); falta cobertura global/rollout.
+
 **Prioridad:** P1 de evaluación y cierre de cobertura.  
 **Clasificación:** bypass de autorizacion confirmado en tres rutas de auditoria y consulta de facturacion, corregido en rama, pendiente rollout; cobertura de otras superficies incompleta.
 **STRIDE:** Information Disclosure, Tampering y Elevation of Privilege.  
