@@ -6982,3 +6982,24 @@ bloqueos/parametros, commit, rollback y release. Matriz98 con Blob;
 suite6355pass/76skip,563archivos correctos/8omitidos; lint/typecheck/build
 nativo correctos. Manuales ES/EN/PT-BR y su indice de soporte regenerados.
 Implementado en rama, pendiente rollout y cobertura global.
+
+### 52.14 Vistas guardadas: identidad personal distinta del propietario compartido
+
+SavedViews usa user_email='' para vistas compartidas. correoDe antes devolvia
+esa cadena para un JWT valido sin email, permitiendo que POST con shared=false
+creara o sobrescribiera una vista compartida sin la guarda Admin/Owner.
+Ahora un email vacio o solo espacios produce401 IDENTITY_EMAIL_REQUIRED
+antes de leer vistas o abrir la transaccion personal; no se usa el email
+que pudiera venir en el body. La misma validacion rige GET y DELETE personal.
+Compartir sigue exigiendo Admin/Owner; una identidad con email valido mantiene
+normalizacion, escritura propia, defaults por propietario y borrado propio.
+
+Siete casos adicionales con JWT RS256 y MySQL reales prueban token sin email
+por POST/GET/DELETE, no sobrescritura de una vista compartida existente,
+listado propio+compartido sin privados/tenant ajenos, email/owner falsificados,
+defaults selectivos, Reader403 para compartidas/privadas ajenas, Admin propio,
+Perspective ajena404 y borrado selectivo. Tres unitarios rechazan email
+vacio/espacios antes de SQL/transaccion. Matriz105 con Blob; suite6365pass/
+76skip,564archivos correctos/8omitidos; lint/typecheck/build nativo correctos.
+Este control es de vistas guardadas: no establece una politica global para
+tokens sin email ni resuelve la decision STRIDE-03. Pendiente rollout.

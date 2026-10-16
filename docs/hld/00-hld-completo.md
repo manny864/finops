@@ -2012,3 +2012,10 @@ el borrado de Perspective/reglas se conserva; no cambia la purga del tenant
 ni se protege SQL administrativo externo. Siete casos SQL y cuatro unitarios
 amplian la matriz a98; suite6355pass/76skip. Manuales e indice de soporte
 actualizados. Detalle en LLD52.13, sin rollout.
+
+Vistas guardadas ya no confunde un JWT sin email con el propietario vacio
+reservado a las vistas compartidas. GET/POST/DELETE personal rechazan esa
+identidad con401, evitando sobrescribir una vista compartida por el flujo
+personal sin Admin/Owner. No se cambia politica global de admision.
+Siete casos SQL y tres unitarios adicionales; matriz105 y suite6365pass/76skip.
+Detalle en LLD52.14, implementado en rama, sin rollout.

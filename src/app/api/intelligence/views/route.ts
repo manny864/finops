@@ -30,7 +30,11 @@ const COMPARTIDA = "";
 const MAX_NOMBRE = 120;
 
 function correoDe(identidad: { email?: string | null }): string {
-    return String(identidad?.email || "").toLowerCase().trim();
+    const email = String(identidad?.email || "").toLowerCase().trim();
+    if (!email) {
+        throw new AuthError("La identidad autenticada no tiene un email para gestionar vistas.", 401, "IDENTITY_EMAIL_REQUIRED");
+    }
+    return email;
 }
 
 export async function GET(request: NextRequest) {

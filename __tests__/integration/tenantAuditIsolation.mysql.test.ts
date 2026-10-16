@@ -44,6 +44,7 @@ import { deleteNotification, markNotificationAsRead } from "@/services/tenantNot
 import { POST as dismissAnnouncement } from "@/app/api/announcements/dismiss/route";
 import { requireTenantAccess } from "@/lib/requestAuth";
 import { DELETE as deletePerspective } from "@/app/api/intelligence/perspectives/route";
+import { GET as readViews, POST as saveView, DELETE as deleteView } from "@/app/api/intelligence/views/route";
 
 const tenants = [
     { id: "a0000000-0000-4000-8000-000000000001", email: "reader@alpha.example", marker: "alpha-only-record" },
@@ -140,6 +141,11 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
             group_name VARCHAR(120), match_type VARCHAR(40), match_key VARCHAR(120), match_value VARCHAR(120), sort_order INT)`);
         await db.query(`ALTER TABLE PerspectiveRules ADD CONSTRAINT fk_rule_perspective
             FOREIGN KEY (perspective_id) REFERENCES Perspectives(id) ON DELETE CASCADE`);
+        await db.query(`CREATE TABLE SavedViews (
+            id INT AUTO_INCREMENT PRIMARY KEY, tenant_id VARCHAR(64), user_email VARCHAR(120) NOT NULL,
+            name VARCHAR(120), perspective_id INT, group_name VARCHAR(120), filters_json JSON,
+            is_default BOOLEAN DEFAULT false, created_by VARCHAR(120), updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY (tenant_id, user_email, name))`);
         await db.query(`CREATE TABLE Notifications (id INT PRIMARY KEY, tenant_id VARCHAR(64),
             user_email VARCHAR(120), is_read BOOLEAN DEFAULT false, read_at DATETIME,
             title VARCHAR(120), message TEXT, title_key VARCHAR(120), message_key VARCHAR(120),
@@ -832,6 +838,81 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
                 `SELECT service_name, EffectiveCost FROM CostSnapshots WHERE ${window.where}${scope.and}`,
                 [...window.params, ...scope.params]);
             expect(rows).toMatchObject([{ service_name: tenant.marker, EffectiveCost: "12.10" }]);
+        });
+    });
+
+    describe("saved view owner boundaries with real SQL and JWT", () => {
+        const actor = tenants[0];
+        const hiddenEmail = "hidden@alpha.example";
+        const noEmail = { ...actor, email: "" };
+        beforeEach(async () => {
+            await db.query("INSERT INTO SavedViews (id, tenant_id, user_email, name, is_default, created_by) VALUES ?",
+                [[[101, actor.id, "", "Shared", 1, "admin@example.test"],
+                  [102, actor.id, actor.email, "Personal", 1, actor.email],
+                  [103, actor.id, hiddenEmail, "Private", 1, hiddenEmail],
+                  [104, tenants[1].id, "", "Foreign", 1, tenants[1].email]]]);
+        });
+        afterEach(async () => {
+            await db.query("DELETE FROM SavedViews");
+            await db.query("UPDATE Users SET role = 'Reader' WHERE tenant_id = ? AND email = ?", [actor.id, actor.email]);
+        });
+        const create = (body: Record<string, unknown>, identity = actor) => saveView(new NextRequest(
+            request("/api/intelligence/views", actor.id, identity),
+            { method: "POST", body: JSON.stringify({ tenantId: actor.id, name: "Shared", ...body }) }));
+        it("rejects missing email instead of overwriting shared view via a personal save", async () => {
+            const response = await create({ shared: false, isDefault: true, filters: { tampered: true } }, noEmail);
+            expect(response.status).toBe(401);
+            const [rows] = await db.query<RowDataPacket[]>("SELECT filters_json, is_default FROM SavedViews WHERE id = 101");
+            expect(rows).toEqual([{ filters_json: null, is_default: 1 }]);
+            const [count] = await db.query<RowDataPacket[]>("SELECT COUNT(*) AS n FROM SavedViews");
+            expect(count[0].n).toBe(4);
+        });
+        it("rejects missing email for listing and deleting personal views", async () => {
+            expect((await readViews(request("/api/intelligence/views", actor.id, noEmail))).status).toBe(401);
+            expect((await deleteView(new NextRequest(request("/api/intelligence/views", actor.id, noEmail, "&id=102"),
+                { method: "DELETE" }))).status).toBe(401);
+            const [rows] = await db.query<RowDataPacket[]>("SELECT id FROM SavedViews WHERE id = 102");
+            expect(rows).toHaveLength(1);
+        });
+        it("lists only own and shared views, never another user's or tenant's", async () => {
+            const response = await readViews(request("/api/intelligence/views", actor.id, actor));
+            expect(response.status).toBe(200);
+            const { views } = await response.json();
+            expect(views.map((view: { id: number }) => view.id).sort()).toEqual([101, 102]);
+            expect((await readViews(request("/api/intelligence/views", tenants[1].id, actor))).status).toBe(403);
+        });
+        it("personal saves ignore forged owner and reset defaults only for the verified user", async () => {
+            expect((await create({ shared: false, name: "New personal", isDefault: true, userEmail: hiddenEmail, owner: "" })).status).toBe(200);
+            const [rows] = await db.query<RowDataPacket[]>("SELECT user_email, name FROM SavedViews WHERE is_default = 1");
+            expect(rows).toEqual(expect.arrayContaining([
+                { user_email: "", name: "Shared" }, { user_email: hiddenEmail, name: "Private" },
+                { user_email: actor.email, name: "New personal" }, { user_email: "", name: "Foreign" },
+            ]));
+            expect(rows).toHaveLength(4);
+        });
+        it("readers cannot save or delete shared views and cannot delete another user's view", async () => {
+            expect((await create({ shared: true })).status).toBe(403);
+            for (const id of [101, 103]) {
+                expect((await deleteView(new NextRequest(request("/api/intelligence/views", actor.id, actor, `&id=${id}`),
+                    { method: "DELETE" }))).status).toBe(403);
+            }
+            const [rows] = await db.query<RowDataPacket[]>("SELECT id FROM SavedViews");
+            expect(rows).toHaveLength(4);
+        });
+        it("Admin can edit a shared view but cannot use a foreign Perspective", async () => {
+            await db.query("UPDATE Users SET role = 'Admin' WHERE tenant_id = ? AND email = ?", [actor.id, actor.email]);
+            expect((await create({ shared: true, filters: { period: "month" } })).status).toBe(200);
+            expect((await create({ shared: false, perspectiveId: 2 })).status).toBe(404);
+            const [rows] = await db.query<RowDataPacket[]>("SELECT filters_json FROM SavedViews WHERE id = 101");
+            expect(rows[0].filters_json).toEqual({ period: "month" });
+        });
+        it("deletes only the verified user's own view and rejects foreign IDs", async () => {
+            for (const [id, status] of [[102, 200], [104, 404]]) {
+                expect((await deleteView(new NextRequest(request("/api/intelligence/views", actor.id, actor, `&id=${id}`),
+                    { method: "DELETE" }))).status).toBe(status);
+            }
+            const [rows] = await db.query<RowDataPacket[]>("SELECT id FROM SavedViews ORDER BY id");
+            expect(rows.map((row) => row.id)).toEqual([101, 103, 104]);
         });
     });
 
