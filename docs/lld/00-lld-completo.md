@@ -6655,6 +6655,10 @@ devuelta por `job start` con `execution show --job-execution-name`, nunca [0].
 Compara imagen observada con digest esperado. El gate previo exige
 `APP_SECRET_MIGRATION_READY=true` y secretRef Key Vault versionada para
 `APP_SECRET_ENCRYPTION_KEY`; no revela valores de claves.
+La verificacion de procedencia acepta SLSA v0.2 (`materials`) o v1
+(`buildDefinition.resolvedDependencies`), porque buildx actual emite v1.
+Migracion INT-03 ejecutada el 2026-10-16 en staging y prod (ver runbook);
+las referencias Key Vault de la app aun no estan en los tfvars de Terraform.
 
 Firma privada no habilitada en GitHub Pro; SBOM/procedencia no son una firma.
 La allowlist `getPublicRuntimeConfig()` lee seis valores de runtime sin acceso
