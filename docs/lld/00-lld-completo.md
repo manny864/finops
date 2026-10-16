@@ -1,7 +1,7 @@
 # Low-Level Design (LLD) — CSCloudSolutions FinOps Platform
 
-**Versión:** 1.2\
-**Fecha:** 2026-10-15\
+**Versión:** 1.3\
+**Fecha:** 2026-10-16\
 **Autor:** Equipo de Arquitectura Cloud & FinOps — CSCloudSolutions
 
 ---
@@ -6516,7 +6516,12 @@ y después procesa las de Key Vault. TTL de metadata: 70 min plan/apply,
 nativa: una caída de Actions/ARM puede dejar reglas hasta que vuelva a ejecutarse.
 
 Todos los jobs autenticados comparten `tfstate-firewall`, sin cancelar al activo.
-GitHub admite solo un pendiente; otro request puede cancelarlo. Para mantenimiento:
+La configuracion desplegada admite solo un pendiente; el delta 1.3 agrega
+`queue: max` a los tres consumidores y al workflow Terraform, hasta 100 pendientes,
+conservando exclusion, leases y cleanup. Se ordena por entrada a la cola, no por
+momento de dispatch; saturacion/indisponibilidad siguen requiriendo operacion.
+El schema de actionlint 1.7.12 aun no reconoce `queue`, documentado por GitHub;
+no se elimina el campo para satisfacer un schema desactualizado. Para mantenimiento:
 pausar temporalmente `kv-firewall-reconcile.yml`, esperar los jobs existentes,
 ejecutar ambientes en serie y restaurarlo **también ante errores**, con un trap
 de salida. No cancelar un apply activo para despejar la cola.
@@ -6544,9 +6549,10 @@ Revisiones con tráfico `0000024` / `0000352`, Healthy/Running; ambos
 Storage final: Deny/bypass None, Shared Key apagada, ambas subredes Succeeded,
 sin reglas IP ni lease ARM residual. Cada vault sin IP temporal; pruebas
 autenticadas externas rechazadas por red en ambos contenedores. **INFRA-09 cerrado.**
-No se declara CI hosted verde mientras siga bloqueado por billing. El snapshot
-de `/api/status` en staging está vencido (503), confirmado en logs, distinto
-de la salud del proceso; no se remedió con este apply.
+No se declara CI hosted verde mientras siga bloqueado por billing. La caducidad
+de snapshot vista antes no persiste el 2026-10-16: `/api/status` staging 200,
+snapshot 01:00 UTC; ultimas ejecuciones 00:00/00:30/01:00 Succeeded. Sync/IA
+siguen degradados; sus indicadores no son pruebas end-to-end de proveedores.
 
 ### 51.7 Costo, recuperación y baja
 
@@ -6562,3 +6568,84 @@ Antes de destruir: migrar consumidores, detener servicios, retirar registros
 GitHub y ACL de subred con acceso alternativo disponible; revisar/dar de baja
 solo `infra/terraform/runners`. No destruir bootstrap, backend ni stamps.
 Pasos exactos en el [README de runners](../../infra/terraform/runners/README.md).
+
+## 52. Addendum 2026-10-16 — Delta de seguridad pendiente de rollout
+
+Los cambios siguientes estan implementados en rama, no aplicados en produccion.
+El [plan maestro](../security/plan-maestro-mejoras-devsecops-cspm-azure.md)
+mantiene los limites de cierre; las verificaciones sinteticas no prueban las
+integraciones ni la configuracion de Azure del ambiente real.
+
+### 52.1 Aprobaciones, claims y operaciones ARM
+
+`azureRemediationApprovals.service.ts` exige catalogo exacto de accion/tipo,
+coincidencia de partes ARM ID, scope y permiso de delegacion dentro del ejecutor.
+Rutas legacy/movil delegan al flujo canonico, sin eludir cuatro ojos.
+El claim usa CAS SQL sobre Pending/JSON vacio y guarda executionToken,
+startedAt y resolvedBy. Compara objetivo/payload y separa solicitante/ejecutor;
+solo su token puede finalizar. No requiere cambio de esquema.
+
+HTTP 202/headers de operacion o provisioningState no terminal conservan Running:
+no se anuncian como exito ni liberan un retry capaz de duplicar el efecto.
+Un snapshot no confirmado Succeeded impide borrar. Interrupciones y LRO requieren
+conciliacion; aun no existe un conciliador automatico. MySQL 8.4 aislado verifico
+concurrencia de 12 claims, CAS y rollback de migracion con datos sinteticos.
+
+### 52.2 Egress y secretos
+
+`safeExternalFetch.ts` usa Undici directo, no fetch parcheado por Next. Resuelve
+A/AAAA, rechaza rangos no publicos y fija la IP validada en lookup del Agent,
+preservando hostname/TLS/SNI. Rechaza redireccion, aplica timeout total 15 s
+incluido DNS y buffer maximo 1 MiB, y destruye el dispatcher por llamada.
+Consumidores: notificaciones, pruebas webhook/ITSM y alertas self-service.
+
+`secretCrypto.ts` escribe `enc:v2` con 32 bytes dedicados (hex/base64 canonico);
+no deriva de credenciales ni de una semilla. Lectura v1 exige material legacy
+explicito. `rotate-app-secrets.ts` opera una transaccion, valida roundtrip y hace
+rollback completo; dry-run por defecto y apply solo con `--backup-confirmed`.
+Cubre claves AI tenant/global/enterprise e ITSM. La migracion real queda
+pendiente; detalle en el [runbook](../security/app-secret-rotation.md).
+
+### 52.3 Tenant, jobs y consultas
+
+`getCostManagementClient` agrega policy per-call que valida origen ARM y scopes
+antes de solicitar token; alcanza paginacion y quita redirectPolicy. Los
+consumidores de Cost Management construyen clientes mediante esta factory.
+
+`cronSecretForJob` selecciona `CRON_JOB_SECRET_<NOMBRE_FIJO>` (minimo 32 caracteres).
+Con clave propia no acepta root ni otra clave; sin ella conserva compatibilidad
+temporal con `CRON_SECRET`. `CRON_REQUIRE_SCOPED_SECRETS=true` falla si falta la
+clave. El fan-out sigue con root del servidor, no token entrante; esto **no**
+aisla una managed identity que aun puede leer el secreto compartido.
+Self-fetch usa `INTERNAL_BASE_URL` validada o loopback/PORT, sin Host/puerto
+entrante; redirects rechazados y X-Cron-Auth solo GET/HEAD.
+
+`escapeKql` conserva comillas/backslashes y escapa controles; inventario agrupa
+search OR bajo AND. Limite de herencia entero 1..5000 y tipo TTL con allowlist
+runtime. Historial SQL mantiene placeholders por tenant/filtros y columnas
+constantes; sort fuera de catalogo se rechaza. Inventario AST local: 1210
+llamadas candidatas query/execute en 369 archivos; no todas son SQL ni fueron
+revisadas. Matriz end-to-end completa y caches siguen pendientes.
+
+### 52.4 Imagenes, evidencia y operacion
+
+Dockerfile fija Node 22 Alpine y frontend a digests oficiales verificados.
+Buildx produce runtime/migrator en serie con `--platform linux/amd64`,
+`--provenance=mode=min --sbom=true --push`, tags por ambiente/run/intento y
+metadata con `containerimage.digest`. Inspeccion de ese indice exige SBOM SPDX
+y procedencia antes de smoke sin red. Artefactos privados `image-evidence-*`
+conservan metadata/release 90 dias y declaran `signed: false`.
+
+El deploy usa `repository@sha256:...` para app y job; consulta la ejecucion
+devuelta por `job start` con `execution show --job-execution-name`, nunca [0].
+Compara imagen observada con digest esperado. El gate previo exige
+`APP_SECRET_MIGRATION_READY=true` y secretRef Key Vault versionada para
+`APP_SECRET_ENCRYPTION_KEY`; no revela valores de claves.
+
+Firma privada no habilitada en GitHub Pro; SBOM/procedencia no son una firma.
+`NEXT_PUBLIC_*` sigue inline por ambiente y prod reconstruye; no se afirma misma
+imagen. Dos intentos Docker locales fallaron por memoria (~3,8 GiB disponibles);
+build nativo completo correcto, pero smoke final y rollout ACR/ACA pendientes.
+No se crea otro runner ni se habilita codigo PR en las VMs existentes para
+sortear billing. No se cambian claves/datos reales ni se habilita modo estricto
+sin la provision de credenciales y permisos correspondientes.

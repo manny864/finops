@@ -54,7 +54,7 @@ function buildCoverHtml() {
   <img src="${LOGO_DATA_URI}" class="cover-logo" alt="CSCloudSolutions" />
   <h1 class="cover-title">Low-Level Design</h1>
   <p class="cover-sub">Plataforma FinOps SaaS — Azure-Only</p>
-  <p class="cover-meta">Versión 1.2 — ${today}</p>
+  <p class="cover-meta">Versión 1.3 — ${today}</p>
   <p class="cover-meta" style="margin-top:12px;">
     <strong>CSCloudSolutions</strong><br/>
     Cloud Solutions & FinOps Consulting

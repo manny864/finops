@@ -1,9 +1,9 @@
 # High-Level Design (HLD) — CSCloudSolutions FinOps Platform
 
-**Versión:** 1.2\
-**Fecha:** 2026-10-15\
+**Versión:** 1.3\
+**Fecha:** 2026-10-16\
 **Autor:** Equipo de Arquitectura Cloud & FinOps — CSCloudSolutions  
-**Estado:** Aprobado para Producción
+**Estado:** Arquitectura vigente; delta 1.3 implementado en rama, pendiente de despliegue
 
 ---
 
@@ -1830,7 +1830,9 @@ Se mantiene la apertura/cierre temporal y el reconciliador cada 15 minutos.
 Ese intervalo limpia reglas vencidas, **no despliega la aplicación**. La
 expiración es metadata, no TTL nativo de Azure; una caída de Actions/ARM retrasa
 la limpieza. Los jobs autenticados comparten `tfstate-firewall`: GitHub puede
-cancelar otro pendiente. Operar ambientes en serie y restaurar siempre el
+cancelar otro pendiente con la configuracion desplegada. El delta 1.3 propone
+`queue: max` manteniendo la exclusion global, hasta 100 pendientes; no elimina
+cancelaciones al saturar la cola ni garantiza plazo de limpieza. Operar ambientes en serie y restaurar siempre el
 reconciliador tras una pausa de mantenimiento.
 
 La baja requiere migrar consumidores, retirar registros de GitHub y ACL de
@@ -1851,5 +1853,50 @@ archivo comprobados. Reconciliador `38824588719` correcto en ambas VMs.
 Storage final en Deny/bypass None, ambas subredes Succeeded, sin IPs temporales
 ni lease ARM residual; acceso autenticado externo rechazado. Cada vault permite
 solo su subred de runner. Ambos `/api/health` devolvieron 200. **INFRA-09 cerrado.**
-No se declara resuelta la facturación de hosted; el `/api/status` público de
-staging tiene snapshot vencido (503), distinto del health probe, y queda aparte.
+No se declara resuelta la facturación de hosted. El snapshot vencido observado
+antes se recupero: el 2026-10-16, `/api/status` staging devuelve 200 con snapshot
+vigente y componentes Sync/IA degradados; no se cambia ese estado a operacional.
+
+## 23. Addendum 2026-10-16 — Fronteras de seguridad y artefactos
+
+Este delta corresponde a `fix/remaining-security-remediations`, no a una
+remediacion ya desplegada en ACA. El cierre INFRA-09 y la topologia del apartado
+22 permanecen vigentes. No se han rotado claves ni migrado datos reales.
+
+| Frontera | Cambio implementado | Limite o gate restante |
+|---|---|---|
+| Aprobacion humana → ARM | Legacy/movil delegan al flujo canonico; cuatro ojos y claim SQL durable antes del efecto | Operaciones asincronas o interrumpidas conservan Running; conciliacion pendiente |
+| Integraciones → Internet | Transporte comun valida DNS y fija IP publica al socket; conserva TLS/SNI, bloquea redirects y acota tiempo/respuesta | Integraciones reales aun no verificadas tras despliegue |
+| Secretos → persistencia | Envelope v2 con clave dedicada; v1 solo con clave legacy explicita; migrador transaccional y dry-run | Backup/restore, referencias versionadas y migracion real por ambiente |
+| Tenant → Cost Management/ARM | Scope por request y paginacion; catalogo cerrado de acciones y validacion dentro del ejecutor | Custom Roles efectivos y matriz completa de aislamiento |
+| Job → API interna | Clave por nombre fijo de job y origen self-fetch configurado, nunca Host/puerto entrante | Compatibilidad con root temporal; faltan identidades/referencias por job y modo estricto |
+| Datos → consultas | Escape KQL compartido, filtros OR agrupados, limites y catalogos runtime | Cobertura parcial; no certifica todas las consultas ni caches |
+| Build → ACA | Base/frontend por digest; SBOM/procedencia BuildKit; runtime y migrador por digest y smoke sin red | Rollout pendiente; metadata no firmada; prod se reconstruye por configuracion publica diferente |
+
+### 23.1 Gate de despliegue y compatibilidad
+
+El workflow reutilizable falla antes de build/migraciones si no existe una
+referencia versionada de Key Vault para `APP_SECRET_ENCRYPTION_KEY` y la
+confirmacion de ambiente `APP_SECRET_MIGRATION_READY=true`. Esta confirmacion es
+operativa, no prueba criptografica de una restauracion o de la fortaleza de la
+clave. El primer despliegue v2 requiere ventana controlada y coordinacion de
+trafico/jobs segun [runbook de claves](../security/app-secret-rotation.md).
+Rollback requiere imagen, datos y clave compatibles; no basta volver la imagen.
+
+### 23.2 Pendientes que impiden declarar el cierre completo
+
+La politica de lectura por identidad del directorio frente a alta SaaS activa
+(STRIDE-03) no se cambia sin decision funcional. Faltan conciliador ARM, revision
+de permisos reales, matriz tenant/SQL/cache completa y segmentacion efectiva de
+jobs; [runbook de cron](../security/cron-credential-migration.md).
+
+INFRA-11 conserva dos decisiones abiertas: firma privada (GitHub Pro no habilita
+attestations privadas; no se autorizan pagos ni publicacion de datos en un log de
+transparencia externo) y configuracion runtime que permita promover el mismo
+artefacto. La reconstruccion prod debe probar su propio digest, no afirmar
+equivalencia binaria con staging. Los builds locales de imagen quedaron
+bloqueados por memoria de Docker (~3,8 GiB); el build nativo de aplicacion paso,
+pero no sustituye la validacion de las dos imagenes finales.
+
+CI/deploy hosted sigue bloqueado por pagos/limite de gasto, confirmado en el run
+`38829100160`. No se trasladan PRs a las VMs confiables ni se rebaja ningun gate.
