@@ -12020,6 +12020,8 @@
     "snapshotAvailable": "A prior snapshot can be created so it can be reverted.",
     "snapshotUnavailable": "This resource type does not support a prior snapshot.",
     "approveAndRun": "Approve & Execute",
+    "executionRunning": "Azure execution is pending or unconfirmed. Do not resubmit the action.",
+    "reconcileExecution": "Check execution",
     "historyHeading": "Decision History",
     "historyTooltip": "Full audit trail: who resolved it, when and what ARM answered. An approval Azure rejected shows as failed, not as applied.",
     "emptyHistory": "No request has been resolved in this tenant yet.",

@@ -62,6 +62,42 @@ describe("approval execution boundary", () => {
     mocks.fetch.mockResolvedValue(new Response("{}", { status: 202 }));
     expect((await executeApprovedAction("tenant-a", item)).status).toBe("Running");
   });
+  it.each(["azure-asyncoperation", "operation-location", "location"])("retains the %s header as evidence without fetching it", async (header) => {
+    const pollingUrl = `https://management.azure.com/subscriptions/${subscriptionId}/providers/Microsoft.Compute/locations/eastus/operations/op-1?api-version=2023-01-02`;
+    mocks.fetch.mockResolvedValue(new Response("{}", { status: 202, headers: { [header]: pollingUrl } }));
+    expect(await executeApprovedAction("tenant-a", item)).toMatchObject({ status: "Running", operation: { stage: "action", pollingUrl } });
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+  });
+  it.each([500, 502, 503, 504, 408])("does not release the claim on an uncertain HTTP %i mutation", async (status) => {
+    mocks.fetch.mockResolvedValue(new Response("unavailable", { status }));
+    expect(await executeApprovedAction("tenant-a", item)).toMatchObject({ status: "Running", operation: { stage: "action", resourceId: item.resourceId } });
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+  });
+  it("does not release a mutation after a timeout or broken completion response", async () => {
+    mocks.fetch.mockRejectedValue(new DOMException("Timed out", "TimeoutError"));
+    expect((await executeApprovedAction("tenant-a", item)).status).toBe("Running");
+    mocks.fetch.mockResolvedValue(new Response("broken", { status: 200 }));
+    expect((await executeApprovedAction("tenant-a", item)).status).toBe("Running");
+  });
+  it("retains a confirmed protective snapshot if the later delete is uncertain", async () => {
+    const snapshotId = `/subscriptions/${subscriptionId}/resourceGroups/rg-a/providers/Microsoft.Compute/snapshots/confirmed`;
+    mocks.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ id: snapshotId, properties: { provisioningState: "Succeeded" } })))
+      .mockRejectedValueOnce(new DOMException("Timeout", "TimeoutError"));
+    expect(await executeApprovedAction("tenant-a", item, { createBackupSnapshot: true })).toMatchObject({ status: "Running", snapshotId });
+    expect(mocks.fetch.mock.calls.map(([, init]) => init.method)).toEqual(["PUT", "DELETE"]);
+  });
+  it("an unconfirmed snapshot submission never advances to DELETE", async () => {
+    mocks.fetch.mockRejectedValue(new DOMException("Timeout", "TimeoutError"));
+    expect(await executeApprovedAction("tenant-a", item, { createBackupSnapshot: true })).toMatchObject({ status: "Running", operation: { stage: "snapshot" } });
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+  });
+  it("a VM deallocation does not poll indefinitely or hide accepted asynchronous work", async () => {
+    const vm = { ...item, resourceId: item.resourceId.replace("/disks/", "/virtualMachines/"), resourceType: "Microsoft.Compute/virtualMachines", actionType: "POWER_OFF" as const };
+    mocks.fetch.mockResolvedValue(new Response(null, { status: 202 }));
+    expect((await executeApprovedAction("tenant-a", vm)).status).toBe("Running");
+    expect(mocks.fetch.mock.calls[0][1]).toMatchObject({ method: "POST", redirect: "error" });
+    expect(mocks.fetch.mock.calls[0][0]).toContain("/deallocate?");
+  });
   it("executes a validated synchronous deletion without following redirects", async () => {
     expect((await executeApprovedAction("tenant-a", item)).status).toBe("Succeeded");
     expect(mocks.fetch.mock.calls[0][1]).toMatchObject({ method: "DELETE", redirect: "error" });

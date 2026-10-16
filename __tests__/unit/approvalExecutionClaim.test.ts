@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { query } = vi.hoisted(() => ({ query: vi.fn() }));
 vi.mock("@/modules/storage/db", () => ({ default: { query } }));
 vi.mock("@/lib/azure", () => ({ getAzureCredential: vi.fn() }));
-import { claimApprovalExecution, resolveApproval } from "@/services/azureRemediationApprovals.service";
+import { claimApprovalExecution, recordPendingApprovalExecution, resolveApproval } from "@/services/azureRemediationApprovals.service";
 
 beforeEach(() => query.mockReset());
 
@@ -36,5 +36,16 @@ describe("durable approval ownership before ARM", () => {
     });
     expect(query.mock.calls[1][0]).toContain("'$.executionToken'");
     expect(query.mock.calls[1][1].at(-1)).toBe("owned-token");
+  });
+  it("pending evidence cannot replace another tenant or token's claim", async () => {
+    query.mockResolvedValue([{ affectedRows: 0 }]);
+    const result = { status: "Running" as const, detail: "Accepted", operation: { stage: "snapshot" as const, pollingUrl: "https://management.azure.com/operation" } };
+    expect(await recordPendingApprovalExecution("tenant-b", "1", "wrong-token", result)).toBe(false);
+    const [sql, args] = query.mock.calls[0];
+    expect(sql).toContain("JSON_SET(arm_execution_result_json");
+    expect(sql).toContain("tenant_id = ?");
+    expect(sql).toContain("'$.executionToken'");
+    expect(args).toEqual(["Accepted", JSON.stringify(result.operation), null, "1", "tenant-b", "wrong-token"]);
+    await expect(recordPendingApprovalExecution("tenant-a", "1", "owned-token", { status: "Succeeded", detail: "Done" })).rejects.toThrow(/Only a running/);
   });
 });

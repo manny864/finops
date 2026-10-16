@@ -217,7 +217,7 @@ export default function RemediationApprovalsPanel() {
   const visiblePending = useMemo(() => pending.filter((p) => !resolving.has(p.id)), [pending, resolving]);
   const historyPg = usePagination(history, 15);
 
-  const resolve = async (item: PendingApprovalItem, decision: "APPROVE" | "REJECT", extras: Record<string, unknown> = {}) => {
+  const resolve = async (item: PendingApprovalItem, decision: "APPROVE" | "REJECT" | "RECONCILE", extras: Record<string, unknown> = {}) => {
     // Optimista: la tarjeta desaparece ya. Si el backend falla se restaura.
     setResolving((prev) => new Set(prev).add(item.id));
     setIsBusy(true);
@@ -230,22 +230,32 @@ export default function RemediationApprovalsPanel() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
 
-      if (decision === "APPROVE" && body.armExecutionStatus === "Failed") {
+      if (body.armExecutionStatus === "Running") {
+        await mutate(current => current ? {
+          ...current,
+          summary: {
+            ...current.summary,
+            pendingRequests: current.summary.pendingRequests.map(p =>
+              p.id === item.id ? { ...p, armExecutionStatus: "Running" } : p),
+          },
+        } : current, { revalidate: false });
+        toast.info(t("executionRunning"));
+      } else if (body.armExecutionStatus === "Failed") {
         // La petición se resolvió, pero Azure rechazó el cambio: no es un
         // éxito y la tarjeta no debe volver, queda en el historial como fallida.
         toast.error(t("azureRejected", { message: body.message }));
       } else {
-        toast.success(body.message || (decision === "APPROVE" ? t("actionExecuted") : t("requestRejected")));
+        toast.success(body.message || (decision === "REJECT" ? t("requestRejected") : t("actionExecuted")));
       }
       mutate();
     } catch (e) {
+      toast.error(errorMessage(e) || t("resolveFailed"));
+    } finally {
       setResolving((prev) => {
         const next = new Set(prev);
         next.delete(item.id);
         return next;
       });
-      toast.error(errorMessage(e) || t("resolveFailed"));
-    } finally {
       setIsBusy(false);
     }
   };
@@ -256,7 +266,7 @@ export default function RemediationApprovalsPanel() {
    * consciente, no un clic masivo.
    */
   const safeItems = useMemo(
-    () => visiblePending.filter((p) => !p.isDestructive && !p.requiresReboot),
+    () => visiblePending.filter((p) => !p.isDestructive && !p.requiresReboot && p.armExecutionStatus !== "Running"),
     [visiblePending]
   );
 
@@ -442,12 +452,28 @@ export default function RemediationApprovalsPanel() {
                       {p.canSnapshot ? ` ${t("snapshotAvailable")}` : ` ${t("snapshotUnavailable")}`}
                     </p>
                   )}
+                  {p.armExecutionStatus === "Running" && (
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400" role="status">
+                      {t("executionRunning")}
+                    </p>
+                  )}
 
                   <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-800 flex-wrap">
                     <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400 tabular-nums whitespace-nowrap">
                       −{money(p.monthlySavingsUSD)}{t("perMonthSuffix")}
                     </span>
                     <div className="flex items-center gap-2">
+                      {p.armExecutionStatus === "Running" && (
+                        <button
+                          onClick={() => resolve(p, "RECONCILE")}
+                          disabled={isBusy}
+                          className="px-3 py-1.5 text-xs font-medium rounded-xl bg-[#0078D4] text-white hover:bg-[#0060AA] transition cursor-pointer disabled:opacity-50"
+                        >
+                          <IconRotateClockwise size={16} className="inline mr-1.5" stroke={1.5} />
+                          {t("reconcileExecution")}
+                        </button>
+                      )}
+                      {p.armExecutionStatus !== "Running" && <>
                       <button
                         onClick={() => {
                           setApproveTarget(p);
@@ -470,6 +496,7 @@ export default function RemediationApprovalsPanel() {
                         <IconX size={16} className="inline mr-1 text-slate-500" stroke={2} />
                         {t("reject")}
                       </button>
+                      </>}
                     </div>
                   </div>
                 </div>

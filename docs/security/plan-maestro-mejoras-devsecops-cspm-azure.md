@@ -719,8 +719,9 @@ resolución exige el token propietario. Un proceso interrumpido queda `Running`
 y requiere conciliación manual, nunca reejecución automática. Pruebas:
 `legacyApprovalAuthorization.test.ts`, `approvalExecutionClaim.test.ts` y
 `lighthouseGuardEscritura.test.ts` (13 correctas); typecheck correcto.
-Pendiente para cierre desplegado: publicación/despliegue y prueba concurrente
-con MySQL real; no confundir mocks de concurrencia con esa evidencia.
+MySQL 8.4 aislado verifico posteriormente concurrencia, propiedad y persistencia
+JSON (ver STRIDE-04). Pendiente para cierre desplegado: despliegue y evidencia
+del flujo real; las pruebas sinteticas no sustituyen esa comprobacion.
 
 **Prioridad:** P1 de corrección.  
 **Clasificación:** vulnerabilidad confirmada; severidad media; confianza 9/10.  
@@ -787,7 +788,21 @@ con MySQL real; no confundir mocks de concurrencia con esa evidencia.
 
 ### STRIDE-04 — Reforzar la frontera de ejecución de remediaciones Azure
 
-**Avance (2026-10-15):** catalogo exacto de acciones/aliases (ningun default destructivo), tipos API admitidos, coincidencia de todas las partes del ARM ID, compatibilidad accion/tipo y SKU/tier explicitos. El servicio revalida scopes y permiso de delegacion justo antes de ejecutar; el alta valida accion/scope. Los requests ARM tienen timeout y no siguen redirects. Aceptacion asincrona `202` no se presenta como exito: conserva claim durable `Running`, requiere conciliacion y no permite retry automatico. Un snapshot no confirmado completo impide borrar el recurso. MySQL 8.4 aislado verifico 12 reclamos concurrentes (solo uno gana), JSON CAS, tenant incorrecto, autoaprobacion, objetivo cambiado y propiedad del token de finalizacion. **Pendiente:** conciliador de operaciones asincronas/interrumpidas y revision de Custom Roles/asignaciones efectivas en Azure; no se ejecutaron mutaciones reales para probarlas.
+**Avance (2026-10-15):** catalogo exacto de acciones/aliases (ningun default destructivo), tipos API admitidos, coincidencia de todas las partes del ARM ID, compatibilidad accion/tipo y SKU/tier explicitos. El servicio revalida scopes y permiso de delegacion justo antes de ejecutar; el alta valida accion/scope. Los requests ARM tienen timeout y no siguen redirects. Aceptacion asincrona `202` no se presenta como exito: conserva claim durable `Running`, requiere conciliacion y no permite retry automatico. Un snapshot no confirmado completo impide borrar el recurso. MySQL 8.4 aislado verifico 12 reclamos concurrentes (solo uno gana), JSON CAS, tenant incorrecto, autoaprobacion, objetivo cambiado y propiedad del token de finalizacion. **Pendiente:** rollout y revision de Custom Roles/asignaciones efectivas en Azure; no se ejecutaron mutaciones reales para probarlas.
+
+**Continuacion implementada en rama:** transporte/timeout/408/5xx y completion
+ilegible post-mutacion se consideran inciertos, no fallos que permitan reenvio.
+POWER_OFF usa POST ARM con timeout propio. Se persiste evidencia de operacion con
+JSON_SET y CAS sin reemplazar propietario/tiempo del claim. La UI muestra Running
+sin exito ni botones de reejecucion/rechazo/aprobacion masiva. Owner/Admin Business
+puede solicitar `RECONCILE`: un GET sin redirects, tras validar origen ARM,
+suscripcion, provider, ruta de operacion y scope antes del token. Solo status
+explicito terminal permite CAS final; audit distingue operador del aprobador
+original. Fallos de polling conservan el claim. Snapshot conciliado no continua
+DELETE: la remediacion queda Failed con explicacion. No hay scheduler automatico.
+Si una interrupcion impide guardar polling URL, revisar Activity Logs manualmente
+sin reenviar ni liberar el claim a ciegas. Falta evidencia desplegada de esta UX
+y de las URLs efectivas de los proveedores; las pruebas usan respuestas sinteticas.
 
 **Prioridad:** P1 de evaluación y diseño.  
 **Clasificación:** riesgo arquitectónico; no se confirmó una vía de ejecución destructiva por Reader.  

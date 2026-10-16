@@ -209,6 +209,8 @@ export function mapPendingRow(
         ? String(payload.targetTier)
         : undefined,
     description: payload?.description ? String(payload.description) : undefined,
+    ...(parseJsonField(row.arm_execution_result_json)?.status === "Running"
+      ? { armExecutionStatus: "Running" as const } : {}),
   };
 }
 
@@ -290,29 +292,78 @@ export interface ArmExecutionResult {
   status: ArmExecutionStatus;
   detail: string;
   snapshotId?: string;
+  operation?: {
+    stage: "action" | "snapshot";
+    pollingUrl?: string;
+    resourceId?: string;
+  };
 }
 
-class ArmOperationPendingError extends Error {}
+class ArmOperationPendingError extends Error {
+  constructor(message: string, readonly operation?: ArmExecutionResult["operation"]) {
+    super(message);
+  }
+}
+
+/** Once sent, a transport/server failure cannot prove that ARM did not apply a mutation. */
+async function submitArmMutation(url: string, init: RequestInit, snapshot = false): Promise<Response> {
+  const operation: ArmExecutionResult["operation"] = {
+    stage: snapshot ? "snapshot" : "action", resourceId: new URL(url).pathname,
+  };
+  let response: Response;
+  try {
+    response = await fetch(url, init);
+  } catch {
+    throw new ArmOperationPendingError(
+      "ARM submission outcome is unknown after a transport failure. Do not resubmit; reconcile using Azure activity logs.",
+      operation,
+    );
+  }
+  if (response.status >= 500 || response.status === 408) {
+    throw new ArmOperationPendingError(
+      `ARM returned ${response.status}; mutation outcome is unconfirmed. Do not resubmit; reconcile using Azure activity logs.`,
+      operation,
+    );
+  }
+  return response;
+}
 
 /** Never label an accepted asynchronous mutation (or incomplete backup) as applied. */
 async function requireCompletedArmResponse(response: Response, snapshot = false): Promise<void> {
+  const pollingUrl = response.headers.get("azure-asyncoperation") ?? response.headers.get("operation-location")
+    ?? (response.status === 202 ? response.headers.get("location") : null);
+  const operation: ArmExecutionResult["operation"] = {
+    stage: snapshot ? "snapshot" : "action", ...(pollingUrl ? { pollingUrl } : {}),
+  };
   if (response.status === 202 || response.headers.has("azure-asyncoperation") || response.headers.has("operation-location")) {
     throw new ArmOperationPendingError(snapshot
       ? "Azure accepted the protective snapshot; completion requires reconciliation. Resource deletion was NOT attempted."
-      : "Azure accepted an asynchronous operation; completion requires reconciliation. Do not resubmit.");
+      : "Azure accepted an asynchronous operation; completion requires reconciliation. Do not resubmit.", operation);
   }
   if (response.status === 204 || response.status === 404) return;
-  const text = await response.clone().text();
-  if (!text && !snapshot) return;
-  const data = JSON.parse(text);
-  const state = data?.properties?.provisioningState ?? data?.status;
+  let data: Record<string, unknown>;
+  try {
+    const text = await response.clone().text();
+    if (!text && !snapshot) return;
+    const parsed: unknown = JSON.parse(text);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Invalid ARM response");
+    data = parsed as Record<string, unknown>;
+  } catch {
+    throw new ArmOperationPendingError(
+      "ARM mutation returned an unreadable completion response. Do not resubmit; reconcile using Azure activity logs.",
+      operation,
+    );
+  }
+  const properties = data.properties;
+  const state = (properties && typeof properties === "object" && "provisioningState" in properties
+    ? properties.provisioningState : undefined) ?? data.status;
   if (state && String(state).toLowerCase() !== "succeeded") {
     if (["failed", "canceled", "cancelled"].includes(String(state).toLowerCase())) {
       throw new Error("Azure reports the operation did not succeed.");
     }
     throw new ArmOperationPendingError(snapshot
       ? "Protective snapshot is not complete. Resource deletion was NOT attempted; reconcile the snapshot."
-      : "Azure operation is still running; reconcile before any retry.");
+      : "Azure operation is still running; reconcile before any retry.", operation);
   }
   if (snapshot && String(state).toLowerCase() !== "succeeded") {
     throw new Error("Azure did not confirm protective snapshot completion; resource deletion was NOT attempted.");
@@ -380,7 +431,7 @@ async function createDiskSnapshot(
   const snapshotName = `${diskName.slice(0, 60)}-presnap-${Date.now().toString(36)}`;
   const url = `${ARM}/subscriptions/${subscriptionId}/resourceGroups/${resourceGroup}/providers/Microsoft.Compute/snapshots/${snapshotName}?api-version=2023-01-02`;
 
-  const res = await fetch(url, {
+  const res = await submitArmMutation(url, {
     method: "PUT",
     redirect: "error",
     signal: AbortSignal.timeout(30_000),
@@ -389,7 +440,7 @@ async function createDiskSnapshot(
       location,
       properties: { creationData: { createOption: "Copy", sourceResourceId: diskId } },
     }),
-  });
+  }, true);
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -412,7 +463,7 @@ async function changeStorageTier(
   if (!token?.token) throw new Error("No se pudo obtener token de ARM");
 
   if (!["Hot", "Cool", "Cold"].includes(targetTier)) throw new Error("Unsupported storage tier.");
-  const res = await fetch(`${ARM}${resourceId}?api-version=2023-01-01`, {
+  const res = await submitArmMutation(`${ARM}${resourceId}?api-version=2023-01-01`, {
     method: "PATCH",
     redirect: "error",
     signal: AbortSignal.timeout(30_000),
@@ -432,7 +483,7 @@ async function resizeVirtualMachine(tenantId: string, resourceId: string, target
   const token = await credential.getToken(`${ARM}/.default`);
   if (!token?.token) throw new Error("No se pudo obtener token de ARM");
 
-  const res = await fetch(`${ARM}${resourceId}?api-version=2023-09-01`, {
+  const res = await submitArmMutation(`${ARM}${resourceId}?api-version=2023-09-01`, {
     method: "PATCH",
     redirect: "error",
     signal: AbortSignal.timeout(30_000),
@@ -451,7 +502,7 @@ async function deleteViaArm(tenantId: string, resourceId: string, resourceType: 
   const token = await credential.getToken(`${ARM}/.default`);
   if (!token?.token) throw new Error("No se pudo obtener token de ARM");
 
-  const res = await fetch(`${ARM}${resourceId}?api-version=${apiVersionFor(resourceType)}`, {
+  const res = await submitArmMutation(`${ARM}${resourceId}?api-version=${apiVersionFor(resourceType)}`, {
     method: "DELETE",
     redirect: "error",
     signal: AbortSignal.timeout(30_000),
@@ -476,12 +527,12 @@ export async function executeApprovedAction(
   item: PendingApprovalItem,
   options: { createBackupSnapshot?: boolean; location?: string } = {}
 ): Promise<ArmExecutionResult> {
+  let snapshotId: string | undefined;
   try {
     validateApprovalTarget(item);
     await exigirScopesDelTenant(tenantId, [item.resourceId]);
     const permission = await tenantPuedeEscribirEnAzure(tenantId);
     if (!permission.puede) throw new Error("Tenant delegation does not authorize Azure writes.");
-    let snapshotId: string | undefined;
 
     if (options.createBackupSnapshot && !canSnapshot(item.actionType, item.resourceType)) {
       throw new Error("This resource/action cannot create a protective snapshot.");
@@ -517,8 +568,17 @@ export async function executeApprovedAction(
         await changeStorageTier(tenantId, item.resourceId, item.targetConfiguration!);
         break;
       case "POWER_OFF": {
-        const { deallocateVirtualMachine } = await import("@/services/remediationService");
-        await deallocateVirtualMachine(tenantId, "approval-flow", item.subscriptionId, item.resourceGroup, item.resourceName);
+        const credential = await getAzureCredential(tenantId);
+        const token = await credential.getToken(`${ARM}/.default`);
+        if (!token?.token) throw new Error("No se pudo obtener token de ARM");
+        const response = await submitArmMutation(`${ARM}${item.resourceId}/deallocate?api-version=2023-09-01`, {
+          method: "POST",
+          redirect: "error",
+          signal: AbortSignal.timeout(30_000),
+          headers: { Authorization: `Bearer ${token.token}` },
+        });
+        if (!response.ok) throw new Error(`Azure rejected VM deallocation (${response.status}).`);
+        await requireCompletedArmResponse(response);
         break;
       }
       default:
@@ -533,8 +593,10 @@ export async function executeApprovedAction(
       snapshotId,
     };
   } catch (e) {
-    if (e instanceof ArmOperationPendingError) return { status: "Running", detail: e.message };
-    return { status: "Failed", detail: errorMessage(e) || "Unknown error executing the action on Azure" };
+    if (e instanceof ArmOperationPendingError) return {
+      status: "Running", detail: e.message, operation: e.operation, snapshotId,
+    };
+    return { status: "Failed", detail: errorMessage(e) || "Unknown error executing the action on Azure", snapshotId };
   }
 }
 
@@ -549,6 +611,98 @@ export async function listApprovals(tenantId: string): Promise<RawApprovalRow[]>
     [tenantId]
   );
   return (rows as RawApprovalRow[]) || [];
+}
+
+/** Preserve response evidence without releasing the original claim or changing its owner. */
+export async function recordPendingApprovalExecution(
+  tenantId: string,
+  id: string,
+  executionToken: string,
+  result: ArmExecutionResult,
+): Promise<boolean> {
+  if (result.status !== "Running") throw new Error("Only a running result can update a pending execution.");
+  const [update] = await pool.query<ResultSetHeader>(
+    `UPDATE RemediationRequests
+     SET arm_execution_result_json = JSON_SET(arm_execution_result_json,
+           '$.detail', ?, '$.operation', CAST(? AS JSON), '$.snapshotId', ?)
+     WHERE id = ? AND tenant_id = ? AND status = 'Pending'
+       AND JSON_UNQUOTE(JSON_EXTRACT(arm_execution_result_json, '$.status')) = 'Running'
+       AND JSON_UNQUOTE(JSON_EXTRACT(arm_execution_result_json, '$.executionToken')) = ?`,
+    [result.detail, JSON.stringify(result.operation ?? null), result.snapshotId ?? null, id, tenantId, executionToken],
+  );
+  return update.affectedRows === 1;
+}
+
+/** A single read-only poll of a durable operation; never resubmits or continues a deletion. */
+export async function reconcileApprovalExecution(
+  tenantId: string,
+  id: string,
+): Promise<ArmExecutionResult> {
+  const row = await getApprovalById(tenantId, id);
+  if (!row || statusFromDb(row.status) !== "PENDING") throw new Error("Approval is missing or already resolved.");
+  const claim = parseJsonField(row.arm_execution_result_json);
+  if (claim?.status !== "Running" || typeof claim.executionToken !== "string" || typeof claim.resolvedBy !== "string") {
+    throw new Error("Approval does not have a durable execution claim.");
+  }
+  const item = mapPendingRow(row);
+  validateApprovalTarget(item);
+  await exigirScopesDelTenant(tenantId, [item.resourceId]);
+  const operation = claim.operation;
+  if (!operation || typeof operation !== "object"
+    || !("pollingUrl" in operation) || typeof operation.pollingUrl !== "string") {
+    return {
+      status: "Running",
+      detail: "No durable ARM polling reference is available. Reconcile using Azure activity logs; do not resubmit.",
+    };
+  }
+  if (!("stage" in operation) || (operation.stage !== "action" && operation.stage !== "snapshot")) {
+    throw new Error("Invalid ARM operation stage.");
+  }
+  const rawUrl = operation.pollingUrl;
+  if (/[%\\\x00-\x20\x7f]/.test(rawUrl) || /(?:^|\/)\.{1,2}(?:\/|$)/.test(rawUrl)) {
+    throw new Error("Invalid ARM polling URL.");
+  }
+  const url = new URL(rawUrl, ARM);
+  const expectedSubscription = `/subscriptions/${item.subscriptionId}/`.toLowerCase();
+  const provider = /\/providers\/([^/]+)\//i.exec(url.pathname)?.[1];
+  if (url.origin !== ARM || url.username || url.password || url.hash
+    || !url.pathname.toLowerCase().startsWith(expectedSubscription)
+    || provider?.toLowerCase() !== item.resourceType.split("/")[0].toLowerCase()
+    || !/\/(?:operations|operationstatuses|operationresults|asyncoperations)\/[^/]+$/i.test(url.pathname)
+    || [...url.searchParams.keys()].some(key => key !== "api-version")) {
+    throw new Error("ARM polling URL is outside the approved operation boundary.");
+  }
+  await exigirScopesDelTenant(tenantId, [url.pathname]);
+  const credential = await getAzureCredential(tenantId);
+  const token = await credential.getToken(`${ARM}/.default`);
+  if (!token?.token) throw new Error("No ARM token is available for reconciliation.");
+  const response = await fetch(url.href, {
+    method: "GET", redirect: "error", signal: AbortSignal.timeout(30_000),
+    headers: { Authorization: `Bearer ${token.token}` },
+  });
+  if (!response.ok) throw new Error(`ARM reconciliation returned ${response.status}; the original claim is retained.`);
+  const body: unknown = await response.json();
+  if (!body || typeof body !== "object" || !("status" in body) || typeof body.status !== "string") {
+    throw new Error("ARM polling did not return an explicit operation status; the original claim is retained.");
+  }
+  const state = body.status.toLowerCase();
+  if (!["succeeded", "failed", "canceled", "cancelled"].includes(state)) {
+    return { status: "Running", detail: "ARM operation is not terminal. The original claim is retained; do not resubmit." };
+  }
+  const snapshotOnly = operation.stage === "snapshot";
+  const result: ArmExecutionResult = {
+    status: state === "succeeded" && !snapshotOnly ? "Succeeded" : "Failed",
+    detail: snapshotOnly
+      ? `Protective snapshot operation is ${state}. Resource deletion was NOT attempted; this request will not continue automatically.`
+      : `ARM confirmed ${item.actionType} operation ${state}.`,
+    ...(typeof claim.snapshotId === "string" ? { snapshotId: claim.snapshotId } : {}),
+  };
+  const resolved = await resolveApproval(
+    tenantId, id, result.status === "Succeeded" ? "APPROVED" : "FAILED", claim.resolvedBy,
+    { armResult: result, executionToken: claim.executionToken },
+  );
+  if (!resolved) throw new Error("Approval changed during reconciliation; no ARM mutation was submitted.");
+  return result;
 }
 
 export async function resolveApproval(

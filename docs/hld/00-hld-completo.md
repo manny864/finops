@@ -1865,7 +1865,7 @@ remediacion ya desplegada en ACA. El cierre INFRA-09 y la topologia del apartado
 
 | Frontera | Cambio implementado | Limite o gate restante |
 |---|---|---|
-| Aprobacion humana → ARM | Legacy/movil delegan al flujo canonico; cuatro ojos y claim SQL durable antes del efecto | Operaciones asincronas o interrumpidas conservan Running; conciliacion pendiente |
+| Aprobacion humana → ARM | Legacy/movil delegan al flujo canonico; cuatro ojos, claim SQL durable y conciliacion GET controlada por operador | Sin referencia durable se requiere Activity Logs; no reejecutar ni continuar DELETE automaticamente |
 | Integraciones → Internet | Transporte comun valida DNS y fija IP publica al socket; conserva TLS/SNI, bloquea redirects y acota tiempo/respuesta | Integraciones reales aun no verificadas tras despliegue |
 | Secretos → persistencia | Envelope v2 con clave dedicada; v1 solo con clave legacy explicita; migrador transaccional y dry-run | Backup/restore, referencias versionadas y migracion real por ambiente |
 | Tenant → Cost Management/ARM | Scope por request y paginacion; catalogo cerrado de acciones y validacion dentro del ejecutor | Custom Roles efectivos y matriz completa de aislamiento |
@@ -1886,9 +1886,16 @@ Rollback requiere imagen, datos y clave compatibles; no basta volver la imagen.
 ### 23.2 Pendientes que impiden declarar el cierre completo
 
 La politica de lectura por identidad del directorio frente a alta SaaS activa
-(STRIDE-03) no se cambia sin decision funcional. Faltan conciliador ARM, revision
+(STRIDE-03) no se cambia sin decision funcional. Faltan rollout del conciliador ARM, revision
 de permisos reales, matriz tenant/SQL/cache completa y segmentacion efectiva de
 jobs; [runbook de cron](../security/cron-credential-migration.md).
+
+Las respuestas ARM aceptadas o inciertas (timeout, transporte, 408/5xx o cuerpo
+ilegible despues de enviar) conservan `Running` y su propietario original. La
+interfaz no muestra exito ni ofrece aprobar/rechazar/reintentar esas solicitudes.
+`RECONCILE` consulta una vez una referencia ARM validada; no es un scheduler ni
+envia mutaciones. Un snapshot conciliado no reanuda el borrado. Una interrupcion
+antes de persistir la referencia exige investigacion manual en Activity Logs.
 
 INFRA-11 conserva dos decisiones abiertas: firma privada (GitHub Pro no habilita
 attestations privadas; no se autorizan pagos ni publicacion de datos en un log de

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 const mocks = vi.hoisted(() => ({
   role: vi.fn(), tier: vi.fn(), row: vi.fn(), claim: vi.fn(), execute: vi.fn(),
-  resolve: vi.fn(), scopes: vi.fn(), log: vi.fn(), notify: vi.fn(),
+  resolve: vi.fn(), pending: vi.fn(), reconcile: vi.fn(), scopes: vi.fn(), log: vi.fn(), notify: vi.fn(),
 }));
 vi.mock("@/modules/storage/db", () => ({ default: {}, initializeDatabase: vi.fn() }));
 vi.mock("@/lib/requestAuth", () => ({
@@ -24,6 +24,8 @@ vi.mock("@/services/azureRemediationApprovals.service", () => ({
   statusFromDb: (status: string) => status.toUpperCase(),
   getApprovalById: mocks.row, claimApprovalExecution: mocks.claim,
   executeApprovedAction: mocks.execute, resolveApproval: mocks.resolve,
+  recordPendingApprovalExecution: mocks.pending,
+  reconcileApprovalExecution: mocks.reconcile,
 }));
 import { AuthError } from "@/lib/requestAuth";
 import { PATCH } from "@/app/api/remediation/workflow/route";
@@ -45,6 +47,8 @@ beforeEach(() => {
   mocks.claim.mockResolvedValue("claim-token");
   mocks.execute.mockResolvedValue({ status: "Succeeded", detail: "done" });
   mocks.resolve.mockResolvedValue(true);
+  mocks.pending.mockResolvedValue(true);
+  mocks.reconcile.mockResolvedValue({ status: "Running", detail: "Still running" });
   mocks.notify.mockResolvedValue(undefined);
 });
 describe("canonical resolution on legacy and current routes", () => {
@@ -82,5 +86,33 @@ describe("canonical resolution on legacy and current routes", () => {
     expect(mocks.claim.mock.invocationCallOrder[0]).toBeLessThan(mocks.execute.mock.invocationCallOrder[0]);
     expect(mocks.resolve).toHaveBeenCalledWith("tenant-a", "7", "APPROVED", "admin@example.test",
       expect.objectContaining({ executionToken: "claim-token" }));
+  });
+  it("persists pending ARM evidence with its original claim instead of resolving or retrying", async () => {
+    const pending = { status: "Running", detail: "Azure accepted", operation: { stage: "action", pollingUrl: "https://management.azure.com/operation" } };
+    mocks.execute.mockResolvedValue(pending);
+    const response = await POST(request({ approvalId: 7, decision: "APPROVE", tenantId: "tenant-a" }));
+    expect(response.status).toBe(202);
+    expect(mocks.pending).toHaveBeenCalledWith("tenant-a", "7", "claim-token", pending);
+    expect(mocks.resolve).not.toHaveBeenCalled();
+    expect(mocks.execute).toHaveBeenCalledTimes(1);
+    expect(await response.json()).toMatchObject({ success: false, armExecutionStatus: "Running" });
+  });
+  it("does not announce accepted persistence when pending result loses ownership", async () => {
+    mocks.execute.mockResolvedValue({ status: "Running", detail: "Azure accepted" });
+    mocks.pending.mockResolvedValue(false);
+    expect((await POST(request({ approvalId: 7, decision: "APPROVE", tenantId: "tenant-a" }))).status).toBe(409);
+    expect(mocks.resolve).not.toHaveBeenCalled();
+  });
+  it("reconciliation requires the same Admin/Owner and tier guards but never submits a mutation", async () => {
+    const response = await POST(request({ approvalId: 7, decision: "RECONCILE", tenantId: "tenant-a" }));
+    expect(response.status).toBe(202);
+    expect(mocks.role).toHaveBeenCalledWith(expect.anything(), "tenant-a", ["Owner", "Admin"]);
+    expect(mocks.tier).toHaveBeenCalledWith(expect.anything(), "tenant-a", "Business");
+    expect(mocks.reconcile).toHaveBeenCalledWith("tenant-a", "7");
+    expect(mocks.execute).not.toHaveBeenCalled();
+    expect(mocks.claim).not.toHaveBeenCalled();
+    mocks.role.mockRejectedValue(new AuthError("Forbidden", 403));
+    expect((await POST(request({ approvalId: 7, decision: "RECONCILE", tenantId: "tenant-a" }))).status).toBe(403);
+    expect(mocks.reconcile).toHaveBeenCalledTimes(1);
   });
 });

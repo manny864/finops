@@ -10,7 +10,7 @@ vi.mock("@/modules/storage/db", () => ({
   default: { query: (...args: Parameters<Pool["query"]>) => db.query(...args) },
 }));
 vi.mock("@/lib/azure", () => ({ getAzureCredential: vi.fn() }));
-import { claimApprovalExecution, getApprovalById, resolveApproval } from "@/services/azureRemediationApprovals.service";
+import { claimApprovalExecution, getApprovalById, recordPendingApprovalExecution, resolveApproval } from "@/services/azureRemediationApprovals.service";
 
 // Explicit local, disposable server only; never use application DB credentials.
 describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("real MySQL security persistence", () => {
@@ -52,12 +52,28 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("real MySQL security persisten
       claimApprovalExecution("tenant-a", "1", "approver@example.test", row)));
     const winner = claims.find((token): token is string => token !== null)!;
     expect(claims.filter(Boolean)).toHaveLength(1);
+    const pending = {
+      status: "Running" as const, detail: "Synthetic accepted operation",
+      operation: { stage: "action" as const, pollingUrl: "https://management.azure.com/synthetic-operation" },
+      snapshotId: "/synthetic-snapshot",
+    };
+    expect(await recordPendingApprovalExecution("tenant-b", "1", winner, pending)).toBe(false);
+    expect(await recordPendingApprovalExecution("tenant-a", "1", "not-owner", pending)).toBe(false);
+    expect(await recordPendingApprovalExecution("tenant-a", "1", winner, pending)).toBe(true);
+    const updated = (await getApprovalById("tenant-a", "1"))!.arm_execution_result_json;
+    const persisted = typeof updated === "string" ? JSON.parse(updated) : updated;
+    expect(persisted).toMatchObject({
+      status: "Running", executionToken: winner, resolvedBy: "approver@example.test",
+      detail: pending.detail, operation: pending.operation, snapshotId: pending.snapshotId,
+    });
+    expect(persisted.startedAt).toEqual(expect.any(String));
     expect(await resolveApproval("tenant-a", "1", "REJECTED", "other@example.test")).toBe(false);
     expect(await resolveApproval("tenant-a", "1", "APPROVED", "approver@example.test", { executionToken: "not-owner" })).toBe(false);
     expect(await resolveApproval("tenant-a", "1", "APPROVED", "approver@example.test", {
       executionToken: winner, armResult: { status: "Succeeded", detail: "synthetic" },
     })).toBe(true);
     expect(await resolveApproval("tenant-a", "1", "APPROVED", "approver@example.test", { executionToken: winner })).toBe(false);
+    expect(await recordPendingApprovalExecution("tenant-a", "1", winner, pending)).toBe(false);
     expect(await getApprovalById("tenant-a", "2")).toBeNull();
   });
   const runMigration = (args: string[]) => promisify(execFile)(process.execPath,

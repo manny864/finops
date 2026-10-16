@@ -1,6 +1,6 @@
 /**
  * GET  /api/governance/approvals — peticiones pendientes e historial de decisiones.
- * POST /api/governance/approvals — resuelve una petición (aprobar o rechazar).
+ * POST /api/governance/approvals — aprueba/rechaza o consulta una ejecución ya enviada.
  *
  * Flujo de cuatro ojos: quien solicita el cambio no es quien lo aprueba, y la
  * aprobación es lo que dispara la llamada a ARM. La implementación anterior
@@ -29,6 +29,8 @@ import {
   listApprovals,
   mapHistoryRow,
   mapPendingRow,
+  recordPendingApprovalExecution,
+  reconcileApprovalExecution,
   resolveApproval,
   statusFromDb,
 } from "@/services/azureRemediationApprovals.service";
@@ -83,8 +85,8 @@ export async function POST(request: NextRequest) {
 
     if (!tenantId) return NextResponse.json({ error: "Falta tenantId" }, { status: 400 });
     if (!approvalId) return NextResponse.json({ error: "Falta approvalId" }, { status: 400 });
-    if (decision !== "APPROVE" && decision !== "REJECT") {
-      return NextResponse.json({ error: "decision inválida (APPROVE / REJECT)" }, { status: 400 });
+    if (decision !== "APPROVE" && decision !== "REJECT" && decision !== "RECONCILE") {
+      return NextResponse.json({ error: "decision inválida (APPROVE / REJECT / RECONCILE)" }, { status: 400 });
     }
     if (decision === "REJECT" && !String(rejectionReason || "").trim()) {
       // Un rechazo sin motivo deja al solicitante sin saber qué corregir y
@@ -99,7 +101,9 @@ export async function POST(request: NextRequest) {
         message:
           decision === "APPROVE"
             ? "Aprobación simulada en el entorno de demostración: no se ejecutó nada sobre Azure."
-            : "Rechazo registrado en el entorno de demostración.",
+            : decision === "RECONCILE"
+              ? "Conciliación simulada: no se consultó ni modificó Azure."
+              : "Rechazo registrado en el entorno de demostración.",
       });
     }
 
@@ -114,6 +118,16 @@ export async function POST(request: NextRequest) {
     }
 
     const item = mapPendingRow(row);
+
+    if (decision === "RECONCILE") {
+      const result = await reconcileApprovalExecution(tenantId, String(approvalId));
+      await logAction(tenantId, resolver, `RECONCILE_${item.actionType}`, item.resourceId, result.status.toUpperCase());
+      return NextResponse.json({
+        success: result.status === "Succeeded",
+        status: result.status === "Running" ? "PENDING" : result.status === "Succeeded" ? "APPROVED" : "FAILED",
+        armExecutionStatus: result.status, message: result.detail,
+      }, { status: result.status === "Running" ? 202 : 200 });
+    }
 
     // Cuatro ojos: el solicitante no puede aprobar su propio pedido. Los
     // motores automáticos (advisor-bot, rightsizing-engine) nunca coinciden con
@@ -163,6 +177,11 @@ export async function POST(request: NextRequest) {
     });
     if (armResult.status === "Running") {
       // Keep the durable claim. Automatic retry could duplicate an accepted ARM operation.
+      const recorded = await recordPendingApprovalExecution(tenantId, String(approvalId), executionToken, armResult);
+      if (!recorded) {
+        console.error("[Approvals] Pending ARM evidence lost ownership:", { tenantId, approvalId });
+        return NextResponse.json({ error: "El resultado ARM requiere conciliación; no reenviar la acción" }, { status: 409 });
+      }
       await logAction(tenantId, resolver, `SUBMITTED_${item.actionType}`, item.resourceId, "RUNNING");
       return NextResponse.json({
         success: false, status: "PENDING", armExecutionStatus: "Running",

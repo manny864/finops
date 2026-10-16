@@ -6585,11 +6585,25 @@ El claim usa CAS SQL sobre Pending/JSON vacio y guarda executionToken,
 startedAt y resolvedBy. Compara objetivo/payload y separa solicitante/ejecutor;
 solo su token puede finalizar. No requiere cambio de esquema.
 
-HTTP 202/headers de operacion o provisioningState no terminal conservan Running:
-no se anuncian como exito ni liberan un retry capaz de duplicar el efecto.
-Un snapshot no confirmado Succeeded impide borrar. Interrupciones y LRO requieren
-conciliacion; aun no existe un conciliador automatico. MySQL 8.4 aislado verifico
-concurrencia de 12 claims, CAS y rollback de migracion con datos sinteticos.
+HTTP 202/headers de operacion, provisioningState no terminal y resultados inciertos
+por transporte, timeout, 408/5xx o completion ilegible conservan Running. POWER_OFF
+usa POST ARM limitado a 30 s, no un poller SDK ilimitado. `JSON_SET` persiste
+operation/detail/snapshotId con tenant/token y mantiene executionToken/startedAt/
+resolvedBy originales. El DTO solo expone armExecutionStatus, nunca token o URL.
+La tarjeta muestra estado informativo y Consultar ejecucion, sin aprobar/rechazar
+ni incluir Running en aprobacion masiva. HTTP 202 nunca produce toast de exito.
+
+`decision: RECONCILE` exige Owner/Admin y tier Business, revalida target/scope y
+realiza un solo GET de la URL durable: origen ARM exacto, sin userinfo/hash,
+suscripcion y namespace del recurso, ruta de operacion y solo query api-version.
+Rechaza escapes, dot-segments, controles y redirects antes de enviar credenciales.
+Solo un status explicito terminal finaliza mediante CAS del token original,
+atribuido al aprobador original; el audit registra al operador que consulta.
+HTTP/JSON/transporte fallidos conservan el claim. Sin referencia durable se
+requiere Activity Logs, nunca reenviar la mutacion. Un snapshot terminado deja
+la remediacion Failed con DELETE no ejecutado; no reanuda el borrado.
+No hay conciliacion automatica programada. MySQL 8.4 aislado verifico concurrencia
+de 12 claims, CAS, JSON_SET sin perder propietario y rollback con datos sinteticos.
 
 ### 52.2 Egress y secretos
 
