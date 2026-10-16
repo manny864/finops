@@ -15,7 +15,7 @@ describe("immutable deployment references", () => {
         expect(workflow).toContain('REF="$REPOSITORY@$DIGEST"');
         expect(workflow).toContain("select(test(\"^sha256:[0-9a-f]{64}$\"))");
         expect(workflow).toContain("select(.spdxVersion? and .documentNamespace?)");
-        expect(workflow).toContain("select(.buildType? and .materials?)");
+        expect(workflow).toContain("select((.buildType? and .materials?) or (.buildDefinition?.buildType? and .buildDefinition?.resolvedDependencies?))");
         expect(workflow).toContain('--image "$MIGRATOR_IMAGE"');
         expect(workflow).toContain('--image "$RUNTIME_IMAGE"');
         expect(workflow).not.toMatch(/docker push .* &|--image .+:\$\{\{/);
