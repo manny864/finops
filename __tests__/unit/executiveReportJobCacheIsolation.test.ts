@@ -9,6 +9,7 @@ const { query, aggregate } = vi.hoisted(() => ({
 vi.mock("@/modules/storage/db", () => ({
     default: { query }, initializeDatabase: async () => {},
 }));
+vi.mock("@/lib/scopeDelTenant", () => ({ exigirSuscripcionDelTenant: vi.fn(async () => {}) }));
 vi.mock("@/services/executiveReportGenerator.service", () => ({
     aggregateExecutiveReportData: aggregate,
     generateExecutiveAssessment: vi.fn(),

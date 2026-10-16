@@ -2048,3 +2048,11 @@ no es un hit; demo conserva respuesta sintetica sin metadata privada y real
 consulta por id+tenant. Seis regresiones, incluidos handlers reales;
 suite sin servicios6262pass/188skip. No se repite SQL/Redis/Blob en este bloque;
 ultima matriz real118casos en dc04cd0. Detalle LLD52.18, sin rollout.
+
+Inicio y worker de reportes ejecutivos ya comparten un alcance coherente:
+TENANT_ALL fuerza scopeId=All, el servicio valida pertenencia antes de
+persistir y el worker antes de recolectar. El body contradictorio no se
+convierte en consulta de suscripcion sin validacion. Fallo worker marca
+FAILED sin datos. El helper conserva cache de pertenencia60s; no implica
+revocacion inmediata ni reautorizacion humana al enviar. Once regresiones,
+suite sinservicios6273pass/188skip;detalleLLD52.19,sinrollout.

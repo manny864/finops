@@ -12,6 +12,8 @@
 import pool, { initializeDatabase } from '@/modules/storage/db';
 import { guardAiMarkdown } from '@/lib/aiOutputGuard';
 import { isMockTenant } from '@/lib/mockData';
+import { exigirSuscripcionDelTenant } from '@/lib/scopeDelTenant';
+import { AuthError } from '@/lib/requestAuth';
 import {
     aggregateExecutiveReportData,
     generateExecutiveAssessment,
@@ -65,7 +67,7 @@ export async function startExecutiveReportJob(
     const {
         tenantId,
         scope,
-        scopeId = 'All',
+        scopeId: requestedScopeId = 'All',
         scopeName = 'Tenant completo (todas las suscripciones)',
         locale = 'es',
         triggerAiAnalysis = true,
@@ -73,6 +75,14 @@ export async function startExecutiveReportJob(
         requestedByEmail = 'user@cscloudsolutions.com',
     } = payload;
 
+    if (!['TENANT_ALL', 'SUBSCRIPTION', 'RESOURCE_GROUP'].includes(scope)) {
+        throw new AuthError('Alcance de reporte inválido.', 400, 'INVALID_REPORT_SCOPE');
+    }
+    if (typeof requestedScopeId !== 'string' || !requestedScopeId.trim()) {
+        throw new AuthError('scopeId inválido.', 400, 'INVALID_REPORT_SCOPE');
+    }
+    const scopeId = scope === 'TENANT_ALL' || requestedScopeId.toLowerCase() === 'all'
+        ? 'All' : requestedScopeId;
     const isMock = isMockTenant(tenantId);
 
     if (isMock) {
@@ -105,6 +115,7 @@ export async function startExecutiveReportJob(
     }
 
     // Tenant Real: Persistencia en MySQL y ejecución en segundo plano
+    await exigirSuscripcionDelTenant(tenantId, scopeId);
     await initializeDatabase();
 
     const [insertResult] = await pool.query(
@@ -257,6 +268,7 @@ async function runRealJobProcess(
     };
 
     try {
+        await exigirSuscripcionDelTenant(tenantId, scopeSubscriptionId);
         await update('COLLECTING_METRICS');
         const scope = (scopeSubscriptionId === 'All' ? 'TENANT_ALL' : 'SUBSCRIPTION') as ExecutiveReportScope;
         const aggregatedData = await aggregateExecutiveReportData(tenantId, scope, scopeSubscriptionId);

@@ -7090,3 +7090,33 @@ Suite sin servicios:6262pass/188skip,563archivos correctos/11omitidos;
 los gates MySQL/Redis/Blob se omiten deliberadamente en esta corrida.
 Ultima matriz real previa:118casos y6383pass/76skip en dc04cd0.
 Lint/typecheck/build nativo correctos. Pendiente rollout; no cierre global.
+
+### 52.19 Alcance coherente entre inicio y worker ejecutivo
+
+El inicio HTTP comprobaba pertenencia segun scope, pero el worker inferia
+TENANT_ALL/SUBSCRIPTION solo desde scope_subscription_id. Un body TENANT_ALL
+con scopeId distinto de All podia eludir la comprobacion HTTP y convertirse
+despues en trabajo de suscripcion. startExecutiveReportJob ahora valida el
+catalogo runtime de scope y scopeId string no vacio; TENANT_ALL siempre
+persiste/ejecuta All, y all sin distinguir mayusculas se normaliza a All.
+Otros scopes conservan su interpretacion previa como suscripcion seleccionada;
+no se agrega soporte nuevo de Resource Group.
+
+Antes del INSERT real, el servicio exige pertenencia mediante
+exigirSuscripcionDelTenant; el worker la vuelve a comprobar antes de cualquier
+actualizacion de progreso o recoleccion. Un rechazo previo no crea job;
+si falla en worker, queda FAILED con error/log y no se recolectan datos.
+Es el helper compartido, con su cache de pertenencia de 60 segundos: no se
+afirma revocacion Azure inmediata ni revalidacion continua durante la ejecucion.
+Esta comprobacion no sustituye la politica de membresia humana ni una
+reautorizacion del autor antes del envio, que quedan fuera de este bloque.
+
+Once regresiones siempre activas comprueban normalizacion All/TENANT_ALL,
+handler real con body contradictorio, rechazo404 en handler, orden de
+validacion antes de INSERT/recoleccion, fallo worker sin datos y entradas
+runtime invalidas. SQL, permisos Azure y recoleccion estan sustituidos;
+el worker queda pendiente sin red para las rutas exitosas. Test de cache
+existente adapta solo el permiso sintetico para mantener su alcance aislado.
+Suite sin servicios6273pass/188skip,564archivos correctos/11omitidos;
+lint/typecheck/build nativo correctos. No se repiten gates SQL/Redis/Blob;
+ultima matriz real previa118casos en dc04cd0. Pendiente rollout/global.
