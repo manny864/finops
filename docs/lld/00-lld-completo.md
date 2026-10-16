@@ -387,7 +387,7 @@ sequenceDiagram
     Dev->>main: merge/push
     main->>CI: Trigger ci.yml (sólo tests)
     main->>Deploy: Trigger deploy-azure.yml
-    Deploy->>Azure: docker build + push (2 tags: runtime + builder)
+    Deploy->>Azure: docker build + push (runtime + migrator por digest)
     Deploy->>Azure: Container App Job (migraciones)
     Deploy->>Azure: Nueva revisión Container App
     Deploy->>Azure: Health check /api/health
@@ -396,12 +396,12 @@ sequenceDiagram
 
 ### 7.3 Docker
 
-- **Multi-stage build** ([Dockerfile](file:///Users/manuelchavez/Documents/FinOpsProyect/Dockerfile)): `deps` → `builder` → `migrator` / `runner`
+- **Multi-stage build** ([Dockerfile](file:///Users/manuelchavez/Documents/FinOpsProyect/Dockerfile)): `deps` → `builder` → `runner`; rama `deps` → `migrator` sin compilar Next
 - **Base:** `node:22-alpine` fijada a digest verificado
 - **Output:** `standalone` (Next.js)
 - **BuildKit:** SBOM/procedencia OCI y deploy por digest (§52.4, pendiente de rollout)
 - **Configuracion publica:** seis valores de identidad/Paddle en runtime, no build args; prod importa los digests de staging (§52.4)
-- **User:** `nextjs` (uid 1001, sin root)
+- **User:** runtime `nextjs` (uid 1001), migrador `migrate` (uid 1002), sin root
 
 ---
 
@@ -6693,7 +6693,24 @@ SSR y CSP correspondieron al runtime y no al build. Terraform valido en Linux
 con checksums comprometidos; el cache nativo macOS fallo su checksum de AzAPI y
 no se debilito el lock. Otro build Docker amd64 con heap acotado tambien fallo
 por memoria (~3,8 GiB disponibles); se retiro ese ajuste porque no lo resolvio.
-Smoke de imagen final, import real y rollout ACR/ACA siguen pendientes.
+El migrador se construye ahora desde `deps`, no `builder`. Copia solo
+`tsconfig.json`, `scripts/migrate.ts`, `src/modules/storage/db.ts`,
+`src/modules/storage/migrations.ts` y `migrations/`; hereda package/lock y
+`node_modules` completo. No incluye `.next` ni `src/app`, pero conserva
+dependencias de desarrollo. Código root-owned, usuario migrate uid 1002 y
+home escribible. El smoke de deploy exige estos limites de empaquetado.
+
+Build amd64 del migrador correcto. Prueba real de CLI con MySQL 8.4 desechable
+y SQL sintetico: 1 aplicada, 1 omitida al repetir y SQL invalido con exit 1,
+sin entrada de exito para el archivo fallido. Verificadas las 159 SQL incluidas;
+no se ejecutaron contra datos reales ni se migraron claves.
+El OCI local verifica checksums, manifest amd64
+`sha256:137161fb5b6858373b9f52ef51bb841aceaaf7dc5c14bb325393538bbb78a693`,
+usuario y enlace de attestations: SBOM SPDX con 1481 paquetes y procedencia
+SLSA v1. No es evidencia de publicacion ni de firma. El intento runtime
+con webpack tambien fallo por memoria y se retiro el cambio de compilador.
+Smoke de runtime final, escaneo de ambas imagenes, import real y rollout
+ACR/ACA siguen pendientes.
 No se crea otro runner ni se habilita codigo PR en las VMs existentes para
 sortear billing. No se cambian claves/datos reales ni se habilita modo estricto
 sin la provision de credenciales y permisos correspondientes.

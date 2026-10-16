@@ -22,12 +22,12 @@ COPY . .
 # No environment-specific identity or billing configuration enters the build.
 RUN npm run build
 
-# Imagen del job de migraciones (INFRA-08). Necesita scripts/, migraciones, tsx y
-# node_modules completos, que el runner podado no tiene; por eso parte de builder.
-# Corre sin root. A propósito NO se hace chown de /app: el código y node_modules
-# quedan de root y el usuario sólo los lee. Escribe únicamente en su $HOME
-# (logs/cache de npm) y en /tmp (cache de tsx).
-FROM builder AS migrator
+# El CLI solo requiere estos dos modulos, SQL y tsx. No compila ni copia el build web.
+FROM deps AS migrator
+COPY tsconfig.json ./
+COPY scripts/migrate.ts ./scripts/migrate.ts
+COPY src/modules/storage/db.ts src/modules/storage/migrations.ts ./src/modules/storage/
+COPY migrations ./migrations
 RUN addgroup --system --gid 1002 migrate \
  && adduser --system --uid 1002 --ingroup migrate --home /home/migrate migrate
 USER migrate

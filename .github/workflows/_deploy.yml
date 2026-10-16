@@ -174,7 +174,7 @@ jobs:
             '{schemaVersion: 2, publicConfiguration: "runtime-v1", sha: $sha, environment: $environment, runtime: $runtime, migrator: $migrator, run: $run, signed: false}' \
             >image-evidence/release.json
           docker run --rm --network none --entrypoint sh "$MIGRATOR_IMAGE" -c \
-            'test "$(id -u)" != 0 && test -f scripts/migrate.ts && test -d node_modules/tsx'
+            'test "$(id -u)" != 0 && test ! -w /app/scripts/migrate.ts && test -f src/modules/storage/migrations.ts && test -f migrations/20260628-001-core-bootstrap.sql && test -d node_modules/tsx && test ! -d .next && test ! -d src/app'
           NAME="runtime-smoke-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           trap 'docker rm -f "$NAME" >/dev/null' EXIT
           docker run -d --name "$NAME" --network none -e SKIP_DB_INIT=1 \

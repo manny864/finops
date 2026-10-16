@@ -248,19 +248,25 @@ configuracion runtime exacta antes de migrar. No se amplian permisos ACR.
 
 **Pendiente:** rollout/import y evidencia en ACR/ACA; firmas y verificacion criptografica. Las attestations privadas de GitHub requieren Enterprise Cloud, no disponible con Free/Pro/Team; cuenta actual Pro confirmada. No se habilita un servicio publico de firma/transparencia ni se cambian pagos. SBOM/procedencia BuildKit no son una firma. No se cierra INFRA-11 hasta resolver firma y gates operativos. El mismo build nativo sirvio dos configuraciones sinteticas de runtime y CSP correctas, sin recompilar; no equivale a evidencia de imagen validada. Otro intento Docker amd64 con heap acotado tambien fallo por memoria (~3,8 GiB); se retiro el ajuste al no resolverlo.
 
-**Stage implementado**, entre builder y runner:
+**Stage implementado:** rama independiente desde `deps`, sin compilar la app web:
 
 ```dockerfile
-FROM builder AS migrator
+FROM deps AS migrator
+COPY tsconfig.json ./
+COPY scripts/migrate.ts ./scripts/migrate.ts
+COPY src/modules/storage/db.ts src/modules/storage/migrations.ts ./src/modules/storage/
+COPY migrations ./migrations
 RUN addgroup --system --gid 1002 migrate \
  && adduser --system --uid 1002 --ingroup migrate --home /home/migrate migrate
 USER migrate
 CMD ["npm", "run", "migrate"]
 ```
 
-En el build de migraciones de `_deploy.yml`, cambiar `--target builder` por `--target migrator` conservando tags y argumentos requeridos. La imagen de runtime sigue usando `USER nextjs`; no cambiar esa defensa.
+`_deploy.yml` construye con `--target migrator` y comprueba CLI, modulos, directorio SQL, codigo sin escritura y ausencia de `.next` y `src/app`. La imagen de runtime sigue usando `USER nextjs`; no cambiar esa defensa.
 
-Esta corrección incremental elimina root, pero conserva superficie del builder. Como siguiente paso, empaquetar sólo migrador, scripts, SQL y dependencias necesarias, sin toolchain completo. Mantener código de runtime sin escritura cuando sea posible; conceder escritura sólo a cache/temp necesarias de Next. No activar filesystem read-only sin comprobar soporte de ACA y ubicaciones de escritura reales.
+El migrador ya no hereda fuentes ni salida del builder. Conserva `node_modules` completo de `deps`, incluidas dependencias de desarrollo: no es aun un paquete minimo. Mantener código de runtime sin escritura cuando sea posible; conceder escritura sólo a cache/temp necesarias de Next. No activar filesystem read-only sin comprobar soporte de ACA y ubicaciones de escritura reales.
+
+**Evidencia local del empaquetado (2026-10-15):** imagen amd64 del migrador construida; uid 1002, codigo no escribible, home escribible y 159 SQL presentes. CLI probado con MySQL 8.4 desechable y SQL sintetico: aplica una vez, omite al repetir y devuelve exit 1 ante SQL invalido sin registrarlo como aplicado. Esto no ejecuta las 159 migraciones reales ni migra claves. Archivo OCI local con checksums, SBOM SPDX (1481 paquetes) y procedencia SLSA vinculados al manifest amd64 `sha256:137161fb5b6858373b9f52ef51bb841aceaaf7dc5c14bb325393538bbb78a693`; no prueba publicacion en ACR ni firma. El intento runtime con webpack tambien fallo por memoria; se retiro el cambio de compilador. Runtime final y escaneo de ambas imagenes siguen pendientes, sin ampliar Docker ni detener contenedores ajenos.
 
 `.dockerignore` excluye `.env`/`.env.*`; no se confirmó incorporación de esos archivos al builder. No-root no equivale a protección ante escape de contenedor. Escanear **ambas** imágenes finales y paquetes transitivos.
 

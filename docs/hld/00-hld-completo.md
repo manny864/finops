@@ -1871,7 +1871,7 @@ remediacion ya desplegada en ACA. El cierre INFRA-09 y la topologia del apartado
 | Tenant → Cost Management/ARM | Scope por request y paginacion; catalogo cerrado de acciones y validacion dentro del ejecutor | Custom Roles efectivos y matriz completa de aislamiento |
 | Job → API interna | Clave por nombre fijo de job y origen self-fetch configurado, nunca Host/puerto entrante | Compatibilidad con root temporal; faltan identidades/referencias por job y modo estricto |
 | Datos → consultas | Escape KQL compartido, filtros OR agrupados, limites y catalogos runtime | Cobertura parcial; no certifica todas las consultas ni caches |
-| Build → ACA | Base/frontend por digest; SBOM/procedencia BuildKit; staging construye y prod importa los mismos digests, sin rebuild | Rollout/import ACR pendiente; metadata no firmada; smoke de imagen final bloqueado por memoria local |
+| Build → ACA | Base/frontend por digest; SBOM/procedencia BuildKit; migrador independiente de la compilacion web; staging construye y prod importa los mismos digests, sin rebuild | Rollout/import ACR pendiente; metadata no firmada; imagen final runtime bloqueada por memoria local |
 
 ### 23.1 Gate de despliegue y compatibilidad
 
@@ -1912,9 +1912,16 @@ somete a smoke antes de migrar. Evidencia vieja de builds por ambiente se
 rechaza; su ausencia o vencimiento requiere un nuevo deploy staging.
 Esto esta implementado, no operado en ACR/ACA. El mismo build nativo sirvio dos
 configuraciones sinteticas distintas, con identidad SSR y CSP sandbox/live
-correctas. Los builds locales de imagen quedaron
-bloqueados por memoria de Docker (~3,8 GiB); el build nativo de aplicacion paso,
-pero no sustituye la validacion de las dos imagenes finales.
+correctas. La imagen amd64 del migrador ahora se construye desde `deps`, sin
+compilar Next ni copiar fuentes web. Se comprobaron uid 1002, codigo no
+escribible, 159 SQL y CLI contra MySQL desechable con datos sinteticos
+(aplicar, omitir al repetir y fallo explicito). SBOM y procedencia estan
+presentes en el OCI local; no son firma ni evidencia de ACR.
+Se conserva `node_modules` completo, no dependencias minimas.
+El runtime sigue bloqueado por memoria de Docker (~3,8 GiB), incluso al probar
+webpack; se retiro ese cambio. El build nativo de aplicacion paso,
+pero no sustituye la validacion de runtime final. Escaneo final de ambas
+imagenes, migraciones reales y rollout siguen pendientes.
 
 CI/deploy hosted sigue bloqueado por pagos/limite de gasto, confirmado en el run
 `38829100160`. No se trasladan PRs a las VMs confiables ni se rebaja ningun gate.

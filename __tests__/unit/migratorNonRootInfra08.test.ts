@@ -1,6 +1,6 @@
 /**
  * INFRA-08: el job de migraciones no corre como root.
- *  - Dockerfile: stage `migrator` (FROM builder) con USER no-root y sin chown de /app, así el
+ *  - Dockerfile: stage `migrator` (FROM deps) con USER no-root y sin chown de /app, así el
  *    código y node_modules quedan de sólo lectura para el proceso.
  *  - _deploy.yml construye la imagen de migraciones con --target migrator, nunca builder.
  *  - El runner sigue con USER nextjs.
@@ -28,8 +28,12 @@ const usuarios = (stage: string) =>
 describe("Dockerfile: stage migrator", () => {
   const migrator = stages.get("migrator") ?? "";
 
-  it("existe y parte de builder", () => {
-    expect(migrator).toMatch(/^FROM builder AS migrator/);
+  it("parte de deps sin compilar ni copiar el build o toda la app", () => {
+    expect(migrator).toMatch(/^FROM deps AS migrator/);
+    expect(migrator).not.toMatch(/COPY --from=builder|COPY \. \.|npm run build|\.next/);
+    expect(migrator).toContain("COPY scripts/migrate.ts ./scripts/migrate.ts");
+    expect(migrator).toContain("COPY src/modules/storage/db.ts src/modules/storage/migrations.ts ./src/modules/storage/");
+    expect(migrator).toContain("COPY migrations ./migrations");
   });
 
   it("termina con un USER no-root", () => {
@@ -45,6 +49,15 @@ describe("Dockerfile: stage migrator", () => {
   it("corre npm run migrate", () => {
     expect(migrator).toMatch(/^CMD \["npm", "run", "migrate"\]/m);
   });
+  it("los modulos copiados no dependen de otros archivos de la app", () => {
+    for (const file of ["src/modules/storage/db.ts", "src/modules/storage/migrations.ts"]) {
+      const source = leer(file);
+      const relative = [
+        ...source.matchAll(/(?:from\s+|import\()["'](\.[^"']+|@\/[^"']+)["']/g),
+      ].map((match) => match[1]);
+      expect(relative.every((name) => name === "./db" || name === "./migrations")).toBe(true);
+    }
+  });
 
   it("el runner sigue siendo el último stage y corre como nextjs", () => {
     expect([...stages.keys()].at(-1)).toBe("runner");
@@ -58,5 +71,11 @@ describe("_deploy.yml: imagen de migraciones", () => {
   it("se construye con --target migrator", () => {
     const targets = [...wf.matchAll(/--target\s+(\S+)/g)].map((m) => m[1]);
     expect(targets).toEqual(["migrator", "runner"]);
+  });
+
+  it("el smoke exige SQL real y excluye el build y las fuentes web", () => {
+    expect(wf).toContain("test -f migrations/20260628-001-core-bootstrap.sql");
+    expect(wf).toContain("test ! -w /app/scripts/migrate.ts");
+    expect(wf).toContain("test ! -d .next && test ! -d src/app");
   });
 });
