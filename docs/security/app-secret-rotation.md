@@ -14,6 +14,16 @@ Inspect configuration within the environment; never copy values into reports.
 If records used different keys historically, stop and inventory them: this
 migrator deliberately does not guess keys or silently skip unreadable values.
 
+## Execution record (2026-10-16)
+
+Executed in staging and prod: protected on-demand backup, isolated restore
+verified and deleted, versioned Key Vault references with the app identity,
+dry-run, transactional apply (staging 0 values, prod 2 global AI values now
+`enc:v2`) and readiness set. Legacy material matched the previous runtime's
+first resolved key (`infra-azure-client-secret`). These app secret references
+were added outside Terraform: add them to `key_vault_secret_ids` and
+`key_vault_secret_env` in `TF_VARS`/`TF_VARS_PROD` before the next apply.
+
 ## Deployment gate
 
 Do not deploy the new application without first provisioning both references,
