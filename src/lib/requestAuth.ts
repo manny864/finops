@@ -460,7 +460,7 @@ export async function aplicarAlcance(
 
   let alcance: AlcanceAsignado | null;
   try {
-    alcance = await alcanceDelUsuario(tenantId, identity.email);
+    alcance = await alcanceDelUsuario(tenantId, identity.email, identity.claims.oid);
   } catch {
     throw new AuthError(
       "No se pudo verificar el alcance de acceso. Intentá nuevamente.",

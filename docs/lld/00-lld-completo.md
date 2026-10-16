@@ -7003,3 +7003,30 @@ vacio/espacios antes de SQL/transaccion. Matriz105 con Blob; suite6365pass/
 76skip,564archivos correctos/8omitidos; lint/typecheck/build nativo correctos.
 Este control es de vistas guardadas: no establece una politica global para
 tokens sin email ni resuelve la decision STRIDE-03. Pendiente rollout.
+
+### 52.15 Alcance ligado a email u OID verificados dentro del tenant
+
+aplicarAlcance pasa tambien claims.oid a alcanceDelUsuario. Si existe OID,
+la consulta busca asignacion por email o mediante Users con entra_oid,
+uniendo tenant_id y email de Users con UserScopes. Ambos identificadores son
+valores ligados, no parametros del cliente. Esto impide perder el recorte
+si el JWT omite el email o presenta otro email para el mismo objeto Entra
+que sigue registrado en Users. Un OID coincidente en otro tenant no aporta
+asignaciones. No se cambia identity.email ni se inventa una identidad para
+vistas/notificaciones personales: esas rutas conservan sus propias guardas.
+
+Se leen como maximo dos asignaciones: mas de una es ambiguedad, se registra
+y falla503 SCOPE_LOOKUP_UNAVAILABLE, sin escoger arbitrariamente un permiso.
+Sin OID, el consumidor por email mantiene consulta parametrizada; consulta
+exitosa sin asignacion sigue sin alcance y cron conserva bypass explicito.
+No se exige alta SaaS activa ni se cambia STRIDE-03. La correspondencia por
+OID requiere una fila Users con email coincidente con el alcance: cambiar
+tambien ese dato persistido exige gestionar explicitamente las asignaciones;
+no se afirma una migracion de UserScopes a clave OID.
+
+Cuatro casos SQL adicionales prueban email ausente/cambiado con mismo OID,
+recorte conservado en ruta compatible y403 en ruta no compatible, coincidencia
+OID solo en tenant ajeno y asignaciones ambiguas503. Tres unitarios verifican
+los valores ligados, union por tenant y rechazo con log. Matriz109 con Blob;
+suite6372pass/76skip,564archivos correctos/8omitidos; lint/typecheck/build
+nativo correctos. Implementado en rama, falta rollout y cobertura global.

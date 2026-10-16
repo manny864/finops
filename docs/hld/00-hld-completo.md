@@ -2019,3 +2019,11 @@ identidad con401, evitando sobrescribir una vista compartida por el flujo
 personal sin Admin/Owner. No se cambia politica global de admision.
 Siete casos SQL y tres unitarios adicionales; matriz105 y suite6365pass/76skip.
 Detalle en LLD52.14, implementado en rama, sin rollout.
+
+El alcance asignado comprueba email y OID del JWT mediante la fila Users del
+mismo tenant. Omitir/cambiar solo el email del token ya no pierde un recorte
+asociado al objeto Entra registrado. Asignaciones ambiguas fallan503, sin
+seleccion arbitraria; no se normaliza el email de identidad ni se modifica
+la admision STRIDE-03. No es migracion de UserScopes a OID: cambios en email
+persistido requieren gestionar asignaciones. Cuatro casos SQL y tres unitarios
+amplian matriz109; suite6372pass/76skip. Detalle LLD52.15, sin rollout.

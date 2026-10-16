@@ -828,6 +828,47 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
             await expect(filtroDeLaRequest(tenants[0].id, new URLSearchParams("perspective=1"),
                 { perspectiveId: 2, grupo: "allowed" })).rejects.toMatchObject({ status: 403, code: "SCOPE_UNRESOLVED" });
         });
+        it.each(["", "renamed@alpha.example"])("a verified email %j cannot bypass the scope associated with the same OID", async (email) => {
+            const actor = tenants[0];
+            await db.query("INSERT INTO UserScopes VALUES (?, ?, 1, 'allowed')", [actor.id, actor.email]);
+            try {
+                const identity = await requireTenantAccess(request("/api/cost-groups", actor.id, { ...actor, email }), actor.id);
+                expect(identity.alcance).toEqual({ perspectiveId: 1, grupo: "allowed" });
+                await expect(requireTenantAccess(request("/api/admin/audit-trail", actor.id, { ...actor, email }), actor.id))
+                    .rejects.toMatchObject({ status: 403, code: "SCOPE_ROUTE_NOT_AWARE" });
+            } finally {
+                await db.query("DELETE FROM UserScopes WHERE tenant_id = ? AND user_email = ?", [actor.id, actor.email]);
+            }
+        });
+        it("an OID match in a foreign tenant cannot supply or change the local assignment", async () => {
+            const actor = tenants[0];
+            const alias = "synthetic-foreign-oid@beta.example";
+            await db.query("INSERT INTO Users (tenant_id,email,entra_oid,role,account_status) VALUES (?, ?, ?, 'Reader', 'ACTIVE')",
+                [tenants[1].id, alias, actor.id]);
+            await db.query("INSERT INTO UserScopes VALUES (?, ?, 2, 'foreign')", [tenants[1].id, alias]);
+            try {
+                const identity = await requireTenantAccess(request("/api/cost-groups", actor.id, { ...actor, email: "" }), actor.id);
+                expect(identity.alcance).toBeUndefined();
+            } finally {
+                await db.query("DELETE FROM UserScopes WHERE tenant_id = ? AND user_email = ?", [tenants[1].id, alias]);
+                await db.query("DELETE FROM Users WHERE tenant_id = ? AND email = ?", [tenants[1].id, alias]);
+            }
+        });
+        it("conflicting email/OID assignments fail closed instead of selecting an arbitrary row", async () => {
+            const actor = tenants[0];
+            const alias = "synthetic-alias@alpha.example";
+            await db.query("INSERT INTO Users (tenant_id,email,entra_oid,role,account_status) VALUES (?, ?, ?, 'Reader', 'ACTIVE')",
+                [actor.id, alias, actor.id]);
+            await db.query("INSERT INTO UserScopes VALUES (?, ?, 1, 'allowed'), (?, ?, 1, 'other')",
+                [actor.id, actor.email, actor.id, alias]);
+            try {
+                await expect(requireTenantAccess(request("/api/cost-groups", actor.id, actor), actor.id))
+                    .rejects.toMatchObject({ status: 503, code: "SCOPE_LOOKUP_UNAVAILABLE" });
+            } finally {
+                await db.query("DELETE FROM UserScopes WHERE tenant_id = ? AND user_email IN (?, ?)", [actor.id, actor.email, alias]);
+                await db.query("DELETE FROM Users WHERE tenant_id = ? AND email = ?", [actor.id, alias]);
+            }
+        });
         it("executes the resolved scope SQL with aligned parameters and cannot include excluded or foreign costs", async () => {
             const tenant = tenants[0];
             const window = { where: "tenant_id = ?", params: [tenant.id] };
