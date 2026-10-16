@@ -20,6 +20,15 @@ Do not deploy the new application without first provisioning both references,
 checking that v1 values decrypt, and testing recovery in staging. No live keys,
 data or Azure configuration have been changed by adding this code.
 
+The reusable deployment workflow fails before any build or SQL migration unless
+the GitHub environment variable `APP_SECRET_MIGRATION_READY` is exactly `true`
+and the existing web app resolves `APP_SECRET_ENCRYPTION_KEY` through a versioned
+Key Vault reference (including its managed identity). Set readiness only after
+the steps below have been completed and recorded. This is an operator attestation,
+not an automated proof of a successful restore or of the stored key's strength.
+Removing the variable blocks subsequent deployments. Do not set it merely to
+make CI green; leave it unset while the live migration is pending.
+
 1. Schedule a maintenance window and pause secret writes/background consumers.
 2. Take a protected database backup and preserve exact old key versions.
    Verify a restore in an isolated environment. Backups can contain plaintext
@@ -41,6 +50,12 @@ data or Azure configuration have been changed by adding this code.
    only after the rollback retention period.
 7. Rollback requires the matching database backup plus old key version and old
    application. Do not roll back only the image: the old code cannot read v2.
+
+Coordinate the first v2 deployment in the maintenance window: deploy the new
+revision without production traffic using the approved digest, run the migration
+and synthetic checks there, and switch traffic only after readiness is recorded.
+The ordinary automatic workflow is deliberately not the bootstrap mechanism for
+this one-time migration. Do not resume an old cron/application against v2 data.
 
 Repeated migration is safe but rewrites ciphertext using fresh nonces. For a
 future v2 key rotation, add a new envelope/key version before changing the v2

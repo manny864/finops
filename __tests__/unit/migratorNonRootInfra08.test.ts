@@ -57,6 +57,6 @@ describe("_deploy.yml: imagen de migraciones", () => {
 
   it("se construye con --target migrator", () => {
     const targets = [...wf.matchAll(/--target\s+(\S+)/g)].map((m) => m[1]);
-    expect(targets).toEqual(["migrator"]);
+    expect(targets).toEqual(["migrator", "runner"]);
   });
 });

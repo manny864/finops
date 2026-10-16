@@ -7,8 +7,8 @@
 # abre el PR para revisar el diff antes de aceptarlo.
 #
 # Un solo PR agrupado por semana: cada PR dispara CI y el repo es privado, así
-# que los minutos de Actions no son gratis. Sólo `github-actions`: las
-# dependencias de npm no están en el alcance de este archivo.
+# que los minutos de Actions no son gratis. Docker mantiene la base fijada a digest;
+# las dependencias de npm no estan en el alcance de este archivo.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -22,3 +22,11 @@ updates:
         patterns: ["*"]
     commit-message:
       prefix: "chore(ci)"
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(container)"

@@ -1,18 +1,8 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
 # checkov:skip=CKV_DOCKER_2:owner=CloudOps; expires=2027-01-15; Deploy checks /api/health after rollout; migrator execution status is monitored. No image-level HEALTHCHECK; adding a runtime probe remains deferred.
 #
-# SIN `RUN --mount=type=cache`. Los tenía, para que en el VPS los cache mounts
-# persistieran entre deploys (npm ci sin re-descargar, next build incremental).
-# Con el deploy en Container Apps la imagen se construye con `az acr build`, y
-# ACR Tasks NO usa BuildKit: falla con
-#   "the --mount option requires BuildKit"
-# antes de instalar nada. Verificado 2026-07-28 — el workflow deploy-azure.yml
-# no podía buildear por esto.
-#
-# Tampoco se pierde gran cosa: cada run de ACR arranca en un contenedor limpio,
-# así que un cache mount no persistiría entre builds de todos modos. El cacheo
-# entre deploys lo da el layer cache del registry.
-FROM node:22-alpine AS base
+# Node 22 Alpine: OCI index verified against Docker Hub; update through review.
+FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS base
 
 # Install dependencies only when needed
 FROM base AS deps
@@ -24,6 +14,7 @@ RUN npm ci
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
