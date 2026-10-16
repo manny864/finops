@@ -1,8 +1,8 @@
 # Low-Level Design (LLD) — CSCloudSolutions FinOps Platform
 
-**Versión:** 1.1  
-**Fecha:** 2026-08-03  
-**Autor:** Relevamiento automatizado sobre el codebase en `main` (commit post-PR #99)
+**Versión:** 1.2\
+**Fecha:** 2026-10-15\
+**Autor:** Equipo de Arquitectura Cloud & FinOps — CSCloudSolutions
 
 ---
 
@@ -351,19 +351,23 @@ Los módulos viven en `src/modules/` organizados en tres capas:
 
 ### 7.1 Workflows
 
-Son tres, y son los únicos: `ls .github/workflows/` devuelve `ci.yml`,
-`deploy-azure.yml` y `terraform.yml`.
+Workflows relevantes para CI, despliegue e infraestructura. El circuito de
+Terraform autenticado es independiente del build/despliegue de la aplicación;
+ver §51 para la configuración desplegada de runners y backend.
 
 | Workflow | Trigger | Qué hace |
 |---|---|---|
 | [ci.yml](file:///Users/manuelchavez/Documents/FinOpsProyect/.github/workflows/ci.yml) | Push a `main` y PRs a `main` | En PR: lint → typecheck → test → build. En push a `main`: **sólo** el job de tests, porque el `next build` de la imagen ya hace los otros tres |
-| [deploy-azure.yml](file:///Users/manuelchavez/Documents/FinOpsProyect/.github/workflows/deploy-azure.yml) | Push a `main` | `docker build` + push en el runner → migraciones (Container App Job) → nueva revisión → cron jobs → health check |
-| [terraform.yml](file:///Users/manuelchavez/Documents/FinOpsProyect/.github/workflows/terraform.yml) | PR que toque `infra/terraform/**` | Checkov + Infracost + `plan`. Apply manual con confirmación `APPLY-PROD` |
+| [deploy-azure.yml](file:///Users/manuelchavez/Documents/FinOpsProyect/.github/workflows/deploy-azure.yml) | Push a `main` | Build y despliegue a **staging** → migraciones → nueva revisión → cron jobs → health check |
+| `promote-prod.yml` / `_deploy.yml` | Promoción manual / workflow reutilizable | Promueve el SHA elegido a producción; no usa los runners privados de Terraform |
+| [terraform.yml](file:///Users/manuelchavez/Documents/FinOpsProyect/.github/workflows/terraform.yml) | PR de infraestructura/workflows/Dockerfile; dispatch; lunes 07:00 UTC | PR: solo scan sin OIDC. Dispatch desde `main`: scan bloqueante + plan del ambiente; apply solo con `APPLY-PROD` o `APPLY-STAGING`. Schedule: drift de ambos ambientes |
+| `kv-firewall-reconcile.yml` | Cada 15 minutos, finalización de Terraform y dispatch | Retira leases/reglas vencidas por ambiente, desde su runner Azure; limpieza de backend por ARM antes de Blob |
 
 Los dos que faltan respecto de versiones anteriores de este documento se
 borraron, no se congelaron: `deploy.yml` y `restore-test.yml` se fueron en
 `0fe7f17` con el resto del VPS retirado, y `deploy-staging.yml` en `78a6d1f`.
-No hay rama `staging` ni workflow que la dispare.
+El despliegue de staging se dispara desde `main`, no por publicar una rama
+llamada `staging`.
 
 ### 7.2 Flujo de deploy
 
@@ -1349,7 +1353,9 @@ Las cuatro se validaron aplicándolas **dos veces** contra un MySQL 8 real en ba
 
 ## 30. Addendum 2026-08-22 — Inventario de infraestructura y postura de red del Key Vault
 
-Pasada de documentación contra el estado real de Azure. No toca código de aplicación.
+Pasada de documentación contra el estado real de Azure al 2026-08-22.
+Inventario, planes y pendientes de este apartado son históricos; para la
+conectividad de runners y applies vigentes consultar §51. No toca código de aplicación.
 
 ### 30.1 Inventario verificado (suscripción `CSCS-LandingZone`, `ec03e8ce`)
 
@@ -1373,17 +1379,23 @@ de prod tiene `keyvault_create = true`, así que el atributo está bajo control 
 no falta nada: el Container App Environment está inyectado en la VNet, la subnet de private endpoints existe y
 la zona `privatelink.vaultcore.azure.net` está enlazada.
 
-El bloqueo está en el pipeline. Terraform gestiona `azurerm_key_vault_secret.cron` y `.mysql_password`, y cada
+**Contexto histórico (2026-08-22; reemplazado por §51 el 2026-10-15).**
+El bloqueo estaba en el pipeline. Terraform gestiona `azurerm_key_vault_secret.cron` y `.mysql_password`, y cada
 `plan` los refresca contra el **plano de datos** del vault. El apply y el drift de los lunes corren en
 `runs-on: ubuntu-latest`, sin ruta a `10.50.0.0/16`: al cerrar el acceso público ambos empiezan a fallar.
 
-La opción de runner self-hosted dentro de la VNet queda **descartada** porque el repositorio es público y
-`terraform.yml` dispara en `pull_request` sobre `infra/terraform/**`: un PR desde un fork ejecutaría código
-arbitrario en una máquina dentro de la VNet de producción, con la identidad que tiene `Key Vault Secrets
-Officer`. (El repo es público por una razón operativa, no de diseño: se agotaron los minutos gratuitos de
-Actions para repos privados.)
+Se descartó entonces ejecutar PRs en una máquina dentro de la VNet productiva:
+un fork podría ejecutar código con acceso a servicios internos. **Esa decisión
+no describe la solución actual:** los PR ya no obtienen OIDC ni ejecutan plan;
+las dos VMs actuales están en VNets separadas de los stamps, sin peering, y
+aceptan solo workflows confiables de `main`. No constituyen aislamiento fuerte
+frente a un workflow malicioso ya integrado en esa rama.
 
-### 30.3 Solución implementada — firewall con apertura efímera
+### 30.3 Solución inicial — firewall con apertura efímera
+
+Registro de la solución de agosto. Desde el 2026-10-15 los jobs de Terraform
+usan además subredes autorizadas por service endpoints; la apertura/cierre
+temporal y el reconciliador se conservan como transición. Estado aplicado en §51.
 
 El vault queda en `network_acls.default_action = "Deny"` con `bypass = "AzureServices"`, la app entra por
 private endpoint, y el workflow de Terraform se agrega a la allowlist sólo por lo que dura el plan/apply:
@@ -1399,8 +1411,8 @@ El `ignore_changes` es la pieza crítica: sin él, el propio `terraform apply` v
 de agregar como drift y la quitaría **mientras la está usando**. El cierre corre con `if: always()` para que
 un plan fallido no deje IPs muertas en la allowlist.
 
-**Falta el `terraform apply` manual**, que es la única acción que toca Azure, y actualizar el secret
-`TF_VARS_PROD` (el tfvars está gitignoreado). Procedimiento en `infra/docs/keyvault-network-hardening.md`.
+El apply manual que entonces faltaba ya no está pendiente: los applies y el
+estado vigente de ambos ambientes están registrados en §51.
 
 ### 30.4 Dos bloqueos pre-existentes destapados al validar
 
@@ -1411,7 +1423,7 @@ un plan fallido no deje IPs muertas en la allowlist.
   proveedor sin recrear el worker, y un stamp nuevo sí genera el suyo.
 - **`environments/staging/` no validaba — RESUELTO, pero con una advertencia grande.** Ver §30.5.
 
-### 30.5 `environments/staging/` — reparado, pero NO aplicar
+### 30.5 `environments/staging/` — reparación y bloqueo histórico de agosto
 
 La configuración de staging no pasaba `terraform validate` desde que se creó. Ahora sí. Lo que se corrigió:
 
@@ -1434,7 +1446,8 @@ que prod nunca tuvo— pero el archivo commiteado en `9043fed` ya era inválido 
 O sea que el apply se hizo desde una copia local que nunca se commiteó.
 
 El primer plan tras reparar la configuración daba **31 destrucciones**. Ver §30.7: la causa era compartida con
-prod y ya está resuelta. El plan actual de staging es de 8 altas, 52 cambios y 1 baja.
+prod y ya está resuelta. El plan de staging de aquella revisión era de 8 altas,
+52 cambios y 1 baja; no es el plan aplicado el 2026-10-15 (§51).
 
 ### 30.7 El apply reemplazaba el Container App Environment — en prod y en staging
 
@@ -6372,3 +6385,180 @@ retención en la corrida de pago, churn en la baja, solicitudes) y `concurrencia
 simultáneos: una solicitud por tenant, un reembolso por cobro, una aprobación, y **sin errores de base**). Ambos se saltean sin `DB_PORT`
 (ver `docs/testing.md`). **Sin verificar:** un reembolso real contra Paddle en vivo (la API key necesita `adjustment.write`; el sandbox
 aprueba cada diez minutos) y la llegada del correo al SuperAdmin.
+
+---
+
+## 51. Addendum 2026-10-15 — Runners Azure, backend y operación INFRA-09
+
+Este apartado sustituye la restricción histórica de §30.2 y su apply pendiente.
+Describe la configuración publicada en #137–#140 (`82a9a6e`) y aplicada;
+el cierre está registrado en #141. No implica migración del state ni promoción
+de una imagen nueva de aplicación.
+
+### 51.1 Inventario y red
+
+Root independiente: `infra/terraform/runners`, 16 recursos, con state local
+sensible fuera de git y copia protegida. No administra el backend de aplicación.
+
+| Ambiente | VM / label de Actions | Resource group | VNet / subnet `runner` |
+|---|---|---|---|
+| staging | `cscs-finops-staging-runner` / `finops-staging` | `cscs-finops-staging-runner-rg` | `cscs-finops-staging-runner-vnet`, `10.71.0.0/24` |
+| prod | `cscs-finops-prod-runner` / `finops-prod` | `cscs-finops-prod-runner-rg` | `cscs-finops-prod-runner-vnet`, `10.72.0.0/24` |
+
+Ambas en westus2: `Standard_B2s_v2` (2 vCPU/8 GB), Ubuntu 24.04, disco
+Standard SSD de 64 GB, Secure Boot, vTPM, cifrado de host y parches de plataforma.
+`B2as_v2` no tuvo capacidad física; no quedaron VMs fallidas adicionales.
+Sin identidad administrada ni roles de datos para las VMs.
+
+NSG `DenyAllInbound` (100), `AllowWebOutbound` TCP 80/443 hacia Internet (100),
+`DenyOtherOutbound` (4096); DNS/agente conservan excepciones de plataforma.
+Sin SSH público, NAT Gateway, peering ni enlaces a DNS privado de los stamps.
+Una IPv4 Standard estática por NIC provee salida explícita; la subnet tiene
+`default_outbound_access_enabled = false`.
+
+Service endpoints: `Microsoft.Storage.Global` hacia el backend eastus2 y
+`Microsoft.KeyVault` hacia el vault westus2 propio. No son Private Endpoints:
+la red del servicio permanece pública con `Deny` y ACL de subred.
+
+### 51.2 Propiedad de ACL, state y permisos
+
+| Superficie | Configuración / contrato |
+|---|---|
+| Backend | `cscsfinopsmgmtqak5xmsa`, RG `cscs-finops-mgmt-eastus2-rg`, eastus2 |
+| State prod | Contenedor `tfstate-prod`, key `prod/terraform.tfstate` |
+| State staging | Contenedor `tfstate-stg`, key `staging/terraform.tfstate` |
+| Archivo anterior | `tfstate`, denegado a las identidades de pipeline |
+| ACL Storage | `bootstrap/main.tf`: `runner_subnet_ids` contiene ambas subredes; `Deny`, bypass `None`, Shared Key deshabilitada |
+| ACL vaults | `environments/*/network.tfvars`: `keyvault_runner_subnet_ids` es variable **raíz**, fuera de `network_segmentation`; propagada por stamp al módulo Key Vault |
+| Datos | Cada SP de pipeline tiene `Storage Blob Data Contributor` solo en su contenedor; pruebas estrictas de denegación cruzada y archivo |
+| Init | Azure AD/OIDC y `-lockfile=readonly`; no publicar planes, state, tfvars ni tokens |
+
+Cada vault (`cscs-finops-stg-wus2-kv`, `cscs-finops-prod-wus2-kv`) conserva
+solo la subred de su runner; acceso cruzado de red rechazado en las pruebas.
+El root de runners no debe administrar esas ACL. Conservar los IDs al
+reconstruir el tfvars del bootstrap y no aplicar versiones antiguas que los quiten.
+
+El rol ARM de staging puede escribir la cuenta/tags porque Azure no separa
+la modificación del firewall de `storageAccounts/write`: el aislamiento
+de datos **no** implica aislamiento administrativo del Storage compartido.
+No se retiraron concesiones ajenas del operador.
+
+Lease del blob: exclusión mutua Terraform. Management lock: protección ARM.
+Provider lockfile: integridad/versiones del proveedor. Recuperación/versionado
+y pruebas con blobs de ensayo constan en la
+[guía de despliegue](../../infra/docs/deployment-guide.md#protección-del-state--infra-09-2026-10-15).
+No automatizar `force-unlock` ni `state push -force`.
+
+### 51.3 Bootstrap del guest y confianza
+
+Cloud-init instala Azure CLI desde repositorio firmado, Terraform 1.9.8 con
+checksum y Actions Runner 2.338.0 con SHA256 fijado; el runner se autoactualiza.
+`configure-private-runner.py <staging|prod>` registra con token de corta vida
+por Managed Run Command, `protectedParameters` y archivo temporal 0600, sin
+incluirlo en cloud-init, state o argumentos del CLI. El Run Command se elimina
+al terminar. Administración por Run Command, sin abrir SSH.
+
+Servicio systemd bajo `actions`, sin sudo ni grupo Docker. Hooks instalados:
+`/usr/local/lib/finops-runner-job-started.sh` y
+`/usr/local/lib/finops-runner-job-completed.sh`, root-owned; la extensión `.sh`
+es obligatoria para Actions. El hook inicial exige:
+
+- Repositorio `manny864/finops`, ref `refs/heads/main`.
+- Evento `workflow_dispatch`, `schedule` o `workflow_run`.
+- Workflow `terraform.yml` o `kv-firewall-reconcile.yml` de esa misma rama.
+
+El hook final solo limpia el workspace exacto `/opt/actions-runner/_work/finops/finops`:
+tfvars, planes/JSON y posibles states/backups locales de prod/staging. No borra
+el state local independiente del root de runners. Credenciales operativas del
+runner permanecen en disco; las VMs no son efímeras y sus etiquetas/hooks no
+son aislamiento fuerte contra código malicioso ya integrado en `main`.
+
+### 51.4 Selección de runner y gates
+
+| Job | Ejecución / identidad |
+|---|---|
+| Scan de PR | GitHub-hosted `ubuntu-latest`, sin `id-token`, sin init/plan autenticado |
+| Scan de dispatch confiable desde `main` | VM del ambiente, sin OIDC; conserva Checkov 3.3.26, excepciones locales y mutaciones reales bloqueantes |
+| Plan/apply manual | `[self-hosted, linux, x64, finops-<ambiente>]`, GitHub environment y SP OIDC propios |
+| Drift del lunes 07:00 UTC | Matriz prod/staging, VM e identidad propias |
+| Reconciliador | Matriz prod/staging, VM e identidad propias; cada 15 min, `workflow_run` y manual |
+
+El scan manual usa VM por el bloqueo de facturación de GitHub-hosted detectado
+durante la activación; no se modificó billing ni se trasladaron PRs a las VMs.
+Builds/tests/deploy de aplicación siguen en hosted. Node 22 se prepara antes
+del wrapper Terraform en plan/apply y drift. El reconciliador deshabilita ese
+wrapper y no necesita Node global.
+
+```bash
+# Preview: no aplica nada.
+gh workflow run terraform.yml --ref main -f environment=staging -f confirm=''
+gh workflow run terraform.yml --ref main -f environment=prod -f confirm=''
+# Apply: solo tras revisar el plan del ambiente, ejecutarlos en serie.
+gh workflow run terraform.yml --ref main -f environment=staging -f confirm=APPLY-STAGING
+gh workflow run terraform.yml --ref main -f environment=prod -f confirm=APPLY-PROD
+```
+
+El apply valida `plan.json` con `validate-terraform-apply-plan.mjs`, bloquea
+bajas no aprobadas y aplica `tfplan`. No usar `replace` sin revisión y aprobación.
+`APP_VERSION` es deriva conocida: Terraform la retira y el paso existente
+la restaura desde el tag SHA de la imagen sin promover otra imagen.
+
+### 51.5 Reconciliación y mantenimiento en serie
+
+Se conserva el mecanismo temporal durante la transición: primero lease ARM
+`TFStateFirewallLease`, luego regla propia y sondeos autenticados; cierre
+`always()` de Key Vault antes del cierre del backend. La ruta estable ahora
+es la subred autorizada, no depender de la IP detectada por ipify.
+
+El reconciliador limpia leases vencidas del backend por ARM **antes** de Blob,
+y después procesa las de Key Vault. TTL de metadata: 70 min plan/apply,
+40 min drift, 20 min reconciliador; timeouts 60/30/10 min. No es expiración
+nativa: una caída de Actions/ARM puede dejar reglas hasta que vuelva a ejecutarse.
+
+Todos los jobs autenticados comparten `tfstate-firewall`, sin cancelar al activo.
+GitHub admite solo un pendiente; otro request puede cancelarlo. Para mantenimiento:
+pausar temporalmente `kv-firewall-reconcile.yml`, esperar los jobs existentes,
+ejecutar ambientes en serie y restaurarlo **también ante errores**, con un trap
+de salida. No cancelar un apply activo para despejar la cola.
+`gh run rerun <id> --failed` repite el job cancelado conservando el scan verde.
+La programación periódica no garantiza un plazo máximo de limpieza.
+
+### 51.6 Evidencia aplicada y límites
+
+| Operación | Run / resultado |
+|---|---|
+| Preview staging | `38821258087`, intento 2, correcto |
+| Apply staging | `38822480417`, 0 altas / 1 cambio / 0 bajas |
+| Preview prod | `38821261521`, intento 2, correcto |
+| Apply prod | `38823749634`, 0 altas / 1 cambio / 0 bajas |
+| Reconciliación final | `38824588719`, ambos ambientes correctos; workflow activo |
+
+Bootstrap aplicado sin cambios de recursos, conciliando state con ambas ACL.
+Los jobs reales pasaron OIDC, aislamiento estricto, Checkov/mutaciones y cleanup.
+El único cambio del stamp fue `APP_VERSION`, restaurada; imágenes preservadas:
+staging `8725fc14148dc3af165225e09b267c15dccaa739`,
+prod `dd476fac324fc3793e06d386de0ac30f790e282d`.
+Revisiones con tráfico `0000024` / `0000352`, Healthy/Running; ambos
+`/api/health` respondieron 200.
+
+Storage final: Deny/bypass None, Shared Key apagada, ambas subredes Succeeded,
+sin reglas IP ni lease ARM residual. Cada vault sin IP temporal; pruebas
+autenticadas externas rechazadas por red en ambos contenedores. **INFRA-09 cerrado.**
+No se declara CI hosted verde mientras siga bloqueado por billing. El snapshot
+de `/api/status` en staging está vencido (503), confirmado en logs, distinto
+de la salud del proceso; no se remedió con este apply.
+
+### 51.7 Costo, recuperación y baja
+
+USD 0,0832/h por VM, USD 121,47 por 730 h entre ambas solo de cómputo
+(precio público consultado el 2026-10-15), más discos/IPv4/tráfico.
+Las dos VMs siguen encendidas; no hay autoapagado ni encendido bajo demanda.
+Desasignar detiene cómputo pero puede mantener cargos de disco/IP.
+
+Preservar copia protegida del state del root de runners fuera de git.
+`configure-private-runner.py` rechaza reiniciar un runner ocupado; modificar
+cloud-init fuerza reemplazo, no es el mecanismo de actualizar hooks en vivo.
+Antes de destruir: migrar consumidores, detener servicios, retirar registros
+GitHub y ACL de subred con acceso alternativo disponible; revisar/dar de baja
+solo `infra/terraform/runners`. No destruir bootstrap, backend ni stamps.
+Pasos exactos en el [README de runners](../../infra/terraform/runners/README.md).
