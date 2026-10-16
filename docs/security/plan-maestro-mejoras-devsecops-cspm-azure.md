@@ -365,7 +365,7 @@ Checkov no está desactivado: scan sin OIDC, versión fijada en requirements y r
 
 ### Registro de cierre (2026-10-15)
 
-Hallazgos remediados, mergeados a `main` y desplegados en los ambientes correspondientes; INFRA-10 es un control de CI compartido, no un despliegue de aplicación. Cada cambio incluye tests de contrato con control negativo (mutaciones detectadas). Pendientes del plan: INFRA-11, STRIDE-01..09 e INT-01..05.
+Hallazgos originalmente remediados, mergeados a `main` y desplegados en los ambientes correspondientes; INFRA-10 es un control de CI compartido, no un despliegue de aplicación. Cada cambio incluye tests de contrato con control negativo (mutaciones detectadas). APPSEC-ID-05 requirio un complemento financiero posterior en PR #143: ese complemento no esta mergeado ni desplegado. Pendientes del plan: ese rollout, INFRA-11, STRIDE-01..09 e INT-01..05.
 
 | ID | Estado | Commits |
 |---|---|---|
@@ -383,7 +383,7 @@ Hallazgos remediados, mergeados a `main` y desplegados en los ambientes correspo
 | APPSEC-ID-02 | ✅ Resuelto | 06130ef |
 | APPSEC-ID-03 | ✅ Resuelto | e35c0ff |
 | APPSEC-ID-04 | ✅ Resuelto | bc23930 |
-| APPSEC-ID-05 | ✅ Resuelto | bc23930 |
+| APPSEC-ID-05 | Complemento implementado; rollout pendiente | bc23930; complemento en #143 |
 | APPSEC-ID-06 | ✅ Resuelto | 8257c85 |
 | APPSEC-ID-07 | ✅ Resuelto | 915464f |
 | PERIM-01 | ✅ Resuelto | d2d623f |
@@ -1154,7 +1154,13 @@ La cuota `checkByKey` es en memoria por proceso. Cuota distribuida no reemplaza 
 
 ### APPSEC-ID-05 — Payload completo y obligatorio para step-up
 
-**Estado (2026-10-15):** ✅ Resuelto — ver [registro de cierre](#registro-de-cierre-2026-10-15).
+**Estado:** correccion original bc23930 desplegada; complemento financiero implementado y validado en PR #143, pendiente merge/rollout — ver [registro de cierre](#registro-de-cierre-2026-10-15).
+
+**Correccion adicional verificada:** la emision/consumo ya exigian payload, pero las dos rutas de markup y el cliente seguian enviando solo `{tenantId}`. Ahora `markupStepUpPayload()` compartido proyecta en orden fijo accion `save_partner_markup`, tenant objetivo, porcentaje, tarifa e interruptor. La UI captura una sola vez los valores para challenge y PUT; el servidor reconstruye el DTO tras validar tipos/rangos, default `isMarkupEnabled=true` y plan. Input/plan invalido no consume el challenge. Legacy POST exige Admin/Owner, rango numerico valido y otro DTO `{action:"set_legacy_markup",tenantId,markupPercentage}`; no acepta un challenge de la ruta canonica. Challenges previos ligados solo al tenant se rechazan y deben emitirse de nuevo; se conserva MFA opt-in.
+
+**Plan/cancelacion:** `planChangeStepUpPayload()` compartido liga accion, tenant, tier, ciclo y prorrateo; ChangePlanModal usa el mismo snapshot para challenge y PATCH. `cancellationStepUpPayload()` liga accion, tenant y momento efectivo. El servidor valida y normaliza solo defaults omitidos antes de consumir MFA; rechaza null/valores ajenos al catalogo. La suscripcion y el price ID se resuelven en servidor desde tenant/catalogo, no desde un recurso arbitrario del body. Si falta PADDLE_API_KEY, DELETE devuelve 503 sin cambiar el estado local ni simular una cancelacion; webhook sigue siendo fuente de verdad. El consumidor de DELETE debe emitir el DTO nuevo; no se localizo un cliente UI de esa ruta.
+
+Diecisiete casos adicionales con handlers, identidades RS256 y MySQL reales cubren markup/legacy y plan/cancelacion: sustitucion de valores, payload viejo, defaults, validacion antes del consumo, roles, MFA opt-in y ocho llamadas concurrentes con un solo exito tanto para markup como plan. Cancelacion prueba configuracion ausente, rechazo del proveedor, no mutacion local y no replay. La matriz completa suma 48 casos SQL. Emision/consumo de challenge son reales; el factor se siembra como verificado, no es prueba TOTP. Paddle esta interceptado con respuestas sinteticas; no se cancelo ni cobro nada real. Fixture UTC replica produccion. Diez pruebas DTO/hash verifican orden y campos; dos pruebas UI verifican snapshot inmutable y cancelacion del modal. Falta rollout; no certifica las demas operaciones MFA ni HTTP desplegado.
 
 **Prioridad:** P1. **STRIDE:** Tampering. **Estado:** pendiente.
 

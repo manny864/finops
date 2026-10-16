@@ -9,6 +9,7 @@ import { getFreshIdToken } from "@/lib/msalToken";
 import { errorMessage } from "@/lib/apiErrors";
 import { useMfaChallenge } from "@/hooks/useMfaChallenge";
 import { IconLoader2, IconArrowsExchange, IconX } from "@tabler/icons-react";
+import { planChangeStepUpPayload, type SubscriptionPlanChange } from "@/types/saasBilling.types";
 
 /**
  * Cambio de plan de un tenant que YA tiene suscripción en Paddle.
@@ -127,7 +128,8 @@ export default function ChangePlanModal({
     }, [open, tenantId, tier, billing, authHeaders, t]);
 
     const aplicar = async () => {
-        const { challengeId, cancelled } = await requestChallenge("change_plan", { tenantId });
+        const change: SubscriptionPlanChange = { newTier: tier, billing, prorationBillingMode: "prorated_immediately" };
+        const { challengeId, cancelled } = await requestChallenge("change_plan", planChangeStepUpPayload(tenantId, change));
         if (cancelled) return;
 
         setApplying(true);
@@ -139,7 +141,7 @@ export default function ChangePlanModal({
                     ...(await authHeaders()),
                     ...(challengeId ? { "X-MFA-Challenge-Id": challengeId } : {}),
                 },
-                body: JSON.stringify({ newTier: tier, billing, prorationBillingMode: "prorated_immediately" }),
+                body: JSON.stringify(change),
             });
             const json = await res.json();
             if (!res.ok || !json.success) throw new Error(json.error || t("changeFailed"));

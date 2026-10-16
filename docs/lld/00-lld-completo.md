@@ -6776,3 +6776,45 @@ Suite local con ambos servicios habilitados: 558 archivos, 6242 tests pass,
 8 archivos/76 tests omitidos por otros gates. No implica prueba HTTP ni
 cobertura de todos los builders, namespaces o permisos efectivos; hosted y
 rollout siguen bloqueados por los gates ya documentados.
+
+### 52.7 Step-up financiero: margen, plan y cancelacion
+
+`markupStepUpPayload()` en `tenantPartnerMarkup.types.ts` construye un objeto
+con orden fijo: action=save_partner_markup, tenantId, globalMarkupPercentage,
+fixedManagementFeeUSD e isMarkupEnabled. UI PartnerMarkup captura los valores
+antes de abrir MFA y usa ese mismo snapshot para challenge y PUT. El servidor
+no acepta un hash del cliente: valida rangos/tipos y plan, normaliza el flag
+omitido a true, reconstruye el DTO y llama a enforceMfaIfEnabled antes de
+saveMarkupSettings. Se rechaza flag no booleano, incluido null explicito.
+
+POST legacy billing-markup ahora exige Admin/Owner, valida el rango con el
+helper existente y hace step-up tras comprobar Enterprise, con
+action=set_legacy_markup, tenantId y markupPercentage. Los distintos action y
+campos impiden reutilizar el challenge canonico. Un challenge previo que solo
+contenia tenantId deja de ser valido y debe emitirse nuevamente. La lectura
+legacy conserva su politica anterior; no se afirma que exija Admin/Owner.
+
+En saasBilling.types.ts, planChangeStepUpPayload produce en orden fijo
+action=change_subscription_plan, tenantId, newTier, billing y
+prorationBillingMode. ChangePlanModal captura el snapshot antes de MFA y lo
+reutiliza en PATCH aunque cambie el formulario durante la espera. DELETE usa
+cancellationStepUpPayload: action=cancel_subscription, tenantId y effective.
+Solo un campo omitido toma el default (prorated_immediately/immediately);
+null y valores fuera de catalogo fallan antes del consumo. Suscripcion y
+precio se resuelven en servidor desde tenant/catalogo; no se aceptan IDs
+arbitrarios del body. Consumidores de DELETE deben emitir ese DTO exacto.
+Sin PADDLE_API_KEY, DELETE devuelve 503: no llama al proveedor ni escribe
+CANCELED localmente. Tanto exito como rechazo mantienen webhook como fuente
+de verdad, sin fallback de exito simulado.
+
+Diecisiete tests SQL adicionales (48 en la matriz completa) emiten challenges
+por handler real y siembran consumed_at como factor verificado; no prueban
+TOTP. Guard/hash/DELETE condicional son reales. Cubren valores/target/action/
+operation, payload viejo, defaults, inputs invalidos sin consumo, roles,
+MFA opt-in, ocho llamadas concurrentes con un ganador en markup y plan,
+cancelacion sin clave y rechazo del proveedor sin baja local ni replay.
+Paddle se intercepta con respuestas sinteticas, sin cargos ni cancelaciones
+reales. Fixture UTC replica timezone=Z de db.ts. Diez tests DTO/hash y dos UI
+verifican orden/campos, snapshot inmutable y cancelacion del modal. No se
+migran datos reales ni se certifican las demas operaciones MFA o HTTP
+desplegado; rollout sigue pendiente.

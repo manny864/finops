@@ -1947,3 +1947,19 @@ deduplicacion y refresh concurrentes, invalidacion selectiva, expiracion y
 fallos/degradacion. CI agrega Redis por digest; no se usa el Redis de la app.
 Esto reduce cobertura pendiente de SWR, pero no certifica todos los
 consumidores ni autorizacion HTTP sobre entradas cacheadas.
+
+Step-up de markup ahora vincula accion, tenant y todos los valores sensibles
+(porcentaje, tarifa e interruptor), con DTO compartido servidor/cliente. El
+servidor valida plan y tipos antes de consumir MFA; la escritura legacy exige
+Admin/Owner y un binding distinto de importe. Challenges antiguos solo por
+tenant se rechazan, sin desactivar MFA opt-in. Handlers y SQL reales comprobaron
+un solo exito concurrente y rechazo de valores sustituidos; el factor se
+simulo como previamente verificado. Implementado en rama, pendiente rollout.
+
+Cambio de plan vincula accion/tenant/tier/ciclo/prorrateo con DTO compartido
+y snapshot UI; cancelacion vincula accion/tenant/momento efectivo. Suscripcion
+y precio se resuelven desde tenant/catalogo en servidor. Sin clave Paddle,
+cancelar devuelve 503 sin modificar estado ni simular exito; webhook sigue
+siendo fuente de verdad. MySQL real y Paddle sintetico comprueban binding,
+single-use concurrente y errores sin falsa baja. No hay cargos/cancelaciones
+reales ni despliegue; se conserva MFA opt-in.

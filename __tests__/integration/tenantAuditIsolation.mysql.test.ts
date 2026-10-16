@@ -1,12 +1,13 @@
 // @vitest-environment node
 import crypto from "node:crypto";
-import mysql, { type Pool } from "mysql2/promise";
+import mysql, { type Pool, type RowDataPacket } from "mysql2/promise";
 import { NextRequest } from "next/server";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 let db: Pool;
 vi.mock("@/modules/storage/db", () => ({
     default: { query: (...args: Parameters<Pool["query"]>) => db.query(...args) },
+    initializeDatabase: async () => {},
 }));
 vi.mock("next-intl/server", () => ({
     getTranslations: async () => (key: string) => key,
@@ -18,6 +19,12 @@ import { GET as exportTrail } from "@/app/api/admin/audit-trail/export/route";
 import { GET as exportLegacy } from "@/app/api/admin/audit/export/route";
 import { GET as billing } from "@/app/api/admin/billing/route";
 import { aiCacheGet, aiCacheKey, aiCacheSet } from "@/lib/aiCache";
+import { PUT as saveMarkup } from "@/app/api/admin/config/markup/route";
+import { POST as saveLegacyMarkup } from "@/app/api/admin/billing-markup/route";
+import { POST as issueChallenge } from "@/app/api/mfa/challenge/route";
+import { markupStepUpPayload, type SaveMarkupPayload } from "@/types/tenantPartnerMarkup.types";
+import { PATCH as changePlan, DELETE as cancelPlan } from "@/app/api/billing/subscription/route";
+import { cancellationStepUpPayload, planChangeStepUpPayload, type SubscriptionPlanChange } from "@/types/saasBilling.types";
 
 const tenants = [
     { id: "a0000000-0000-4000-8000-000000000001", email: "reader@alpha.example", marker: "alpha-only-record" },
@@ -27,6 +34,7 @@ const audience = "tenant-matrix-synthetic-client";
 const database = `finops_tenant_matrix_${process.pid}`;
 const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
 const key = { ...publicKey.export({ format: "jwk" }), kid: "tenant-matrix-test", kty: "RSA" };
+const paddleRequest = vi.fn<(url: URL, init?: RequestInit) => Promise<Response>>();
 
 function request(path: string, target: string, identity?: typeof tenants[number], extra = "") {
     const headers = new Headers();
@@ -50,8 +58,9 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
     beforeAll(async () => {
         vi.stubEnv("NEXT_PUBLIC_CLIENT_ID", audience);
         vi.stubEnv("CRON_SECRET", "");
-        vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+        vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
             const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
+            if (url.origin === "https://sandbox-api.paddle.com") return paddleRequest(url, init);
             if (url.hostname !== "login.microsoftonline.com") throw new Error(`Unexpected network request: ${url.origin}`);
             const tenant = tenants.find((item) => url.pathname.startsWith(`/${item.id}/`));
             if (!tenant) throw new Error("Unexpected OIDC tenant");
@@ -66,10 +75,10 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
             port: Number(process.env.MYSQL_SECURITY_PORT) });
         await admin.query(`CREATE DATABASE ${database}`);
         db = mysql.createPool({ host: "127.0.0.1", user: "root", password: "",
-            port: Number(process.env.MYSQL_SECURITY_PORT), database });
+            port: Number(process.env.MYSQL_SECURITY_PORT), database, timezone: "Z" });
         await db.query(`CREATE TABLE Users (
             tenant_id VARCHAR(64), email VARCHAR(120), entra_oid VARCHAR(64),
-            role VARCHAR(40), account_status VARCHAR(20), system_role VARCHAR(40))`);
+            role VARCHAR(40), account_status VARCHAR(20), system_role VARCHAR(40), mfa_enabled BOOLEAN DEFAULT false)`);
         await db.query(`CREATE TABLE UserScopes (
             tenant_id VARCHAR(64), user_email VARCHAR(120), perspective_id INT, group_name VARCHAR(120))`);
         await db.query(`CREATE TABLE ActionLogs (
@@ -83,14 +92,20 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
         await db.query(`CREATE TABLE Tenants (
             tenant_id VARCHAR(64) PRIMARY KEY, tier VARCHAR(40), subscription_status VARCHAR(40),
             marketplace_plan_id VARCHAR(64), marketplace_source VARCHAR(40),
-            paddle_subscription_id VARCHAR(64), company_name VARCHAR(120), cancel_at_period_end BOOLEAN)`);
+            paddle_subscription_id VARCHAR(64), company_name VARCHAR(120), cancel_at_period_end BOOLEAN,
+            markup_percentage DECIMAL(5,2) DEFAULT 0, management_fee_usd DECIMAL(12,2) DEFAULT 0,
+            markup_enabled BOOLEAN DEFAULT true)`);
         await db.query(`CREATE TABLE BillingTransactions (
             id INT PRIMARY KEY AUTO_INCREMENT, tenant_id VARCHAR(64), paddle_transaction_id VARCHAR(120),
             amount DECIMAL(12,2), currency VARCHAR(3), status VARCHAR(40),
             raw_event JSON, billed_at DATETIME, created_at DATETIME)`);
         await db.query("CREATE TABLE CancellationRequests (id INT PRIMARY KEY, tenant_id VARCHAR(64), status VARCHAR(40))");
+        await db.query(`CREATE TABLE MfaChallenges (
+            id VARCHAR(64) PRIMARY KEY, user_email VARCHAR(120), tenant_id VARCHAR(64),
+            operation VARCHAR(64), payload_hash VARCHAR(64), consumed_at DATETIME, expires_at DATETIME)`);
         for (const tenant of tenants) {
-            await db.query("INSERT INTO Users VALUES (?, ?, ?, 'Reader', 'ACTIVE', NULL)",
+            await db.query(`INSERT INTO Users (tenant_id, email, entra_oid, role, account_status, system_role)
+                VALUES (?, ?, ?, 'Reader', 'ACTIVE', NULL)`,
                 [tenant.id, tenant.email, tenant.id]);
             await db.query(`INSERT INTO ActionLogs
                 (tenant_id, user_email, resource_id, resource_name, action_type, status, created_at, timestamp)
@@ -183,7 +198,8 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
         });
         it(`${route.path}: preserves explicitly granted active membership in another tenant`, async () => {
             const [a, b] = tenants;
-            await db.query("INSERT INTO Users VALUES (?, ?, ?, 'Reader', 'ACTIVE', NULL)",
+            await db.query(`INSERT INTO Users (tenant_id, email, entra_oid, role, account_status, system_role)
+                VALUES (?, ?, ?, 'Reader', 'ACTIVE', NULL)`,
                 [b.id, a.email, a.id]);
             try {
                 const response = await route.handler(request(route.path, b.id, a, "&format=json&mock=true"));
@@ -209,5 +225,232 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
         await aiCacheSet(b.id, aKey, "cross-tenant-poison");
         expect(await aiCacheGet(a.id, aKey)).toBe(a.marker);
         expect(await aiCacheGet(b.id, aKey)).toBeNull();
+    });
+
+    describe("billing step-up binds the exact mutation", () => {
+        const settings: SaveMarkupPayload = {
+            globalMarkupPercentage: 15, fixedManagementFeeUSD: 500, isMarkupEnabled: true,
+        };
+        const [actor, other] = tenants;
+        function mutation(path: string, body: { tenantId: string; [key: string]: unknown },
+            method: string, challenge?: string) {
+            const headers = new Headers(request(path, body.tenantId, actor).headers);
+            headers.set("content-type", "application/json");
+            if (challenge) headers.set("X-MFA-Challenge-Id", challenge);
+            return new NextRequest(`https://example.test${path}?tenantId=${encodeURIComponent(body.tenantId)}`,
+                { method, headers, body: JSON.stringify(body) });
+        }
+        async function challenge(payload: unknown, operation = "change_billing_config") {
+            const response = await issueChallenge(mutation("/api/mfa/challenge",
+                { tenantId: actor.id, operation, payload }, "POST"));
+            expect(response.status).toBe(200);
+            const { challenge_id: id } = await response.json() as { challenge_id: string };
+            // Seed a successful factor verification; factor verification itself has a separate suite.
+            await db.query("UPDATE MfaChallenges SET consumed_at=UTC_TIMESTAMP() WHERE id=?", [id]);
+            return id;
+        }
+        async function saved() {
+            const [rows] = await db.query<RowDataPacket[]>(
+                "SELECT markup_percentage, management_fee_usd, markup_enabled FROM Tenants WHERE tenant_id=?", [actor.id]);
+            return {
+                globalMarkupPercentage: Number(rows[0].markup_percentage),
+                fixedManagementFeeUSD: Number(rows[0].management_fee_usd),
+                isMarkupEnabled: Boolean(rows[0].markup_enabled),
+            };
+        }
+        beforeEach(async () => {
+            vi.stubEnv("PADDLE_API_KEY", "pdl_sdbx_synthetic-test-only");
+            vi.stubEnv("NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY", "pri_synthetic_business_monthly");
+            vi.stubEnv("NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY", "pri_synthetic_business_yearly");
+            vi.stubEnv("NEXT_PUBLIC_PADDLE_PRO_MONTHLY", "pri_synthetic_pro_monthly");
+            paddleRequest.mockReset().mockImplementation(async () => Response.json({ data: {} }));
+            await db.query("UPDATE Users SET role='Admin', mfa_enabled=true WHERE tenant_id=?", [actor.id]);
+            await db.query("UPDATE Tenants SET tier='Enterprise', markup_percentage=0, management_fee_usd=0, markup_enabled=true");
+            await db.query("UPDATE Tenants SET paddle_subscription_id=? WHERE tenant_id=?",
+                ["sub_synthetic_actor", actor.id]);
+            await db.query("DELETE FROM MfaChallenges");
+        });
+        afterEach(async () => {
+            await db.query("UPDATE Users SET role='Reader', mfa_enabled=false WHERE tenant_id=?", [actor.id]);
+        });
+        it.each([
+            ["percentage", { globalMarkupPercentage: 16 }],
+            ["fee", { fixedManagementFeeUSD: 501 }],
+            ["enabled flag", { isMarkupEnabled: false }],
+        ])("rejects a different %s without consuming the correctly bound challenge", async (_field, changed) => {
+            const id = await challenge(markupStepUpPayload(actor.id, settings));
+            const response = await saveMarkup(mutation("/api/admin/config/markup",
+                { tenantId: actor.id, ...settings, ...changed }, "PUT", id));
+            expect(response.status).toBe(403);
+            expect(await saved()).toEqual({ globalMarkupPercentage: 0, fixedManagementFeeUSD: 0, isMarkupEnabled: true });
+            const valid = await saveMarkup(mutation("/api/admin/config/markup",
+                { tenantId: actor.id, ...settings }, "PUT", id));
+            expect(valid.status).toBe(200);
+            expect(await saved()).toEqual(settings);
+        });
+        it("rejects tenant-only, other target, action and operation bindings", async () => {
+            for (const payload of [
+                { tenantId: actor.id },
+                markupStepUpPayload(other.id, settings),
+                { ...markupStepUpPayload(actor.id, settings), action: "another_action" },
+            ]) {
+                const id = await challenge(payload);
+                expect((await saveMarkup(mutation("/api/admin/config/markup",
+                    { tenantId: actor.id, ...settings }, "PUT", id))).status).toBe(403);
+            }
+            const id = await challenge(markupStepUpPayload(actor.id, settings), "another_operation");
+            expect((await saveMarkup(mutation("/api/admin/config/markup",
+                { tenantId: actor.id, ...settings }, "PUT", id))).status).toBe(403);
+            expect((await saved()).globalMarkupPercentage).toBe(0);
+        });
+        it("allows only one concurrent mutation per verified challenge", async () => {
+            const id = await challenge(markupStepUpPayload(actor.id, settings));
+            const results = await Promise.all(Array.from({ length: 8 }, () => saveMarkup(
+                mutation("/api/admin/config/markup", { tenantId: actor.id, ...settings }, "PUT", id))));
+            expect(results.filter((response) => response.status === 200)).toHaveLength(1);
+            expect(results.filter((response) => response.status === 403)).toHaveLength(7);
+            expect(await saved()).toEqual(settings);
+        });
+        it("normalizes omitted enabled=true and rejects invalid input/plan before consuming MFA", async () => {
+            const id = await challenge(markupStepUpPayload(actor.id, settings));
+            for (const changed of [{ isMarkupEnabled: "true" }, { globalMarkupPercentage: -1 }, { fixedManagementFeeUSD: -1 }]) {
+                expect((await saveMarkup(mutation("/api/admin/config/markup",
+                    { tenantId: actor.id, ...settings, ...changed }, "PUT", id))).status).toBe(400);
+            }
+            await db.query("UPDATE Tenants SET tier='Business' WHERE tenant_id=?", [actor.id]);
+            expect((await saveMarkup(mutation("/api/admin/config/markup",
+                { tenantId: actor.id, ...settings }, "PUT", id))).status).toBe(403);
+            await db.query("UPDATE Tenants SET tier='Enterprise' WHERE tenant_id=?", [actor.id]);
+            const { isMarkupEnabled: _enabled, ...withoutDefault } = settings;
+            expect((await saveMarkup(mutation("/api/admin/config/markup",
+                { tenantId: actor.id, ...withoutDefault }, "PUT", id))).status).toBe(200);
+            expect(await saved()).toEqual(settings);
+        });
+        it("legacy writes require Admin/Owner and a distinct amount-bound challenge", async () => {
+            const id = await challenge({ action: "set_legacy_markup", tenantId: actor.id, markupPercentage: 25 });
+            await db.query("UPDATE Users SET role='Reader' WHERE tenant_id=?", [actor.id]);
+            expect((await saveLegacyMarkup(mutation("/api/admin/billing-markup",
+                { tenantId: actor.id, markupPercentage: 25 }, "POST", id))).status).toBe(403);
+            await db.query("UPDATE Users SET role='Owner' WHERE tenant_id=?", [actor.id]);
+            expect((await saveLegacyMarkup(mutation("/api/admin/billing-markup",
+                { tenantId: actor.id, markupPercentage: 26 }, "POST", id))).status).toBe(403);
+            expect((await saveLegacyMarkup(mutation("/api/admin/billing-markup",
+                { tenantId: actor.id, markupPercentage: 1000 }, "POST", id))).status).toBe(400);
+            expect((await saveLegacyMarkup(mutation("/api/admin/billing-markup",
+                { tenantId: actor.id, markupPercentage: 25 }, "POST", id))).status).toBe(200);
+            expect((await saved()).globalMarkupPercentage).toBe(25);
+            const canonicalId = await challenge(markupStepUpPayload(actor.id, settings));
+            expect((await saveLegacyMarkup(mutation("/api/admin/billing-markup",
+                { tenantId: actor.id, markupPercentage: 15 }, "POST", canonicalId))).status).toBe(403);
+        });
+        it("preserves opt-in MFA for an authorized administrator without MFA enabled", async () => {
+            await db.query("UPDATE Users SET mfa_enabled=false WHERE tenant_id=?", [actor.id]);
+            const response = await saveMarkup(mutation("/api/admin/config/markup",
+                { tenantId: actor.id, ...settings }, "PUT"));
+            expect(response.status).toBe(200);
+            expect(await saved()).toEqual(settings);
+        });
+        const change: SubscriptionPlanChange = {
+            newTier: "Business", billing: "monthly", prorationBillingMode: "prorated_immediately",
+        };
+        it.each([
+            ["tier", { newTier: "Professional" }],
+            ["billing cycle", { billing: "yearly" }],
+            ["proration", { prorationBillingMode: "do_not_bill" }],
+        ])("plan change rejects a different %s before any provider request", async (_field, changed) => {
+            const id = await challenge(planChangeStepUpPayload(actor.id, change), "change_plan");
+            expect((await changePlan(mutation("/api/billing/subscription",
+                { tenantId: actor.id, ...change, ...changed }, "PATCH", id))).status).toBe(403);
+            expect(paddleRequest).not.toHaveBeenCalled();
+            expect((await changePlan(mutation("/api/billing/subscription",
+                { tenantId: actor.id, ...change }, "PATCH", id))).status).toBe(200);
+            expect(paddleRequest).toHaveBeenCalledOnce();
+            const [url, options] = paddleRequest.mock.calls[0];
+            expect(url.pathname).toBe("/subscriptions/sub_synthetic_actor");
+            expect(JSON.parse(String(options?.body))).toEqual({
+                items: [{ price_id: "pri_synthetic_business_monthly", quantity: 1 }],
+                proration_billing_mode: "prorated_immediately",
+            });
+        });
+        it("cancellation binds effective time and never simulates success without provider credentials", async () => {
+            const id = await challenge(cancellationStepUpPayload(actor.id, "next_billing_period"), "cancel_subscription");
+            expect((await cancelPlan(mutation("/api/billing/subscription",
+                { tenantId: actor.id, effective: "immediately" }, "DELETE", id))).status).toBe(403);
+            expect(paddleRequest).not.toHaveBeenCalled();
+            vi.stubEnv("PADDLE_API_KEY", "");
+            expect((await cancelPlan(mutation("/api/billing/subscription",
+                { tenantId: actor.id, effective: "next_billing_period" }, "DELETE", id))).status).toBe(503);
+            expect(paddleRequest).not.toHaveBeenCalled();
+            const [rows] = await db.query<RowDataPacket[]>("SELECT subscription_status FROM Tenants WHERE tenant_id=?", [actor.id]);
+            expect(rows[0].subscription_status).toBe("ACTIVE");
+            vi.stubEnv("PADDLE_API_KEY", "pdl_sdbx_synthetic-test-only");
+            expect((await cancelPlan(mutation("/api/billing/subscription",
+                { tenantId: actor.id, effective: "next_billing_period" }, "DELETE", id))).status).toBe(200);
+            expect(paddleRequest).toHaveBeenCalledOnce();
+            const [url, options] = paddleRequest.mock.calls[0];
+            expect(url.pathname).toBe("/subscriptions/sub_synthetic_actor/cancel");
+            expect(JSON.parse(String(options?.body))).toEqual({ effective_from: "next_billing_period" });
+            expect((await cancelPlan(mutation("/api/billing/subscription",
+                { tenantId: actor.id, effective: "next_billing_period" }, "DELETE", id))).status).toBe(403);
+            expect(paddleRequest).toHaveBeenCalledOnce();
+        });
+        it("plan input and missing configuration fail before MFA consumption; omitted proration is normalized", async () => {
+            const id = await challenge(planChangeStepUpPayload(actor.id, change), "change_plan");
+            for (const changed of [{ newTier: "Enterprise" }, { billing: "invalid" }, { prorationBillingMode: null }]) {
+                expect((await changePlan(mutation("/api/billing/subscription",
+                    { tenantId: actor.id, ...change, ...changed }, "PATCH", id))).status).toBe(400);
+            }
+            vi.stubEnv("PADDLE_API_KEY", "");
+            expect((await changePlan(mutation("/api/billing/subscription",
+                { tenantId: actor.id, ...change }, "PATCH", id))).status).toBe(500);
+            vi.stubEnv("PADDLE_API_KEY", "pdl_sdbx_synthetic-test-only");
+            const { prorationBillingMode: _proration, ...withoutDefault } = change;
+            expect((await changePlan(mutation("/api/billing/subscription",
+                { tenantId: actor.id, ...withoutDefault }, "PATCH", id))).status).toBe(200);
+            expect(paddleRequest).toHaveBeenCalledOnce();
+        });
+        it("plan/cancel mutations reject the old tenant-only payload", async () => {
+            for (const operation of ["change_plan", "cancel_subscription"]) {
+                const id = await challenge({ tenantId: actor.id }, operation);
+                const body = operation === "change_plan" ? { ...change } : { effective: "immediately" };
+                const handler = operation === "change_plan" ? changePlan : cancelPlan;
+                const method = operation === "change_plan" ? "PATCH" : "DELETE";
+                expect((await handler(mutation("/api/billing/subscription",
+                    { tenantId: actor.id, ...body }, method, id))).status).toBe(403);
+            }
+            expect(paddleRequest).not.toHaveBeenCalled();
+        });
+        it("allows exactly one concurrent plan request to reach the provider", async () => {
+            const id = await challenge(planChangeStepUpPayload(actor.id, change), "change_plan");
+            const results = await Promise.all(Array.from({ length: 8 }, () => changePlan(mutation(
+                "/api/billing/subscription", { tenantId: actor.id, ...change }, "PATCH", id,
+            ))));
+            expect(results.filter((result) => result.status === 200)).toHaveLength(1);
+            expect(results.filter((result) => result.status === 403)).toHaveLength(7);
+            expect(paddleRequest).toHaveBeenCalledOnce();
+        });
+        it("normalizes omitted cancellation timing and preserves local state on provider rejection", async () => {
+            const id = await challenge(cancellationStepUpPayload(actor.id, "immediately"), "cancel_subscription");
+            expect((await cancelPlan(mutation("/api/billing/subscription",
+                { tenantId: actor.id, effective: null }, "DELETE", id))).status).toBe(400);
+            expect(paddleRequest).not.toHaveBeenCalled();
+            paddleRequest.mockImplementation(async () => Response.json({ error: { detail: "Synthetic rejection" } }, { status: 400 }));
+            const response = await cancelPlan(mutation("/api/billing/subscription", { tenantId: actor.id }, "DELETE", id));
+            expect(response.status).toBe(502);
+            expect(await response.json()).toMatchObject({ error: "Fallo al cancelar suscripción en Paddle" });
+            expect(JSON.parse(String(paddleRequest.mock.calls[0][1]?.body))).toEqual({ effective_from: "immediately" });
+            const [rows] = await db.query<RowDataPacket[]>("SELECT subscription_status FROM Tenants WHERE tenant_id=?", [actor.id]);
+            expect(rows[0].subscription_status).toBe("ACTIVE");
+            expect((await cancelPlan(mutation("/api/billing/subscription", { tenantId: actor.id }, "DELETE", id))).status).toBe(403);
+            expect(paddleRequest).toHaveBeenCalledOnce();
+        });
+        it("does not let a Reader reach either provider mutation", async () => {
+            await db.query("UPDATE Users SET role='Reader' WHERE tenant_id=?", [actor.id]);
+            expect((await changePlan(mutation("/api/billing/subscription",
+                { tenantId: actor.id, ...change }, "PATCH"))).status).toBe(403);
+            expect((await cancelPlan(mutation("/api/billing/subscription",
+                { tenantId: actor.id, effective: "immediately" }, "DELETE"))).status).toBe(403);
+            expect(paddleRequest).not.toHaveBeenCalled();
+        });
     });
 });

@@ -41,6 +41,7 @@ import ResizableTh from '@/components/ResizableTh';
 import Pagination, { usePagination } from '@/components/Pagination';
 import { CELL, ColumnMenu, useColumnConfig, type TableColumnConfig } from '@/components/TableColumns';
 import type { MarkupOverrideRuleItem, MarkupScopeType } from '@/types/tenantPartnerMarkup.types';
+import { markupStepUpPayload } from '@/types/tenantPartnerMarkup.types';
 import { isMockTenant } from '@/lib/demoTenant';
 
 // A nivel de modulo no hay `t`. Se piden desde el componente. De paso salieron
@@ -246,7 +247,15 @@ export default function PartnerMarkup() {
             }
 
             // Operación sensible de facturación: solicitar MFA si el usuario tiene 2FA activado.
-            const { challengeId, cancelled } = await requestChallenge('change_billing_config', { tenantId: selectedTenant.id });
+            const payload = {
+                tenantId: selectedTenant.id,
+                globalMarkupPercentage: markup,
+                fixedManagementFeeUSD: fixedFee,
+                isMarkupEnabled: true,
+            };
+            const { challengeId, cancelled } = await requestChallenge(
+                'change_billing_config', markupStepUpPayload(payload.tenantId, payload),
+            );
             if (cancelled) {
                 setIsSaving(false);
                 return;
@@ -259,12 +268,7 @@ export default function PartnerMarkup() {
                     ...(await authHeaders()),
                     ...(challengeId ? { 'X-MFA-Challenge-Id': challengeId } : {})
                 },
-                body: JSON.stringify({
-                    tenantId: selectedTenant.id,
-                    globalMarkupPercentage: markup,
-                    fixedManagementFeeUSD: fixedFee,
-                    isMarkupEnabled: true,
-                })
+                body: JSON.stringify(payload)
             });
 
             if (!response.ok) {
