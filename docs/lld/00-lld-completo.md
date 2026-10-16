@@ -6750,3 +6750,29 @@ fixtures SQL de compania/transaccion distintas y factura propia con importe/ID
 verificados, sin usar Paddle. Totales ampliados: cinco handlers, 31 casos
 con MySQL y 15 regresiones siempre activas; acceso legitimo, membresia cruzada
 explicita, bloqueo anonimo/ajeno/DISABLED y demo sintetica preservados.
+
+### 52.6 Matriz de cache con Redis real
+
+`tenantCacheIsolation.redis.test.ts` solo se activa con `REDIS_SECURITY_PORT`.
+Antes de importar dinamicamente redis/cache fija loopback, puerto de prueba,
+sin TLS/password de produccion; rechaza reutilizar un cliente global previo.
+Usa los modulos reales y Redis desechable, sin simular get/set/del/TTL.
+Registra y borra solo claves sinteticas propias, desconecta su cliente y no
+usa FLUSHDB ni modifica Redis de aplicacion.
+
+Siete casos cubren builders auditFull/auditTtl/liveAnomalies/costGroups,
+incluyendo dos suscripciones y normalizacion de auditFull, hits/peek sin
+fetcher, 12 misses concurrentes por tenant con una sola carga por clave,
+12 refresh stale por tenant con promesas controladas, invalidacion exacta y
+patron limitada al tenant, expiracion real de un segundo, error de origen
+sin contaminacion ajena/reintento y refresh degradado con TTL cero que
+conserva el ultimo dato bueno. Se comprueban valores y TTL positivos, no
+solo cantidad de llamadas.
+
+CI provisiona Redis 7 Alpine por digest y healthcheck, publica puerto dinamico
+y lo entrega al mismo paso obligatorio de SQL/persistencia. MySQL usa
+healthcheck TCP para no aceptar su servidor temporal de inicializacion.
+Suite local con ambos servicios habilitados: 558 archivos, 6242 tests pass,
+8 archivos/76 tests omitidos por otros gates. No implica prueba HTTP ni
+cobertura de todos los builders, namespaces o permisos efectivos; hosted y
+rollout siguen bloqueados por los gates ya documentados.

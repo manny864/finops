@@ -81,7 +81,16 @@ jobs:
         ports:
           - 3306/tcp
         options: >-
-          --health-cmd="mysqladmin ping --silent"
+          --health-cmd="mysqladmin --protocol=tcp -h127.0.0.1 ping --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+      redis:
+        image: redis:7-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
+        ports:
+          - 6379/tcp
+        options: >-
+          --health-cmd="redis-cli ping"
           --health-interval=5s
           --health-timeout=5s
           --health-retries=20
@@ -93,10 +102,11 @@ jobs:
           cache: 'npm'
           cache-dependency-path: package-lock.json
       - run: npm ci --no-audit --no-fund --prefer-offline --loglevel=error
-      - name: Real MySQL security persistence and tenant isolation
-        run: npx vitest run __tests__/integration/securityPersistence.mysql.test.ts __tests__/integration/tenantAuditIsolation.mysql.test.ts
+      - name: Real MySQL and Redis security persistence and tenant isolation
+        run: npx vitest run __tests__/integration/securityPersistence.mysql.test.ts __tests__/integration/tenantAuditIsolation.mysql.test.ts __tests__/integration/tenantCacheIsolation.redis.test.ts
         env:
           MYSQL_SECURITY_PORT: ${{ job.services.mysql.ports['3306'] }}
+          REDIS_SECURITY_PORT: ${{ job.services.redis.ports['6379'] }}
       # AISEC-03: pdfChromiumIsolation prueba con un Chromium real que el PDF no
       # ejecuta JS ni sale a la red. Sin el binario se saltearía en silencio.
       - name: Instalar Chromium headless de Playwright

@@ -1940,3 +1940,10 @@ exponer plan, compania y facturas reales sin autorizacion. La matriz ampliada
 cubre cinco handlers (cuatro de auditoria y uno de facturacion), con 31 casos
 SQL y 15 regresiones sin DB; comprueba tambien IDs e importes de facturas
 propias sin llamar a Paddle ni cobrar.
+
+Siete pruebas adicionales usan Redis desechable y los helpers reales de cache:
+claves de auditoria, anomalias y periodos Cost Groups, separacion tenant/scope,
+deduplicacion y refresh concurrentes, invalidacion selectiva, expiracion y
+fallos/degradacion. CI agrega Redis por digest; no se usa el Redis de la app.
+Esto reduce cobertura pendiente de SWR, pero no certifica todos los
+consumidores ni autorizacion HTTP sobre entradas cacheadas.
