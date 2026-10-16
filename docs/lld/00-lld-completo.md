@@ -6902,3 +6902,29 @@ Blob habilitado; suite completa con MySQL/Redis/Azurite: 6328 pass/76 skip,
 561 archivos correctos/8 omitidos; lint/typecheck/build nativo correctos.
 No modifica politica de admision STRIDE-03 ni acredita rollout o cobertura
 global de notificaciones/caches.
+
+### 52.11 Descartes de anuncios: pertenencia, vigencia y canal
+
+recordDismissal exige tenant, identidad e ID entero positivo seguro. Reutiliza
+getActiveAnnouncementsForTenant para comprobar publicacion, ventana temporal
+y destinatario antes del INSERT IGNORE. Se conserva la interpretacion horaria
+del listado; no se introduce una comparacion SQL NOW con otra zona horaria.
+El endpoint /api/announcements/dismiss permite cualquier canal visible;
+los dos PATCH de notificaciones exigen ademas el canal notification.
+IDs invalidos devuelven 400; anuncios ajenos, borradores, vencidos o de canal
+incompatible devuelven 404 sin persistir el descarte. Email/tenant proceden
+del guard, no del body. Un error SQL se propaga al handler como 500 y no cae
+en el UPDATE regular, ni siquiera junto con markAllAsRead=true.
+
+El descarte conserva la clave (announcement_id, user_email), sin migracion
+a estado por tenant. Repetir un descarte propio sigue siendo idempotente.
+La comprobacion y el INSERT no son una transaccion que bloquee cambios de
+publicacion concurrentes: no se afirma binding atomico de esa configuracion.
+
+Cinco casos SQL adicionales prueban los tres accesos, destinatario ajeno,
+borrador, vencimiento, canal, ID invalido, identidad falsificada, idempotencia
+y fallo real de consulta (tabla temporalmente renombrada solo en la base
+fixture). Cinco regresiones unitarias verifican validacion y pertenencia.
+Matriz total 90 casos con Blob; suite completa con MySQL/Redis/Azurite:
+6338 pass/76 skip, 561 archivos correctos/8 omitidos. Lint/typecheck/build
+nativo correctos. Implementado en rama, no desplegado ni cobertura global.

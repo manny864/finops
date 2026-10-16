@@ -14,11 +14,11 @@ export async function POST(request: NextRequest) {
     const identity = await requireTenantAccess(request, tenantId);
     const body = await request.json();
     const announcementId = Number(body?.announcementId);
-    if (!Number.isInteger(announcementId)) {
+    if (!Number.isSafeInteger(announcementId) || announcementId < 1) {
       return NextResponse.json({ error: "announcementId inválido" }, { status: 400 });
     }
 
-    await recordDismissal(announcementId, identity.email);
+    await recordDismissal(announcementId, identity.email, tenantId);
     return NextResponse.json({ success: true });
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: errorMessage(err) }, { status: errorStatus(err) });

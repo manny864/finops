@@ -9,6 +9,7 @@
  */
 
 import pool, { initializeDatabase } from "@/modules/storage/db";
+import { AuthError } from "@/lib/requestAuth";
 import { isMockTenant } from "@/lib/mockData";
 import type {
   TenantNotificationItem,
@@ -268,20 +269,17 @@ export async function markNotificationAsRead(params: {
 
   // Si es un anuncio global broadcast, registrar el descarte para este usuario
   if (notificationId && String(notificationId).startsWith("broadcast-")) {
-    try {
-      const { recordDismissal } = await import("@/services/systemAnnouncements.service");
-      const aId = Number(String(notificationId).replace("broadcast-", ""));
-      if (!Number.isNaN(aId)) {
-        if (!userEmail) {
-          console.error("[tenantNotifications.service] Broadcast dismissal requires an authenticated recipient");
-          return { success: false, updatedCount: 0 };
-        }
-        await recordDismissal(aId, userEmail);
-        return { success: true, updatedCount: 1 };
-      }
-    } catch (e) {
-      console.warn("[tenantNotifications.service] Error registrando descarte de broadcast:", e);
+    const aId = Number(String(notificationId).replace("broadcast-", ""));
+    if (!Number.isSafeInteger(aId) || aId < 1) {
+      throw new AuthError("announcementId inválido", 400, "INVALID_ANNOUNCEMENT_DISMISSAL");
     }
+    if (!userEmail) {
+      console.error("[tenantNotifications.service] Broadcast dismissal requires an authenticated recipient");
+      return { success: false, updatedCount: 0 };
+    }
+    const { recordDismissal } = await import("@/services/systemAnnouncements.service");
+    await recordDismissal(aId, userEmail, tenantId, "notification");
+    return { success: true, updatedCount: 1 };
   }
 
   await initializeDatabase();

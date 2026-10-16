@@ -1988,3 +1988,11 @@ su contenido. Ambos PATCH y DELETE usan identidad del guard, no email del
 body. Descartar broadcast ya no usa anonymous; markAllAsRead exige booleano.
 Avisos tenant-wide conservan estado compartido. Catorce casos SQL reales y
 cinco regresiones verifican esos limites; implementado en rama, sin rollout.
+
+Descartar anuncios tambien exige pertenencia al tenant y vigencia publicada.
+El endpoint general permite canales visibles; ambos PATCH de notificaciones
+solo aceptan el canal notification. Un fallo SQL devuelve error y no deriva
+en marcar otros avisos como leidos. Se mantiene el estado por anuncio/email,
+no por tenant, y no se afirma atomicidad frente a cambios de publicacion.
+Cinco casos SQL y cinco unitarios adicionales amplian la matriz a 90 casos;
+suite completa 6338 pass/76 skip. Detalle y limites en LLD 52.11, sin rollout.

@@ -38,6 +38,7 @@ import { alcanceDeLaRuta, filasDeCosto, filtroDeLaRequest, listarPerspectivas } 
 import { GET as readNotifications, PATCH as markNotifications, DELETE as removeNotification } from "@/app/api/notifications/route";
 import { PATCH as markNotificationsAlias } from "@/app/api/notifications/mark-read/route";
 import { deleteNotification, markNotificationAsRead } from "@/services/tenantNotifications.service";
+import { POST as dismissAnnouncement } from "@/app/api/announcements/dismiss/route";
 
 const tenants = [
     { id: "a0000000-0000-4000-8000-000000000001", email: "reader@alpha.example", marker: "alpha-only-record" },
@@ -588,6 +589,69 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
             await deleteNotification(actor.id, 1);
             expect((await ids()).some((row) => row.id === 1)).toBe(true);
             expect((await ids()).filter((row) => row.is_read === 1).map((row) => row.id)).toEqual([3]);
+        });
+        for (const entry of ["notification", "alias", "announcement"] as const) {
+            it(`${entry} cannot dismiss a foreign, draft, expired or wrong-channel announcement`, async () => {
+                for (const [id, target, status, expired, channels] of [
+                    [11, tenants[1].id, "published", false, "notification"],
+                    [12, actor.id, "draft", false, "notification"],
+                    [13, actor.id, "published", true, "notification"],
+                    [14, actor.id, "published", false, "banner"],
+                ] as const) {
+                    await db.query(`INSERT INTO SystemAnnouncements
+                        (id,title,message,severity,channels,target_all_tenants,target_tenant_ids,starts_at,ends_at,
+                         status,created_by_email,created_at,updated_at)
+                        VALUES (?, 'Synthetic', 'Synthetic', 'info', ?, false, ?,
+                         DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 DAY),
+                         ${expired ? "DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY)" : "DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY)"},
+                         ?, 'synthetic@example.test', UTC_TIMESTAMP(), UTC_TIMESTAMP())`,
+                        [id, channels, JSON.stringify([target]), status]);
+                }
+                for (const id of [11, 12, 13, 14]) {
+                    let response: Response;
+                    if (entry === "announcement") {
+                        response = await dismissAnnouncement(new NextRequest(request("/api/announcements/dismiss", actor.id, actor),
+                            { method: "POST", body: JSON.stringify({ announcementId: id }) }));
+                    } else {
+                        const handler = entry === "alias" ? markNotificationsAlias : markNotifications;
+                        response = await handler(mutate("/api/notifications", { tenantId: actor.id, notificationId: `broadcast-${id}` }, actor));
+                    }
+                    expect(response.status).toBe(entry === "announcement" && id === 14 ? 200 : 404);
+                }
+                const [rows] = await db.query<RowDataPacket[]>("SELECT * FROM UserAnnouncementDismissals");
+                expect(rows).toEqual(entry === "announcement" ? [{ announcement_id: 14, user_email: actor.email }] : []);
+                expect((await ids()).every((row) => row.is_read === 0)).toBe(true);
+            });
+        }
+        it("announcement dismissal is idempotent for a visible target and rejects invalid IDs", async () => {
+            await db.query(`INSERT INTO SystemAnnouncements
+                (id,title,message,severity,channels,target_all_tenants,target_tenant_ids,starts_at,ends_at,
+                 status,created_by_email,created_at,updated_at)
+                VALUES (21,'Synthetic','Synthetic','info','popup',false,?,
+                 DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 DAY),DATE_ADD(UTC_TIMESTAMP(),INTERVAL 1 DAY),
+                 'published','synthetic@example.test',UTC_TIMESTAMP(),UTC_TIMESTAMP())`, [JSON.stringify([actor.id])]);
+            const make = (id: number) => new NextRequest(request("/api/announcements/dismiss", actor.id, actor),
+                { method: "POST", body: JSON.stringify({ announcementId: id, userEmail: hiddenEmail }) });
+            expect((await dismissAnnouncement(make(21))).status).toBe(200);
+            expect((await dismissAnnouncement(make(21))).status).toBe(200);
+            for (const id of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+                expect((await dismissAnnouncement(make(id))).status).toBe(400);
+            }
+            const [rows] = await db.query<RowDataPacket[]>("SELECT * FROM UserAnnouncementDismissals");
+            expect(rows).toEqual([{ announcement_id: 21, user_email: actor.email }]);
+        });
+        it("SQL failure in broadcast lookup cannot fall through to bulk marking regular notifications", async () => {
+            await db.query("RENAME TABLE SystemAnnouncements TO SystemAnnouncementsUnavailable");
+            try {
+                const response = await markNotifications(mutate("/api/notifications",
+                    { tenantId: actor.id, notificationId: "broadcast-1", markAllAsRead: true }, actor));
+                expect(response.status).toBe(500);
+                expect((await ids()).every((row) => row.is_read === 0)).toBe(true);
+                const [rows] = await db.query<RowDataPacket[]>("SELECT * FROM UserAnnouncementDismissals");
+                expect(rows).toEqual([]);
+            } finally {
+                await db.query("RENAME TABLE SystemAnnouncementsUnavailable TO SystemAnnouncements");
+            }
         });
     });
 

@@ -240,10 +240,22 @@ describe("displayStatus — derivado de fechas, nunca escrito a la DB", () => {
 
 describe("recordDismissal", () => {
     it("usa INSERT IGNORE: descartar dos veces no rompe", async () => {
-        queryMock.mockResolvedValue([{}]);
-        await recordDismissal(1, "user@x.com");
-        expect(queryMock.mock.calls[0][0]).toContain("INSERT IGNORE");
-        expect(queryMock.mock.calls[0][1]).toEqual([1, "user@x.com"]);
+        queryMock.mockResolvedValueOnce([[row({ id: 1, target_all_tenants: 1,
+            starts_at: "2020-01-01 00:00:00", ends_at: "2099-01-01 00:00:00" })]])
+            .mockResolvedValueOnce([[]]).mockResolvedValueOnce([{}]);
+        await recordDismissal(1, "user@x.com", "tenant-a");
+        expect(queryMock.mock.calls[2][0]).toContain("INSERT IGNORE");
+        expect(queryMock.mock.calls[2][1]).toEqual([1, "user@x.com"]);
+    });
+    it("does not insert a dismissal for another tenant's announcement", async () => {
+        queryMock.mockResolvedValueOnce([[row({ id: 1, target_all_tenants: 0, target_tenant_ids: '["tenant-b"]',
+            starts_at: "2020-01-01 00:00:00", ends_at: "2099-01-01 00:00:00" })]]);
+        await expect(recordDismissal(1, "user@x.com", "tenant-a")).rejects.toMatchObject({ status: 404 });
+        expect(queryMock.mock.calls.some(([sql]) => String(sql).includes("INSERT"))).toBe(false);
+    });
+    it.each([0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])("rejects invalid announcement ID %s before SQL", async (id) => {
+        await expect(recordDismissal(id, "user@x.com", "tenant-a")).rejects.toMatchObject({ status: 400 });
+        expect(queryMock).not.toHaveBeenCalled();
     });
 });
 

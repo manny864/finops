@@ -1,4 +1,5 @@
 import pool from "@/modules/storage/db";
+import { AuthError } from "@/lib/requestAuth";
 import type { RowDataPacket } from "mysql2";
 import {
   BASE_LOCALE,
@@ -261,7 +262,18 @@ export async function getActiveAnnouncementsForTenant(
   });
 }
 
-export async function recordDismissal(announcementId: number, userEmail: string): Promise<void> {
+export async function recordDismissal(
+  announcementId: number,
+  userEmail: string,
+  tenantId: string,
+  channel?: AnnouncementChannel,
+): Promise<void> {
+  if (!Number.isSafeInteger(announcementId) || announcementId < 1 || !userEmail || !tenantId) {
+    throw new AuthError("Descarte de anuncio inválido.", 400, "INVALID_ANNOUNCEMENT_DISMISSAL");
+  }
+  const visible = (await getActiveAnnouncementsForTenant(tenantId, userEmail))
+    .some((announcement) => announcement.id === announcementId && (!channel || announcement.channels.includes(channel)));
+  if (!visible) throw new AuthError("Anuncio no disponible.", 404, "ANNOUNCEMENT_NOT_AVAILABLE");
   await pool.query(
     "INSERT IGNORE INTO UserAnnouncementDismissals (announcement_id, user_email) VALUES (?, ?)",
     [announcementId, userEmail]
