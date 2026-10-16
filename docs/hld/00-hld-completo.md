@@ -1971,3 +1971,12 @@ tampoco se resuelve desde una fila propia. El enlace de descarga es una ruta
 autenticada, no un SAS publico; expiresAt no impone expiracion. CI provisiona
 el emulador por digest, cuenta sintetica y tmpfs con limpieza explicita. No
 se certifican por esto RBAC Azure ni todos los objetos/cache de la aplicacion.
+
+Cost Groups cierra el catalogo de columnas del desglose en tipo y runtime,
+con limite entero 1..100 antes de SQL. Los llamadores existentes ya usaban
+constantes: es endurecimiento de frontera, no explotacion remota confirmada.
+Ocho casos MySQL adicionales verifican costos por tenant y Perspectives:
+el permiso asignado prevalece sobre la URL; una Perspective ajena no resuelve
+y el recorte SQL excluye costos fuera del grupo. Quince regresiones de
+catalogo/limites conservan Decimal/Other. Sin cambio de politica de admision
+ni certificacion del handler completo de Cost Groups o Resource Graph.

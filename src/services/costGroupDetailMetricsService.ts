@@ -156,7 +156,15 @@ export async function getPeriodComparison(tenantId: string, tagFilter: string, p
   };
 }
 
-export async function getTopBreakdown(tenantId: string, tagFilter: string, params: any[], column: string, limit = 6) {
+type BreakdownColumn = "service_name" | "MeterName" | "ServiceFamily";
+
+export async function getTopBreakdown(tenantId: string, tagFilter: string, params: any[], column: BreakdownColumn, limit = 6) {
+  if (column !== "service_name" && column !== "MeterName" && column !== "ServiceFamily") {
+    throw new Error("Unsupported cost group breakdown column");
+  }
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    throw new Error("Cost group breakdown limit must be an integer between 1 and 100");
+  }
   const [rows]: any = await pool.query(
     `SELECT COALESCE(NULLIF(${column}, ''), 'Unknown') AS name, SUM(COALESCE(EffectiveCost, cost_usd, 0)) AS cost
      FROM CostSnapshots WHERE tenant_id = ? AND ${tagFilter} AND DATE(COALESCE(ChargePeriodStart, date)) >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)

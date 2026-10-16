@@ -33,6 +33,8 @@ import { POST as historyLink } from "@/app/api/reports/history/download/route";
 import { BLOB_CONTAINER_REPORTS } from "@/services/executiveReportHistory.service";
 import { EXECUTIVE_REPORT_CONTAINER, saveExecutiveReportMarkdown, readExecutiveReportMarkdown } from "@/lib/executiveReportStorage";
 import * as blobs from "@/lib/azureBlobStorage";
+import { getTopBreakdown } from "@/services/costGroupDetailMetricsService";
+import { alcanceDeLaRuta, filasDeCosto, filtroDeLaRequest, listarPerspectivas } from "@/services/perspectivesData.service";
 
 const tenants = [
     { id: "a0000000-0000-4000-8000-000000000001", email: "reader@alpha.example", marker: "alpha-only-record" },
@@ -117,6 +119,14 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
             scope_subscription_name VARCHAR(120), locale VARCHAR(10), created_at DATETIME,
             completed_at DATETIME, emailed_to_requester_at DATETIME, report_markdown MEDIUMTEXT,
             report_stored_name VARCHAR(180), total_cost_usd DECIMAL(12,2), total_savings_usd DECIMAL(12,2))`);
+        await db.query(`CREATE TABLE CostSnapshots (
+            tenant_id VARCHAR(64), subscription_id VARCHAR(120), resource_group VARCHAR(120),
+            service_name VARCHAR(120), MeterName VARCHAR(120), ServiceFamily VARCHAR(120),
+            ResourceId VARCHAR(512), Tags JSON, date DATE, ChargePeriodStart DATETIME,
+            EffectiveCost DECIMAL(12,2), BilledCost DECIMAL(12,2), cost_usd DECIMAL(12,2))`);
+        await db.query(`CREATE TABLE Perspectives (id INT PRIMARY KEY, tenant_id VARCHAR(64), name VARCHAR(120), description TEXT)`);
+        await db.query(`CREATE TABLE PerspectiveRules (id INT PRIMARY KEY, perspective_id INT,
+            group_name VARCHAR(120), match_type VARCHAR(40), match_key VARCHAR(120), match_value VARCHAR(120), sort_order INT)`);
         for (const tenant of tenants) {
             await db.query(`INSERT INTO Users (tenant_id, email, entra_oid, role, account_status, system_role)
                 VALUES (?, ?, ?, 'Reader', 'ACTIVE', NULL)`,
@@ -465,6 +475,85 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
             expect((await cancelPlan(mutation("/api/billing/subscription",
                 { tenantId: actor.id, effective: "immediately" }, "DELETE"))).status).toBe(403);
             expect(paddleRequest).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("cost breakdown and assigned perspectives with real SQL", () => {
+        beforeAll(async () => {
+            for (const [index, tenant] of tenants.entries()) {
+                await db.query("INSERT INTO Perspectives VALUES (?, ?, ?, NULL)", [index + 1, tenant.id, tenant.marker]);
+                await db.query("INSERT INTO PerspectiveRules VALUES (?, ?, 'allowed', 'resource_group', NULL, ?, 0)",
+                    [index + 1, index + 1, `rg-${tenant.marker}`]);
+                for (const [suffix, cost] of [["", 12.1], ["-excluded", 0.5]] as const) {
+                    await db.query(`INSERT INTO CostSnapshots
+                        (tenant_id, subscription_id, resource_group, service_name, MeterName, ServiceFamily, ResourceId, Tags,
+                         date, ChargePeriodStart, EffectiveCost)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, UTC_DATE(), UTC_TIMESTAMP(), ?)`,
+                        [tenant.id, `sub-${tenant.marker}`, `rg-${tenant.marker}${suffix}`,
+                            `${tenant.marker}${suffix}`, `meter-${tenant.marker}${suffix}`, `family-${tenant.marker}${suffix}`,
+                            `/subscriptions/sub-${tenant.marker}/resourceGroups/rg-${tenant.marker}${suffix}/providers/Test/item/one`,
+                            JSON.stringify({ CostCenter: "shared", Environment: suffix ? "excluded" : "allowed" }), cost]);
+                }
+            }
+        });
+        it.each(["service_name", "MeterName", "ServiceFamily"] as const)(
+            "keeps concurrent %s totals separate despite identical tag values", async (column) => {
+                await Promise.all(tenants.map(async (tenant, index) => {
+                    const result = await getTopBreakdown(tenant.id, "JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')) = ?",
+                        [tenant.id, "shared"], column, 1);
+                    expect(result).toHaveLength(2);
+                    expect(result[0].name).toContain(tenant.marker);
+                    expect(result[0].cost).toBe(12.1);
+                    expect(result[1]).toEqual({ name: "Other", cost: 0.5 });
+                    expect(JSON.stringify(result)).not.toContain(tenants[1 - index].marker);
+                }));
+            },
+        );
+        it("binds tag, subscription and date literals without expanding the tenant predicate", async () => {
+            const tenant = tenants[0];
+            const malicious = "' OR 1=1 -- ";
+            expect(await getTopBreakdown(tenant.id, "JSON_UNQUOTE(JSON_EXTRACT(Tags, '$.CostCenter')) = ?",
+                [tenant.id, malicious], "service_name")).toEqual([]);
+            expect(await filasDeCosto(tenant.id, "2000-01-01", "2100-01-01", malicious)).toEqual([]);
+            await expect(filasDeCosto(tenant.id, "2000-01-01", malicious)).rejects.toThrow("Incorrect DATE value");
+            const rows = await filasDeCosto(tenant.id, "2000-01-01", "2100-01-01");
+            expect(rows).toHaveLength(2);
+            expect(rows.reduce((sum, row) => sum + row.costo, 0)).toBe(12.6);
+            expect(rows.every((row) => row.subscriptionId === `sub-${tenant.marker}`)).toBe(true);
+        });
+        it("loads only own perspectives and rules selected from own perspective IDs", async () => {
+            await Promise.all(tenants.map(async (tenant, index) => {
+                const perspectives = await listarPerspectivas(tenant.id);
+                expect(perspectives).toMatchObject([{
+                    id: index + 1, name: tenant.marker,
+                    reglas: [{ valor: `rg-${tenant.marker}`, grupo: "allowed" }],
+                }]);
+                expect(JSON.stringify(perspectives)).not.toContain(tenants[1 - index].marker);
+            }));
+        });
+        it("assigned scope wins over a foreign perspective and arbitrary group in the URL", async () => {
+            const tenant = tenants[0];
+            const filter = await filtroDeLaRequest(tenant.id, new URLSearchParams("perspective=2&pgroup=other"),
+                { perspectiveId: 1, grupo: "allowed" });
+            expect(filter).toBeTypeOf("function");
+            const rows = await filasDeCosto(tenant.id, "2000-01-01", "2100-01-01");
+            expect(rows.filter(filter!)).toHaveLength(1);
+            expect(rows.filter(filter!)[0].resourceGroup).toBe(`rg-${tenant.marker}`);
+        });
+        it("fails closed when an assigned perspective belongs to a different tenant", async () => {
+            await expect(filtroDeLaRequest(tenants[0].id, new URLSearchParams("perspective=1"),
+                { perspectiveId: 2, grupo: "allowed" })).rejects.toMatchObject({ status: 403, code: "SCOPE_UNRESOLVED" });
+        });
+        it("executes the resolved scope SQL with aligned parameters and cannot include excluded or foreign costs", async () => {
+            const tenant = tenants[0];
+            const window = { where: "tenant_id = ?", params: [tenant.id] };
+            const scope = await alcanceDeLaRuta(tenant.id, new URLSearchParams("perspective=2"), window,
+                { perspectiveId: 1, grupo: "allowed" });
+            expect(scope.aplicado).toBe(true);
+            const [rows] = await db.query<RowDataPacket[]>(
+                `SELECT service_name, EffectiveCost FROM CostSnapshots WHERE ${window.where}${scope.and}`,
+                [...window.params, ...scope.params]);
+            expect(rows).toMatchObject([{ service_name: tenant.marker, EffectiveCost: "12.10" }]);
         });
     });
 

@@ -6849,3 +6849,27 @@ Esta evidencia no certifica permisos ni comportamiento del servicio Azure,
 retencion efectiva, todos los objetos/exportaciones o todas las claves cache.
 Suite completa local con MySQL, Redis y Azurite activos simultaneamente:
 560 archivos y 6286 tests correctos; 8 archivos/76 tests omitidos por otros gates.
+
+### 52.9 Frontera SQL de desglose y alcance de Perspectives
+
+getTopBreakdown usa BreakdownColumn=service_name|MeterName|ServiceFamily y
+valida el catalogo nuevamente en runtime antes de pool.query; rechaza otros
+identificadores o fragmentos SQL. limit admite enteros 1..100, default 6.
+Los tres llamadores actuales ya usan constantes; no se acredita una entrada
+HTTP arbitraria. tagFilter es un fragmento interno del servidor: sus valores
+siguen parametrizados. No se abre una interfaz de consulta SQL por request.
+
+Quince tests unitarios verifican columnas, strings estructurales, limites,
+precision decimal y bucket Other. Ocho casos MySQL reales adicionales en
+tenantAuditIsolation (71 casos con Blob habilitado) comprueban las tres
+dimensiones con tags identicos entre tenants, filtros de tag/suscripcion y
+fechas, listado de Perspectives/reglas por tenant, permiso asignado que gana
+sobre URL y SCOPE_UNRESOLVED para una Perspective ajena. alcanceDeLaRuta se
+resuelve y su SQL se ejecuta con parametros reales: solo entra el recurso
+del grupo asignado. Una fecha invalida sigue siendo un literal y MySQL la
+rechaza por tipo; no se convierte en estructura de consulta.
+
+No cambia la politica STRIDE-03 ni se afirma prueba del handler HTTP completo,
+Resource Graph o inventario global. Suite local con MySQL, Redis y Azurite:
+561 archivos y 6309 tests correctos, 8 archivos/76 tests omitidos por otros
+gates; lint/typecheck/build nativo correctos. Implementado en rama, sin rollout.
