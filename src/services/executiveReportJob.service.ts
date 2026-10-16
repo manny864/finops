@@ -39,7 +39,7 @@ import type { ExecutiveReportData, ExecutiveReportScope } from '@/types/executiv
 const activeJobsCache = new Map<string, ExecutiveReportJobState>();
 
 // Cache de reportes completados recientes por tenant
-const tenantRecentReportsCache = new Map<string, { reportId: string; reportMarkdown: string; data: ExecutiveReportData; completedAt: string }>();
+const tenantRecentReportsCache = new Map<string, { reportId: string; reportMarkdown: string; data: ExecutiveReportData; completedAt: string; scopeSubscriptionId: string }>();
 
 function getStepProgress(step: ReportJobStep): { progress: number; label: string } {
     switch (step) {
@@ -236,6 +236,7 @@ async function runMockJobProcess(
                 reportMarkdown: markdown,
                 data: aggregatedData,
                 completedAt: item.completedAt,
+                scopeSubscriptionId,
             });
         }
     } catch (err: unknown) {
@@ -408,6 +409,7 @@ async function runRealJobProcess(
                 reportMarkdown,
                 data: aggregatedData,
                 completedAt: item.completedAt,
+                scopeSubscriptionId,
             });
         }
     } catch (err: unknown) {
@@ -448,6 +450,7 @@ export async function getExecutiveReportJobStatus(
     // 1. Primero chequear memoria viva
     const cached = activeJobsCache.get(jobId);
     if (cached?.tenantId === tenantId) {
+        if (!isMock) await exigirSuscripcionDelTenant(tenantId, cached.scopeSubscriptionId);
         return {
             success: true,
             jobId: cached.jobId,
@@ -504,6 +507,7 @@ export async function getExecutiveReportJobStatus(
         };
     }
 
+    await exigirSuscripcionDelTenant(tenantId, row.scope_subscription_id);
     const isCompleted = row.status === 'completed';
     const isFailed = row.status === 'failed';
     const step: ReportJobStep = isCompleted ? 'COMPLETED' : isFailed ? 'FAILED' : 'AI_SYNTHESIZING';
@@ -536,6 +540,7 @@ export async function getActiveExecutiveReportJob(
     // Buscar en memoria activa
     for (const job of activeJobsCache.values()) {
         if (job.tenantId === tenantId && job.status !== 'COMPLETED' && job.status !== 'FAILED') {
+            if (!isMockTenant(tenantId)) await exigirSuscripcionDelTenant(tenantId, job.scopeSubscriptionId);
             return job;
         }
     }
@@ -557,6 +562,7 @@ export async function getActiveExecutiveReportJob(
     const row = (rows as any[])[0];
     if (!row) return null;
 
+    await exigirSuscripcionDelTenant(tenantId, row.scope_subscription_id);
     const step: ReportJobStep = row.status === 'queued' ? 'QUEUED' : 'COLLECTING_METRICS';
     const { progress, label } = getStepProgress(step);
 
@@ -578,7 +584,11 @@ export async function getActiveExecutiveReportJob(
  */
 export async function getLatestCompletedReport(tenantId: string) {
     if (tenantRecentReportsCache.has(tenantId)) {
-        return tenantRecentReportsCache.get(tenantId)!;
+        const cached = tenantRecentReportsCache.get(tenantId)!;
+        if (!isMockTenant(tenantId)) {
+            await exigirSuscripcionDelTenant(tenantId, cached.scopeSubscriptionId);
+        }
+        return cached;
     }
 
     if (isMockTenant(tenantId)) {
@@ -604,6 +614,7 @@ export async function getLatestCompletedReport(tenantId: string) {
     const row = (rows as any[])[0];
     if (!row) return null;
 
+    await exigirSuscripcionDelTenant(tenantId, row.scope_subscription_id);
     const data = await aggregateExecutiveReportData(tenantId, 'SUBSCRIPTION', row.scope_subscription_id || 'All');
     // AISEC-02: filas anteriores al guard de escritura.
     const reportMarkdown = guardAiMarkdown(String(row.report_markdown));

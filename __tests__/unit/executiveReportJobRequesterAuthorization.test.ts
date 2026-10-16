@@ -19,7 +19,7 @@ vi.mock("@/lib/executiveReportStorage", () => ({ saveExecutiveReportMarkdown: sa
 vi.mock("@/lib/notify", () => ({ createNotification: vi.fn(async () => {}) }));
 vi.mock("@/lib/notifications", () => ({ notifyTenant: vi.fn(async () => {}) }));
 
-import { getExecutiveReportJobStatus, startExecutiveReportJob } from "@/services/executiveReportJob.service";
+import { getExecutiveReportJobStatus, getLatestCompletedReport, startExecutiveReportJob } from "@/services/executiveReportJob.service";
 import { POST as startJob } from "@/app/api/reports/executive/start-job/route";
 
 const tenant = "synthetic-requester-tenant";
@@ -75,6 +75,12 @@ afterEach(() => { vi.restoreAllMocks(); });
 
 async function settled(jobId: string, status: "COMPLETED" | "FAILED") {
     await vi.waitFor(async () => {
+        expect(query.mock.calls.some(([sql, params]) =>
+            String(sql).includes(status === "COMPLETED" ? "SET status = 'completed'" : "SET status = 'failed'")
+            && Array.isArray(params) && params.includes(Number(jobId)))).toBe(true);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await vi.waitFor(async () => {
         expect((await getExecutiveReportJobStatus(jobId, tenant)).status).toBe(status);
     });
 }
@@ -112,7 +118,7 @@ describe("executive worker reauthorizes the captured requester", () => {
         expect(query).toHaveBeenCalledWith(expect.stringContaining("account_status = 'DISABLED'"), [tenant, email, oid]);
         expect(query).toHaveBeenCalledWith(expect.stringContaining("AND u.entra_oid = ?"), [tenant, email, oid]);
         expect(JSON.stringify(query.mock.calls)).not.toContain("forged");
-        expect(guard).toHaveBeenCalledTimes(4); // HTTP, service, worker, email.
+        expect(guard).toHaveBeenCalledTimes(5); // HTTP, service, worker, email, polling.
         expect(query).toHaveBeenCalledWith(expect.stringContaining("SET emailed_to_requester_at"),
             [Number(job.jobId), tenant]);
     });
@@ -151,7 +157,16 @@ describe("executive worker reauthorizes the captured requester", () => {
     it("preserves the explicit no-email option", async () => {
         const job = await startExecutiveReportJob({ ...payload(), sendEmailNotification: false });
         await settled(job.jobId, "COMPLETED");
-        expect(guard).toHaveBeenCalledTimes(2);
+        expect(guard).toHaveBeenCalledTimes(3); // Service, worker, polling.
         expectNoEmail();
+    });
+    it("rechecks subscription ownership before serving a completed report from recent cache", async () => {
+        const job = await startExecutiveReportJob({ ...payload(), sendEmailNotification: false });
+        await settled(job.jobId, "COMPLETED");
+        guard.mockClear();
+        expect(await getLatestCompletedReport(tenant)).toMatchObject({ reportId: job.jobId });
+        expect(guard).toHaveBeenCalledWith(tenant, "synthetic-subscription");
+        guard.mockRejectedValue(new Error("Synthetic revoked report scope"));
+        await expect(getLatestCompletedReport(tenant)).rejects.toThrow("Synthetic revoked report scope");
     });
 });

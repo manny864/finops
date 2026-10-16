@@ -2074,3 +2074,9 @@ sin marcar periodo enviado. Preserva procesos sin autor y politica de
 directorio existente. Quince regresiones unitarias y nueve MySQL reales;
 full con MySQL6416pass/98skip, sin Redis/Azurite/cloud. DetalleLLD52.21;
 sin cancelacion atomica ni idempotencia por destinatario.
+
+Lecturas de polling, job activo y reporte reciente ahora comprueban
+pertenencia actual de suscripcion tanto en cache como en SQL; el cache
+reciente conserva scopeID del job. Cinco regresiones adicionales,
+sinservicios6307pass/197skip;lint/typecheck/build correctos.
+DetalleLLD52.22;cacheAzure60s preservado,sinrevocacioninstantanea.

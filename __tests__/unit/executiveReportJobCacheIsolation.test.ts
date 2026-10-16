@@ -17,6 +17,8 @@ vi.mock("@/services/executiveReportGenerator.service", () => ({
 }));
 import { getExecutiveReportJobStatus, startExecutiveReportJob } from "@/services/executiveReportJob.service";
 import { GET as pollJob } from "@/app/api/reports/executive/job-status/route";
+import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
+import { getActiveExecutiveReportJob, getLatestCompletedReport } from "@/services/executiveReportJob.service";
 
 const owner = "synthetic-cache-owner";
 let jobId: string;
@@ -81,5 +83,22 @@ describe("executive job memory cache is tenant scoped", () => {
         expect(result.success).toBe(true);
         expect(result.scopeSubscriptionId).toBe("own-persisted-subscription");
         expect(result.reportMarkdown).toBe("own persisted report");
+    });
+    it("rechecks cached polling and active jobs instead of retaining revoked subscription access", async () => {
+        const guard = vi.mocked(exigirSuscripcionDelTenant);
+        guard.mockRejectedValueOnce(new Error("Synthetic revoked subscription"));
+        await expect(getExecutiveReportJobStatus(jobId, owner)).rejects.toThrow("Synthetic revoked subscription");
+        guard.mockRejectedValueOnce(new Error("Synthetic revoked subscription"));
+        await expect(getActiveExecutiveReportJob(owner)).rejects.toThrow("Synthetic revoked subscription");
+    });
+    it.each(["poll", "active", "latest"])("denies revoked subscription on the persisted %s read path", async (kind) => {
+        query.mockResolvedValueOnce([[{
+            id: 999, status: "completed", report_markdown: "Private", scope_subscription_id: "revoked",
+        }]]);
+        vi.mocked(exigirSuscripcionDelTenant).mockRejectedValueOnce(new Error("Synthetic persisted revocation"));
+        const other = "synthetic-persisted-read";
+        const result = kind === "poll" ? getExecutiveReportJobStatus("999", other)
+            : kind === "active" ? getActiveExecutiveReportJob(other) : getLatestCompletedReport(other);
+        await expect(result).rejects.toThrow("Synthetic persisted revocation");
     });
 });

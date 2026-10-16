@@ -7202,3 +7202,26 @@ destinatarios, se corta sin marcar periodo y queda error registrado;
 un reintento posterior puede repetir destinatarios previos. No agrega
 idempotencia por destinatario ni cambia roles; created_by sigue ligado
 a email historico, no se migra a OID.
+
+### 52.22 Pertenencia actual al leer jobs y reportes recientes
+
+getExecutiveReportJobStatus, getActiveExecutiveReportJob y
+getLatestCompletedReport exigen pertenencia de scope_subscription_id
+antes de devolver hits de memoria o filas SQL de tenants reales. El
+cache reciente conserva el ID de suscripcion del job, sin derivarlo del
+nombre mostrado ni del contenido generado. La ruta SQL de latest valida
+antes de volver a recolectar. Los guards HTTP de identidad/suspension y
+alcance personal siguen vigentes; el servicio agrega la frontera de
+pertenencia, no los sustituye.
+
+Cinco regresiones adicionales cubren polling/job activo en memoria,
+polling/activo/latest persistidos y latest completado en cache. Los
+errores del helper se propagan sin devolver contenido. Se mantienen
+demos sinteticos y contrato All; el helper compartido conserva TTL60s,
+por lo que no se afirma revocacion Azure instantanea ni autorizacion
+atomica con la respuesta.
+
+Suite sin servicios6307pass/197skip,566archivos/12omitidos; lint,
+typecheck y build nativo correctos. Estas regresiones usan SQL y helper
+de pertenencia sustituidos. La corrida MySQL6416pass/98skip de52.21
+es previa; no se presenta como repetida en este bloque.

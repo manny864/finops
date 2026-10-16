@@ -808,6 +808,8 @@ Catorce casos SQL nuevos ejecutan handlers y JWT reales: GET moderno/legacy solo
 
 **Revocacion/configuracion de reportes programados:** despachador compartido por cron/Enviar ahora revalida fila activa tenant/id y configuracion JSON exacta, autor persistido y estado/alcance antes de generar y de cada destinatario. Cambios/fallos SQL cortan sin marcar periodo; los guards no caen al catch que continua tras rebotes. Cron expone fallidas y warning; updates filtran tenant/id. Conserva autoresNULL de proceso y acceso por directorio sin Users, sin cambiar STRIDE03.15regresiones unitarias+9MySQL8.4 reales; corrida focal112pass/15skip (103matrizprevia+9nuevos);fullMySQL6416pass/98skip,569archivos/9omitidos;lint/typecheck/buildnativo correctos. No Redis/Azurite/cloud ni correo real. HLD/LLD52.21. Sin cancelacion atomica/idempotencia por destinatario; emailhistorico deautor no migradoaOID. Falta cobertura global y rollout.
 
+**Lectura tras cambio de pertenencia:** polling/jobactivo/latest exigen suscripcion del tenant antes de devolver cache o SQL; cache reciente conserva scopeID original. Cinco regresiones adicionales, helpers/SQL sustituidos; fullsinservicios6307pass/197skip,566archivos/12omitidos;lint/typecheck/build correctos. HLD/LLD52.22. CorridaMySQL de52.21 previa,no repetida; TTL60s preservado,sin revocacion Azure instantanea. Falta cobertura global/rollout.
+
 **Prioridad:** P1 de evaluación y cierre de cobertura.  
 **Clasificación:** bypass de autorizacion confirmado en tres rutas de auditoria y consulta de facturacion, corregido en rama, pendiente rollout; cobertura de otras superficies incompleta.
 **STRIDE:** Information Disclosure, Tampering y Elevation of Privilege.  
