@@ -47,6 +47,10 @@ export async function POST(request: NextRequest) {
 
         if (format === 'html') {
             const htmlDoc = buildExecutiveReportHtmlDocument(data, reportMarkdown);
+            if (!isMockTenant(tenantId)) {
+                await requireTenantAccess(request, tenantId);
+                if (scope !== 'TENANT_ALL') await exigirSuscripcionDelTenant(tenantId, scopeId);
+            }
             return new NextResponse(htmlDoc, {
                 status: 200,
                 headers: {
@@ -58,6 +62,10 @@ export async function POST(request: NextRequest) {
 
         // Formato PDF A4
         const pdfBuffer = await compileExecutiveReportPdfBuffer(data, reportMarkdown);
+        if (!isMockTenant(tenantId)) {
+            await requireTenantAccess(request, tenantId);
+            if (scope !== 'TENANT_ALL') await exigirSuscripcionDelTenant(tenantId, scopeId);
+        }
         return new NextResponse(new Uint8Array(pdfBuffer), {
             status: 200,
             headers: {

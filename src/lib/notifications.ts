@@ -1,5 +1,5 @@
 import pool from "@/modules/storage/db";
-import { assertSafeWebhookUrl } from "@/lib/webhookSecurity";
+import { safeWebhookFetch } from "@/lib/safeExternalFetch";
 import { sendEmailAsync, getNoReplyDisclaimer, getStandardAlertNotificationEmailHtml } from "@/lib/emailHelper";
 import { errorMessage } from '@/lib/apiErrors';
 
@@ -133,8 +133,7 @@ async function sendToSlack(config: SlackConfig, payload: NotificationPayload): P
         ],
     });
 
-    await assertSafeWebhookUrl(config.webhook_url);
-    const response = await fetch(config.webhook_url, {
+    const response = await safeWebhookFetch(config.webhook_url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -190,8 +189,7 @@ async function sendToTeams(config: TeamsConfig, payload: NotificationPayload): P
         ],
     };
 
-    await assertSafeWebhookUrl(config.webhook_url);
-    const response = await fetch(config.webhook_url, {
+    const response = await safeWebhookFetch(config.webhook_url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(adaptiveCard),
@@ -438,8 +436,7 @@ export async function sendLegacyWebhookAlert(webhookUrl: string, payload: Notifi
         };
     }
 
-    await assertSafeWebhookUrl(webhookUrl);
-    const response = await fetch(webhookUrl, {
+    const response = await safeWebhookFetch(webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

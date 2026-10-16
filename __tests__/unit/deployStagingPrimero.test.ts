@@ -92,7 +92,8 @@ describe("promote-prod.yml es la única forma de desplegar prod", () => {
     expect(job).toContain("environment: prod");
     expect(job).toContain("sha: ${{ inputs.sha }}");
     for (const r of RECURSOS_PROD) expect(job).toContain(r);
-    for (const r of RECURSOS_STAGING) expect(promover).not.toContain(r);
+    expect(job).toContain("source_acr: cscsfinopsstgglobalcr");
+    for (const r of RECURSOS_STAGING.slice(1)) expect(promover).not.toContain(r);
   });
 
   it("no cancela una promoción en curso (la migración ya disparada seguiría corriendo)", () => {

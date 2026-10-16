@@ -498,7 +498,7 @@ Three properties that make it auditable:
 4. **Preview split** calculates, without saving anything, how much of the period's spend falls into each group and how much stays *Unassigned*, with the coverage percentage. Changing the order of the rules changes the split in the preview.
 5. **Save** applies the rules.
 
-**Delete** a Perspective asks for confirmation with its name in view: its rules are deleted too, and whoever has it assigned as scope stops having it.
+**Delete** a Perspective asks for confirmation with its name in view and also deletes its rules. If users have it assigned as their scope, the server rejects deletion: an Admin or Owner must first reassign them or explicitly remove their scope in Users and Access. Deletion does not silently restore full-tenant access.
 
 **"Unassigned" and "No data to evaluate" are not the same thing.** *Unassigned* is the spend no rule reached: it is what you still have to tag or a rule still to write. *No data to evaluate* appears when the rules need a piece of data the platform does not yet ingest for those rows —for example, tag rules on a tenant whose cost sync does not bring tags at resource level—: it is not a problem with your tagging. Setting up the **Azure FOCUS export** completes those tags.
 
@@ -1152,7 +1152,7 @@ Through the API: `POST /api/admin/user-scopes` (`tenantId`, `email`, `perspectiv
 
 - **One scope per user.** Assigning another replaces the previous one.
 - **Reader and Colaborador only.** An **Admin or Owner cannot have a scope**: they could issue themselves an API key —which belongs to the tenant, not to them— and bypass the restriction.
-- If the Perspective is deleted, the scope of whoever had it assigned is deleted with it.
+- A Perspective cannot be deleted while users have it assigned as their scope; first reassign them or explicitly remove their scope.
 
 **What the scoped person sees.** Only the screens that today know how to narrow to a group, all cut down to their slice: the **Whiteboard**; in **Consumption & Budget**, the Cost Groups, Cost Group Budgets and Spend & Forecast tabs; in **Advanced Analytics**, the Scorecard (Fama); and in **Storage**, the *Storage Accounts* tab. Everything else answers with access denied. The side menu shows them only those places: each hub takes them straight to its first allowed tab and, inside, the tabs that cannot narrow are not shown. The Perspective selector stays fixed with a lock and Views are not shown. It is a small product on purpose: it grows as more dashboards learn to narrow.
 

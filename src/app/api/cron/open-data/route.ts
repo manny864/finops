@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cronSecretForJob } from "@/lib/cronJobSecret";
 import { initializeDatabase } from "@/modules/storage/db";
 import { syncOpenDataSet } from "@/lib/openData";
 
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
 
 async function runOpenDataSync(request: NextRequest) {
     try {
-        const cronSecret = process.env.CRON_SECRET;
+        const cronSecret = cronSecretForJob("open-data");
         if (!cronSecret || cronSecret.length < 16) {
             console.error("CRON_SECRET not configured or too short");
             return NextResponse.json({ error: "Service unavailable" }, { status: 503 });

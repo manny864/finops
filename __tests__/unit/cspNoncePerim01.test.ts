@@ -67,7 +67,8 @@ describe("proxy: nonce propagado a Next.js (PERIM-01)", () => {
 
     it("Report-Only por defecto; CSP_ENFORCE=true la promueve a enforcing", () => {
         let res = proxy(page("/es/overview"));
-        expect(res.headers.get("content-security-policy")).toBeNull();
+        expect(res.headers.get("content-security-policy")).toContain("script-src 'self' 'unsafe-inline'");
+        expect(res.headers.get("content-security-policy")).not.toContain("'nonce-");
         process.env.CSP_ENFORCE = "true";
         res = proxy(page("/es/overview"));
         expect(res.headers.get("content-security-policy-report-only")).toBeNull();

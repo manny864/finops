@@ -1,0 +1,105 @@
+// @vitest-environment node
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { PendingApprovalItem } from "@/types/azureRemediationApprovals.types";
+const mocks = vi.hoisted(() => ({ scopes: vi.fn(), permission: vi.fn(), credential: vi.fn(), fetch: vi.fn() }));
+vi.mock("@/lib/scopeDelTenant", () => ({ exigirScopesDelTenant: mocks.scopes }));
+vi.mock("@/lib/lighthouseAccess", () => ({ tenantPuedeEscribirEnAzure: mocks.permission }));
+vi.mock("@/lib/azure", () => ({ getAzureCredential: mocks.credential }));
+vi.mock("@/modules/storage/db", () => ({ default: { query: vi.fn() } }));
+import { executeApprovedAction, normalizeActionType } from "@/services/azureRemediationApprovals.service";
+
+const subscriptionId = "11111111-1111-4111-8111-111111111111";
+const item: PendingApprovalItem = {
+  id: "1", subscriptionId, resourceGroup: "rg-a", resourceName: "disk-a",
+  resourceType: "Microsoft.Compute/disks", resourceTypeDisplay: "Disk", subscriptionName: "A",
+  resourceId: `/subscriptions/${subscriptionId}/resourceGroups/rg-a/providers/Microsoft.Compute/disks/disk-a`,
+  actionType: "DELETE_RESOURCE", requestedBy: "requester@example.test", requestedAt: "",
+  monthlySavingsUSD: 1, isDestructive: true, requiresReboot: false, canSnapshot: true,
+};
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.scopes.mockResolvedValue(undefined);
+  mocks.permission.mockResolvedValue({ puede: true });
+  mocks.credential.mockResolvedValue({ getToken: async () => ({ token: "synthetic-token" }) });
+  vi.stubGlobal("fetch", mocks.fetch);
+  mocks.fetch.mockResolvedValue(new Response(null, { status: 204 }));
+});
+afterEach(() => vi.unstubAllGlobals());
+
+describe("approval execution boundary", () => {
+  it.each(["", "UNKNOWN", "do_not_delete", "backup_whatever", "delete_and_recreate"])("unknown action %s never defaults to deletion", (value) => {
+    expect(() => normalizeActionType(value)).toThrow(/Unsupported/);
+  });
+  it("rejects inconsistent target fields before requesting credentials", async () => {
+    expect((await executeApprovedAction("tenant-a", { ...item, resourceName: "disk-b" })).status).toBe("Failed");
+    expect(mocks.credential).not.toHaveBeenCalled();
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+  it("revalidates tenant scope inside the service", async () => {
+    mocks.scopes.mockRejectedValue(new Error("foreign tenant"));
+    expect((await executeApprovedAction("tenant-b", item)).status).toBe("Failed");
+    expect(mocks.scopes).toHaveBeenCalledWith("tenant-b", [item.resourceId]);
+    expect(mocks.credential).not.toHaveBeenCalled();
+  });
+  it("blocks read-only delegation inside the service", async () => {
+    mocks.permission.mockResolvedValue({ puede: false });
+    expect((await executeApprovedAction("tenant-a", item)).status).toBe("Failed");
+    expect(mocks.credential).not.toHaveBeenCalled();
+  });
+  it("does not allow a VM action against a disk", async () => {
+    expect((await executeApprovedAction("tenant-a", { ...item, actionType: "POWER_OFF" })).status).toBe("Failed");
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+  it("does not delete a resource before an async protective snapshot is complete", async () => {
+    mocks.fetch.mockResolvedValue(new Response("{}", { status: 202 }));
+    const result = await executeApprovedAction("tenant-a", item, { createBackupSnapshot: true });
+    expect(result.status).toBe("Running");
+    expect(result.detail).toContain("NOT attempted");
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    expect(mocks.fetch.mock.calls[0][1].method).toBe("PUT");
+  });
+  it("does not report an accepted asynchronous deletion as successful", async () => {
+    mocks.fetch.mockResolvedValue(new Response("{}", { status: 202 }));
+    expect((await executeApprovedAction("tenant-a", item)).status).toBe("Running");
+  });
+  it.each(["azure-asyncoperation", "operation-location", "location"])("retains the %s header as evidence without fetching it", async (header) => {
+    const pollingUrl = `https://management.azure.com/subscriptions/${subscriptionId}/providers/Microsoft.Compute/locations/eastus/operations/op-1?api-version=2023-01-02`;
+    mocks.fetch.mockResolvedValue(new Response("{}", { status: 202, headers: { [header]: pollingUrl } }));
+    expect(await executeApprovedAction("tenant-a", item)).toMatchObject({ status: "Running", operation: { stage: "action", pollingUrl } });
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+  });
+  it.each([500, 502, 503, 504, 408])("does not release the claim on an uncertain HTTP %i mutation", async (status) => {
+    mocks.fetch.mockResolvedValue(new Response("unavailable", { status }));
+    expect(await executeApprovedAction("tenant-a", item)).toMatchObject({ status: "Running", operation: { stage: "action", resourceId: item.resourceId } });
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+  });
+  it("does not release a mutation after a timeout or broken completion response", async () => {
+    mocks.fetch.mockRejectedValue(new DOMException("Timed out", "TimeoutError"));
+    expect((await executeApprovedAction("tenant-a", item)).status).toBe("Running");
+    mocks.fetch.mockResolvedValue(new Response("broken", { status: 200 }));
+    expect((await executeApprovedAction("tenant-a", item)).status).toBe("Running");
+  });
+  it("retains a confirmed protective snapshot if the later delete is uncertain", async () => {
+    const snapshotId = `/subscriptions/${subscriptionId}/resourceGroups/rg-a/providers/Microsoft.Compute/snapshots/confirmed`;
+    mocks.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ id: snapshotId, properties: { provisioningState: "Succeeded" } })))
+      .mockRejectedValueOnce(new DOMException("Timeout", "TimeoutError"));
+    expect(await executeApprovedAction("tenant-a", item, { createBackupSnapshot: true })).toMatchObject({ status: "Running", snapshotId });
+    expect(mocks.fetch.mock.calls.map(([, init]) => init.method)).toEqual(["PUT", "DELETE"]);
+  });
+  it("an unconfirmed snapshot submission never advances to DELETE", async () => {
+    mocks.fetch.mockRejectedValue(new DOMException("Timeout", "TimeoutError"));
+    expect(await executeApprovedAction("tenant-a", item, { createBackupSnapshot: true })).toMatchObject({ status: "Running", operation: { stage: "snapshot" } });
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+  });
+  it("a VM deallocation does not poll indefinitely or hide accepted asynchronous work", async () => {
+    const vm = { ...item, resourceId: item.resourceId.replace("/disks/", "/virtualMachines/"), resourceType: "Microsoft.Compute/virtualMachines", actionType: "POWER_OFF" as const };
+    mocks.fetch.mockResolvedValue(new Response(null, { status: 202 }));
+    expect((await executeApprovedAction("tenant-a", vm)).status).toBe("Running");
+    expect(mocks.fetch.mock.calls[0][1]).toMatchObject({ method: "POST", redirect: "error" });
+    expect(mocks.fetch.mock.calls[0][0]).toContain("/deallocate?");
+  });
+  it("executes a validated synchronous deletion without following redirects", async () => {
+    expect((await executeApprovedAction("tenant-a", item)).status).toBe("Succeeded");
+    expect(mocks.fetch.mock.calls[0][1]).toMatchObject({ method: "DELETE", redirect: "error" });
+  });
+});

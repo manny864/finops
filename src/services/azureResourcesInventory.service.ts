@@ -3,8 +3,8 @@
  * Gestión global de inventario, distribución por tipo, creadores y costos por etiqueta.
  */
 
-import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient, getCostManagementClient } from "@/lib/azure";
+import { escapeKql } from "@/lib/kql";
 import { resolveCostColumn, isCostUsdUnsupportedError, degradeCostColumn, type CostColumn } from "@/lib/azureCostColumn";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import { formatResourceType } from "@/lib/resourceTypeLabels";
@@ -384,7 +384,7 @@ export async function getResourceCostsById(
 
     try {
         const credential = await getAzureCredential(tenantId);
-        const client = new CostManagementClient(credential);
+        const client = await getCostManagementClient(tenantId, credential);
         const col: CostColumn = await resolveCostColumn(tenantId);
 
         const buildOptions = (ids: string[], useCol: CostColumn) => ({
@@ -501,10 +501,10 @@ export async function searchLiveResources(
     }
 
     const whereClauses: string[] = [];
-    if (filters.subscriptionId) whereClauses.push(`subscriptionId =~ '${filters.subscriptionId.replace(/'/g, "")}'`);
-    if (filters.resourceGroup) whereClauses.push(`resourceGroup =~ '${filters.resourceGroup.replace(/'/g, "")}'`);
-    if (filters.tagKey) whereClauses.push(`isnotempty(tags['${filters.tagKey.replace(/'/g, "")}'])`);
-    if (filters.search) whereClauses.push(`name contains '${filters.search.replace(/'/g, "")}' or type contains '${filters.search.replace(/'/g, "")}'`);
+    if (filters.subscriptionId) whereClauses.push(`subscriptionId =~ '${escapeKql(filters.subscriptionId)}'`);
+    if (filters.resourceGroup) whereClauses.push(`resourceGroup =~ '${escapeKql(filters.resourceGroup)}'`);
+    if (filters.tagKey) whereClauses.push(`isnotempty(tags['${escapeKql(filters.tagKey)}'])`);
+    if (filters.search) whereClauses.push(`(name contains '${escapeKql(filters.search)}' or type contains '${escapeKql(filters.search)}')`);
     const where = whereClauses.length ? `| where ${whereClauses.join(" and ")}` : "";
 
     const baseQuery = `Resources ${where}`;
@@ -741,7 +741,7 @@ export async function getLiveResourcesCostsByTag(tenantId: string): Promise<Reso
         // Fallback si no hay credencial
     }
 
-    const client = credential ? new CostManagementClient(credential) : null;
+    const client = credential ? await getCostManagementClient(tenantId, credential) : null;
     const col: CostColumn = await resolveCostColumn(tenantId);
 
     const tags: TagCostSummary[] = [];
@@ -771,7 +771,7 @@ export async function getLiveResourcesCostsByTag(tenantId: string): Promise<Reso
                 const rgTagRows = await runResourceGraphQuery(
                     tenantId,
                     subs,
-                    `Resources | extend val = tostring(tags['${key.replace(/'/g, "")}']) | where isnotempty(val) | summarize c = count() by val`
+                    `Resources | extend val = tostring(tags['${escapeKql(key)}']) | where isnotempty(val) | summarize c = count() by val`
                 );
 
                 for (const r of rgTagRows || []) {

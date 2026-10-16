@@ -6,6 +6,7 @@ import {
     RedundancyType,
 } from "@/types/backup.types";
 import { getResourceGraphClient } from "@/lib/azure";
+import { escapeKql } from "@/lib/kql";
 
 /**
  * Standard Azure Backup Pricing Reference Rates (USD/month)
@@ -274,7 +275,7 @@ export async function fetchAllBackupVaultsFromARG(tenantId: string, subscription
     if (!subscriptionIds || subscriptionIds.length === 0) return [];
     try {
         const client = await getResourceGraphClient(tenantId);
-        const subsQuery = subscriptionIds.map((s) => `'${s}'`).join(", ");
+        const subsQuery = subscriptionIds.map((s) => `'${escapeKql(s)}'`).join(", ");
         const query = `
             Resources
             | where type in~ ('microsoft.recoveryservices/vaults', 'microsoft.dataprotection/backupvaults')
@@ -301,7 +302,7 @@ export async function fetchAllProtectedItemsFromARG(tenantId: string, subscripti
     if (!subscriptionIds || subscriptionIds.length === 0) return [];
     try {
         const client = await getResourceGraphClient(tenantId);
-        const subsQuery = subscriptionIds.map((s) => `'${s}'`).join(", ");
+        const subsQuery = subscriptionIds.map((s) => `'${escapeKql(s)}'`).join(", ");
 
         // Query RecoveryServices protected items
         const query1 = `
@@ -338,7 +339,7 @@ export async function fetchAllAsrItemsFromARG(tenantId: string, subscriptionIds:
     if (!subscriptionIds || subscriptionIds.length === 0) return [];
     try {
         const client = await getResourceGraphClient(tenantId);
-        const subsQuery = subscriptionIds.map((s) => `'${s}'`).join(", ");
+        const subsQuery = subscriptionIds.map((s) => `'${escapeKql(s)}'`).join(", ");
         const query = `
             RecoveryServicesResources
             | where subscriptionId in (${subsQuery})
@@ -352,4 +353,3 @@ export async function fetchAllAsrItemsFromARG(tenantId: string, subscriptionIds:
         return [];
     }
 }
-

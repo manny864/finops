@@ -5,7 +5,7 @@ import { hasAccess } from "@/lib/tierLogic";
 import { tenants as mockTenants } from "@/lib/tenants";
 import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { errorMessage, errorStatus } from "@/lib/apiErrors";
-import { listarPerspectivas, guardarReglas } from "@/services/perspectivesData.service";
+import { listarPerspectivas, guardarReglas, eliminarPerspectiva } from "@/services/perspectivesData.service";
 import type { ReglaPerspectiva, TipoRegla } from "@/services/perspectives.service";
 
 /**
@@ -143,9 +143,7 @@ export async function DELETE(request: NextRequest) {
         const id = Number(request.nextUrl.searchParams.get("id"));
         if (!tenantId || !Number.isInteger(id)) return NextResponse.json({ error: "Faltan tenantId o id" }, { status: 400 });
         await requireTenantRole(request, tenantId, ["ADMIN", "OWNER"]);
-        // Las reglas se van con la Perspective por el ON DELETE CASCADE.
-        const [res] = await pool.query<any>(`DELETE FROM Perspectives WHERE id = ? AND tenant_id = ?`, [id, tenantId]);
-        if (!(res as { affectedRows: number }).affectedRows) {
+        if (!(await eliminarPerspectiva(tenantId, id))) {
             return NextResponse.json({ error: "No encontrada" }, { status: 404 });
         }
         return NextResponse.json({ success: true });

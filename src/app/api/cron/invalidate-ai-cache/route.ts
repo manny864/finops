@@ -8,7 +8,7 @@ import { invalidateCachePattern } from "@/lib/cache";
  * 
  * RBAC: requireSuperAdmin (internal-only, no tenant scope)
  * Usage: curl -X POST http://localhost:3000/api/cron/invalidate-ai-cache \
- *   -H "Authorization: Bearer $CRON_SECRET" \
+ *   -H "Authorization: Bearer $SUPERADMIN_USER_ACCESS_TOKEN" \
  *   -H "Content-Type: application/json" \
  *   -d '{"tenantId": "..."}'
  */

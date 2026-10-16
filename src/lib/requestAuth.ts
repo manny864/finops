@@ -164,16 +164,17 @@ async function getJwks(tenantId: string): Promise<JwksResponse> {
 
 function getAudienceAllowList(): string[] {
   // El navegador inicia sesión con NEXT_PUBLIC_CLIENT_ID y, si falta, con el mismo ID por defecto que usa
-  // AuthProvider.tsx. El servidor acepta ESE ID y no uno fijo de otro ambiente: staging compila con su propia
+  // AuthProvider.tsx. El servidor acepta ESE ID y no uno fijo de otro ambiente: staging usa su propia
   // app registration y, con la variable puesta, el ID de prod NO es una audiencia válida; un token emitido para la
   // app de prod no entra en staging. Sin la variable (desarrollo local, CI) rige el valor por defecto de siempre.
+  const publicEnv = process.env;
   const idDelNavegador =
-    process.env.NEXT_PUBLIC_CLIENT_ID || process.env.NEXT_PUBLIC_AZURE_CLIENT_ID || DEFAULT_ENTRA_CLIENT_ID;
+    publicEnv.NEXT_PUBLIC_CLIENT_ID || publicEnv.NEXT_PUBLIC_AZURE_CLIENT_ID || DEFAULT_ENTRA_CLIENT_ID;
   const ids = [
     process.env.AZURE_CLIENT_ID,
     process.env.AZURE_AD_CLIENT_ID,
-    process.env.NEXT_PUBLIC_AZURE_CLIENT_ID,
-    process.env.NEXT_PUBLIC_CLIENT_ID,
+    publicEnv.NEXT_PUBLIC_AZURE_CLIENT_ID,
+    publicEnv.NEXT_PUBLIC_CLIENT_ID,
     idDelNavegador,
   ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
 
@@ -368,6 +369,7 @@ export async function requireLoadTestServicePrincipal(request: NextRequest): Pro
  *  - Solo concede acceso al tenantId indicado en el query/body — NO es superadmin global.
  */
 function tryCronAuth(request: NextRequest, tenantId: string): RequestIdentity | null {
+  if (!["GET", "HEAD"].includes(request.method)) return null;
   const provided = request.headers.get("x-cron-auth");
   if (!provided) return null;
 
@@ -456,7 +458,16 @@ export async function aplicarAlcance(
   // El cron no es una persona y no tiene alcance que aplicar.
   if (identity.esCron) return identity;
 
-  const alcance = await alcanceDelUsuario(tenantId, identity.email);
+  let alcance: AlcanceAsignado | null;
+  try {
+    alcance = await alcanceDelUsuario(tenantId, identity.email, identity.claims.oid);
+  } catch {
+    throw new AuthError(
+      "No se pudo verificar el alcance de acceso. Intentá nuevamente.",
+      503,
+      "SCOPE_LOOKUP_UNAVAILABLE",
+    );
+  }
   if (!alcance) return identity;
 
   if (!rutaAdmiteAlcance(pathname, metodo)) {

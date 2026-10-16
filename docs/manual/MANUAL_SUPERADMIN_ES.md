@@ -546,7 +546,7 @@ Tres propiedades que la hacen auditable:
 4. **Ver reparto** calcula, sin guardar nada, cuánto del gasto del período cae en cada grupo y cuánto queda *Sin asignar*, con el porcentaje de cobertura. Cambiar el orden de las reglas cambia el reparto en la vista previa.
 5. **Guardar** aplica las reglas.
 
-**Eliminar** una Perspective pide confirmación con su nombre a la vista: se borran también sus reglas, y quien la tenga asignada como alcance deja de tenerlo.
+**Eliminar** una Perspective pide confirmación con su nombre a la vista y borra también sus reglas. Si tiene usuarios con alcance asignado, el servidor rechaza el borrado: primero un Admin u Owner debe reasignarlos o quitarles el alcance explícitamente desde Usuarios y Accesos. No se devuelve la vista completa del tenant como efecto secundario del borrado.
 
 **«Sin asignar» y «Sin datos para evaluar» no son lo mismo.** *Sin asignar* es el gasto al que ninguna regla alcanzó: es lo que te falta etiquetar o regla por escribir. *Sin datos para evaluar* aparece cuando las reglas necesitan un dato que la plataforma todavía no ingiere para esas filas —por ejemplo, reglas por etiqueta sobre un tenant cuya sincronización de costos no trae etiquetas a nivel de recurso—: no es un problema de tu etiquetado. Configurar el **export FOCUS de Azure** completa esas etiquetas.
 
@@ -1253,7 +1253,7 @@ Por API: `POST /api/admin/user-scopes` (`tenantId`, `email`, `perspectiveId` y `
 
 - **Un alcance por usuario.** Asignarle otro reemplaza el anterior.
 - **Sólo Reader y Colaborador.** Un usuario **Admin u Owner no puede tener alcance**: podría emitirse una clave de API —que es del tenant, no suya— y saltearse el recorte.
-- Si se elimina la Perspective, el alcance de quien la tenía asignada se elimina con ella.
+- No se puede eliminar una Perspective mientras tenga usuarios con alcance asignado; primero hay que reasignarlos o quitarles el alcance explícitamente.
 
 **Qué ve la persona acotada.** Sólo las pantallas que hoy saben acotarse a un grupo, todas recortadas a su porción: el **Whiteboard**; en **Consumo y Presupuesto**, las pestañas Grupos de Costos, Presupuesto por Grupos de Costos y Gastos y Proyección; en **Analítica Avanzada**, el Scorecard (Fama); y en **Almacenamiento**, la pestaña *Storage Accounts*. El resto le responde con acceso denegado. El menú lateral le muestra sólo esos lugares: cada hub la lleva directo a su primera pestaña permitida y, adentro, las pestañas que no saben acotarse no aparecen. El selector de Perspective queda fijo con candado y las Vistas no se muestran. Es un producto chico a propósito: crece a medida que más tableros aprenden a acotarse.
 

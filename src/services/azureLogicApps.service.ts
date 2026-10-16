@@ -1,6 +1,5 @@
-import { CostManagementClient } from "@azure/arm-costmanagement";
 import { MonitorClient } from "@azure/arm-monitor";
-import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient, getCostManagementClient } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 import type {
   LogicAppResourceItem,
@@ -185,7 +184,7 @@ async function fetchLogicAppsCostMap(
   // 3. Azure Cost Management MTD query
   try {
     if (credential && subscriptionIds.length > 0) {
-      const costClient = new CostManagementClient(credential);
+      const costClient = await getCostManagementClient(tenantId, credential);
       for (const sub of subscriptionIds.slice(0, 5)) {
         const scope = `/subscriptions/${sub}`;
         try {

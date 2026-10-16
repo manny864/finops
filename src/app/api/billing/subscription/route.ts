@@ -2,11 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { enforceMfaIfEnabled } from "@/lib/requireMfaChallenge";
 import pool from "@/modules/storage/db";
-import { recordTenantLifecycleTransition } from "@/services/tenantLifecycle.service";
 import { tierToPriceId, getPaddleBaseUrl } from "@/lib/paddleTierMap";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
-
-type ProrationType = "prorated_immediately" | "prorated_next_billing_period" | "do_not_bill";
+import { cancellationStepUpPayload, planChangeStepUpPayload } from "@/types/saasBilling.types";
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -19,23 +17,20 @@ export async function PATCH(request: NextRequest) {
 
     const identity = await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
 
-    // Operación sensible (cambio de plan): exige MFA si el usuario tiene 2FA activado.
-    await enforceMfaIfEnabled(request, identity.email, identity.tenantId, "change_plan", { tenantId });
-
-    const body = await request.json();
+    const body: { newTier?: unknown; billing?: unknown; prorationBillingMode?: unknown } = await request.json();
     const { newTier, billing, prorationBillingMode } = body;
 
     // Validate inputs
-    if (!newTier || !["Professional", "Business"].includes(newTier)) {
+    if (newTier !== "Professional" && newTier !== "Business") {
       return NextResponse.json({ error: "newTier inválido" }, { status: 400 });
     }
 
-    if (!billing || !["monthly", "yearly"].includes(billing)) {
+    if (billing !== "monthly" && billing !== "yearly") {
       return NextResponse.json({ error: "billing debe ser 'monthly' o 'yearly'" }, { status: 400 });
     }
 
-    const prorationMode: ProrationType = prorationBillingMode || "prorated_immediately";
-    if (!["prorated_immediately", "prorated_next_billing_period", "do_not_bill"].includes(prorationMode)) {
+    const prorationMode = prorationBillingMode === undefined ? "prorated_immediately" : prorationBillingMode;
+    if (prorationMode !== "prorated_immediately" && prorationMode !== "prorated_next_billing_period" && prorationMode !== "do_not_bill") {
       return NextResponse.json({ error: "prorationBillingMode inválido" }, { status: 400 });
     }
 
@@ -62,6 +57,10 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Configuración de Paddle no disponible" }, { status: 500 });
     }
 
+    await enforceMfaIfEnabled(
+      request, identity.email, identity.tenantId, "change_plan",
+      planChangeStepUpPayload(tenantId, { newTier, billing, prorationBillingMode: prorationMode }),
+    );
     const baseUrl = getPaddleBaseUrl();
     const updateBody = {
       items: [{ price_id: newPriceId, quantity: 1 }],
@@ -126,14 +125,11 @@ export async function DELETE(request: NextRequest) {
 
     const identity = await requireTenantRole(request, tenantId, ["Admin", "Owner"]);
 
-    // Operación sensible (cancelar suscripción): exige MFA si el usuario tiene 2FA activado.
-    await enforceMfaIfEnabled(request, identity.email, identity.tenantId, "cancel_subscription", { tenantId });
-
-    const body = await request.json();
+    const body: { effective?: unknown } = await request.json();
     const { effective } = body;
 
-    const effectiveMode = effective || "immediately";
-    if (!["immediately", "next_billing_period"].includes(effectiveMode)) {
+    const effectiveMode = effective === undefined ? "immediately" : effective;
+    if (effectiveMode !== "immediately" && effectiveMode !== "next_billing_period") {
       return NextResponse.json({ error: "effective debe ser 'immediately' o 'next_billing_period'" }, { status: 400 });
     }
 
@@ -151,14 +147,14 @@ export async function DELETE(request: NextRequest) {
     const PADDLE_API_KEY = process.env.PADDLE_API_KEY;
 
     if (!PADDLE_API_KEY) {
-      console.warn("[Paddle] Missing API key. Mocking cancellation.");
-      await recordTenantLifecycleTransition(tenantId, "CANCELED", {
-        actor: "self-service-billing",
-        reason: "voluntary_churn",
-      });
-      return NextResponse.json({ success: true, message: "Suscripción cancelada" });
+      console.error("[Paddle] Missing API key. Cancellation not submitted.");
+      return NextResponse.json({ error: "Configuración de Paddle no disponible" }, { status: 503 });
     }
 
+    await enforceMfaIfEnabled(
+      request, identity.email, identity.tenantId, "cancel_subscription",
+      cancellationStepUpPayload(tenantId, effectiveMode),
+    );
     const baseUrl = getPaddleBaseUrl();
     const paddleRes = await fetch(`${baseUrl}/subscriptions/${subscriptionId}/cancel`, {
       method: "POST",

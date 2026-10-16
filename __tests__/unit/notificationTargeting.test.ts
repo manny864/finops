@@ -8,7 +8,7 @@ vi.mock("@/modules/storage/db", () => ({
 }));
 vi.mock("@/lib/mockData", () => ({ isMockTenant: (t: string) => t === "demo_tenant" }));
 
-import { getTenantNotifications } from "@/services/tenantNotifications.service";
+import { deleteNotification, getTenantNotifications, markNotificationAsRead } from "@/services/tenantNotifications.service";
 import { createNotification } from "@/lib/notify";
 
 beforeEach(() => queryMock.mockReset().mockResolvedValue([[]]));
@@ -21,6 +21,46 @@ describe("createNotification — MEJ-33 paso 3", () => {
         queryMock.mockResolvedValue([{}]);
         await createNotification({ tenantId: "t1", title: "x", message: "y", source: "s" });
         expect(queryMock.mock.calls[0][1]).toContain(null);
+    });
+
+    describe("notification mutations preserve recipient boundaries", () => {
+        it("mark-one uses tenant, ID and the verified recipient as bound values", async () => {
+            queryMock.mockResolvedValue([{ affectedRows: 1 }]);
+            await markNotificationAsRead({ tenantId: "t1", notificationId: 9, userEmail: "ana@x.com" });
+            expect(queryMock).toHaveBeenCalledWith(expect.stringContaining("AND (user_email IS NULL OR user_email = ?)"),
+                ["t1", 9, "ana@x.com"]);
+        });
+        it("mark-all cannot include private notifications for other recipients", async () => {
+            queryMock.mockResolvedValue([{ affectedRows: 2 }]);
+            await markNotificationAsRead({ tenantId: "t1", markAllAsRead: true, userEmail: "ana@x.com" });
+            expect(queryMock).toHaveBeenCalledWith(expect.stringContaining("AND (user_email IS NULL OR user_email = ?)"),
+                ["t1", "ana@x.com"]);
+        });
+        it("delete shares the read recipient predicate", async () => {
+            await deleteNotification("t1", 9, "ana@x.com");
+            expect(queryMock).toHaveBeenCalledWith(expect.stringContaining("AND (user_email IS NULL OR user_email = ?)"),
+                ["t1", 9, "ana@x.com"]);
+        });
+        it("without a recipient, mutations affect only tenant-wide notifications", async () => {
+            await markNotificationAsRead({ tenantId: "t1", notificationId: 9 });
+            await markNotificationAsRead({ tenantId: "t1", markAllAsRead: true });
+            await deleteNotification("t1", 9);
+            for (const [sql, values] of queryMock.mock.calls) {
+                expect(sql).toContain("AND user_email IS NULL");
+                expect(values[0]).toBe("t1");
+            }
+        });
+        it("does not persist a shared anonymous broadcast dismissal", async () => {
+            const log = vi.spyOn(console, "error").mockImplementation(() => {});
+            try {
+                expect(await markNotificationAsRead({ tenantId: "t1", notificationId: "broadcast-1" }))
+                    .toEqual({ success: false, updatedCount: 0 });
+                expect(queryMock).not.toHaveBeenCalled();
+                expect(log).toHaveBeenCalledWith(expect.stringContaining("authenticated recipient"));
+            } finally {
+                log.mockRestore();
+            }
+        });
     });
 
     it("con userEmail dirige el aviso", async () => {

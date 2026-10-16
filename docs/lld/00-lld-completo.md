@@ -1,7 +1,7 @@
 # Low-Level Design (LLD) — CSCloudSolutions FinOps Platform
 
-**Versión:** 1.2\
-**Fecha:** 2026-10-15\
+**Versión:** 1.3\
+**Fecha:** 2026-10-16\
 **Autor:** Equipo de Arquitectura Cloud & FinOps — CSCloudSolutions
 
 ---
@@ -387,7 +387,7 @@ sequenceDiagram
     Dev->>main: merge/push
     main->>CI: Trigger ci.yml (sólo tests)
     main->>Deploy: Trigger deploy-azure.yml
-    Deploy->>Azure: docker build + push (2 tags: runtime + builder)
+    Deploy->>Azure: docker build + push (runtime + migrator por digest)
     Deploy->>Azure: Container App Job (migraciones)
     Deploy->>Azure: Nueva revisión Container App
     Deploy->>Azure: Health check /api/health
@@ -396,12 +396,12 @@ sequenceDiagram
 
 ### 7.3 Docker
 
-- **Multi-stage build** ([Dockerfile](file:///Users/manuelchavez/Documents/FinOpsProyect/Dockerfile)): `deps` → `builder` → `runner`
-- **Base:** `node:22-alpine`
+- **Multi-stage build** ([Dockerfile](file:///Users/manuelchavez/Documents/FinOpsProyect/Dockerfile)): `deps` → `builder` → `runner`; rama `deps` → `migrator` sin compilar Next
+- **Base:** `node:22-alpine` fijada a digest verificado
 - **Output:** `standalone` (Next.js)
-- **Sin BuildKit** (ACR Tasks no lo soporta)
-- **Build args:** 8 variables `NEXT_PUBLIC_*` inyectadas en build-time
-- **User:** `nextjs` (uid 1001, sin root)
+- **BuildKit:** SBOM/procedencia OCI y deploy por digest (§52.4, pendiente de rollout)
+- **Configuracion publica:** seis valores de identidad/Paddle en runtime, no build args; prod importa los digests de staging (§52.4)
+- **User:** runtime `nextjs` (uid 1001), migrador `migrate` (uid 1002), sin root
 
 ---
 
@@ -6516,7 +6516,12 @@ y después procesa las de Key Vault. TTL de metadata: 70 min plan/apply,
 nativa: una caída de Actions/ARM puede dejar reglas hasta que vuelva a ejecutarse.
 
 Todos los jobs autenticados comparten `tfstate-firewall`, sin cancelar al activo.
-GitHub admite solo un pendiente; otro request puede cancelarlo. Para mantenimiento:
+La configuracion desplegada admite solo un pendiente; el delta 1.3 agrega
+`queue: max` a los tres consumidores y al workflow Terraform, hasta 100 pendientes,
+conservando exclusion, leases y cleanup. Se ordena por entrada a la cola, no por
+momento de dispatch; saturacion/indisponibilidad siguen requiriendo operacion.
+El schema de actionlint 1.7.12 aun no reconoce `queue`, documentado por GitHub;
+no se elimina el campo para satisfacer un schema desactualizado. Para mantenimiento:
 pausar temporalmente `kv-firewall-reconcile.yml`, esperar los jobs existentes,
 ejecutar ambientes en serie y restaurarlo **también ante errores**, con un trap
 de salida. No cancelar un apply activo para despejar la cola.
@@ -6544,9 +6549,10 @@ Revisiones con tráfico `0000024` / `0000352`, Healthy/Running; ambos
 Storage final: Deny/bypass None, Shared Key apagada, ambas subredes Succeeded,
 sin reglas IP ni lease ARM residual. Cada vault sin IP temporal; pruebas
 autenticadas externas rechazadas por red en ambos contenedores. **INFRA-09 cerrado.**
-No se declara CI hosted verde mientras siga bloqueado por billing. El snapshot
-de `/api/status` en staging está vencido (503), confirmado en logs, distinto
-de la salud del proceso; no se remedió con este apply.
+No se declara CI hosted verde mientras siga bloqueado por billing. La caducidad
+de snapshot vista antes no persiste el 2026-10-16: `/api/status` staging 200,
+snapshot 01:00 UTC; ultimas ejecuciones 00:00/00:30/01:00 Succeeded. Sync/IA
+siguen degradados; sus indicadores no son pruebas end-to-end de proveedores.
 
 ### 51.7 Costo, recuperación y baja
 
@@ -6562,3 +6568,703 @@ Antes de destruir: migrar consumidores, detener servicios, retirar registros
 GitHub y ACL de subred con acceso alternativo disponible; revisar/dar de baja
 solo `infra/terraform/runners`. No destruir bootstrap, backend ni stamps.
 Pasos exactos en el [README de runners](../../infra/terraform/runners/README.md).
+
+## 52. Addendum 2026-10-16 — Delta de seguridad pendiente de rollout
+
+Los cambios siguientes estan implementados en rama, no aplicados en produccion.
+El [plan maestro](../security/plan-maestro-mejoras-devsecops-cspm-azure.md)
+mantiene los limites de cierre; las verificaciones sinteticas no prueban las
+integraciones ni la configuracion de Azure del ambiente real.
+
+### 52.1 Aprobaciones, claims y operaciones ARM
+
+`azureRemediationApprovals.service.ts` exige catalogo exacto de accion/tipo,
+coincidencia de partes ARM ID, scope y permiso de delegacion dentro del ejecutor.
+Rutas legacy/movil delegan al flujo canonico, sin eludir cuatro ojos.
+El claim usa CAS SQL sobre Pending/JSON vacio y guarda executionToken,
+startedAt y resolvedBy. Compara objetivo/payload y separa solicitante/ejecutor;
+solo su token puede finalizar. No requiere cambio de esquema.
+
+HTTP 202/headers de operacion, provisioningState no terminal y resultados inciertos
+por transporte, timeout, 408/5xx o completion ilegible conservan Running. POWER_OFF
+usa POST ARM limitado a 30 s, no un poller SDK ilimitado. `JSON_SET` persiste
+operation/detail/snapshotId con tenant/token y mantiene executionToken/startedAt/
+resolvedBy originales. El DTO solo expone armExecutionStatus, nunca token o URL.
+La tarjeta muestra estado informativo y Consultar ejecucion, sin aprobar/rechazar
+ni incluir Running en aprobacion masiva. HTTP 202 nunca produce toast de exito.
+
+`decision: RECONCILE` exige Owner/Admin y tier Business, revalida target/scope y
+realiza un solo GET de la URL durable: origen ARM exacto, sin userinfo/hash,
+suscripcion y namespace del recurso, ruta de operacion y solo query api-version.
+Rechaza escapes, dot-segments, controles y redirects antes de enviar credenciales.
+Solo un status explicito terminal finaliza mediante CAS del token original,
+atribuido al aprobador original; el audit registra al operador que consulta.
+HTTP/JSON/transporte fallidos conservan el claim. Sin referencia durable se
+requiere Activity Logs, nunca reenviar la mutacion. Un snapshot terminado deja
+la remediacion Failed con DELETE no ejecutado; no reanuda el borrado.
+No hay conciliacion automatica programada. MySQL 8.4 aislado verifico concurrencia
+de 12 claims, CAS, JSON_SET sin perder propietario y rollback con datos sinteticos.
+
+### 52.2 Egress y secretos
+
+`safeExternalFetch.ts` usa Undici directo, no fetch parcheado por Next. Resuelve
+A/AAAA, rechaza rangos no publicos y fija la IP validada en lookup del Agent,
+preservando hostname/TLS/SNI. Rechaza redireccion, aplica timeout total 15 s
+incluido DNS y buffer maximo 1 MiB, y destruye el dispatcher por llamada.
+Consumidores: notificaciones, pruebas webhook/ITSM y alertas self-service.
+
+`secretCrypto.ts` escribe `enc:v2` con 32 bytes dedicados (hex/base64 canonico);
+no deriva de credenciales ni de una semilla. Lectura v1 exige material legacy
+explicito. `rotate-app-secrets.ts` opera una transaccion, valida roundtrip y hace
+rollback completo; dry-run por defecto y apply solo con `--backup-confirmed`.
+Cubre claves AI tenant/global/enterprise e ITSM. La migracion real queda
+pendiente; detalle en el [runbook](../security/app-secret-rotation.md).
+
+### 52.3 Tenant, jobs y consultas
+
+`getCostManagementClient` agrega policy per-call que valida origen ARM y scopes
+antes de solicitar token; alcanza paginacion y quita redirectPolicy. Los
+consumidores de Cost Management construyen clientes mediante esta factory.
+
+`cronSecretForJob` selecciona `CRON_JOB_SECRET_<NOMBRE_FIJO>` (minimo 32 caracteres).
+Con clave propia no acepta root ni otra clave; sin ella conserva compatibilidad
+temporal con `CRON_SECRET`. `CRON_REQUIRE_SCOPED_SECRETS=true` falla si falta la
+clave. El fan-out sigue con root del servidor, no token entrante; esto **no**
+aisla una managed identity que aun puede leer el secreto compartido.
+Self-fetch usa `INTERNAL_BASE_URL` validada o loopback/PORT, sin Host/puerto
+entrante; redirects rechazados y X-Cron-Auth solo GET/HEAD.
+
+`escapeKql` conserva comillas/backslashes y escapa controles; inventario agrupa
+search OR bajo AND. Limite de herencia entero 1..5000 y tipo TTL con allowlist
+runtime. Historial SQL mantiene placeholders por tenant/filtros y columnas
+constantes; sort fuera de catalogo se rechaza. Inventario AST local: 1210
+llamadas candidatas query/execute en 369 archivos; no todas son SQL ni fueron
+revisadas. Matriz end-to-end completa y caches siguen pendientes.
+
+### 52.4 Imagenes, evidencia y operacion
+
+Dockerfile fija Node 22 Alpine y frontend a digests oficiales verificados.
+Buildx produce runtime/migrator en serie con `--platform linux/amd64`,
+`--provenance=mode=min --sbom=true --push`, tags por ambiente/run/intento y
+metadata con `containerimage.digest`. Inspeccion de ese indice exige SBOM SPDX
+y procedencia antes de smoke sin red. Artefactos privados `image-evidence-*`
+conservan metadata/release 90 dias y declaran `signed: false`.
+
+El deploy usa `repository@sha256:...` para app y job; consulta la ejecucion
+devuelta por `job start` con `execution show --job-execution-name`, nunca [0].
+Compara imagen observada con digest esperado. El gate previo exige
+`APP_SECRET_MIGRATION_READY=true` y secretRef Key Vault versionada para
+`APP_SECRET_ENCRYPTION_KEY`; no revela valores de claves.
+
+Firma privada no habilitada en GitHub Pro; SBOM/procedencia no son una firma.
+La allowlist `getPublicRuntimeConfig()` lee seis valores de runtime sin acceso
+literal inlineable de Next. El layout dinamico los entrega por props RSC a
+`PublicRuntimeConfigProvider`: MSAL, RoleAssignmentBanner, PricingPage y
+AddonsMarketplace no leen env de build. El mapa server-side de tiers/precios y
+la validacion de audiencia leen el mismo runtime. `/api/config/public` expone
+solo esa allowlist, sin tenant/secretos y con `private, no-store`, para smoke.
+El proxy reemplaza tambien la CSP baseline report-only con una baseline de
+runtime: staging permite sandbox y prod live no. No habilita CSP_ENFORCE.
+
+Dockerfile ya no declara ARG/ENV de identidad/Paddle. Deploy conserva guardas de
+separacion staging/prod e inyecta las seis variables al Container App. Terraform
+plan/apply y drift reciben `TF_VAR_public_runtime_config` desde el mismo
+environment; el root valida las seis claves no vacias y las incorpora a web y
+migrador, evitando drift que las quite. En staging exige token sandbox y client
+ID distinto de la referencia prod leida por scan sin environment; la ausencia
+de referencia bloquea el plan. Bootstrap sin mapa sigue permitido.
+Aplicar esta infraestructura coordinadamente con el primer rollout del cambio.
+
+Staging publica release.json schemaVersion 2/publicConfiguration runtime-v1.
+`promote-prod.yml` selecciona un run exitoso de deploy-azure.yml, main, SHA exacto
+y evento push/dispatch; descarga el artefacto del run/intento. El validador
+`deployment-release.mjs` rechaza evidencia anterior, SHA/run/ambiente distintos,
+repositorio inesperado, tags y digests no canonicos. Solo entrega dos digests.
+Prod no ejecuta build: `az acr import --registry <resource-id> --source
+finops@sha256:...` usa Entra y se compara el digest importado. Requiere permisos
+de lectura/import apropiados y trusted-services si el ACR tiene red restringida;
+no se amplian automaticamente. Ver [contrato ACR](https://learn.microsoft.com/azure/container-registry/container-registry-import-images).
+Luego se verifican SBOM/procedencia, smoke sin red, configuracion publica exacta
+y label revision del SHA en ambas imagenes antes de migraciones.
+
+Un mismo build standalone nativo, compilado con valores publicos deliberadamente
+distintos, sirvio dos procesos con configuracion sintetica staging/prod: endpoint,
+SSR y CSP correspondieron al runtime y no al build. Terraform valido en Linux
+con checksums comprometidos; el cache nativo macOS fallo su checksum de AzAPI y
+no se debilito el lock. Otro build Docker amd64 con heap acotado tambien fallo
+por memoria (~3,8 GiB disponibles); se retiro ese ajuste porque no lo resolvio.
+El migrador se construye ahora desde `deps`, no `builder`. Copia solo
+`tsconfig.json`, `scripts/migrate.ts`, `src/modules/storage/db.ts`,
+`src/modules/storage/migrations.ts` y `migrations/`; hereda package/lock y
+`node_modules` completo. No incluye `.next` ni `src/app`, pero conserva
+dependencias de desarrollo. Código root-owned, usuario migrate uid 1002 y
+home escribible. El smoke de deploy exige estos limites de empaquetado.
+
+Build amd64 del migrador correcto. Prueba real de CLI con MySQL 8.4 desechable
+y SQL sintetico: 1 aplicada, 1 omitida al repetir y SQL invalido con exit 1,
+sin entrada de exito para el archivo fallido. Verificadas las 159 SQL incluidas;
+no se ejecutaron contra datos reales ni se migraron claves.
+El OCI local verifica checksums, manifest amd64
+`sha256:137161fb5b6858373b9f52ef51bb841aceaaf7dc5c14bb325393538bbb78a693`,
+usuario y enlace de attestations: SBOM SPDX con 1481 paquetes y procedencia
+SLSA v1. No es evidencia de publicacion ni de firma. El intento runtime
+con webpack tambien fallo por memoria y se retiro el cambio de compilador.
+Smoke de runtime final, escaneo de ambas imagenes, import real y rollout
+ACR/ACA siguen pendientes.
+No se crea otro runner ni se habilita codigo PR en las VMs existentes para
+sortear billing. No se cambian claves/datos reales ni se habilita modo estricto
+sin la provision de credenciales y permisos correspondientes.
+
+### 52.5 Matriz multitenant de auditoria con SQL real
+
+`tenantAuditIsolation.mysql.test.ts` prueba los handlers de `/api/admin/audit`,
+`/api/admin/audit-trail` y sus dos exports con DB desechable, usuarios Reader
+de dos tenants y JWT sinteticos firmados RS256. Se ejecutan los validadores
+reales de firma/issuer/audience, membresia, rol y suspension, asi como SQL
+y serializacion; solo se sustituyen discovery/JWKS externo y traducciones.
+El puerto se recibe por `MYSQL_SECURITY_PORT`, host fijado a loopback y sin
+usar credenciales DB de la aplicacion. Cada suite crea y retira su DB propia.
+
+Se corrigio en las tres rutas que lo tenian el bypass `isMockTenant(...) ||
+mock=true`: el flag era controlado por el caller y el servicio consultaba
+datos reales del tenant indicado. Ahora solo tenants sinteticos reconocidos
+omiten OAuth. La cuarta ruta ya exigia rol y queda en la matriz.
+
+Los 27 casos verifican resultados y conteos positivos, JSON/NDJSON/CSV sin
+marcadores ajenos, lectores concurrentes, denegacion 401/403 con y sin flag,
+usuario DISABLED con JWT aun valido, filtros ajenos/SQL y membresia cruzada
+explicita preservada. AiCache usa SQL real para probar claves por tenant,
+lectura cruzada nula y rechazo de sobrescritura ajena. Los 12 casos siempre
+activos de `auditMockQueryAuthorization.test.ts` exigen guard antes de SQL
+para tenants reales y conservan demo anonima.
+
+CI incluye MySQL 8.4 por digest y healthcheck, puerto dinamico y paso dedicado
+para esta matriz y `securityPersistence.mysql.test.ts`. No agrega runners
+ni secretos. Este gate aun no se ejecuto hosted por billing. La evidencia
+local es de handlers con DB real, no HTTP desplegado, Entra real ni cobertura
+de todos los objetos/reportes/Redis/SWR; esos limites permanecen abiertos.
+
+La extension a `/api/admin/billing` elimina el mismo bypass antes de
+`getTenantBillingDetails`, que consulta Tenants/BillingTransactions. Se agregan
+fixtures SQL de compania/transaccion distintas y factura propia con importe/ID
+verificados, sin usar Paddle. Totales ampliados: cinco handlers, 31 casos
+con MySQL y 15 regresiones siempre activas; acceso legitimo, membresia cruzada
+explicita, bloqueo anonimo/ajeno/DISABLED y demo sintetica preservados.
+
+### 52.6 Matriz de cache con Redis real
+
+`tenantCacheIsolation.redis.test.ts` solo se activa con `REDIS_SECURITY_PORT`.
+Antes de importar dinamicamente redis/cache fija loopback, puerto de prueba,
+sin TLS/password de produccion; rechaza reutilizar un cliente global previo.
+Usa los modulos reales y Redis desechable, sin simular get/set/del/TTL.
+Registra y borra solo claves sinteticas propias, desconecta su cliente y no
+usa FLUSHDB ni modifica Redis de aplicacion.
+
+Siete casos cubren builders auditFull/auditTtl/liveAnomalies/costGroups,
+incluyendo dos suscripciones y normalizacion de auditFull, hits/peek sin
+fetcher, 12 misses concurrentes por tenant con una sola carga por clave,
+12 refresh stale por tenant con promesas controladas, invalidacion exacta y
+patron limitada al tenant, expiracion real de un segundo, error de origen
+sin contaminacion ajena/reintento y refresh degradado con TTL cero que
+conserva el ultimo dato bueno. Se comprueban valores y TTL positivos, no
+solo cantidad de llamadas.
+
+CI provisiona Redis 7 Alpine por digest y healthcheck, publica puerto dinamico
+y lo entrega al mismo paso obligatorio de SQL/persistencia. MySQL usa
+healthcheck TCP para no aceptar su servidor temporal de inicializacion.
+Suite local con ambos servicios habilitados: 558 archivos, 6242 tests pass,
+8 archivos/76 tests omitidos por otros gates. No implica prueba HTTP ni
+cobertura de todos los builders, namespaces o permisos efectivos; hosted y
+rollout siguen bloqueados por los gates ya documentados.
+
+### 52.7 Step-up financiero: margen, plan y cancelacion
+
+`markupStepUpPayload()` en `tenantPartnerMarkup.types.ts` construye un objeto
+con orden fijo: action=save_partner_markup, tenantId, globalMarkupPercentage,
+fixedManagementFeeUSD e isMarkupEnabled. UI PartnerMarkup captura los valores
+antes de abrir MFA y usa ese mismo snapshot para challenge y PUT. El servidor
+no acepta un hash del cliente: valida rangos/tipos y plan, normaliza el flag
+omitido a true, reconstruye el DTO y llama a enforceMfaIfEnabled antes de
+saveMarkupSettings. Se rechaza flag no booleano, incluido null explicito.
+
+POST legacy billing-markup ahora exige Admin/Owner, valida el rango con el
+helper existente y hace step-up tras comprobar Enterprise, con
+action=set_legacy_markup, tenantId y markupPercentage. Los distintos action y
+campos impiden reutilizar el challenge canonico. Un challenge previo que solo
+contenia tenantId deja de ser valido y debe emitirse nuevamente. La lectura
+legacy conserva su politica anterior; no se afirma que exija Admin/Owner.
+
+En saasBilling.types.ts, planChangeStepUpPayload produce en orden fijo
+action=change_subscription_plan, tenantId, newTier, billing y
+prorationBillingMode. ChangePlanModal captura el snapshot antes de MFA y lo
+reutiliza en PATCH aunque cambie el formulario durante la espera. DELETE usa
+cancellationStepUpPayload: action=cancel_subscription, tenantId y effective.
+Solo un campo omitido toma el default (prorated_immediately/immediately);
+null y valores fuera de catalogo fallan antes del consumo. Suscripcion y
+precio se resuelven en servidor desde tenant/catalogo; no se aceptan IDs
+arbitrarios del body. Consumidores de DELETE deben emitir ese DTO exacto.
+Sin PADDLE_API_KEY, DELETE devuelve 503: no llama al proveedor ni escribe
+CANCELED localmente. Tanto exito como rechazo mantienen webhook como fuente
+de verdad, sin fallback de exito simulado.
+
+Diecisiete tests SQL adicionales (subtotal 48 antes de reportes/Blob) emiten challenges
+por handler real y siembran consumed_at como factor verificado; no prueban
+TOTP. Guard/hash/DELETE condicional son reales. Cubren valores/target/action/
+operation, payload viejo, defaults, inputs invalidos sin consumo, roles,
+MFA opt-in, ocho llamadas concurrentes con un ganador en markup y plan,
+cancelacion sin clave y rechazo del proveedor sin baja local ni replay.
+Paddle se intercepta con respuestas sinteticas, sin cargos ni cancelaciones
+reales. Fixture UTC replica timezone=Z de db.ts. Diez tests DTO/hash y dos UI
+verifican orden/campos, snapshot inmutable y cancelacion del modal. No se
+migran datos reales ni se certifican las demas operaciones MFA o HTTP
+desplegado; rollout sigue pendiente.
+
+### 52.8 Matriz de historial, descarga y borrado de reportes
+
+tenantAuditIsolation suma 15 casos de reportes a los 48 existentes. Usa
+ExecutiveReportJobs real en MySQL y executiveReportStorage/azureBlobStorage
+reales con Azure Blob SDK contra Azurite local, sin mocks de SQL ni Blob.
+Cada tenant tiene ID de reporte, markdown y blobs PDF/JSON propios.
+Handlers de listado, detalle, rehydrate, download GET/POST y DELETE prueban
+lecturas concurrentes propias, agregados/filtros/catalogo sort, JWT RS256,
+anonimo, cambio de target/ID, suspension, generacion PDF y borrado selectivo.
+Modificar una fila propia para apuntar al prefijo ajeno no permite leer ni
+eliminar ese markdown. Al finalizar se comprueba que los containers de
+prueba no contienen blobs; solo se limpian nombres creados por el fixture.
+
+generateDownloadSas mantiene su contrato por compatibilidad, pero devuelve
+una ruta local que vuelve a exigir autorizacion, no un SAS de Azure ni una
+capacidad bearer. expiresAt es informativo y no lo valida el GET. Un enlace
+con ID ajeno no permite recuperar su contenido. Los GET scoped no encontrados
+siguen devolviendo 500; DELETE devuelve 404. Se registra el comportamiento
+existente, no un cambio de errores/roles ni una nueva politica de admision.
+
+CI arranca Azurite 3.35.0 por digest, cuenta sintetica, puerto aleatorio en
+127.0.0.1 y /data tmpfs. skipApiVersionCheck solo afecta compatibilidad del
+emulador con el SDK; no cambia validacion ni configuracion de Azure. Espera
+HTTP con limite, entrega el puerto solo al paso dedicado y elimina el
+container con always, incluso si falla la matriz. No monta el repo ni usa
+credenciales de aplicacion. El indice OCI incluye linux/amd64 y linux/arm64.
+Esta evidencia no certifica permisos ni comportamiento del servicio Azure,
+retencion efectiva, todos los objetos/exportaciones o todas las claves cache.
+Suite completa local con MySQL, Redis y Azurite activos simultaneamente:
+560 archivos y 6286 tests correctos; 8 archivos/76 tests omitidos por otros gates.
+
+### 52.9 Frontera SQL de desglose y alcance de Perspectives
+
+getTopBreakdown usa BreakdownColumn=service_name|MeterName|ServiceFamily y
+valida el catalogo nuevamente en runtime antes de pool.query; rechaza otros
+identificadores o fragmentos SQL. limit admite enteros 1..100, default 6.
+Los tres llamadores actuales ya usan constantes; no se acredita una entrada
+HTTP arbitraria. tagFilter es un fragmento interno del servidor: sus valores
+siguen parametrizados. No se abre una interfaz de consulta SQL por request.
+
+Quince tests unitarios verifican columnas, strings estructurales, limites,
+precision decimal y bucket Other. Ocho casos MySQL reales adicionales en
+tenantAuditIsolation (71 casos con Blob habilitado) comprueban las tres
+dimensiones con tags identicos entre tenants, filtros de tag/suscripcion y
+fechas, listado de Perspectives/reglas por tenant, permiso asignado que gana
+sobre URL y SCOPE_UNRESOLVED para una Perspective ajena. alcanceDeLaRuta se
+resuelve y su SQL se ejecuta con parametros reales: solo entra el recurso
+del grupo asignado. Una fecha invalida sigue siendo un literal y MySQL la
+rechaza por tipo; no se convierte en estructura de consulta.
+
+No cambia la politica STRIDE-03 ni se afirma prueba del handler HTTP completo,
+Resource Graph o inventario global. Suite local con MySQL, Redis y Azurite:
+561 archivos y 6309 tests correctos, 8 archivos/76 tests omitidos por otros
+gates; lint/typecheck/build nativo correctos. Implementado en rama, sin rollout.
+
+### 52.10 Notificaciones: mutaciones limitadas al destinatario
+
+recipientFilter en tenantNotifications.service produce el mismo SQL para
+GET, UPDATE individual/masivo y DELETE: difusion (user_email IS NULL) mas el
+email verificado. Sin email solo permite difusion. La escritura previa
+filtraba por tenant, permitiendo alterar avisos privados ocultos de otro
+usuario del mismo tenant; no se demostro lectura privada ni cruce de tenant.
+
+PATCH /api/notifications y /api/notifications/mark-read pasan identity.email
+del guard; DELETE tambien. Campos userEmail enviados en body no autorizan
+otro destinatario. markAllAsRead presente debe ser booleano, rechazando
+strings/numeros/null antes del efecto. Broadcast dismissal recibe identidad
+real, no el fallback anonymous; llamadas de servicio sin email fallan con
+success=false, updatedCount=0 y log explicito. El modelo de lectura de avisos
+de difusion sigue siendo compartido por tenant, sin migracion de esquema.
+DELETE conserva respuesta idempotente para IDs no visibles: no revela su
+existencia ni los borra. UPDATE devuelve updatedCount=0.
+
+Catorce tests con SQL/handlers/JWT reales cubren ambos PATCH, GET moderno y
+legacy, DELETE, ID privado/ajeno, email falsificado, marcado masivo selectivo,
+bulk flags invalidos, anonimato/target cruzado y atribucion de broadcast a
+la identidad, no anonymous. Llamadas sin identidad solo mutan difusion.
+Cinco tests unitarios adicionales siempre activos comprueban predicado,
+parametros y rechazo de dismissal sin identidad. Matriz total 85 casos con
+Blob habilitado; suite completa con MySQL/Redis/Azurite: 6328 pass/76 skip,
+561 archivos correctos/8 omitidos; lint/typecheck/build nativo correctos.
+No modifica politica de admision STRIDE-03 ni acredita rollout o cobertura
+global de notificaciones/caches.
+
+### 52.11 Descartes de anuncios: pertenencia, vigencia y canal
+
+recordDismissal exige tenant, identidad e ID entero positivo seguro. Reutiliza
+getActiveAnnouncementsForTenant para comprobar publicacion, ventana temporal
+y destinatario antes del INSERT IGNORE. Se conserva la interpretacion horaria
+del listado; no se introduce una comparacion SQL NOW con otra zona horaria.
+El endpoint /api/announcements/dismiss permite cualquier canal visible;
+los dos PATCH de notificaciones exigen ademas el canal notification.
+IDs invalidos devuelven 400; anuncios ajenos, borradores, vencidos o de canal
+incompatible devuelven 404 sin persistir el descarte. Email/tenant proceden
+del guard, no del body. Un error SQL se propaga al handler como 500 y no cae
+en el UPDATE regular, ni siquiera junto con markAllAsRead=true.
+
+El descarte conserva la clave (announcement_id, user_email), sin migracion
+a estado por tenant. Repetir un descarte propio sigue siendo idempotente.
+La comprobacion y el INSERT no son una transaccion que bloquee cambios de
+publicacion concurrentes: no se afirma binding atomico de esa configuracion.
+
+Cinco casos SQL adicionales prueban los tres accesos, destinatario ajeno,
+borrador, vencimiento, canal, ID invalido, identidad falsificada, idempotencia
+y fallo real de consulta (tabla temporalmente renombrada solo en la base
+fixture). Cinco regresiones unitarias verifican validacion y pertenencia.
+Matriz total 90 casos con Blob; suite completa con MySQL/Redis/Azurite:
+6338 pass/76 skip, 561 archivos correctos/8 omitidos. Lint/typecheck/build
+nativo correctos. Implementado en rama, no desplegado ni cobertura global.
+
+### 52.12 Consulta de permisos: fallo cerrado ante indisponibilidad SQL
+
+alcanceDelUsuario solo devuelve null cuando no hay asignacion en una consulta
+exitosa (o falta la identidad requerida, conservando su contrato previo).
+Un error SQL ya no se transforma en null: se registra y se propaga.
+aplicarAlcance traduce ese error a AuthError 503 SCOPE_LOOKUP_UNAVAILABLE,
+sin devolver una identidad sin recorte. Se conserva el bypass explicito de
+cron; no se modifica la admision por directorio ni la suspension de usuarios.
+El consumidor administrativo directo tambien recibe el fallo, no un falso
+resultado sin asignacion. Antes, una caida o ausencia de UserScopes podia
+eliminar temporalmente el limite de Perspective dentro del tenant.
+
+El rollout exige UserScopes migrada y accesible: una instalacion sin esa
+tabla devuelve indisponibilidad a humanos en vez de ampliar permisos.
+Usuarios sin fila conservan el acceso previo cuando SQL funciona; no se
+crea una politica nueva de membresia SaaS. Un caso MySQL real asigna alcance,
+renombra solo la tabla fixture y comprueba 503 en rutas con/sin soporte de
+recorte, restaurandola siempre. Tres tests del servicio prueban consulta
+parametrizada, fila ausente/asignada y error propagado con log; dos tests del
+guard comprueban 503. Matriz 91 casos con Blob; suite6344pass/76skip,
+562 archivos correctos/8omitidos. Lint/typecheck/build nativo correctos.
+Pendiente rollout, no cierre global del inventario de autorizacion.
+
+### 52.13 Borrado de Perspectives sin ampliar permisos por cascada
+
+DELETE /api/intelligence/perspectives conserva Admin/Owner y pertenencia por
+tenant. eliminarPerspectiva abre una transaccion, bloquea la fila del padre
+con SELECT ... FOR UPDATE y consulta asignaciones con lectura bloqueante
+antes del DELETE. Si existe cualquier referencia UserScopes devuelve409
+PERSPECTIVE_IN_USE y revierte; incluso una referencia con tenant inconsistente
+impide borrar el padre. Primero hay que reasignar al usuario o quitarle el
+alcance explicitamente por el flujo administrativo. La UI existente muestra
+el error del servidor y conserva la Perspective seleccionada.
+
+El bloqueo del padre serializa inserciones/reasignaciones mediante la FK
+fk_userscope_perspective existente de la migracion 20260926-001: una asignacion
+que gana conserva padre/alcance y el borrado falla; si gana el borrado,
+la asignacion falla por FK en vez de persistir sin padre. La FK es requisito,
+no se sustituye por un check no atomico. No se modifica la migracion aplicada
+ni la cascada del esquema, por lo que la purga del tenant conserva su modelo.
+Este control cubre el endpoint, no borrados SQL administrativos externos.
+Sin referencias, se eliminan Perspective y reglas como antes; ID ajeno o
+inexistente devuelve404 sin revelar asignaciones. SQL falla sin continuar.
+
+Siete casos adicionales con handlers/JWT/MySQL reales prueban Reader403,
+target ajeno403, ID ajeno404, referencia409 e integridad de reglas/alcance,
+retiro explicito seguido de borrado200, referencia inconsistente,
+indisponibilidad503 y carrera asignacion/borrado. Fixture incorpora las FKs
+de cascada de UserScopes y reglas. Cuatro unitarios verifican orden de
+bloqueos/parametros, commit, rollback y release. Matriz98 con Blob;
+suite6355pass/76skip,563archivos correctos/8omitidos; lint/typecheck/build
+nativo correctos. Manuales ES/EN/PT-BR y su indice de soporte regenerados.
+Implementado en rama, pendiente rollout y cobertura global.
+
+### 52.14 Vistas guardadas: identidad personal distinta del propietario compartido
+
+SavedViews usa user_email='' para vistas compartidas. correoDe antes devolvia
+esa cadena para un JWT valido sin email, permitiendo que POST con shared=false
+creara o sobrescribiera una vista compartida sin la guarda Admin/Owner.
+Ahora un email vacio o solo espacios produce401 IDENTITY_EMAIL_REQUIRED
+antes de leer vistas o abrir la transaccion personal; no se usa el email
+que pudiera venir en el body. La misma validacion rige GET y DELETE personal.
+Compartir sigue exigiendo Admin/Owner; una identidad con email valido mantiene
+normalizacion, escritura propia, defaults por propietario y borrado propio.
+
+Siete casos adicionales con JWT RS256 y MySQL reales prueban token sin email
+por POST/GET/DELETE, no sobrescritura de una vista compartida existente,
+listado propio+compartido sin privados/tenant ajenos, email/owner falsificados,
+defaults selectivos, Reader403 para compartidas/privadas ajenas, Admin propio,
+Perspective ajena404 y borrado selectivo. Tres unitarios rechazan email
+vacio/espacios antes de SQL/transaccion. Matriz105 con Blob; suite6365pass/
+76skip,564archivos correctos/8omitidos; lint/typecheck/build nativo correctos.
+Este control es de vistas guardadas: no establece una politica global para
+tokens sin email ni resuelve la decision STRIDE-03. Pendiente rollout.
+
+### 52.15 Alcance ligado a email u OID verificados dentro del tenant
+
+aplicarAlcance pasa tambien claims.oid a alcanceDelUsuario. Si existe OID,
+la consulta busca asignacion por email o mediante Users con entra_oid,
+uniendo tenant_id y email de Users con UserScopes. Ambos identificadores son
+valores ligados, no parametros del cliente. Esto impide perder el recorte
+si el JWT omite el email o presenta otro email para el mismo objeto Entra
+que sigue registrado en Users. Un OID coincidente en otro tenant no aporta
+asignaciones. No se cambia identity.email ni se inventa una identidad para
+vistas/notificaciones personales: esas rutas conservan sus propias guardas.
+
+Se leen como maximo dos asignaciones: mas de una es ambiguedad, se registra
+y falla503 SCOPE_LOOKUP_UNAVAILABLE, sin escoger arbitrariamente un permiso.
+Sin OID, el consumidor por email mantiene consulta parametrizada; consulta
+exitosa sin asignacion sigue sin alcance y cron conserva bypass explicito.
+No se exige alta SaaS activa ni se cambia STRIDE-03. La correspondencia por
+OID requiere una fila Users con email coincidente con el alcance: cambiar
+tambien ese dato persistido exige gestionar explicitamente las asignaciones;
+no se afirma una migracion de UserScopes a clave OID.
+
+Cuatro casos SQL adicionales prueban email ausente/cambiado con mismo OID,
+recorte conservado en ruta compatible y403 en ruta no compatible, coincidencia
+OID solo en tenant ajeno y asignaciones ambiguas503. Tres unitarios verifican
+los valores ligados, union por tenant y rechazo con log. Matriz109 con Blob;
+suite6372pass/76skip,564archivos correctos/8omitidos; lint/typecheck/build
+nativo correctos. Implementado en rama, falta rollout y cobertura global.
+
+### 52.16 Suscripciones de reportes: matriz SQL de objetos y renderizado
+
+Ocho casos nuevos ejecutan GET/POST/DELETE /api/reports/subscriptions con
+handlers, guardas, JWT RS256 y MySQL reales. Verifican lectura concurrente
+por tenant (incluidos destinatarios), anonimato401, target ajeno403,
+Reader sin escritura, Admin propio con created_by del JWT y no del body,
+cadencia/destinatarios/alcance persistidos, ID ajeno404 sin borrado, borrado
+selectivo, suspension con token vigente y validaciones previas al INSERT.
+No se encontro cruce de tenant en estos caminos; no se cambia produccion.
+
+Tambien se ejecuta GENERADORES gasto-por-equipo con reglas y costos reales:
+solo devuelve el grupo local y CSV esperado; pedir una Perspective ajena
+produce cero filas, sin consultar costos ajenos ni fallback a la primera.
+No se cambia ese contrato a404. Las pruebas usan enviarAhora=false: no
+invocan correo, Graph ni el cron, y no certifican entrega programada,
+revalidacion del autor al enviar ni aislamiento efectivo Azure.
+
+Matriz117 casos con Blob; suite6380pass/76skip,564archivos correctos/8omitidos;
+typecheck, lint del archivo y diff-check correctos. Sin codigo productivo
+nuevo, sin rollout ni cierre global del inventario SQL/KQL/objetos.
+
+### 52.17 Autor verificable al crear suscripciones humanas
+
+POST /api/reports/subscriptions exige identity.email no vacio tras la guarda
+Admin/Owner, antes de INSERT o enviarAhora. Un JWT con OID de Admin pero sin
+email antes guardaba created_by=NULL; el cron no podia asociarlo luego con
+Users.account_status y lo trataba como suscripcion de proceso sin autor.
+Ahora devuelve401 IDENTITY_EMAIL_REQUIRED; createdBy del body no lo suple.
+Con email valido persiste el autor verificado como antes. No se modifica
+el tratamiento historico de procesos sin autor ni se desactivan filas reales.
+
+Un caso JWT/MySQL real reproduce Admin por OID sin email y verifica401 sin
+INSERT; dos unitarios comprueban email vacio/espacios antes de SQL o envio,
+incluso con enviarAhora=true y createdBy falsificado. Matriz118 con Blob;
+suite6383pass/76skip,565archivos correctos/8omitidos; lint/typecheck/build
+nativo correctos. Sin correo real, sin prueba de cron/Graph ni rollout.
+
+### 52.18 Polling de jobs: pertenencia tambien en cache de memoria
+
+getExecutiveReportJobStatus consultaba activeJobsCache por jobId y devolvia
+el estado sin comparar tenantId; solo el fallback SQL tenia ambos predicados.
+Un ID conocido de otro tenant podia revelar estado, scope, markdown o data
+residentes en ese proceso. El handler demo publico tambien alcanzaba ese
+cache antes de fabricar la respuesta sintetica. Ahora un hit solo se sirve
+si cached.tenantId coincide exactamente con el tenant autorizado/solicitado.
+Un miss de pertenencia sigue el flujo existente: SQL por id+tenant en real,
+respuesta sintetica sin metadata privada en demo. No se borra ni altera el
+job del propietario ni se cambia su polling, ni la respuesta de no encontrado.
+
+Seis regresiones siempre activas arrancan un job real sintetico con SQL
+sustituido y worker detenido en una promesa pendiente, sin red ni timers.
+Prueban hit propio sin SQL, tenant ajeno con fallback filtrado, demo sin
+metadata ajena, handler demo publico real, handler real anonimo401 y
+fallback persistido del tenant solicitado aunque exista cache ajeno.
+No se exporta el cache para tests ni se prueba SQL real en este bloque.
+Suite sin servicios:6262pass/188skip,563archivos correctos/11omitidos;
+los gates MySQL/Redis/Blob se omiten deliberadamente en esta corrida.
+Ultima matriz real previa:118casos y6383pass/76skip en dc04cd0.
+Lint/typecheck/build nativo correctos. Pendiente rollout; no cierre global.
+
+### 52.19 Alcance coherente entre inicio y worker ejecutivo
+
+El inicio HTTP comprobaba pertenencia segun scope, pero el worker inferia
+TENANT_ALL/SUBSCRIPTION solo desde scope_subscription_id. Un body TENANT_ALL
+con scopeId distinto de All podia eludir la comprobacion HTTP y convertirse
+despues en trabajo de suscripcion. startExecutiveReportJob ahora valida el
+catalogo runtime de scope y scopeId string no vacio; TENANT_ALL siempre
+persiste/ejecuta All, y all sin distinguir mayusculas se normaliza a All.
+Otros scopes conservan su interpretacion previa como suscripcion seleccionada;
+no se agrega soporte nuevo de Resource Group.
+
+Antes del INSERT real, el servicio exige pertenencia mediante
+exigirSuscripcionDelTenant; el worker la vuelve a comprobar antes de cualquier
+actualizacion de progreso o recoleccion. Un rechazo previo no crea job;
+si falla en worker, queda FAILED con error/log y no se recolectan datos.
+Es el helper compartido, con su cache de pertenencia de 60 segundos: no se
+afirma revocacion Azure inmediata ni revalidacion continua durante la ejecucion.
+Esta comprobacion no sustituye la politica de membresia humana ni una
+reautorizacion del autor antes del envio, que quedan fuera de este bloque.
+
+Once regresiones siempre activas comprueban normalizacion All/TENANT_ALL,
+handler real con body contradictorio, rechazo404 en handler, orden de
+validacion antes de INSERT/recoleccion, fallo worker sin datos y entradas
+runtime invalidas. SQL, permisos Azure y recoleccion estan sustituidos;
+el worker queda pendiente sin red para las rutas exitosas. Test de cache
+existente adapta solo el permiso sintetico para mantener su alcance aislado.
+Suite sin servicios6273pass/188skip,564archivos correctos/11omitidos;
+lint/typecheck/build nativo correctos. No se repiten gates SQL/Redis/Blob;
+ultima matriz real previa118casos en dc04cd0. Pendiente rollout/global.
+
+### 52.20 Solicitante ligado al JWT y revalidado en worker/correo
+
+El inicio real ya no sustituye email ausente por user@cscloudsolutions.com:
+exige email verificado no vacio antes de persistir, incluso si el body
+ofrece un destinatario. El handler captura email y OID exclusivamente de
+la identidad autenticada; el body no puede sustituirlos. El servicio real
+tambien exige email. La ruta demo mantiene su identidad sintetica.
+
+El worker comprueba Users DISABLED por tenant y email/OID y el alcance
+actual mediante alcanceDelUsuario antes de recolectar. OID se transporta
+al worker en memoria, no se agrega una columna ni recuperacion de jobs.
+Un alcance asignado se deniega con SCOPE_ROUTE_NOT_AWARE, igual que en
+las rutas de reportes que no pueden acotarse. Lookup fallido o ambiguo
+no habilita datos: falla el job antes de recoleccion.
+
+Inmediatamente antes del bloque de envio vuelve a comprobar pertenencia
+de suscripcion, suspension y alcance del solicitante. Revocacion o fallo
+SQL impiden dispatchExecutiveReportEmail y no marcan emailed_to_requester_at.
+Se conserva el contrato existente de correo opcional: el reporte ya
+compilado para el tenant queda COMPLETED y el rechazo de envio se registra
+como Email dispatch error; no se declara envio exitoso.
+
+No se cambia STRIDE03: sin fila Users/alcance se conserva acceso por
+directorio, no se exige rol nuevo ni se interpreta borrar un usuario
+como suspension. No se garantiza cancelacion atomica de un envio ya
+iniciado ni invalidacion inmediata del cache Azure60s. Tampoco se cancela
+recoleccion en curso; el resultado queda sujeto a los guards de lectura
+existentes, y el correo se vuelve a comprobar antes de salir.
+
+Catorce regresiones siempre activas cubren email vacio/espacios, body
+forjado, email/OID del JWT, suspension/alcance/fallos de ambos lookups
+antes de recolectar y tras generar, suscripcion revocada antes de enviar
+y opcion sin correo. Se usan handlers/worker reales y SQL, catalogo Azure,
+colectores, Blob, notificaciones y transporte de correo sustituidos;
+no se envia correo ni se consulta cloud. Suite sinservicios6287pass/188skip,
+565archivos correctos/11omitidos; lint/typecheck/build nativo correctos. Ultima matriz real
+previa118casos en dc04cd0; estos casos no afirman SQL/JWT/Azure reales.
+
+### 52.21 Suscripciones vigentes y autor comprobados al despachar
+
+enviarSuscripcion, comun al cron y Enviar ahora, exige una fila persistida
+por id/tenant activa y con report_type/scope_json/recipients_json iguales
+al snapshot que va a generar. Usa comparacion JSON nativa de MySQL y
+scope SQL NULL con operador <=>, sin depender del orden de claves JSON.
+Si la fila se borro, desactivo o cambio de alcance/destinatarios, lanza
+REPORT_SUBSCRIPTION_CHANGED antes de generar o de continuar enviando.
+
+Lee created_by de esa fila, no del caller. Para autor humano vuelve a
+comprobar estado Users y UserScopes antes de generar y antes de cada
+destinatario; no permite un autor restringido por Perspective porque el
+despachador no aplica permisos personales, solo el filtro del reporte.
+Estado distinto de ACTIVE o lookup fallido/ambiguo corta el envio.
+Se preservan las suscripciones historicas de proceso con created_by NULL
+y la membresia por directorio sin fila Users: no se modifica STRIDE03 ni
+se convierte eliminar una fila Users en una revocacion.
+
+Los guards estan fuera del catch de rebotes del transporte: una perdida
+de autorizacion no se trata como buzon fallido para seguir al siguiente.
+Tambien se revalida antes de marcar un reporte vacio como procesado.
+last_sent_at y la desactivacion del cron ahora filtran id y tenant.
+El cron registra fallidas y status warning si el despachador rechaza;
+mantiene aislamiento de fallos por suscripcion.
+
+Quince regresiones unitarias prueban vigencia/configuracion, cambios
+durante generacion y entre destinatarios, errores SQL, autor de proceso,
+directorio sin fila, periodo sin marcar y warning cron. Nueve pruebas
+MySQL8.4 reales comprueban igualdad JSON sin orden de claves, SQL NULL,
+tenant/scope/destinatarios ajenos, desactivacion, suspension y permiso
+Perspective comprometidos durante generacion, y cambio de destinatarios
+tras primer envio. Generador y correo son sinteticos; no hay Graph/Azure.
+Se repite matriz SQL/JWT previa:103pass/15Blob omitidos; junto a los nueve
+nuevos112pass/15skip. Full con MySQL6416pass/98skip,569archivos/9omitidos;
+Redis/Azurite/live cloud no habilitados en esta corrida.
+Lint global, typecheck y build nativo correctos.
+
+No hay transaccion alrededor del correo ni cancelacion atomica: un
+destinatario ya enviado no se recupera. Si cambia autorizacion entre
+destinatarios, se corta sin marcar periodo y queda error registrado;
+un reintento posterior puede repetir destinatarios previos. No agrega
+idempotencia por destinatario ni cambia roles; created_by sigue ligado
+a email historico, no se migra a OID.
+
+### 52.22 Pertenencia actual al leer jobs y reportes recientes
+
+getExecutiveReportJobStatus, getActiveExecutiveReportJob y
+getLatestCompletedReport exigen pertenencia de scope_subscription_id
+antes de devolver hits de memoria o filas SQL de tenants reales. El
+cache reciente conserva el ID de suscripcion del job, sin derivarlo del
+nombre mostrado ni del contenido generado. La ruta SQL de latest valida
+antes de volver a recolectar. Los guards HTTP de identidad/suspension y
+alcance personal siguen vigentes; el servicio agrega la frontera de
+pertenencia, no los sustituye.
+
+Cinco regresiones adicionales cubren polling/job activo en memoria,
+polling/activo/latest persistidos y latest completado en cache. Los
+errores del helper se propagan sin devolver contenido. Se mantienen
+demos sinteticos y contrato All; el helper compartido conserva TTL60s,
+por lo que no se afirma revocacion Azure instantanea ni autorizacion
+atomica con la respuesta.
+
+Suite sin servicios6307pass/197skip,566archivos/12omitidos; lint,
+typecheck y build nativo correctos. Estas regresiones usan SQL y helper
+de pertenencia sustituidos. La corrida MySQL6416pass/98skip de52.21
+es previa; no se presenta como repetida en este bloque.
+
+### 52.23 Reautorizacion del envio ejecutivo manual
+
+POST reports/executive/send-email vuelve a ejecutar requireTenantAccess
+despues de recolectar/compilar PDF y antes de despachar; para un scope
+distinto de TENANT_ALL tambien vuelve a exigir suscripcion del tenant.
+Una suspension, permiso Perspective nuevo, JWT expirado o fallo de lookup
+no alcanza dispatchExecutiveReportEmail. Se preserva la politica actual
+de destinatarios manuales y la ruta demo; no agrega rol ni cambia STRIDE03.
+La consulta del nombre usa company_name, columna existente en Tenants,
+en lugar de name, para que la ruta real no falle antes de compilar.
+
+Ocho regresiones con handler real y dependencias sustituidas cubren
+orden de checks, suspension/alcance/expiracion, pertenencia revocada,
+fallo SQL, TENANT_ALL y demo. Junto a cinco guards Lighthouse existentes:
+13pass. Typecheck, lint global y build nativo correctos. No se repite
+full suite ni gates reales; ultima full sinservicios6307pass/197skip es
+previa a estas ocho regresiones. Sin correo ni cloud reales.
+No garantiza cancelacion atomica despues del ultimo check ni elimina
+la cache de pertenencia60s.
+
+### 52.24 Reautorizacion antes de devolver datos, HTML y PDF
+
+GET reports/executive/data vuelve a comprobar requireTenantAccess y
+pertenencia de suscripcion al terminar la recoleccion. POST export-pdf
+lo hace tras construir HTML o compilar PDF, antes de devolver el cuerpo.
+Suspension, nuevo permiso Perspective, expiracion JWT, revocacion de
+suscripcion o fallo de lookup impiden devolver el contenido generado.
+El contrato demo y TENANT_ALL se conserva. No se cancela la recoleccion
+iniciada ni se afirma atomicidad entre ultimo guard y respuesta; sigue
+TTL60s del catalogo de suscripciones.
+
+Veinticuatro regresiones nuevas ejecutan handlers reales con servicios
+sustituidos en data/HTML/PDF: exito y orden, tres causas de revocacion de
+identidad, pertenencia, fallo SQL, TENANT_ALL y demo por cada formato.
+Con correo manual/Lighthouse37pass focales. Full final habilita MySQL8.4,
+Redis7 y Azurite3.35 desechables en loopback/tmpfs:6475pass/76skip,
+572archivos correctos/8omitidos. Incluye118matrizSQL/JWT/Blob y nueve
+casos SQL nuevos de despacho; no se usa Graph ni Azure reales.
+Typecheck, lint global y build nativo correctos. Bases fixture retiradas,
+RedisDBSIZE0, los tres contenedores propios eliminados; ajenos intactos.
+Esta corrida no sustituye build/scan amd64, firma privada, CI hosted ni
+despliegue; sigue abierta cobertura global y decision STRIDE03.

@@ -12,6 +12,10 @@
 import pool, { initializeDatabase } from '@/modules/storage/db';
 import { guardAiMarkdown } from '@/lib/aiOutputGuard';
 import { isMockTenant } from '@/lib/mockData';
+import { exigirSuscripcionDelTenant } from '@/lib/scopeDelTenant';
+import { AuthError } from '@/lib/requestAuth';
+import { alcanceDelUsuario } from '@/services/userScope.service';
+import type { RowDataPacket } from 'mysql2';
 import {
     aggregateExecutiveReportData,
     generateExecutiveAssessment,
@@ -35,7 +39,7 @@ import type { ExecutiveReportData, ExecutiveReportScope } from '@/types/executiv
 const activeJobsCache = new Map<string, ExecutiveReportJobState>();
 
 // Cache de reportes completados recientes por tenant
-const tenantRecentReportsCache = new Map<string, { reportId: string; reportMarkdown: string; data: ExecutiveReportData; completedAt: string }>();
+const tenantRecentReportsCache = new Map<string, { reportId: string; reportMarkdown: string; data: ExecutiveReportData; completedAt: string; scopeSubscriptionId: string }>();
 
 function getStepProgress(step: ReportJobStep): { progress: number; label: string } {
     switch (step) {
@@ -56,6 +60,18 @@ function getStepProgress(step: ReportJobStep): { progress: number; label: string
     }
 }
 
+async function exigirAccesoDelSolicitante(tenantId: string, email: string, oid?: string): Promise<void> {
+    if (!email.trim()) throw new AuthError('Falta identidad del solicitante.', 401, 'IDENTITY_EMAIL_REQUIRED');
+    const [disabled] = await pool.query<RowDataPacket[]>(
+        "SELECT 1 FROM Users WHERE tenant_id = ? AND account_status = 'DISABLED' AND (email = ? OR (entra_oid IS NOT NULL AND entra_oid = ?)) LIMIT 1",
+        [tenantId, email, oid || ''],
+    );
+    if (disabled.length) throw new AuthError('Cuenta deshabilitada.', 403, 'ACCOUNT_DISABLED');
+    if (await alcanceDelUsuario(tenantId, email, oid)) {
+        throw new AuthError('El alcance asignado no permite este reporte.', 403, 'SCOPE_ROUTE_NOT_AWARE');
+    }
+}
+
 /**
  * Inicia un job asíncrono para generar el reporte ejecutivo.
  */
@@ -65,14 +81,23 @@ export async function startExecutiveReportJob(
     const {
         tenantId,
         scope,
-        scopeId = 'All',
+        scopeId: requestedScopeId = 'All',
         scopeName = 'Tenant completo (todas las suscripciones)',
         locale = 'es',
         triggerAiAnalysis = true,
         sendEmailNotification = false,
-        requestedByEmail = 'user@cscloudsolutions.com',
+        requestedByEmail = '',
+        requestedByOid,
     } = payload;
 
+    if (!['TENANT_ALL', 'SUBSCRIPTION', 'RESOURCE_GROUP'].includes(scope)) {
+        throw new AuthError('Alcance de reporte inválido.', 400, 'INVALID_REPORT_SCOPE');
+    }
+    if (typeof requestedScopeId !== 'string' || !requestedScopeId.trim()) {
+        throw new AuthError('scopeId inválido.', 400, 'INVALID_REPORT_SCOPE');
+    }
+    const scopeId = scope === 'TENANT_ALL' || requestedScopeId.toLowerCase() === 'all'
+        ? 'All' : requestedScopeId;
     const isMock = isMockTenant(tenantId);
 
     if (isMock) {
@@ -105,6 +130,10 @@ export async function startExecutiveReportJob(
     }
 
     // Tenant Real: Persistencia en MySQL y ejecución en segundo plano
+    if (!requestedByEmail.trim()) {
+        throw new AuthError('Falta identidad del solicitante.', 401, 'IDENTITY_EMAIL_REQUIRED');
+    }
+    await exigirSuscripcionDelTenant(tenantId, scopeId);
     await initializeDatabase();
 
     const [insertResult] = await pool.query(
@@ -131,7 +160,7 @@ export async function startExecutiveReportJob(
     activeJobsCache.set(jobId, state);
 
     // Disparar worker no bloqueante
-    void runRealJobProcess(jobId, tenantId, scopeId, scopeName, locale, triggerAiAnalysis, sendEmailNotification, requestedByEmail);
+    void runRealJobProcess(jobId, tenantId, scopeId, scopeName, locale, triggerAiAnalysis, sendEmailNotification, requestedByEmail, requestedByOid);
 
     return {
         success: true,
@@ -207,6 +236,7 @@ async function runMockJobProcess(
                 reportMarkdown: markdown,
                 data: aggregatedData,
                 completedAt: item.completedAt,
+                scopeSubscriptionId,
             });
         }
     } catch (err: unknown) {
@@ -232,7 +262,8 @@ async function runRealJobProcess(
     locale: string,
     triggerAi: boolean,
     sendEmail: boolean,
-    requestedByEmail: string
+    requestedByEmail: string,
+    requestedByOid?: string,
 ) {
     const update = async (step: ReportJobStep) => {
         const item = activeJobsCache.get(jobId);
@@ -257,6 +288,8 @@ async function runRealJobProcess(
     };
 
     try {
+        await exigirSuscripcionDelTenant(tenantId, scopeSubscriptionId);
+        await exigirAccesoDelSolicitante(tenantId, requestedByEmail, requestedByOid);
         await update('COLLECTING_METRICS');
         const scope = (scopeSubscriptionId === 'All' ? 'TENANT_ALL' : 'SUBSCRIPTION') as ExecutiveReportScope;
         const aggregatedData = await aggregateExecutiveReportData(tenantId, scope, scopeSubscriptionId);
@@ -332,6 +365,8 @@ async function runRealJobProcess(
         // Enviar por correo si fue solicitado
         if (sendEmail && requestedByEmail) {
             try {
+                await exigirSuscripcionDelTenant(tenantId, scopeSubscriptionId);
+                await exigirAccesoDelSolicitante(tenantId, requestedByEmail, requestedByOid);
                 const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
                 doc.setFont('helvetica', 'bold');
                 doc.text('CSCloudSolutions - Reporte Ejecutivo FinOps', 20, 20);
@@ -374,6 +409,7 @@ async function runRealJobProcess(
                 reportMarkdown,
                 data: aggregatedData,
                 completedAt: item.completedAt,
+                scopeSubscriptionId,
             });
         }
     } catch (err: unknown) {
@@ -413,7 +449,8 @@ export async function getExecutiveReportJobStatus(
 
     // 1. Primero chequear memoria viva
     const cached = activeJobsCache.get(jobId);
-    if (cached) {
+    if (cached?.tenantId === tenantId) {
+        if (!isMock) await exigirSuscripcionDelTenant(tenantId, cached.scopeSubscriptionId);
         return {
             success: true,
             jobId: cached.jobId,
@@ -470,6 +507,7 @@ export async function getExecutiveReportJobStatus(
         };
     }
 
+    await exigirSuscripcionDelTenant(tenantId, row.scope_subscription_id);
     const isCompleted = row.status === 'completed';
     const isFailed = row.status === 'failed';
     const step: ReportJobStep = isCompleted ? 'COMPLETED' : isFailed ? 'FAILED' : 'AI_SYNTHESIZING';
@@ -502,6 +540,7 @@ export async function getActiveExecutiveReportJob(
     // Buscar en memoria activa
     for (const job of activeJobsCache.values()) {
         if (job.tenantId === tenantId && job.status !== 'COMPLETED' && job.status !== 'FAILED') {
+            if (!isMockTenant(tenantId)) await exigirSuscripcionDelTenant(tenantId, job.scopeSubscriptionId);
             return job;
         }
     }
@@ -523,6 +562,7 @@ export async function getActiveExecutiveReportJob(
     const row = (rows as any[])[0];
     if (!row) return null;
 
+    await exigirSuscripcionDelTenant(tenantId, row.scope_subscription_id);
     const step: ReportJobStep = row.status === 'queued' ? 'QUEUED' : 'COLLECTING_METRICS';
     const { progress, label } = getStepProgress(step);
 
@@ -544,7 +584,11 @@ export async function getActiveExecutiveReportJob(
  */
 export async function getLatestCompletedReport(tenantId: string) {
     if (tenantRecentReportsCache.has(tenantId)) {
-        return tenantRecentReportsCache.get(tenantId)!;
+        const cached = tenantRecentReportsCache.get(tenantId)!;
+        if (!isMockTenant(tenantId)) {
+            await exigirSuscripcionDelTenant(tenantId, cached.scopeSubscriptionId);
+        }
+        return cached;
     }
 
     if (isMockTenant(tenantId)) {
@@ -570,6 +614,7 @@ export async function getLatestCompletedReport(tenantId: string) {
     const row = (rows as any[])[0];
     if (!row) return null;
 
+    await exigirSuscripcionDelTenant(tenantId, row.scope_subscription_id);
     const data = await aggregateExecutiveReportData(tenantId, 'SUBSCRIPTION', row.scope_subscription_id || 'All');
     // AISEC-02: filas anteriores al guard de escritura.
     const reportMarkdown = guardAiMarkdown(String(row.report_markdown));
@@ -582,4 +627,3 @@ export async function getLatestCompletedReport(tenantId: string) {
         completedAt: row.completed_at,
     };
 }
-

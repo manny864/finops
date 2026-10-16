@@ -6,6 +6,26 @@ export type SaaSPlanTier = "Professional" | "Business" | "Enterprise";
 
 export type SaaSSubscriptionStatus = "ACTIVE" | "PAST_DUE" | "CANCELED" | "TRIALING";
 
+export interface SubscriptionPlanChange {
+    newTier: "Professional" | "Business";
+    billing: "monthly" | "yearly";
+    prorationBillingMode: "prorated_immediately" | "prorated_next_billing_period" | "do_not_bill";
+}
+
+export function planChangeStepUpPayload(tenantId: string, change: SubscriptionPlanChange) {
+    return {
+        action: "change_subscription_plan",
+        tenantId,
+        newTier: change.newTier,
+        billing: change.billing,
+        prorationBillingMode: change.prorationBillingMode,
+    };
+}
+
+export function cancellationStepUpPayload(tenantId: string, effective: "immediately" | "next_billing_period") {
+    return { action: "cancel_subscription", tenantId, effective };
+}
+
 export interface SaaSInvoiceItem {
     id: string;
     /** Sólo dígitos: el id del cobro (`BillingTransactions.id`) con ceros a la izquierda. */

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import pool from "@/modules/storage/db";
-import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+import { AuthError, requireTenantAccess, requireTenantRole } from "@/lib/requestAuth";
 import { enforceMfaIfEnabled } from "@/lib/requireMfaChallenge";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
+import { isValidMarkupPercentage } from '@/types/tenantPartnerMarkup.types';
 
 /**
  * Heurística: un tenant está "conectado a CSP" cuando sus snapshots FOCUS traen
@@ -77,14 +78,11 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const { tenantId, markupPercentage } = body;
         
-        if (!tenantId || typeof markupPercentage !== 'number') {
+        if (!tenantId || !isValidMarkupPercentage(markupPercentage)) {
             return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
         }
 
-        const identity = await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
-
-        // Operación sensible (config de facturación): exige MFA si el usuario tiene 2FA activado.
-        await enforceMfaIfEnabled(request, identity.email, identity.tenantId, "change_billing_config", { tenantId });
+        const identity = await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
 
         if (isMockTenant(tenantId)) {
             return NextResponse.json({ success: true, message: "Margen actualizado exitosamente (Mock)" });
@@ -99,6 +97,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Funcionalidad requiere plan Enterprise." }, { status: 403 });
         }
 
+        await enforceMfaIfEnabled(
+            request, identity.email, identity.tenantId, "change_billing_config",
+            { action: "set_legacy_markup", tenantId, markupPercentage },
+        );
         await pool.query('UPDATE Tenants SET markup_percentage = ? WHERE tenant_id = ?', [markupPercentage, tenantId]);
 
         return NextResponse.json({ success: true, message: "Margen de ganancia actualizado en el Tenant." });

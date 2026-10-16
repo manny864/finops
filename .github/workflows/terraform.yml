@@ -68,11 +68,14 @@ permissions:
 concurrency:
   group: terraform-${{ github.event.inputs.environment || 'prod' }}
   cancel-in-progress: false
+  queue: max
 
 jobs:
   # Gate estático: corre en cada PR y es lo que evita repetir defectos como el
   # WAF creado pero no asociado, o un storage con acceso público.
   scan:
+    outputs:
+      production_client_id: ${{ vars.NEXT_PUBLIC_CLIENT_ID }}
     # Only trusted main dispatches may use our VMs; PR scans remain hosted.
     runs-on: ${{ fromJSON(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && format('["self-hosted","linux","x64","finops-{0}"]', inputs.environment == 'staging' && 'staging' || 'prod') || '["ubuntu-latest"]') }}
     # Sin id-token: no hace login en Azure. `actions: read` lo pide la subida
@@ -122,6 +125,7 @@ jobs:
     concurrency:
       group: tfstate-firewall
       cancel-in-progress: false
+      queue: max
     # En el cron semanal este job corría ADEMÁS de `drift`, o sea dos planes de
     # producción por lunes, uno de ellos sin que nadie lo mire (el del 2026-10-05
     # cayó por la propagación del firewall del Key Vault y dejó la corrida en rojo
@@ -166,6 +170,8 @@ jobs:
     # no se confunda con un apply exitoso.
     environment: ${{ github.event.inputs.environment || 'prod' }}
     env:
+      TF_VAR_production_public_client_id: ${{ needs.scan.outputs.production_client_id }}
+      TF_VAR_public_runtime_config: ${{ format('{{"NEXT_PUBLIC_CLIENT_ID":{0},"NEXT_PUBLIC_PADDLE_CLIENT_TOKEN":{1},"NEXT_PUBLIC_PADDLE_PRO_MONTHLY":{2},"NEXT_PUBLIC_PADDLE_PRO_YEARLY":{3},"NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY":{4},"NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY":{5}}}', toJSON(vars.NEXT_PUBLIC_CLIENT_ID), toJSON(vars.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN), toJSON(vars.NEXT_PUBLIC_PADDLE_PRO_MONTHLY), toJSON(vars.NEXT_PUBLIC_PADDLE_PRO_YEARLY), toJSON(vars.NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY), toJSON(vars.NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY)) }}
       TFSTATE_STORAGE: ${{ secrets.TFSTATE_STORAGE }}
       TFSTATE_RG: ${{ secrets.TFSTATE_RG }}
       TFSTATE_CONTAINER: ${{ vars.TFSTATE_CONTAINER || 'tfstate' }}
@@ -489,6 +495,7 @@ jobs:
     concurrency:
       group: tfstate-firewall
       cancel-in-progress: false
+      queue: max
     if: github.event_name == 'schedule'
     runs-on: [self-hosted, linux, x64, "finops-${{ matrix.environment }}"]
     # INFRA-05: el TTL del lease del Key Vault es esto + 10.
@@ -498,6 +505,7 @@ jobs:
     # federada más sobre el service principal que sólo existía para este job.
     environment: ${{ matrix.environment }}
     env:
+      TF_VAR_public_runtime_config: ${{ format('{{"NEXT_PUBLIC_CLIENT_ID":{0},"NEXT_PUBLIC_PADDLE_CLIENT_TOKEN":{1},"NEXT_PUBLIC_PADDLE_PRO_MONTHLY":{2},"NEXT_PUBLIC_PADDLE_PRO_YEARLY":{3},"NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY":{4},"NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY":{5}}}', toJSON(vars.NEXT_PUBLIC_CLIENT_ID), toJSON(vars.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN), toJSON(vars.NEXT_PUBLIC_PADDLE_PRO_MONTHLY), toJSON(vars.NEXT_PUBLIC_PADDLE_PRO_YEARLY), toJSON(vars.NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY), toJSON(vars.NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY)) }}
       TFSTATE_STORAGE: ${{ secrets.TFSTATE_STORAGE }}
       TFSTATE_RG: ${{ secrets.TFSTATE_RG }}
       TFSTATE_CONTAINER: ${{ vars.TFSTATE_CONTAINER || 'tfstate' }}

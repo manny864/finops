@@ -1,6 +1,6 @@
 import createMiddleware from 'next-intl/middleware';
 import { NextRequest } from 'next/server';
-import { CSP_REPORT_GROUP, CSP_REPORT_PATH, cspEnforced, forwardRequestHeaders, generateNonce, nonceCsp } from '@/lib/cspNonce';
+import { baselineCsp, CSP_REPORT_GROUP, CSP_REPORT_PATH, cspEnforced, forwardRequestHeaders, generateNonce, nonceCsp } from '@/lib/cspNonce';
 
 const intlMiddleware = createMiddleware({
   locales: ['en', 'es', 'pt-BR'],
@@ -10,8 +10,8 @@ const intlMiddleware = createMiddleware({
 /**
  * CSP con nonce + 'strict-dynamic' (PERIM-01, ver src/lib/cspNonce.ts).
  *
- * Report-Only por defecto: la CSP enforcing de las páginas sigue siendo la baseline de
- * next.config.ts (con 'unsafe-inline') hasta que CSP_ENFORCE=true, que pone esta política
+ * Report-Only por defecto: la CSP enforcing de las páginas es la baseline de runtime
+ * (con 'unsafe-inline') hasta que CSP_ENFORCE=true, que pone esta política
  * como Content-Security-Policy y reemplaza a la baseline en las rutas del matcher.
  */
 export default function proxy(request: NextRequest) {
@@ -27,6 +27,7 @@ export default function proxy(request: NextRequest) {
   forwardRequestHeaders(response, requestHeaders, ['x-nonce', 'content-security-policy']);
 
   response.headers.set(cspEnforced() ? 'Content-Security-Policy' : 'Content-Security-Policy-Report-Only', policy);
+  if (!cspEnforced()) response.headers.set('Content-Security-Policy', baselineCsp());
   response.headers.set('Reporting-Endpoints', `${CSP_REPORT_GROUP}="${CSP_REPORT_PATH}"`);
   // HTML con nonce: nunca compartido por la CDN ni reutilizado entre requests.
   response.headers.set('Cache-Control', 'private, no-store');

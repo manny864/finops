@@ -24,5 +24,7 @@
  * Un arreglo atrapado en un archivo de ruta no es un arreglo del repositorio.
  */
 export function escapeKql(s: string): string {
-    return String(s ?? "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    return String(s ?? "").replace(/\\/g, "\\\\").replace(/'/g, "\\'")
+        .replace(/[\x00-\x1f\x7f\u2028\u2029]/g, char =>
+            `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`);
 }

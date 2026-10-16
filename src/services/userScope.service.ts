@@ -10,6 +10,7 @@
  */
 
 import pool from "@/modules/storage/db";
+import type { RowDataPacket } from "mysql2";
 
 export interface AlcanceAsignado {
     perspectiveId: number;
@@ -29,25 +30,27 @@ export interface AlcanceAsignado {
 export const ROLES_SIN_ALCANCE = ["admin", "owner"];
 
 /** El alcance asignado a un usuario, o `null` si no tiene. */
-export async function alcanceDelUsuario(tenantId: string, email: string): Promise<AlcanceAsignado | null> {
-    if (!tenantId || !email) return null;
+export async function alcanceDelUsuario(tenantId: string, email: string, entraOid?: string): Promise<AlcanceAsignado | null> {
+    if (!tenantId || (!email && !entraOid)) return null;
     try {
-        const [rows] = await pool.query<any[]>(
-            `SELECT perspective_id, group_name FROM UserScopes
-              WHERE tenant_id = ? AND user_email = ? LIMIT 1`,
-            [tenantId, email],
+        const [rows] = await pool.query<RowDataPacket[]>(
+            entraOid
+                ? `SELECT us.perspective_id, us.group_name FROM UserScopes us
+                   WHERE us.tenant_id = ? AND (us.user_email = ? OR EXISTS (
+                       SELECT 1 FROM Users u WHERE u.tenant_id = us.tenant_id
+                       AND u.email = us.user_email AND u.entra_oid = ?
+                   )) LIMIT 2`
+                : `SELECT perspective_id, group_name FROM UserScopes
+                   WHERE tenant_id = ? AND user_email = ? LIMIT 2`,
+            entraOid ? [tenantId, email, entraOid] : [tenantId, email],
         );
+        if (rows.length > 1) throw new Error("Asignaciones de alcance ambiguas para la identidad autenticada.");
         const r = rows?.[0];
         if (!r) return null;
         return { perspectiveId: Number(r.perspective_id), grupo: r.group_name ?? null };
     } catch (e) {
-        // FALLAR ABIERTO ACÁ ES CORRECTO, aunque suene al revés. Si la tabla no
-        // existe todavía --un entorno sin la migración-- o la base parpadea, lo
-        // que se pierde es el RECORTE, no el control de acceso: el usuario sigue
-        // pasando por `requireTenantAccess` y sólo ve su tenant. Fallar cerrado
-        // dejaría a todos sin plataforma por una tabla ausente.
         console.warn("[userScope] no se pudo leer el alcance:", e instanceof Error ? e.message : e);
-        return null;
+        throw e;
     }
 }
 

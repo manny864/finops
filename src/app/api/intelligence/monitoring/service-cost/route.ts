@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { CostManagementClient } from "@azure/arm-costmanagement";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
-import { getAzureCredential, getResourceGraphClient, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getResourceGraphClient, getSubscriptionsForTenant, getCostManagementClient } from "@/lib/azure";
 import { withCostColumn, findCostColumnIndex } from "@/lib/azureCostColumn";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant } from "@/lib/mockData";
@@ -127,7 +126,7 @@ export async function GET(request: NextRequest) {
                 let dataAvailable = true;
                 const costByResourceId: Record<string, number> = {};
                 for (const subId of subs) {
-                    const cm = new CostManagementClient(credential);
+                    const cm = await getCostManagementClient(tenantId, credential);
                     const scope = `/subscriptions/${subId}`;
                     const now = new Date();
                     const from = new Date();

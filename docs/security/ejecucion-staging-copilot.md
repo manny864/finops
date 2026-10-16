@@ -33,6 +33,18 @@ El prompt para el modelo está en la sección 13.
 
 ## 2. Decisiones
 
+**Delta INFRA-11 implementado en rama, aun no desplegado (2026-10-16):** el
+prerrequisito de D5 para promover el mismo artefacto ya esta implementado:
+identidad y Paddle se proyectan en runtime, con CSP por request, y prod importa
+los digests probados de staging sin reconstruir. La promocion exige release.json
+v2 de un run exitoso del SHA de main seleccionado; builds historicos sin ese
+contrato no se promueven. Terraform recibe las mismas seis variables publicas
+para no quitarlas luego. El apply de esa configuracion y el primer deploy deben
+coordinarse; no usar los pasos historicos de build args para este cambio.
+Permanecen registro/secretos separados y sandbox exclusivo de staging. Firma,
+permisos/import ACR efectivos, migracion de claves y billing siguen siendo gates,
+no cierres declarados. Ver HLD §23 y LLD §52.4 para el contrato vigente en rama.
+
 Las tomó la persona el 2026-10-11:
 
 | # | Decisión | Consecuencia |

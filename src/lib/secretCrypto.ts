@@ -6,7 +6,7 @@
  * (`Tenants.ai_api_key`) — remediación IA-2 del assessment 2026-07-05.
  *
  * Formato del ciphertext (self-contained, una sola columna):
- *   enc:v1:<iv_hex>:<authTag_hex>:<ciphertext_hex>
+ *   enc:v2:<iv_hex>:<authTag_hex>:<ciphertext_hex>
  *
  * El prefijo `enc:v1:` permite distinguir valores cifrados de valores en
  * texto plano legacy: `decryptSecret` devuelve el input tal cual si no lleva
@@ -14,14 +14,15 @@
  * cifrar sigue funcionando hasta que se re-guarda o se corre la migración de
  * datos).
  *
- * Clave maestra: `MFA_ENCRYPTION_KEY` (32 bytes / 64 hex). Es el mismo
- * material que ya usan MFA (`mfaCrypto.ts`) y el cache de Key Vault; está en
- * Key Vault y respaldado. No se introduce un secreto nuevo.
+ * Nuevas escrituras: APP_SECRET_ENCRYPTION_KEY, dedicada de 32 bytes.
+ * Lectura v1 durante migracion: APP_SECRET_LEGACY_V1_KEY, configurada
+ * explicitamente con el material usado anteriormente (incluidas passphrases).
+ * No se deriva material de claves MFA, credenciales ni semillas del codigo.
  */
 import crypto from 'crypto';
 
 const ALGORITHM = 'aes-256-gcm';
-const PREFIX = 'enc:v1:';
+const PREFIX = 'enc:v2:';
 
 /**
  * Material de clave disponible, en orden de precedencia. Devuelve null si no hay
@@ -31,54 +32,49 @@ const PREFIX = 'enc:v1:';
  * con una clave publica si la variable faltara. Ver `tryDecryptSecret` para el
  * camino que degrada sin romper.
  */
-function resolveKeyMaterial(): string | null {
-    return (
-        process.env.MFA_ENCRYPTION_KEY ||
-        process.env.AZURE_KEYVAULT_CACHE_KEY ||
-        process.env.ENCRYPTION_SECRET ||
-        process.env.NEXTAUTH_SECRET ||
-        process.env.AUTH_SECRET ||
-        process.env.JWT_SECRET ||
-        process.env.SESSION_SECRET ||
-        process.env.AZURE_CLIENT_SECRET ||
-        process.env.DB_PASSWORD ||
-        process.env.DATABASE_URL ||
-        'cscloudsolutions-finops-production-secret-encryption-seed'
-    );
-}
-
 export function hasEncryptionKey(): boolean {
-    return resolveKeyMaterial() !== null;
+    if (!process.env.APP_SECRET_ENCRYPTION_KEY) return false;
+    getMasterKey();
+    return true;
 }
 
 function getMasterKey(): Buffer {
-    const raw = resolveKeyMaterial();
-    if (!raw) {
-        throw new Error('Encryption key not configured (set MFA_ENCRYPTION_KEY, AZURE_KEYVAULT_CACHE_KEY, ENCRYPTION_SECRET or NEXTAUTH_SECRET) — required to encrypt/decrypt app secrets.');
-    }
+    const raw = process.env.APP_SECRET_ENCRYPTION_KEY;
+    if (!raw) throw new Error('APP_SECRET_ENCRYPTION_KEY is required to encrypt/decrypt v2 app secrets.');
     if (/^[0-9a-f]{64}$/i.test(raw)) {
         return Buffer.from(raw, 'hex');
     }
     const base64 = Buffer.from(raw, 'base64');
-    if (base64.length === 32) {
+    if (base64.length === 32 && base64.toString('base64') === raw) {
         return base64;
     }
-    // ponytail: passphrase fallback, deterministic SHA-256; upgrade to explicit 32-byte key where possible.
+    throw new Error('APP_SECRET_ENCRYPTION_KEY must encode exactly 32 bytes as hex or canonical base64.');
+}
+
+function getLegacyKey(): Buffer {
+    const raw = process.env.APP_SECRET_LEGACY_V1_KEY;
+    if (!raw) throw new Error('APP_SECRET_LEGACY_V1_KEY is required to decrypt existing v1 app secrets.');
+    if (/^[0-9a-f]{64}$/i.test(raw)) return Buffer.from(raw, 'hex');
+    const base64 = Buffer.from(raw, 'base64');
+    if (base64.length === 32) return base64;
     return crypto.createHash('sha256').update(raw).digest();
 }
 
 /** True si `value` ya está en formato cifrado de esta librería. */
 export function isEncrypted(value: string | null | undefined): boolean {
-    return typeof value === 'string' && value.startsWith(PREFIX);
+    return typeof value === 'string' && value.startsWith('enc:');
 }
 
 /**
  * Cifra `plaintext` con AES-256-GCM. Devuelve el string self-contained
- * `enc:v1:iv:authTag:ciphertext`. Idempotente: si ya viene cifrado, lo
- * devuelve sin recifrar.
+ * `enc:v2:iv:authTag:ciphertext`. Los valores ya cifrados se autentican
+ * antes de conservarlos; la rotacion explicita usa reencryptSecret.
  */
 export function encryptSecret(plaintext: string): string {
-    if (isEncrypted(plaintext)) return plaintext;
+    if (isEncrypted(plaintext)) {
+        decryptSecret(plaintext);
+        return plaintext;
+    }
     const key = getMasterKey();
     const iv = crypto.randomBytes(12); // 96-bit nonce recomendado para GCM
     const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
@@ -96,13 +92,16 @@ export function encryptSecret(plaintext: string): string {
 export function decryptSecret(value: string | null | undefined): string {
     if (value == null || value === '') return '';
     if (!isEncrypted(value)) return value; // plaintext legacy
-    const body = value.slice(PREFIX.length);
-    const parts = body.split(':');
-    if (parts.length !== 3) {
-        throw new Error('Malformed encrypted secret: expected enc:v1:iv:authTag:ciphertext.');
+    const parts = value.split(':');
+    if (parts.length !== 5 || !['v1', 'v2'].includes(parts[1])) {
+        throw new Error('Malformed encrypted secret: unsupported version or envelope.');
     }
-    const [ivHex, authTagHex, ciphertextHex] = parts;
-    const key = getMasterKey();
+    const [, version, ivHex, authTagHex, ciphertextHex] = parts;
+    if (!/^[0-9a-f]{24}$/i.test(ivHex) || !/^[0-9a-f]{32}$/i.test(authTagHex)
+        || !/^(?:[0-9a-f]{2})*$/i.test(ciphertextHex)) {
+        throw new Error('Malformed encrypted secret: invalid IV, tag or ciphertext.');
+    }
+    const key = version === 'v1' ? getLegacyKey() : getMasterKey();
     const decipher = crypto.createDecipheriv(ALGORITHM, key, Buffer.from(ivHex, 'hex'));
     decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
     const plaintext = Buffer.concat([
@@ -110,6 +109,17 @@ export function decryptSecret(value: string | null | undefined): string {
         decipher.final(),
     ]);
     return plaintext.toString('utf8');
+}
+
+/** Re-encrypts only after authenticating and verifying the resulting envelope. */
+export function reencryptSecret(value: string): string {
+    const plaintext = decryptSecret(value);
+    // encryptSecret intentionally accepts existing envelopes; rotation encrypts
+    // the actual plaintext, which must not itself masquerade as an envelope.
+    if (isEncrypted(plaintext)) throw new Error('Nested encrypted secret is not supported.');
+    const encrypted = encryptSecret(plaintext);
+    if (decryptSecret(encrypted) !== plaintext) throw new Error('Secret re-encryption verification failed.');
+    return encrypted;
 }
 
 /**
@@ -131,12 +141,6 @@ export function tryDecryptSecret(
 ): string | null {
     if (value == null || value === '') return null;
     if (!isEncrypted(value)) return value; // plaintext legacy
-    if (!hasEncryptionKey()) {
-        console.warn(
-            `[secretCrypto] ${context}: valor cifrado presente pero no hay clave de cifrado configurada; se omite el secreto local y se usa el proveedor global de la plataforma.`
-        );
-        return null;
-    }
     try {
         return decryptSecret(value);
     } catch (error) {

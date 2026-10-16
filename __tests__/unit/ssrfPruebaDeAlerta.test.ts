@@ -24,7 +24,7 @@ describe("SEC-01 — la prueba de entrega no puede ser un relay saliente", () =>
         expect(src).toContain("assertSafeWebhookUrl");
 
         const posGuard = src.indexOf("await assertSafeWebhookUrl(targetUrl)");
-        const posFetch = src.indexOf("await fetch(destino.toString()");
+        const posFetch = src.indexOf("await safeWebhookFetch(destino.toString()");
 
         expect(posGuard).toBeGreaterThan(-1);
         expect(posFetch).toBeGreaterThan(-1);

@@ -7,6 +7,7 @@ import {
     ManagedDisksKpiSummary,
 } from "@/types/managedDisk.types";
 import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
+import { escapeKql } from "@/lib/kql";
 
 /**
  * Standard Azure Managed Disk Monthly Pricing Reference (East US / West US Baseline)
@@ -214,7 +215,7 @@ export async function fetchAllManagedDisksFromARG(tenantId: string, subscription
     if (!subscriptionIds || subscriptionIds.length === 0) return [];
     try {
         const client = await getResourceGraphClient(tenantId);
-        const subsQuery = subscriptionIds.map((s) => `'${s}'`).join(", ");
+        const subsQuery = subscriptionIds.map((s) => `'${escapeKql(s)}'`).join(", ");
         const query = `
             Resources
             | where type =~ 'microsoft.compute/disks'

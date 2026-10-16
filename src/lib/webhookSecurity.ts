@@ -1,5 +1,5 @@
 import { lookup } from 'dns/promises';
-import { isIP } from 'net';
+import { BlockList, isIP } from 'node:net';
 
 /**
  * Allow-list of webhook hosts that we permit outbound POSTs to.
@@ -22,29 +22,24 @@ const ALLOWED_WEBHOOK_HOST_PATTERNS: RegExp[] = [
   /^([a-z0-9-]+\.)*opsgenie\.com$/i,
 ];
 
-const PRIVATE_IPV4_RANGES: Array<[RegExp]> = [
-  [/^10\./],
-  [/^127\./],
-  [/^169\.254\./],
-  [/^192\.168\./],
-  [/^172\.(1[6-9]|2[0-9]|3[01])\./],
-  [/^0\./],
-];
+const blocked = new BlockList();
+for (const [network, prefix] of [
+  ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8],
+  ['169.254.0.0', 16], ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.0.2.0', 24],
+  ['192.168.0.0', 16], ['198.18.0.0', 15], ['198.51.100.0', 24],
+  ['203.0.113.0', 24], ['224.0.0.0', 4], ['240.0.0.0', 4],
+] as const) blocked.addSubnet(network, prefix, 'ipv4');
+const globalV6 = new BlockList();
+globalV6.addSubnet('2000::', 3, 'ipv6');
+for (const [network, prefix] of [
+  ['2001::', 23], ['2001:db8::', 32], ['2002::', 16], ['3fff::', 20],
+] as const) blocked.addSubnet(network, prefix, 'ipv6');
 
-function isPrivateIPv4(ip: string): boolean {
-  return PRIVATE_IPV4_RANGES.some(([re]) => re.test(ip));
-}
-
-function isPrivateIPv6(ip: string): boolean {
-  const lower = ip.toLowerCase();
-  if (lower === '::1' || lower === '::') return true;
-  if (lower.startsWith('fc') || lower.startsWith('fd')) return true; // ULA
-  if (lower.startsWith('fe80:')) return true; // link-local
-  if (lower.startsWith('::ffff:')) {
-    const v4 = lower.slice('::ffff:'.length);
-    if (isIP(v4) === 4) return isPrivateIPv4(v4);
-  }
-  return false;
+export function isPublicAddress(address: string): boolean {
+  const family = isIP(address);
+  if (family === 4) return !blocked.check(address, 'ipv4');
+  // IPv4-mapped, ULA, link-local, NAT64 and unspecified addresses are not global IPv6.
+  return family === 6 && globalV6.check(address, 'ipv6') && !blocked.check(address, 'ipv6');
 }
 
 /**
@@ -60,7 +55,7 @@ function isPrivateIPv6(ip: string): boolean {
  *
  * Throws on rejection. `label` only shapes the error message.
  */
-export async function assertPublicHttpsUrl(rawUrl: string, label = 'URL'): Promise<URL> {
+function parsePublicHttpsUrl(rawUrl: string, label = 'URL'): URL {
   let parsed: URL;
   try {
     parsed = new URL(rawUrl);
@@ -72,6 +67,7 @@ export async function assertPublicHttpsUrl(rawUrl: string, label = 'URL'): Promi
   }
   const host = parsed.hostname;
   if (!host) throw new Error(`${label} missing host`);
+  if (parsed.username || parsed.password) throw new Error(`${label} cannot include credentials`);
 
   // Block raw IP literals — only named hosts allowed
   const hostNoBrackets = host.startsWith('[') && host.endsWith(']')
@@ -82,29 +78,31 @@ export async function assertPublicHttpsUrl(rawUrl: string, label = 'URL'): Promi
     throw new Error(`${label} cannot use raw IP literal`);
   }
 
-  await assertResolvesPublic(host, label);
   return parsed;
 }
 
-async function assertResolvesPublic(host: string, label = 'URL'): Promise<void> {
+async function resolvePublicAddresses(host: string, label = 'URL') {
   try {
     const resolved = await lookup(host, { all: true, verbatim: true });
+    if (resolved.length === 0) throw new Error(`${label} host has no addresses`);
     for (const entry of resolved) {
-      const ip = entry.address;
-      const fam = isIP(ip);
-      if (fam === 4 && isPrivateIPv4(ip)) {
-        throw new Error(`${label} host resolves to private IP: ${ip}`);
-      }
-      if (fam === 6 && isPrivateIPv6(ip)) {
-        throw new Error(`${label} host resolves to private IP: ${ip}`);
+      if (!isPublicAddress(entry.address)) {
+        throw new Error(`${label} host resolves to private IP`);
       }
     }
+    return resolved;
   } catch (err) {
     if ((err as { code?: string }).code === 'ENOTFOUND') {
       throw new Error(`${label} host could not be resolved: ${host}`);
     }
+
     throw err;
   }
+}
+
+export async function assertPublicHttpsUrl(rawUrl: string, label = 'URL'): Promise<URL> {
+  const { url } = await resolvePublicHttpsTarget(rawUrl, false, label);
+  return url;
 }
 
 /**
@@ -115,26 +113,13 @@ async function assertResolvesPublic(host: string, label = 'URL'): Promise<void> 
  * Throws on rejection.
  */
 export async function assertSafeWebhookUrl(rawUrl: string): Promise<URL> {
-  let parsed: URL;
-  try {
-    parsed = new URL(rawUrl);
-  } catch {
-    throw new Error('Webhook URL is malformed');
-  }
-  if (parsed.protocol !== 'https:') {
-    throw new Error('Webhook URL must use HTTPS');
-  }
-  const host = parsed.hostname;
-  if (!host) throw new Error('Webhook URL missing host');
+  const { url } = await resolvePublicHttpsTarget(rawUrl, true, 'Webhook URL');
+  return url;
+}
 
-  // Block raw IP literals — only named hosts allowed
-  const hostNoBrackets = host.startsWith('[') && host.endsWith(']')
-    ? host.slice(1, -1)
-    : host;
-  const literal = isIP(hostNoBrackets);
-  if (literal !== 0) {
-    throw new Error('Webhook URL cannot use raw IP literal');
-  }
+export async function resolvePublicHttpsTarget(rawUrl: string, webhook = false, label = 'URL') {
+  const parsed = parsePublicHttpsUrl(rawUrl, label);
+  const host = parsed.hostname;
 
   const extra = process.env.WEBHOOK_ALLOWED_HOSTS;
   const allowedExtra = extra
@@ -144,12 +129,10 @@ export async function assertSafeWebhookUrl(rawUrl: string): Promise<URL> {
     ALLOWED_WEBHOOK_HOST_PATTERNS.some((re) => re.test(host)) ||
     allowedExtra.some((suffix) => host.toLowerCase() === suffix || host.toLowerCase().endsWith(`.${suffix}`));
 
-  if (!hostAllowed) {
+  if (webhook && !hostAllowed) {
     throw new Error(`Webhook host not in allow-list: ${host}`);
   }
 
-  // Resolve and reject private/loopback IPs (DNS rebinding mitigation)
-  await assertResolvesPublic(host, 'Webhook URL');
-
-  return parsed;
+  const addresses = await resolvePublicAddresses(host, label);
+  return { url: parsed, addresses };
 }

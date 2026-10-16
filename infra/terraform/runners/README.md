@@ -118,8 +118,10 @@ bloqueante de dispatch manual desde `main` usa la VM del ambiente, sin OIDC.
 PRs y otras ramas no pueden seleccionar esos runners para el scan.
 No se declara CI hosted verde mientras persista ese bloqueo de cuenta.
 
-Los jobs autenticados comparten la cola `tfstate-firewall`: GitHub conserva
-solo un pendiente y puede cancelar otro antes de iniciarlo. Para mantenimiento,
+Los jobs autenticados comparten `tfstate-firewall`, sin cancelar al activo.
+El delta de esta rama agrega `queue: max` (hasta 100 pendientes); main desplegado
+aun usa un solo pendiente hasta publicar el workflow. La cola se ordena por
+entrada, no por dispatch; llena puede cancelar nuevos jobs. Para mantenimiento,
 pausar temporalmente el reconciliador, esperar los jobs activos y ejecutar
 staging/prod en serie; restaurar siempre el workflow, tambien ante errores.
 `gh run rerun <id> --failed` permite repetir el plan cancelado conservando el

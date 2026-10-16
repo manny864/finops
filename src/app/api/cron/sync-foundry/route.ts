@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cronSecretForJob } from "@/lib/cronJobSecret";
 import { syncFoundrySnapshots } from "@/modules/collectors/azure/foundryCollector";
 import pool from "@/modules/storage/db";
 import { errorMessage } from '@/lib/apiErrors';
@@ -11,7 +12,7 @@ import { errorMessage } from '@/lib/apiErrors';
  */
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("Authorization");
-  const cronSecret = process.env.CRON_SECRET;
+  const cronSecret = cronSecretForJob("sync-foundry");
 
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

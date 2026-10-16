@@ -390,7 +390,7 @@ export async function GET(request: NextRequest) {
       async () => {
         // Self-fetch server-side: usar loopback interno, NO la origin pública
         // (evita el NAT hairpin que causaba "fetch failed" en audit/forecast).
-        const origin = getInternalBaseUrl(request.nextUrl.port);
+        const origin = getInternalBaseUrl();
         const subParam = subscriptionId && subscriptionId.toLowerCase() !== "all"
           ? `&subscriptionId=${encodeURIComponent(subscriptionId)}`
           : "";
@@ -406,7 +406,7 @@ export async function GET(request: NextRequest) {
           const ctrl = new AbortController();
           const t = setTimeout(() => ctrl.abort(), ms);
           try {
-            return await fetch(url, { headers, cache: "no-store", signal: ctrl.signal });
+            return await fetch(url, { headers, redirect: "error", cache: "no-store", signal: ctrl.signal });
           } finally {
             clearTimeout(t);
           }

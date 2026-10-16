@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cronSecretForJob } from "@/lib/cronJobSecret";
 import pool, { insertCostSnapshot, insertCostSnapshotRow, insertCostMeterSnapshotRow, insertCostCategorySnapshotRow, insertCostTagSnapshotRow, insertAICostSnapshotRow, updateTenantHealth } from "@/modules/storage/db";
 import { getYesterdaysCost, getYesterdaysDetailedCosts } from "@/modules/collectors/azure/billingService";
 import { getYesterdaysTagCosts } from "@/modules/collectors/azure/billing/yesterdayBillingService";
@@ -137,7 +138,7 @@ export async function POST(request: NextRequest) {
 
 async function handleRequest(request: NextRequest): Promise<NextResponse> {
     // Mismo chequeo que antes, sin tocar: sólo header Bearer, fail-closed.
-    const cronSecret = process.env.CRON_SECRET;
+    const cronSecret = cronSecretForJob("sync");
     if (!cronSecret || cronSecret.length < 16) {
         console.error('CRON_SECRET not configured or too short');
         return NextResponse.json({ error: "Service unavailable" }, { status: 503 });

@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
         const pageSize = Math.min(100, Math.max(10, parseInt(searchParams.get("pageSize") || searchParams.get("limit") || "15", 10)));
 
         // Directiva 1: Mock tenant primero sin requerir OAuth
-        if (isMockTenant(tenantId) || searchParams.get("mock") === "true") {
+        if (isMockTenant(tenantId)) {
             const data = await getAuditTrailLogs({
                 tenantId,
                 userEmail,

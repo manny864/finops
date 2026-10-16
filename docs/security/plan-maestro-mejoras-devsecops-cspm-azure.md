@@ -233,24 +233,47 @@ Antes de usar UDR, confirmar soporte del tipo efectivo de ACA environment/worklo
 
 **Estado (2026-10-15):** ✅ INFRA-08 resuelto (4dc6950). ⏳ INFRA-11 pendiente.
 
-**Dockerfile propuesto**, entre builder y runner:
+**Avance local INFRA-11 (2026-10-15):** Node 22 Alpine y frontend Dockerfile fijados a digests oficiales verificados; Dependabot revisa la base semanalmente. Buildx genera SBOM SPDX y procedencia SLSA en el indice OCI de runtime y migrador; el pipeline exige que ambas existan, conserva metadata y referencias por ambiente/run durante 90 dias, hace smoke sin red y despliega por digest. Cada push falla de manera independiente; la migracion observa la ejecucion exacta devuelta por Azure, no la mas reciente de la lista. Se verifica la referencia observada despues del update. Gate previo bloquea deploys hasta confirmar migracion de claves y referencia versionada de Key Vault.
+
+**Continuacion implementada en rama:** identidad/Paddle publicos se leen en
+runtime mediante proyeccion explicita de seis valores, compartida por SSR,
+MSAL, checkout, mapa server-side y CSP. No se serializan claves privadas ni
+process.env completo. Docker ya no recibe build args por ambiente. Terraform y
+deploy reciben esas mismas variables; hay que coordinar el apply con el primer
+rollout. Prod importa los mismos digests runtime/migrador de una ejecucion
+staging exitosa para el SHA de main elegido, sin reconstruir. Evidencia v2
+verifica SHA/run/intento/ambiente/repositorio/digest; evidencia vieja o ausente
+falla cerrado. Import usa Entra y comprueba digest, SBOM/procedencia y smoke con
+configuracion runtime exacta antes de migrar. No se amplian permisos ACR.
+
+**Pendiente:** rollout/import y evidencia en ACR/ACA; firmas y verificacion criptografica. Las attestations privadas de GitHub requieren Enterprise Cloud, no disponible con Free/Pro/Team; cuenta actual Pro confirmada. No se habilita un servicio publico de firma/transparencia ni se cambian pagos. SBOM/procedencia BuildKit no son una firma. No se cierra INFRA-11 hasta resolver firma y gates operativos. El mismo build nativo sirvio dos configuraciones sinteticas de runtime y CSP correctas, sin recompilar; no equivale a evidencia de imagen validada. Otro intento Docker amd64 con heap acotado tambien fallo por memoria (~3,8 GiB); se retiro el ajuste al no resolverlo.
+
+**Stage implementado:** rama independiente desde `deps`, sin compilar la app web:
 
 ```dockerfile
-FROM builder AS migrator
+FROM deps AS migrator
+COPY tsconfig.json ./
+COPY scripts/migrate.ts ./scripts/migrate.ts
+COPY src/modules/storage/db.ts src/modules/storage/migrations.ts ./src/modules/storage/
+COPY migrations ./migrations
 RUN addgroup --system --gid 1002 migrate \
- && adduser --system --uid 1002 --ingroup migrate migrate \
- && chown -R migrate:migrate /app
+ && adduser --system --uid 1002 --ingroup migrate --home /home/migrate migrate
 USER migrate
 CMD ["npm", "run", "migrate"]
 ```
 
-En el build de migraciones de `_deploy.yml`, cambiar `--target builder` por `--target migrator` conservando tags y argumentos requeridos. La imagen de runtime sigue usando `USER nextjs`; no cambiar esa defensa.
+`_deploy.yml` construye con `--target migrator` y comprueba CLI, modulos, directorio SQL, codigo sin escritura y ausencia de `.next` y `src/app`. La imagen de runtime sigue usando `USER nextjs`; no cambiar esa defensa.
 
-Esta corrección incremental elimina root, pero conserva superficie del builder. Como siguiente paso, empaquetar sólo migrador, scripts, SQL y dependencias necesarias, sin toolchain completo. Mantener código de runtime sin escritura cuando sea posible; conceder escritura sólo a cache/temp necesarias de Next. No activar filesystem read-only sin comprobar soporte de ACA y ubicaciones de escritura reales.
+El migrador ya no hereda fuentes ni salida del builder. Conserva `node_modules` completo de `deps`, incluidas dependencias de desarrollo: no es aun un paquete minimo. Mantener código de runtime sin escritura cuando sea posible; conceder escritura sólo a cache/temp necesarias de Next. No activar filesystem read-only sin comprobar soporte de ACA y ubicaciones de escritura reales.
+
+**Evidencia local del empaquetado (2026-10-15):** imagen amd64 del migrador construida; uid 1002, codigo no escribible, home escribible y 159 SQL presentes. CLI probado con MySQL 8.4 desechable y SQL sintetico: aplica una vez, omite al repetir y devuelve exit 1 ante SQL invalido sin registrarlo como aplicado. Esto no ejecuta las 159 migraciones reales ni migra claves. Archivo OCI local con checksums, SBOM SPDX (1481 paquetes) y procedencia SLSA vinculados al manifest amd64 `sha256:137161fb5b6858373b9f52ef51bb841aceaaf7dc5c14bb325393538bbb78a693`; no prueba publicacion en ACR ni firma. El intento runtime con webpack tambien fallo por memoria; se retiro el cambio de compilador. Runtime final y escaneo de ambas imagenes siguen pendientes, sin ampliar Docker ni detener contenedores ajenos.
 
 `.dockerignore` excluye `.env`/`.env.*`; no se confirmó incorporación de esos archivos al builder. No-root no equivale a protección ante escape de contenedor. Escanear **ambas** imágenes finales y paquetes transitivos.
 
-Fijar base a digest verificado de Node 22 Alpine con actualización automatizada; no insertar un digest ficticio. Para promoción, decidir entre promover el digest probado o reconstruir por diferencias de configuración build-time. Si se reconstruye, verificar/atestiguar y probar también el artefacto prod; no afirmar que es el de staging. Desplegar runtime y migrador por digest y conservar procedencia/SBOM.
+Base fijada a digest verificado de Node 22 Alpine con actualización automatizada.
+Promocion del digest probado implementada mediante configuracion runtime, sin
+rebuild de prod; falta operarla y verificarla en ACR/ACA. Desplegar runtime y
+migrador por digest y conservar procedencia/SBOM; esto no sustituye una firma.
 
 **Aceptación:** `id -u` en ambas imágenes no es 0; migración y startup funcionan; archivos/SQL requeridos existen y sólo se escribe donde corresponde; escaneo cubre ambas; referencia desplegada resuelve al digest aprobado.
 
@@ -287,8 +310,19 @@ puede cancelar jobs pendientes (operar en serie y relanzarlos). El mecanismo
 temporal y cron de 15 minutos se conservan, sin expiracion nativa de Azure.
 Facturacion de runners hosted bloquea CI nuevo; los dispatch confiables de main
 ejecutan el mismo scan bloqueante en la VM sin OIDC, no codigo de PR.
-El snapshot publico de estado de staging esta vencido (503), distinto del
-health probe; no se remedia con este cambio de conectividad.
+El snapshot publico de estado de staging estuvo vencido (503), distinto del
+health probe. Verificacion 2026-10-16: snapshot vigente, `/api/status` 200,
+ultimas tres ejecuciones Succeeded; Sync/IA continúan degradados. No se
+declaran sanos proveedores a partir de configuracion ni se ocultan sus fallos.
+
+**Delta operativo de esta rama (2026-10-16):** `queue: max` en los tres jobs de
+`tfstate-firewall` y workflow Terraform conserva exclusion/leases/cleanup y
+admite hasta 100 pendientes. La configuracion en main aun no tiene este cambio.
+Sintaxis confirmada en documentacion oficial de GitHub; actionlint 1.7.12 tiene
+schema anterior (se aisla solo ese diagnostico en la validacion local, ademas
+de dos SC2086 preexistentes). Billing confirmado por anotacion del deploy
+`38829100160`: pagos fallidos o limite de gasto; no se modifican pagos ni
+se ejecuta codigo PR en las VMs confiables.
 Ver [operación de runners](../../infra/terraform/runners/README.md).
 CI falla cerrado; no se vuelve a Allow automáticamente.
 El vencimiento requiere reconciliación; no es expiración nativa de Azure.
@@ -331,7 +365,7 @@ Checkov no está desactivado: scan sin OIDC, versión fijada en requirements y r
 
 ### Registro de cierre (2026-10-15)
 
-Hallazgos remediados, mergeados a `main` y desplegados en los ambientes correspondientes; INFRA-10 es un control de CI compartido, no un despliegue de aplicación. Cada cambio incluye tests de contrato con control negativo (mutaciones detectadas). Pendientes del plan: INFRA-11, STRIDE-01..09 e INT-01..05.
+Hallazgos originalmente remediados, mergeados a `main` y desplegados en los ambientes correspondientes; INFRA-10 es un control de CI compartido, no un despliegue de aplicación. Cada cambio incluye tests de contrato con control negativo (mutaciones detectadas). APPSEC-ID-05 requirio un complemento financiero posterior en PR #143: ese complemento no esta mergeado ni desplegado. Pendientes del plan: ese rollout, INFRA-11, STRIDE-01..09 e INT-01..05.
 
 | ID | Estado | Commits |
 |---|---|---|
@@ -349,7 +383,7 @@ Hallazgos remediados, mergeados a `main` y desplegados en los ambientes correspo
 | APPSEC-ID-02 | ✅ Resuelto | 06130ef |
 | APPSEC-ID-03 | ✅ Resuelto | e35c0ff |
 | APPSEC-ID-04 | ✅ Resuelto | bc23930 |
-| APPSEC-ID-05 | ✅ Resuelto | bc23930 |
+| APPSEC-ID-05 | Complemento implementado; rollout pendiente | bc23930; complemento en #143 |
 | APPSEC-ID-06 | ✅ Resuelto | 8257c85 |
 | APPSEC-ID-07 | ✅ Resuelto | 915464f |
 | PERIM-01 | ✅ Resuelto | d2d623f |
@@ -696,10 +730,23 @@ Este orden no equivale a severidad confirmada ni reemplaza el backlog de infraes
 
 ### STRIDE-01 — Corregir autorización de aprobaciones legacy
 
+**Actualización 2026-10-15:** implementación local verificada: el PATCH legacy
+delega a governance/approvals, con Owner/Admin, tier Business, cuatro ojos y
+motivo obligatorio al rechazar. El cliente móvil usa la ruta canónica y confirma
+la ejecución ARM. Claim durable y atómico en `arm_execution_result_json` antes
+de ARM, ligado a tenant, solicitante y objetivo/parámetros sin cambios; la
+resolución exige el token propietario. Un proceso interrumpido queda `Running`
+y requiere conciliación manual, nunca reejecución automática. Pruebas:
+`legacyApprovalAuthorization.test.ts`, `approvalExecutionClaim.test.ts` y
+`lighthouseGuardEscritura.test.ts` (13 correctas); typecheck correcto.
+MySQL 8.4 aislado verifico posteriormente concurrencia, propiedad y persistencia
+JSON (ver STRIDE-04). Pendiente para cierre desplegado: despliegue y evidencia
+del flujo real; las pruebas sinteticas no sustituyen esa comprobacion.
+
 **Prioridad:** P1 de corrección.  
 **Clasificación:** vulnerabilidad confirmada; severidad media; confianza 9/10.  
 **STRIDE:** Elevation of Privilege, Tampering y Repudiation.  
-**Estado:** Pendiente; no corregido.
+**Estado:** Corregido localmente; pendiente de evidencia desplegada indicada arriba.
 
 **Evidencia y mecanismo:**
 
@@ -721,12 +768,58 @@ Este orden no equivale a severidad confirmada ni reemplaza el backlog de infraes
 
 ### STRIDE-02 — Verificar aislamiento de objetos, SQL, caché y scopes
 
+**Avance (2026-10-15):** todos los constructores directos de `CostManagementClient` en `src` se migraron a la factory comun; una policy del SDK valida origen ARM y pertenencia de scope en cada request (incluidas paginas y APIs distintas de query), antes de emitir el token. Sin redirects. Prueba de inventario impide nuevos constructores fuera de la factory; pruebas sinteticas verifican rechazo antes del token y conservan Lighthouse mediante el helper existente. El colector de meters ahora recibe tenantId explicitamente. Esto NO certifica todos los objetos SQL/Redis/SWR: queda pendiente la matriz end-to-end de dos tenants sobre reportes, exports y caches.
+
+**Matriz ejecutada y correccion adicional (2026-10-15):** `/api/admin/audit`, `/api/admin/audit-trail` y `/api/admin/audit/export` aceptaban `mock=true` como alternativa a autenticar un tenant real, pero llamaban al servicio con ese tenant y consultaban sus filas reales. Se retiro esa alternativa; la demo anonima solo conserva el camino `isMockTenant`. `/api/admin/audit-trail/export` ya exigia autorizacion para tenants reales y se incluye como control de regresion.
+
+`tenantAuditIsolation.mysql.test.ts` ejecuta los cuatro handlers reales, `requestAuth` (firma RS256, issuer/audience y roles), servicio y MySQL 8.4 desechable; solo sustituye discovery/JWKS de Entra con claves sinteticas y traducciones CSV. 27 casos cubren dos lectores concurrentes, conteos, JSON/NDJSON/CSV, sustitucion de tenant, acceso anonimo con/sin `mock=true`, revocacion DISABLED, filtros con email ajeno/metacaracteres SQL y membresia cruzada explicita autorizada. AiCache real verifica claves distintas para payload identico, lecturas cruzadas nulas y proteccion contra sobrescritura. Otros 12 casos sin MySQL impiden regresion del bypass y conservan la demo anonima. CI incorpora MySQL por digest y un paso obligatorio de estas pruebas y persistencia de aprobaciones/cifrado, sin credenciales ni datos de aplicacion; ejecucion hosted sigue bloqueada por billing. No es una prueba HTTP desplegada ni cobertura de todos los reportes, blobs o Redis/SWR.
+
+**Extension del mismo defecto:** `/api/admin/billing` tenia la misma alternativa `mock=true` antes de `getTenantBillingDetails(tenantId)`, que lee `Tenants` y `BillingTransactions` reales. Se elimina tambien; solo la demo sintetica omite OAuth. La matriz ampliada tiene 31 casos SQL reales y 15 regresiones siempre activas: cinco handlers en total, con compania y transaccion de factura distintas por tenant y verificacion positiva de importe/ID. No hay llamadas a Paddle ni operaciones de cobro. Los flags de otros endpoints que devuelven exclusivamente generadores sinteticos no se equiparan a este bypass de datos reales ni se eliminan indiscriminadamente.
+
+**Redis/SWR real:** `tenantCacheIsolation.redis.test.ts` agrega siete casos contra una instancia desechable, usando `src/lib/redis.ts` y `cache.ts` sin mocks. Comprueba claves compartidas de audit-full (tenant/suscripcion y normalizacion de mayusculas), audit-ttl, anomalies y tres periodos cost-groups; hits y peek sin origen, misses concurrentes deduplicados solo por clave, refresh stale concurrente, invalidacion exacta/patron acotada al tenant, expiracion dura, fallo de origen recuperable y conservacion del ultimo valor bueno cuando el TTL dinamico es cero. Limpia solo claves propias; no usa FLUSHDB ni Redis de aplicacion. CI incorpora servicio Redis por digest y puerto dinamico. Suite completa local con MySQL y Redis simultaneos: 6242 pass, 76 skip por otros gates. Estos casos prueban helpers y builders seleccionados, no autorizacion HTTP ni exhaustividad de claves/consumidores.
+
+**Reportes/Blob:** quince casos adicionales ejecutan los handlers reales de listado, detalle, rehidratacion, JSON/PDF, enlace local y eliminacion de historial, con el mismo MySQL y Azure Blob SDK/helpers reales contra Azurite 3.35.0 por digest. Los dos tenants tienen filas, IDs y blobs distintos. Se comprueban lecturas concurrentes propias, filtros/agregados, firma RS256, anonimato/target ajeno, ID de otro tenant, suspension, PDF propio y borrado selectivo de fila/markdown/PDF/JSON sin tocar al otro tenant. Incluso una fila propia que apunte al prefijo Blob ajeno no lo lee ni borra. El enlace llamado sasDownloadUrl no es un SAS: es una ruta local que exige autenticacion al usarse; expiresAt es informativo, no una expiracion impuesta. Se aclaran comentarios sin alterar el contrato. Los GET de objeto inexistente conservan su error 500 preexistente; no se presenta como 404. CI arranca Azurite en loopback/tmpfs con cuenta sintetica y limpieza always; no usa una cuenta Azure ni credenciales de aplicacion. La matriz suma 63 casos SQL (48 anteriores, incluidos MFA, mas 15 de reportes). No es evidencia de RBAC/Blob en Azure ni cobertura de todos los objetos y caches.
+
+**Costos/Perspectives (2026-10-16):** ocho casos SQL adicionales verifican las tres dimensiones del desglose, agregados decimales y Other, tags iguales entre tenants, filtros de suscripcion, lista de Perspectives/reglas del tenant y alcance asignado que prevalece sobre Perspective/grupo de URL. Un permiso que apunta a una Perspective ajena falla con SCOPE_UNRESOLVED; el fragmento de alcance se ejecuta realmente en MySQL con parametros alineados y excluye tanto filas fuera de grupo como ajenas. Metacaracteres en tag/suscripcion siguen siendo valores; una fecha SQL invalida provoca error de tipo, no ampliacion de la consulta. La matriz suma 71 casos cuando Blob esta habilitado. No se cambia la politica de admision ni se acredita el handler HTTP completo de Cost Groups o Azure Resource Graph.
+
+**Notificaciones, defecto adicional corregido (2026-10-16):** GET moderno/legacy ya filtraban tenant y destinatario, pero PATCH individual/masivo y DELETE solo comprobaban tenant; un lector podia alterar avisos privados de otro usuario del mismo tenant por ID o con markAllAsRead. No era lectura de contenido privado ni acceso entre tenants confirmado. Ahora el servicio comparte el predicado `(user_email IS NULL OR user_email = ?)` entre lectura y mutaciones; sin destinatario solo permite avisos de difusion. Las dos rutas PATCH y DELETE pasan email del guard, nunca del body. markAllAsRead debe ser booleano, no truthy. Ambos PATCH tambien omitian el email al descartar un broadcast, guardandolo como anonymous: ahora usan la identidad verificada; el servicio rechaza ese descarte sin identidad y registra el error. Avisos tenant-wide conservan estado compartido; no se migra el modelo ni se hace todo por usuario.
+
+Catorce casos SQL nuevos ejecutan handlers y JWT reales: GET moderno/legacy solo propios+difusion, ID privado/ajeno, body con email falso, marcado masivo selectivo, booleanos invalidos, anonimato/target cruzado, borrado propio sin tocar privados/ajenos, atribucion broadcast y llamadas directas sin identidad. Cinco regresiones unitarias siempre activas verifican predicado/parametros y rechazo anonymous. Total matriz 85 con Blob; suite con MySQL/Redis/Azurite 6328 pass/76 skip, 561 archivos correctos/8 omitidos, lint/typecheck/build nativo correctos. Correccion en rama, pendiente rollout; no se presenta como cierre global de STRIDE-02 ni cambio de STRIDE-03.
+
+**Descartes de anuncios, complemento:** el endpoint general y ambos PATCH de notificaciones aceptaban un ID sin comprobar destinatario/vigencia/canal. recordDismissal ahora exige tenant y usa el mismo listado activo para comprobar publicacion, ventana temporal y targets. Notificaciones exige canal notification; el endpoint general permite cualquier canal visible. ID no entero positivo seguro devuelve400; anuncio no disponible devuelve404, sin INSERT. La identidad proviene del guard; se conserva el descarte global por anuncio/email y su idempotencia. Errores SQL llegan al handler como500, sin caer a marcar avisos regulares ni con markAllAsRead. No hay bloqueo transaccional frente a cambios concurrentes de publicacion. Cinco casos SQL y cinco unitarios adicionales; matriz90 con Blob, suite6338pass/76skip,561archivos correctos/8omitidos; lint/typecheck/build nativo correctos. HLD/LLD52.11 actualizados; falta rollout y cobertura global.
+
+**Permisos Perspective ante fallo SQL:** alcanceDelUsuario devolvia null ante errores, indistinguible de una consulta exitosa sin asignacion; aplicarAlcance podia permitir acceso sin el recorte del usuario. Ahora el servicio registra/propaga el fallo y el guard devuelve503 SCOPE_LOOKUP_UNAVAILABLE sin identidad autorizada sin recorte. Sin fila y con SQL funcional nada cambia; cron conserva bypass explicito y STRIDE-03 no cambia. Antes del rollout debe existir UserScopes migrada y accesible: sin tabla se prioriza no ampliar permisos sobre disponibilidad. Un caso MySQL real con tabla fixture temporalmente renombrada comprueba rutas con/sin soporte de alcance; cinco unitarios verifican servicio/guard. Matriz91 con Blob; suite6344pass/76skip,562archivos correctos/8omitidos; lint/typecheck/build nativo correctos. Documentado en LLD52.12, implementado en rama, pendiente rollout y cobertura global.
+
+**Borrado de Perspective sin perder permisos por cascada:** el DELETE previo eliminaba asignaciones UserScopes por FK y devolvia vista completa del tenant a sus usuarios. Ahora bloquea el padre dentro de una transaccion, lee referencias y rechaza409 PERSPECTIVE_IN_USE si alguna existe; primero hay que reasignar o retirar explicitamente el alcance. FK existente serializa nuevas asignaciones; tenant/rol preservados. No se cambia esquema/cascada de purga ni se afirma proteger SQL administrativo externo. Siete casos reales verifican autorizacion, ID/target ajenos, referencias (tambien inconsistentes), conservacion de reglas/alcance, retiro explicito, indisponibilidad y carrera; cuatro unitarios prueban transaccion/rollback. Matriz98 con Blob, suite6355pass/76skip,563archivos correctos/8omitidos; lint/typecheck/build nativo correctos. Manuales ES/EN/PT-BR, indice de soporte y HLD/LLD52.13 actualizados. Requiere rollout y FK fk_userscope_perspective vigente; no cierre global.
+
+**Vistas personales sin identidad confundidas con compartidas:** un JWT valido sin email podia enviar shared=false y escribir con user_email='', propietario reservado a compartidas, sin exigir Admin/Owner. La ruta ahora rechaza email vacio/espacios con401 antes de lectura o transaccion personal. No acepta owner/email del body. Siete casos JWT/MySQL reales verifican token sin email, no sobrescritura compartida, lectura propia+compartida, defaults selectivos, roles, IDs/targets/privados ajenos y Perspective ajena; tres unitarios siempre activos. Matriz105 con Blob, suite6365pass/76skip,564archivos correctos/8omitidos; lint/typecheck/build nativo correctos. LLD52.14/HLD actualizados. No cambia politica global de tokens sin email ni STRIDE-03; falta rollout y cobertura global.
+
+**Alcance ante email ausente/cambiado en JWT:** el lookup previo solo por email devolvia sin alcance aunque oid siguiera identificando al usuario registrado. Ahora el guard pasa OID verificado y la consulta comprueba email u OID mediante Users, siempre uniendo tenant+email con UserScopes. Si hay mas de una asignacion candidata, registra y devuelve503, no un permiso arbitrario. Un OID en tenant ajeno no resuelve; exito sin asignacion y cron conservados. No cambia identity.email, membresia STRIDE-03 ni migra UserScopes a OID: cambiar el email persistido requiere gestionar las asignaciones. Cuatro casos SQL y tres unitarios adicionales; matriz109 con Blob, suite6372pass/76skip,564archivos correctos/8omitidos; lint/typecheck/build nativo correctos. LLD52.15/HLD actualizados; falta rollout y cobertura global.
+
+**Suscripciones de reportes, cobertura ampliada:** ocho casos nuevos con handlers/JWT/MySQL reales verifican listado concurrente propio y destinatarios, targets/IDs ajenos, anonimato, roles Reader/Admin, autor del JWT sobre body, defaults/cadencia/destinatarios, suspension y borrado selectivo. El generador real usa reglas/costos SQL locales y solo el grupo elegido; Perspective ajena produce cero filas, no fallback ni datos ajenos. No se detecta cruce tenant en estos caminos ni se modifica codigo productivo. enviarAhora=false, sin correos/Graph/cron; no certifica entrega ni revalidacion al enviar. Matriz117 con Blob, suite6380pass/76skip,564archivos correctos/8omitidos; typecheck/lint del archivo/diff-check correctos. HLD/LLD52.16 actualizados, sin rollout ni cierre global.
+
+**Autor de nuevas suscripciones humanas:** Admin identificado por OID pero con JWT sin email podia guardar created_by=NULL; la cancelacion por cuenta suspendida del cron no podia vincularlo al usuario. POST ahora exige email verificado no vacio con401 antes de INSERT/enviarAhora; createdBy del body no lo sustituye. Se conserva el tratamiento de suscripciones historicas de procesos sin autor, sin mutaciones reales. Un caso SQL y dos unitarios adicionales verifican identidad vacia/espacios/noINSERT/noenvio. Matriz118 con Blob, suite6383pass/76skip,565archivos correctos/8omitidos; lint/typecheck/build nativo correctos. HLD/LLD52.17 actualizados; falta rollout y cobertura cron/Graph/global.
+
+**Fuga en cache de polling ejecutivo:** getExecutiveReportJobStatus devolvia hit por jobId sin tenant aunque SQL si filtraba ambos. Un ID ajeno conocido podia revelar estado/scope/markdown/data residentes, incluso desde el handler demo publico sin autenticacion. Ahora exige cached.tenantId===tenantId antes de devolver; cache ajeno sigue a SQL filtrado o respuesta demo sintetica sin metadata privada, sin cambiar el propietario. Seis regresiones siempre activas con job sintetico/SQL sustituido y worker pendiente prueban servicio y handlers reales, propio/ajeno/demo/anonimo/fallback. No hay SQL ni cloud real en este bloque. Suite sin servicios6262pass/188skip,563archivos correctos/11omitidos; lint/typecheck/build nativo correctos. Ultima matriz real previa118casos/6383pass en dc04cd0; no se presenta esta corrida como gates reales habilitados. HLD/LLD52.18 actualizados; falta rollout y cobertura global.
+
+**Inicio/worker con scope contradictorio:** el guard HTTP comprobaba segun scope, mientras el worker decidia por scopeId. TENANT_ALL con otro ID podia convertirse en trabajo de suscripcion sin comprobarla en esa frontera. El servicio ahora valida scope/ID runtime, fuerza TENANT_ALL a All y normaliza all; exige pertenencia antes de INSERT y el worker antes de recolectar. Rechazo previo no persiste; rechazo worker marcaFAILED y registra, sin datos. Se conserva helper con cache60s, no revocacion Azure inmediata; tampoco reautoriza al autor antes de envio. Once regresiones con handlers reales y SQL/guard/recoleccion sustituidos; suite sinservicios6273pass/188skip,564archivos correctos/11omitidos,lint/typecheck/buildnativo correctos. No se repiten gates reales; ultima matriz118casos en dc04cd0. HLD/LLD52.19 actualizados; falta rollout y cobertura global.
+
+**Solicitante y revocacion durante el job:** inicio real exige email verificado, sin fallback corporativo ni email/OID forjados desde body. Worker conserva email/OID del JWT en memoria y revalida DISABLED/alcance antes de recolectar. Antes del correo vuelve a comprobar tambien pertenencia de suscripcion; fallo/revocacion no despacha ni marca timestamp, registra error y conserva reporte ya compilado para tenant. Catorce regresiones con SQL/Azure/Blob/correo sustituidos: guard previo, cambios de suspension/alcance/fallos SQL durante generacion, destinatarioJWT y opcion sincorreo. Suite sinservicios6287pass/188skip,565archivos correctos/11omitidos;lint/typecheck/buildnativo correctos. HLD/LLD52.20. No cambia STRIDE03 (sin fila no revoca), no cancela atomicamente operaciones en curso ni elimina cacheAzure60s; falta rollout/coberturaglobal y gatesreales no repetidos.
+
+**Revocacion/configuracion de reportes programados:** despachador compartido por cron/Enviar ahora revalida fila activa tenant/id y configuracion JSON exacta, autor persistido y estado/alcance antes de generar y de cada destinatario. Cambios/fallos SQL cortan sin marcar periodo; los guards no caen al catch que continua tras rebotes. Cron expone fallidas y warning; updates filtran tenant/id. Conserva autoresNULL de proceso y acceso por directorio sin Users, sin cambiar STRIDE03.15regresiones unitarias+9MySQL8.4 reales; corrida focal112pass/15skip (103matrizprevia+9nuevos);fullMySQL6416pass/98skip,569archivos/9omitidos;lint/typecheck/buildnativo correctos. No Redis/Azurite/cloud ni correo real. HLD/LLD52.21. Sin cancelacion atomica/idempotencia por destinatario; emailhistorico deautor no migradoaOID. Falta cobertura global y rollout.
+
+**Lectura tras cambio de pertenencia:** polling/jobactivo/latest exigen suscripcion del tenant antes de devolver cache o SQL; cache reciente conserva scopeID original. Cinco regresiones adicionales, helpers/SQL sustituidos; fullsinservicios6307pass/197skip,566archivos/12omitidos;lint/typecheck/build correctos. HLD/LLD52.22. CorridaMySQL de52.21 previa,no repetida; TTL60s preservado,sin revocacion Azure instantanea. Falta cobertura global/rollout.
+
+**Correo ejecutivo manual:** revalida identidad y pertenencia tras compilar PDF, antes de transporte; suspension/alcance/expiracion o lookup fallido no despachan. Query corregida a Tenants.company_name existente. Ocho regresiones con handler real/dependencias sustituidas y cinco guards Lighthouse:13pass;typecheck/lint/build correctos. Full/gates reales no repetidos;6307pass/197skip es previo a estas ocho. HLD/LLD52.23. Sin cambio de destinatarios/roles/STRIDE03, sin cancelacion atomica ni revocacionAzure inmediata (TTL60s); falta cobertura global/rollout.
+
+**Respuesta de datos/descarga tras generar:** data, exportHTML/PDF revalidan identidad y pertenencia despues de generar y antes de devolver cuerpo; rechazo/fallo no entrega contenido.24regresiones nuevas+correo/Lighthouse37pass focales. Full final con MySQL8.4/Redis7/Azurite3.35 desechables6475pass/76skip,572archivos/8omitidos;incluye118matrizSQL/JWT/Blob y9despachoSQL. Lint/typecheck/buildnativo correctos;HLD/LLD52.24. Bases propias retiradas,Redis0,solo trescontenedorespropios eliminados. Sin Graph/Azure reales, sin atomicidad ni revocacionAzure instantanea; no reemplaza CIbilling/amd64/firma/rollout, cobertura global y STRIDE03 abiertos.
+
 **Prioridad:** P1 de evaluación y cierre de cobertura.  
-**Clasificación:** riesgo de alto impacto potencial; no se confirmó fuga cross-tenant.  
+**Clasificación:** bypass de autorizacion confirmado en tres rutas de auditoria y consulta de facturacion, corregido en rama, pendiente rollout; cobertura de otras superficies incompleta.
 **STRIDE:** Information Disclosure, Tampering y Elevation of Privilege.  
 **Estado:** Pendiente de inventario y pruebas end-to-end.
 
-**Evidencia y límite:** existen controles Azure en los helpers citados, pero hay consumidores directos de `CostManagementClient`. No se acreditó cobertura completa de SQL ni claves Redis/SWR. Los índices por `tenant_id` y endpoints privados no son controles de autorización.
+**Evidencia y límite:** los consumidores directos de `CostManagementClient` detectados se centralizaron en la factory; las cuatro rutas de auditoria y AiCache cuentan con la matriz SQL descrita. No se acreditó cobertura completa de objetos SQL ni claves Redis/SWR. Los índices por `tenant_id` y endpoints privados no son controles de autorización.
 
 **Vectores a verificar:** IDs de reportes, conexiones, aprobaciones, exportaciones y descargas; joins y operaciones masivas; suscripciones, resource groups y resource IDs recibidos del cliente; reutilización de respuestas cacheadas entre tenants o permisos distintos.
 
@@ -742,6 +835,8 @@ Este orden no equivale a severidad confirmada ni reemplaza el backlog de infraes
 
 ### STRIDE-03 — Definir membresía de aplicación y suspensión de usuarios
 
+**Decision pendiente (2026-10-15):** se conserva la lectura por directorio coincidente y el bloqueo `DISABLED` existente de APPSEC-ID-06. Se solicito decidir si toda lectura exige alta activa en `Users`; el propietario no estaba disponible. No se cambia una politica de admision sin confirmacion ni se presenta este hallazgo como cerrado. Las operaciones por rol siguen exigiendo membresia activa o la excepcion SuperAdmin existente.
+
 **Prioridad:** P1 de decisión de política.  
 **Clasificación:** riesgo condicionado a la política de acceso; no es fuga entre directorios confirmada.  
 **STRIDE:** Spoofing en la interpretación de identidad, Information Disclosure y Elevation of Privilege.  
@@ -756,6 +851,22 @@ Este orden no equivale a severidad confirmada ni reemplaza el backlog de infraes
 **Aceptación:** usuarios no admitidos y suspendidos reciben el resultado previsto por la política en todas las rutas; no acceden por una rama alternativa; usuarios activos y administradores legítimos conservan acceso.
 
 ### STRIDE-04 — Reforzar la frontera de ejecución de remediaciones Azure
+
+**Avance (2026-10-15):** catalogo exacto de acciones/aliases (ningun default destructivo), tipos API admitidos, coincidencia de todas las partes del ARM ID, compatibilidad accion/tipo y SKU/tier explicitos. El servicio revalida scopes y permiso de delegacion justo antes de ejecutar; el alta valida accion/scope. Los requests ARM tienen timeout y no siguen redirects. Aceptacion asincrona `202` no se presenta como exito: conserva claim durable `Running`, requiere conciliacion y no permite retry automatico. Un snapshot no confirmado completo impide borrar el recurso. MySQL 8.4 aislado verifico 12 reclamos concurrentes (solo uno gana), JSON CAS, tenant incorrecto, autoaprobacion, objetivo cambiado y propiedad del token de finalizacion. **Pendiente:** rollout y revision de Custom Roles/asignaciones efectivas en Azure; no se ejecutaron mutaciones reales para probarlas.
+
+**Continuacion implementada en rama:** transporte/timeout/408/5xx y completion
+ilegible post-mutacion se consideran inciertos, no fallos que permitan reenvio.
+POWER_OFF usa POST ARM con timeout propio. Se persiste evidencia de operacion con
+JSON_SET y CAS sin reemplazar propietario/tiempo del claim. La UI muestra Running
+sin exito ni botones de reejecucion/rechazo/aprobacion masiva. Owner/Admin Business
+puede solicitar `RECONCILE`: un GET sin redirects, tras validar origen ARM,
+suscripcion, provider, ruta de operacion y scope antes del token. Solo status
+explicito terminal permite CAS final; audit distingue operador del aprobador
+original. Fallos de polling conservan el claim. Snapshot conciliado no continua
+DELETE: la remediacion queda Failed con explicacion. No hay scheduler automatico.
+Si una interrupcion impide guardar polling URL, revisar Activity Logs manualmente
+sin reenviar ni liberar el claim a ciegas. Falta evidencia desplegada de esta UX
+y de las URLs efectivas de los proveedores; las pruebas usan respuestas sinteticas.
 
 **Prioridad:** P1 de evaluación y diseño.  
 **Clasificación:** riesgo arquitectónico; no se confirmó una vía de ejecución destructiva por Reader.  
@@ -778,6 +889,8 @@ Este orden no equivale a severidad confirmada ni reemplaza el backlog de infraes
 
 ### STRIDE-05 — Extender el cierre de la carrera DNS a ITSM y envíos reales
 
+**Avance de remediacion (2026-10-15):** implementado localmente `safeExternalFetch` / `safeWebhookFetch`, con dispatcher Undici dedicado por llamada, resolucion A/AAAA publica fijada al socket, hostname original para Host/SNI/TLS, rechazo de userinfo/IP literal/respuestas DNS vacias o mixtas, redirects prohibidos, timeout total de 15 s y respuesta limitada a 1 MiB. Conectados Slack, Teams, webhook generico, prueba self-service y pruebas webhook/ITSM. La validacion al guardar configuracion se conserva; el transporte valida independientemente al enviar. Pruebas sinteticas cubren rebinding, IPv4/IPv6 reservadas, redirecciones, limites y cierre del dispatcher. Pendiente publicar/desplegar y comprobar proveedores con credenciales sinteticas en staging. La ruta `integrations/itsm` actualmente simula creacion de tickets: no se declara probado un envio real que no existe.
+
 **Prioridad:** P1 de evaluación de alcance; implementación según condiciones y diseño de egreso.  
 **Clasificación:** riesgo condicionado, sin SSRF confirmada.  
 **STRIDE:** Information Disclosure, Tampering y Elevation of Privilege.  
@@ -790,6 +903,8 @@ Este orden no equivale a severidad confirmada ni reemplaza el backlog de infraes
 **Aceptación:** los casos DNS, IPv4/IPv6, TLS y destinos internos se prueban también en envíos reales de ITSM/webhook; credenciales sintéticas sólo alcanzan el origen autorizado; las integraciones legítimas siguen funcionando.
 
 ### STRIDE-06 — Rechazar redirecciones en notificaciones salientes
+
+**Avance de remediacion (2026-10-15):** todos los envios de `notifications.ts` usan el transporte anterior con `redirect: error`; los 3xx tambien se rechazan defensivamente sin segunda llamada. Pendiente comprobar entregas de proveedores en staging; no se habilitan excepciones de redireccion.
 
 **Prioridad:** P1 de endurecimiento.  
 **Clasificación:** falta de uniformidad confirmada; explotación SSRF condicionada, no demostrada.  
@@ -805,6 +920,8 @@ Este orden no equivale a severidad confirmada ni reemplaza el backlog de infraes
 **Aceptación:** respuestas 3xx no provocan conexiones al destino redirigido en pruebas ni envíos reales; no se exponen payloads o credenciales sintéticas; Slack/Teams y proveedores autorizados conservan funcionamiento o devuelven errores controlados.
 
 ### STRIDE-07 — Sustituir o segmentar la autenticación compartida de jobs
+
+**Avance (2026-10-15):** validadores de jobs migrados a resolucion por capacidad fija (`CRON_JOB_SECRET_<JOB>`); una clave configurada no acepta la compartida ni la de otro job. Modo estricto `CRON_REQUIRE_SCOPED_SECRETS` niega capacidades sin provisionar. Migracion compatible explicita: sin modo estricto, los jobs aun no configurados conservan header legacy. Retirada autenticacion query de los cuatro prewarm que aun la aceptaban y del runner Terraform (tambien polling); `auth_mode=query` ahora falla validacion. Self-fetch/runners sin redirects y `X-Cron-Auth` limitado a GET/HEAD. Prueba de endpoint distingue credenciales de jobs. **Pendiente de cierre:** identidades/secretos independientes en Azure, actualizar referencias Terraform, activar modo estricto y comprobar TODOS los jobs efectivos; migracion Entra por audiencia y capacidades. No se declara eliminada la credencial compartida desplegada. Runbook: [cron-credential-migration.md](cron-credential-migration.md).
 
 **Prioridad:** P1 de diseño/migración; revisar de inmediato secretos en URL.  
 **Clasificación:** riesgo de diseño y configuración observada; no se confirmó bypass ni filtración.  
@@ -832,6 +949,8 @@ Este orden no equivale a severidad confirmada ni reemplaza el backlog de infraes
 
 ### STRIDE-08 — Usar un destino confiable para self-fetch
 
+**Avance (2026-10-15):** helper sin parametro de request: origen solo desde `INTERNAL_BASE_URL` validada o loopback con `PORT` validado. Los tres consumidores que pasaban puerto de request usan ahora llamada sin argumentos; `sync-azure-ai` deja el origen publico por el mismo helper. Fetches que reenvian tokens y prewarm rechazan redirects. Prueba con dos servidores locales: solo el configurado recibe un token sintetico, el puerto alternativo recibe cero requests; inventario de consumidores impide reintroducir argumentos. Pendiente verificar dashboard/whiteboard en staging despues del gate de claves.
+
 **Prioridad:** P1 de verificación; endurecimiento según exposición efectiva.  
 **Clasificación:** riesgo condicionado, sin explotación confirmada.  
 **STRIDE:** Information Disclosure y Spoofing.  
@@ -846,6 +965,10 @@ Este orden no equivale a severidad confirmada ni reemplaza el backlog de infraes
 **Aceptación:** modificar host/puerto de la petición no cambia el destino interno; ningún servicio de prueba en un puerto alternativo recibe el token; dashboard y whiteboard conservan respuestas y controles de acceso.
 
 ### STRIDE-09 — Completar revisión de SQL/KQL dinámico
+
+**Avance (2026-10-15):** unificado escape de literales en inventario (incluidos tags descubiertos), tarifas, herencia, networking, backups, discos, ADLS y sostenibilidad; `escapeKql` tambien representa controles/saltos de linea sin romper el literal. La busqueda OR del inventario queda parentizada para no omitir otros filtros. TTL valida su catalogo en runtime y herencia valida limite entero acotado; orden SQL de historial se rechaza fuera del catalogo en servicio y API. Pruebas adversariales cubren comillas, backslashes, controles, estructura numerica, busqueda/tags y parametros de historial con dos tenants. **Cobertura pendiente:** inventario AST local detecto 1.210 llamadas candidatas `query/execute` en 369 archivos (154 templates interpolados), no todas son SQL ni hallazgos. Revisados estos consumidores y SQL de historial/portal; no se certifica la matriz completa ni ausencia general de inyeccion.
+
+**Frontera adicional (2026-10-16):** getTopBreakdown aceptaba column:string interpolado. Sus tres llamadores actuales usan constantes; no se demuestra entrada remota arbitraria ni se clasifica como explotacion confirmada. Ahora el tipo y una validacion runtime permiten exclusivamente service_name, MeterName y ServiceFamily antes de consultar. El limite debe ser entero 1..100 (default 6 preservado). Quince regresiones comprueban catalogo, identificadores/fragmentos ajenos, limites y agregacion Decimal/Other; los ocho casos MySQL anteriores prueban resultados y aislamiento reales. El fragmento tagFilter sigue siendo SQL interno construido en servidor con valores parametrizados, no un parametro HTTP ni una API para SQL arbitrario. Suite completa con MySQL/Redis/Azurite: 6309 pass, 76 skip por otros gates, 561 archivos correctos/8 omitidos; lint, typecheck y build nativo correctos. No cierra el inventario global.
 
 **Prioridad:** P1 de cobertura.  
 **Clasificación:** no se confirmó inyección en las rutas KQL examinadas.  
@@ -1069,7 +1192,13 @@ La cuota `checkByKey` es en memoria por proceso. Cuota distribuida no reemplaza 
 
 ### APPSEC-ID-05 — Payload completo y obligatorio para step-up
 
-**Estado (2026-10-15):** ✅ Resuelto — ver [registro de cierre](#registro-de-cierre-2026-10-15).
+**Estado:** correccion original bc23930 desplegada; complemento financiero implementado y validado en PR #143, pendiente merge/rollout — ver [registro de cierre](#registro-de-cierre-2026-10-15).
+
+**Correccion adicional verificada:** la emision/consumo ya exigian payload, pero las dos rutas de markup y el cliente seguian enviando solo `{tenantId}`. Ahora `markupStepUpPayload()` compartido proyecta en orden fijo accion `save_partner_markup`, tenant objetivo, porcentaje, tarifa e interruptor. La UI captura una sola vez los valores para challenge y PUT; el servidor reconstruye el DTO tras validar tipos/rangos, default `isMarkupEnabled=true` y plan. Input/plan invalido no consume el challenge. Legacy POST exige Admin/Owner, rango numerico valido y otro DTO `{action:"set_legacy_markup",tenantId,markupPercentage}`; no acepta un challenge de la ruta canonica. Challenges previos ligados solo al tenant se rechazan y deben emitirse de nuevo; se conserva MFA opt-in.
+
+**Plan/cancelacion:** `planChangeStepUpPayload()` compartido liga accion, tenant, tier, ciclo y prorrateo; ChangePlanModal usa el mismo snapshot para challenge y PATCH. `cancellationStepUpPayload()` liga accion, tenant y momento efectivo. El servidor valida y normaliza solo defaults omitidos antes de consumir MFA; rechaza null/valores ajenos al catalogo. La suscripcion y el price ID se resuelven en servidor desde tenant/catalogo, no desde un recurso arbitrario del body. Si falta PADDLE_API_KEY, DELETE devuelve 503 sin cambiar el estado local ni simular una cancelacion; webhook sigue siendo fuente de verdad. El consumidor de DELETE debe emitir el DTO nuevo; no se localizo un cliente UI de esa ruta.
+
+Diecisiete casos adicionales con handlers, identidades RS256 y MySQL reales cubren markup/legacy y plan/cancelacion: sustitucion de valores, payload viejo, defaults, validacion antes del consumo, roles, MFA opt-in y ocho llamadas concurrentes con un solo exito tanto para markup como plan. Cancelacion prueba configuracion ausente, rechazo del proveedor, no mutacion local y no replay. El subtotal es 48 casos SQL, ampliado a 63 con reportes/Blob en STRIDE-02. Emision/consumo de challenge son reales; el factor se siembra como verificado, no es prueba TOTP. Paddle esta interceptado con respuestas sinteticas; no se cancelo ni cobro nada real. Fixture UTC replica produccion. Diez pruebas DTO/hash verifican orden y campos; dos pruebas UI verifican snapshot inmutable y cancelacion del modal. Falta rollout; no certifica las demas operaciones MFA ni HTTP desplegado.
 
 **Prioridad:** P1. **STRIDE:** Tampering. **Estado:** pendiente.
 
@@ -2309,6 +2438,8 @@ Infra: activar **Microsoft Defender for Storage (malware scanning)** en la cuent
 
 ### INT-01 — Cerrar DNS rebinding y redirecciones SSRF
 
+**Avance (2026-10-15):** implementacion y evidencia local en STRIDE-05/06; transporte compartido DNS-pinned y sin redirects. Pendientes de despliegue y pruebas de proveedor permanecen abiertos.
+
 **Severidad:** Media (riesgo condicionado; vulnerabilidad confirmable de TOCTOU en el flujo).  
 **Evidencia:** [webhookSecurity.ts](../../src/lib/webhookSecurity.ts), `assertResolvesPublic()` valida las respuestas de `dns.lookup()`, pero el resultado no queda ligado al socket del `fetch` posterior. Los emisores reales en [notifications.ts](../../src/lib/notifications.ts) validan la URL y después usan `fetch` sin fijar la resolución ni desactivar redirects. El endpoint de prueba ITSM [test-itsm/route.ts](../../src/app/api/admin/config/integrations/test-itsm/route.ts) sí usa `redirect: 'error'`; esa defensa no es uniforme.
 
@@ -2325,6 +2456,10 @@ Infra: activar **Microsoft Defender for Storage (malware scanning)** en la cuent
 **Pruebas de aceptación:** hostname con primera respuesta pública y segunda privada no debe establecer conexión privada; probar IPv4, IPv6, DNS con respuestas mixtas, loopback, RFC1918, link-local, direcciones IPv4-mapped IPv6 y redirects a IMDS/servicios internos; verificar con servidor simulado y sin credenciales reales que el transporte no sigue ningún salto. Confirmar que endpoints legítimos siguen funcionando.
 
 ### INT-02 — Impedir aprobaciones falsas por el endpoint legacy
+
+**Actualización 2026-10-15:** misma corrección y evidencia que STRIDE-01;
+no es un segundo pendiente de implementación. Prueba concurrente MySQL real
+realizada con datos sinteticos (ver STRIDE-04); despliegue aun pendiente.
 
 **Severidad:** Media.  
 **Evidencia:** [remediation/workflow/route.ts](../../src/app/api/remediation/workflow/route.ts), `PATCH`, requiere acceso al tenant y actualiza directamente `status`, `resolved_at` y `resolved_by`; no exige Admin/Owner ni diferencia al solicitante del aprobador. El GET de [governance/approvals/route.ts](../../src/app/api/governance/approvals/route.ts) interpreta ese estado `Approved` como aprobación y lo retira de la cola pendiente. No se observó ejecución ARM desde el PATCH legacy.
@@ -2358,6 +2493,8 @@ Este patrón requiere adaptar nombres, autorización y transacción al esquema r
 
 ### INT-03 — Eliminar el fallback criptográfico inseguro
 
+**Avance (2026-10-15):** nuevas escrituras `enc:v2` exigen `APP_SECRET_ENCRYPTION_KEY` dedicada (32 bytes hex/base64 canonico), sin semillas publicas ni fallback a MFA, autenticacion o DB. Lectura `enc:v1` requiere `APP_SECRET_LEGACY_V1_KEY` explicita; envelopes invalidos/versiones desconocidas fallan cerrados. Migrador transaccional `scripts/rotate-app-secrets.ts`: dry-run por defecto, autenticacion y verificacion de todos los valores AI/ITSM/globales, bloqueo de filas y rollback integral al aplicar. Runbook: [app-secret-rotation.md](app-secret-rotation.md). **Gate pendiente:** aprovisionar referencias versionadas, inventariar material previo, backup/restauracion verificados, dry-run y migracion por entorno antes de desplegar este runtime. No se rotaron claves ni datos reales.
+
 **Severidad:** Media; alta si la aplicación se despliega sin la clave dedicada y se persisten secretos.  
 **Evidencia:** [secretCrypto.ts](../../src/lib/secretCrypto.ts), `resolveKeyMaterial()` puede terminar en una semilla literal del código y `hasEncryptionKey()` trata ese resultado como configuración válida. Esto hace que la aplicación no falle cerrada si faltan las variables previas. No se confirmó si producción tiene `MFA_ENCRYPTION_KEY` configurada.
 
@@ -2388,6 +2525,8 @@ El fragmento es una pauta de validación de clave, no reemplaza la gestión vers
 
 ### INT-04 — Completar evidencia de autorización ARM por tenant
 
+**Avance (2026-10-15):** ver STRIDE-02/04: factory Cost Management sin bypasses directos, revalidacion en ejecucion, catalogo fail-closed y pruebas de concurrencia MySQL real. No se declara cerrada la cobertura completa de endpoints/caches ni el minimo privilegio efectivo Azure; los pendientes siguen vigentes.
+
 **Severidad:** riesgo no confirmado; verificación pendiente (P1).  
 **Resultado:** las rutas de borrado revisadas validan rol/tier y alcance de tenant; el flujo nuevo separa autorización y ejecución. No se confirmó un bypass que ejecute recursos fuera de la suscripción registrada del tenant. La inspección estática no certifica todas las acciones `deallocate`, `delete` de discos/IPs/NSGs ni escritura de tags, ni las acciones efectivas permitidas por los Custom Remediation Roles.
 
@@ -2396,6 +2535,8 @@ El fragmento es una pauta de validación de clave, no reemplaza la gestión vers
 **Pruebas de aceptación:** probar IDs malformados, otra suscripción del mismo tenant, una suscripción de otro tenant, cambio de recurso entre aprobación y ejecución, roles Reader/Admin/Owner, todas las acciones destructivas y los permisos efectivos del Service Principal en staging aislado. Ninguna prueba debe ejecutar cambios destructivos sobre recursos de clientes.
 
 ### INT-05 — Cerrar la matriz de inyección KQL y SQL
+
+**Avance (2026-10-15):** mismo bloque y limites de STRIDE-09. Escape reutilizado, catalogos runtime y pruebas agregadas; la matriz end-to-end exhaustiva permanece pendiente y no se cierra por haber agregado un helper.
 
 **Severidad:** no se confirmó vulnerabilidad en las rutas revisadas; cobertura incompleta (P2).  
 **KQL:** el helper `escapeKql` existente escapa `\` y `'` y se utiliza en los consumidores de cost groups revisados; filtros específicos se limitan a listas permitidas. Revisar el resto de consultas ARG/KQL y unificar su construcción: literales mediante helper, tipos de recurso/operadores/columnas mediante allow-list, nunca interpolar fragmentos de consulta provistos por usuario. Validar aparte que las suscripciones consultadas pertenezcan al tenant autorizado; escapar una cadena no confiere autorización.

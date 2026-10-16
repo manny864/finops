@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cronSecretForJob } from "@/lib/cronJobSecret";
+import { getInternalBaseUrl } from "@/lib/internalBaseUrl";
+import { prewarmFetch } from "@/lib/prewarmFetch";
 import crypto from "node:crypto";
 import pool from "@/modules/storage/db";
 import { errorMessage } from '@/lib/apiErrors';
@@ -16,7 +19,7 @@ const MAX_TENANTS_EN_PARALELO = 1;
 
 export async function GET(request: NextRequest) {
   try {
-    const cronSecret = process.env.CRON_SECRET;
+    const cronSecret = cronSecretForJob("sync-azure-ai");
     const authHeader = request.headers.get("Authorization") || "";
     const [scheme, token, extra] = authHeader.split(" ");
 
@@ -68,9 +71,9 @@ export async function GET(request: NextRequest) {
       MAX_TENANTS_EN_PARALELO,
       async (tenant: any) => {
         try {
-          const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-          const res = await fetch(`${baseUrl}/api/intelligence/azure-ai?tenantId=${tenant.id}`, {
-            headers: { "X-Cron-Auth": cronSecret },
+          const baseUrl = getInternalBaseUrl();
+          const res = await prewarmFetch(`${baseUrl}/api/intelligence/azure-ai?tenantId=${encodeURIComponent(tenant.id)}`, {
+            headers: { "X-Cron-Auth": (process.env.CRON_SECRET || "") },
             cache: "no-store",
           });
 

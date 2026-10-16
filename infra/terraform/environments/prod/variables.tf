@@ -213,6 +213,31 @@ variable "defender_resource_types" {
 }
 
 # --- transversal ---
+variable "production_public_client_id" {
+  description = "Referencia publica de login prod del repositorio, para impedir que runtime staging use su identidad."
+  type        = string
+  default     = null
+}
+
+variable "public_runtime_config" {
+  description = "Configuracion publica de identidad/Paddle, compartida por Terraform y deploy; nunca secretos."
+  type        = map(string)
+  default     = {}
+  validation {
+    condition = length(var.public_runtime_config) == 0 || (
+      length(var.public_runtime_config) == 6 &&
+      alltrue([for key, value in var.public_runtime_config :
+        contains([
+          "NEXT_PUBLIC_CLIENT_ID", "NEXT_PUBLIC_PADDLE_CLIENT_TOKEN",
+          "NEXT_PUBLIC_PADDLE_PRO_MONTHLY", "NEXT_PUBLIC_PADDLE_PRO_YEARLY",
+          "NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY", "NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY"
+        ], key) && trimspace(value) != ""
+      ])
+    )
+    error_message = "public_runtime_config debe estar vacio (bootstrap) o contener las seis variables publicas no vacias de identidad/Paddle."
+  }
+}
+
 variable "extra_env_vars" {
   type    = map(string)
   default = {}

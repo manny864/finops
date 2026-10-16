@@ -40,6 +40,16 @@ export interface SaveMarkupPayload {
     isMarkupEnabled: boolean;
 }
 
+export function markupStepUpPayload(tenantId: string, settings: SaveMarkupPayload) {
+    return {
+        action: 'save_partner_markup',
+        tenantId,
+        globalMarkupPercentage: settings.globalMarkupPercentage,
+        fixedManagementFeeUSD: settings.fixedManagementFeeUSD,
+        isMarkupEnabled: settings.isMarkupEnabled,
+    };
+}
+
 export interface CreateOverrideRulePayload {
     ruleName: string;
     scopeType: MarkupScopeType;

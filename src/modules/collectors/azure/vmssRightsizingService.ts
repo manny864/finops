@@ -12,9 +12,8 @@
  * capacidad proporcional al headroom libre (mismo enfoque que rightsizingEngine
  * usa para VMs individuales).
  */
-import { getResourceGraphClient, getAzureCredential } from "@/lib/azure";
+import { getResourceGraphClient, getAzureCredential, getCostManagementClient } from "@/lib/azure";
 import { MonitorClient } from "@azure/arm-monitor";
-import { CostManagementClient } from "@azure/arm-costmanagement";
 import { isMockTenant } from "@/lib/mockData";
 import { decimalToCents, centsToDecimal } from "@/lib/money";
 
@@ -94,7 +93,7 @@ export const getVmssRightsizingRecommendations = async (tenantId: string, subscr
     const costByResourceId: Record<string, number> = {};
     if (subscriptionId) {
         try {
-            const costClient = new CostManagementClient(credential);
+            const costClient = await getCostManagementClient(tenantId, credential);
             const costRes = await costClient.query.usage(`/subscriptions/${subscriptionId}`, {
                 type: "ActualCost",
                 timeframe: "MonthToDate",

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cronSecretForJob } from "@/lib/cronJobSecret";
 import { executeDueSchedules } from "@/services/powerScheduleService";
 import { recordCronRun } from "@/lib/cronRunTracker";
 
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
 async function runPowerSchedules(request: NextRequest) {
     const startedAt = Date.now();
     try {
-        const cronSecret = process.env.CRON_SECRET;
+        const cronSecret = cronSecretForJob("power-schedules");
         if (!cronSecret || cronSecret.length < 16) {
             console.error("CRON_SECRET not configured or too short");
             return NextResponse.json({ error: "Service unavailable" }, { status: 503 });

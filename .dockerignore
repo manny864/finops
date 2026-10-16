@@ -44,8 +44,8 @@ directivas
 # credenciales del service principal del VPS en ese archivo y nunca usaba la
 # managed identity del stamp, que sí tiene RBAC sobre el Key Vault.
 #
-# Las NEXT_PUBLIC_ ahora entran por --build-arg (ver Dockerfile). Son públicas
-# por definición: terminan en el bundle que se sirve al browser.
+# La configuracion publica de identidad/Paddle se inyecta en runtime y se
+# proyecta desde el layout; tampoco necesita archivos .env dentro de la imagen.
 .env
 .env.*
 !.env.example

@@ -18,7 +18,7 @@ import { assertPublicHttpsUrl } from "@/lib/webhookSecurity";
 const query = pool.query as unknown as ReturnType<typeof vi.fn>;
 
 // Clave de 32 bytes para secretCrypto (AES-256-GCM).
-process.env.MFA_ENCRYPTION_KEY = "a".repeat(64);
+process.env.APP_SECRET_ENCRYPTION_KEY = "a".repeat(64);
 
 beforeEach(() => {
     query.mockReset();
@@ -82,7 +82,7 @@ describe("saveItsmConfiguration", () => {
 
         const [sql, values] = query.mock.calls[0];
         expect(sql).toContain("itsm_api_key_encrypted");
-        const stored = (values as string[]).find((v) => typeof v === "string" && v.startsWith("enc:v1:"));
+        const stored = (values as string[]).find((v) => typeof v === "string" && v.startsWith("enc:v2:"));
         expect(stored).toBeDefined();
         // Nunca se persiste el texto plano.
         expect(values).not.toContain("token-en-claro");

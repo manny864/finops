@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cronSecretForJob } from "@/lib/cronJobSecret";
 import { syncContentSafetySnapshots } from "@/modules/collectors/azure/aiServiceCollectors";
 import pool from "@/modules/storage/db";
 
 export async function POST(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
+  const cronSecret = cronSecretForJob("sync-content-safety");
   if (!cronSecret || request.headers.get("Authorization") !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

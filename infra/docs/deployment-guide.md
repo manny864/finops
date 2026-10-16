@@ -147,8 +147,12 @@ ambientes) comparten el grupo `tfstate-firewall`, sin cancelar al job activo.
 **Límite deliberado:** el tag no implementa compare-and-swap; los operadores
 manuales deben detener/esperar estos jobs antes de usar el script. Una lease
 ajena vigente se rechaza; no ejecutar dos operadores simultáneamente.
-GitHub conserva sólo un job pendiente por grupo: puede cancelar otro que
-estuviese en espera. Comprobar las ejecuciones de ambos ambientes y relanzar
+El workflow desplegado conserva solo un job pendiente por grupo: puede cancelar
+otro que estuviese en espera. El delta de seguridad agrega `queue: max` al grupo
+global y al workflow Terraform: hasta 100 pendientes, sin cancelar al activo.
+Publicar esos workflows antes de asumir la nueva semantica; el orden corresponde
+a entrada a la cola, no dispatch, y saturacion puede cancelar nuevos jobs.
+Comprobar las ejecuciones de ambos ambientes y relanzar
 las canceladas; la programación periódica no es una garantía de plazo.
 
 El cierre `always()` va después del cierre de Key Vault, porque este último

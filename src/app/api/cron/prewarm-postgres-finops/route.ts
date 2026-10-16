@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cronSecretForJob } from "@/lib/cronJobSecret";
 import pool from "@/modules/storage/db";
 import { getInternalBaseUrl } from "@/lib/internalBaseUrl";
 import { prewarmFetch } from "@/lib/prewarmFetch";
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
 
 async function runPrewarmPostgresFinops(request: NextRequest) {
   try {
-    const cronSecret = process.env.CRON_SECRET;
+    const cronSecret = cronSecretForJob("prewarm-postgres-finops");
     if (!cronSecret || cronSecret.length < 16) {
       return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
     }
@@ -30,7 +31,7 @@ async function runPrewarmPostgresFinops(request: NextRequest) {
     );
 
     const origin = getInternalBaseUrl();
-    const headers: Record<string, string> = { "X-Cron-Auth": cronSecret };
+    const headers: Record<string, string> = { "X-Cron-Auth": (process.env.CRON_SECRET || "") };
     const results: Array<{ tenantId: string; ok: boolean; ms: number; error?: string }> = [];
 
     for (const tenant of tenants) {

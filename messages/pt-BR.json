@@ -12020,6 +12020,8 @@
     "snapshotAvailable": "Um snapshot prévio pode ser criado para permitir reverter.",
     "snapshotUnavailable": "Este tipo de recurso não admite snapshot prévio.",
     "approveAndRun": "Aprovar & Executar",
+    "executionRunning": "A execução no Azure está pendente ou não confirmada. Não reenvie a ação.",
+    "reconcileExecution": "Consultar execução",
     "historyHeading": "Histórico de Decisões",
     "historyTooltip": "Trilha de auditoria completa: quem resolveu, quando e o que o ARM respondeu. Uma aprovação que o Azure recusou figura como falha, não como aplicada.",
     "emptyHistory": "Nenhuma solicitação foi resolvida neste tenant ainda.",

@@ -1,5 +1,4 @@
-import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient, getCostManagementClient } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 
 export async function getAiServiceRealCost(
@@ -15,7 +14,7 @@ export async function getAiServiceRealCost(
   // 1. Consultar Azure Cost Management MTD
   try {
     if (sub && credential) {
-      const costMgmtClient = new CostManagementClient(credential);
+      const costMgmtClient = await getCostManagementClient(tenantId, credential);
       const scope = `/subscriptions/${sub}`;
 
       const idVariants = [

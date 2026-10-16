@@ -4,30 +4,30 @@
  *
  * Afecta: `Tenants.ai_api_key` y `GlobalSettings` (setting_key='ai_api_key').
  * Usa el mismo formato self-contained que la app (src/lib/secretCrypto.ts):
- *   enc:v1:<iv>:<authTag>:<ciphertext>
+ *   enc:v2:<iv>:<authTag>:<ciphertext>
  *
  * Idempotente: `isEncrypted()` salta las filas ya cifradas, así que es seguro
  * re-ejecutarlo. La app ya lee ambos formatos (decryptSecret hace fallback a
  * plaintext), por lo que esto no cambia el comportamiento — solo elimina el
  * texto plano en reposo.
  *
- * Correr EN EL VPS (donde MFA_ENCRYPTION_KEY y la DB real están disponibles):
+ * Correr en el entorno objetivo, con APP_SECRET_ENCRYPTION_KEY dedicada:
  *   npx tsx scripts/encrypt-existing-ai-keys.ts --dry-run   # muestra qué haría
  *   npx tsx scripts/encrypt-existing-ai-keys.ts             # aplica
  *
- * IMPORTANTE: debe usar la MISMA MFA_ENCRYPTION_KEY que la app en runtime, o
- * la app no podrá descifrar. En prod ambas vienen de Key Vault, así que OK.
+ * Debe usar la misma clave dedicada que el runtime. Para rotacion completa,
+ * usar rotate-app-secrets.ts y docs/security/app-secret-rotation.md.
  */
 import 'dotenv/config';
 import pool from '../src/modules/storage/db';
-import { encryptSecret, isEncrypted } from '../src/lib/secretCrypto';
+import { encryptSecret, isEncrypted, hasEncryptionKey } from '../src/lib/secretCrypto';
 import type { RowDataPacket } from 'mysql2';
 
 const DRY_RUN = process.argv.includes('--dry-run');
 
 async function main() {
-    if (!process.env.MFA_ENCRYPTION_KEY || process.env.MFA_ENCRYPTION_KEY.length !== 64) {
-        console.error('ERROR: MFA_ENCRYPTION_KEY no configurada (64 hex). Abortando.');
+    if (!hasEncryptionKey()) {
+        console.error('ERROR: APP_SECRET_ENCRYPTION_KEY no configurada. Abortando.');
         process.exit(1);
     }
 

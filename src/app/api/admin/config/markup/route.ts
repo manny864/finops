@@ -20,7 +20,7 @@ import {
     saveMarkupSettings,
     simulateBilling,
 } from '@/services/tenantPartnerMarkup.service';
-import { isValidFixedFee, isValidMarkupPercentage } from '@/types/tenantPartnerMarkup.types';
+import { isValidFixedFee, isValidMarkupPercentage, markupStepUpPayload } from '@/types/tenantPartnerMarkup.types';
 import { enforceMfaIfEnabled } from '@/lib/requireMfaChallenge';
 
 const MOCK_SETTINGS = {
@@ -83,12 +83,6 @@ export async function PUT(request: NextRequest) {
         await initializeDatabase();
         const identity = await requireTenantRole(request, tenantId, ['Admin', 'Owner']);
 
-        // Paridad con /api/admin/billing-markup, el endpoint que este reemplaza:
-        // cambiar el margen altera lo que se le factura al cliente final, así
-        // que exige MFA si el usuario tiene 2FA activo. Migrar sin esto habría
-        // sido una regresión de seguridad silenciosa.
-        await enforceMfaIfEnabled(request, identity.email, identity.tenantId, 'change_billing_config', { tenantId });
-
         // Rango validado contra el tipo real de la columna: DECIMAL(5,2) y
         // DECIMAL(12,2) truncan en silencio lo que no entra, así que un 1500%
         // se guardaría como otra cosa sin avisar. La ruta previa
@@ -105,6 +99,9 @@ export async function PUT(request: NextRequest) {
                 { status: 400 }
             );
         }
+        if (isMarkupEnabled !== undefined && typeof isMarkupEnabled !== 'boolean') {
+            return NextResponse.json({ error: 'isMarkupEnabled debe ser booleano.' }, { status: 400 });
+        }
 
         const [tenants] = await pool.query<any[]>('SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1', [tenantId]);
         const tier = String(tenants?.[0]?.tier || '');
@@ -113,11 +110,16 @@ export async function PUT(request: NextRequest) {
             return NextResponse.json({ error: 'Feature bloqueada. Requiere plan Enterprise.' }, { status: 403 });
         }
 
-        await saveMarkupSettings(tenantId, {
+        const settingsToSave = {
             globalMarkupPercentage,
             fixedManagementFeeUSD,
             isMarkupEnabled: isMarkupEnabled ?? true,
-        });
+        };
+        await enforceMfaIfEnabled(
+            request, identity.email, identity.tenantId, 'change_billing_config',
+            markupStepUpPayload(tenantId, settingsToSave),
+        );
+        await saveMarkupSettings(tenantId, settingsToSave);
 
         const settings = await getMarkupSettings(tenantId);
         return NextResponse.json({

@@ -1,5 +1,4 @@
-import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient, getCostManagementClient } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 
 /**
@@ -48,7 +47,7 @@ export async function getFoundryResourceCost(
   try {
     const sub = subscriptionId && subscriptionId !== "unknown" ? subscriptionId : (resourceId.split("/")[2] || "");
     if (sub && credential) {
-      const costMgmtClient = new CostManagementClient(credential);
+      const costMgmtClient = await getCostManagementClient(tenantId, credential);
       const scope = `/subscriptions/${sub}`;
 
       const query = {
@@ -229,11 +228,12 @@ export function aggregateFoundryMeters(meters: FoundryMeterUsage[]): FoundryMode
  */
 export async function getSubscriptionMeterUsage(
   credential: any,
-  subscriptionId: string
+  subscriptionId: string,
+  tenantId: string,
 ): Promise<FoundryMeterUsage[] | null> {
   if (!subscriptionId || !credential) return null;
 
-  const costMgmtClient = new CostManagementClient(credential);
+  const costMgmtClient = await getCostManagementClient(tenantId, credential);
   const body = {
     type: "ActualCost",
     timeframe: "MonthToDate",
@@ -500,7 +500,7 @@ export async function syncFoundrySnapshots(tenantId: string): Promise<void> {
     const accounts = new Map<string, FoundryMeterUsage[]>();
     let anyQuerySucceeded = false;
     for (const sub of subs) {
-      const meters = await getSubscriptionMeterUsage(credential, sub);
+      const meters = await getSubscriptionMeterUsage(credential, sub, tenantId);
       if (meters === null) continue; // throttled/failed — don't treat as empty
       anyQuerySucceeded = true;
       for (const m of meters) {

@@ -8,6 +8,7 @@
  */
 
 import pool from "@/modules/storage/db";
+import type { RowDataPacket } from "mysql2";
 import { AuthError } from "@/lib/requestAuth";
 import { evaluarFila, necesitaProcedenciaDeEtiquetas } from "./perspectives.service";
 import type { FilaDeCosto, ReglaPerspectiva, TipoRegla } from "./perspectives.service";
@@ -158,7 +159,40 @@ export async function guardarReglas(perspectiveId: number, reglas: ReglaPerspect
                 [perspectiveId, r.grupo, r.tipo, r.tipo === "tag" ? r.clave ?? null : null, r.valor, orden++],
             );
         }
+
         await conn.commit();
+    } catch (e) {
+        await conn.rollback();
+        throw e;
+    } finally {
+        conn.release();
+    }
+}
+
+/** El bloqueo del padre serializa el borrado con nuevas asignaciones por FK. */
+export async function eliminarPerspectiva(tenantId: string, id: number): Promise<boolean> {
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        const [propias] = await conn.query<RowDataPacket[]>(
+            "SELECT id FROM Perspectives WHERE id = ? AND tenant_id = ? FOR UPDATE", [id, tenantId],
+        );
+        if (!propias.length) {
+            await conn.commit();
+            return false;
+        }
+        const [asignaciones] = await conn.query<RowDataPacket[]>(
+            "SELECT perspective_id FROM UserScopes WHERE perspective_id = ? LIMIT 1 FOR UPDATE", [id],
+        );
+        if (asignaciones.length) {
+            throw new AuthError(
+                "Esta Perspective tiene usuarios con alcance asignado. Reasignalos o quitá su alcance explícitamente antes de borrarla.",
+                409, "PERSPECTIVE_IN_USE",
+            );
+        }
+        await conn.query("DELETE FROM Perspectives WHERE id = ? AND tenant_id = ?", [id, tenantId]);
+        await conn.commit();
+        return true;
     } catch (e) {
         await conn.rollback();
         throw e;
@@ -315,8 +349,8 @@ export async function alcanceDeLaRuta(
     const alcance = await filtroDeAlcance(tenantId, perspectivaEnJuego(sp, permiso), grupo);
     if (!alcance) {
         // Con permiso, que la Perspective no resuelva no puede degradar a "sin
-        // recorte". No debería pasar --borrarla cascadea la fila de UserScopes--
-        // pero si pasa, negar es la única respuesta que no filtra.
+        // recorte". Si la referencia deja de resolver, negar es la única
+        // respuesta que no amplía el permiso.
         if (permiso) throw new AuthError("Tu alcance asignado no se pudo resolver.", 403, "SCOPE_UNRESOLVED");
         return SIN_RECORTE;
     }

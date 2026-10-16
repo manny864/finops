@@ -14,6 +14,7 @@ import { AuthError, requireTenantRole } from '@/lib/requestAuth';
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 import { isMockTenant } from '@/lib/mockData';
 import { assertPublicHttpsUrl } from '@/lib/webhookSecurity';
+import { safeExternalFetch } from '@/lib/safeExternalFetch';
 import { getItsmCredentials } from '@/services/tenantConfiguration.service';
 import type { ItsmSystemType } from '@/types/tenantConfiguration.types';
 
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), TEST_TIMEOUT_MS);
         try {
-            const res = await fetch(probe.path, {
+            const res = await safeExternalFetch(probe.path, {
                 method: 'GET',
                 headers: {
                     Authorization: authHeaderFor(creds.system, creds.userEmail, creds.apiKey),

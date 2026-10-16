@@ -17,8 +17,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getCostManagementClient } from "@/lib/azure";
 import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate, invalidateCache } from "@/lib/cache";
 import { isMockTenant } from "@/lib/mockData";
@@ -50,7 +49,7 @@ async function fetchCostByResource(tenantId: string): Promise<Record<string, num
   }
   if (subs.length === 0) return out;
 
-  const client = new CostManagementClient(credential);
+  const client = await getCostManagementClient(tenantId, credential);
   const col: CostColumn = await resolveCostColumn(tenantId);
   const endDate = new Date();
   const startDate = new Date();

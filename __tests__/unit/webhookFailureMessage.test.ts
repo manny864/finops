@@ -11,6 +11,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 vi.mock("@/lib/webhookSecurity", () => ({
     assertSafeWebhookUrl: vi.fn(async (u: string) => new URL(u)),
 }));
+vi.mock("@/lib/safeExternalFetch", () => ({
+    safeWebhookFetch: (url: string, init: RequestInit) => fetch(url, init),
+}));
 vi.mock("@/modules/storage/db", () => ({ default: { query: vi.fn(async () => [[]]) } }));
 
 const { deliverToChannel } = await import("@/lib/notifications");

@@ -12,6 +12,7 @@
 
 import { TokenCredential } from "@azure/identity";
 import { getResourceGraphClient } from "@/lib/azure";
+import { escapeKql } from "@/lib/kql";
 import { errorMessage } from '@/lib/apiErrors';
 
 export interface MissingTagsRow {
@@ -92,11 +93,12 @@ export async function analyzeMissingTags(
     subscriptionId: string,
     options: { tagKeys?: string[]; limit?: number } = {}
 ): Promise<MissingTagsRow[]> {
+    const limit = options.limit ?? 500;
+    if (!Number.isInteger(limit) || limit < 1 || limit > 5000) throw new Error("Tag inheritance limit must be an integer between 1 and 5000.");
     const client = await getResourceGraphClient(tenantId, credential);
-    const limit = options.limit || 500;
 
     const subFilter = subscriptionId && subscriptionId !== "All"
-        ? `| where subscriptionId =~ '${subscriptionId}'`
+        ? `| where subscriptionId =~ '${escapeKql(subscriptionId)}'`
         : "";
 
     // Une recursos con su RG y compara tags. Excluye recursos sin RG (raros).

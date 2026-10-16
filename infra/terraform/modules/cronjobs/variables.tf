@@ -68,6 +68,10 @@ variable "jobs" {
     condition     = alltrue([for k, v in var.jobs : length(coalesce(v.name, "cron-${k}")) <= 32])
     error_message = "Algún job supera los 32 caracteres de nombre que permite Container Apps. Usar el campo `name` para acortarlo."
   }
+  validation {
+    condition     = alltrue([for job in values(var.jobs) : job.auth_mode == "header"])
+    error_message = "Cron credentials must use headers; query authentication is not supported."
+  }
 }
 
 variable "alerts_enabled" {

@@ -12,6 +12,10 @@ vi.mock("@/modules/storage/db", () => ({ default: { query: poolQuery } }));
 vi.mock("@/lib/azure", () => ({
     getSubscriptionsForTenant: vi.fn(async () => ["sub-1"]),
     getAzureCredential: vi.fn(async () => ({})),
+    getCostManagementClient: async () => {
+        const { CostManagementClient } = await import("@azure/arm-costmanagement");
+        return new CostManagementClient({ getToken: async () => null });
+    },
     getResourceGraphClient: vi.fn(async () => ({
         resources: vi.fn(async ({ query }: { query: string }) => ({
             data: /bag_keys/.test(query)

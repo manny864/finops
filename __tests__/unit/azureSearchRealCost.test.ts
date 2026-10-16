@@ -11,6 +11,7 @@ vi.mock("@/modules/storage/db", () => ({
 
 vi.mock("@azure/arm-costmanagement", () => ({
   CostManagementClient: class {
+    pipeline = { removePolicy: vi.fn(), addPolicy: vi.fn() };
     query = {
       usage: vi.fn().mockResolvedValue({ rows: [[34.61]] }),
     };

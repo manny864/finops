@@ -1,4 +1,5 @@
 import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
+import { escapeKql } from "@/lib/kql";
 import {
     calculateEmissions,
     calculateDiskEmissions,
@@ -147,7 +148,7 @@ export class AzureSustainabilityService {
             }
 
             const subFilter = subscriptionId && subscriptionId.toLowerCase() !== "all"
-                ? `| where subscriptionId =~ '${subscriptionId}'`
+                ? `| where subscriptionId =~ '${escapeKql(subscriptionId)}'`
                 : "";
 
             // 1. Active VMs

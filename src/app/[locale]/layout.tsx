@@ -11,6 +11,8 @@ import CommandPalette from "@/components/CommandPalette";
 import GlobalCopilot from "@/components/GlobalCopilot";
 import BrowserNotificationProvider from "@/components/BrowserNotificationProvider";
 import { cookies, headers } from 'next/headers';
+import PublicRuntimeConfigProvider from "@/components/PublicRuntimeConfigProvider";
+import { getPublicRuntimeConfig } from "@/lib/publicRuntimeConfig";
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -68,6 +70,7 @@ export default async function RootLayout({
     <html lang={locale} suppressHydrationWarning className={`${montserrat.variable} ${openSans.variable}`}>
       <body className="font-sans antialiased text-gray-900 bg-gray-50">
         <NextIntlClientProvider messages={messages} locale={locale}>
+          <PublicRuntimeConfigProvider config={getPublicRuntimeConfig()}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem nonce={nonce}>
             <Toaster richColors position="bottom-right" theme="system" />
             {/* Captura `?ref=` de los links de afiliado. Fuera de ClientShell y
@@ -81,6 +84,7 @@ export default async function RootLayout({
               <BrowserNotificationProvider />
             </ClientShell>
           </ThemeProvider>
+          </PublicRuntimeConfigProvider>
         </NextIntlClientProvider>
       </body>
     </html>

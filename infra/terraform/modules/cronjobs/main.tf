@@ -79,9 +79,8 @@ locals {
   runner = <<-JS
     const url = process.env.CRON_URL;
     const secret = process.env.CRON_SECRET;
-    const useQuery = process.env.CRON_AUTH_MODE === 'query';
-    const target = useQuery ? `$${url}?secret=$${encodeURIComponent(secret)}` : url;
-    const headers = useQuery ? {} : { Authorization: `Bearer $${secret}` };
+    const target = url;
+    const headers = { Authorization: `Bearer $${secret}` };
     const started = Date.now();
 
     // SALIDA LIMPIA, no `process.exit()` a secas.
@@ -108,7 +107,7 @@ locals {
       if (t.unref) t.unref();
     };
 
-    fetch(target, { headers, signal: AbortSignal.timeout(Number(process.env.CRON_TIMEOUT_MS || 540000)) })
+    fetch(target, { headers, redirect: 'error', signal: AbortSignal.timeout(Number(process.env.CRON_TIMEOUT_MS || 540000)) })
       .then(async (r) => {
         const body = await r.text().catch(() => '');
         console.log(JSON.stringify({ job: process.env.CRON_JOB, status: r.status, ms: Date.now() - started, body: body.slice(0, 500) }));
@@ -127,11 +126,9 @@ locals {
   runner_async = <<-JS
     const url = process.env.CRON_URL;
     const secret = process.env.CRON_SECRET;
-    const useQuery = process.env.CRON_AUTH_MODE === 'query';
-    const headers = useQuery ? {} : { Authorization: `Bearer $${secret}` };
+    const headers = { Authorization: `Bearer $${secret}` };
     const withQs = (extra) => {
-      const qs = [useQuery ? `secret=$${encodeURIComponent(secret)}` : '', extra].filter(Boolean).join('&');
-      return qs ? `$${url}?$${qs}` : url;
+      return extra ? `$${url}?$${extra}` : url;
     };
     const pollIntervalMs = Number(process.env.CRON_POLL_INTERVAL_MS || 15000);
     const overallTimeoutMs = Number(process.env.CRON_TIMEOUT_MS || 540000);
@@ -157,7 +154,7 @@ locals {
     // log cada ~15s, o sea exactamente pollIntervalMs. Si el fetch estuviera
     // esperando de verdad su timeout de red, el intervalo sería ~45s
     // (15s de sleep + 30s de timeout). Rechazaban en 0ms.
-    const shortTimeout = () => ({ signal: AbortSignal.timeout(30000) });
+    const shortTimeout = () => ({ redirect: 'error', signal: AbortSignal.timeout(30000) });
     // Cortar antes si el polling está roto de raíz (DNS, auth, ingress caído):
     // sin esto, un endpoint inalcanzable mantiene el job vivo ~1h antes de
     // reportar nada. 20 fallos seguidos ≈ 5 min sin una sola respuesta válida,
@@ -331,12 +328,6 @@ resource "azurerm_container_app_job" "this" {
       env {
         name  = "CRON_URL"
         value = "${var.app_url}/api/cron/${each.key}"
-      }
-
-      env {
-        name = "CRON_AUTH_MODE"
-        # status-snapshot autentica por query param, no por header.
-        value = each.value.auth_mode
       }
 
       env {

@@ -51,7 +51,7 @@ describe('ExecutiveReportHistory Service', () => {
         expect(res.reports[0].scopeDisplayName).toContain('Production');
     });
 
-    it('should generate ephemeral SAS download link', async () => {
+    it('should generate an authenticated local download link with informational expiry', async () => {
         const mockTenantId = 'demo-tenant-finops';
         const sas = await generateDownloadSas({
             tenantId: mockTenantId,

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cronSecretForJob } from "@/lib/cronJobSecret";
 import { initializeDatabase } from "@/modules/storage/db";
 import { serverError } from "@/lib/apiErrors";
 import { aiCachePurgeExpired } from "@/lib/aiCache";
@@ -9,7 +10,7 @@ import { aiCachePurgeExpired } from "@/lib/aiCache";
  */
 export async function GET(request: NextRequest) {
     try {
-        const cronSecret = process.env.CRON_SECRET;
+        const cronSecret = cronSecretForJob("ai-cache-purge");
         if (!cronSecret || cronSecret.length < 16) {
             console.error("CRON_SECRET not configured or too short");
             return NextResponse.json({ error: "Service unavailable" }, { status: 503 });

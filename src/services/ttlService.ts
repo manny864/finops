@@ -106,6 +106,7 @@ export async function findExpiredResources(tenantId: string) {
  * /api/cleanup/ttl/unlabeled).
  */
 export async function getUnlabeledResources(tenantId: string, resourceType: TtlResourceType) {
+    if (!TTL_RESOURCE_TYPES.some(type => type === resourceType)) throw new Error("Unsupported TTL resource type.");
     const credential = await getAzureCredential(tenantId);
     const client = await getResourceGraphClient(tenantId, credential);
 

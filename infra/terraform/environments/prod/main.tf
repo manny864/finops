@@ -96,6 +96,14 @@ resource "azurerm_resource_group" "global" {
   tags     = local.tags
 
   lifecycle {
+    precondition {
+      condition = var.environment != "staging" || length(var.public_runtime_config) == 0 || (
+        trimspace(var.production_public_client_id == null ? "" : var.production_public_client_id) != "" &&
+        lookup(var.public_runtime_config, "NEXT_PUBLIC_CLIENT_ID", "") != var.production_public_client_id &&
+        startswith(lookup(var.public_runtime_config, "NEXT_PUBLIC_PADDLE_CLIENT_TOKEN", ""), "test_")
+      )
+      error_message = "Runtime staging requiere referencia prod, client ID distinto y token Paddle sandbox; no se permite fallback a identidad/facturacion prod."
+    }
     # PERIM-07: el webhook falla cerrado sin audiencia. En prod eso es una caída
     # silenciosa del ciclo de vida Marketplace, así que se corta en el plan.
     precondition {
@@ -258,6 +266,7 @@ module "stamp" {
     var.extra_env_vars,
     each.value.extra_env_vars,
     jsondecode(file("${path.module}/paddle-price-ids.json")),
+    var.public_runtime_config,
     # PERIM-03/05: la app sólo usa cf-connecting-ip como clave de cuota si el
     # ingress está cerrado a Cloudflare; con el origen abierto lo elige el cliente.
     { TRUST_CLOUDFLARE_CLIENT_IP = tostring(var.origin_cloudflare_only) },

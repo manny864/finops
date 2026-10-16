@@ -59,6 +59,7 @@ export interface PendingApprovalItem {
   description?: string;
   /** Solo en el dataset demo: clave i18n de la descripcion. */
   descriptionKey?: string;
+  armExecutionStatus?: "Running";
 }
 
 export interface ApprovalHistoryItem {
@@ -97,7 +98,7 @@ export interface ApprovalsPayload {
 
 export interface ResolveApprovalPayload {
   approvalId: string;
-  decision: "APPROVE" | "REJECT";
+  decision: "APPROVE" | "REJECT" | "RECONCILE";
   rejectionReason?: string;
   createBackupSnapshot?: boolean;
 }

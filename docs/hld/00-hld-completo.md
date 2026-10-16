@@ -1,9 +1,9 @@
 # High-Level Design (HLD) — CSCloudSolutions FinOps Platform
 
-**Versión:** 1.2\
-**Fecha:** 2026-10-15\
+**Versión:** 1.3\
+**Fecha:** 2026-10-16\
 **Autor:** Equipo de Arquitectura Cloud & FinOps — CSCloudSolutions  
-**Estado:** Aprobado para Producción
+**Estado:** Arquitectura vigente; delta 1.3 implementado en rama, pendiente de despliegue
 
 ---
 
@@ -1830,7 +1830,9 @@ Se mantiene la apertura/cierre temporal y el reconciliador cada 15 minutos.
 Ese intervalo limpia reglas vencidas, **no despliega la aplicación**. La
 expiración es metadata, no TTL nativo de Azure; una caída de Actions/ARM retrasa
 la limpieza. Los jobs autenticados comparten `tfstate-firewall`: GitHub puede
-cancelar otro pendiente. Operar ambientes en serie y restaurar siempre el
+cancelar otro pendiente con la configuracion desplegada. El delta 1.3 propone
+`queue: max` manteniendo la exclusion global, hasta 100 pendientes; no elimina
+cancelaciones al saturar la cola ni garantiza plazo de limpieza. Operar ambientes en serie y restaurar siempre el
 reconciliador tras una pausa de mantenimiento.
 
 La baja requiere migrar consumidores, retirar registros de GitHub y ACL de
@@ -1851,5 +1853,242 @@ archivo comprobados. Reconciliador `38824588719` correcto en ambas VMs.
 Storage final en Deny/bypass None, ambas subredes Succeeded, sin IPs temporales
 ni lease ARM residual; acceso autenticado externo rechazado. Cada vault permite
 solo su subred de runner. Ambos `/api/health` devolvieron 200. **INFRA-09 cerrado.**
-No se declara resuelta la facturación de hosted; el `/api/status` público de
-staging tiene snapshot vencido (503), distinto del health probe, y queda aparte.
+No se declara resuelta la facturación de hosted. El snapshot vencido observado
+antes se recupero: el 2026-10-16, `/api/status` staging devuelve 200 con snapshot
+vigente y componentes Sync/IA degradados; no se cambia ese estado a operacional.
+
+## 23. Addendum 2026-10-16 — Fronteras de seguridad y artefactos
+
+Este delta corresponde a `fix/remaining-security-remediations`, no a una
+remediacion ya desplegada en ACA. El cierre INFRA-09 y la topologia del apartado
+22 permanecen vigentes. No se han rotado claves ni migrado datos reales.
+
+| Frontera | Cambio implementado | Limite o gate restante |
+|---|---|---|
+| Aprobacion humana → ARM | Legacy/movil delegan al flujo canonico; cuatro ojos, claim SQL durable y conciliacion GET controlada por operador | Sin referencia durable se requiere Activity Logs; no reejecutar ni continuar DELETE automaticamente |
+| Integraciones → Internet | Transporte comun valida DNS y fija IP publica al socket; conserva TLS/SNI, bloquea redirects y acota tiempo/respuesta | Integraciones reales aun no verificadas tras despliegue |
+| Secretos → persistencia | Envelope v2 con clave dedicada; v1 solo con clave legacy explicita; migrador transaccional y dry-run | Backup/restore, referencias versionadas y migracion real por ambiente |
+| Tenant → Cost Management/ARM | Scope por request y paginacion; catalogo cerrado de acciones y validacion dentro del ejecutor | Custom Roles efectivos y matriz completa de aislamiento |
+| Job → API interna | Clave por nombre fijo de job y origen self-fetch configurado, nunca Host/puerto entrante | Compatibilidad con root temporal; faltan identidades/referencias por job y modo estricto |
+| Datos → consultas | Escape KQL compartido, filtros OR agrupados, limites y catalogos runtime | Cobertura parcial; no certifica todas las consultas ni caches |
+| Build → ACA | Base/frontend por digest; SBOM/procedencia BuildKit; migrador independiente de la compilacion web; staging construye y prod importa los mismos digests, sin rebuild | Rollout/import ACR pendiente; metadata no firmada; imagen final runtime bloqueada por memoria local |
+
+### 23.1 Gate de despliegue y compatibilidad
+
+El workflow reutilizable falla antes de build/migraciones si no existe una
+referencia versionada de Key Vault para `APP_SECRET_ENCRYPTION_KEY` y la
+confirmacion de ambiente `APP_SECRET_MIGRATION_READY=true`. Esta confirmacion es
+operativa, no prueba criptografica de una restauracion o de la fortaleza de la
+clave. El primer despliegue v2 requiere ventana controlada y coordinacion de
+trafico/jobs segun [runbook de claves](../security/app-secret-rotation.md).
+Rollback requiere imagen, datos y clave compatibles; no basta volver la imagen.
+
+### 23.2 Pendientes que impiden declarar el cierre completo
+
+La politica de lectura por identidad del directorio frente a alta SaaS activa
+(STRIDE-03) no se cambia sin decision funcional. Faltan rollout del conciliador ARM, revision
+de permisos reales, matriz tenant/SQL/cache completa y segmentacion efectiva de
+jobs; [runbook de cron](../security/cron-credential-migration.md).
+
+Las respuestas ARM aceptadas o inciertas (timeout, transporte, 408/5xx o cuerpo
+ilegible despues de enviar) conservan `Running` y su propietario original. La
+interfaz no muestra exito ni ofrece aprobar/rechazar/reintentar esas solicitudes.
+`RECONCILE` consulta una vez una referencia ARM validada; no es un scheduler ni
+envia mutaciones. Un snapshot conciliado no reanuda el borrado. Una interrupcion
+antes de persistir la referencia exige investigacion manual en Activity Logs.
+
+INFRA-11 conserva firma privada pendiente (GitHub Pro no habilita
+attestations privadas; no se autorizan pagos ni publicacion de datos en un log de
+transparencia externo). La configuracion publica de identidad/Paddle ahora se
+proyecta en runtime desde el layout dinamico mediante una allowlist de seis
+valores, sin claves privadas ni scripts inline propios. Login, precios, checkout
+y CSP usan el ambiente de runtime. Terraform y deploy reciben las mismas
+variables para evitar que un apply elimine la configuracion.
+
+La promocion exige evidencia v2 de una ejecucion staging exitosa para el SHA
+de main elegido, verifica commit/run/intento y repositorio, e importa runtime y
+migrador por digest con Entra ID. Compara ambos digests tras el import y los
+somete a smoke antes de migrar. Evidencia vieja de builds por ambiente se
+rechaza; su ausencia o vencimiento requiere un nuevo deploy staging.
+Esto esta implementado, no operado en ACR/ACA. El mismo build nativo sirvio dos
+configuraciones sinteticas distintas, con identidad SSR y CSP sandbox/live
+correctas. La imagen amd64 del migrador ahora se construye desde `deps`, sin
+compilar Next ni copiar fuentes web. Se comprobaron uid 1002, codigo no
+escribible, 159 SQL y CLI contra MySQL desechable con datos sinteticos
+(aplicar, omitir al repetir y fallo explicito). SBOM y procedencia estan
+presentes en el OCI local; no son firma ni evidencia de ACR.
+Se conserva `node_modules` completo, no dependencias minimas.
+El runtime sigue bloqueado por memoria de Docker (~3,8 GiB), incluso al probar
+webpack; se retiro ese cambio. El build nativo de aplicacion paso,
+pero no sustituye la validacion de runtime final. Escaneo final de ambas
+imagenes, migraciones reales y rollout siguen pendientes.
+
+CI/deploy hosted sigue bloqueado por pagos/limite de gasto, confirmado en el run
+`38829100160`. No se trasladan PRs a las VMs confiables ni se rebaja ningun gate.
+
+La matriz multitenant de auditoria detecto y elimino un bypass por `mock=true`
+en tres rutas: el flag omitia OAuth aunque el servicio consultara filas reales.
+La demo anonima queda limitada a tenants sinteticos reconocidos. Cuatro rutas
+de consulta/exportacion se probaron con dos identidades RS256 y MySQL
+desechable, incluyendo rol, suspension, formatos, filtros y membresia cruzada
+explicitamente autorizada; AiCache se verifico con SQL real. CI agrega el
+servicio MySQL fijado por digest y un gate dedicado. No hay despliegue ni
+certificacion global de reportes/Redis/SWR por estas pruebas.
+
+La misma correccion se extendio a `/api/admin/billing`: el flag tambien podia
+exponer plan, compania y facturas reales sin autorizacion. La matriz ampliada
+cubre cinco handlers (cuatro de auditoria y uno de facturacion), con 31 casos
+SQL y 15 regresiones sin DB; comprueba tambien IDs e importes de facturas
+propias sin llamar a Paddle ni cobrar.
+
+Siete pruebas adicionales usan Redis desechable y los helpers reales de cache:
+claves de auditoria, anomalias y periodos Cost Groups, separacion tenant/scope,
+deduplicacion y refresh concurrentes, invalidacion selectiva, expiracion y
+fallos/degradacion. CI agrega Redis por digest; no se usa el Redis de la app.
+Esto reduce cobertura pendiente de SWR, pero no certifica todos los
+consumidores ni autorizacion HTTP sobre entradas cacheadas.
+
+Step-up de markup ahora vincula accion, tenant y todos los valores sensibles
+(porcentaje, tarifa e interruptor), con DTO compartido servidor/cliente. El
+servidor valida plan y tipos antes de consumir MFA; la escritura legacy exige
+Admin/Owner y un binding distinto de importe. Challenges antiguos solo por
+tenant se rechazan, sin desactivar MFA opt-in. Handlers y SQL reales comprobaron
+un solo exito concurrente y rechazo de valores sustituidos; el factor se
+simulo como previamente verificado. Implementado en rama, pendiente rollout.
+
+Cambio de plan vincula accion/tenant/tier/ciclo/prorrateo con DTO compartido
+y snapshot UI; cancelacion vincula accion/tenant/momento efectivo. Suscripcion
+y precio se resuelven desde tenant/catalogo en servidor. Sin clave Paddle,
+cancelar devuelve 503 sin modificar estado ni simular exito; webhook sigue
+siendo fuente de verdad. MySQL real y Paddle sintetico comprueban binding,
+single-use concurrente y errores sin falsa baja. No hay cargos/cancelaciones
+reales ni despliegue; se conserva MFA opt-in.
+
+Quince casos adicionales verifican historial de reportes con handlers, SQL y
+Azure Blob SDK reales contra Azurite local: IDs/targets cruzados, suspension,
+JSON/PDF, filtros y borrado selectivo de filas/blobs. Un prefijo Blob ajeno
+tampoco se resuelve desde una fila propia. El enlace de descarga es una ruta
+autenticada, no un SAS publico; expiresAt no impone expiracion. CI provisiona
+el emulador por digest, cuenta sintetica y tmpfs con limpieza explicita. No
+se certifican por esto RBAC Azure ni todos los objetos/cache de la aplicacion.
+
+Cost Groups cierra el catalogo de columnas del desglose en tipo y runtime,
+con limite entero 1..100 antes de SQL. Los llamadores existentes ya usaban
+constantes: es endurecimiento de frontera, no explotacion remota confirmada.
+Ocho casos MySQL adicionales verifican costos por tenant y Perspectives:
+el permiso asignado prevalece sobre la URL; una Perspective ajena no resuelve
+y el recorte SQL excluye costos fuera del grupo. Quince regresiones de
+catalogo/limites conservan Decimal/Other. Sin cambio de politica de admision
+ni certificacion del handler completo de Cost Groups o Resource Graph.
+
+Notificaciones ahora aplica el mismo limite tenant/destinatario a lectura,
+marcado individual/masivo y borrado. Antes las escrituras permitian alterar
+avisos privados de otro usuario del mismo tenant; no se confirma lectura de
+su contenido. Ambos PATCH y DELETE usan identidad del guard, no email del
+body. Descartar broadcast ya no usa anonymous; markAllAsRead exige booleano.
+Avisos tenant-wide conservan estado compartido. Catorce casos SQL reales y
+cinco regresiones verifican esos limites; implementado en rama, sin rollout.
+
+Descartar anuncios tambien exige pertenencia al tenant y vigencia publicada.
+El endpoint general permite canales visibles; ambos PATCH de notificaciones
+solo aceptan el canal notification. Un fallo SQL devuelve error y no deriva
+en marcar otros avisos como leidos. Se mantiene el estado por anuncio/email,
+no por tenant, y no se afirma atomicidad frente a cambios de publicacion.
+Cinco casos SQL y cinco unitarios adicionales amplian la matriz a 90 casos;
+suite completa 6338 pass/76 skip. Detalle y limites en LLD 52.11, sin rollout.
+
+La consulta de permisos de Perspective ya no degrada a acceso sin recorte
+cuando SQL falla: devuelve 503 SCOPE_LOOKUP_UNAVAILABLE. Una consulta exitosa
+sin asignacion mantiene el comportamiento previo; cron conserva su excepcion
+explicita y la politica de membresia no cambia. El rollout requiere UserScopes
+migrada y accesible. Un caso MySQL real y cinco unitarios verifican este limite;
+matriz 91 casos, suite6344pass/76skip. Detalle en LLD52.12, sin rollout.
+
+El borrado de una Perspective con alcances asignados ahora devuelve409 en
+vez de devolver silenciosamente a esos usuarios la vista completa del tenant.
+Se exige reasignar o retirar el alcance explicitamente; transaccion/bloqueo
+del padre y FK existente serializan nuevas asignaciones. Sin usuarios,
+el borrado de Perspective/reglas se conserva; no cambia la purga del tenant
+ni se protege SQL administrativo externo. Siete casos SQL y cuatro unitarios
+amplian la matriz a98; suite6355pass/76skip. Manuales e indice de soporte
+actualizados. Detalle en LLD52.13, sin rollout.
+
+Vistas guardadas ya no confunde un JWT sin email con el propietario vacio
+reservado a las vistas compartidas. GET/POST/DELETE personal rechazan esa
+identidad con401, evitando sobrescribir una vista compartida por el flujo
+personal sin Admin/Owner. No se cambia politica global de admision.
+Siete casos SQL y tres unitarios adicionales; matriz105 y suite6365pass/76skip.
+Detalle en LLD52.14, implementado en rama, sin rollout.
+
+El alcance asignado comprueba email y OID del JWT mediante la fila Users del
+mismo tenant. Omitir/cambiar solo el email del token ya no pierde un recorte
+asociado al objeto Entra registrado. Asignaciones ambiguas fallan503, sin
+seleccion arbitraria; no se normaliza el email de identidad ni se modifica
+la admision STRIDE-03. No es migracion de UserScopes a OID: cambios en email
+persistido requieren gestionar asignaciones. Cuatro casos SQL y tres unitarios
+amplian matriz109; suite6372pass/76skip. Detalle LLD52.15, sin rollout.
+
+Suscripciones de reportes incorpora ocho casos de aislamiento con SQL/JWT
+reales para listado, creacion, borrado, roles, suspension y renderizado
+por Perspective/grupo local. No se detecta cruce de tenant en esos caminos;
+no se cambia codigo productivo ni se envia correo. Matriz117,
+suite6380pass/76skip. Cron/entrega efectiva fuera de este alcance;
+detalle LLD52.16, sin rollout ni cierre global.
+
+Crear suscripciones humanas exige email verificado ademas de Admin/Owner,
+para no persistir created_by vacio que el cron no pueda vincular a una cuenta
+suspendida. JWT de Admin por OID sin email devuelve401 antes de SQL/envio;
+procesos historicos sin autor no cambian. Un caso SQL y dos unitarios;
+matriz118, suite6383pass/76skip. Detalle LLD52.17, sin rollout.
+
+Polling de jobs ejecutivos exige tenant tambien al servir cache en memoria,
+no solo en SQL. Antes un jobId conocido podia devolver estado/reporte de
+otro tenant, incluso desde el handler demo publico. Ahora el cache ajeno
+no es un hit; demo conserva respuesta sintetica sin metadata privada y real
+consulta por id+tenant. Seis regresiones, incluidos handlers reales;
+suite sin servicios6262pass/188skip. No se repite SQL/Redis/Blob en este bloque;
+ultima matriz real118casos en dc04cd0. Detalle LLD52.18, sin rollout.
+
+Inicio y worker de reportes ejecutivos ya comparten un alcance coherente:
+TENANT_ALL fuerza scopeId=All, el servicio valida pertenencia antes de
+persistir y el worker antes de recolectar. El body contradictorio no se
+convierte en consulta de suscripcion sin validacion. Fallo worker marca
+FAILED sin datos. El helper conserva cache de pertenencia60s; no implica
+revocacion inmediata ni reautorizacion humana al enviar. Once regresiones,
+suite sinservicios6273pass/188skip;detalleLLD52.19,sinrollout.
+
+El solicitante real del job exige email verificado y captura OID del JWT,
+sin destinatario sintetico ni sustitucion desde body. Worker vuelve a
+comprobar suspension/alcance antes de recolectar y, junto con pertenencia
+de suscripcion, antes del correo. Rechazo/falloSQL impide envio y se
+registra sin marcar timestamp de envio; reporte ya generado conserva
+su estado completado para el tenant. Catorce regresiones;sinservicios
+6287pass/188skip;detalleLLD52.20. No cambia membresia STRIDE03 ni cancela
+atomicamente recoleccion/envio en curso;pertenenciaAzure conserva cache60s.
+
+El despachador de suscripciones programadas y Enviar ahora exige fila
+activa tenant/id con alcance y destinatarios sin cambios, y consulta el
+estado/alcance del autor antes de generar y de cada correo. Un cambio o
+fallo SQL corta el despacho; el cron lo cuenta como fallida y warning,
+sin marcar periodo enviado. Preserva procesos sin autor y politica de
+directorio existente. Quince regresiones unitarias y nueve MySQL reales;
+full con MySQL6416pass/98skip, sin Redis/Azurite/cloud. DetalleLLD52.21;
+sin cancelacion atomica ni idempotencia por destinatario.
+
+Lecturas de polling, job activo y reporte reciente ahora comprueban
+pertenencia actual de suscripcion tanto en cache como en SQL; el cache
+reciente conserva scopeID del job. Cinco regresiones adicionales,
+sinservicios6307pass/197skip;lint/typecheck/build correctos.
+DetalleLLD52.22;cacheAzure60s preservado,sinrevocacioninstantanea.
+
+El envio ejecutivo manual reautoriza identidad y suscripcion despues
+de compilar el adjunto, antes del transporte. Usa company_name real del
+tenant. Ocho regresiones nuevas+cinco Lighthouse=13pass focales;
+typecheck/lint/build correctos, sin full ni cloud repetidos.
+DetalleLLD52.23;politica de destinatarios y STRIDE03 sin cambios.
+
+Datos ejecutivos y descarga HTML/PDF reautorizan identidad/pertenencia
+tras generar y antes de responder, sin devolver contenido ante rechazo.
+Veinticuatro regresiones nuevas. Full final con MySQL/Redis/Azurite
+desechables6475pass/76skip;lint/typecheck/build correctos.
+DetalleLLD52.24. No equivale a CI hosted/amd64/rollout ni cierre global.

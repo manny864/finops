@@ -56,6 +56,7 @@ const MECANISMOS = [
     "requireTenantRole",
     "requireLoadTestServicePrincipal",
     "CRON_SECRET",
+    "cronSecretForJob",
     "x-cron-auth",
     "verifyApiKey",
     "authenticateMcpToken",
@@ -73,6 +74,7 @@ const MECANISMOS = [
  */
 const PUBLICAS: Record<string, string> = {
     "src/app/api/health/route.ts": "liveness probe del Container App",
+    "src/app/api/config/public/route.ts": "allowlist explicita de seis valores publicos de login/Paddle; sin datos de tenant, claves privadas ni cache",
     "src/app/api/status/route.ts": "status page publica",
     "src/app/api/pricing/plans/route.ts": "precios de la landing",
     "src/app/api/pricing/modules/route.ts": "precios de modulos y add-ons",

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
+import { getAzureCredential, getResourceGraphClient, getCostManagementClient } from "@/lib/azure";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
@@ -51,7 +50,7 @@ export async function GET(request: NextRequest) {
 
             // 2. Costos por (subscriptionId, resourceGroup) — clave compuesta para evitar
             //    colisiones cross-sub (mismo nombre de RG en distintas subs).
-            const costClient = new CostManagementClient(credential);
+            const costClient = await getCostManagementClient(tenantId, credential);
             const scope = `/providers/Microsoft.Management/managementGroups/${tenantId}`;
 
             // Clave: `${subId}::${rgLower}` -> cost

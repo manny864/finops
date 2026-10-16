@@ -1,6 +1,5 @@
-import { CostManagementClient } from "@azure/arm-costmanagement";
 import Decimal from "decimal.js";
-import { getResourceGraphClient } from "@/lib/azure";
+import { getResourceGraphClient, getCostManagementClient } from "@/lib/azure";
 import { findCostColumnIndex, withCostColumn } from "@/lib/azureCostColumn";
 import { withRetry } from "@/modules/collectors/azure/billing/billingHelpers";
 import { redis } from "@/lib/redis";
@@ -306,7 +305,7 @@ async function fetchSubscriptionCosts(
   if (cached) return cached;
 
   const snapshot: SubscriptionCostSnapshot = { byResourceId: {}, byType: {}, errors: [] };
-  const cm = new CostManagementClient(credential);
+  const cm = await getCostManagementClient(tenantId, credential);
 
   try {
     // Con reintento: Cost Management responde 429 con facilidad y sin esto un

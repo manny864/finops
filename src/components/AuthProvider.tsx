@@ -8,13 +8,12 @@ import { exitDemoSession } from "@/app/_actions/demoAuth";
 import UserProfileMenu from "./UserProfileMenu";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
+import { usePublicRuntimeConfig } from "./PublicRuntimeConfigProvider";
 
-const pca = new PublicClientApplication({
+function createClientApplication(clientId: string) {
+    return new PublicClientApplication({
     auth: {
-        clientId:
-            process.env.NEXT_PUBLIC_CLIENT_ID ||
-            process.env.NEXT_PUBLIC_AZURE_CLIENT_ID ||
-            "876d8a5b-6023-4484-b3ba-73c186e4a72b",
+        clientId,
         authority: "https://login.microsoftonline.com/common",
         redirectUri: typeof window !== "undefined" ? window.location.origin : "/",
     },
@@ -23,6 +22,7 @@ const pca = new PublicClientApplication({
         cacheLocation: "localStorage",
     },
 });
+}
 
 export const AuthLoadingContext = createContext({ isInitializing: true });
 export const useAuthLoading = () => useContext(AuthLoadingContext);
@@ -75,6 +75,8 @@ export function AuthButton() {
 
 export default function AuthProvider({ children }: { children: ReactNode }) {
     const t = useTranslations("Common");
+    const { clientId } = usePublicRuntimeConfig();
+    const [pca] = useState(() => createClientApplication(clientId));
     const [msalInitialized, setMsalInitialized] = useState(false);
 
     useEffect(() => {
@@ -143,7 +145,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         return () => {
             isMounted = false;
         };
-    }, []);
+    }, [pca]);
 
     if (!msalInitialized) {
         return (
