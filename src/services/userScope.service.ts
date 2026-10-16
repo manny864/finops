@@ -41,13 +41,8 @@ export async function alcanceDelUsuario(tenantId: string, email: string): Promis
         if (!r) return null;
         return { perspectiveId: Number(r.perspective_id), grupo: r.group_name ?? null };
     } catch (e) {
-        // FALLAR ABIERTO ACÁ ES CORRECTO, aunque suene al revés. Si la tabla no
-        // existe todavía --un entorno sin la migración-- o la base parpadea, lo
-        // que se pierde es el RECORTE, no el control de acceso: el usuario sigue
-        // pasando por `requireTenantAccess` y sólo ve su tenant. Fallar cerrado
-        // dejaría a todos sin plataforma por una tabla ausente.
         console.warn("[userScope] no se pudo leer el alcance:", e instanceof Error ? e.message : e);
-        return null;
+        throw e;
     }
 }
 

@@ -458,7 +458,16 @@ export async function aplicarAlcance(
   // El cron no es una persona y no tiene alcance que aplicar.
   if (identity.esCron) return identity;
 
-  const alcance = await alcanceDelUsuario(tenantId, identity.email);
+  let alcance: AlcanceAsignado | null;
+  try {
+    alcance = await alcanceDelUsuario(tenantId, identity.email);
+  } catch {
+    throw new AuthError(
+      "No se pudo verificar el alcance de acceso. Intentá nuevamente.",
+      503,
+      "SCOPE_LOOKUP_UNAVAILABLE",
+    );
+  }
   if (!alcance) return identity;
 
   if (!rutaAdmiteAlcance(pathname, metodo)) {

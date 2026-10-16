@@ -1996,3 +1996,10 @@ en marcar otros avisos como leidos. Se mantiene el estado por anuncio/email,
 no por tenant, y no se afirma atomicidad frente a cambios de publicacion.
 Cinco casos SQL y cinco unitarios adicionales amplian la matriz a 90 casos;
 suite completa 6338 pass/76 skip. Detalle y limites en LLD 52.11, sin rollout.
+
+La consulta de permisos de Perspective ya no degrada a acceso sin recorte
+cuando SQL falla: devuelve 503 SCOPE_LOOKUP_UNAVAILABLE. Una consulta exitosa
+sin asignacion mantiene el comportamiento previo; cron conserva su excepcion
+explicita y la politica de membresia no cambia. El rollout requiere UserScopes
+migrada y accesible. Un caso MySQL real y cinco unitarios verifican este limite;
+matriz 91 casos, suite6344pass/76skip. Detalle en LLD52.12, sin rollout.

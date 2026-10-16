@@ -6928,3 +6928,26 @@ fixture). Cinco regresiones unitarias verifican validacion y pertenencia.
 Matriz total 90 casos con Blob; suite completa con MySQL/Redis/Azurite:
 6338 pass/76 skip, 561 archivos correctos/8 omitidos. Lint/typecheck/build
 nativo correctos. Implementado en rama, no desplegado ni cobertura global.
+
+### 52.12 Consulta de permisos: fallo cerrado ante indisponibilidad SQL
+
+alcanceDelUsuario solo devuelve null cuando no hay asignacion en una consulta
+exitosa (o falta la identidad requerida, conservando su contrato previo).
+Un error SQL ya no se transforma en null: se registra y se propaga.
+aplicarAlcance traduce ese error a AuthError 503 SCOPE_LOOKUP_UNAVAILABLE,
+sin devolver una identidad sin recorte. Se conserva el bypass explicito de
+cron; no se modifica la admision por directorio ni la suspension de usuarios.
+El consumidor administrativo directo tambien recibe el fallo, no un falso
+resultado sin asignacion. Antes, una caida o ausencia de UserScopes podia
+eliminar temporalmente el limite de Perspective dentro del tenant.
+
+El rollout exige UserScopes migrada y accesible: una instalacion sin esa
+tabla devuelve indisponibilidad a humanos en vez de ampliar permisos.
+Usuarios sin fila conservan el acceso previo cuando SQL funciona; no se
+crea una politica nueva de membresia SaaS. Un caso MySQL real asigna alcance,
+renombra solo la tabla fixture y comprueba 503 en rutas con/sin soporte de
+recorte, restaurandola siempre. Tres tests del servicio prueban consulta
+parametrizada, fila ausente/asignada y error propagado con log; dos tests del
+guard comprueban 503. Matriz 91 casos con Blob; suite6344pass/76skip,
+562 archivos correctos/8omitidos. Lint/typecheck/build nativo correctos.
+Pendiente rollout, no cierre global del inventario de autorizacion.

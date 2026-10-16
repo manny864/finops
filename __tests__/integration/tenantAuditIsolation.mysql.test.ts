@@ -39,6 +39,7 @@ import { GET as readNotifications, PATCH as markNotifications, DELETE as removeN
 import { PATCH as markNotificationsAlias } from "@/app/api/notifications/mark-read/route";
 import { deleteNotification, markNotificationAsRead } from "@/services/tenantNotifications.service";
 import { POST as dismissAnnouncement } from "@/app/api/announcements/dismiss/route";
+import { requireTenantAccess } from "@/lib/requestAuth";
 
 const tenants = [
     { id: "a0000000-0000-4000-8000-000000000001", email: "reader@alpha.example", marker: "alpha-only-record" },
@@ -656,6 +657,20 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
     });
 
     describe("cost breakdown and assigned perspectives with real SQL", () => {
+        it("missing scope storage returns 503 without authorizing an unrestricted identity", async () => {
+            await db.query("INSERT INTO UserScopes VALUES (?, ?, 1, 'allowed')", [tenants[0].id, tenants[0].email]);
+            await db.query("RENAME TABLE UserScopes TO UserScopesUnavailable");
+            try {
+                for (const path of ["/api/cost-groups", "/api/audit"]) {
+                    await expect(requireTenantAccess(request(path, tenants[0].id, tenants[0]), tenants[0].id))
+                        .rejects.toMatchObject({ status: 503, code: "SCOPE_LOOKUP_UNAVAILABLE" });
+                }
+            } finally {
+                await db.query("RENAME TABLE UserScopesUnavailable TO UserScopes");
+                await db.query("DELETE FROM UserScopes WHERE tenant_id = ? AND user_email = ?",
+                    [tenants[0].id, tenants[0].email]);
+            }
+        });
         beforeAll(async () => {
             for (const [index, tenant] of tenants.entries()) {
                 await db.query("INSERT INTO Perspectives VALUES (?, ?, ?, NULL)", [index + 1, tenant.id, tenant.marker]);

@@ -153,6 +153,13 @@ describe("el corte: una ruta que no sabe acotar no le responde", () => {
         expect(r.alcance).toBeUndefined();
         expect(alcanceMock).not.toHaveBeenCalled();
     });
+
+    it.each(["/api/cost-groups", "/api/cleanup/zombies"])("un fallo de permisos niega %s con 503, no sin recorte", async (path) => {
+        alcanceMock.mockRejectedValue(new Error("Synthetic SQL outage"));
+        await expect(aplicarAlcance(identidad(), "t1", path, "GET")).rejects.toMatchObject({
+            status: 503, code: "SCOPE_LOOKUP_UNAVAILABLE",
+        });
+    });
 });
 
 describe("el permiso gana sobre la URL", () => {
