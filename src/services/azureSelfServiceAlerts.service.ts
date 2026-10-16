@@ -15,6 +15,7 @@ import {
   AlertTestResult,
 } from "@/types/azureSelfServiceAlerts.types";
 import { assertSafeWebhookUrl } from "@/lib/webhookSecurity";
+import { safeWebhookFetch } from "@/lib/safeExternalFetch";
 import { sendEmailStrict, getAlertTestEmailHtml, getNoReplyDisclaimer } from "@/lib/emailHelper";
 
 /**
@@ -422,7 +423,7 @@ export async function testAlertRuleDelivery(
     }
 
     try {
-      const response = await fetch(destino.toString(), {
+      const response = await safeWebhookFetch(destino.toString(), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

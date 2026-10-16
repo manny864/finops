@@ -790,6 +790,8 @@ con MySQL real; no confundir mocks de concurrencia con esa evidencia.
 
 ### STRIDE-05 — Extender el cierre de la carrera DNS a ITSM y envíos reales
 
+**Avance de remediacion (2026-10-15):** implementado localmente `safeExternalFetch` / `safeWebhookFetch`, con dispatcher Undici dedicado por llamada, resolucion A/AAAA publica fijada al socket, hostname original para Host/SNI/TLS, rechazo de userinfo/IP literal/respuestas DNS vacias o mixtas, redirects prohibidos, timeout total de 15 s y respuesta limitada a 1 MiB. Conectados Slack, Teams, webhook generico, prueba self-service y pruebas webhook/ITSM. La validacion al guardar configuracion se conserva; el transporte valida independientemente al enviar. Pruebas sinteticas cubren rebinding, IPv4/IPv6 reservadas, redirecciones, limites y cierre del dispatcher. Pendiente publicar/desplegar y comprobar proveedores con credenciales sinteticas en staging. La ruta `integrations/itsm` actualmente simula creacion de tickets: no se declara probado un envio real que no existe.
+
 **Prioridad:** P1 de evaluación de alcance; implementación según condiciones y diseño de egreso.  
 **Clasificación:** riesgo condicionado, sin SSRF confirmada.  
 **STRIDE:** Information Disclosure, Tampering y Elevation of Privilege.  
@@ -802,6 +804,8 @@ con MySQL real; no confundir mocks de concurrencia con esa evidencia.
 **Aceptación:** los casos DNS, IPv4/IPv6, TLS y destinos internos se prueban también en envíos reales de ITSM/webhook; credenciales sintéticas sólo alcanzan el origen autorizado; las integraciones legítimas siguen funcionando.
 
 ### STRIDE-06 — Rechazar redirecciones en notificaciones salientes
+
+**Avance de remediacion (2026-10-15):** todos los envios de `notifications.ts` usan el transporte anterior con `redirect: error`; los 3xx tambien se rechazan defensivamente sin segunda llamada. Pendiente comprobar entregas de proveedores en staging; no se habilitan excepciones de redireccion.
 
 **Prioridad:** P1 de endurecimiento.  
 **Clasificación:** falta de uniformidad confirmada; explotación SSRF condicionada, no demostrada.  

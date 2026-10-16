@@ -13,6 +13,7 @@ import { AuthError, requireTenantRole } from '@/lib/requestAuth';
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 import { isMockTenant } from '@/lib/mockData';
 import { assertSafeWebhookUrl } from '@/lib/webhookSecurity';
+import { safeWebhookFetch } from '@/lib/safeExternalFetch';
 
 const TEST_TIMEOUT_MS = 8000;
 
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), TEST_TIMEOUT_MS);
         try {
-            const res = await fetch(target.toString(), {
+            const res = await safeWebhookFetch(target.toString(), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),

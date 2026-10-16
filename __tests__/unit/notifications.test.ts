@@ -11,6 +11,9 @@ vi.mock("@/modules/storage/db", () => ({
 
 // Mock fetch
 global.fetch = vi.fn();
+vi.mock("@/lib/safeExternalFetch", () => ({
+  safeWebhookFetch: (url: string, init: RequestInit) => fetch(url, init),
+}));
 
 // El canal de email de Alertas Self-Service envía vía Microsoft Graph
 // (emailHelper.ts), no SMTP/nodemailer.
