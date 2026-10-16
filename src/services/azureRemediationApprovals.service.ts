@@ -12,6 +12,8 @@
  */
 
 import Decimal from "decimal.js";
+import { randomUUID } from "node:crypto";
+import type { ResultSetHeader } from "mysql2";
 import pool from "@/modules/storage/db";
 import { getAzureCredential } from "@/lib/azure";
 import { errorMessage } from "@/lib/apiErrors";
@@ -471,16 +473,15 @@ export async function resolveApproval(
   id: string,
   status: ApprovalStatus,
   resolvedBy: string,
-  extras: { rejectionReason?: string; armResult?: ArmExecutionResult } = {}
+  extras: { rejectionReason?: string; armResult?: ArmExecutionResult; executionToken?: string } = {}
 ): Promise<boolean> {
-  // El `AND status = 'Pending'` es la defensa contra la doble resolución: dos
-  // aprobadores haciendo clic a la vez sólo pueden ejecutar la acción una vez.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [result]: any = await pool.query(
+  const [result] = await pool.query<ResultSetHeader>(
     `UPDATE RemediationRequests
      SET status = ?, resolved_at = CURRENT_TIMESTAMP, resolved_by = ?,
          rejection_reason = ?, arm_execution_result_json = ?, backup_snapshot_id = ?
-     WHERE id = ? AND tenant_id = ? AND status = 'Pending'`,
+     WHERE id = ? AND tenant_id = ? AND status = 'Pending'
+       AND (arm_execution_result_json IS NULL
+            OR JSON_UNQUOTE(JSON_EXTRACT(arm_execution_result_json, '$.executionToken')) = ?)`,
     [
       statusToDb(status),
       resolvedBy,
@@ -489,9 +490,39 @@ export async function resolveApproval(
       extras.armResult?.snapshotId || null,
       id,
       tenantId,
+      extras.executionToken || null,
     ]
   );
   return Number(result?.affectedRows || 0) > 0;
+}
+
+/** Durable claim BEFORE ARM. Interrupted executions stay claimed for manual reconciliation. */
+export async function claimApprovalExecution(
+  tenantId: string,
+  id: string,
+  resolver: string,
+  expected: RawApprovalRow,
+): Promise<string | null> {
+  const executionToken = randomUUID();
+  const [result] = await pool.query<ResultSetHeader>(
+    `UPDATE RemediationRequests
+     SET arm_execution_result_json = ?
+     WHERE id = ? AND tenant_id = ? AND status = 'Pending'
+       AND arm_execution_result_json IS NULL
+       AND LOWER(TRIM(requested_by)) <> LOWER(TRIM(?))
+       AND resource_id <=> ? AND action_type <=> ?
+       AND action_payload_json <=> CAST(? AS JSON) AND subscription_id <=> ?
+       AND resource_group <=> ? AND resource_type <=> ? AND resource_name <=> ?`,
+    [
+      JSON.stringify({ status: "Running", executionToken, startedAt: new Date().toISOString(), resolvedBy: resolver }),
+      id, tenantId, resolver, expected.resource_id ?? null, expected.action_type ?? null,
+      typeof expected.action_payload_json === "object" && expected.action_payload_json !== null
+        ? JSON.stringify(expected.action_payload_json) : expected.action_payload_json ?? null,
+      expected.subscription_id ?? null, expected.resource_group ?? null,
+      expected.resource_type ?? null, expected.resource_name ?? null,
+    ],
+  );
+  return result.affectedRows === 1 ? executionToken : null;
 }
 
 export async function getApprovalById(tenantId: string, id: string): Promise<RawApprovalRow | null> {

@@ -3,6 +3,7 @@ import pool, { initializeDatabase } from "@/modules/storage/db";
 import { AuthError, requireRequestIdentity, requireTenantAccess } from "@/lib/requestAuth";
 import { notifyTenant } from "@/lib/notifications";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
+import { POST as resolveGovernanceApproval } from "@/app/api/governance/approvals/route";
 
 /**
  * `SELECT * FROM RemediationRequests`, asi que el contrato es la tabla: columnas
@@ -90,9 +91,8 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
     try {
-        await initializeDatabase();
         const body = await request.json();
-        const { id, status, tenantId } = body;
+        const { id, status, tenantId, rejectionReason, createBackupSnapshot } = body;
         if (!id || !status || !['Approved', 'Rejected'].includes(status)) {
             return NextResponse.json({ error: "Invalid parameters" }, { status: 400 });
         }
@@ -100,20 +100,14 @@ export async function PATCH(request: NextRequest) {
             return NextResponse.json({ error: "Missing tenantId" }, { status: 400 });
         }
 
-        const identity = await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
-
-        const [result] = await pool.query(
-            `UPDATE RemediationRequests
-             SET status = ?, resolved_at = CURRENT_TIMESTAMP, resolved_by = ?
-             WHERE id = ? AND tenant_id = ? AND status = 'Pending'`,
-            [status, identity.email, id, tenantId]
-        );
-
-        if ((result as any).affectedRows === 0) {
-            return NextResponse.json({ error: "Request not found or already resolved" }, { status: 404 });
-        }
-
-        return NextResponse.json({ success: true, message: `Request ${status}` });
+        return resolveGovernanceApproval(new NextRequest(request.url, {
+            method: "POST",
+            headers: request.headers,
+            body: JSON.stringify({
+                tenantId, approvalId: id, decision: status === "Approved" ? "APPROVE" : "REJECT",
+                rejectionReason, createBackupSnapshot,
+            }),
+        }));
     } catch (error) {
         if (error instanceof AuthError) return NextResponse.json({ error: errorMessage(error) }, { status: errorStatus(error) });
         console.error("PATCH RemediationRequests Error:", error);

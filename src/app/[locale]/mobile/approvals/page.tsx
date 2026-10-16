@@ -2,7 +2,7 @@
 /**
  * Aprobaciones móvil: el caso de uso móvil real — te llega la notificación y
  * aprobás/rechazás la remediación desde donde estés. Tarjetas grandes con
- * botones de pulgar; reusa /api/remediation/workflow (RBAC server-side).
+ * botones de pulgar; comparte la resolución autorizada de governance/approvals.
  */
 import React, { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -33,11 +33,13 @@ const fmt = (n: number) =>
 
 export default function MobileApprovalsPage() {
     const t = useTranslations("Mobile");
+    const approvalText = useTranslations("RemediationApprovals");
     const { selectedTenant } = useTenant();
     const { instance, accounts } = useMsal();
     const [requests, setRequests] = useState<RemediationRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [acting, setActing] = useState<number | string | null>(null);
+    const [reasons, setReasons] = useState<Record<string, string>>({});
 
     const isMock = isMockTenant(selectedTenant?.id || "");
 
@@ -81,14 +83,23 @@ export default function MobileApprovalsPage() {
         }
         setActing(req.id);
         try {
+            const rejectionReason = reasons[String(req.id)]?.trim();
+            if (status === "Rejected" && !rejectionReason) {
+                toast.error(approvalText("rejectNeedsReason"));
+                return;
+            }
+            if (status === "Approved" && !window.confirm(approvalText("armImmediateNote"))) return;
             const token = await getFreshIdToken(instance, accounts[0]);
-            const res = await fetch("/api/remediation/workflow", {
-                method: "PATCH",
+            const res = await fetch("/api/governance/approvals", {
+                method: "POST",
                 headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-                body: JSON.stringify({ id: req.id, status, tenantId: selectedTenant.id }),
+                body: JSON.stringify({
+                    approvalId: req.id, tenantId: selectedTenant.id,
+                    decision: status === "Approved" ? "APPROVE" : "REJECT", rejectionReason,
+                }),
             });
             const json = await res.json();
-            if (!res.ok) throw new Error(json.error);
+            if (!res.ok || !json.success) throw new Error(json.error || json.message);
             toast.success(status === "Approved" ? t("approved") : t("rejected"));
             await load();
         } catch (e) {
@@ -132,6 +143,15 @@ export default function MobileApprovalsPage() {
                                     </div>
                                 </div>
                             </div>
+                            <label className="block mt-3 text-sm">
+                                {approvalText("rejectReasonLabel")}
+                                <textarea
+                                    value={reasons[String(req.id)] || ""}
+                                    onChange={(event) => setReasons(prev => ({ ...prev, [String(req.id)]: event.target.value }))}
+                                    maxLength={500}
+                                    className="block w-full rounded-lg border p-2 dark:bg-slate-900"
+                                />
+                            </label>
                             <div className="grid grid-cols-2 gap-2.5 mt-3">
                                 <button
                                     onClick={() => resolve(req, "Rejected")}

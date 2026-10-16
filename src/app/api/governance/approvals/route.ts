@@ -22,6 +22,7 @@ import { logAction } from "@/services/remediationService";
 import { notifyTenant } from "@/lib/notifications";
 import {
   assembleLiveApprovals,
+  claimApprovalExecution,
   executeApprovedAction,
   getApprovalById,
   getMockApprovalsPayload,
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
     // Cuatro ojos: el solicitante no puede aprobar su propio pedido. Los
     // motores automáticos (advisor-bot, rightsizing-engine) nunca coinciden con
     // un email de operador, así que la regla sólo bloquea el auto-aprobado real.
-    if (decision === "APPROVE" && item.requestedBy.toLowerCase() === resolver.toLowerCase()) {
+    if (decision === "APPROVE" && item.requestedBy.trim().toLowerCase() === resolver.trim().toLowerCase()) {
       return NextResponse.json(
         { error: "No podés aprobar una petición que vos mismo solicitaste. Debe revisarla otro operador." },
         { status: 403 }
@@ -135,7 +136,7 @@ export async function POST(request: NextRequest) {
         title: "Petición de remediación rechazada",
         message: `${resolver} rechazó ${item.actionType} sobre "${item.resourceName}". Motivo: ${rejectionReason}`,
         severity: "info",
-      }).catch(() => {});
+      }).catch((error) => console.warn("[Approvals] No se pudo notificar el rechazo:", errorMessage(error)));
 
       return NextResponse.json({ success: true, status: "REJECTED", message: "Petición rechazada." });
     }
@@ -153,6 +154,10 @@ export async function POST(request: NextRequest) {
       `/subscriptions/${item.subscriptionId}/resourceGroups/${item.resourceGroup}/providers/${item.resourceType}/${item.resourceName}`,
     ]);
 
+    const executionToken = await claimApprovalExecution(tenantId, String(approvalId), resolver, row);
+    if (!executionToken) {
+      return NextResponse.json({ error: "La petición cambió o ya está en ejecución/resuelta" }, { status: 409 });
+    }
     const armResult = await executeApprovedAction(tenantId, item, {
       createBackupSnapshot: Boolean(createBackupSnapshot),
     });
@@ -160,7 +165,7 @@ export async function POST(request: NextRequest) {
     // Si Azure rechazó el cambio, la fila queda en `Failed`, no en `Approved`:
     // el historial tiene que distinguir una acción aplicada de una que no.
     const finalStatus = armResult.status === "Succeeded" ? "APPROVED" : "FAILED";
-    const ok = await resolveApproval(tenantId, String(approvalId), finalStatus, resolver, { armResult });
+    const ok = await resolveApproval(tenantId, String(approvalId), finalStatus, resolver, { armResult, executionToken });
     if (!ok) return NextResponse.json({ error: "La petición ya fue resuelta por otro operador" }, { status: 409 });
 
     await logAction(
@@ -178,7 +183,7 @@ export async function POST(request: NextRequest) {
           : "Remediación aprobada pero fallida en Azure",
       message: `${resolver} aprobó ${item.actionType} sobre "${item.resourceName}". ${armResult.detail}`,
       severity: armResult.status === "Succeeded" ? "info" : "warning",
-    }).catch(() => {});
+    }).catch((error) => console.warn("[Approvals] No se pudo notificar la resolución:", errorMessage(error)));
 
     return NextResponse.json({
       success: armResult.status === "Succeeded",

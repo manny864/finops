@@ -696,10 +696,22 @@ Este orden no equivale a severidad confirmada ni reemplaza el backlog de infraes
 
 ### STRIDE-01 — Corregir autorización de aprobaciones legacy
 
+**Actualización 2026-10-15:** implementación local verificada: el PATCH legacy
+delega a governance/approvals, con Owner/Admin, tier Business, cuatro ojos y
+motivo obligatorio al rechazar. El cliente móvil usa la ruta canónica y confirma
+la ejecución ARM. Claim durable y atómico en `arm_execution_result_json` antes
+de ARM, ligado a tenant, solicitante y objetivo/parámetros sin cambios; la
+resolución exige el token propietario. Un proceso interrumpido queda `Running`
+y requiere conciliación manual, nunca reejecución automática. Pruebas:
+`legacyApprovalAuthorization.test.ts`, `approvalExecutionClaim.test.ts` y
+`lighthouseGuardEscritura.test.ts` (13 correctas); typecheck correcto.
+Pendiente para cierre desplegado: publicación/despliegue y prueba concurrente
+con MySQL real; no confundir mocks de concurrencia con esa evidencia.
+
 **Prioridad:** P1 de corrección.  
 **Clasificación:** vulnerabilidad confirmada; severidad media; confianza 9/10.  
 **STRIDE:** Elevation of Privilege, Tampering y Repudiation.  
-**Estado:** Pendiente; no corregido.
+**Estado:** Corregido localmente; pendiente de evidencia desplegada indicada arriba.
 
 **Evidencia y mecanismo:**
 
@@ -2325,6 +2337,10 @@ Infra: activar **Microsoft Defender for Storage (malware scanning)** en la cuent
 **Pruebas de aceptación:** hostname con primera respuesta pública y segunda privada no debe establecer conexión privada; probar IPv4, IPv6, DNS con respuestas mixtas, loopback, RFC1918, link-local, direcciones IPv4-mapped IPv6 y redirects a IMDS/servicios internos; verificar con servidor simulado y sin credenciales reales que el transporte no sigue ningún salto. Confirmar que endpoints legítimos siguen funcionando.
 
 ### INT-02 — Impedir aprobaciones falsas por el endpoint legacy
+
+**Actualización 2026-10-15:** misma corrección y evidencia que STRIDE-01;
+no es un segundo pendiente de implementación. Publicación/despliegue y prueba
+concurrente MySQL real aún pendientes.
 
 **Severidad:** Media.  
 **Evidencia:** [remediation/workflow/route.ts](../../src/app/api/remediation/workflow/route.ts), `PATCH`, requiere acceso al tenant y actualiza directamente `status`, `resolved_at` y `resolved_by`; no exige Admin/Owner ni diferencia al solicitante del aprobador. El GET de [governance/approvals/route.ts](../../src/app/api/governance/approvals/route.ts) interpreta ese estado `Approved` como aprobación y lo retira de la cola pendiente. No se observó ejecución ARM desde el PATCH legacy.
