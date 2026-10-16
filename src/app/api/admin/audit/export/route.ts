@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
   try {
     const params = parseParams(request);
 
-    if (isMockTenant(params.tenantId) || request.nextUrl.searchParams.get("mock") === "true") {
+    if (isMockTenant(params.tenantId)) {
       const data = await getAuditTrailLogs({
         tenantId: params.tenantId,
         userEmail: params.user_email,

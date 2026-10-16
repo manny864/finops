@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
     const params = parseParams(request);
 
     // Directiva 1: Mock tenant primero sin requerir OAuth
-    if (isMockTenant(params.tenantId) || request.nextUrl.searchParams.get("mock") === "true") {
+    if (isMockTenant(params.tenantId)) {
       const page = Math.floor(params.offset / params.limit) + 1;
       const data = await getAuditTrailLogs({
         tenantId: params.tenantId,

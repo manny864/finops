@@ -6714,3 +6714,32 @@ ACR/ACA siguen pendientes.
 No se crea otro runner ni se habilita codigo PR en las VMs existentes para
 sortear billing. No se cambian claves/datos reales ni se habilita modo estricto
 sin la provision de credenciales y permisos correspondientes.
+
+### 52.5 Matriz multitenant de auditoria con SQL real
+
+`tenantAuditIsolation.mysql.test.ts` prueba los handlers de `/api/admin/audit`,
+`/api/admin/audit-trail` y sus dos exports con DB desechable, usuarios Reader
+de dos tenants y JWT sinteticos firmados RS256. Se ejecutan los validadores
+reales de firma/issuer/audience, membresia, rol y suspension, asi como SQL
+y serializacion; solo se sustituyen discovery/JWKS externo y traducciones.
+El puerto se recibe por `MYSQL_SECURITY_PORT`, host fijado a loopback y sin
+usar credenciales DB de la aplicacion. Cada suite crea y retira su DB propia.
+
+Se corrigio en las tres rutas que lo tenian el bypass `isMockTenant(...) ||
+mock=true`: el flag era controlado por el caller y el servicio consultaba
+datos reales del tenant indicado. Ahora solo tenants sinteticos reconocidos
+omiten OAuth. La cuarta ruta ya exigia rol y queda en la matriz.
+
+Los 27 casos verifican resultados y conteos positivos, JSON/NDJSON/CSV sin
+marcadores ajenos, lectores concurrentes, denegacion 401/403 con y sin flag,
+usuario DISABLED con JWT aun valido, filtros ajenos/SQL y membresia cruzada
+explicita preservada. AiCache usa SQL real para probar claves por tenant,
+lectura cruzada nula y rechazo de sobrescritura ajena. Los 12 casos siempre
+activos de `auditMockQueryAuthorization.test.ts` exigen guard antes de SQL
+para tenants reales y conservan demo anonima.
+
+CI incluye MySQL 8.4 por digest y healthcheck, puerto dinamico y paso dedicado
+para esta matriz y `securityPersistence.mysql.test.ts`. No agrega runners
+ni secretos. Este gate aun no se ejecuto hosted por billing. La evidencia
+local es de handlers con DB real, no HTTP desplegado, Entra real ni cobertura
+de todos los objetos/reportes/Redis/SWR; esos limites permanecen abiertos.

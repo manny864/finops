@@ -770,12 +770,16 @@ del flujo real; las pruebas sinteticas no sustituyen esa comprobacion.
 
 **Avance (2026-10-15):** todos los constructores directos de `CostManagementClient` en `src` se migraron a la factory comun; una policy del SDK valida origen ARM y pertenencia de scope en cada request (incluidas paginas y APIs distintas de query), antes de emitir el token. Sin redirects. Prueba de inventario impide nuevos constructores fuera de la factory; pruebas sinteticas verifican rechazo antes del token y conservan Lighthouse mediante el helper existente. El colector de meters ahora recibe tenantId explicitamente. Esto NO certifica todos los objetos SQL/Redis/SWR: queda pendiente la matriz end-to-end de dos tenants sobre reportes, exports y caches.
 
+**Matriz ejecutada y correccion adicional (2026-10-15):** `/api/admin/audit`, `/api/admin/audit-trail` y `/api/admin/audit/export` aceptaban `mock=true` como alternativa a autenticar un tenant real, pero llamaban al servicio con ese tenant y consultaban sus filas reales. Se retiro esa alternativa; la demo anonima solo conserva el camino `isMockTenant`. `/api/admin/audit-trail/export` ya exigia autorizacion para tenants reales y se incluye como control de regresion.
+
+`tenantAuditIsolation.mysql.test.ts` ejecuta los cuatro handlers reales, `requestAuth` (firma RS256, issuer/audience y roles), servicio y MySQL 8.4 desechable; solo sustituye discovery/JWKS de Entra con claves sinteticas y traducciones CSV. 27 casos cubren dos lectores concurrentes, conteos, JSON/NDJSON/CSV, sustitucion de tenant, acceso anonimo con/sin `mock=true`, revocacion DISABLED, filtros con email ajeno/metacaracteres SQL y membresia cruzada explicita autorizada. AiCache real verifica claves distintas para payload identico, lecturas cruzadas nulas y proteccion contra sobrescritura. Otros 12 casos sin MySQL impiden regresion del bypass y conservan la demo anonima. CI incorpora MySQL por digest y un paso obligatorio de estas pruebas y persistencia de aprobaciones/cifrado, sin credenciales ni datos de aplicacion; ejecucion hosted sigue bloqueada por billing. No es una prueba HTTP desplegada ni cobertura de todos los reportes, blobs o Redis/SWR.
+
 **Prioridad:** P1 de evaluación y cierre de cobertura.  
-**Clasificación:** riesgo de alto impacto potencial; no se confirmó fuga cross-tenant.  
+**Clasificación:** bypass de autorizacion confirmado en las tres rutas de auditoria citadas y corregido en rama, pendiente rollout; cobertura de otras superficies incompleta.
 **STRIDE:** Information Disclosure, Tampering y Elevation of Privilege.  
 **Estado:** Pendiente de inventario y pruebas end-to-end.
 
-**Evidencia y límite:** existen controles Azure en los helpers citados, pero hay consumidores directos de `CostManagementClient`. No se acreditó cobertura completa de SQL ni claves Redis/SWR. Los índices por `tenant_id` y endpoints privados no son controles de autorización.
+**Evidencia y límite:** los consumidores directos de `CostManagementClient` detectados se centralizaron en la factory; las cuatro rutas de auditoria y AiCache cuentan con la matriz SQL descrita. No se acreditó cobertura completa de objetos SQL ni claves Redis/SWR. Los índices por `tenant_id` y endpoints privados no son controles de autorización.
 
 **Vectores a verificar:** IDs de reportes, conexiones, aprobaciones, exportaciones y descargas; joins y operaciones masivas; suscripciones, resource groups y resource IDs recibidos del cliente; reutilización de respuestas cacheadas entre tenants o permisos distintos.
 

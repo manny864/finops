@@ -1925,3 +1925,12 @@ imagenes, migraciones reales y rollout siguen pendientes.
 
 CI/deploy hosted sigue bloqueado por pagos/limite de gasto, confirmado en el run
 `38829100160`. No se trasladan PRs a las VMs confiables ni se rebaja ningun gate.
+
+La matriz multitenant de auditoria detecto y elimino un bypass por `mock=true`
+en tres rutas: el flag omitia OAuth aunque el servicio consultara filas reales.
+La demo anonima queda limitada a tenants sinteticos reconocidos. Cuatro rutas
+de consulta/exportacion se probaron con dos identidades RS256 y MySQL
+desechable, incluyendo rol, suspension, formatos, filtros y membresia cruzada
+explicitamente autorizada; AiCache se verifico con SQL real. CI agrega el
+servicio MySQL fijado por digest y un gate dedicado. No hay despliegue ni
+certificacion global de reportes/Redis/SWR por estas pruebas.
