@@ -7067,3 +7067,26 @@ INSERT; dos unitarios comprueban email vacio/espacios antes de SQL o envio,
 incluso con enviarAhora=true y createdBy falsificado. Matriz118 con Blob;
 suite6383pass/76skip,565archivos correctos/8omitidos; lint/typecheck/build
 nativo correctos. Sin correo real, sin prueba de cron/Graph ni rollout.
+
+### 52.18 Polling de jobs: pertenencia tambien en cache de memoria
+
+getExecutiveReportJobStatus consultaba activeJobsCache por jobId y devolvia
+el estado sin comparar tenantId; solo el fallback SQL tenia ambos predicados.
+Un ID conocido de otro tenant podia revelar estado, scope, markdown o data
+residentes en ese proceso. El handler demo publico tambien alcanzaba ese
+cache antes de fabricar la respuesta sintetica. Ahora un hit solo se sirve
+si cached.tenantId coincide exactamente con el tenant autorizado/solicitado.
+Un miss de pertenencia sigue el flujo existente: SQL por id+tenant en real,
+respuesta sintetica sin metadata privada en demo. No se borra ni altera el
+job del propietario ni se cambia su polling, ni la respuesta de no encontrado.
+
+Seis regresiones siempre activas arrancan un job real sintetico con SQL
+sustituido y worker detenido en una promesa pendiente, sin red ni timers.
+Prueban hit propio sin SQL, tenant ajeno con fallback filtrado, demo sin
+metadata ajena, handler demo publico real, handler real anonimo401 y
+fallback persistido del tenant solicitado aunque exista cache ajeno.
+No se exporta el cache para tests ni se prueba SQL real en este bloque.
+Suite sin servicios:6262pass/188skip,563archivos correctos/11omitidos;
+los gates MySQL/Redis/Blob se omiten deliberadamente en esta corrida.
+Ultima matriz real previa:118casos y6383pass/76skip en dc04cd0.
+Lint/typecheck/build nativo correctos. Pendiente rollout; no cierre global.

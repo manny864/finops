@@ -413,7 +413,7 @@ export async function getExecutiveReportJobStatus(
 
     // 1. Primero chequear memoria viva
     const cached = activeJobsCache.get(jobId);
-    if (cached) {
+    if (cached?.tenantId === tenantId) {
         return {
             success: true,
             jobId: cached.jobId,
@@ -582,4 +582,3 @@ export async function getLatestCompletedReport(tenantId: string) {
         completedAt: row.completed_at,
     };
 }
-

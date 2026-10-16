@@ -2040,3 +2040,11 @@ para no persistir created_by vacio que el cron no pueda vincular a una cuenta
 suspendida. JWT de Admin por OID sin email devuelve401 antes de SQL/envio;
 procesos historicos sin autor no cambian. Un caso SQL y dos unitarios;
 matriz118, suite6383pass/76skip. Detalle LLD52.17, sin rollout.
+
+Polling de jobs ejecutivos exige tenant tambien al servir cache en memoria,
+no solo en SQL. Antes un jobId conocido podia devolver estado/reporte de
+otro tenant, incluso desde el handler demo publico. Ahora el cache ajeno
+no es un hit; demo conserva respuesta sintetica sin metadata privada y real
+consulta por id+tenant. Seis regresiones, incluidos handlers reales;
+suite sin servicios6262pass/188skip. No se repite SQL/Redis/Blob en este bloque;
+ultima matriz real118casos en dc04cd0. Detalle LLD52.18, sin rollout.
