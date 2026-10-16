@@ -7030,3 +7030,24 @@ OID solo en tenant ajeno y asignaciones ambiguas503. Tres unitarios verifican
 los valores ligados, union por tenant y rechazo con log. Matriz109 con Blob;
 suite6372pass/76skip,564archivos correctos/8omitidos; lint/typecheck/build
 nativo correctos. Implementado en rama, falta rollout y cobertura global.
+
+### 52.16 Suscripciones de reportes: matriz SQL de objetos y renderizado
+
+Ocho casos nuevos ejecutan GET/POST/DELETE /api/reports/subscriptions con
+handlers, guardas, JWT RS256 y MySQL reales. Verifican lectura concurrente
+por tenant (incluidos destinatarios), anonimato401, target ajeno403,
+Reader sin escritura, Admin propio con created_by del JWT y no del body,
+cadencia/destinatarios/alcance persistidos, ID ajeno404 sin borrado, borrado
+selectivo, suspension con token vigente y validaciones previas al INSERT.
+No se encontro cruce de tenant en estos caminos; no se cambia produccion.
+
+Tambien se ejecuta GENERADORES gasto-por-equipo con reglas y costos reales:
+solo devuelve el grupo local y CSV esperado; pedir una Perspective ajena
+produce cero filas, sin consultar costos ajenos ni fallback a la primera.
+No se cambia ese contrato a404. Las pruebas usan enviarAhora=false: no
+invocan correo, Graph ni el cron, y no certifican entrega programada,
+revalidacion del autor al enviar ni aislamiento efectivo Azure.
+
+Matriz117 casos con Blob; suite6380pass/76skip,564archivos correctos/8omitidos;
+typecheck, lint del archivo y diff-check correctos. Sin codigo productivo
+nuevo, sin rollout ni cierre global del inventario SQL/KQL/objetos.

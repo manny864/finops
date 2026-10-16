@@ -45,6 +45,8 @@ import { POST as dismissAnnouncement } from "@/app/api/announcements/dismiss/rou
 import { requireTenantAccess } from "@/lib/requestAuth";
 import { DELETE as deletePerspective } from "@/app/api/intelligence/perspectives/route";
 import { GET as readViews, POST as saveView, DELETE as deleteView } from "@/app/api/intelligence/views/route";
+import { GET as readReportSubscriptions, POST as createReportSubscription, DELETE as deleteReportSubscription } from "@/app/api/reports/subscriptions/route";
+import { GENERADORES } from "@/services/reportRenderers.service";
 
 const tenants = [
     { id: "a0000000-0000-4000-8000-000000000001", email: "reader@alpha.example", marker: "alpha-only-record" },
@@ -146,6 +148,10 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
             name VARCHAR(120), perspective_id INT, group_name VARCHAR(120), filters_json JSON,
             is_default BOOLEAN DEFAULT false, created_by VARCHAR(120), updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY (tenant_id, user_email, name))`);
+        await db.query(`CREATE TABLE ReportSubscriptions (
+            id INT AUTO_INCREMENT PRIMARY KEY, tenant_id VARCHAR(64), report_type VARCHAR(64),
+            scope_json JSON, recipients_json JSON, frequency VARCHAR(20), day_of_week INT, day_of_month INT,
+            last_sent_at DATETIME, active BOOLEAN DEFAULT true, created_by VARCHAR(120))`);
         await db.query(`CREATE TABLE Notifications (id INT PRIMARY KEY, tenant_id VARCHAR(64),
             user_email VARCHAR(120), is_read BOOLEAN DEFAULT false, read_at DATETIME,
             title VARCHAR(120), message TEXT, title_key VARCHAR(120), message_key VARCHAR(120),
@@ -954,6 +960,106 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
             }
             const [rows] = await db.query<RowDataPacket[]>("SELECT id FROM SavedViews ORDER BY id");
             expect(rows.map((row) => row.id)).toEqual([101, 103, 104]);
+        });
+    });
+
+    describe("report subscription object boundaries with real SQL and JWT", () => {
+        const actor = tenants[0];
+        beforeEach(async () => {
+            for (const [index, tenant] of tenants.entries()) {
+                await db.query(`INSERT INTO ReportSubscriptions
+                    (id,tenant_id,report_type,scope_json,recipients_json,frequency,created_by)
+                    VALUES (?,?,'gasto-por-equipo',?,?,'daily',?)`,
+                    [201 + index, tenant.id, JSON.stringify({ perspectiveId: index + 1, grupo: "allowed" }),
+                        JSON.stringify([`synthetic-${index}@example.test`]), tenant.email]);
+            }
+        });
+        afterEach(async () => {
+            await db.query("DELETE FROM ReportSubscriptions");
+            await db.query("UPDATE Users SET role = 'Reader', account_status = 'ACTIVE' WHERE tenant_id = ? AND email = ?",
+                [actor.id, actor.email]);
+        });
+        const create = (body: Record<string, unknown> = {}, identity?: typeof actor) =>
+            createReportSubscription(new NextRequest(request("/api/reports/subscriptions", actor.id, identity),
+                { method: "POST", body: JSON.stringify({ tenantId: actor.id, reportType: "gasto-por-equipo",
+                    recipients: ["synthetic-new@example.test"], frequency: "daily", enviarAhora: false, ...body }) }));
+        const remove = (id: number, target: string, identity?: typeof actor) => deleteReportSubscription(
+            new NextRequest(request("/api/reports/subscriptions", target, identity, `&id=${id}`), { method: "DELETE" }));
+        it("lists concurrently only each tenant's subscriptions and recipient metadata", async () => {
+            await Promise.all(tenants.map(async (tenant, index) => {
+                const response = await readReportSubscriptions(request("/api/reports/subscriptions", tenant.id, tenant));
+                expect(response.status).toBe(200);
+                const { subscriptions } = await response.json();
+                expect(subscriptions).toMatchObject([{ id: 201 + index, recipients: [`synthetic-${index}@example.test`] }]);
+                expect(subscriptions).toHaveLength(1);
+                expect(JSON.stringify(subscriptions)).not.toContain(tenants[1 - index].email);
+            }));
+        });
+        it("rejects anonymous and foreign-tenant list/create/delete without changing rows", async () => {
+            for (const identity of [undefined, tenants[1]]) {
+                const status = identity ? 403 : 401;
+                expect((await readReportSubscriptions(request("/api/reports/subscriptions", actor.id, identity))).status).toBe(status);
+                expect((await create({}, identity)).status).toBe(status);
+                expect((await remove(201, actor.id, identity)).status).toBe(status);
+            }
+            const [rows] = await db.query<RowDataPacket[]>("SELECT id FROM ReportSubscriptions");
+            expect(rows).toHaveLength(2);
+        });
+        it("a Reader can list but cannot create or delete a subscription", async () => {
+            expect((await create({}, actor)).status).toBe(403);
+            expect((await remove(201, actor.id, actor)).status).toBe(403);
+            const [rows] = await db.query<RowDataPacket[]>("SELECT id FROM ReportSubscriptions");
+            expect(rows).toHaveLength(2);
+        });
+        it("Admin creation attributes the verified author and keeps the requested cadence and recipients", async () => {
+            await db.query("UPDATE Users SET role = 'Admin' WHERE tenant_id = ? AND email = ?", [actor.id, actor.email]);
+            const response = await create({ frequency: "weekly", dayOfWeek: 4, createdBy: tenants[1].email,
+                scope: { perspectiveId: 1, grupo: "allowed" } }, actor);
+            expect(response.status).toBe(200);
+            const { id } = await response.json();
+            const [rows] = await db.query<RowDataPacket[]>("SELECT * FROM ReportSubscriptions WHERE id = ?", [id]);
+            expect(rows).toMatchObject([{ tenant_id: actor.id, created_by: actor.email, frequency: "weekly",
+                day_of_week: 4, day_of_month: null, recipients_json: ["synthetic-new@example.test"],
+                scope_json: { perspectiveId: 1, grupo: "allowed" }, last_sent_at: null }]);
+        });
+        it("Admin cannot delete another tenant's ID and can delete only an owned subscription", async () => {
+            await db.query("UPDATE Users SET role = 'Admin' WHERE tenant_id = ? AND email = ?", [actor.id, actor.email]);
+            expect((await remove(202, actor.id, actor)).status).toBe(404);
+            expect((await remove(202, tenants[1].id, actor)).status).toBe(403);
+            expect((await remove(201, actor.id, actor)).status).toBe(200);
+            const [rows] = await db.query<RowDataPacket[]>("SELECT id FROM ReportSubscriptions");
+            expect(rows.map((row) => row.id)).toEqual([202]);
+        });
+        it("suspension denies list/create/delete even while the signed token remains valid", async () => {
+            await db.query("UPDATE Users SET role = 'Admin', account_status = 'DISABLED' WHERE tenant_id = ? AND email = ?",
+                [actor.id, actor.email]);
+            expect((await readReportSubscriptions(request("/api/reports/subscriptions", actor.id, actor))).status).toBe(403);
+            expect((await create({}, actor)).status).toBe(403);
+            expect((await remove(201, actor.id, actor)).status).toBe(403);
+        });
+        it("invalid recipients, type and cadence fail before insertion", async () => {
+            await db.query("UPDATE Users SET role = 'Admin' WHERE tenant_id = ? AND email = ?", [actor.id, actor.email]);
+            for (const body of [{ recipients: [] }, { recipients: ["not-an-email"] },
+                { recipients: Array.from({ length: 21 }, (_, i) => `synthetic-${i}@example.test`) },
+                { reportType: "' OR 1=1 --" }, { frequency: "hourly" },
+                { frequency: "weekly", dayOfWeek: 7 }, { frequency: "monthly", dayOfMonth: 0 }]) {
+                expect((await create(body, actor)).status).toBe(400);
+            }
+            const [rows] = await db.query<RowDataPacket[]>("SELECT id FROM ReportSubscriptions");
+            expect(rows).toHaveLength(2);
+        });
+        it("real report generation resolves only local Perspectives and never foreign cost rows", async () => {
+            for (const [index, tenant] of tenants.entries()) {
+                const own = await GENERADORES["gasto-por-equipo"]({ tenantId: tenant.id, tenantName: tenant.marker,
+                    alcance: { perspectiveId: index + 1, grupo: "allowed" }, baseUrl: "https://example.test" });
+                expect(own.filas).toBe(1);
+                expect(own.csv).toContain("allowed,12.10,");
+                expect(own.html).not.toContain(tenants[1 - index].marker);
+                const foreign = await GENERADORES["gasto-por-equipo"]({ tenantId: tenant.id, tenantName: tenant.marker,
+                    alcance: { perspectiveId: 2 - index, grupo: "allowed" }, baseUrl: "https://example.test" });
+                expect(foreign.filas).toBe(0);
+                expect(foreign.csv).not.toContain("12.10");
+            }
         });
     });
 

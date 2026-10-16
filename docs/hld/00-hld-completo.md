@@ -2027,3 +2027,10 @@ seleccion arbitraria; no se normaliza el email de identidad ni se modifica
 la admision STRIDE-03. No es migracion de UserScopes a OID: cambios en email
 persistido requieren gestionar asignaciones. Cuatro casos SQL y tres unitarios
 amplian matriz109; suite6372pass/76skip. Detalle LLD52.15, sin rollout.
+
+Suscripciones de reportes incorpora ocho casos de aislamiento con SQL/JWT
+reales para listado, creacion, borrado, roles, suspension y renderizado
+por Perspective/grupo local. No se detecta cruce de tenant en esos caminos;
+no se cambia codigo productivo ni se envia correo. Matriz117,
+suite6380pass/76skip. Cron/entrega efectiva fuera de este alcance;
+detalle LLD52.16, sin rollout ni cierre global.
