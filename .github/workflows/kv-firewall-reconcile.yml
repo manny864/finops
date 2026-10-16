@@ -40,6 +40,8 @@ jobs:
     concurrency:
       group: tfstate-firewall
       cancel-in-progress: false
+      # Preserve waiting cleanup/apply jobs instead of replacing the sole pending job.
+      queue: max
     env:
       TFSTATE_STORAGE: ${{ secrets.TFSTATE_STORAGE }}
       TFSTATE_RG: ${{ secrets.TFSTATE_RG }}

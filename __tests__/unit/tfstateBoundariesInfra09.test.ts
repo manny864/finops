@@ -43,6 +43,7 @@ it("INFRA-09: cada identidad tiene datos sólo en su contenedor y el backend tie
     expect(opens).toHaveLength(file === "terraform.yml" ? 2 : 1);
     expect(closes).toHaveLength(opens.length);
     expect(wf.match(/group: tfstate-firewall/g)).toHaveLength(opens.length);
+    expect(wf.match(/group: tfstate-firewall\n\s*cancel-in-progress: false\n(?:\s*#[^\n]*\n)*\s*queue: max/g)).toHaveLength(opens.length);
     expect(wf.match(/if: always\(\) && steps\.backend_login\.outcome == 'success'/g)).toHaveLength(opens.length);
   }
   const rc = read(".github/workflows/kv-firewall-reconcile.yml");

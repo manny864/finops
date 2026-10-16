@@ -233,13 +233,16 @@ Antes de usar UDR, confirmar soporte del tipo efectivo de ACA environment/worklo
 
 **Estado (2026-10-15):** ✅ INFRA-08 resuelto (4dc6950). ⏳ INFRA-11 pendiente.
 
-**Dockerfile propuesto**, entre builder y runner:
+**Avance local INFRA-11 (2026-10-15):** Node 22 Alpine y frontend Dockerfile fijados a digests oficiales verificados; Dependabot revisa la base semanalmente. Buildx genera SBOM SPDX y procedencia SLSA en el indice OCI de runtime y migrador; el pipeline exige que ambas existan, conserva metadata y referencias por ambiente/run durante 90 dias, hace smoke sin red y despliega por digest. Cada push falla de manera independiente; la migracion observa la ejecucion exacta devuelta por Azure, no la mas reciente de la lista. Se verifica la referencia observada despues del update. Gate previo bloquea deploys hasta confirmar migracion de claves y referencia versionada de Key Vault.
+
+**Pendiente:** rollout y evidencia en ACR/ACA; firmas y verificacion criptografica. Las attestations privadas de GitHub requieren Enterprise Cloud, no disponible con Free/Pro/Team; cuenta actual Pro confirmada. No se habilita un servicio publico de firma/transparencia ni se cambian pagos. SBOM/procedencia BuildKit no son una firma. Prod conserva reconstruccion por `NEXT_PUBLIC_*` diferentes: prueba su propio digest, pero no es el artefacto probado en staging. No se cierra INFRA-11 hasta resolver esa decision y los gates operativos. Dos builds locales fallaron por limite de memoria Docker (~3,8 GiB); el build nativo de aplicacion paso, pero no equivale a evidencia de imagen validada.
+
+**Stage implementado**, entre builder y runner:
 
 ```dockerfile
 FROM builder AS migrator
 RUN addgroup --system --gid 1002 migrate \
- && adduser --system --uid 1002 --ingroup migrate migrate \
- && chown -R migrate:migrate /app
+ && adduser --system --uid 1002 --ingroup migrate --home /home/migrate migrate
 USER migrate
 CMD ["npm", "run", "migrate"]
 ```
@@ -287,8 +290,19 @@ puede cancelar jobs pendientes (operar en serie y relanzarlos). El mecanismo
 temporal y cron de 15 minutos se conservan, sin expiracion nativa de Azure.
 Facturacion de runners hosted bloquea CI nuevo; los dispatch confiables de main
 ejecutan el mismo scan bloqueante en la VM sin OIDC, no codigo de PR.
-El snapshot publico de estado de staging esta vencido (503), distinto del
-health probe; no se remedia con este cambio de conectividad.
+El snapshot publico de estado de staging estuvo vencido (503), distinto del
+health probe. Verificacion 2026-10-16: snapshot vigente, `/api/status` 200,
+ultimas tres ejecuciones Succeeded; Sync/IA continúan degradados. No se
+declaran sanos proveedores a partir de configuracion ni se ocultan sus fallos.
+
+**Delta operativo de esta rama (2026-10-16):** `queue: max` en los tres jobs de
+`tfstate-firewall` y workflow Terraform conserva exclusion/leases/cleanup y
+admite hasta 100 pendientes. La configuracion en main aun no tiene este cambio.
+Sintaxis confirmada en documentacion oficial de GitHub; actionlint 1.7.12 tiene
+schema anterior (se aisla solo ese diagnostico en la validacion local, ademas
+de dos SC2086 preexistentes). Billing confirmado por anotacion del deploy
+`38829100160`: pagos fallidos o limite de gasto; no se modifican pagos ni
+se ejecuta codigo PR en las VMs confiables.
 Ver [operación de runners](../../infra/terraform/runners/README.md).
 CI falla cerrado; no se vuelve a Allow automáticamente.
 El vencimiento requiere reconciliación; no es expiración nativa de Azure.
@@ -2357,8 +2371,8 @@ Infra: activar **Microsoft Defender for Storage (malware scanning)** en la cuent
 ### INT-02 — Impedir aprobaciones falsas por el endpoint legacy
 
 **Actualización 2026-10-15:** misma corrección y evidencia que STRIDE-01;
-no es un segundo pendiente de implementación. Publicación/despliegue y prueba
-concurrente MySQL real aún pendientes.
+no es un segundo pendiente de implementación. Prueba concurrente MySQL real
+realizada con datos sinteticos (ver STRIDE-04); despliegue aun pendiente.
 
 **Severidad:** Media.  
 **Evidencia:** [remediation/workflow/route.ts](../../src/app/api/remediation/workflow/route.ts), `PATCH`, requiere acceso al tenant y actualiza directamente `status`, `resolved_at` y `resolved_by`; no exige Admin/Owner ni diferencia al solicitante del aprobador. El GET de [governance/approvals/route.ts](../../src/app/api/governance/approvals/route.ts) interpreta ese estado `Approved` como aprobación y lo retira de la cola pendiente. No se observó ejecución ARM desde el PATCH legacy.
