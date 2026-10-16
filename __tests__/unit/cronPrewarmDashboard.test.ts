@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
 const CRON_SECRET = 'b'.repeat(24);
@@ -23,6 +23,7 @@ function makeFakeRedis() {
 }
 
 let fakeRedis: ReturnType<typeof makeFakeRedis>;
+afterEach(() => vi.unstubAllEnvs());
 
 vi.mock('@/lib/redis', () => ({
     get redis() {
@@ -66,10 +67,19 @@ describe('GET / POST /api/cron/prewarm-dashboard — antes síncrono, ahora asyn
         expect(res.status).toBe(401);
     });
 
-    it('acepta auth por query ?secret= (para el runner async del Container App Job)', async () => {
+    it('rechaza auth por query incluso con el secreto correcto', async () => {
         const { GET } = await import('@/app/api/cron/prewarm-dashboard/route');
         const res = await GET(request(`?secret=${CRON_SECRET}`, {}));
-        expect(res.status).toBe(202);
+        expect(res.status).toBe(401);
+    });
+    it('credencial de otro job y secreto legacy no autorizan un job segmentado', async () => {
+        vi.stubEnv("CRON_REQUIRE_SCOPED_SECRETS", "true");
+        vi.stubEnv("CRON_JOB_SECRET_PREWARM_DASHBOARD", "d".repeat(48));
+        vi.stubEnv("CRON_JOB_SECRET_SYNC", "s".repeat(48));
+        const { GET } = await import('@/app/api/cron/prewarm-dashboard/route');
+        expect((await GET(request("?status=1", { authorization: `Bearer ${"s".repeat(48)}` }))).status).toBe(401);
+        expect((await GET(request("?status=1", { authorization: `Bearer ${CRON_SECRET}` }))).status).toBe(401);
+        expect((await GET(request("?status=1", { authorization: `Bearer ${"d".repeat(48)}` }))).status).toBe(200);
     });
 
     it('dispara el prewarm en background y responde 202 de inmediato, sin esperar el barrido', async () => {

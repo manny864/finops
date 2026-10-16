@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cronSecretForJob } from "@/lib/cronJobSecret";
 import { ingestCostExportsForTenant } from "@/services/costExportIngestionService";
 import pool from "@/modules/storage/db";
 import { isMockTenant } from "@/lib/mockData";
@@ -9,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 function isAuthorized(request: NextRequest): boolean {
     const authHeader = request.headers.get("authorization");
-    const cronSecret = process.env.CRON_SECRET;
+    const cronSecret = cronSecretForJob("cost-exports-sync");
     if (!cronSecret) return false;
     return authHeader === `Bearer ${cronSecret}`;
 }

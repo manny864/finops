@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cronSecretForJob } from "@/lib/cronJobSecret";
 import { syncAzureSearchSnapshots } from "@/modules/collectors/azure/azureSearchCollector";
 import pool from "@/modules/storage/db";
 
@@ -7,7 +8,7 @@ import pool from "@/modules/storage/db";
  * Protected by CRON_SECRET in Authorization header.
  */
 export async function POST(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
+  const cronSecret = cronSecretForJob("sync-azure-search");
   const authHeader = request.headers.get("Authorization") || "";
 
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {

@@ -31,7 +31,7 @@ async function fetchWhiteboardFromIntelligence(
     bust: boolean,
     timeRange: string = "MTD"
 ): Promise<any> {
-    const baseUrl = getInternalBaseUrl(request.nextUrl.port);
+    const baseUrl = getInternalBaseUrl();
     const url = new URL(`${baseUrl}/api/intelligence/whiteboard?tenantId=${encodeURIComponent(tenantId)}`);
     url.searchParams.set('locale', locale);
     url.searchParams.set('timeRange', timeRange);
@@ -53,6 +53,7 @@ async function fetchWhiteboardFromIntelligence(
 
     const res = await fetch(url.toString(), {
         method: 'GET',
+        redirect: 'error',
         headers: forwardHeaders,
         cache: 'no-store',
     });

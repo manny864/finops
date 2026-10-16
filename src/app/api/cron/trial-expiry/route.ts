@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cronSecretForJob } from "@/lib/cronJobSecret";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { recordTenantLifecycleTransition } from "@/services/tenantLifecycle.service";
 import { sendEmailAsync, getTrialReminderEmailHtml, getTrialExpiredEmailHtml } from "@/lib/emailHelper";
@@ -7,7 +8,7 @@ import { serverError } from '@/lib/apiErrors';
 export async function GET(request: NextRequest) {
     try {
         // Verify cron secret via header (not query string, which leaks via proxies/logs)
-        const cronSecret = process.env.CRON_SECRET;
+        const cronSecret = cronSecretForJob("trial-expiry");
         if (!cronSecret || cronSecret.length < 16) {
             console.error('CRON_SECRET not configured or too short');
             return NextResponse.json({ error: "Service unavailable" }, { status: 503 });

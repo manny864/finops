@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cronSecretForJob } from "@/lib/cronJobSecret";
 import { executeStorageRetentionCleanup } from "@/services/storageRetentionCleaner.service";
 
 export const dynamic = "force-dynamic";
 
 function validateCronAuth(request: NextRequest): boolean {
-  const cronSecret = process.env.CRON_SECRET;
+  const cronSecret = cronSecretForJob("storage-retention-cleanup");
   if (!cronSecret || cronSecret.length < 16) {
     if (process.env.NODE_ENV === "development") return true;
     console.error("[storage-retention-cleanup] CRON_SECRET no está configurado o es demasiado corto.");

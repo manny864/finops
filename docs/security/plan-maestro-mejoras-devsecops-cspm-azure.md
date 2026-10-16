@@ -828,6 +828,8 @@ con MySQL real; no confundir mocks de concurrencia con esa evidencia.
 
 ### STRIDE-07 — Sustituir o segmentar la autenticación compartida de jobs
 
+**Avance (2026-10-15):** validadores de jobs migrados a resolucion por capacidad fija (`CRON_JOB_SECRET_<JOB>`); una clave configurada no acepta la compartida ni la de otro job. Modo estricto `CRON_REQUIRE_SCOPED_SECRETS` niega capacidades sin provisionar. Migracion compatible explicita: sin modo estricto, los jobs aun no configurados conservan header legacy. Retirada autenticacion query de los cuatro prewarm que aun la aceptaban y del runner Terraform (tambien polling); `auth_mode=query` ahora falla validacion. Self-fetch/runners sin redirects y `X-Cron-Auth` limitado a GET/HEAD. Prueba de endpoint distingue credenciales de jobs. **Pendiente de cierre:** identidades/secretos independientes en Azure, actualizar referencias Terraform, activar modo estricto y comprobar TODOS los jobs efectivos; migracion Entra por audiencia y capacidades. No se declara eliminada la credencial compartida desplegada. Runbook: [cron-credential-migration.md](cron-credential-migration.md).
+
 **Prioridad:** P1 de diseño/migración; revisar de inmediato secretos en URL.  
 **Clasificación:** riesgo de diseño y configuración observada; no se confirmó bypass ni filtración.  
 **STRIDE:** Spoofing, Tampering, Repudiation y Denial of Service.  
@@ -853,6 +855,8 @@ con MySQL real; no confundir mocks de concurrencia con esa evidencia.
 **Aceptación:** una identidad de job no invoca operaciones ajenas; tokens con audiencia incorrecta, expirados o no autorizados fallan; secretos no aparecen en URLs/logs; duplicados no duplican efectos; rotación y revocación se prueban; todos los jobs legítimos funcionan tras la migración.
 
 ### STRIDE-08 — Usar un destino confiable para self-fetch
+
+**Avance (2026-10-15):** helper sin parametro de request: origen solo desde `INTERNAL_BASE_URL` validada o loopback con `PORT` validado. Los tres consumidores que pasaban puerto de request usan ahora llamada sin argumentos; `sync-azure-ai` deja el origen publico por el mismo helper. Fetches que reenvian tokens y prewarm rechazan redirects. Prueba con dos servidores locales: solo el configurado recibe un token sintetico, el puerto alternativo recibe cero requests; inventario de consumidores impide reintroducir argumentos. Pendiente verificar dashboard/whiteboard en staging despues del gate de claves.
 
 **Prioridad:** P1 de verificación; endurecimiento según exposición efectiva.  
 **Clasificación:** riesgo condicionado, sin explotación confirmada.  

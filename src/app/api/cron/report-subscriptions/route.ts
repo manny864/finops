@@ -10,6 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { cronSecretForJob } from "@/lib/cronJobSecret";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { recordCronRun } from "@/lib/cronRunTracker";
 import { correspondeEnviar, type Suscripcion } from "@/services/reportSubscriptions.service";
@@ -20,7 +21,7 @@ import { errorMessage } from "@/lib/apiErrors";
 export async function GET(request: NextRequest) {
     const startedAt = Date.now();
     try {
-        const cronSecret = process.env.CRON_SECRET;
+        const cronSecret = cronSecretForJob("report-subscriptions");
         if (!cronSecret || cronSecret.length < 16) {
             console.error("CRON_SECRET not configured or too short");
             return NextResponse.json({ error: "Service unavailable" }, { status: 503 });

@@ -45,6 +45,7 @@ export function prewarmFetch(
 ): Promise<Response> {
     return fetch(url, {
         ...init,
+        redirect: "error",
         signal: init.signal ?? AbortSignal.timeout(timeoutMs),
     });
 }

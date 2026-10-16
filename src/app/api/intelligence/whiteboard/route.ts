@@ -312,7 +312,7 @@ async function getExecutiveSummaryMetrics(
 ): Promise<Pick<WhiteboardSummaryMetrics,
     "zombieResourcesCount" | "zombieMonthlyWasteUSD" | "potentialSavingsUSD" | "carbonKgCO2e">> {
     try {
-        const url = new URL(`${getInternalBaseUrl(request.nextUrl.port)}/api/dashboard/summary`);
+        const url = new URL(`${getInternalBaseUrl()}/api/dashboard/summary`);
         url.searchParams.set("tenantId", tenantId);
         url.searchParams.set("subscriptionId", "All");
         // /api/dashboard/summary exige Bearer de usuario o X-Cron-Auth interno:
@@ -325,6 +325,7 @@ async function getExecutiveSummaryMetrics(
         if (cronAuth) headers["X-Cron-Auth"] = cronAuth;
         const response = await fetch(url, {
             headers,
+            redirect: "error",
             cache: "no-store",
         });
         if (!response.ok) throw new Error(`summary ${response.status}`);

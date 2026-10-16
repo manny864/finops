@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cronSecretForJob } from "@/lib/cronJobSecret";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { getUptime30d } from "@/services/platformUptime.service";
 import { recordCronRun } from "@/lib/cronRunTracker";
@@ -70,7 +71,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const startedAt = Date.now();
   try {
     // Verify cron secret
-    const cronSecret = process.env.CRON_SECRET || process.env.VERCEL_CRON_SECRET;
+    const cronSecret = cronSecretForJob("status-snapshot");
     if (!cronSecret || request.headers.get("authorization") !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

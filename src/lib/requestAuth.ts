@@ -368,6 +368,7 @@ export async function requireLoadTestServicePrincipal(request: NextRequest): Pro
  *  - Solo concede acceso al tenantId indicado en el query/body — NO es superadmin global.
  */
 function tryCronAuth(request: NextRequest, tenantId: string): RequestIdentity | null {
+  if (!["GET", "HEAD"].includes(request.method)) return null;
   const provided = request.headers.get("x-cron-auth");
   if (!provided) return null;
 

@@ -15,6 +15,7 @@
  *     lanzaría una corrida nueva contra Cost Management.
  */
 import { NextRequest, NextResponse } from "next/server";
+import { cronSecretForJob } from "@/lib/cronJobSecret";
 import pool from "@/modules/storage/db";
 import { backfillMissingDaysOneByOne, backfillTenantHistoricalGaps } from "@/lib/historicalGapBackfill";
 import { recordCronRun } from "@/lib/cronRunTracker";
@@ -175,7 +176,7 @@ export async function POST(request: NextRequest) {
 }
 
 async function handle(request: NextRequest) {
-    const cronSecret = process.env.CRON_SECRET;
+    const cronSecret = cronSecretForJob("historical-gap-backfill");
     if (!cronSecret || cronSecret.length < 16) {
         console.error("CRON_SECRET not configured or too short");
         return NextResponse.json({ error: "Service unavailable" }, { status: 503 });

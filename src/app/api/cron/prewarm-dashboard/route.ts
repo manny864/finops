@@ -30,6 +30,7 @@
  * que está pre-warmando. NO concede superadmin global.
  */
 import { NextRequest, NextResponse } from "next/server";
+import { cronSecretForJob } from "@/lib/cronJobSecret";
 import pool from "@/modules/storage/db";
 import { getInternalBaseUrl } from "@/lib/internalBaseUrl";
 import { prewarmFetch } from "@/lib/prewarmFetch";
@@ -151,15 +152,14 @@ export async function POST(request: NextRequest) {
 
 async function handlePrewarmDashboard(request: NextRequest) {
     try {
-        const cronSecret = process.env.CRON_SECRET;
+        const cronSecret = cronSecretForJob("prewarm-dashboard");
         if (!cronSecret || cronSecret.length < 16) {
             console.error("[cron-prewarm] CRON_SECRET not configured or too short");
             return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
         }
 
         const authHeader = request.headers.get("authorization");
-        const querySecret = request.nextUrl.searchParams.get("secret");
-        const isAuthOk = authHeader === `Bearer ${cronSecret}` || querySecret === cronSecret;
+        const isAuthOk = authHeader === `Bearer ${cronSecret}`;
         if (!isAuthOk) {
             return NextResponse.json({ error: "No autorizado." }, { status: 401 });
         }

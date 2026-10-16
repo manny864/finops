@@ -19,6 +19,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { cronSecretForJob } from "@/lib/cronJobSecret";
 import pool from "@/modules/storage/db";
 import { getInternalBaseUrl } from "@/lib/internalBaseUrl";
 import { prewarmFetch } from "@/lib/prewarmFetch";
@@ -173,7 +174,7 @@ export async function POST(request: NextRequest) {
 
 async function handleRequest(request: NextRequest) {
     try {
-        const cronSecret = process.env.CRON_SECRET;
+        const cronSecret = cronSecretForJob("prewarm-daily");
         if (!cronSecret || cronSecret.length < 16) {
             return NextResponse.json({ error: "Service unavailable: CRON_SECRET missing or invalid" }, { status: 503 });
         }
@@ -186,8 +187,7 @@ async function handleRequest(request: NextRequest) {
 
         // Validar autenticación
         const authHeader = request.headers.get("authorization");
-        const querySecret = request.nextUrl.searchParams.get("secret");
-        const isAuthed = authHeader === `Bearer ${cronSecret}` || querySecret === cronSecret;
+        const isAuthed = authHeader === `Bearer ${cronSecret}`;
 
         if (!isAuthed) {
             return NextResponse.json({ error: "No autorizado." }, { status: 401 });

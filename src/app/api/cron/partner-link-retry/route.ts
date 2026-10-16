@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cronSecretForJob } from "@/lib/cronJobSecret";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { linkPal } from "@/lib/partner/pal";
 import { recordCronRun } from "@/lib/cronRunTracker";
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest) {
   const startedAt = Date.now();
   const cronName = "partner-link-retry";
   try {
-    const cronSecret = process.env.CRON_SECRET;
+    const cronSecret = cronSecretForJob("partner-link-retry");
     if (!cronSecret || cronSecret.length < 16) {
       return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
     }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cronSecretForJob } from "@/lib/cronJobSecret";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { sendEmailStrict } from "@/lib/emailHelper";
 import { mapCostSnapshotToFocus, type CostSnapshotRow } from "@/lib/focus/mapper";
@@ -50,7 +51,7 @@ function buildEmailHtml(tenantName: string, date: string, count: number, format:
 export async function GET(request: NextRequest) {
     const startedAt = Date.now();
     try {
-        const cronSecret = process.env.CRON_SECRET;
+        const cronSecret = cronSecretForJob("focus-export-daily");
         if (!cronSecret || cronSecret.length < 16) {
             console.error("CRON_SECRET not configured or too short");
             return NextResponse.json({ error: "Service unavailable" }, { status: 503 });

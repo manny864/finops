@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cronSecretForJob } from "@/lib/cronJobSecret";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { errorMessage, serverError } from "@/lib/apiErrors";
 import { sendEmailStrict } from "@/lib/emailHelper";
@@ -45,7 +46,7 @@ async function leerDesperdicio(tenantId: string, cronSecret: string): Promise<{
     recursos: number;
 } | null> {
     const url = `${getInternalBaseUrl()}/api/cleanup/zombies?tenantId=${encodeURIComponent(tenantId)}&subscriptionId=All`;
-    const res = await prewarmFetch(url, { headers: { "X-Cron-Auth": cronSecret }, cache: "no-store" });
+    const res = await prewarmFetch(url, { headers: { "X-Cron-Auth": (process.env.CRON_SECRET || "") }, cache: "no-store" });
     if (!res.ok) throw new Error(`zombies devolvió ${res.status}`);
 
     const payload = await res.json();
@@ -61,7 +62,7 @@ async function leerDesperdicio(tenantId: string, cronSecret: string): Promise<{
 export async function GET(request: NextRequest) {
     const startedAt = Date.now();
     try {
-        const cronSecret = process.env.CRON_SECRET;
+        const cronSecret = cronSecretForJob("idle-resources-alerts");
         if (!cronSecret || cronSecret.length < 16) {
             console.error("CRON_SECRET not configured or too short");
             return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
