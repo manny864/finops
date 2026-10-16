@@ -73,14 +73,20 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Falta tenantId" }, { status: 400 });
     }
 
+    if (markAllAsRead !== undefined && typeof markAllAsRead !== "boolean") {
+      return NextResponse.json({ success: false, error: "markAllAsRead debe ser booleano" }, { status: 400 });
+    }
+    let userEmail: string | undefined;
     if (!isMockTenant(tenantId)) {
-      await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+      const identity = await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+      userEmail = identity.email;
     }
 
     const result = await markNotificationAsRead({
       tenantId,
       notificationId,
       markAllAsRead: Boolean(markAllAsRead),
+      userEmail,
     });
 
     return NextResponse.json(result);
@@ -106,11 +112,13 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    let userEmail: string | undefined;
     if (!isMockTenant(tenantId)) {
-      await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+      const identity = await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+      userEmail = identity.email;
     }
 
-    const result = await deleteNotification(tenantId, notificationId);
+    const result = await deleteNotification(tenantId, notificationId, userEmail);
     return NextResponse.json(result);
   } catch (error: unknown) {
     if (error instanceof AuthError) {

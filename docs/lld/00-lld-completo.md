@@ -6873,3 +6873,32 @@ No cambia la politica STRIDE-03 ni se afirma prueba del handler HTTP completo,
 Resource Graph o inventario global. Suite local con MySQL, Redis y Azurite:
 561 archivos y 6309 tests correctos, 8 archivos/76 tests omitidos por otros
 gates; lint/typecheck/build nativo correctos. Implementado en rama, sin rollout.
+
+### 52.10 Notificaciones: mutaciones limitadas al destinatario
+
+recipientFilter en tenantNotifications.service produce el mismo SQL para
+GET, UPDATE individual/masivo y DELETE: difusion (user_email IS NULL) mas el
+email verificado. Sin email solo permite difusion. La escritura previa
+filtraba por tenant, permitiendo alterar avisos privados ocultos de otro
+usuario del mismo tenant; no se demostro lectura privada ni cruce de tenant.
+
+PATCH /api/notifications y /api/notifications/mark-read pasan identity.email
+del guard; DELETE tambien. Campos userEmail enviados en body no autorizan
+otro destinatario. markAllAsRead presente debe ser booleano, rechazando
+strings/numeros/null antes del efecto. Broadcast dismissal recibe identidad
+real, no el fallback anonymous; llamadas de servicio sin email fallan con
+success=false, updatedCount=0 y log explicito. El modelo de lectura de avisos
+de difusion sigue siendo compartido por tenant, sin migracion de esquema.
+DELETE conserva respuesta idempotente para IDs no visibles: no revela su
+existencia ni los borra. UPDATE devuelve updatedCount=0.
+
+Catorce tests con SQL/handlers/JWT reales cubren ambos PATCH, GET moderno y
+legacy, DELETE, ID privado/ajeno, email falsificado, marcado masivo selectivo,
+bulk flags invalidos, anonimato/target cruzado y atribucion de broadcast a
+la identidad, no anonymous. Llamadas sin identidad solo mutan difusion.
+Cinco tests unitarios adicionales siempre activos comprueban predicado,
+parametros y rechazo de dismissal sin identidad. Matriz total 85 casos con
+Blob habilitado; suite completa con MySQL/Redis/Azurite: 6328 pass/76 skip,
+561 archivos correctos/8 omitidos; lint/typecheck/build nativo correctos.
+No modifica politica de admision STRIDE-03 ni acredita rollout o cobertura
+global de notificaciones/caches.

@@ -35,6 +35,9 @@ import { EXECUTIVE_REPORT_CONTAINER, saveExecutiveReportMarkdown, readExecutiveR
 import * as blobs from "@/lib/azureBlobStorage";
 import { getTopBreakdown } from "@/services/costGroupDetailMetricsService";
 import { alcanceDeLaRuta, filasDeCosto, filtroDeLaRequest, listarPerspectivas } from "@/services/perspectivesData.service";
+import { GET as readNotifications, PATCH as markNotifications, DELETE as removeNotification } from "@/app/api/notifications/route";
+import { PATCH as markNotificationsAlias } from "@/app/api/notifications/mark-read/route";
+import { deleteNotification, markNotificationAsRead } from "@/services/tenantNotifications.service";
 
 const tenants = [
     { id: "a0000000-0000-4000-8000-000000000001", email: "reader@alpha.example", marker: "alpha-only-record" },
@@ -127,6 +130,16 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
         await db.query(`CREATE TABLE Perspectives (id INT PRIMARY KEY, tenant_id VARCHAR(64), name VARCHAR(120), description TEXT)`);
         await db.query(`CREATE TABLE PerspectiveRules (id INT PRIMARY KEY, perspective_id INT,
             group_name VARCHAR(120), match_type VARCHAR(40), match_key VARCHAR(120), match_value VARCHAR(120), sort_order INT)`);
+        await db.query(`CREATE TABLE Notifications (id INT PRIMARY KEY, tenant_id VARCHAR(64),
+            user_email VARCHAR(120), is_read BOOLEAN DEFAULT false, read_at DATETIME,
+            title VARCHAR(120), message TEXT, title_key VARCHAR(120), message_key VARCHAR(120),
+            params_json JSON, href VARCHAR(120), severity VARCHAR(20), source VARCHAR(40), created_at DATETIME)`);
+        await db.query(`CREATE TABLE SystemAnnouncements (id INT PRIMARY KEY, title VARCHAR(120), message TEXT,
+            translations JSON, severity VARCHAR(20), channels VARCHAR(40), target_all_tenants BOOLEAN,
+            target_tenant_ids JSON, action_url VARCHAR(120), starts_at DATETIME, ends_at DATETIME,
+            status VARCHAR(20), created_by_email VARCHAR(120), created_at DATETIME, updated_at DATETIME)`);
+        await db.query(`CREATE TABLE UserAnnouncementDismissals (announcement_id INT, user_email VARCHAR(120),
+            PRIMARY KEY (announcement_id, user_email))`);
         for (const tenant of tenants) {
             await db.query(`INSERT INTO Users (tenant_id, email, entra_oid, role, account_status, system_role)
                 VALUES (?, ?, ?, 'Reader', 'ACTIVE', NULL)`,
@@ -475,6 +488,106 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
             expect((await cancelPlan(mutation("/api/billing/subscription",
                 { tenantId: actor.id, effective: "immediately" }, "DELETE"))).status).toBe(403);
             expect(paddleRequest).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("notification recipients with real identities and SQL", () => {
+        const actor = tenants[0];
+        const hiddenEmail = "another-reader@alpha.example";
+        const ids = async () => {
+            const [rows] = await db.query<RowDataPacket[]>("SELECT id, is_read FROM Notifications ORDER BY id");
+            return rows;
+        };
+        function mutate(path: string, body: Record<string, unknown>, identity?: typeof actor) {
+            return new NextRequest(request(path, String(body.tenantId), identity),
+                { method: "PATCH", body: JSON.stringify(body) });
+        }
+        beforeEach(async () => {
+            await db.query("DELETE FROM Notifications");
+            await db.query("DELETE FROM SystemAnnouncements");
+            await db.query("DELETE FROM UserAnnouncementDismissals");
+            for (const [index, tenant] of tenants.entries()) {
+                for (const [offset, recipient] of [[1, tenant.email], [2, index === 0 ? hiddenEmail : "another-reader@beta.example"], [3, null]] as const) {
+                    await db.query(`INSERT INTO Notifications
+                        (id, tenant_id, user_email, title, message, severity, source, created_at)
+                        VALUES (?, ?, ?, ?, ?, 'info', 'REPORT_JOB', UTC_TIMESTAMP())`,
+                        [index * 1000 + offset, tenant.id, recipient, `${tenant.marker}-${offset}`, tenant.marker]);
+                }
+            }
+        });
+        for (const route of [
+            { path: "/api/notifications", handler: markNotifications },
+            { path: "/api/notifications/mark-read", handler: markNotificationsAlias },
+        ]) {
+            it(`${route.path} cannot mark a hidden recipient's ID even with a forged body email`, async () => {
+                const response = await route.handler(mutate(route.path,
+                    { tenantId: actor.id, notificationId: 2, userEmail: hiddenEmail }, actor));
+                expect(response.status).toBe(200);
+                expect(await response.json()).toEqual({ success: true, updatedCount: 0 });
+                expect((await ids()).every((row) => row.is_read === 0)).toBe(true);
+                const own = await route.handler(mutate(route.path, { tenantId: actor.id, notificationId: 1 }, actor));
+                expect(await own.json()).toEqual({ success: true, updatedCount: 1 });
+            });
+            it(`${route.path} mark-all touches only own and tenant-wide notices`, async () => {
+                const response = await route.handler(mutate(route.path, { tenantId: actor.id, markAllAsRead: true }, actor));
+                expect(await response.json()).toEqual({ success: true, updatedCount: 2 });
+                expect((await ids()).filter((row) => row.is_read === 1).map((row) => row.id)).toEqual([1, 3]);
+            });
+            it(`${route.path} rejects non-boolean bulk flags without mutation`, async () => {
+                for (const value of ["false", 1, null]) {
+                    expect((await route.handler(mutate(route.path, { tenantId: actor.id, markAllAsRead: value }, actor))).status).toBe(400);
+                }
+                expect((await ids()).every((row) => row.is_read === 0)).toBe(true);
+            });
+            it(`${route.path} denies anonymous and cross-tenant mutation before SQL effects`, async () => {
+                expect((await route.handler(mutate(route.path, { tenantId: actor.id, markAllAsRead: true }))).status).toBe(401);
+                expect((await route.handler(mutate(route.path, { tenantId: tenants[1].id, markAllAsRead: true }, actor))).status).toBe(403);
+                const crossId = await route.handler(mutate(route.path, { tenantId: actor.id, notificationId: 1001 }, actor));
+                expect(await crossId.json()).toEqual({ success: true, updatedCount: 0 });
+                expect((await ids()).every((row) => row.is_read === 0)).toBe(true);
+            });
+            it(`${route.path} attributes broadcast dismissal to the verified caller, not body or anonymous`, async () => {
+                await db.query(`INSERT INTO SystemAnnouncements
+                    (id, title, message, severity, channels, target_all_tenants, starts_at, ends_at,
+                     status, created_by_email, created_at, updated_at)
+                    VALUES (1, 'Synthetic', 'Synthetic', 'info', 'notification', true,
+                     DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY), DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY),
+                     'published', 'synthetic@example.test', UTC_TIMESTAMP(), UTC_TIMESTAMP())`);
+                const response = await route.handler(mutate(route.path,
+                    { tenantId: actor.id, notificationId: "broadcast-1", userEmail: hiddenEmail }, actor));
+                expect(await response.json()).toEqual({ success: true, updatedCount: 1 });
+                const [rows] = await db.query<RowDataPacket[]>("SELECT * FROM UserAnnouncementDismissals");
+                expect(rows).toMatchObject([{ announcement_id: 1, user_email: actor.email }]);
+                const ownRead = await readNotifications(request("/api/notifications", actor.id, actor));
+                expect((await ownRead.json()).notifications.find((item: { id: string }) => item.id === "broadcast-1"))
+                    .toMatchObject({ isRead: true });
+            });
+        }
+        it.each(["", "&sinceId=0"])("both read formats hide private notices for other recipients: %s", async (extra) => {
+            const response = await readNotifications(request("/api/notifications", actor.id, actor, extra));
+            expect(response.status).toBe(200);
+            const body = await response.json();
+            expect(body.notifications.map((item: { id: number | string }) => String(item.id)).sort()).toEqual(["1", "3"]);
+            expect(JSON.stringify(body)).not.toContain(`${actor.marker}-2`);
+            if (!extra) expect(body.unreadCount).toBe(2);
+        });
+        it("delete preserves hidden and foreign objects while removing only a visible own ID", async () => {
+            const remove = (target: string, id: number, identity?: typeof actor) =>
+                removeNotification(new NextRequest(request("/api/notifications", target, identity, `&id=${id}`), { method: "DELETE" }));
+            expect((await remove(actor.id, 1)).status).toBe(401);
+            expect((await remove(tenants[1].id, 1001, actor)).status).toBe(403);
+            expect((await remove(actor.id, 2, actor)).status).toBe(200);
+            expect((await remove(actor.id, 1001, actor)).status).toBe(200);
+            expect((await ids())).toHaveLength(6);
+            expect((await remove(actor.id, 1, actor)).status).toBe(200);
+            expect((await ids()).map((row) => row.id)).toEqual([2, 3, 1001, 1002, 1003]);
+        });
+        it("service calls without identity cannot mutate private notifications", async () => {
+            expect(await markNotificationAsRead({ tenantId: actor.id, markAllAsRead: true }))
+                .toEqual({ success: true, updatedCount: 1 });
+            await deleteNotification(actor.id, 1);
+            expect((await ids()).some((row) => row.id === 1)).toBe(true);
+            expect((await ids()).filter((row) => row.is_read === 1).map((row) => row.id)).toEqual([3]);
         });
     });
 

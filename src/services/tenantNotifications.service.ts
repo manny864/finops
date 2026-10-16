@@ -19,6 +19,13 @@ import type {
 // Almacén en memoria para estado de lectura en tenants Demo
 const demoMockState: Record<string, TenantNotificationItem[]> = {};
 
+function recipientFilter(userEmail?: string | null) {
+  return {
+    sql: userEmail ? "(user_email IS NULL OR user_email = ?)" : "user_email IS NULL",
+    params: userEmail ? [userEmail] : [],
+  };
+}
+
 function getDemoNotifications(tenantId: string): TenantNotificationItem[] {
   if (!demoMockState[tenantId]) {
     demoMockState[tenantId] = [
@@ -116,10 +123,7 @@ export async function getTenantNotifications(
 
   // Un solo predicado para el conteo Y el listado: si divergieran, el badge
   // mostraría un número que no se corresponde con la lista.
-  const destinatario = userEmail
-    ? "(user_email IS NULL OR user_email = ?)"
-    : "user_email IS NULL";
-  const paramsDestinatario: string[] = userEmail ? [userEmail] : [];
+  const { sql: destinatario, params: paramsDestinatario } = recipientFilter(userEmail);
 
   try {
     // 1. Obtener conteo de no leídas
@@ -268,7 +272,11 @@ export async function markNotificationAsRead(params: {
       const { recordDismissal } = await import("@/services/systemAnnouncements.service");
       const aId = Number(String(notificationId).replace("broadcast-", ""));
       if (!Number.isNaN(aId)) {
-        await recordDismissal(aId, userEmail || "anonymous");
+        if (!userEmail) {
+          console.error("[tenantNotifications.service] Broadcast dismissal requires an authenticated recipient");
+          return { success: false, updatedCount: 0 };
+        }
+        await recordDismissal(aId, userEmail);
         return { success: true, updatedCount: 1 };
       }
     } catch (e) {
@@ -278,19 +286,20 @@ export async function markNotificationAsRead(params: {
 
   await initializeDatabase();
 
+  const recipient = recipientFilter(userEmail);
   try {
     if (markAllAsRead) {
       const [res]: any = await pool.query(
-        "UPDATE Notifications SET is_read = TRUE, read_at = NOW() WHERE tenant_id = ? AND (is_read = FALSE OR is_read = 0 OR is_read IS NULL)",
-        [tenantId]
+        `UPDATE Notifications SET is_read = TRUE, read_at = NOW() WHERE tenant_id = ? AND ${recipient.sql} AND (is_read = FALSE OR is_read = 0 OR is_read IS NULL)`,
+        [tenantId, ...recipient.params]
       );
       return { success: true, updatedCount: Number(res?.affectedRows || 0) };
     }
 
     if (notificationId) {
       const [res]: any = await pool.query(
-        "UPDATE Notifications SET is_read = TRUE, read_at = NOW() WHERE tenant_id = ? AND id = ?",
-        [tenantId, notificationId]
+        `UPDATE Notifications SET is_read = TRUE, read_at = NOW() WHERE tenant_id = ? AND id = ? AND ${recipient.sql}`,
+        [tenantId, notificationId, ...recipient.params]
       );
       return { success: true, updatedCount: Number(res?.affectedRows || 0) };
     }
@@ -307,7 +316,8 @@ export async function markNotificationAsRead(params: {
  */
 export async function deleteNotification(
   tenantId: string,
-  notificationId: string | number
+  notificationId: string | number,
+  userEmail?: string
 ): Promise<{ success: boolean }> {
   if (isMockTenant(tenantId)) {
     const items = getDemoNotifications(tenantId);
@@ -317,10 +327,12 @@ export async function deleteNotification(
 
   await initializeDatabase();
 
+  const recipient = recipientFilter(userEmail);
   try {
-    await pool.query("DELETE FROM Notifications WHERE tenant_id = ? AND id = ?", [
+    await pool.query(`DELETE FROM Notifications WHERE tenant_id = ? AND id = ? AND ${recipient.sql}`, [
       tenantId,
       notificationId,
+      ...recipient.params,
     ]);
     return { success: true };
   } catch (err: any) {

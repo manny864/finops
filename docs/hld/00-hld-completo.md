@@ -1980,3 +1980,11 @@ el permiso asignado prevalece sobre la URL; una Perspective ajena no resuelve
 y el recorte SQL excluye costos fuera del grupo. Quince regresiones de
 catalogo/limites conservan Decimal/Other. Sin cambio de politica de admision
 ni certificacion del handler completo de Cost Groups o Resource Graph.
+
+Notificaciones ahora aplica el mismo limite tenant/destinatario a lectura,
+marcado individual/masivo y borrado. Antes las escrituras permitian alterar
+avisos privados de otro usuario del mismo tenant; no se confirma lectura de
+su contenido. Ambos PATCH y DELETE usan identidad del guard, no email del
+body. Descartar broadcast ya no usa anonymous; markAllAsRead exige booleano.
+Avisos tenant-wide conservan estado compartido. Catorce casos SQL reales y
+cinco regresiones verifican esos limites; implementado en rama, sin rollout.
