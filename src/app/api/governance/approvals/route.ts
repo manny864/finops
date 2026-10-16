@@ -161,6 +161,14 @@ export async function POST(request: NextRequest) {
     const armResult = await executeApprovedAction(tenantId, item, {
       createBackupSnapshot: Boolean(createBackupSnapshot),
     });
+    if (armResult.status === "Running") {
+      // Keep the durable claim. Automatic retry could duplicate an accepted ARM operation.
+      await logAction(tenantId, resolver, `SUBMITTED_${item.actionType}`, item.resourceId, "RUNNING");
+      return NextResponse.json({
+        success: false, status: "PENDING", armExecutionStatus: "Running",
+        message: armResult.detail,
+      }, { status: 202 });
+    }
 
     // Si Azure rechazó el cambio, la fila queda en `Failed`, no en `Approved`:
     // el historial tiene que distinguir una acción aplicada de una que no.

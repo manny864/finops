@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAzureCredential, listTenantSubscriptions } from "@/lib/azure";
-import { CostManagementClient } from "@azure/arm-costmanagement";
+import { getAzureCredential, listTenantSubscriptions, getCostManagementClient } from "@/lib/azure";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { exigirSuscripcionDelTenant } from "@/lib/scopeDelTenant";
@@ -29,7 +28,7 @@ export async function GET(request: NextRequest) {
             let client;
             try {
                 credential = await getAzureCredential(tenantId);
-                client = new CostManagementClient(credential);
+                client = await getCostManagementClient(tenantId, credential);
             } catch (e) {
                 console.warn(`[Chargeback] Sin credenciales para ${tenantId}:`, errorMessage(e));
                 return { aggregated: [], detailedCosts: [] };

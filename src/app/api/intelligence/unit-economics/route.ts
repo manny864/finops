@@ -15,8 +15,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getCostManagementClient } from "@/lib/azure";
 import { requireTenantAccess, requireTenantRole, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate, invalidateCache } from "@/lib/cache";
 import { isMockTenant } from "@/lib/mockData";
@@ -85,7 +84,7 @@ export async function GET(request: NextRequest) {
       let subs: string[] = [];
       try {
         credential = await getAzureCredential(tenantId);
-        costClient = new CostManagementClient(credential);
+        costClient = await getCostManagementClient(tenantId, credential);
         subs = await getSubscriptionsForTenant(tenantId, credential);
       } catch (e) {
         // Sin credenciales se devuelve vacío real; el ensamblado mostrará $0.00

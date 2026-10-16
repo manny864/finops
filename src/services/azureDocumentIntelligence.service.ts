@@ -1,7 +1,6 @@
-import { CostManagementClient } from "@azure/arm-costmanagement";
 import { MonitorClient } from "@azure/arm-monitor";
 import { Decimal } from "decimal.js";
-import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient, getCostManagementClient } from "@/lib/azure";
 import {
   buildDocIntelligenceRemediations,
   calculateDocIntelligencePotentialSavings,
@@ -224,7 +223,7 @@ async function fetchActualCost(
   try {
     const subscriptionId = resource.subscriptionId || resource.id.split("/")[2] || "";
     if (!subscriptionId) return 0;
-    const client = new CostManagementClient(credential);
+    const client = await getCostManagementClient(tenantId, credential);
     const result = await client.query.usage(`/subscriptions/${subscriptionId}`, {
       type: "Usage",
       timeframe: "MonthToDate",

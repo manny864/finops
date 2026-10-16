@@ -1,5 +1,4 @@
-import { getAzureCredential, getAllSubscriptionsForTenant } from "@/lib/azure";
-import { CostManagementClient } from "@azure/arm-costmanagement";
+import { getAzureCredential, getAllSubscriptionsForTenant, getCostManagementClient } from "@/lib/azure";
 import { ConsumptionManagementClient } from "@azure/arm-consumption";
 import { redis } from "@/lib/redis";
 import pool from "@/modules/storage/db";
@@ -243,7 +242,7 @@ export async function getNativeBudgets(tenantId: string, subscriptionId: string)
 
 export async function getBudgetConsumption(tenantId: string, subscriptionId: string, costCenterName: string) {
     const credential = await getAzureCredential(tenantId);
-    const client = new CostManagementClient(credential);
+    const client = await getCostManagementClient(tenantId, credential);
 
     const queryOptions = (col: string) => ({
         type: "Usage",
@@ -340,7 +339,7 @@ export async function getBudgetCostCenterMonthlyHistory(
 ): Promise<{ month: string; cost: number }[]> {
     try {
         const credential = await getAzureCredential(tenantId);
-        const client = new CostManagementClient(credential);
+        const client = await getCostManagementClient(tenantId, credential);
         const scope = subscriptionId === 'All'
             ? `/providers/Microsoft.Management/managementGroups/${tenantId}`
             : `/subscriptions/${subscriptionId}`;

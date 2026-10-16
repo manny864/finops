@@ -12,7 +12,7 @@
  * otorgado a todos los tenants). Feature gratuita — solo visibilidad, no hay
  * página de optimización dedicada para estos servicios (fuera de alcance).
  */
-import { CostManagementClient } from "@azure/arm-costmanagement";
+import { getCostManagementClient } from "@/lib/azure";
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError } from "@/lib/azureCostColumn";
 import { isMockTenant } from "@/lib/mockData";
 
@@ -59,7 +59,7 @@ function buildMockResult(): MiscServicesCostResult {
 export async function getMiscServicesCost(credential: any, subscriptionId: string, tenantId: string): Promise<MiscServicesCostResult> {
     if (isMockTenant(tenantId)) return buildMockResult();
 
-    const client = new CostManagementClient(credential);
+    const client = await getCostManagementClient(tenantId, credential);
     const scope = `/subscriptions/${subscriptionId}`;
     const now = new Date();
     const thirtyDaysAgo = new Date();

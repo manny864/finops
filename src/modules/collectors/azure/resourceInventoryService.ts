@@ -1,5 +1,4 @@
-import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient, getCostManagementClient } from "@/lib/azure";
 import { resolveCostColumn, isCostUsdUnsupportedError, degradeCostColumn, type CostColumn } from "@/lib/azureCostColumn";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import { withRetry, mapWithConcurrency } from "./billing/billingHelpers";
@@ -188,7 +187,7 @@ export async function getResourceCostsById(tenantId: string, resources: Array<{ 
     }
 
     const credential = await getAzureCredential(tenantId);
-    const client = new CostManagementClient(credential);
+    const client = await getCostManagementClient(tenantId, credential);
     const col: CostColumn = await resolveCostColumn(tenantId);
 
     const buildOptions = (ids: string[], useCol: CostColumn) => ({
@@ -336,7 +335,7 @@ export async function getCostByTagKey(tenantId: string, tagKey: string): Promise
     const subs = await getSubscriptionsForTenant(tenantId);
     if (subs.length === 0) return [];
     const credential = await getAzureCredential(tenantId);
-    const client = new CostManagementClient(credential);
+    const client = await getCostManagementClient(tenantId, credential);
     const col: CostColumn = await resolveCostColumn(tenantId);
 
     const buildOptions = (useCol: CostColumn) => ({

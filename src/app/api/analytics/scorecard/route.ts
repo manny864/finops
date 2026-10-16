@@ -14,11 +14,10 @@
 
 import { NextRequest } from "next/server";
 import { scriptSafeJson } from "@/lib/scriptSafeJson";
-import { CostManagementClient } from "@azure/arm-costmanagement";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant } from "@/lib/mockData";
-import { getAzureCredential, getResourceGraphClient, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getResourceGraphClient, getSubscriptionsForTenant, getCostManagementClient } from "@/lib/azure";
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError, type CostColumn } from "@/lib/azureCostColumn";
 import { withArgLimit } from "@/lib/argConcurrency";
 import { getResourceCostsById } from "@/services/azureResourcesInventory.service";
@@ -73,7 +72,7 @@ async function fetchSpendAndCoverageByTeam(tenantId: string, tagKey: string): Pr
   if (subs.length === 0) return out;
 
   const credential = await getAzureCredential(tenantId);
-  const client = new CostManagementClient(credential);
+  const client = await getCostManagementClient(tenantId, credential);
   const col: CostColumn = await resolveCostColumn(tenantId);
 
   const buildOptions = (useCol: CostColumn) =>

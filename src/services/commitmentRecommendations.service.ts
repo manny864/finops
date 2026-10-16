@@ -10,7 +10,7 @@
  * Win-Delta Evaluator: Determina dinámicamente el ganador económico y genera el modelo tipado.
  */
 import Decimal from "decimal.js";
-import { getAzureCredential, getSubscriptionsForTenant, getSubscriptionNameMap } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getSubscriptionNameMap, getCostManagementClient } from "@/lib/azure";
 import { errorMessage } from "@/lib/apiErrors";
 import {
     CommitmentTerm,
@@ -136,7 +136,6 @@ export async function getSavingsPlanVsReservationComparison(tenantId: string): P
     let hasData = false;
 
     const { ConsumptionManagementClient } = await import("@azure/arm-consumption");
-    const { CostManagementClient } = await import("@azure/arm-costmanagement");
 
     // Ingesta concurrente por suscripción
     await Promise.all(
@@ -236,7 +235,7 @@ export async function getSavingsPlanVsReservationComparison(tenantId: string): P
 
             // 3. Ingesta de Savings Plans (Microsoft.CostManagement/benefitRecommendations)
             try {
-                const cm = new CostManagementClient(credential);
+                const cm = await getCostManagementClient(tenantId, credential);
                 for await (const rec of cm.benefitRecommendations.list(scope)) {
                     const p: any = (rec as any).properties ?? rec;
                     const key = termKey(p?.term);
@@ -358,4 +357,3 @@ export async function getSavingsPlanVsReservationComparison(tenantId: string): P
         comparisonData,
     };
 }
-

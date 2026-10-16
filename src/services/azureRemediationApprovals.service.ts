@@ -17,6 +17,8 @@ import type { ResultSetHeader } from "mysql2";
 import pool from "@/modules/storage/db";
 import { getAzureCredential } from "@/lib/azure";
 import { errorMessage } from "@/lib/apiErrors";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
+import { tenantPuedeEscribirEnAzure } from "@/lib/lighthouseAccess";
 import {
   DESTRUCTIVE_ACTIONS,
   REBOOT_ACTIONS,
@@ -49,12 +51,16 @@ export function normalizeActionType(raw: unknown): ApprovalActionType {
   const match = VALID_ACTIONS.find((a) => a === s);
   if (match) return match;
   // Alias de los motores que crean peticiones con otro vocabulario.
-  if (s.includes("DELETE") || s.includes("PURGE_RESOURCE")) return "DELETE_RESOURCE";
-  if (s.includes("RIGHTSIZ") || s.includes("DOWNSIZE") || s.includes("RESIZE")) return "RIGHTSIZE_VM";
-  if (s.includes("TIER") || s.includes("COOL") || s.includes("ARCHIVE")) return "CHANGE_TIER";
-  if (s.includes("STOP") || s.includes("DEALLOC") || s.includes("POWER")) return "POWER_OFF";
-  if (s.includes("BACKUP")) return "PURGE_BACKUP";
-  return "DELETE_RESOURCE";
+  const aliases: Record<string, ApprovalActionType> = {
+    DELETE: "DELETE_RESOURCE", PURGE_RESOURCE: "DELETE_RESOURCE", DELETE_ORPHAN: "DELETE_RESOURCE",
+    DELETE_DISK: "DELETE_RESOURCE", DELETE_NIC: "DELETE_RESOURCE", DELETE_PUBLIC_IP: "DELETE_RESOURCE",
+    DELETE_SNAPSHOT: "DELETE_RESOURCE",
+    RIGHTSIZE: "RIGHTSIZE_VM", DOWNSIZE: "RIGHTSIZE_VM", RESIZE: "RIGHTSIZE_VM",
+    MOVE_TO_COOL: "CHANGE_TIER", COOL: "CHANGE_TIER",
+    STOP: "POWER_OFF", DEALLOCATE: "POWER_OFF", SHUTDOWN: "POWER_OFF",
+  };
+  if (Object.hasOwn(aliases, s)) return aliases[s];
+  throw new Error("Unsupported remediation action.");
 }
 
 /** El enum de MySQL usa Capitalizado; el dominio usa MAYÚSCULAS. */
@@ -286,6 +292,33 @@ export interface ArmExecutionResult {
   snapshotId?: string;
 }
 
+class ArmOperationPendingError extends Error {}
+
+/** Never label an accepted asynchronous mutation (or incomplete backup) as applied. */
+async function requireCompletedArmResponse(response: Response, snapshot = false): Promise<void> {
+  if (response.status === 202 || response.headers.has("azure-asyncoperation") || response.headers.has("operation-location")) {
+    throw new ArmOperationPendingError(snapshot
+      ? "Azure accepted the protective snapshot; completion requires reconciliation. Resource deletion was NOT attempted."
+      : "Azure accepted an asynchronous operation; completion requires reconciliation. Do not resubmit.");
+  }
+  if (response.status === 204 || response.status === 404) return;
+  const text = await response.clone().text();
+  if (!text && !snapshot) return;
+  const data = JSON.parse(text);
+  const state = data?.properties?.provisioningState ?? data?.status;
+  if (state && String(state).toLowerCase() !== "succeeded") {
+    if (["failed", "canceled", "cancelled"].includes(String(state).toLowerCase())) {
+      throw new Error("Azure reports the operation did not succeed.");
+    }
+    throw new ArmOperationPendingError(snapshot
+      ? "Protective snapshot is not complete. Resource deletion was NOT attempted; reconcile the snapshot."
+      : "Azure operation is still running; reconcile before any retry.");
+  }
+  if (snapshot && String(state).toLowerCase() !== "succeeded") {
+    throw new Error("Azure did not confirm protective snapshot completion; resource deletion was NOT attempted.");
+  }
+}
+
 /** API version por tipo de recurso para el DELETE genérico y los PATCH. */
 const API_VERSIONS: Record<string, string> = {
   "microsoft.compute/disks": "2023-01-02",
@@ -297,7 +330,34 @@ const API_VERSIONS: Record<string, string> = {
 };
 
 function apiVersionFor(resourceType: string): string {
-  return API_VERSIONS[resourceType.toLowerCase()] || "2021-04-01";
+  const version = API_VERSIONS[resourceType.toLowerCase()];
+  if (!version) throw new Error("Unsupported resource type for remediation.");
+  return version;
+}
+
+export function validateApprovalTarget(item: PendingApprovalItem): void {
+  const action = normalizeActionType(item.actionType);
+  const match = /^\/subscriptions\/([0-9a-f-]{36})\/resourceGroups\/([^/]+)\/providers\/([^/]+\/[^/]+)\/([^/]+)$/i.exec(item.resourceId);
+  if (!match || /[\\?#%\x00-\x1f\x7f]/.test(item.resourceId)) throw new Error("Invalid remediation resource ID.");
+  const expected = [item.subscriptionId, item.resourceGroup, item.resourceType, item.resourceName];
+  if (expected.some((value, index) => value.toLowerCase() !== match[index + 1].toLowerCase())) {
+    throw new Error("Remediation target fields do not match its resource ID.");
+  }
+  const type = item.resourceType.toLowerCase();
+  apiVersionFor(type);
+  if ((action === "RIGHTSIZE_VM" || action === "POWER_OFF") && type !== "microsoft.compute/virtualmachines") {
+    throw new Error("VM action requires a virtual machine.");
+  }
+  if (action === "CHANGE_TIER"
+    && (type !== "microsoft.storage/storageaccounts" || !["Hot", "Cool", "Cold"].includes(item.targetConfiguration || ""))) {
+    throw new Error("Tier action requires a storage account and an explicit supported tier.");
+  }
+  if (action === "RIGHTSIZE_VM" && !/^[a-z0-9_]+$/i.test(item.targetConfiguration || "")) {
+    throw new Error("Resize action requires an explicit valid SKU.");
+  }
+  if (action === "PURGE_BACKUP" && type !== "microsoft.compute/snapshots") {
+    throw new Error("Only managed snapshots are supported by this backup purge action.");
+  }
 }
 
 /**
@@ -322,6 +382,8 @@ async function createDiskSnapshot(
 
   const res = await fetch(url, {
     method: "PUT",
+    redirect: "error",
+    signal: AbortSignal.timeout(30_000),
     headers: { Authorization: `Bearer ${token.token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       location,
@@ -333,8 +395,10 @@ async function createDiskSnapshot(
     const text = await res.text().catch(() => "");
     throw new Error(`No se pudo crear el snapshot previo (${res.status}): ${text.slice(0, 200)}`);
   }
-  const data = await res.json().catch(() => ({}));
-  return String(data.id || snapshotName);
+  await requireCompletedArmResponse(res, true);
+  const data = await res.json();
+  if (typeof data.id !== "string") throw new Error("Azure snapshot response did not include a resource ID.");
+  return data.id;
 }
 
 /** Cambia el tier de acceso de una Storage Account (Hot → Cool / Cold). */
@@ -347,16 +411,19 @@ async function changeStorageTier(
   const token = await credential.getToken(`${ARM}/.default`);
   if (!token?.token) throw new Error("No se pudo obtener token de ARM");
 
-  const tier = ["Hot", "Cool", "Cold"].includes(targetTier) ? targetTier : "Cool";
+  if (!["Hot", "Cool", "Cold"].includes(targetTier)) throw new Error("Unsupported storage tier.");
   const res = await fetch(`${ARM}${resourceId}?api-version=2023-01-01`, {
     method: "PATCH",
+    redirect: "error",
+    signal: AbortSignal.timeout(30_000),
     headers: { Authorization: `Bearer ${token.token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ properties: { accessTier: tier } }),
+    body: JSON.stringify({ properties: { accessTier: targetTier } }),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`Azure rechazó el cambio de tier (${res.status}): ${text.slice(0, 300)}`);
   }
+  await requireCompletedArmResponse(res);
 }
 
 /** Cambia el tamaño de una VM. Azure la reinicia como parte de la operación. */
@@ -367,6 +434,8 @@ async function resizeVirtualMachine(tenantId: string, resourceId: string, target
 
   const res = await fetch(`${ARM}${resourceId}?api-version=2023-09-01`, {
     method: "PATCH",
+    redirect: "error",
+    signal: AbortSignal.timeout(30_000),
     headers: { Authorization: `Bearer ${token.token}`, "Content-Type": "application/json" },
     body: JSON.stringify({ properties: { hardwareProfile: { vmSize: targetSku } } }),
   });
@@ -374,6 +443,7 @@ async function resizeVirtualMachine(tenantId: string, resourceId: string, target
     const text = await res.text().catch(() => "");
     throw new Error(`Azure rechazó el redimensionamiento (${res.status}): ${text.slice(0, 300)}`);
   }
+  await requireCompletedArmResponse(res);
 }
 
 async function deleteViaArm(tenantId: string, resourceId: string, resourceType: string): Promise<void> {
@@ -383,6 +453,8 @@ async function deleteViaArm(tenantId: string, resourceId: string, resourceType: 
 
   const res = await fetch(`${ARM}${resourceId}?api-version=${apiVersionFor(resourceType)}`, {
     method: "DELETE",
+    redirect: "error",
+    signal: AbortSignal.timeout(30_000),
     headers: { Authorization: `Bearer ${token.token}` },
   });
   // 204 y 404 son éxito: el recurso ya no está, que es el objetivo.
@@ -390,6 +462,7 @@ async function deleteViaArm(tenantId: string, resourceId: string, resourceType: 
     const text = await res.text().catch(() => "");
     throw new Error(`Azure rechazó el borrado (${res.status}): ${text.slice(0, 300)}`);
   }
+  await requireCompletedArmResponse(res);
 }
 
 /**
@@ -404,9 +477,16 @@ export async function executeApprovedAction(
   options: { createBackupSnapshot?: boolean; location?: string } = {}
 ): Promise<ArmExecutionResult> {
   try {
+    validateApprovalTarget(item);
+    await exigirScopesDelTenant(tenantId, [item.resourceId]);
+    const permission = await tenantPuedeEscribirEnAzure(tenantId);
+    if (!permission.puede) throw new Error("Tenant delegation does not authorize Azure writes.");
     let snapshotId: string | undefined;
 
-    if (options.createBackupSnapshot && item.canSnapshot) {
+    if (options.createBackupSnapshot && !canSnapshot(item.actionType, item.resourceType)) {
+      throw new Error("This resource/action cannot create a protective snapshot.");
+    }
+    if (options.createBackupSnapshot) {
       snapshotId = await createDiskSnapshot(
         tenantId,
         item.subscriptionId,
@@ -434,13 +514,15 @@ export async function executeApprovedAction(
         break;
       }
       case "CHANGE_TIER":
-        await changeStorageTier(tenantId, item.resourceId, item.targetConfiguration || "Cool");
+        await changeStorageTier(tenantId, item.resourceId, item.targetConfiguration!);
         break;
       case "POWER_OFF": {
         const { deallocateVirtualMachine } = await import("@/services/remediationService");
         await deallocateVirtualMachine(tenantId, "approval-flow", item.subscriptionId, item.resourceGroup, item.resourceName);
         break;
       }
+      default:
+        throw new Error("Unsupported remediation action.");
     }
 
     return {
@@ -451,6 +533,7 @@ export async function executeApprovedAction(
       snapshotId,
     };
   } catch (e) {
+    if (e instanceof ArmOperationPendingError) return { status: "Running", detail: e.message };
     return { status: "Failed", detail: errorMessage(e) || "Unknown error executing the action on Azure" };
   }
 }

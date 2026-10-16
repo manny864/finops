@@ -1,6 +1,5 @@
 import { MonitorClient } from "@azure/arm-monitor";
-import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient, getCostManagementClient } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 
 export interface DocIntelResource {
@@ -54,7 +53,7 @@ export async function getDocIntelRealCost(
   try {
     const sub = subscriptionId && subscriptionId !== "unknown" ? subscriptionId : (resourceId.split("/")[2] || "");
     if (sub && credential) {
-      const costMgmtClient = new CostManagementClient(credential);
+      const costMgmtClient = await getCostManagementClient(tenantId, credential);
       const scope = `/subscriptions/${sub}`;
 
       const query = {

@@ -11,8 +11,7 @@
  * empieza a cobrar por cada recurso nuevo. Se expone qué planes están en
  * Standard (pago) vs Free por suscripción, con el costo real MonthToDate.
  */
-import { getAzureCredential } from "@/lib/azure";
-import { CostManagementClient } from "@azure/arm-costmanagement";
+import { getAzureCredential, getCostManagementClient } from "@/lib/azure";
 import { isMockTenant } from "@/lib/mockData";
 
 const ARM_BASE = "https://management.azure.com";
@@ -91,7 +90,7 @@ export const getDefenderCost = async (tenantId: string, subscriptionIds: string[
     let costBreakdownAvailable = false;
     if (subscriptionIds.length > 0) {
         try {
-            const costClient = new CostManagementClient(credential);
+            const costClient = await getCostManagementClient(tenantId, credential);
             const costRes = await costClient.query.usage(`/subscriptions/${subscriptionIds[0]}`, {
                 type: "ActualCost",
                 timeframe: "MonthToDate",

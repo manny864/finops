@@ -733,6 +733,8 @@ con MySQL real; no confundir mocks de concurrencia con esa evidencia.
 
 ### STRIDE-02 — Verificar aislamiento de objetos, SQL, caché y scopes
 
+**Avance (2026-10-15):** todos los constructores directos de `CostManagementClient` en `src` se migraron a la factory comun; una policy del SDK valida origen ARM y pertenencia de scope en cada request (incluidas paginas y APIs distintas de query), antes de emitir el token. Sin redirects. Prueba de inventario impide nuevos constructores fuera de la factory; pruebas sinteticas verifican rechazo antes del token y conservan Lighthouse mediante el helper existente. El colector de meters ahora recibe tenantId explicitamente. Esto NO certifica todos los objetos SQL/Redis/SWR: queda pendiente la matriz end-to-end de dos tenants sobre reportes, exports y caches.
+
 **Prioridad:** P1 de evaluación y cierre de cobertura.  
 **Clasificación:** riesgo de alto impacto potencial; no se confirmó fuga cross-tenant.  
 **STRIDE:** Information Disclosure, Tampering y Elevation of Privilege.  
@@ -770,6 +772,8 @@ con MySQL real; no confundir mocks de concurrencia con esa evidencia.
 **Aceptación:** usuarios no admitidos y suspendidos reciben el resultado previsto por la política en todas las rutas; no acceden por una rama alternativa; usuarios activos y administradores legítimos conservan acceso.
 
 ### STRIDE-04 — Reforzar la frontera de ejecución de remediaciones Azure
+
+**Avance (2026-10-15):** catalogo exacto de acciones/aliases (ningun default destructivo), tipos API admitidos, coincidencia de todas las partes del ARM ID, compatibilidad accion/tipo y SKU/tier explicitos. El servicio revalida scopes y permiso de delegacion justo antes de ejecutar; el alta valida accion/scope. Los requests ARM tienen timeout y no siguen redirects. Aceptacion asincrona `202` no se presenta como exito: conserva claim durable `Running`, requiere conciliacion y no permite retry automatico. Un snapshot no confirmado completo impide borrar el recurso. MySQL 8.4 aislado verifico 12 reclamos concurrentes (solo uno gana), JSON CAS, tenant incorrecto, autoaprobacion, objetivo cambiado y propiedad del token de finalizacion. **Pendiente:** conciliador de operaciones asincronas/interrumpidas y revision de Custom Roles/asignaciones efectivas en Azure; no se ejecutaron mutaciones reales para probarlas.
 
 **Prioridad:** P1 de evaluación y diseño.  
 **Clasificación:** riesgo arquitectónico; no se confirmó una vía de ejecución destructiva por Reader.  
@@ -2413,6 +2417,8 @@ El fragmento es una pauta de validación de clave, no reemplaza la gestión vers
 **Pruebas de aceptación:** sin clave, cifrado/descifrado falla explícitamente; clave malformada, de longitud incorrecta o de otro propósito se rechaza; modificar nonce/tag/ciphertext no produce plaintext; registros `enc:v1:` existentes se descifran durante la migración y quedan re-cifrados con una clave nueva verificada; logs y errores no contienen secretos.
 
 ### INT-04 — Completar evidencia de autorización ARM por tenant
+
+**Avance (2026-10-15):** ver STRIDE-02/04: factory Cost Management sin bypasses directos, revalidacion en ejecucion, catalogo fail-closed y pruebas de concurrencia MySQL real. No se declara cerrada la cobertura completa de endpoints/caches ni el minimo privilegio efectivo Azure; los pendientes siguen vigentes.
 
 **Severidad:** riesgo no confirmado; verificación pendiente (P1).  
 **Resultado:** las rutas de borrado revisadas validan rol/tier y alcance de tenant; el flujo nuevo separa autorización y ejecución. No se confirmó un bypass que ejecute recursos fuera de la suscripción registrada del tenant. La inspección estática no certifica todas las acciones `deallocate`, `delete` de discos/IPs/NSGs ni escritura de tags, ni las acciones efectivas permitidas por los Custom Remediation Roles.

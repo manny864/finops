@@ -4,6 +4,8 @@ import { AuthError, requireRequestIdentity, requireTenantAccess } from "@/lib/re
 import { notifyTenant } from "@/lib/notifications";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 import { POST as resolveGovernanceApproval } from "@/app/api/governance/approvals/route";
+import { normalizeActionType } from "@/services/azureRemediationApprovals.service";
+import { exigirScopesDelTenant } from "@/lib/scopeDelTenant";
 
 /**
  * `SELECT * FROM RemediationRequests`, asi que el contrato es la tabla: columnas
@@ -64,12 +66,19 @@ export async function POST(request: NextRequest) {
         }
 
         const identity = await requireTenantAccess(request, tenantId, { allowSuperAdmin: true });
+        let action: string;
+        try {
+            action = normalizeActionType(actionType);
+        } catch {
+            return NextResponse.json({ error: "Unsupported remediation action" }, { status: 400 });
+        }
+        await exigirScopesDelTenant(tenantId, [resourceId]);
 
         const [result] = await pool.query(
             `INSERT INTO RemediationRequests
              (tenant_id, resource_id, resource_name, action_type, estimated_savings, requested_by)
              VALUES (?, ?, ?, ?, ?, ?)`,
-            [tenantId, resourceId, resourceName, actionType, estimatedSavings || 0, identity.email]
+            [tenantId, resourceId, resourceName, action, estimatedSavings || 0, identity.email]
         );
 
         // Best-effort: si no hay canales configurados o falla el envío, la

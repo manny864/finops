@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CostManagementClient } from "@azure/arm-costmanagement";
 import { AdvisorManagementClient } from "@azure/arm-advisor";
-import { getAzureCredential, getSubscriptionsForTenant } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getCostManagementClient } from "@/lib/azure";
 import { requireTenantAccess, AuthError } from "@/lib/requestAuth";
 import { getWithStaleWhileRevalidate } from "@/lib/cache";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
             let costClient: CostManagementClient;
             try {
                 credential = await getAzureCredential(tenantId);
-                costClient = new CostManagementClient(credential);
+                costClient = await getCostManagementClient(tenantId, credential);
             } catch (e) {
                 console.warn(`[Commitments] Sin credenciales para ${tenantId}:`, errorMessage(e));
                 return { utilization: null, coverage: 0, hasReservations: false, activeReservations: [], reservationDetails: [], recommendations: [], tasaAhorro };
@@ -402,4 +402,3 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
-

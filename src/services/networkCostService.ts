@@ -1,8 +1,8 @@
-import { CostManagementClient } from "@azure/arm-costmanagement";
+import { getCostManagementClient } from "@/lib/azure";
 import { resolveCostColumn, degradeCostColumn, isCostUsdUnsupportedError } from "@/lib/azureCostColumn";
 
 export async function getNetworkEgressCosts(credential: any, subscriptionId: string, tenantId: string) {
-    const client = new CostManagementClient(credential);
+    const client = await getCostManagementClient(tenantId, credential);
     const scope = `/subscriptions/${subscriptionId}`;
 
     const now = new Date();

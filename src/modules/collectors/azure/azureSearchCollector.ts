@@ -1,6 +1,5 @@
 import { MonitorClient } from "@azure/arm-monitor";
-import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient, getCostManagementClient } from "@/lib/azure";
 import { getSubscriptionMeterUsage } from "@/modules/collectors/azure/foundryCollector";
 import pool from "@/modules/storage/db";
 import { errorMessage } from '@/lib/apiErrors';
@@ -82,7 +81,7 @@ export async function getAzureSearchRealCost(
   // 1. Consultar Azure Cost Management MTD
   try {
     if (sub && credential) {
-      const costMgmtClient = new CostManagementClient(credential);
+      const costMgmtClient = await getCostManagementClient(tenantId, credential);
       const scope = `/subscriptions/${sub}`;
 
       const idVariants = [
@@ -269,13 +268,14 @@ export async function getAzureSearchMetrics(
  */
 async function getBilledSearchResources(
   credential: any,
-  subs: string[]
+  subs: string[],
+  tenantId: string,
 ): Promise<SearchResource[] | null> {
   const byResource = new Map<string, { cost: number; meter: string }>();
   let anyQuerySucceeded = false;
 
   for (const sub of subs) {
-    const meters = await getSubscriptionMeterUsage(credential, sub);
+    const meters = await getSubscriptionMeterUsage(credential, sub, tenantId);
     if (meters === null) continue; // throttled/failed — not proof of absence
     anyQuerySucceeded = true;
     for (const m of meters) {
@@ -316,7 +316,7 @@ export async function syncAzureSearchSnapshots(tenantId: string): Promise<void> 
       // Not necessarily gone — Resource Graph hides what the SP can't read.
       // Ask billing before assuming the service was deleted.
       const subs = await getSubscriptionsForTenant(tenantId, credential).catch(() => []);
-      const billed = await getBilledSearchResources(credential, subs);
+      const billed = await getBilledSearchResources(credential, subs, tenantId);
 
       if (billed === null) {
         console.warn(

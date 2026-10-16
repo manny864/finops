@@ -550,13 +550,27 @@ export async function getResourceGraphClient(tenantId: string, credential?: Toke
 }
 
 /**
- * Cliente de Cost Management instrumentado.
- *
- * No existía factory: cada colector hacía `new CostManagementClient(credential)`
- * por su cuenta. Los call sites que se migren a esta empiezan a reportar cuota;
- * los que no, siguen funcionando igual (sólo no aportan mediciones).
+ * Cliente Cost Management instrumentado y limitado al tenant en cada request,
+ * incluidas paginacion y APIs distintas de query. No sigue redirecciones.
  */
-export async function getCostManagementClient(tenantId: string) {
-  const credential = await getAzureCredential(tenantId);
-  return attachQuotaTracking(new CostManagementClient(credential), tenantId, 'COST_MANAGEMENT');
+export async function getCostManagementClient(tenantId: string, credential?: TokenCredential) {
+  const client = new CostManagementClient(credential ?? await getAzureCredential(tenantId), {
+    additionalPolicies: [{
+      position: "perCall",
+      policy: {
+        name: "tenantCostManagementScope",
+        async sendRequest(request, next) {
+          const url = new URL(request.url);
+          if (url.origin !== "https://management.azure.com" || url.username || url.password || url.hash) {
+            throw new Error("Cost Management request has an untrusted origin.");
+          }
+          const { exigirScopesDelTenant } = await import("@/lib/scopeDelTenant");
+          await exigirScopesDelTenant(tenantId, [url.pathname]);
+          return next(request);
+        },
+      },
+    }],
+  });
+  client.pipeline.removePolicy({ name: "redirectPolicy" });
+  return attachQuotaTracking(client, tenantId, 'COST_MANAGEMENT');
 }

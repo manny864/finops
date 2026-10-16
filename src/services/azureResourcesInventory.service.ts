@@ -3,8 +3,7 @@
  * Gestión global de inventario, distribución por tipo, creadores y costos por etiqueta.
  */
 
-import { CostManagementClient } from "@azure/arm-costmanagement";
-import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient } from "@/lib/azure";
+import { getAzureCredential, getSubscriptionsForTenant, getResourceGraphClient, getCostManagementClient } from "@/lib/azure";
 import { resolveCostColumn, isCostUsdUnsupportedError, degradeCostColumn, type CostColumn } from "@/lib/azureCostColumn";
 import { getSubscriptionNameMap, resolveSubscriptionName } from "@/lib/azureSubscriptionNames";
 import { formatResourceType } from "@/lib/resourceTypeLabels";
@@ -384,7 +383,7 @@ export async function getResourceCostsById(
 
     try {
         const credential = await getAzureCredential(tenantId);
-        const client = new CostManagementClient(credential);
+        const client = await getCostManagementClient(tenantId, credential);
         const col: CostColumn = await resolveCostColumn(tenantId);
 
         const buildOptions = (ids: string[], useCol: CostColumn) => ({
@@ -741,7 +740,7 @@ export async function getLiveResourcesCostsByTag(tenantId: string): Promise<Reso
         // Fallback si no hay credencial
     }
 
-    const client = credential ? new CostManagementClient(credential) : null;
+    const client = credential ? await getCostManagementClient(tenantId, credential) : null;
     const col: CostColumn = await resolveCostColumn(tenantId);
 
     const tags: TagCostSummary[] = [];

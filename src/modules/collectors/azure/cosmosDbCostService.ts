@@ -14,8 +14,7 @@
  * aprovisionadas contra el % de utilización real (NormalizedRUConsumption
  * promedio de Azure Monitor): consumo bajo y sostenido = candidata clara.
  */
-import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
-import { CostManagementClient } from "@azure/arm-costmanagement";
+import { getAzureCredential, getResourceGraphClient, getCostManagementClient } from "@/lib/azure";
 import { MonitorClient } from "@azure/arm-monitor";
 import { isMockTenant } from "@/lib/mockData";
 import { decimalToCents, centsToDecimal } from "@/lib/money";
@@ -162,7 +161,7 @@ export const getCosmosDbCost = async (
     let costBreakdownAvailable = false;
     if (subscriptionId) {
         try {
-            const costClient = new CostManagementClient(credential);
+            const costClient = await getCostManagementClient(tenantId, credential);
             const scope = `/subscriptions/${subscriptionId}`;
             const costRes = await costClient.query.usage(scope, {
                 type: "ActualCost",

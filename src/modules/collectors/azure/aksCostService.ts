@@ -1,5 +1,4 @@
-import { getAzureCredential, getResourceGraphClient } from "@/lib/azure";
-import { CostManagementClient } from "@azure/arm-costmanagement";
+import { getAzureCredential, getResourceGraphClient, getCostManagementClient } from "@/lib/azure";
 import pool from "@/modules/storage/db";
 import { isMockTenant, getMockDataForRoute } from "@/lib/mockData";
 import { errorMessage } from '@/lib/apiErrors';
@@ -99,7 +98,7 @@ export const getAksChargebackCost = async (tenantId: string, subscriptionId: str
 
     try {
         const credential = await getAzureCredential(tenantId);
-        const costClient = new CostManagementClient(credential);
+        const costClient = await getCostManagementClient(tenantId, credential);
         const scope = `/subscriptions/${subscriptionId}/resourceGroups/${nodeResourceGroup}`;
 
         // 1. Intentar consulta agregada y por ResourceId / ResourceType con soporte multi-moneda / EA / MCA
