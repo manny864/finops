@@ -1,7 +1,7 @@
 # High-Level Design (HLD) — CSCloudSolutions FinOps Platform
 
-**Versión:** 1.1  
-**Fecha:** 2026-08-03  
+**Versión:** 1.2\
+**Fecha:** 2026-10-15\
 **Autor:** Equipo de Arquitectura Cloud & FinOps — CSCloudSolutions  
 **Estado:** Aprobado para Producción
 
@@ -489,6 +489,11 @@ sequenceDiagram
 ### 9.1 Canalización de CI/CD (GitHub Actions)
 
 El ciclo de integración y despliegue continuo se encuentra completamente automatizado mediante GitHub Actions:
+
+La promoción a producción es manual. Terraform tiene un circuito separado:
+los PR ejecutan únicamente análisis estático sin OIDC; plan/apply autenticados
+y reconciliación usan runners Azure separados por ambiente. La topología y sus
+límites operativos se describen en §22; esos runners no ejecutan código de PR.
 
 ```mermaid
 flowchart TD
@@ -1754,3 +1759,97 @@ registra las 59 rutas de API, bajo pantallas Business o Enterprise, que no valid
 - **Despliegue:** ningún cambio de esta auditoría incluye migraciones. Tras el deploy
   (2026-10-10, revisión `0000309`), las 3 primeras corridas de `sync-azure-ai` no registraron `Queue limit reached`; falta un
   día de corridas para confirmar que sigue en ~0 en los minutos :13, :33 y :53.
+
+---
+
+## 22. Addendum 2026-10-15 — Plano de gestión Terraform y cierre INFRA-09
+
+### 22.1 Decisión y topología desplegada
+
+Las reglas efímeras de IP de runners GitHub-hosted presentaron 403 intermitentes.
+La ruta estable autorizada usa **dos runners Azure persistentes**, uno por
+ambiente, sin introducir acceso desde PRs a la red de producción.
+
+```mermaid
+flowchart TB
+    PR["PR: scan en GitHub-hosted, sin OIDC"]
+    MAIN["Workflows confiables de main"]
+    STG["Runner staging - westus2 - VNet 10.71.0.0/24"]
+    PROD["Runner prod - westus2 - VNet 10.72.0.0/24"]
+    STATE["Storage backend - eastus2 - Deny / bypass None"]
+    CS["Contenedor tfstate-stg"]
+    CP["Contenedor tfstate-prod"]
+    KS["Key Vault staging - solo subred staging"]
+    KP["Key Vault prod - solo subred prod"]
+    MAIN -->|"Dispatch / schedule / workflow_run"| STG
+    MAIN -->|"Dispatch / schedule / workflow_run"| PROD
+    STG -->|"Microsoft.Storage.Global + OIDC staging"| STATE
+    PROD -->|"Microsoft.Storage.Global + OIDC prod"| STATE
+    STATE --> CS
+    STATE --> CP
+    STG -->|"Microsoft.KeyVault"| KS
+    PROD -->|"Microsoft.KeyVault"| KP
+```
+
+Las VNets de runners no tienen peering ni enlaces DNS privados con los stamps.
+Los service endpoints autorizan subredes sobre endpoints públicos de los
+servicios; **no son Private Endpoints**. Las IPv4 Standard son de salida
+explícita, sin NAT Gateway. El NSG deniega toda entrada, incluido SSH, y permite
+salida web TCP 80/443 con las excepciones de plataforma de Azure.
+
+El backend no cambió de región ni de residencia. Shared Key está deshabilitada;
+cada identidad de pipeline tiene acceso de datos solo a su contenedor, no al
+otro ambiente ni al archivo `tfstate`. La autorización de red no sustituye RBAC.
+Los locks de administración protegen recursos; el lease del blob serializa
+Terraform; el lockfile fija providers. Ninguno sustituye a los otros.
+
+### 22.2 Frontera de confianza y ejecución
+
+Plan/apply, drift y reconciliación usan la VM del ambiente con su identidad OIDC.
+El apply exige confirmación exacta y revisión del plan, con guard contra bajas
+no aprobadas. PRs solo ejecutan scan estático sin OIDC en GitHub-hosted.
+Por un bloqueo de facturación de hosted, el scan de dispatch confiable desde
+`main` usa la misma VM, sin OIDC y conservando Checkov y controles negativos.
+Los builds/despliegues de aplicación siguen fuera de estos runners.
+
+Servicio bajo `actions`, sin sudo ni Docker; hooks root-owned aceptan solo
+los workflows Terraform/reconciliador de `main` y limpian tfvars/planes/states
+locales del workspace. No son runners efímeros: etiquetas y hooks **no**
+constituyen aislamiento fuerte frente a un workflow malicioso integrado en
+`main`. Administrar la VM o su disco permite controlar el runner.
+
+### 22.3 Operación, costos y ciclo de vida
+
+Dos `Standard_B2s_v2` (2 vCPU, 8 GB), Ubuntu 24.04, cifrado de host,
+Secure Boot/vTPM y parches de plataforma. Estimación pública del 2026-10-15:
+USD 0,0832/h por VM; USD 121,47 por 730 h entre ambas **solo de cómputo**,
+más discos, IPv4 y tráfico. Deben permanecer disponibles mientras los workflows
+dependan de ellas; no hay encendido bajo demanda ni autoapagado.
+
+Se mantiene la apertura/cierre temporal y el reconciliador cada 15 minutos.
+Ese intervalo limpia reglas vencidas, **no despliega la aplicación**. La
+expiración es metadata, no TTL nativo de Azure; una caída de Actions/ARM retrasa
+la limpieza. Los jobs autenticados comparten `tfstate-firewall`: GitHub puede
+cancelar otro pendiente. Operar ambientes en serie y restaurar siempre el
+reconciliador tras una pausa de mantenimiento.
+
+La baja requiere migrar consumidores, retirar registros de GitHub y ACL de
+subred y destruir solo el root independiente `infra/terraform/runners`.
+Nunca destruir el bootstrap ni los stamps para retirar los runners.
+Procedimiento detallado y recuperación:
+[README de runners](../../infra/terraform/runners/README.md) y
+[guía de despliegue](../../infra/docs/deployment-guide.md).
+
+### 22.4 Evidencia y límites del cierre
+
+Configuración publicada en #137–#140, `82a9a6e`; cierre registrado en #141.
+Applies staging `38822480417` y prod `38823749634` correctos: 0 altas,
+1 cambio y 0 bajas por ambiente, solo `APP_VERSION` restaurada desde la
+imagen existente, sin promoción de código. OIDC y aislamiento propio/cruzado/
+archivo comprobados. Reconciliador `38824588719` correcto en ambas VMs.
+
+Storage final en Deny/bypass None, ambas subredes Succeeded, sin IPs temporales
+ni lease ARM residual; acceso autenticado externo rechazado. Cada vault permite
+solo su subred de runner. Ambos `/api/health` devolvieron 200. **INFRA-09 cerrado.**
+No se declara resuelta la facturación de hosted; el `/api/status` público de
+staging tiene snapshot vencido (503), distinto del health probe, y queda aparte.
