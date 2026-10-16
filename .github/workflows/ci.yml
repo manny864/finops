@@ -102,11 +102,35 @@ jobs:
           cache: 'npm'
           cache-dependency-path: package-lock.json
       - run: npm ci --no-audit --no-fund --prefer-offline --loglevel=error
-      - name: Real MySQL and Redis security persistence and tenant isolation
+      - name: Start isolated Blob emulator with a synthetic account
+        id: blob
+        run: |
+          container="finops-blob-matrix-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          key="$(node -e 'process.stdout.write(Buffer.alloc(32, 7).toString("base64"))')"
+          docker run --detach --name "$container" --tmpfs /data -p 127.0.0.1::10000 \
+            -e "AZURITE_ACCOUNTS=finopsmatrix:$key" \
+            mcr.microsoft.com/azure-storage/azurite:3.35.0@sha256:647c63a91102a9d8e8000aab803436e1fc85fbb285e7ce830a82ee5d6661cf37 \
+            azurite-blob --blobHost 0.0.0.0 --location /data --silent --skipApiVersionCheck >/dev/null
+          echo "container=$container" >> "$GITHUB_OUTPUT"
+          port="$(docker port "$container" 10000/tcp | cut -d: -f2)"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+          for _attempt in $(seq 1 30); do
+            if curl --silent --max-time 1 --output /dev/null "http://127.0.0.1:$port/"; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs "$container"
+          exit 1
+      - name: Real MySQL, Redis and Blob security persistence and tenant isolation
         run: npx vitest run __tests__/integration/securityPersistence.mysql.test.ts __tests__/integration/tenantAuditIsolation.mysql.test.ts __tests__/integration/tenantCacheIsolation.redis.test.ts
         env:
           MYSQL_SECURITY_PORT: ${{ job.services.mysql.ports['3306'] }}
           REDIS_SECURITY_PORT: ${{ job.services.redis.ports['6379'] }}
+          AZURITE_SECURITY_PORT: ${{ steps.blob.outputs.port }}
+      - name: Remove isolated Blob emulator
+        if: always() && steps.blob.outputs.container != ''
+        run: docker rm --force "${{ steps.blob.outputs.container }}"
       # AISEC-03: pdfChromiumIsolation prueba con un Chromium real que el PDF no
       # ejecuta JS ni sale a la red. Sin el binario se saltearía en silencio.
       - name: Instalar Chromium headless de Playwright

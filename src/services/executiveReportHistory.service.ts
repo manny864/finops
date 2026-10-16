@@ -7,7 +7,7 @@
  *      - Business: 180 días
  *      - Enterprise: 365 días
  *   2. Consulta multi-tenant aislada (Zero-fallback en tenants reales).
- *   3. Generación segura de URLs de descarga SAS de lectura efímeras (15 min) hacia Azure Blob Storage.
+ *   3. URLs de descarga locales que vuelven a exigir autorización; no emite SAS de Blob.
  *   4. Rehidratación completa del Snapshot JSON para "Abrir en Reporte Ejecutivo".
  *   5. Purgado y eliminación de blobs en Storage y MySQL.
  */
@@ -373,7 +373,8 @@ function getMockReportHistorySummaryMetrics(
 }
 
 /**
- * Genera SAS efímero para descarga segura de reporte.
+ * Genera un enlace local autenticado, no un SAS. expiresAt es metadato informativo,
+ * no una expiracion exigida por la ruta de descarga.
  */
 export async function generateDownloadSas(params: {
     tenantId: string;

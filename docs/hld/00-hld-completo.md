@@ -1963,3 +1963,11 @@ cancelar devuelve 503 sin modificar estado ni simular exito; webhook sigue
 siendo fuente de verdad. MySQL real y Paddle sintetico comprueban binding,
 single-use concurrente y errores sin falsa baja. No hay cargos/cancelaciones
 reales ni despliegue; se conserva MFA opt-in.
+
+Quince casos adicionales verifican historial de reportes con handlers, SQL y
+Azure Blob SDK reales contra Azurite local: IDs/targets cruzados, suspension,
+JSON/PDF, filtros y borrado selectivo de filas/blobs. Un prefijo Blob ajeno
+tampoco se resuelve desde una fila propia. El enlace de descarga es una ruta
+autenticada, no un SAS publico; expiresAt no impone expiracion. CI provisiona
+el emulador por digest, cuenta sintetica y tmpfs con limpieza explicita. No
+se certifican por esto RBAC Azure ni todos los objetos/cache de la aplicacion.

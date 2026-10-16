@@ -6807,7 +6807,7 @@ Sin PADDLE_API_KEY, DELETE devuelve 503: no llama al proveedor ni escribe
 CANCELED localmente. Tanto exito como rechazo mantienen webhook como fuente
 de verdad, sin fallback de exito simulado.
 
-Diecisiete tests SQL adicionales (48 en la matriz completa) emiten challenges
+Diecisiete tests SQL adicionales (subtotal 48 antes de reportes/Blob) emiten challenges
 por handler real y siembran consumed_at como factor verificado; no prueban
 TOTP. Guard/hash/DELETE condicional son reales. Cubren valores/target/action/
 operation, payload viejo, defaults, inputs invalidos sin consumo, roles,
@@ -6818,3 +6818,34 @@ reales. Fixture UTC replica timezone=Z de db.ts. Diez tests DTO/hash y dos UI
 verifican orden/campos, snapshot inmutable y cancelacion del modal. No se
 migran datos reales ni se certifican las demas operaciones MFA o HTTP
 desplegado; rollout sigue pendiente.
+
+### 52.8 Matriz de historial, descarga y borrado de reportes
+
+tenantAuditIsolation suma 15 casos de reportes a los 48 existentes. Usa
+ExecutiveReportJobs real en MySQL y executiveReportStorage/azureBlobStorage
+reales con Azure Blob SDK contra Azurite local, sin mocks de SQL ni Blob.
+Cada tenant tiene ID de reporte, markdown y blobs PDF/JSON propios.
+Handlers de listado, detalle, rehydrate, download GET/POST y DELETE prueban
+lecturas concurrentes propias, agregados/filtros/catalogo sort, JWT RS256,
+anonimo, cambio de target/ID, suspension, generacion PDF y borrado selectivo.
+Modificar una fila propia para apuntar al prefijo ajeno no permite leer ni
+eliminar ese markdown. Al finalizar se comprueba que los containers de
+prueba no contienen blobs; solo se limpian nombres creados por el fixture.
+
+generateDownloadSas mantiene su contrato por compatibilidad, pero devuelve
+una ruta local que vuelve a exigir autorizacion, no un SAS de Azure ni una
+capacidad bearer. expiresAt es informativo y no lo valida el GET. Un enlace
+con ID ajeno no permite recuperar su contenido. Los GET scoped no encontrados
+siguen devolviendo 500; DELETE devuelve 404. Se registra el comportamiento
+existente, no un cambio de errores/roles ni una nueva politica de admision.
+
+CI arranca Azurite 3.35.0 por digest, cuenta sintetica, puerto aleatorio en
+127.0.0.1 y /data tmpfs. skipApiVersionCheck solo afecta compatibilidad del
+emulador con el SDK; no cambia validacion ni configuracion de Azure. Espera
+HTTP con limite, entrega el puerto solo al paso dedicado y elimina el
+container con always, incluso si falla la matriz. No monta el repo ni usa
+credenciales de aplicacion. El indice OCI incluye linux/amd64 y linux/arm64.
+Esta evidencia no certifica permisos ni comportamiento del servicio Azure,
+retencion efectiva, todos los objetos/exportaciones o todas las claves cache.
+Suite completa local con MySQL, Redis y Azurite activos simultaneamente:
+560 archivos y 6286 tests correctos; 8 archivos/76 tests omitidos por otros gates.

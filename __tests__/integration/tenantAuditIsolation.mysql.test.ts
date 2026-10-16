@@ -25,6 +25,14 @@ import { POST as issueChallenge } from "@/app/api/mfa/challenge/route";
 import { markupStepUpPayload, type SaveMarkupPayload } from "@/types/tenantPartnerMarkup.types";
 import { PATCH as changePlan, DELETE as cancelPlan } from "@/app/api/billing/subscription/route";
 import { cancellationStepUpPayload, planChangeStepUpPayload, type SubscriptionPlanChange } from "@/types/saasBilling.types";
+import { GET as listHistory } from "@/app/api/reports/history/route";
+import { GET as readHistory, DELETE as deleteHistory } from "@/app/api/reports/history/[id]/route";
+import { GET as rehydrateHistory } from "@/app/api/reports/history/[id]/rehydrate/route";
+import { GET as downloadHistory } from "@/app/api/reports/history/[id]/download/route";
+import { POST as historyLink } from "@/app/api/reports/history/download/route";
+import { BLOB_CONTAINER_REPORTS } from "@/services/executiveReportHistory.service";
+import { EXECUTIVE_REPORT_CONTAINER, saveExecutiveReportMarkdown, readExecutiveReportMarkdown } from "@/lib/executiveReportStorage";
+import * as blobs from "@/lib/azureBlobStorage";
 
 const tenants = [
     { id: "a0000000-0000-4000-8000-000000000001", email: "reader@alpha.example", marker: "alpha-only-record" },
@@ -103,6 +111,12 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
         await db.query(`CREATE TABLE MfaChallenges (
             id VARCHAR(64) PRIMARY KEY, user_email VARCHAR(120), tenant_id VARCHAR(64),
             operation VARCHAR(64), payload_hash VARCHAR(64), consumed_at DATETIME, expires_at DATETIME)`);
+        await db.query(`CREATE TABLE ExecutiveReportJobs (
+            id BIGINT PRIMARY KEY, tenant_id VARCHAR(64), status VARCHAR(40),
+            requested_by_email VARCHAR(120), scope_subscription_id VARCHAR(120),
+            scope_subscription_name VARCHAR(120), locale VARCHAR(10), created_at DATETIME,
+            completed_at DATETIME, emailed_to_requester_at DATETIME, report_markdown MEDIUMTEXT,
+            report_stored_name VARCHAR(180), total_cost_usd DECIMAL(12,2), total_savings_usd DECIMAL(12,2))`);
         for (const tenant of tenants) {
             await db.query(`INSERT INTO Users (tenant_id, email, entra_oid, role, account_status, system_role)
                 VALUES (?, ?, ?, 'Reader', 'ACTIVE', NULL)`,
@@ -451,6 +465,178 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("tenant audit isolation with s
             expect((await cancelPlan(mutation("/api/billing/subscription",
                 { tenantId: actor.id, effective: "immediately" }, "DELETE"))).status).toBe(403);
             expect(paddleRequest).not.toHaveBeenCalled();
+        });
+    });
+
+    describe.skipIf(!process.env.AZURITE_SECURITY_PORT)("report objects with real SQL and Blob emulator", () => {
+        const stored = new Map<string, string>();
+        const objects: Array<{ container: string; name: string }> = [];
+        const reportId = (index: number) => String((index + 1) * 111);
+        const context = (index: number) => ({ params: Promise.resolve({ id: reportId(index) }) });
+        const reads = [
+            { path: "/api/reports/history", suffix: "", handler: readHistory },
+            { path: "/api/reports/history", suffix: "/rehydrate", handler: rehydrateHistory },
+            { path: "/api/reports/history", suffix: "/download", handler: downloadHistory },
+        ];
+        function readRequest(route: typeof reads[number], idIndex: number, target: string, actor?: typeof tenants[number]) {
+            return request(`${route.path}/${reportId(idIndex)}${route.suffix}`, target, actor, "&fileType=json&mock=true");
+        }
+        function deleteRequest(target: string, actor: typeof tenants[number]) {
+            return new NextRequest(request("/api/reports/history", target, actor), { method: "DELETE" });
+        }
+        beforeAll(() => {
+            const port = Number(process.env.AZURITE_SECURITY_PORT);
+            if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid local Blob emulator port");
+            vi.stubEnv("AZURE_STORAGE_ACCOUNT_NAME", "");
+            const key = Buffer.alloc(32, 7).toString("base64");
+            vi.stubEnv("AZURE_STORAGE_CONNECTION_STRING",
+                `DefaultEndpointsProtocol=http;AccountName=finopsmatrix;AccountKey=${key};BlobEndpoint=http://127.0.0.1:${port}/finopsmatrix;`);
+            blobs._resetForTests();
+        });
+        beforeEach(async () => {
+            await db.query("DELETE FROM ExecutiveReportJobs");
+            await db.query("UPDATE Tenants SET tier='Business'");
+            for (const [index, tenant] of tenants.entries()) {
+                const name = await saveExecutiveReportMarkdown(tenant.id, `# Executive report\n\n${tenant.marker}`);
+                stored.set(tenant.id, name);
+                objects.push({ container: EXECUTIVE_REPORT_CONTAINER, name });
+                await db.query(`INSERT INTO ExecutiveReportJobs
+                    (id, tenant_id, status, requested_by_email, scope_subscription_id, scope_subscription_name,
+                     locale, created_at, completed_at, report_markdown, report_stored_name, total_cost_usd, total_savings_usd)
+                    VALUES (?, ?, 'completed', ?, ?, ?, 'en', UTC_TIMESTAMP(), UTC_TIMESTAMP(), '', ?, ?, ?)`,
+                    [reportId(index), tenant.id, tenant.email, `sub-${tenant.marker}`, tenant.marker, name, 100 + index, 10 + index]);
+            }
+        });
+        afterEach(async () => {
+            for (const object of objects) await blobs.deleteBlob(object.container, object.name);
+            objects.length = 0;
+            stored.clear();
+        });
+        afterAll(async () => {
+            try {
+                expect(await blobs.listBlobs(EXECUTIVE_REPORT_CONTAINER)).toEqual([]);
+                expect(await blobs.listBlobs(BLOB_CONTAINER_REPORTS)).toEqual([]);
+            } finally {
+                blobs._resetForTests();
+            }
+        });
+
+        it("lists only own report IDs and aggregates, including scope/search filters and closed sort catalog", async () => {
+            await Promise.all(tenants.map(async (tenant, index) => {
+                const response = await listHistory(request("/api/reports/history", tenant.id, tenant));
+                expect(response.status).toBe(200);
+                const body = await response.json();
+                expect(body.totalReportsCount).toBe(1);
+                expect(body.reports).toMatchObject([{ id: reportId(index), tenantId: tenant.id, totalMonthlyCostSnapshotUSD: 100 + index }]);
+                expect(JSON.stringify(body)).not.toContain(tenants[1 - index].marker);
+                for (const extra of [
+                    `&search=${encodeURIComponent("' OR 1=1 -- ")}`, `&scopeFilter=sub-${tenants[1 - index].marker}`,
+                ]) {
+                    const filtered = await listHistory(request("/api/reports/history", tenant.id, tenant, extra));
+                    expect(filtered.status).toBe(200);
+                    expect(await filtered.json()).toMatchObject({ totalReportsCount: 0, reports: [] });
+                }
+                expect((await listHistory(request("/api/reports/history", tenant.id, tenant, "&sortBy=id%20DESC"))).status).toBe(400);
+            }));
+        });
+        for (const route of reads) {
+            it(`${route.suffix || "/detail"} concurrently reads only its own SQL-selected blob`, async () => {
+                await Promise.all(tenants.map(async (tenant, index) => {
+                    const response = await route.handler(readRequest(route, index, tenant.id, tenant), context(index));
+                    expect(response.status).toBe(200);
+                    const body = await response.json();
+                    expect(body.report).toContain(tenant.marker);
+                    expect(body.metadata.id).toBe(Number(reportId(index)));
+                    expect(JSON.stringify(body)).not.toContain(tenants[1 - index].marker);
+                }));
+            });
+            it(`${route.suffix || "/detail"} rejects anonymous/foreign targets and cannot resolve another tenant's object ID`, async () => {
+                const [a, b] = tenants;
+                expect((await route.handler(readRequest(route, 0, a.id), context(0))).status).toBe(401);
+                expect((await route.handler(readRequest(route, 1, b.id, a), context(1))).status).toBe(403);
+                const wrongObject = await route.handler(readRequest(route, 1, a.id, a), context(1));
+                // Existing routes report an absent scoped object as 500, not 404.
+                expect(wrongObject.status).toBe(500);
+                expect(await wrongObject.json()).toMatchObject({ error: "Reporte histórico no encontrado" });
+                expect(await readExecutiveReportMarkdown(b.id, stored.get(b.id)!)).toContain(b.marker);
+            });
+            it(`${route.suffix || "/detail"} denies a disabled member before any report content`, async () => {
+                const tenant = tenants[0];
+                await db.query("UPDATE Users SET account_status='DISABLED' WHERE tenant_id=?", [tenant.id]);
+                try {
+                    const response = await route.handler(readRequest(route, 0, tenant.id, tenant), context(0));
+                    expect(response.status).toBe(403);
+                    expect(await response.text()).not.toContain(tenant.marker);
+                } finally {
+                    await db.query("UPDATE Users SET account_status='ACTIVE' WHERE tenant_id=?", [tenant.id]);
+                }
+            });
+        }
+        it("renders a PDF only from its own blob after authorization", async () => {
+            const [a, b] = tenants;
+            const response = await downloadHistory(request("/api/reports/history/111/download", a.id, a, "&fileType=pdf"), context(0));
+            expect(response.status).toBe(200);
+            expect(response.headers.get("content-type")).toBe("application/pdf");
+            const pdf = Buffer.from(await response.arrayBuffer()).toString("latin1");
+            expect(pdf.startsWith("%PDF-")).toBe(true);
+            expect(pdf).toContain(a.marker);
+            expect(pdf).not.toContain(b.marker);
+        });
+        it("uses an authenticated local download link, not a bearer SAS that bypasses tenant checks", async () => {
+            const [a, b] = tenants;
+            const makeLink = (target: string, actor?: typeof tenants[number]) => new NextRequest(
+                request("/api/reports/history/download", target, actor),
+                { method: "POST", body: JSON.stringify({ tenantId: target, reportId: reportId(1), fileType: "json" }) },
+            );
+            expect((await historyLink(makeLink(a.id))).status).toBe(401);
+            expect((await historyLink(makeLink(b.id, a))).status).toBe(403);
+            const response = await historyLink(makeLink(a.id, a));
+            expect(response.status).toBe(200);
+            const link = await response.json();
+            const url = new URL(link.sasDownloadUrl, "https://example.test");
+            expect(url.origin).toBe("https://example.test");
+            expect(url.pathname).toBe(`/api/reports/history/${reportId(1)}/download`);
+            expect(url.searchParams.get("sig")).toBeNull();
+            expect((await downloadHistory(new NextRequest(url), context(1))).status).toBe(401);
+            const followed = await downloadHistory(new NextRequest(url, { headers: request("/", a.id, a).headers }), context(1));
+            expect(followed.status).toBe(500);
+            expect(await followed.text()).not.toContain(b.marker);
+        });
+        it("cannot delete another tenant's SQL row or any associated blob by swapping IDs/target", async () => {
+            const [a, b] = tenants;
+            expect((await deleteHistory(deleteRequest(b.id, a), context(1))).status).toBe(403);
+            expect((await deleteHistory(deleteRequest(a.id, a), context(1))).status).toBe(404);
+            const [rows] = await db.query<RowDataPacket[]>("SELECT tenant_id FROM ExecutiveReportJobs WHERE id=?", [reportId(1)]);
+            expect(rows).toMatchObject([{ tenant_id: b.id }]);
+            expect(await readExecutiveReportMarkdown(b.id, stored.get(b.id)!)).toContain(b.marker);
+        });
+        it("deletes only its own SQL row, markdown and PDF/JSON blobs", async () => {
+            for (const [index, tenant] of tenants.entries()) {
+                for (const type of ["pdf", "json"]) {
+                    const name = `reports/${tenant.id}/report_${reportId(index)}.${type}`;
+                    objects.push({ container: BLOB_CONTAINER_REPORTS, name });
+                    await blobs.uploadBlob(BLOB_CONTAINER_REPORTS, name, Buffer.from(tenant.marker), "application/octet-stream");
+                }
+            }
+            const [a, b] = tenants;
+            expect((await deleteHistory(deleteRequest(a.id, a), context(0))).status).toBe(200);
+            expect(await readExecutiveReportMarkdown(a.id, stored.get(a.id)!)).toBeNull();
+            const [rows] = await db.query<RowDataPacket[]>("SELECT id FROM ExecutiveReportJobs ORDER BY id");
+            expect(rows.map((row) => String(row.id))).toEqual([reportId(1)]);
+            for (const type of ["pdf", "json"]) {
+                expect(await blobs.downloadBlob(BLOB_CONTAINER_REPORTS, `reports/${a.id}/report_111.${type}`)).toBeNull();
+                expect((await blobs.downloadBlob(BLOB_CONTAINER_REPORTS, `reports/${b.id}/report_222.${type}`))?.toString()).toBe(b.marker);
+            }
+            expect(await readExecutiveReportMarkdown(b.id, stored.get(b.id)!)).toContain(b.marker);
+        });
+        it("rejects a foreign blob prefix even if an own SQL row contains the other stored name", async () => {
+            const [a, b] = tenants;
+            await db.query("UPDATE ExecutiveReportJobs SET report_stored_name=? WHERE id=?", [stored.get(b.id), reportId(0)]);
+            const response = await readHistory(readRequest(reads[0], 0, a.id, a), context(0));
+            expect(response.status).toBe(200);
+            expect((await response.json()).report).toBe("");
+            expect((await deleteHistory(deleteRequest(a.id, a), context(0))).status).toBe(200);
+            expect(await readExecutiveReportMarkdown(b.id, stored.get(b.id)!)).toContain(b.marker);
         });
     });
 });

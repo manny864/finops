@@ -1,8 +1,7 @@
 /**
- * Endpoint de Descarga Segura / Generación de SAS Token para Reporte Histórico.
+ * Descarga autenticada de un reporte historico, sin SAS ni URL publica de Blob.
  *
  * GET /api/reports/history/[id]/download?tenantId=...&fileType=pdf|json
- * POST /api/reports/history/download { tenantId, reportId, fileType }
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { AuthError, requireTenantAccess } from '@/lib/requestAuth';
@@ -11,7 +10,6 @@ import { initializeDatabase } from '@/modules/storage/db';
 import { isMockTenant } from '@/lib/mockData';
 import {
     rehydrateReportData,
-    generateDownloadSas,
 } from '@/services/executiveReportHistory.service';
 import { jsPDF } from 'jspdf';
 

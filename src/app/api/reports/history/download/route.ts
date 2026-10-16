@@ -1,5 +1,5 @@
 /**
- * Endpoint de Generación de SAS Token para Descarga de Reportes.
+ * Enlace local de descarga que vuelve a exigir autorizacion; no genera un SAS.
  *
  * POST /api/reports/history/download { tenantId, reportId, fileType }
  */
