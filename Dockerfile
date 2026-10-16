@@ -18,26 +18,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Next inlinea las NEXT_PUBLIC_ en el bundle del cliente al compilar, así que
-# tienen que existir ACÁ, en build-time. Antes venían de .env.production, que
-# viajaba dentro de la imagen y se llevaba puestos todos los secretos del
-# archivo — ver el comentario en .dockerignore.
-#
-# Van como ARG y no como secreto: son públicas por definición, terminan
-# servidas a cualquier browser que abra la app.
-ARG NEXT_PUBLIC_CLIENT_ID=""
-ARG NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=""
-ARG NEXT_PUBLIC_PADDLE_PRO_MONTHLY=""
-ARG NEXT_PUBLIC_PADDLE_PRO_YEARLY=""
-ARG NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY=""
-ARG NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY=""
-ENV NEXT_PUBLIC_CLIENT_ID=$NEXT_PUBLIC_CLIENT_ID \
-    NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=$NEXT_PUBLIC_PADDLE_CLIENT_TOKEN \
-    NEXT_PUBLIC_PADDLE_PRO_MONTHLY=$NEXT_PUBLIC_PADDLE_PRO_MONTHLY \
-    NEXT_PUBLIC_PADDLE_PRO_YEARLY=$NEXT_PUBLIC_PADDLE_PRO_YEARLY \
-    NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY=$NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY \
-    NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY=$NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY
-
+# Public client configuration is projected by the dynamic layout at runtime.
+# No environment-specific identity or billing configuration enters the build.
 RUN npm run build
 
 # Imagen del job de migraciones (INFRA-08). Necesita scripts/, migraciones, tsx y

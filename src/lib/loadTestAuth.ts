@@ -34,7 +34,8 @@ export async function getLoadTestServicePrincipalToken(): Promise<string> {
     // mismo criterio de prioridad que getAudienceAllowList() en
     // requestAuth.ts (que ya acepta cualquiera de estos 4 como audience
     // válida de un token de usuario).
-    const appClientId = process.env.NEXT_PUBLIC_CLIENT_ID || process.env.NEXT_PUBLIC_AZURE_CLIENT_ID || process.env.AZURE_CLIENT_ID || process.env.AZURE_AD_CLIENT_ID;
+    const runtimeEnv = process.env;
+    const appClientId = runtimeEnv.NEXT_PUBLIC_CLIENT_ID || runtimeEnv.NEXT_PUBLIC_AZURE_CLIENT_ID || runtimeEnv.AZURE_CLIENT_ID || runtimeEnv.AZURE_AD_CLIENT_ID;
     if (!tenantId || !spClientId || !appClientId) {
         throw new Error(
             "Faltan AZURE_TENANT_ID / LOAD_TEST_SP_APP_ID / NEXT_PUBLIC_CLIENT_ID en el entorno."

@@ -26,6 +26,7 @@ import { errorMessage } from "@/lib/apiErrors";
 import type { AddonProduct } from "@/lib/addonCatalog";
 import { useRouter } from "@/i18n/routing";
 import type { ActiveTenantAddon } from "@/services/tenantAddons.service";
+import { usePublicRuntimeConfig } from "@/components/PublicRuntimeConfigProvider";
 
 interface AddonsMarketplaceProps {
     tenantId: string;
@@ -41,6 +42,7 @@ export default function AddonsMarketplace({
     className = "mt-8",
 }: AddonsMarketplaceProps) {
     const t = useTranslations("AddonsMarketplace");
+    const { paddleClientToken } = usePublicRuntimeConfig();
     const { instance, accounts } = useMsal();
     const userEmail = accounts?.[0]?.username;
 
@@ -92,7 +94,7 @@ export default function AddonsMarketplace({
 
     // Inicializar Paddle SDK
     useEffect(() => {
-        const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || "";
+        const token = paddleClientToken;
         if (!token) return;
         const env = token.startsWith("test_") ? "sandbox" : "production";
         initializePaddle({
@@ -109,7 +111,7 @@ export default function AddonsMarketplace({
         }).catch((err) => {
             console.warn("[AddonsMarketplace] Error initializing Paddle:", err);
         });
-    }, [t]);
+    }, [t, paddleClientToken]);
 
     const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
         if (isMock || accounts.length === 0) return {};

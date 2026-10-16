@@ -396,11 +396,11 @@ sequenceDiagram
 
 ### 7.3 Docker
 
-- **Multi-stage build** ([Dockerfile](file:///Users/manuelchavez/Documents/FinOpsProyect/Dockerfile)): `deps` → `builder` → `runner`
-- **Base:** `node:22-alpine`
+- **Multi-stage build** ([Dockerfile](file:///Users/manuelchavez/Documents/FinOpsProyect/Dockerfile)): `deps` → `builder` → `migrator` / `runner`
+- **Base:** `node:22-alpine` fijada a digest verificado
 - **Output:** `standalone` (Next.js)
-- **Sin BuildKit** (ACR Tasks no lo soporta)
-- **Build args:** 8 variables `NEXT_PUBLIC_*` inyectadas en build-time
+- **BuildKit:** SBOM/procedencia OCI y deploy por digest (§52.4, pendiente de rollout)
+- **Configuracion publica:** seis valores de identidad/Paddle en runtime, no build args; prod importa los digests de staging (§52.4)
 - **User:** `nextjs` (uid 1001, sin root)
 
 ---
@@ -6657,9 +6657,43 @@ Compara imagen observada con digest esperado. El gate previo exige
 `APP_SECRET_ENCRYPTION_KEY`; no revela valores de claves.
 
 Firma privada no habilitada en GitHub Pro; SBOM/procedencia no son una firma.
-`NEXT_PUBLIC_*` sigue inline por ambiente y prod reconstruye; no se afirma misma
-imagen. Dos intentos Docker locales fallaron por memoria (~3,8 GiB disponibles);
-build nativo completo correcto, pero smoke final y rollout ACR/ACA pendientes.
+La allowlist `getPublicRuntimeConfig()` lee seis valores de runtime sin acceso
+literal inlineable de Next. El layout dinamico los entrega por props RSC a
+`PublicRuntimeConfigProvider`: MSAL, RoleAssignmentBanner, PricingPage y
+AddonsMarketplace no leen env de build. El mapa server-side de tiers/precios y
+la validacion de audiencia leen el mismo runtime. `/api/config/public` expone
+solo esa allowlist, sin tenant/secretos y con `private, no-store`, para smoke.
+El proxy reemplaza tambien la CSP baseline report-only con una baseline de
+runtime: staging permite sandbox y prod live no. No habilita CSP_ENFORCE.
+
+Dockerfile ya no declara ARG/ENV de identidad/Paddle. Deploy conserva guardas de
+separacion staging/prod e inyecta las seis variables al Container App. Terraform
+plan/apply y drift reciben `TF_VAR_public_runtime_config` desde el mismo
+environment; el root valida las seis claves no vacias y las incorpora a web y
+migrador, evitando drift que las quite. En staging exige token sandbox y client
+ID distinto de la referencia prod leida por scan sin environment; la ausencia
+de referencia bloquea el plan. Bootstrap sin mapa sigue permitido.
+Aplicar esta infraestructura coordinadamente con el primer rollout del cambio.
+
+Staging publica release.json schemaVersion 2/publicConfiguration runtime-v1.
+`promote-prod.yml` selecciona un run exitoso de deploy-azure.yml, main, SHA exacto
+y evento push/dispatch; descarga el artefacto del run/intento. El validador
+`deployment-release.mjs` rechaza evidencia anterior, SHA/run/ambiente distintos,
+repositorio inesperado, tags y digests no canonicos. Solo entrega dos digests.
+Prod no ejecuta build: `az acr import --registry <resource-id> --source
+finops@sha256:...` usa Entra y se compara el digest importado. Requiere permisos
+de lectura/import apropiados y trusted-services si el ACR tiene red restringida;
+no se amplian automaticamente. Ver [contrato ACR](https://learn.microsoft.com/azure/container-registry/container-registry-import-images).
+Luego se verifican SBOM/procedencia, smoke sin red, configuracion publica exacta
+y label revision del SHA en ambas imagenes antes de migraciones.
+
+Un mismo build standalone nativo, compilado con valores publicos deliberadamente
+distintos, sirvio dos procesos con configuracion sintetica staging/prod: endpoint,
+SSR y CSP correspondieron al runtime y no al build. Terraform valido en Linux
+con checksums comprometidos; el cache nativo macOS fallo su checksum de AzAPI y
+no se debilito el lock. Otro build Docker amd64 con heap acotado tambien fallo
+por memoria (~3,8 GiB disponibles); se retiro ese ajuste porque no lo resolvio.
+Smoke de imagen final, import real y rollout ACR/ACA siguen pendientes.
 No se crea otro runner ni se habilita codigo PR en las VMs existentes para
 sortear billing. No se cambian claves/datos reales ni se habilita modo estricto
 sin la provision de credenciales y permisos correspondientes.

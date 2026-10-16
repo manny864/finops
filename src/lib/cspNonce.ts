@@ -9,11 +9,23 @@
  *   CSP3 y quedan como fallback en los viejos.
  * - Report-Only por defecto. `CSP_ENFORCE=true` la promueve a enforcing y, como el
  *   proxy corre después de los headers de next.config.ts, la cabecera del proxy
- *   reemplaza a la baseline (con 'unsafe-inline') en las páginas: no quedan dos
+ *   reemplaza a la baseline de runtime (con 'unsafe-inline') en las páginas: no quedan dos
  *   políticas enforcing. API y estáticos (fuera del matcher) conservan la baseline.
  */
 export const CSP_REPORT_PATH = "/api/csp-report";
 export const CSP_REPORT_GROUP = "csp";
+import { getPublicRuntimeConfig } from "./publicRuntimeConfig";
+
+export function baselineCsp(): string {
+    return nonceCsp("baseline")
+        .replace(/script-src [^;]+/, [
+            "script-src 'self' 'unsafe-inline'",
+            process.env.NODE_ENV !== "production" ? "'unsafe-eval'" : "",
+            "https://cdn.paddle.com https://www.google.com https://www.gstatic.com https://static.cloudflareinsights.com",
+            process.env.NODE_ENV !== "production" || getPublicRuntimeConfig().paddleClientToken.startsWith("test_")
+                ? "https://sandbox-cdn.paddle.com" : "",
+        ].filter(Boolean).join(" "));
+}
 
 export function generateNonce(): string {
     return Buffer.from(crypto.randomUUID()).toString("base64");
@@ -24,11 +36,9 @@ export function cspEnforced(): boolean {
 }
 
 export function nonceCsp(nonce: string): string {
-    // Sandbox de Paddle en dev y en un build con token de cliente de sandbox (`test_`, staging) — en un build de
-    // producción el token es live y los dominios sandbox no deben figurar como orígenes permitidos (least privilege).
-    // Mismo criterio que next.config.ts; el acceso a NEXT_PUBLIC_* es literal para que Next lo inlinee al compilar.
+    // Read at request time: staging/prod use the same image but different Paddle environments.
     const isDev = process.env.NODE_ENV !== 'production';
-    const usaPaddleSandbox = isDev || (process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN ?? '').startsWith('test_');
+    const usaPaddleSandbox = isDev || getPublicRuntimeConfig().paddleClientToken.startsWith('test_');
     const sbCdn = usaPaddleSandbox ? ' https://sandbox-cdn.paddle.com' : '';
     const sbApi = usaPaddleSandbox ? ' https://sandbox-api.paddle.com https://checkout-service.sandbox.paddle.com' : '';
     const sbBuy = usaPaddleSandbox ? ' https://sandbox-buy.paddle.com' : '';

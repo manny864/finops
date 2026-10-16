@@ -1871,7 +1871,7 @@ remediacion ya desplegada en ACA. El cierre INFRA-09 y la topologia del apartado
 | Tenant → Cost Management/ARM | Scope por request y paginacion; catalogo cerrado de acciones y validacion dentro del ejecutor | Custom Roles efectivos y matriz completa de aislamiento |
 | Job → API interna | Clave por nombre fijo de job y origen self-fetch configurado, nunca Host/puerto entrante | Compatibilidad con root temporal; faltan identidades/referencias por job y modo estricto |
 | Datos → consultas | Escape KQL compartido, filtros OR agrupados, limites y catalogos runtime | Cobertura parcial; no certifica todas las consultas ni caches |
-| Build → ACA | Base/frontend por digest; SBOM/procedencia BuildKit; runtime y migrador por digest y smoke sin red | Rollout pendiente; metadata no firmada; prod se reconstruye por configuracion publica diferente |
+| Build → ACA | Base/frontend por digest; SBOM/procedencia BuildKit; staging construye y prod importa los mismos digests, sin rebuild | Rollout/import ACR pendiente; metadata no firmada; smoke de imagen final bloqueado por memoria local |
 
 ### 23.1 Gate de despliegue y compatibilidad
 
@@ -1897,11 +1897,22 @@ interfaz no muestra exito ni ofrece aprobar/rechazar/reintentar esas solicitudes
 envia mutaciones. Un snapshot conciliado no reanuda el borrado. Una interrupcion
 antes de persistir la referencia exige investigacion manual en Activity Logs.
 
-INFRA-11 conserva dos decisiones abiertas: firma privada (GitHub Pro no habilita
+INFRA-11 conserva firma privada pendiente (GitHub Pro no habilita
 attestations privadas; no se autorizan pagos ni publicacion de datos en un log de
-transparencia externo) y configuracion runtime que permita promover el mismo
-artefacto. La reconstruccion prod debe probar su propio digest, no afirmar
-equivalencia binaria con staging. Los builds locales de imagen quedaron
+transparencia externo). La configuracion publica de identidad/Paddle ahora se
+proyecta en runtime desde el layout dinamico mediante una allowlist de seis
+valores, sin claves privadas ni scripts inline propios. Login, precios, checkout
+y CSP usan el ambiente de runtime. Terraform y deploy reciben las mismas
+variables para evitar que un apply elimine la configuracion.
+
+La promocion exige evidencia v2 de una ejecucion staging exitosa para el SHA
+de main elegido, verifica commit/run/intento y repositorio, e importa runtime y
+migrador por digest con Entra ID. Compara ambos digests tras el import y los
+somete a smoke antes de migrar. Evidencia vieja de builds por ambiente se
+rechaza; su ausencia o vencimiento requiere un nuevo deploy staging.
+Esto esta implementado, no operado en ACR/ACA. El mismo build nativo sirvio dos
+configuraciones sinteticas distintas, con identidad SSR y CSP sandbox/live
+correctas. Los builds locales de imagen quedaron
 bloqueados por memoria de Docker (~3,8 GiB); el build nativo de aplicacion paso,
 pero no sustituye la validacion de las dos imagenes finales.
 

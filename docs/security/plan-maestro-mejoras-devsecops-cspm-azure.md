@@ -235,7 +235,18 @@ Antes de usar UDR, confirmar soporte del tipo efectivo de ACA environment/worklo
 
 **Avance local INFRA-11 (2026-10-15):** Node 22 Alpine y frontend Dockerfile fijados a digests oficiales verificados; Dependabot revisa la base semanalmente. Buildx genera SBOM SPDX y procedencia SLSA en el indice OCI de runtime y migrador; el pipeline exige que ambas existan, conserva metadata y referencias por ambiente/run durante 90 dias, hace smoke sin red y despliega por digest. Cada push falla de manera independiente; la migracion observa la ejecucion exacta devuelta por Azure, no la mas reciente de la lista. Se verifica la referencia observada despues del update. Gate previo bloquea deploys hasta confirmar migracion de claves y referencia versionada de Key Vault.
 
-**Pendiente:** rollout y evidencia en ACR/ACA; firmas y verificacion criptografica. Las attestations privadas de GitHub requieren Enterprise Cloud, no disponible con Free/Pro/Team; cuenta actual Pro confirmada. No se habilita un servicio publico de firma/transparencia ni se cambian pagos. SBOM/procedencia BuildKit no son una firma. Prod conserva reconstruccion por `NEXT_PUBLIC_*` diferentes: prueba su propio digest, pero no es el artefacto probado en staging. No se cierra INFRA-11 hasta resolver esa decision y los gates operativos. Dos builds locales fallaron por limite de memoria Docker (~3,8 GiB); el build nativo de aplicacion paso, pero no equivale a evidencia de imagen validada.
+**Continuacion implementada en rama:** identidad/Paddle publicos se leen en
+runtime mediante proyeccion explicita de seis valores, compartida por SSR,
+MSAL, checkout, mapa server-side y CSP. No se serializan claves privadas ni
+process.env completo. Docker ya no recibe build args por ambiente. Terraform y
+deploy reciben esas mismas variables; hay que coordinar el apply con el primer
+rollout. Prod importa los mismos digests runtime/migrador de una ejecucion
+staging exitosa para el SHA de main elegido, sin reconstruir. Evidencia v2
+verifica SHA/run/intento/ambiente/repositorio/digest; evidencia vieja o ausente
+falla cerrado. Import usa Entra y comprueba digest, SBOM/procedencia y smoke con
+configuracion runtime exacta antes de migrar. No se amplian permisos ACR.
+
+**Pendiente:** rollout/import y evidencia en ACR/ACA; firmas y verificacion criptografica. Las attestations privadas de GitHub requieren Enterprise Cloud, no disponible con Free/Pro/Team; cuenta actual Pro confirmada. No se habilita un servicio publico de firma/transparencia ni se cambian pagos. SBOM/procedencia BuildKit no son una firma. No se cierra INFRA-11 hasta resolver firma y gates operativos. El mismo build nativo sirvio dos configuraciones sinteticas de runtime y CSP correctas, sin recompilar; no equivale a evidencia de imagen validada. Otro intento Docker amd64 con heap acotado tambien fallo por memoria (~3,8 GiB); se retiro el ajuste al no resolverlo.
 
 **Stage implementado**, entre builder y runner:
 
@@ -253,7 +264,10 @@ Esta corrección incremental elimina root, pero conserva superficie del builder.
 
 `.dockerignore` excluye `.env`/`.env.*`; no se confirmó incorporación de esos archivos al builder. No-root no equivale a protección ante escape de contenedor. Escanear **ambas** imágenes finales y paquetes transitivos.
 
-Fijar base a digest verificado de Node 22 Alpine con actualización automatizada; no insertar un digest ficticio. Para promoción, decidir entre promover el digest probado o reconstruir por diferencias de configuración build-time. Si se reconstruye, verificar/atestiguar y probar también el artefacto prod; no afirmar que es el de staging. Desplegar runtime y migrador por digest y conservar procedencia/SBOM.
+Base fijada a digest verificado de Node 22 Alpine con actualización automatizada.
+Promocion del digest probado implementada mediante configuracion runtime, sin
+rebuild de prod; falta operarla y verificarla en ACR/ACA. Desplegar runtime y
+migrador por digest y conservar procedencia/SBOM; esto no sustituye una firma.
 
 **Aceptación:** `id -u` en ambas imágenes no es 0; migración y startup funcionan; archivos/SQL requeridos existen y sólo se escribe donde corresponde; escaneo cubre ambas; referencia desplegada resuelve al digest aprobado.
 

@@ -10,6 +10,7 @@ import DemoLeadModal from './DemoLeadModal';
 import type { TierDeDemo } from '@/lib/demoLeadTier';
 import LanguageSwitcher from './LanguageSwitcher';
 import { FinOpsCapabilitiesTable } from './FinOpsCapabilitiesTable';
+import { usePublicRuntimeConfig } from './PublicRuntimeConfigProvider';
 import {
   IconBuildingLighthouse,
   IconCheck,
@@ -28,6 +29,7 @@ interface PricingPageProps {
 }
 
 export default function PricingPage({ onLoginClick, tenantId, hideLogin }: PricingPageProps) {
+  const config = usePublicRuntimeConfig();
   const { instance, accounts } = useMsal();
   const [isAnnual, setIsAnnual] = useState(false);
   const [paddle, setPaddle] = useState<Paddle>();
@@ -64,7 +66,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
   }, [instance, onLoginClick]);
 
   useEffect(() => {
-    const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || '';
+    const token = config.paddleClientToken;
     if (!token) {
       console.warn("Paddle client token is missing. Billing features will not work.");
       return;
@@ -84,7 +86,7 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
         }
       }
     }).then(setPaddle);
-  }, []);
+  }, [config.paddleClientToken]);
 
   const handleSignUp = (plan: string) => {
     sessionStorage.setItem('pendingUpgrade', plan);
@@ -106,9 +108,9 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
 
   const getPriceId = (plan: string) => {
     if (plan === 'pro') {
-        return isAnnual ? process.env.NEXT_PUBLIC_PADDLE_PRO_YEARLY : process.env.NEXT_PUBLIC_PADDLE_PRO_MONTHLY;
+        return isAnnual ? config.paddleProYearly : config.paddleProMonthly;
     } else if (plan === 'business') {
-        return isAnnual ? process.env.NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY : process.env.NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY;
+        return isAnnual ? config.paddleBusinessYearly : config.paddleBusinessMonthly;
     }
     return undefined;
   };
@@ -143,10 +145,10 @@ export default function PricingPage({ onLoginClick, tenantId, hideLogin }: Prici
     // Con tenant, el `custom_data` (a quién se acredita) lo FIRMA el servidor: el webhook ignora uno que armó el navegador
     // (ver `checkoutBinding.ts`). Plan y período se deducen del precio elegido.
     const plan = ([
-      ['Professional', 'monthly', process.env.NEXT_PUBLIC_PADDLE_PRO_MONTHLY],
-      ['Professional', 'yearly', process.env.NEXT_PUBLIC_PADDLE_PRO_YEARLY],
-      ['Business', 'monthly', process.env.NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY],
-      ['Business', 'yearly', process.env.NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY],
+      ['Professional', 'monthly', config.paddleProMonthly],
+      ['Professional', 'yearly', config.paddleProYearly],
+      ['Business', 'monthly', config.paddleBusinessMonthly],
+      ['Business', 'yearly', config.paddleBusinessYearly],
     ] as const).find(([, , id]) => id === priceId);
     if (!plan) {
       alert("No se pudo identificar el plan elegido. Recargá la página e intentá de nuevo.");

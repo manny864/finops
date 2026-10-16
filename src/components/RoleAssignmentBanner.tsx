@@ -2,11 +2,12 @@
 import React, { useState } from 'react';
 import { useTenant } from '@/components/TenantProvider';
 import { hasAccess } from '@/lib/tierLogic';
+import { usePublicRuntimeConfig } from './PublicRuntimeConfigProvider';
 
 export default function RoleAssignmentBanner() {
     const [copied, setCopied] = useState(false);
     const { selectedTenant } = useTenant();
-    const clientId = process.env.NEXT_PUBLIC_CLIENT_ID || "876d8a5b-6023-4484-b3ba-73c186e4a72b";
+    const { clientId } = usePublicRuntimeConfig();
     
     const tier = (selectedTenant as any)?.tier || 'Professional';
     const isEnterprise = hasAccess(tier, 'Enterprise');

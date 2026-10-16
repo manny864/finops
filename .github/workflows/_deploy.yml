@@ -1,6 +1,6 @@
 # Build, migraciones, deploy y health de UN ambiente. Lo llaman `deploy-azure.yml` (staging, en cada push a main) y
-# `promote-prod.yml` (prod, a mano). Comparte controles, NO el artefacto:
-# NEXT_PUBLIC_* difiere por ambiente y obliga a reconstruir. Cada build se identifica por digest.
+# `promote-prod.yml` (prod, a mano). Staging construye; prod importa los mismos
+# digests verificados. Identidad y Paddle se configuran en runtime.
 #
 # Esta plantilla no lleva ningún nombre de recurso escrito: los trae el llamador. Así un cambio acá no puede, por error,
 # apuntar un deploy de staging a prod ni al revés.
@@ -19,6 +19,9 @@ on:
       rg:          { description: "resource group del app y del job",        required: true, type: string }
       app:         { description: "Container App web",                       required: true, type: string }
       migrate_job: { description: "Container App Job de migraciones",        required: true, type: string }
+      source_acr: { description: "ACR de staging para promover sin rebuild", required: false, default: "", type: string }
+      runtime_digest: { description: "Digest runtime probado en staging", required: false, default: "", type: string }
+      migrator_digest: { description: "Digest migrador probado en staging", required: false, default: "", type: string }
 
 env:
   ACR: ${{ inputs.acr }}
@@ -78,18 +81,7 @@ jobs:
 
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
-      # Las NEXT_PUBLIC_ TIENEN que ir como --build-arg: Next las inlinea en el
-      # bundle del cliente al compilar, así que una env var del Container App
-      # llega tarde — para entonces el bundle ya está hecho.
-      #
-      # Van como `vars` y no como `secrets` porque son públicas por definición:
-      # se sirven a cualquier browser que abra la app. Si faltan, el build NO
-      # falla: compila con valores vacíos y el login queda en "not-configured"
-      # y el checkout de Paddle roto. Por eso el paso siguiente las verifica.
-      #
-      # Antes salían de .env.production, que viajaba dentro de la imagen; ese
-      # archivo se sacó del contexto de build por seguridad (ver .dockerignore).
-      - name: Verificar variables públicas de build
+      - name: Verificar variables publicas de runtime
         run: |
           MISSING=""
           for V in NEXT_PUBLIC_CLIENT_ID \
@@ -103,7 +95,7 @@ jobs:
           done
           if [ -n "$MISSING" ]; then
             echo "Faltan variables del environment ${{ inputs.environment }} (Settings > Environments > ${{ inputs.environment }} > Variables):$MISSING"
-            echo "Sin ellas el bundle se compila vacío y el login rompe en runtime."
+            echo "Sin ellas no se habilita el rollout de identidad/facturacion."
             exit 1
           fi
         env:
@@ -114,7 +106,7 @@ jobs:
           NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY: ${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY }}
           NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY: ${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY }}
 
-      - name: Build & push (local runner)
+      - name: Construir staging o importar digests de staging
         run: |
           az acr login -n "$ACR"
           [[ "$DEPLOY_ENV" =~ ^(staging|prod)$ ]] || { echo "Ambiente no permitido"; exit 1; }
@@ -123,24 +115,36 @@ jobs:
           }
           TAG="$BUILD_SHA-$DEPLOY_ENV-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           REPOSITORY="$ACR.azurecr.io/$IMAGE"
-          BUILD_ARGS=(
-            --build-arg NEXT_PUBLIC_CLIENT_ID
-            --build-arg NEXT_PUBLIC_PADDLE_CLIENT_TOKEN
-            --build-arg NEXT_PUBLIC_PADDLE_PRO_MONTHLY
-            --build-arg NEXT_PUBLIC_PADDLE_PRO_YEARLY
-            --build-arg NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY
-            --build-arg NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY
-            --platform linux/amd64 --provenance=mode=min --sbom=true --push
-            --label "org.opencontainers.image.revision=$BUILD_SHA"
-            --cache-from "type=registry,ref=$REPOSITORY:cache-$DEPLOY_ENV"
-            --cache-to "type=registry,ref=$REPOSITORY:cache-$DEPLOY_ENV,mode=max"
-          )
           mkdir -p image-evidence
-          # Serial builds share the builder cache; each push must succeed.
-          docker buildx build "${BUILD_ARGS[@]}" --target migrator \
-            -t "$REPOSITORY:$TAG-migrator" --metadata-file image-evidence/migrator-metadata.json .
-          docker buildx build "${BUILD_ARGS[@]}" --target runner \
-            -t "$REPOSITORY:$TAG" --metadata-file image-evidence/runtime-metadata.json .
+          if [ "$DEPLOY_ENV" = "staging" ]; then
+            [ -z "$SOURCE_ACR$SOURCE_RUNTIME_DIGEST$SOURCE_MIGRATOR_DIGEST" ] || {
+              echo "Staging debe construir, no importar entradas de promocion"; exit 1;
+            }
+            BUILD_ARGS=(
+              --platform linux/amd64 --provenance=mode=min --sbom=true --push
+              --label "org.opencontainers.image.revision=$BUILD_SHA"
+              --cache-from "type=registry,ref=$REPOSITORY:cache-$DEPLOY_ENV"
+              --cache-to "type=registry,ref=$REPOSITORY:cache-$DEPLOY_ENV,mode=max"
+            )
+            docker buildx build "${BUILD_ARGS[@]}" --target migrator \
+              -t "$REPOSITORY:$TAG-migrator" --metadata-file image-evidence/migrator-metadata.json .
+            docker buildx build "${BUILD_ARGS[@]}" --target runner \
+              -t "$REPOSITORY:$TAG" --metadata-file image-evidence/runtime-metadata.json .
+          else
+            [[ "$SOURCE_ACR" =~ ^[a-z0-9]{5,50}$ ]] || { echo "ACR origen invalido"; exit 1; }
+            [[ "$SOURCE_RUNTIME_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "Digest runtime invalido"; exit 1; }
+            [[ "$SOURCE_MIGRATOR_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "Digest migrador invalido"; exit 1; }
+            SOURCE_REGISTRY=$(az acr show -n "$SOURCE_ACR" --query id -o tsv)
+            [ -n "$SOURCE_REGISTRY" ] || { echo "ACR origen no accesible por Entra"; exit 1; }
+            for TARGET in runtime migrator; do
+              if [ "$TARGET" = "runtime" ]; then DIGEST="$SOURCE_RUNTIME_DIGEST"; else DIGEST="$SOURCE_MIGRATOR_DIGEST"; fi
+              az acr import -n "$ACR" --registry "$SOURCE_REGISTRY" --source "$IMAGE@$DIGEST" \
+                --image "$IMAGE:$TAG-$TARGET"
+              IMPORTED=$(az acr manifest show-metadata -r "$ACR" -n "$IMAGE:$TAG-$TARGET" --query digest -o tsv)
+              [ "$IMPORTED" = "$DIGEST" ] || { echo "El import altero el digest $TARGET"; exit 1; }
+              jq -n --arg digest "$DIGEST" '{"containerimage.digest": $digest}' >"image-evidence/$TARGET-metadata.json"
+            done
+          fi
           for TARGET in runtime migrator; do
             DIGEST=$(jq -er '."containerimage.digest" | select(test("^sha256:[0-9a-f]{64}$"))' "image-evidence/$TARGET-metadata.json")
             REF="$REPOSITORY@$DIGEST"
@@ -151,28 +155,50 @@ jobs:
             echo "${TARGET^^}_IMAGE=$REF" >>"$GITHUB_ENV"
           done
         env:
+          SOURCE_ACR: ${{ inputs.source_acr }}
+          SOURCE_RUNTIME_DIGEST: ${{ inputs.runtime_digest }}
+          SOURCE_MIGRATOR_DIGEST: ${{ inputs.migrator_digest }}
+
+      - name: Smoke de los digests construidos
+        env:
           NEXT_PUBLIC_CLIENT_ID: ${{ vars.NEXT_PUBLIC_CLIENT_ID }}
           NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: ${{ vars.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN }}
           NEXT_PUBLIC_PADDLE_PRO_MONTHLY: ${{ vars.NEXT_PUBLIC_PADDLE_PRO_MONTHLY }}
           NEXT_PUBLIC_PADDLE_PRO_YEARLY: ${{ vars.NEXT_PUBLIC_PADDLE_PRO_YEARLY }}
           NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY: ${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY }}
           NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY: ${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY }}
-
-      - name: Smoke de los digests construidos
         run: |
           jq -n --arg sha "$BUILD_SHA" --arg environment "$DEPLOY_ENV" \
             --arg runtime "$RUNTIME_IMAGE" --arg migrator "$MIGRATOR_IMAGE" \
             --arg run "$GITHUB_RUN_ID/$GITHUB_RUN_ATTEMPT" \
-            '{sha: $sha, environment: $environment, runtime: $runtime, migrator: $migrator, run: $run, signed: false}' \
+            '{schemaVersion: 2, publicConfiguration: "runtime-v1", sha: $sha, environment: $environment, runtime: $runtime, migrator: $migrator, run: $run, signed: false}' \
             >image-evidence/release.json
           docker run --rm --network none --entrypoint sh "$MIGRATOR_IMAGE" -c \
             'test "$(id -u)" != 0 && test -f scripts/migrate.ts && test -d node_modules/tsx'
           NAME="runtime-smoke-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           trap 'docker rm -f "$NAME" >/dev/null' EXIT
-          docker run -d --name "$NAME" --network none -e SKIP_DB_INIT=1 "$RUNTIME_IMAGE"
+          docker run -d --name "$NAME" --network none -e SKIP_DB_INIT=1 \
+            -e NEXT_PUBLIC_CLIENT_ID -e NEXT_PUBLIC_PADDLE_CLIENT_TOKEN \
+            -e NEXT_PUBLIC_PADDLE_PRO_MONTHLY -e NEXT_PUBLIC_PADDLE_PRO_YEARLY \
+            -e NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY -e NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY "$RUNTIME_IMAGE"
           for _ in $(seq 1 30); do
             if docker exec "$NAME" node -e 'fetch("http://127.0.0.1:3000/api/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'; then
-              [ "$(docker exec "$NAME" id -u)" != 0 ] && exit 0
+              [ "$(docker exec "$NAME" id -u)" != 0 ] || { echo "Runtime usa root"; exit 1; }
+              docker exec "$NAME" node -e '
+                const keys = {clientId:"NEXT_PUBLIC_CLIENT_ID",paddleClientToken:"NEXT_PUBLIC_PADDLE_CLIENT_TOKEN",
+                  paddleProMonthly:"NEXT_PUBLIC_PADDLE_PRO_MONTHLY",paddleProYearly:"NEXT_PUBLIC_PADDLE_PRO_YEARLY",
+                  paddleBusinessMonthly:"NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY",paddleBusinessYearly:"NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY"};
+                fetch("http://127.0.0.1:3000/api/config/public").then(async r => {
+                  if (!r.ok || r.headers.get("cache-control") !== "private, no-store") throw new Error("Public runtime endpoint invalid");
+                  const config = await r.json();
+                  if (Object.keys(config).length !== 6 || Object.entries(keys).some(([key, env]) => config[key] !== process.env[env]))
+                    throw new Error("Public runtime config differs from the selected environment");
+                }).catch(e => { console.error(e.message); process.exit(1); });'
+              for REF in "$RUNTIME_IMAGE" "$MIGRATOR_IMAGE"; do
+                REVISION=$(docker image inspect "$REF" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')
+                [ "$REVISION" = "$BUILD_SHA" ] || { echo "La imagen no corresponde al commit probado"; exit 1; }
+              done
+              exit 0
             fi
             sleep 2
           done
@@ -202,6 +228,13 @@ jobs:
           echo "Timeout esperando la migración"; exit 1
 
       - name: Deploy de la app
+        env:
+          NEXT_PUBLIC_CLIENT_ID: ${{ vars.NEXT_PUBLIC_CLIENT_ID }}
+          NEXT_PUBLIC_PADDLE_CLIENT_TOKEN: ${{ vars.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN }}
+          NEXT_PUBLIC_PADDLE_PRO_MONTHLY: ${{ vars.NEXT_PUBLIC_PADDLE_PRO_MONTHLY }}
+          NEXT_PUBLIC_PADDLE_PRO_YEARLY: ${{ vars.NEXT_PUBLIC_PADDLE_PRO_YEARLY }}
+          NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY: ${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY }}
+          NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY: ${{ vars.NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY }}
         run: |
           # APP_VERSION va por --set-env-vars y NO por --build-arg: un build-arg
           # que cambia en cada commit invalida el cache de la etapa `builder`
@@ -210,7 +243,13 @@ jobs:
           az containerapp update -g "$RG" -n "$APP" \
             --image "$RUNTIME_IMAGE" \
             --set-env-vars AZURE_SENDER_EMAIL_ALERTS="${{ vars.AZURE_SENDER_EMAIL_ALERTS || 'alerts@cscloudsolutions.com.ar' }}" \
-                           APP_VERSION="${{ inputs.sha }}"
+                           APP_VERSION="${{ inputs.sha }}" \
+                           NEXT_PUBLIC_CLIENT_ID="$NEXT_PUBLIC_CLIENT_ID" \
+                           NEXT_PUBLIC_PADDLE_CLIENT_TOKEN="$NEXT_PUBLIC_PADDLE_CLIENT_TOKEN" \
+                           NEXT_PUBLIC_PADDLE_PRO_MONTHLY="$NEXT_PUBLIC_PADDLE_PRO_MONTHLY" \
+                           NEXT_PUBLIC_PADDLE_PRO_YEARLY="$NEXT_PUBLIC_PADDLE_PRO_YEARLY" \
+                           NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY="$NEXT_PUBLIC_PADDLE_BUSINESS_MONTHLY" \
+                           NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY="$NEXT_PUBLIC_PADDLE_BUSINESS_YEARLY"
           OBSERVED=$(az containerapp show -g "$RG" -n "$APP" --query 'properties.template.containers[0].image' -o tsv)
           [ "$OBSERVED" = "$RUNTIME_IMAGE" ] || { echo "La imagen observada no coincide con el digest construido"; exit 1; }
 

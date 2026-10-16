@@ -5,7 +5,8 @@
 #   confirm  exactamente `PROMOTE-PROD`.
 #
 # Antes de tocar nada verifica que el sha (1) sea ancestro de origin/main y (2) tenga un deploy a STAGING exitoso. Después
-# construye ESE sha con las variables de prod y lo despliega con la misma plantilla que staging (`_deploy.yml`).
+# importa los digests probados en esa ejecucion, sin reconstruir; la configuracion
+# de identidad/Paddle se inyecta en runtime.
 #
 # La aprobación vive acá (el dispatch con la confirmación escrita) y no en los revisores obligatorios del environment: en un
 # repositorio privado con GitHub Pro esos revisores no existen.
@@ -38,6 +39,9 @@ jobs:
     permissions:
       contents: read
       actions: read
+    outputs:
+      runtime_digest: ${{ steps.release.outputs.runtime_digest }}
+      migrator_digest: ${{ steps.release.outputs.migrator_digest }}
     steps:
       - name: La confirmación es exacta
         env:
@@ -51,6 +55,7 @@ jobs:
           fetch-depth: 0
 
       - name: El sha es un commit de main que ya pasó por staging
+        id: release
         env:
           SHA: ${{ inputs.sha }}
           GH_TOKEN: ${{ github.token }}
@@ -59,13 +64,21 @@ jobs:
           [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "sha tiene que ser el hash completo de 40 caracteres."; exit 1; }
           git cat-file -e "$SHA^{commit}" 2>/dev/null || { echo "El commit $SHA no existe en el repositorio."; exit 1; }
           git merge-base --is-ancestor "$SHA" origin/main || { echo "El commit $SHA no está en main: no se promueve."; exit 1; }
-          OK=$(gh run list --repo "$REPO" --workflow deploy-azure.yml --commit "$SHA" --status success --limit 5 --json databaseId --jq 'length')
-          if [ "${OK:-0}" -lt 1 ]; then
+          RUN=$(gh run list --repo "$REPO" --workflow deploy-azure.yml --commit "$SHA" --branch main \
+            --status success --limit 5 --json databaseId,headSha,event |
+            jq -r --arg sha "$SHA" '[.[] | select(.headSha == $sha and (.event == "push" or .event == "workflow_dispatch"))][0].databaseId // empty')
+          if [ -z "$RUN" ]; then
             echo "El commit $SHA no tiene un deploy a staging exitoso (workflow deploy-azure.yml)."
             echo "Un commit que sólo toca docs/tests/infra no se despliega: promové el último commit que sí pasó por staging."
             exit 1
           fi
-          echo "El commit $SHA está en main y su deploy a staging terminó bien."
+          [[ "$RUN" =~ ^[0-9]+$ ]] || { echo "ID de run invalido"; exit 1; }
+          ATTEMPT=$(gh api "repos/$REPO/actions/runs/$RUN" --jq .run_attempt)
+          [[ "$ATTEMPT" =~ ^[0-9]+$ ]] || { echo "Intento de run invalido"; exit 1; }
+          gh run download "$RUN" --repo "$REPO" --name "image-evidence-staging-$RUN-$ATTEMPT" --dir staging-evidence
+          node scripts/deployment-release.mjs staging-evidence/release.json "$SHA" "$RUN/$ATTEMPT" \
+            cscsfinopsstgglobalcr.azurecr.io/finops >>"$GITHUB_OUTPUT"
+          echo "Se promoveran los digests del commit $SHA probado en staging."
 
   deploy-prod:
     needs: verificar-promocion
@@ -80,4 +93,7 @@ jobs:
       rg: cscs-finops-prod-westus2-rg
       app: cscs-finops-prod-westus2-web
       migrate_job: cscs-finops-prod-wus2-migrate
+      source_acr: cscsfinopsstgglobalcr
+      runtime_digest: ${{ needs.verificar-promocion.outputs.runtime_digest }}
+      migrator_digest: ${{ needs.verificar-promocion.outputs.migrator_digest }}
     secrets: inherit
