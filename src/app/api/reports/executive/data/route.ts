@@ -31,6 +31,8 @@ export async function GET(request: NextRequest) {
         if (scope !== 'TENANT_ALL') await exigirSuscripcionDelTenant(tenantId, scopeId);
 
         const liveData = await aggregateExecutiveTelemetry(tenantId, scope, scopeId);
+        await requireTenantAccess(request, tenantId);
+        if (scope !== 'TENANT_ALL') await exigirSuscripcionDelTenant(tenantId, scopeId);
         return NextResponse.json({ success: true, data: liveData });
     } catch (e) {
         if (e instanceof AuthError) return NextResponse.json({ error: errorMessage(e) }, { status: errorStatus(e) });

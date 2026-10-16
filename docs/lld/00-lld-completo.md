@@ -7245,3 +7245,26 @@ full suite ni gates reales; ultima full sinservicios6307pass/197skip es
 previa a estas ocho regresiones. Sin correo ni cloud reales.
 No garantiza cancelacion atomica despues del ultimo check ni elimina
 la cache de pertenencia60s.
+
+### 52.24 Reautorizacion antes de devolver datos, HTML y PDF
+
+GET reports/executive/data vuelve a comprobar requireTenantAccess y
+pertenencia de suscripcion al terminar la recoleccion. POST export-pdf
+lo hace tras construir HTML o compilar PDF, antes de devolver el cuerpo.
+Suspension, nuevo permiso Perspective, expiracion JWT, revocacion de
+suscripcion o fallo de lookup impiden devolver el contenido generado.
+El contrato demo y TENANT_ALL se conserva. No se cancela la recoleccion
+iniciada ni se afirma atomicidad entre ultimo guard y respuesta; sigue
+TTL60s del catalogo de suscripciones.
+
+Veinticuatro regresiones nuevas ejecutan handlers reales con servicios
+sustituidos en data/HTML/PDF: exito y orden, tres causas de revocacion de
+identidad, pertenencia, fallo SQL, TENANT_ALL y demo por cada formato.
+Con correo manual/Lighthouse37pass focales. Full final habilita MySQL8.4,
+Redis7 y Azurite3.35 desechables en loopback/tmpfs:6475pass/76skip,
+572archivos correctos/8omitidos. Incluye118matrizSQL/JWT/Blob y nueve
+casos SQL nuevos de despacho; no se usa Graph ni Azure reales.
+Typecheck, lint global y build nativo correctos. Bases fixture retiradas,
+RedisDBSIZE0, los tres contenedores propios eliminados; ajenos intactos.
+Esta corrida no sustituye build/scan amd64, firma privada, CI hosted ni
+despliegue; sigue abierta cobertura global y decision STRIDE03.

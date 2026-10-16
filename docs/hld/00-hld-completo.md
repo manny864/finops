@@ -2086,3 +2086,9 @@ de compilar el adjunto, antes del transporte. Usa company_name real del
 tenant. Ocho regresiones nuevas+cinco Lighthouse=13pass focales;
 typecheck/lint/build correctos, sin full ni cloud repetidos.
 DetalleLLD52.23;politica de destinatarios y STRIDE03 sin cambios.
+
+Datos ejecutivos y descarga HTML/PDF reautorizan identidad/pertenencia
+tras generar y antes de responder, sin devolver contenido ante rechazo.
+Veinticuatro regresiones nuevas. Full final con MySQL/Redis/Azurite
+desechables6475pass/76skip;lint/typecheck/build correctos.
+DetalleLLD52.24. No equivale a CI hosted/amd64/rollout ni cierre global.

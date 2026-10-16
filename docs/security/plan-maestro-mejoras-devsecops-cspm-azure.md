@@ -812,6 +812,8 @@ Catorce casos SQL nuevos ejecutan handlers y JWT reales: GET moderno/legacy solo
 
 **Correo ejecutivo manual:** revalida identidad y pertenencia tras compilar PDF, antes de transporte; suspension/alcance/expiracion o lookup fallido no despachan. Query corregida a Tenants.company_name existente. Ocho regresiones con handler real/dependencias sustituidas y cinco guards Lighthouse:13pass;typecheck/lint/build correctos. Full/gates reales no repetidos;6307pass/197skip es previo a estas ocho. HLD/LLD52.23. Sin cambio de destinatarios/roles/STRIDE03, sin cancelacion atomica ni revocacionAzure inmediata (TTL60s); falta cobertura global/rollout.
 
+**Respuesta de datos/descarga tras generar:** data, exportHTML/PDF revalidan identidad y pertenencia despues de generar y antes de devolver cuerpo; rechazo/fallo no entrega contenido.24regresiones nuevas+correo/Lighthouse37pass focales. Full final con MySQL8.4/Redis7/Azurite3.35 desechables6475pass/76skip,572archivos/8omitidos;incluye118matrizSQL/JWT/Blob y9despachoSQL. Lint/typecheck/buildnativo correctos;HLD/LLD52.24. Bases propias retiradas,Redis0,solo trescontenedorespropios eliminados. Sin Graph/Azure reales, sin atomicidad ni revocacionAzure instantanea; no reemplaza CIbilling/amd64/firma/rollout, cobertura global y STRIDE03 abiertos.
+
 **Prioridad:** P1 de evaluación y cierre de cobertura.  
 **Clasificación:** bypass de autorizacion confirmado en tres rutas de auditoria y consulta de facturacion, corregido en rama, pendiente rollout; cobertura de otras superficies incompleta.
 **STRIDE:** Information Disclosure, Tampering y Elevation of Privilege.  
