@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
               WHERE rs.active = 1`
         );
 
-        let evaluadas = 0, enviadas = 0, omitidasSinDatos = 0, canceladasPorBaja = 0;
+        let evaluadas = 0, enviadas = 0, omitidasSinDatos = 0, canceladasPorBaja = 0, fallidas = 0;
 
         for (const f of filas || []) {
             evaluadas += 1;
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
             if (f.createdBy && f.estadoDelAutor && String(f.estadoDelAutor).toUpperCase() !== "ACTIVE") {
                 // Se desactiva, no se borra: alguien tiene que poder ver por qué
                 // dejó de llegar el reporte.
-                await pool.query("UPDATE ReportSubscriptions SET active = 0 WHERE id = ?", [f.id]);
+                await pool.query("UPDATE ReportSubscriptions SET active = 0 WHERE id = ? AND tenant_id = ?", [f.id, f.tenantId]);
                 canceladasPorBaja += 1;
                 continue;
             }
@@ -92,16 +92,17 @@ export async function GET(request: NextRequest) {
                 else enviadas += r.enviados;
             } catch (e) {
                 // Una suscripción que falla no se lleva puestas las demás.
+                fallidas += 1;
                 console.error(`[cron/report-subscriptions] sub ${f.id}:`, errorMessage(e));
             }
         }
 
-        const resumen = { evaluadas, enviadas, omitidasSinDatos, canceladasPorBaja };
+        const resumen = { evaluadas, enviadas, omitidasSinDatos, canceladasPorBaja, fallidas };
         await recordCronRun({
             cronName: "report-subscriptions",
             // "warning" y no "ok" cuando algo quedó sin mandar por falta de
             // datos: un cron verde con reportes que no salieron no se mira.
-            status: omitidasSinDatos > 0 ? "warning" : "ok",
+            status: omitidasSinDatos > 0 || fallidas > 0 ? "warning" : "ok",
             durationMs: Date.now() - startedAt,
             summary: `${enviadas} enviados, ${evaluadas} evaluadas`,
             details: resumen,

@@ -7158,3 +7158,47 @@ colectores, Blob, notificaciones y transporte de correo sustituidos;
 no se envia correo ni se consulta cloud. Suite sinservicios6287pass/188skip,
 565archivos correctos/11omitidos; lint/typecheck/build nativo correctos. Ultima matriz real
 previa118casos en dc04cd0; estos casos no afirman SQL/JWT/Azure reales.
+
+### 52.21 Suscripciones vigentes y autor comprobados al despachar
+
+enviarSuscripcion, comun al cron y Enviar ahora, exige una fila persistida
+por id/tenant activa y con report_type/scope_json/recipients_json iguales
+al snapshot que va a generar. Usa comparacion JSON nativa de MySQL y
+scope SQL NULL con operador <=>, sin depender del orden de claves JSON.
+Si la fila se borro, desactivo o cambio de alcance/destinatarios, lanza
+REPORT_SUBSCRIPTION_CHANGED antes de generar o de continuar enviando.
+
+Lee created_by de esa fila, no del caller. Para autor humano vuelve a
+comprobar estado Users y UserScopes antes de generar y antes de cada
+destinatario; no permite un autor restringido por Perspective porque el
+despachador no aplica permisos personales, solo el filtro del reporte.
+Estado distinto de ACTIVE o lookup fallido/ambiguo corta el envio.
+Se preservan las suscripciones historicas de proceso con created_by NULL
+y la membresia por directorio sin fila Users: no se modifica STRIDE03 ni
+se convierte eliminar una fila Users en una revocacion.
+
+Los guards estan fuera del catch de rebotes del transporte: una perdida
+de autorizacion no se trata como buzon fallido para seguir al siguiente.
+Tambien se revalida antes de marcar un reporte vacio como procesado.
+last_sent_at y la desactivacion del cron ahora filtran id y tenant.
+El cron registra fallidas y status warning si el despachador rechaza;
+mantiene aislamiento de fallos por suscripcion.
+
+Quince regresiones unitarias prueban vigencia/configuracion, cambios
+durante generacion y entre destinatarios, errores SQL, autor de proceso,
+directorio sin fila, periodo sin marcar y warning cron. Nueve pruebas
+MySQL8.4 reales comprueban igualdad JSON sin orden de claves, SQL NULL,
+tenant/scope/destinatarios ajenos, desactivacion, suspension y permiso
+Perspective comprometidos durante generacion, y cambio de destinatarios
+tras primer envio. Generador y correo son sinteticos; no hay Graph/Azure.
+Se repite matriz SQL/JWT previa:103pass/15Blob omitidos; junto a los nueve
+nuevos112pass/15skip. Full con MySQL6416pass/98skip,569archivos/9omitidos;
+Redis/Azurite/live cloud no habilitados en esta corrida.
+Lint global, typecheck y build nativo correctos.
+
+No hay transaccion alrededor del correo ni cancelacion atomica: un
+destinatario ya enviado no se recupera. Si cambia autorizacion entre
+destinatarios, se corta sin marcar periodo y queda error registrado;
+un reintento posterior puede repetir destinatarios previos. No agrega
+idempotencia por destinatario ni cambia roles; created_by sigue ligado
+a email historico, no se migra a OID.

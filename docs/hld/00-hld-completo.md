@@ -2065,3 +2065,12 @@ registra sin marcar timestamp de envio; reporte ya generado conserva
 su estado completado para el tenant. Catorce regresiones;sinservicios
 6287pass/188skip;detalleLLD52.20. No cambia membresia STRIDE03 ni cancela
 atomicamente recoleccion/envio en curso;pertenenciaAzure conserva cache60s.
+
+El despachador de suscripciones programadas y Enviar ahora exige fila
+activa tenant/id con alcance y destinatarios sin cambios, y consulta el
+estado/alcance del autor antes de generar y de cada correo. Un cambio o
+fallo SQL corta el despacho; el cron lo cuenta como fallida y warning,
+sin marcar periodo enviado. Preserva procesos sin autor y politica de
+directorio existente. Quince regresiones unitarias y nueve MySQL reales;
+full con MySQL6416pass/98skip, sin Redis/Azurite/cloud. DetalleLLD52.21;
+sin cancelacion atomica ni idempotencia por destinatario.

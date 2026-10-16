@@ -44,9 +44,10 @@ const REGLAS = [
 ];
 
 beforeEach(() => {
-    queryMock.mockReset().mockImplementation(async (sql: string) =>
-        String(sql).includes("FROM Tenants") ? [[{ company_name: "Acme" }]] : [[]]
-    );
+    queryMock.mockReset().mockImplementation(async (sql: string) => {
+        if (sql.includes("SELECT created_by FROM ReportSubscriptions")) return [[{ created_by: null }]];
+        return sql.includes("FROM Tenants") ? [[{ company_name: "Acme" }]] : [[]];
+    });
     mailMock.mockReset().mockResolvedValue(undefined);
     listarMock.mockReset().mockResolvedValue([{ id: 7, name: "Equipos", reglas: REGLAS }]);
     filasMock.mockReset().mockResolvedValue([fila("rg-datos", 1000), fila("rg-web", 400)]);
