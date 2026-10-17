@@ -340,7 +340,7 @@ jobs:
           # El -replace se pasa como argumento separado y sin `eval`: una
           # direccion de recurso viene con corchetes y comillas, y expandirla en
           # una cadena de shell es como se inyecta un flag de mas.
-          ARGS=(-var-file=terraform.tfvars -var-file=cron-jobs.tfvars -var-file=network.tfvars -out=tfplan)
+          ARGS=(-var-file=terraform.tfvars -var-file=cron-jobs.tfvars -var-file=network.tfvars -input=false -out=tfplan)
           if [ -n "$REPLACE_ADDR" ]; then
             echo "::warning title=Replace solicitado::Se va a RECREAR $REPLACE_ADDR (destroy + create)."
             ARGS+=(-replace="$REPLACE_ADDR")
@@ -637,7 +637,7 @@ jobs:
           ERR="$RUNNER_TEMP/tf-drift.err"
           for INTENTO in 1 2 3; do
             RC=0
-            terraform plan -var-file=terraform.tfvars -var-file=cron-jobs.tfvars -var-file=network.tfvars -detailed-exitcode 2>"$ERR" || RC=$?
+            terraform plan -input=false -var-file=terraform.tfvars -var-file=cron-jobs.tfvars -var-file=network.tfvars -detailed-exitcode 2>"$ERR" || RC=$?
             cat "$ERR" >&2
             [ "$RC" -eq 1 ] || exit "$RC"
             if [ "$INTENTO" -lt 3 ] && [ -n "$VAULTS" ] && "$GITHUB_WORKSPACE/infra/scripts/kv-firewall-runner.sh" learn "$ERR"; then
