@@ -10,6 +10,10 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
  * HOY `requireTenantAccess` deja pasar a cualquier identidad cuyo `tid` coincida con el tenant, sin exigir fila en
  * `Users` (sólo una fila DISABLED corta el paso). La decisión del propietario es exigir una fila ACTIVE en cada petición.
  *
+ * DISEÑO ELEGIDO (guard que crea la fila): sin fila, el guard la crea como Reader SOLO si el tenant ya tiene usuarios y el
+ * plan lo permite; nunca crea Owner ni SuperAdmin (el primero de un tenant sigue pasando por /api/onboard); INVITED no
+ * entra ni se activa sola; sin suscripción o sin cupo responde 403 MEMBERSHIP_REQUIRED.
+ *
  * Estas pruebas se escribieron ANTES de tocar el guard:
  *  - los grupos «vigente» y «orden login → API» describen lo que ya se cumple y NO debe romperse;
  *  - el grupo «STRIDE-03» describe el comportamiento nuevo y hoy FALLA a propósito. Se marca con `it.fails` para que el
@@ -238,37 +242,78 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("membresía de aplicación con
         });
     });
 
-    describe("STRIDE-03: fila ACTIVE exigida en cada petición (esperadas en rojo hasta implementar el guard)", () => {
-        nuevo("un miembro del directorio SIN fila ya no entra", async () => {
+    describe("STRIDE-03: fila ACTIVE en cada petición; el guard la crea como Reader si el plan lo permite (rojas hasta implementarlo)", () => {
+        nuevo("un miembro del directorio sin fila entra y queda ACTIVE como Reader si el plan lo permite", async () => {
             const nadie = quien(ALPHA, "nadie");
             await tenant(ALPHA); await fila(quien(ALPHA, "dueno"), { role: "Owner" });
-            expect(await acceso(ALPHA, nadie)).toEqual({ status: 403, code: "MEMBERSHIP_REQUIRED" });
+            expect(await acceso(ALPHA, nadie)).toBe("ok");
+            expect(await filaDe(nadie)).toEqual({ role: "Reader", account_status: "ACTIVE" });
         });
 
-        nuevo("una fila INVITED del mismo tenant no entra", async () => {
+        nuevo("el guard nunca crea Owner ni SuperAdmin, aunque el correo sea corporativo", async () => {
+            const corp = quien(ALPHA, "ops", "cscloudsolutions.com.ar");
+            await tenant(ALPHA); await fila(quien(ALPHA, "dueno"), { role: "Owner" });
+            expect(await acceso(ALPHA, corp)).toBe("ok");
+            const [rows] = await db.query<RowDataPacket[]>(
+                "SELECT role, system_role FROM Users WHERE tenant_id = ? AND entra_oid = ?", [ALPHA, corp.oid]);
+            expect(rows[0]).toEqual({ role: "Reader", system_role: "USER" });
+        });
+
+        nuevo("un tenant sin ningún usuario no admite por petición: el primero pasa por onboard y queda Owner", async () => {
+            const primero = quien(ALPHA, "primero");
+            await tenant(ALPHA);
+            expect(await acceso(ALPHA, primero)).toEqual({ status: 403, code: "MEMBERSHIP_REQUIRED" });
+            expect(await filaDe(primero)).toBeUndefined();
+            expect((await loginOnboard(primero)).status).toBe(200);
+            expect(await filaDe(primero)).toEqual({ role: "Owner", account_status: "ACTIVE" });
+        });
+
+        nuevo("una fila INVITED del mismo tenant no entra ni se activa sola", async () => {
             const ines = quien(ALPHA, "ines");
             await tenant(ALPHA); await fila(ines, { status: "INVITED" });
             expect(await acceso(ALPHA, ines)).toEqual({ status: 403, code: "MEMBERSHIP_REQUIRED" });
+            expect(await filaDe(ines)).toMatchObject({ account_status: "INVITED" });
         });
 
         nuevo("una fila INVITED en otro tenant tampoco entra", async () => {
             const luis = quien(BETA, "luis");
             await tenant(ALPHA); await fila(luis, { tenant: ALPHA, status: "INVITED" });
-            expect(await acceso(ALPHA, luis)).toEqual({ status: 403, code: "MEMBERSHIP_REQUIRED" });
+            expect(await acceso(ALPHA, luis)).toMatchObject({ status: 403 });
         });
 
-        nuevo("quien superó el límite del plan no entra llamando directo a la API", async () => {
+        nuevo("quien supera el límite del plan no entra llamando directo a la API y no queda con fila", async () => {
             await tenant(ALPHA, "Professional");
             for (const n of ["u1", "u2", "u3"]) await fila(quien(ALPHA, n));
             const cuarto = quien(ALPHA, "u4");
             expect((await loginOnboard(cuarto)).status).toBe(403);
             expect(await acceso(ALPHA, cuarto)).toEqual({ status: 403, code: "MEMBERSHIP_REQUIRED" });
+            expect(await filaDe(cuarto)).toBeUndefined();
         });
 
-        nuevo("quien entra a un tenant sin suscripción tampoco lee datos (no hay fila que lo admita)", async () => {
+        nuevo("sin fila en la base de tenants (sin suscripción) no entra ni se crea fila", async () => {
             const eva = quien(ALPHA, "eva");
-            await loginOnboard(eva);
             expect(await acceso(ALPHA, eva)).toEqual({ status: 403, code: "MEMBERSHIP_REQUIRED" });
+            expect(await filaDe(eva)).toBeUndefined();
+        });
+
+        nuevo("cinco primeras peticiones simultáneas del mismo usuario crean una sola fila", async () => {
+            const ana = quien(ALPHA, "ana");
+            await tenant(ALPHA); await fila(quien(ALPHA, "dueno"), { role: "Owner" });
+            const r = await Promise.all([1, 2, 3, 4, 5].map(() => acceso(ALPHA, ana)));
+            expect(r.every((x) => x === "ok")).toBe(true);
+            const [rows] = await db.query<RowDataPacket[]>(
+                "SELECT COUNT(*) AS n FROM Users WHERE tenant_id = ? AND entra_oid = ?", [ALPHA, ana.oid]);
+            expect(rows[0].n).toBe(1);
+        });
+
+        nuevo("altas simultáneas de usuarios distintos no superan el límite del plan", async () => {
+            await tenant(ALPHA, "Professional");
+            await fila(quien(ALPHA, "u1"), { role: "Owner" }); await fila(quien(ALPHA, "u2"));
+            const r = await Promise.all(["n1", "n2", "n3", "n4"].map((n) => acceso(ALPHA, quien(ALPHA, n))));
+            expect(r.filter((x) => x === "ok")).toHaveLength(1);
+            expect(r.filter((x) => x !== "ok")).toHaveLength(3);
+            const [rows] = await db.query<RowDataPacket[]>("SELECT COUNT(*) AS n FROM Users WHERE tenant_id = ?", [ALPHA]);
+            expect(rows[0].n).toBe(3);
         });
     });
 });
