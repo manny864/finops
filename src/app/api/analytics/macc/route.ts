@@ -95,12 +95,11 @@ export async function GET(request: NextRequest) {
       // Obtener desglose de suscripciones desde CostSnapshots si existen
       const [subRows]: any = await pool.query(
         `SELECT
-            SubscriptionId AS subscriptionId,
-            SubscriptionName AS subscriptionName,
+            subscription_id AS subscriptionId,
             SUM(COALESCE(EffectiveCost, cost_usd, 0)) AS totalSpend
          FROM CostSnapshots
          WHERE tenant_id = ?
-         GROUP BY SubscriptionId, SubscriptionName
+         GROUP BY subscription_id
          ORDER BY totalSpend DESC
          LIMIT 10`,
         [tenantId]
@@ -118,7 +117,8 @@ export async function GET(request: NextRequest) {
 
         return {
           subscriptionId: r.subscriptionId || "sub-default",
-          subscriptionName: r.subscriptionName || r.subscriptionId || "Suscripción Azure",
+          // CostSnapshots no guarda el nombre de la suscripción: se muestra el id.
+          subscriptionName: r.subscriptionId || "Suscripción Azure",
           billingAccountId: billingAccounts[0]?.billingAccountId || "EA-Principal",
           firstPartySpendUSD: firstParty,
           marketplaceEligibleSpendUSD: mpEligible,

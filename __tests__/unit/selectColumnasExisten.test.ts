@@ -40,13 +40,6 @@ const ESQUEMA = columnasPorTabla();
  * corregir una consulta, borrá su línea: la guarda no avisa de las saldadas, pero una línea vieja tapa una recaída.
  */
 const DEUDA: Record<string, string[]> = {
-    // Salieron el 2026-10-16 al endurecer la guarda: un alias igual a la columna (`SubscriptionId AS subscriptionId`,
-    // `LOWER(resource_id) AS resource_id`) la tapaba. CostSnapshots tiene `subscription_id`, no `SubscriptionId` ni
-    // `SubscriptionName`, y ni CostSnapshots ni CostMeterSnapshots tienen `resource_id` (la columna es `ResourceId`, sólo en
-    // CostSnapshots). Son bugs reales, sin corregir todavía.
-    "src/app/api/analytics/macc/route.ts": ["costsnapshots.subscriptionid", "costsnapshots.subscriptionname"],
-    "src/services/azureLogicApps.service.ts": ["costmetersnapshots.resource_id", "costsnapshots.resource_id"],
-
     // La cuota de reembolsos de reservas pide `ChargeType` y `ChargeDescription` a CostSnapshots, que no los tiene, y NO
     // hay columna correcta que ponerles: ninguna tabla local guarda el tipo de cargo (FocusLineItems sólo tiene
     // ChargeCategory y nadie la escribe) y CostSnapshots agrega por (grupo, servicio, día), así que un reembolso se
