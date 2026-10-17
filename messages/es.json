@@ -14649,6 +14649,22 @@
     "metric_REVENUE_name": "Ingresos facturados",
     "metric_REVENUE_unitOne": "USD"
   },
+  "AccessDenied": {
+    "badge": "Acceso restringido",
+    "userLabel": "Cuenta autenticada:",
+    "sinCupoTitle": "Tu organización alcanzó el límite de usuarios",
+    "sinCupoBody": "El plan {tier} de tu organización admite hasta {limite} usuarios y todos los lugares están en uso. Pedile a un administrador que libere un lugar o amplíe el plan, y volvé a intentar.",
+    "deshabilitadaTitle": "Tu cuenta está deshabilitada",
+    "deshabilitadaBody": "Un administrador de tu organización deshabilitó el acceso de {email}. Si creés que es un error, pedile que lo reactive.",
+    "noInvitadoTitle": "Todavía no tenés acceso",
+    "noInvitadoBody": "La cuenta {email} fue invitada, pero un administrador todavía no activó su acceso. Pedile que lo active y volvé a intentar.",
+    "sinAccesoTitle": "No tenés acceso a esta organización",
+    "sinAccesoBody": "No pudimos habilitar el acceso de {email} a esta organización. Pedile a un administrador que te dé de alta o contactá a soporte.",
+    "btnRetry": "Volver a intentar",
+    "btnSupport": "Contactar soporte",
+    "btnLogout": "Cerrar sesión / Cambiar cuenta",
+    "allRightsReserved": "Todos los derechos reservados."
+  },
   "UnregisteredUser": {
     "badge": "Acceso Restringido",
     "title": "Usuario no registrado en la base de datos",

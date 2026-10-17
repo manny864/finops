@@ -1,7 +1,9 @@
 "use client";
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { isMockTenant } from '@/lib/demoTenant';
+import type { AccesoDenegado } from '@/types/accesoTenant.types';
+import { accesoDeLaListaDeTenants, consultarAcceso } from '@/lib/accesoTenantClient';
 
 // El dataset de la demo (4.4k líneas, 292 KB) NO se importa de forma estática: lo cargaban todas las
 // páginas autenticadas de clientes reales (194 KB gzip) para un tenant que nunca lo usa. Se trae la
@@ -62,6 +64,13 @@ interface TenantContextType {
   activeAddonKeys: string[];
   requiresRbacUpdate?: boolean;
   isUserRegistered: boolean | null;
+  /**
+   * STRIDE-03: la organización NO admite a esta persona (cupo del plan, cuenta deshabilitada, invitación pendiente…).
+   * null = sin negativa conocida. `ClientShell` lo muestra con `AccessDeniedScreen` en lugar de cargar los paneles.
+   */
+  accesoDenegado: AccesoDenegado | null;
+  /** Vuelve a consultar `/api/me/acceso` (botón «Volver a intentar», 403 inesperados). */
+  revalidarAcceso: () => void;
   // Certificación de Academia FinOps del USUARIO actual (no del tenant — cada
   // usuario nuevo de la organización debe completarla, sin importar si otros
   // ya lo hicieron). null = todavía no se resolvió.
@@ -121,6 +130,9 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
     if (isDemoMode || isCorpAccount) return true;
     return null;
   });
+  const [accesoDenegado, setAccesoDenegado] = useState<AccesoDenegado | null>(null);
+  const [probeTick, setProbeTick] = useState(0);
+  const revalidarAcceso = useCallback(() => setProbeTick((n) => n + 1), []);
   const [isAdmin, setIsAdmin] = useState(isDemoMode || isCorpAccount);
   const [userRole, setUserRole] = useState<string>((isDemoMode || isCorpAccount) ? 'Admin' : 'Reader'); // Default to lowest privilege
   const [userPermissions, setUserPermissions] = useState<RoleTag[]>([]);
@@ -282,6 +294,10 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                     setSystemRole('SUPERADMIN');
                     setUserRole('Admin');
                 } else {
+                    // STRIDE-03: SIN_SUSCRIPCION sigue yendo a la pantalla de precios (UnregisteredUserScreen); el resto
+                    // son negativas de la organización que se explican en AccessDeniedScreen.
+                    const denegado = accesoDeLaListaDeTenants(data);
+                    if (denegado) setAccesoDenegado(denegado);
                     setIsUserRegistered(false);
                     setTenantsList([]);
                     setSelectedTenant({ id: 'unregistered', name: 'Sin entorno registrado' });
@@ -1200,6 +1216,8 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
                           // este camino rompia.
                           console.warn("[TenantProvider] Rol denegado por el servidor (403): se aplica Reader.");
                           setUserRole('Reader');
+                          // STRIDE-03: un 403 puede ser una negativa de membresía; se consulta el motivo.
+                          revalidarAcceso();
                       } else {
                           console.warn("[TenantProvider] API Error fetching role. Status:", res.status);
                           if (isAdmin || accounts[0].tenantId === selectedTenant.id || process.env.NODE_ENV === 'development') {
@@ -1225,14 +1243,45 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
       }
   }, [selectedTenant.id, accounts, instance, isAdmin, inProgress]);
 
+  // STRIDE-03: ¿la organización admite a esta persona? Se consulta al elegir tenant, al volver a la ventana (como mucho una
+  // vez por minuto) y cuando un 403 inesperado lo pide. Un fallo de la consulta (sin red, sin token) NO es una negativa.
+  useEffect(() => {
+    if (isDemoMode || accounts.length === 0 || inProgress !== 'none') return;
+    const id = selectedTenant?.id;
+    if (id && isMockTenant(id)) { setAccesoDenegado(null); return; }
+    if (!id || id === 'default' || id === 'unregistered') return;
+    let cancelado = false;
+    (async () => {
+      try {
+        const idToken = await getFreshIdToken(instance, accounts[0], ['User.Read']);
+        const acceso = await consultarAcceso(id, idToken);
+        if (cancelado || !acceso) return; // null = no se pudo saber: no se asume una negativa
+        if (acceso.ok) setAccesoDenegado(null);
+        else setAccesoDenegado({ motivo: acceso.motivo, tier: acceso.tier, limite: acceso.limite });
+      } catch (e) {
+        console.warn('[TenantProvider] No se pudo obtener el token para /api/me/acceso:', e);
+      }
+    })();
+    return () => { cancelado = true; };
+  }, [selectedTenant?.id, accounts, instance, inProgress, isDemoMode, probeTick]);
+
+  useEffect(() => {
+    let ultimo = Date.now();
+    const alEnfocar = () => {
+      if (Date.now() - ultimo > 60_000) { ultimo = Date.now(); setProbeTick((n) => n + 1); }
+    };
+    window.addEventListener('focus', alEnfocar);
+    return () => window.removeEventListener('focus', alEnfocar);
+  }, []);
+
   const requiresRbacUpdate = selectedTenant?.requires_rbac_update;
 
   // El value se memoiza: este provider se re-renderiza cada vez que cambia su padre (ruta, MSAL) y con un
   // objeto literal nuevo en cada render los ~223 componentes que usan `useTenant()` se re-renderizaban en
   // cascada aunque nada del tenant hubiera cambiado. Los setters de useState son estables y no van en las deps.
   const contextValue = useMemo(
-    () => ({ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole, userPermissions, systemRole, authzResolved, userScope, requiresRbacUpdate, isUserRegistered, academyCertified, setAcademyCertified, activeAddonKeys, isDemoMode }),
-    [selectedTenant, isAdmin, tenantsList, userRole, userPermissions, systemRole, authzResolved, userScope, requiresRbacUpdate, isUserRegistered, academyCertified, activeAddonKeys, isDemoMode]
+    () => ({ selectedTenant, setSelectedTenant, isAdmin, tenants: tenantsList, userRole, userPermissions, systemRole, authzResolved, userScope, requiresRbacUpdate, isUserRegistered, accesoDenegado, revalidarAcceso, academyCertified, setAcademyCertified, activeAddonKeys, isDemoMode }),
+    [selectedTenant, isAdmin, tenantsList, userRole, userPermissions, systemRole, authzResolved, userScope, requiresRbacUpdate, isUserRegistered, accesoDenegado, revalidarAcceso, academyCertified, activeAddonKeys, isDemoMode]
   );
 
   return (

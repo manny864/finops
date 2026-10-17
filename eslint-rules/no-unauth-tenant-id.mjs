@@ -7,7 +7,11 @@
  * en el mismo handler, se emite un ERROR.
  *
  * Guards reconocidos: requireTenantAccess, requireTenantRole, requireTenantTier,
- * requireSuperAdmin, requireRequestIdentity.
+ * requireSuperAdmin, requireRequestIdentity, requireTenantMembership.
+ *
+ * requireTenantMembership es la ADMISIÓN de requireTenantAccess (identidad, membresía ACTIVE, DISABLED, alta por petición,
+ * SuperAdmin) sin el corte por alcance, que no es una cuestión de autenticación. Sólo lo usa /api/me/acceso, que no expone
+ * datos de costo; cualquier handler que lea datos sigue usando requireTenantAccess.
  *
  * requireTenantTier cuenta como guard porque llama a requireTenantAccess como
  * primera línea de su implementación (ver src/lib/requestAuth.ts) antes de
@@ -55,6 +59,7 @@ const rule = {
       "requireTenantTier",
       "requireSuperAdmin",
       "requireRequestIdentity",
+      "requireTenantMembership",
     ]);
     const HTTP_HANDLERS = new Set([
       "GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS",

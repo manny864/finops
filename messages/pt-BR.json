@@ -14649,6 +14649,22 @@
     "metric_REVENUE_name": "Receita faturada",
     "metric_REVENUE_unitOne": "USD"
   },
+  "AccessDenied": {
+    "badge": "Acesso restrito",
+    "userLabel": "Conta autenticada:",
+    "sinCupoTitle": "Sua organização atingiu o limite de usuários",
+    "sinCupoBody": "O plano {tier} da sua organização admite até {limite} usuários e todas as vagas estão em uso. Peça a um administrador que libere uma vaga ou amplie o plano e tente novamente.",
+    "deshabilitadaTitle": "Sua conta está desabilitada",
+    "deshabilitadaBody": "Um administrador da sua organização desabilitou o acesso de {email}. Se acredita que é um engano, peça que o reative.",
+    "noInvitadoTitle": "Você ainda não tem acesso",
+    "noInvitadoBody": "A conta {email} foi convidada, mas um administrador ainda não ativou o acesso. Peça que o ative e tente novamente.",
+    "sinAccesoTitle": "Você não tem acesso a esta organização",
+    "sinAccesoBody": "Não foi possível habilitar o acesso de {email} a esta organização. Peça a um administrador que o cadastre ou entre em contato com o suporte.",
+    "btnRetry": "Tentar novamente",
+    "btnSupport": "Falar com o suporte",
+    "btnLogout": "Sair / Trocar de conta",
+    "allRightsReserved": "Todos os direitos reservados."
+  },
   "UnregisteredUser": {
     "badge": "Acesso Restrito",
     "title": "Usuário não registrado no banco de dados",
