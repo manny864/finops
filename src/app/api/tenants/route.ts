@@ -6,6 +6,8 @@ import { setTenantCredentials } from "@/lib/secrets/tenantCredentials";
 import { assertProviderIngestable, ProviderDisabledError } from "@/services/providerLifecycleService";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 import { isSuperAdminBootstrapEmail } from "@/lib/superAdminBootstrap";
+import { altaDeMiembroTransaccional } from "@/services/tenantMembership.service";
+import type { AccesoDenegado } from "@/types/accesoTenant.types";
 
 async function hasTenantColumn(columnName: string): Promise<boolean> {
     const [rows] = await pool.query(
@@ -130,6 +132,8 @@ export async function GET(request: NextRequest) {
         let tenantRows = rows as Array<{ id: string; name: string; tier?: string; subscription_status?: string; is_onboarded?: boolean }>;
 
         // Si el usuario no tiene fila en Users pero su tenant_id tiene suscripción activa/compra confirmada
+        // STRIDE-03: si no puede ver ningún tenant, la interfaz necesita saber POR QUÉ (cupo, suscripción…).
+        let acceso: AccesoDenegado | undefined;
         if (!isSuperAdmin && tenantRows.length === 0 && identity.tenantId) {
             const [directTenantRows]: any = await pool.query(
                 `SELECT tenant_id as id, company_name as name, client_id,
@@ -145,18 +149,33 @@ export async function GET(request: NextRequest) {
                 [identity.tenantId]
             );
             if (Array.isArray(directTenantRows) && directTenantRows.length > 0) {
-                tenantRows = directTenantRows;
-                // Auto-vincular usuario en Users para ese tenant
-                try {
-                    await pool.query(
-                        `INSERT INTO Users (entra_oid, email, tenant_id, role, display_name)
-                         VALUES (?, ?, ?, 'Admin', ?)
-                         ON DUPLICATE KEY UPDATE tenant_id = VALUES(tenant_id)`,
-                        [identity.claims.oid || email, email, identity.tenantId, email.split('@')[0]]
-                    );
-                } catch (userErr) {
-                    console.warn(`[tenants] Auto-insert user for verified tenant failed:`, errorMessage(userErr));
+                // STRIDE-03: el auto-vínculo usa la MISMA regla de admisión que el login (`altaDeMiembro`): el primer
+                // usuario del tenant queda Owner, los siguientes Reader, con el cupo de usuarios del plan, y no se
+                // escala el rol de quien ya existe. Antes se insertaba `role = 'Admin'` sin límite ni regla del primero,
+                // y el tenant se mostraba aunque el alta fallara.
+                //
+                // El tenant sólo se expone si el usuario quedó admitido. Sin `oid` no se puede provisionar (antes se usaba
+                // el email como id, que no es inmutable), y ante un error de base no se concede visibilidad.
+                const oid = identity.claims.oid;
+                if (!oid) {
+                    acceso = { motivo: 'SIN_ACCESO' };
+                } else {
+                    try {
+                        const alta = await altaDeMiembroTransaccional(
+                            pool,
+                            { tenantId: identity.tenantId, entraOid: oid, email },
+                            { modo: 'login' }
+                        );
+                        if (alta.resultado === 'creado' || alta.resultado === 'existente') tenantRows = directTenantRows;
+                        else if (alta.resultado === 'sin-cupo') acceso = { motivo: 'SIN_CUPO', tier: alta.tier, limite: alta.limite };
+                        else acceso = { motivo: 'SIN_ACCESO' };
+                    } catch (userErr) {
+                        // Un error de base no es una negativa: no se informa un motivo que no se verificó.
+                        console.warn(`[tenants] Alta de miembro para tenant verificado falló:`, errorMessage(userErr));
+                    }
                 }
+            } else {
+                acceso = { motivo: 'SIN_SUSCRIPCION' };
             }
         }
 
@@ -179,6 +198,7 @@ export async function GET(request: NextRequest) {
             tenants: allTenants,
             isRegistered: allTenants.length > 0,
             isSuperAdmin,
+            ...(allTenants.length === 0 && acceso ? { acceso } : {}),
         });
     } catch (error: unknown) {
         if (error instanceof AuthError) {

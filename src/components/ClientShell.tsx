@@ -26,6 +26,7 @@ import GlobalAnnouncementBanner from './announcements/GlobalAnnouncementBanner';
 import GlobalAnnouncementPopup from './announcements/GlobalAnnouncementPopup';
 import MobileTabBar from './mobile/MobileTabBar';
 import PricingPage from './PricingPage';
+import AccessDeniedScreen from "@/components/AccessDeniedScreen";
 import UnregisteredUserScreen from './UnregisteredUserScreen';
 
 /** Rutas públicas de la Fase 2: se llega por link de email, sin sesión. */
@@ -84,7 +85,7 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showPricing, setShowPricing] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
-  const { selectedTenant, setSelectedTenant, isAdmin, tenants, isUserRegistered, systemRole } = useTenant();
+  const { selectedTenant, setSelectedTenant, isAdmin, tenants, isUserRegistered, systemRole, accesoDenegado, revalidarAcceso } = useTenant();
   useBrowserNotifications(selectedTenant?.id);
   const { instance, accounts, inProgress } = useMsal();
   const { isInitializing } = useAuthLoading();
@@ -351,6 +352,12 @@ function ShellContent({ children, demoSession }: { children: React.ReactNode, de
               </div>
           </div>
       );
+  }
+
+  // STRIDE-03: la organización existe pero NO admite a esta persona (cupo del plan, cuenta deshabilitada, invitación
+  // pendiente…). Se explica el motivo en vez de cargar paneles que responderían con errores sueltos.
+  if (accesoDenegado && !isDemoRoute && !isAuthTokenRoute && !isPublicRoute && systemRole !== 'SUPERADMIN') {
+      return <AccessDeniedScreen acceso={accesoDenegado} onRetry={revalidarAcceso} />;
   }
 
   // Bloqueo de seguridad: Si el usuario inició sesión con Microsoft pero NO existe en la base de datos

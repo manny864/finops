@@ -1,0 +1,313 @@
+// @vitest-environment node
+import crypto from "node:crypto";
+import mysql, { type Pool, type RowDataPacket } from "mysql2/promise";
+import { NextRequest } from "next/server";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+/**
+ * STRIDE-03 — membresía de aplicación.
+ *
+ * HOY `requireTenantAccess` deja pasar a cualquier identidad cuyo `tid` coincida con el tenant, sin exigir fila en
+ * `Users` (sólo una fila DISABLED corta el paso). La decisión del propietario es exigir una fila ACTIVE en cada petición.
+ *
+ * DISEÑO ELEGIDO (guard que crea la fila): sin fila, el guard la crea como Reader SOLO si el tenant ya tiene usuarios y el
+ * plan lo permite; nunca crea Owner ni SuperAdmin (el primero de un tenant sigue pasando por /api/onboard); INVITED no
+ * entra ni se activa sola; sin suscripción o sin cupo responde 403 MEMBERSHIP_REQUIRED.
+ *
+ * Se escribieron ANTES de tocar el guard (rojas por el motivo correcto) y pasan con la implementación de
+ * `admitirMiembroDelDirectorio` + `altaDeMiembro`. Los grupos «vigente» y «orden login → API» fijan lo que no debe romperse.
+ *
+ * Sólo usa un MySQL local descartable (MYSQL_SECURITY_PORT); nunca credenciales ni datos de la aplicación.
+ */
+let db: Pool;
+vi.mock("@/modules/storage/db", () => ({
+    default: {
+        query: (...args: Parameters<Pool["query"]>) => db.query(...args),
+        getConnection: () => db.getConnection(),
+    },
+    initializeDatabase: async () => {},
+}));
+vi.mock("@/lib/rateLimiter", () => ({
+    default: { checkByKeyDistributed: async () => ({ allowed: true, remaining: 99, resetAt: new Date() }) },
+}));
+vi.mock("@/lib/emailHelper", () => ({
+    sendEmailAsync: vi.fn(),
+    getWelcomeEmailHtml: vi.fn(() => ""),
+    getInternalSignupAlertEmailHtml: vi.fn(() => ""),
+}));
+
+import { POST as onboard } from "@/app/api/onboard/route";
+import { AuthError, requireTenantAccess } from "@/lib/requestAuth";
+
+const ALPHA = "a0000000-0000-4000-8000-000000000001";
+const BETA = "b0000000-0000-4000-8000-000000000002";
+const OPS = "c0000000-0000-4000-8000-000000000003";
+const audience = "tenant-membership-synthetic-client";
+const database = `finops_membership_${process.pid}`;
+const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+const key = { ...publicKey.export({ format: "jwk" }), kid: "membership-test", kty: "RSA" };
+const CRON = "cron-secret-sintetico-de-32-caracteres!";
+
+
+type Who = { tid: string; oid: string; email: string };
+const quien = (tid: string, n: string, dominio = "example.test"): Who => ({ tid, oid: `oid-${n}`, email: `${n}@${dominio}` });
+
+function bearer(who: Who) {
+    const header = Buffer.from(JSON.stringify({ alg: "RS256", kid: key.kid })).toString("base64url");
+    const payload = Buffer.from(JSON.stringify({
+        tid: who.tid, oid: who.oid, aud: audience,
+        iss: `https://login.microsoftonline.com/${who.tid}/v2.0`,
+        exp: Math.floor(Date.now() / 1000) + 3600, preferred_username: who.email,
+    })).toString("base64url");
+    const signature = crypto.sign("RSA-SHA256", Buffer.from(`${header}.${payload}`), privateKey).toString("base64url");
+    return `Bearer ${header}.${payload}.${signature}`;
+}
+
+/** Resultado del guard: "ok" o el error de autorización (status + code). */
+async function acceso(tenantId: string, who?: Who, extra: Record<string, string> = {}) {
+    const headers = new Headers(extra);
+    if (who) headers.set("authorization", bearer(who));
+    const req = new NextRequest(`https://example.test/api/x?tenantId=${tenantId}`, { headers });
+    try {
+        await requireTenantAccess(req, tenantId);
+        return "ok" as const;
+    } catch (e) {
+        if (e instanceof AuthError) return { status: e.status, code: e.code };
+        throw e;
+    }
+}
+
+async function loginOnboard(who: Who) {
+    const req = new NextRequest("https://example.test/api/onboard", {
+        method: "POST",
+        headers: { authorization: bearer(who), "content-type": "application/json" },
+        body: JSON.stringify({ plan: null }),
+    });
+    const res = await onboard(req);
+    return { status: res.status, body: await res.json() };
+}
+
+async function fila(who: Who, over: { role?: string; status?: string; system?: string; tenant?: string } = {}) {
+    await db.query(
+        "INSERT INTO Users (entra_oid, tenant_id, email, role, system_role, account_status) VALUES (?, ?, ?, ?, ?, ?)",
+        [who.oid, over.tenant ?? who.tid, who.email, over.role ?? "Reader", over.system ?? "USER", over.status ?? "ACTIVE"],
+    );
+}
+
+async function tenant(id: string, tier = "Professional") {
+    await db.query(
+        "INSERT INTO Tenants (tenant_id, company_name, tier, subscription_status) VALUES (?, 'x', ?, 'ACTIVE')",
+        [id, tier],
+    );
+}
+
+async function filaDe(who: Who) {
+    const [rows] = await db.query<RowDataPacket[]>(
+        "SELECT role, account_status FROM Users WHERE tenant_id = ? AND entra_oid = ?", [who.tid, who.oid]);
+    return rows[0];
+}
+
+describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("membresía de aplicación con identidades firmadas y MySQL real", () => {
+    let admin: Pool;
+    beforeAll(async () => {
+        vi.stubEnv("NEXT_PUBLIC_CLIENT_ID", audience);
+        vi.stubEnv("CRON_SECRET", CRON);
+        vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+            const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
+            if (url.hostname !== "login.microsoftonline.com") throw new Error(`Unexpected network request: ${url.origin}`);
+            const t = [ALPHA, BETA, OPS].find((id) => url.pathname.startsWith(`/${id}/`));
+            if (!t) throw new Error("Unexpected OIDC tenant");
+            if (url.pathname.endsWith("/.well-known/openid-configuration")) {
+                return Response.json({ issuer: `https://login.microsoftonline.com/${t}/v2.0`,
+                    jwks_uri: `https://login.microsoftonline.com/${t}/discovery/v2.0/keys` });
+            }
+            return Response.json({ keys: [key] });
+        }));
+        const conn = { host: "127.0.0.1", user: "root", password: "", port: Number(process.env.MYSQL_SECURITY_PORT) };
+        admin = mysql.createPool(conn);
+        await admin.query(`CREATE DATABASE ${database}`);
+        db = mysql.createPool({ ...conn, database, timezone: "Z" });
+        await db.query(`CREATE TABLE Users (
+            tenant_id VARCHAR(64), email VARCHAR(120), entra_oid VARCHAR(64), role VARCHAR(40),
+            account_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', system_role VARCHAR(40) DEFAULT 'USER',
+            UNIQUE KEY uq_user (entra_oid, tenant_id))`);
+        await db.query(`CREATE TABLE UserScopes (
+            tenant_id VARCHAR(64), user_email VARCHAR(120), perspective_id INT, group_name VARCHAR(120))`);
+        await db.query(`CREATE TABLE Tenants (
+            tenant_id VARCHAR(64) PRIMARY KEY, company_name VARCHAR(120), tier VARCHAR(40),
+            subscription_status VARCHAR(40), trial_ends_at DATETIME NULL,
+            ai_anomaly_sensitivity VARCHAR(20), ai_share_resource_names BOOLEAN, ai_share_tags BOOLEAN)`);
+        await db.query("CREATE TABLE GlobalSettings (setting_key VARCHAR(64) PRIMARY KEY, setting_value VARCHAR(255))");
+        // /api/onboard registra un evento en cada login (plan por defecto), por eso la tabla tiene que existir.
+        await db.query(`CREATE TABLE SignupEvents (
+            id INT PRIMARY KEY AUTO_INCREMENT, tenant_id VARCHAR(64), user_email VARCHAR(120),
+            event_type VARCHAR(40), plan VARCHAR(40), metadata TEXT)`);
+    });
+    afterAll(async () => {
+        await admin.query(`DROP DATABASE IF EXISTS ${database}`);
+        await db.end();
+        await admin.end();
+        vi.unstubAllEnvs();
+        vi.unstubAllGlobals();
+    });
+    beforeEach(async () => {
+        await db.query("TRUNCATE TABLE Users");
+        await db.query("TRUNCATE TABLE UserScopes");
+        await db.query("DELETE FROM Tenants");
+    });
+
+    describe("contrato vigente que el guard estricto debe conservar", () => {
+        it("un miembro con fila ACTIVE entra", async () => {
+            const ana = quien(ALPHA, "ana");
+            await tenant(ALPHA); await fila(ana);
+            expect(await acceso(ALPHA, ana)).toBe("ok");
+        });
+
+        it("una fila DISABLED corta el acceso aunque el JWT siga vigente", async () => {
+            const ana = quien(ALPHA, "ana");
+            await tenant(ALPHA); await fila(ana, { status: "DISABLED" });
+            expect(await acceso(ALPHA, ana)).toEqual({ status: 403, code: "ACCOUNT_DISABLED" });
+        });
+
+        it("una membresía explícita ACTIVE en otro tenant entra", async () => {
+            const luis = quien(BETA, "luis");
+            await tenant(ALPHA); await fila(luis, { tenant: ALPHA });
+            expect(await acceso(ALPHA, luis)).toBe("ok");
+        });
+
+        it("sin fila y de otro directorio no entra", async () => {
+            const luis = quien(BETA, "luis");
+            await tenant(ALPHA);
+            expect(await acceso(ALPHA, luis)).toMatchObject({ status: 403 });
+        });
+
+        it("un SuperAdmin corporativo entra a cualquier tenant sin fila en él", async () => {
+            const ops = quien(OPS, "ops", "cscloudsolutions.com.ar");
+            await tenant(ALPHA); await fila(ops, { system: "SUPERADMIN" });
+            expect(await acceso(ALPHA, ops)).toBe("ok");
+        });
+
+        it("el cron autenticado entra sin fila ni JWT, sólo por GET", async () => {
+            await tenant(ALPHA);
+            expect(await acceso(ALPHA, undefined, { "x-cron-auth": CRON })).toBe("ok");
+        });
+    });
+
+    describe("orden login → API: lo que /api/onboard ya garantiza", () => {
+        it("un miembro nuevo del directorio queda ACTIVE como Reader y después entra", async () => {
+            const dueno = quien(ALPHA, "dueno"); const eva = quien(ALPHA, "eva");
+            await tenant(ALPHA); await fila(dueno, { role: "Owner" });
+            const r = await loginOnboard(eva);
+            expect(r.status).toBe(200);
+            expect(await filaDe(eva)).toEqual({ role: "Reader", account_status: "ACTIVE" });
+            expect(await acceso(ALPHA, eva)).toBe("ok");
+        });
+
+        it("el primer usuario de un tenant ya contratado queda Owner", async () => {
+            const primero = quien(ALPHA, "primero");
+            await tenant(ALPHA);
+            expect((await loginOnboard(primero)).status).toBe(200);
+            expect(await filaDe(primero)).toEqual({ role: "Owner", account_status: "ACTIVE" });
+        });
+
+        it("onboard repetido no escala ni cambia el rol de nadie", async () => {
+            const dueno = quien(ALPHA, "dueno"); const admin = quien(ALPHA, "admin"); const eva = quien(ALPHA, "eva");
+            await tenant(ALPHA); await fila(dueno, { role: "Owner" }); await fila(admin, { role: "Admin" });
+            await loginOnboard(eva); await loginOnboard(eva); await loginOnboard(admin);
+            expect(await filaDe(eva)).toMatchObject({ role: "Reader" });
+            expect(await filaDe(admin)).toMatchObject({ role: "Admin" });
+        });
+
+        it("onboard no crea fila para un tenant sin suscripción", async () => {
+            const eva = quien(ALPHA, "eva");
+            const r = await loginOnboard(eva);
+            expect(r.status).toBe(403);
+            expect(r.body.needsSubscription).toBe(true);
+            expect(await filaDe(eva)).toBeUndefined();
+        });
+
+        it("el usuario que supera el límite del plan Professional (3) es rechazado por onboard y no queda con fila", async () => {
+            await tenant(ALPHA, "Professional");
+            for (const n of ["u1", "u2", "u3"]) await fila(quien(ALPHA, n));
+            const cuarto = quien(ALPHA, "u4");
+            const r = await loginOnboard(cuarto);
+            expect(r.status).toBe(403);
+            expect(await filaDe(cuarto)).toBeUndefined();
+        });
+    });
+
+    describe("STRIDE-03: fila ACTIVE en cada petición; el guard la crea como Reader si el plan lo permite ", () => {
+        it("un miembro del directorio sin fila entra y queda ACTIVE como Reader si el plan lo permite", async () => {
+            const nadie = quien(ALPHA, "nadie");
+            await tenant(ALPHA); await fila(quien(ALPHA, "dueno"), { role: "Owner" });
+            expect(await acceso(ALPHA, nadie)).toBe("ok");
+            expect(await filaDe(nadie)).toEqual({ role: "Reader", account_status: "ACTIVE" });
+        });
+
+        it("el guard nunca crea Owner ni SuperAdmin, aunque el correo sea corporativo", async () => {
+            const corp = quien(ALPHA, "ops", "cscloudsolutions.com.ar");
+            await tenant(ALPHA); await fila(quien(ALPHA, "dueno"), { role: "Owner" });
+            expect(await acceso(ALPHA, corp)).toBe("ok");
+            const [rows] = await db.query<RowDataPacket[]>(
+                "SELECT role, system_role FROM Users WHERE tenant_id = ? AND entra_oid = ?", [ALPHA, corp.oid]);
+            expect(rows[0]).toEqual({ role: "Reader", system_role: "USER" });
+        });
+
+        it("un tenant sin ningún usuario no admite por petición: el primero pasa por onboard y queda Owner", async () => {
+            const primero = quien(ALPHA, "primero");
+            await tenant(ALPHA);
+            expect(await acceso(ALPHA, primero)).toEqual({ status: 403, code: "MEMBERSHIP_REQUIRED" });
+            expect(await filaDe(primero)).toBeUndefined();
+            expect((await loginOnboard(primero)).status).toBe(200);
+            expect(await filaDe(primero)).toEqual({ role: "Owner", account_status: "ACTIVE" });
+        });
+
+        it("una fila INVITED del mismo tenant no entra ni se activa sola", async () => {
+            const ines = quien(ALPHA, "ines");
+            await tenant(ALPHA); await fila(ines, { status: "INVITED" });
+            expect(await acceso(ALPHA, ines)).toEqual({ status: 403, code: "MEMBERSHIP_REQUIRED" });
+            expect(await filaDe(ines)).toMatchObject({ account_status: "INVITED" });
+        });
+
+        it("una fila INVITED en otro tenant tampoco entra", async () => {
+            const luis = quien(BETA, "luis");
+            await tenant(ALPHA); await fila(luis, { tenant: ALPHA, status: "INVITED" });
+            expect(await acceso(ALPHA, luis)).toMatchObject({ status: 403 });
+        });
+
+        it("quien supera el límite del plan no entra llamando directo a la API y no queda con fila", async () => {
+            await tenant(ALPHA, "Professional");
+            for (const n of ["u1", "u2", "u3"]) await fila(quien(ALPHA, n));
+            const cuarto = quien(ALPHA, "u4");
+            expect((await loginOnboard(cuarto)).status).toBe(403);
+            expect(await acceso(ALPHA, cuarto)).toEqual({ status: 403, code: "MEMBERSHIP_REQUIRED" });
+            expect(await filaDe(cuarto)).toBeUndefined();
+        });
+
+        it("sin fila en la base de tenants (sin suscripción) no entra ni se crea fila", async () => {
+            const eva = quien(ALPHA, "eva");
+            expect(await acceso(ALPHA, eva)).toEqual({ status: 403, code: "MEMBERSHIP_REQUIRED" });
+            expect(await filaDe(eva)).toBeUndefined();
+        });
+
+        it("cinco primeras peticiones simultáneas del mismo usuario crean una sola fila", async () => {
+            const ana = quien(ALPHA, "ana");
+            await tenant(ALPHA); await fila(quien(ALPHA, "dueno"), { role: "Owner" });
+            const r = await Promise.all([1, 2, 3, 4, 5].map(() => acceso(ALPHA, ana)));
+            expect(r.every((x) => x === "ok")).toBe(true);
+            const [rows] = await db.query<RowDataPacket[]>(
+                "SELECT COUNT(*) AS n FROM Users WHERE tenant_id = ? AND entra_oid = ?", [ALPHA, ana.oid]);
+            expect(rows[0].n).toBe(1);
+        });
+
+        it("altas simultáneas de usuarios distintos no superan el límite del plan", async () => {
+            await tenant(ALPHA, "Professional");
+            await fila(quien(ALPHA, "u1"), { role: "Owner" }); await fila(quien(ALPHA, "u2"));
+            const r = await Promise.all(["n1", "n2", "n3", "n4"].map((n) => acceso(ALPHA, quien(ALPHA, n))));
+            expect(r.filter((x) => x === "ok")).toHaveLength(1);
+            expect(r.filter((x) => x !== "ok")).toHaveLength(3);
+            const [rows] = await db.query<RowDataPacket[]>("SELECT COUNT(*) AS n FROM Users WHERE tenant_id = ?", [ALPHA]);
+            expect(rows[0].n).toBe(3);
+        });
+    });
+});

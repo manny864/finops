@@ -1,6 +1,8 @@
 import crypto from "crypto";
 import { NextRequest } from "next/server";
 import pool from "@/modules/storage/db";
+import { altaDeMiembroTransaccional } from "@/services/tenantMembership.service";
+import type { AccesoDenegado } from "@/types/accesoTenant.types";
 import { hasAccess } from "@/lib/tierLogic";
 import { isCorporateEmail } from "@/lib/authGuard";
 import { marcarComoFondo } from "@/lib/prioridadDeLlamada";
@@ -93,12 +95,15 @@ const DEFAULT_ENTRA_CLIENT_ID = "876d8a5b-6023-4484-b3ba-73c186e4a72b";
 export class AuthError extends Error {
   status: number;
   code?: string;
+  /** STRIDE-03: por qué se negó el acceso, para que la interfaz lo explique (`/api/me/acceso`, `/api/tenants`). */
+  detalle?: AccesoDenegado;
 
-  constructor(message: string, status = 401, code?: string) {
+  constructor(message: string, status = 401, code?: string, detalle?: AccesoDenegado) {
     super(message);
     this.name = "AuthError";
     this.status = status;
     this.code = code;
+    this.detalle = detalle;
   }
 }
 
@@ -480,6 +485,68 @@ export async function aplicarAlcance(
   return { ...identity, alcance };
 }
 
+/**
+ * STRIDE-03 — un usuario del directorio del tenant (su `tid` coincide) entra sólo con una fila ACTIVE en `Users`.
+ *
+ *  - DISABLED corta aunque el JWT siga vigente (APPSEC-ID-06).
+ *  - INVITED u otro estado no activo: no entra y no se activa solo; lo decide un Admin/Owner.
+ *  - Sin fila: se crea como Reader SI el tenant ya tiene usuarios y el plan tiene cupo (misma regla que el login, en
+ *    `altaDeMiembro`). Nunca crea Owner ni SuperAdmin. Sin suscripción, sin cupo o sin ningún usuario previo, no entra.
+ *
+ * Esto vuelve efectivo en el servidor el límite de usuarios del plan, que antes sólo se aplicaba en `/api/onboard`, y
+ * cubre sesiones restauradas (F5) que nunca vuelven a pasar por el login.
+ */
+async function admitirMiembroDelDirectorio(identity: RequestIdentity, tenantId: string): Promise<RequestIdentity> {
+  const oid = identity.claims.oid || "";
+  const [filas] = await pool.query(
+    `SELECT COUNT(*) AS n,
+            COALESCE(SUM(account_status = 'DISABLED'), 0) AS deshabilitadas,
+            COALESCE(SUM(account_status = 'ACTIVE'), 0) AS activas
+       FROM Users
+      WHERE tenant_id = ? AND (email = ? OR (entra_oid IS NOT NULL AND entra_oid = ?))`,
+    [tenantId, identity.email, oid]
+  );
+  const f = (Array.isArray(filas) ? filas[0] : undefined) as { n: number | string; deshabilitadas: number | string; activas: number | string } | undefined;
+  if (Number(f?.deshabilitadas) > 0) throw new AuthError("Cuenta deshabilitada.", 403, "ACCOUNT_DISABLED", { motivo: "DESHABILITADA" });
+  if (Number(f?.activas) > 0) return identity;
+  if (Number(f?.n) > 0) throw new AuthError(MENSAJE_SIN_MEMBRESIA, 403, "MEMBERSHIP_REQUIRED", { motivo: "NO_INVITADO" });
+
+  // Sin fila. Sin un id inmutable no se puede provisionar: no es lo mismo que "no entra por tid".
+  if (!oid || !identity.email) throw new AuthError(MENSAJE_SIN_MEMBRESIA, 403, "MEMBERSHIP_REQUIRED", { motivo: "SIN_ACCESO" });
+
+  const alta = await altaDeMiembroTransaccional(pool, { tenantId, entraOid: oid, email: identity.email }, { modo: "peticion" });
+  if (alta.resultado === "creado" || alta.resultado === "existente") return identity;
+  if (alta.resultado === "sin-cupo") {
+    throw new AuthError(
+      `Tu organización alcanzó el límite de usuarios del plan ${alta.tier} (${alta.limite}). Pedile a un administrador que libere un lugar o amplíe el plan.`,
+      403,
+      "MEMBERSHIP_REQUIRED",
+      { motivo: "SIN_CUPO", tier: alta.tier, limite: alta.limite }
+    );
+  }
+  throw new AuthError(
+    MENSAJE_SIN_MEMBRESIA,
+    403,
+    "MEMBERSHIP_REQUIRED",
+    { motivo: alta.resultado === "sin-tenant" ? "SIN_SUSCRIPCION" : "SIN_ACCESO" }
+  );
+}
+
+const MENSAJE_SIN_MEMBRESIA = "Tu cuenta no tiene acceso a esta organización. Pedile a un administrador que te dé de alta.";
+
+/**
+ * STRIDE-03 — sólo la ADMISIÓN al tenant (membresía, DISABLED, alta por petición, SuperAdmin, cron), sin el corte por
+ * alcance de `aplicarAlcance`. Lo usa `/api/me/acceso`, que no expone datos de costo y por eso no tiene que declararse
+ * en `scopeAwareRoutes`. Todo handler que lea datos sigue usando `requireTenantAccess`.
+ */
+export async function requireTenantMembership(
+  request: NextRequest,
+  tenantId: string,
+  options?: { allowSuperAdmin?: boolean }
+): Promise<RequestIdentity> {
+  return resolverAccesoAlTenant(request, tenantId, options);
+}
+
 async function resolverAccesoAlTenant(
   request: NextRequest,
   tenantId: string,
@@ -501,23 +568,14 @@ async function resolverAccesoAlTenant(
   const allowSuperAdmin = options?.allowSuperAdmin ?? true;
 
   if (identity.tenantId === tenantId) {
-    // APPSEC-ID-06: una fila DISABLED revoca el acceso aunque el JWT siga vigente.
-    // Sin fila (usuario aún no provisionado) se mantiene el acceso por tid.
-    const [disabled] = await pool.query(
-      "SELECT 1 FROM Users WHERE tenant_id = ? AND account_status = 'DISABLED' AND (email = ? OR (entra_oid IS NOT NULL AND entra_oid = ?)) LIMIT 1",
-      [tenantId, identity.email, identity.claims.oid || ""]
-    );
-    if (Array.isArray(disabled) && disabled.length > 0) {
-      throw new AuthError("Cuenta deshabilitada.", 403, "ACCOUNT_DISABLED");
-    }
-    return identity;
+    return admitirMiembroDelDirectorio(identity, tenantId);
   }
 
   // 1. Membresía explícita en el tenant (tabla Users en DB)
   if (identity.email || identity.claims.oid) {
     try {
       const [userRows] = await pool.query(
-        "SELECT 1 FROM Users WHERE tenant_id = ? AND account_status <> 'DISABLED' AND (email = ? OR (entra_oid IS NOT NULL AND entra_oid = ?)) LIMIT 1",
+        "SELECT 1 FROM Users WHERE tenant_id = ? AND account_status = 'ACTIVE' AND (email = ? OR (entra_oid IS NOT NULL AND entra_oid = ?)) LIMIT 1",
         [tenantId, identity.email, identity.claims.oid || ""]
       );
       if (Array.isArray(userRows) && (userRows as any[]).length > 0) {

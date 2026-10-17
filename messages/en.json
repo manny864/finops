@@ -14649,6 +14649,22 @@
     "metric_REVENUE_name": "Billed revenue",
     "metric_REVENUE_unitOne": "USD"
   },
+  "AccessDenied": {
+    "badge": "Restricted access",
+    "userLabel": "Signed-in account:",
+    "sinCupoTitle": "Your organization reached its user limit",
+    "sinCupoBody": "The {tier} plan of your organization allows up to {limite} users and every seat is in use. Ask an administrator to free a seat or upgrade the plan, then try again.",
+    "deshabilitadaTitle": "Your account is disabled",
+    "deshabilitadaBody": "An administrator of your organization disabled access for {email}. If you think this is a mistake, ask them to re-enable it.",
+    "noInvitadoTitle": "You do not have access yet",
+    "noInvitadoBody": "The account {email} was invited, but an administrator has not activated its access yet. Ask them to activate it and try again.",
+    "sinAccesoTitle": "You do not have access to this organization",
+    "sinAccesoBody": "We could not enable access for {email} to this organization. Ask an administrator to add you, or contact support.",
+    "btnRetry": "Try again",
+    "btnSupport": "Contact support",
+    "btnLogout": "Sign out / Switch account",
+    "allRightsReserved": "All rights reserved."
+  },
   "UnregisteredUser": {
     "badge": "Restricted Access",
     "title": "User not registered in database",
