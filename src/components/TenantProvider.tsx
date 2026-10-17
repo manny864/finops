@@ -132,7 +132,10 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
   });
   const [accesoDenegado, setAccesoDenegado] = useState<AccesoDenegado | null>(null);
   const [probeTick, setProbeTick] = useState(0);
-  const revalidarAcceso = useCallback(() => setProbeTick((n) => n + 1), []);
+  // También vuelve a pedir la lista de tenants: si la negativa vino del primer contacto (`/api/tenants` sin tenants, el
+  // seleccionado es 'unregistered') la sonda de acceso no corre, y sin esto «Volver a intentar» no hacía nada.
+  const [tenantsTick, setTenantsTick] = useState(0);
+  const revalidarAcceso = useCallback(() => { setProbeTick((n) => n + 1); setTenantsTick((n) => n + 1); }, []);
   const [isAdmin, setIsAdmin] = useState(isDemoMode || isCorpAccount);
   const [userRole, setUserRole] = useState<string>((isDemoMode || isCorpAccount) ? 'Admin' : 'Reader'); // Default to lowest privilege
   const [userPermissions, setUserPermissions] = useState<RoleTag[]>([]);
@@ -315,7 +318,7 @@ export function TenantProvider({ children, demoSession }: { children: React.Reac
             setAuthzResolved(true);
         });
     }
-  }, [accounts, instance]);
+  }, [accounts, instance, tenantsTick]);
 
   useEffect(() => {
     if (isDemoMode) return;
