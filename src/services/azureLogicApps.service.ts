@@ -118,7 +118,7 @@ async function fetchLogicAppsCostMap(
   try {
     const [snapRows]: any = await pool.query(
       `SELECT 
-         LOWER(resource_id) as resource_id,
+         LOWER(ResourceId) as resource_id,
          SUM(CASE WHEN date >= DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN cost_usd ELSE 0 END) as cost_mtd,
          SUM(CASE WHEN date >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH) AND date < DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN cost_usd ELSE 0 END) as cost_prev
        FROM CostSnapshots
@@ -129,7 +129,7 @@ async function fetchLogicAppsCostMap(
            OR LOWER(MeterCategory) LIKE '%logic%'
            OR LOWER(MeterCategory) LIKE '%workflow%'
          )
-       GROUP BY LOWER(resource_id)`,
+       GROUP BY LOWER(ResourceId)`,
       [tenantId]
     );
 
@@ -147,39 +147,7 @@ async function fetchLogicAppsCostMap(
     console.warn("[azureLogicApps.service] CostSnapshots query error:", err instanceof Error ? err.message : err);
   }
 
-  // 2. Query MySQL CostMeterSnapshots
-  try {
-    const [meterRows]: any = await pool.query(
-      `SELECT 
-         LOWER(resource_id) as resource_id,
-         SUM(CASE WHEN date >= DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN cost_usd ELSE 0 END) as cost_mtd,
-         SUM(CASE WHEN date >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH) AND date < DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN cost_usd ELSE 0 END) as cost_prev
-       FROM CostMeterSnapshots
-       WHERE tenant_id = ?
-         AND (
-           LOWER(service_name) LIKE '%logic%'
-           OR LOWER(service_name) LIKE '%workflow%'
-           OR LOWER(MeterCategory) LIKE '%logic%'
-           OR LOWER(MeterCategory) LIKE '%workflow%'
-         )
-       GROUP BY LOWER(resource_id)`,
-      [tenantId]
-    );
-
-    if (Array.isArray(meterRows)) {
-      for (const r of meterRows) {
-        if (r.resource_id) {
-          const key = String(r.resource_id).toLowerCase();
-          const existing = costMap.get(key);
-          const mtd = Math.max(existing?.costMtd || 0, Number(r.cost_mtd || 0));
-          const prev = Math.max(existing?.costPrev || 0, Number(r.cost_prev || 0));
-          costMap.set(key, { costMtd: mtd, costPrev: prev });
-        }
-      }
-    }
-  } catch (err) {
-    console.warn("[azureLogicApps.service] CostMeterSnapshots query error:", err instanceof Error ? err.message : err);
-  }
+  // CostMeterSnapshots no se consulta: agrega por medidor y no guarda ResourceId, no hay costo por recurso ahí.
 
   // 3. Azure Cost Management MTD query
   try {

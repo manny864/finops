@@ -128,10 +128,20 @@ export function analizarSelect(sqlCrudo: string): AnalisisSelect | null {
         if (implicito) aliasesDeColumna.add(implicito);
     }
 
+    // Un alias sólo vale en las cláusulas (WHERE/GROUP/ORDER), NO dentro de la lista: `COALESCE(NULLIF(region, ''), '') AS region`
+    // pide la columna `region` aunque el alias se llame igual. Por eso la lista se revisa sin sus propios alias
+    // (quitados de cada ítem) y con el conjunto vacío; antes el alias tapaba la columna y esa consulta pasaba (2026-10-16).
+    const listaSinAlias = partirPorComas(lista)
+        .map((item) => {
+            const sinAs = item.replace(/\s+AS\s+\w+\s*$/i, "");
+            const implicito = aliasImplicito(sinAs);
+            return implicito ? sinAs.replace(/\s+\w+\s*$/, "") : sinAs;
+        })
+        .join(", ");
+
     const columnas = new Set<string>();
-    for (const fragmento of [lista, clausulas]) {
-        for (const c of columnasDeFragmento(fragmento, tabla, aliasTabla, aliasesDeColumna)) columnas.add(c);
-    }
+    for (const c of columnasDeFragmento(listaSinAlias, tabla, aliasTabla, new Set())) columnas.add(c);
+    for (const c of columnasDeFragmento(clausulas, tabla, aliasTabla, aliasesDeColumna)) columnas.add(c);
     return { tabla, columnas: [...columnas] };
 }
 
