@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { NextRequest } from "next/server";
 import pool from "@/modules/storage/db";
-import { altaDeMiembro } from "@/services/tenantMembership.service";
+import { altaDeMiembroTransaccional } from "@/services/tenantMembership.service";
 import { hasAccess } from "@/lib/tierLogic";
 import { isCorporateEmail } from "@/lib/authGuard";
 import { marcarComoFondo } from "@/lib/prioridadDeLlamada";
@@ -510,29 +510,16 @@ async function admitirMiembroDelDirectorio(identity: RequestIdentity, tenantId: 
   // Sin fila. Sin un id inmutable no se puede provisionar: no es lo mismo que "no entra por tid".
   if (!oid || !identity.email) throw new AuthError(MENSAJE_SIN_MEMBRESIA, 403, "MEMBERSHIP_REQUIRED");
 
-  const connection = await pool.getConnection();
-  try {
-    await connection.beginTransaction();
-    const alta = await altaDeMiembro(connection, { tenantId, entraOid: oid, email: identity.email }, { modo: "peticion" });
-    if (alta.resultado === "creado" || alta.resultado === "existente") {
-      await connection.commit();
-      return identity;
-    }
-    await connection.rollback();
-    if (alta.resultado === "sin-cupo") {
-      throw new AuthError(
-        `Tu organización alcanzó el límite de usuarios del plan ${alta.tier} (${alta.limite}). Pedile a un administrador que libere un lugar o amplíe el plan.`,
-        403,
-        "MEMBERSHIP_REQUIRED"
-      );
-    }
-    throw new AuthError(MENSAJE_SIN_MEMBRESIA, 403, "MEMBERSHIP_REQUIRED");
-  } catch (e) {
-    try { await connection.rollback(); } catch { /* ya revertida */ }
-    throw e;
-  } finally {
-    connection.release();
+  const alta = await altaDeMiembroTransaccional(pool, { tenantId, entraOid: oid, email: identity.email }, { modo: "peticion" });
+  if (alta.resultado === "creado" || alta.resultado === "existente") return identity;
+  if (alta.resultado === "sin-cupo") {
+    throw new AuthError(
+      `Tu organización alcanzó el límite de usuarios del plan ${alta.tier} (${alta.limite}). Pedile a un administrador que libere un lugar o amplíe el plan.`,
+      403,
+      "MEMBERSHIP_REQUIRED"
+    );
   }
+  throw new AuthError(MENSAJE_SIN_MEMBRESIA, 403, "MEMBERSHIP_REQUIRED");
 }
 
 const MENSAJE_SIN_MEMBRESIA = "Tu cuenta no tiene acceso a esta organización. Pedile a un administrador que te dé de alta.";

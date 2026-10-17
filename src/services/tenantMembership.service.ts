@@ -69,3 +69,27 @@ export async function altaDeMiembro(
   );
   return { resultado: esNuevo ? "creado" : "existente", rol, esNuevo };
 }
+
+/**
+ * `altaDeMiembro` dentro de su propia transacción, para los llamadores que no tienen una abierta (el guard y
+ * `GET /api/tenants`). Confirma sólo si el miembro quedó admitido; en cualquier otro resultado o error, revierte.
+ */
+export async function altaDeMiembroTransaccional(
+  pool: { getConnection(): Promise<PoolConnection> },
+  miembro: { tenantId: string; entraOid: string; email: string },
+  opciones: { modo: ModoDeAlta; systemRole?: string },
+): Promise<ResultadoDeAlta> {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const alta = await altaDeMiembro(connection, miembro, opciones);
+    if (alta.resultado === "creado" || alta.resultado === "existente") await connection.commit();
+    else await connection.rollback();
+    return alta;
+  } catch (e) {
+    try { await connection.rollback(); } catch { /* ya revertida */ }
+    throw e;
+  } finally {
+    connection.release();
+  }
+}

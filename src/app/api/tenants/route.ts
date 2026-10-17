@@ -6,6 +6,7 @@ import { setTenantCredentials } from "@/lib/secrets/tenantCredentials";
 import { assertProviderIngestable, ProviderDisabledError } from "@/services/providerLifecycleService";
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 import { isSuperAdminBootstrapEmail } from "@/lib/superAdminBootstrap";
+import { altaDeMiembroTransaccional } from "@/services/tenantMembership.service";
 
 async function hasTenantColumn(columnName: string): Promise<boolean> {
     const [rows] = await pool.query(
@@ -145,17 +146,25 @@ export async function GET(request: NextRequest) {
                 [identity.tenantId]
             );
             if (Array.isArray(directTenantRows) && directTenantRows.length > 0) {
-                tenantRows = directTenantRows;
-                // Auto-vincular usuario en Users para ese tenant
-                try {
-                    await pool.query(
-                        `INSERT INTO Users (entra_oid, email, tenant_id, role, display_name)
-                         VALUES (?, ?, ?, 'Admin', ?)
-                         ON DUPLICATE KEY UPDATE tenant_id = VALUES(tenant_id)`,
-                        [identity.claims.oid || email, email, identity.tenantId, email.split('@')[0]]
-                    );
-                } catch (userErr) {
-                    console.warn(`[tenants] Auto-insert user for verified tenant failed:`, errorMessage(userErr));
+                // STRIDE-03: el auto-vínculo usa la MISMA regla de admisión que el login (`altaDeMiembro`): el primer
+                // usuario del tenant queda Owner, los siguientes Reader, con el cupo de usuarios del plan, y no se
+                // escala el rol de quien ya existe. Antes se insertaba `role = 'Admin'` sin límite ni regla del primero,
+                // y el tenant se mostraba aunque el alta fallara.
+                //
+                // El tenant sólo se expone si el usuario quedó admitido. Sin `oid` no se puede provisionar (antes se usaba
+                // el email como id, que no es inmutable), y ante un error de base no se concede visibilidad.
+                const oid = identity.claims.oid;
+                if (oid) {
+                    try {
+                        const alta = await altaDeMiembroTransaccional(
+                            pool,
+                            { tenantId: identity.tenantId, entraOid: oid, email },
+                            { modo: 'login' }
+                        );
+                        if (alta.resultado === 'creado' || alta.resultado === 'existente') tenantRows = directTenantRows;
+                    } catch (userErr) {
+                        console.warn(`[tenants] Alta de miembro para tenant verificado falló:`, errorMessage(userErr));
+                    }
                 }
             }
         }
