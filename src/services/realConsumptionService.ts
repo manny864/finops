@@ -927,8 +927,6 @@ export async function getRealConsumptionOverview(
                     COALESCE(NULLIF(service_name, ''), 'Other') as service_name,
                     COALESCE(ResourceId, '') as resource_id,
                     COALESCE(NULLIF(resource_group, ''), '') as resource_group,
-                    COALESCE(NULLIF(region, ''), '') as region,
-                    COALESCE(NULLIF(sku, ''), '') as sku,
                     COALESCE(NULLIF(MeterName, ''), '') as meter_name,
                     MAX(Tags) as tags_json,
                     COALESCE(SUM(COALESCE(EffectiveCost, cost_usd, 0)), 0) as effective_cost,
@@ -937,7 +935,7 @@ export async function getRealConsumptionOverview(
                 WHERE 
                     tenant_id = ?
                     AND COALESCE(ChargePeriodStart, date) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-                GROUP BY service_name, COALESCE(ResourceId, ''), resource_group, region, sku, MeterName
+                GROUP BY service_name, COALESCE(ResourceId, ''), resource_group, MeterName
                 ORDER BY effective_cost DESC
             `;
             const [rows] = await conn.execute<any[]>(query, [tenantId]);
@@ -968,14 +966,10 @@ export async function getRealConsumptionOverview(
                     rowRg = defaultTenantRg;
                 }
 
-                // Resolver Región real
-                let rowRegion = row.region;
-                if (!rowRegion || rowRegion === "global" || rowRegion === "null") {
-                    rowRegion = defaultRegion;
-                }
-
-                // Resolver SKU real
-                const rowSku = row.sku || row.meter_name || "Standard";
+                // CostSnapshots no guarda región ni SKU (sólo CostMeterSnapshots.resource_location): la región es la
+                // principal del inventario y el SKU sale del medidor.
+                const rowRegion = defaultRegion;
+                const rowSku = row.meter_name || "Standard";
 
                 // Resolver nombre de recurso real
                 let resId = row.resource_id;
