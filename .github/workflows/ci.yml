@@ -1,10 +1,16 @@
 name: CI
 
-# En `pull_request` corre todo. En `push` a main corre SOLO el job de tests:
-# lint, typecheck y build ya los hace el `next build` de la imagen en
-# deploy-azure.yml, pero vitest no lo corre nadie — un push a main entraba a
-# produccion sin que se ejecutara un solo test. Los otros tres jobs quedan
-# condicionados para no pagar minutos por lo que el deploy ya verifica.
+# En `pull_request` corre todo. En `push` a main corre SOLO el job de tests, y
+# solo si el push toca tests.
+#
+# Por que no en todo push (2026-10-17): deploy-azure.yml ya tiene una puerta que
+# corre lint, typecheck, la suite y las pruebas con MySQL/Redis/Azurite antes de
+# tocar Azure. Correr tambien el job de tests aca duplicaba la suite completa en
+# cada push (~700 min/mes de runner medidos). El unico push que la puerta no
+# cubre es el que toca SOLO tests: deploy-azure.yml los ignora para no
+# reconstruir la imagen por un cambio que no llega a prod, asi que ese push se
+# queda con este job. Si cambias los globs de abajo, cambia el `paths-ignore` de
+# deploy-azure.yml, o un push quedara sin ninguna de las dos.
 on:
   pull_request:
     branches: [main]
@@ -20,16 +26,10 @@ on:
       - '**/*.webp'
   push:
     branches: [main]
-    paths-ignore:
-      - 'infra/**'
-      - 'docs/**'
-      - '**.md'
-      - '**/*.png'
-      - '**/*.jpg'
-      - '**/*.jpeg'
-      - '**/*.gif'
-      - '**/*.svg'
-      - '**/*.webp'
+    paths:
+      - '__tests__/**'
+      - '**/*.test.ts'
+      - '**/*.test.tsx'
 
 # Explícito aunque el default del repo ya sea de sólo lectura: que el permiso no
 # dependa de un ajuste que se cambia desde Settings sin pasar por un PR. Ningún
@@ -42,34 +42,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
-    name: Lint
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: package-lock.json
-      - run: npm ci --no-audit --no-fund --prefer-offline --loglevel=error
-      - run: npm run lint -- --quiet
-
-  typecheck:
-    name: Type Check
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: package-lock.json
-      - run: npm ci --no-audit --no-fund --prefer-offline --loglevel=error
-      - run: npm run typecheck -- --pretty false
-
   test:
     name: Unit & Integration Tests
     runs-on: ubuntu-latest
@@ -170,11 +142,14 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
-  build:
-    name: Build
+  # Lint, typecheck y build en UN job (2026-10-17). Eran tres jobs con su propio
+  # checkout + setup-node + `npm ci`: ~1 min de runner repetido dos veces por PR
+  # (~100 min/mes medidos). Mismo orden y mismo fallo-rapido que antes: el build
+  # (el paso caro) solo corre si lint y typecheck pasaron.
+  verify:
+    name: Lint + Type Check + Build
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    needs: [lint, typecheck]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -183,6 +158,8 @@ jobs:
           cache: 'npm'
           cache-dependency-path: package-lock.json
       - run: npm ci --no-audit --no-fund --prefer-offline --loglevel=error
+      - run: npm run lint -- --quiet
+      - run: npm run typecheck -- --pretty false
       # Cache de build de Next.js (https://nextjs.org/docs/messages/no-cache):
       # `cache: 'npm'` de setup-node sólo cachea node_modules, no .next/cache
       # (el cache incremental del compilador). Sin esto cada build recompila
