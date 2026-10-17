@@ -7,6 +7,7 @@ import { assertProviderIngestable, ProviderDisabledError } from "@/services/prov
 import { errorMessage, errorStatus } from '@/lib/apiErrors';
 import { isSuperAdminBootstrapEmail } from "@/lib/superAdminBootstrap";
 import { altaDeMiembroTransaccional } from "@/services/tenantMembership.service";
+import type { AccesoDenegado } from "@/types/accesoTenant.types";
 
 async function hasTenantColumn(columnName: string): Promise<boolean> {
     const [rows] = await pool.query(
@@ -131,6 +132,8 @@ export async function GET(request: NextRequest) {
         let tenantRows = rows as Array<{ id: string; name: string; tier?: string; subscription_status?: string; is_onboarded?: boolean }>;
 
         // Si el usuario no tiene fila en Users pero su tenant_id tiene suscripción activa/compra confirmada
+        // STRIDE-03: si no puede ver ningún tenant, la interfaz necesita saber POR QUÉ (cupo, suscripción…).
+        let acceso: AccesoDenegado | undefined;
         if (!isSuperAdmin && tenantRows.length === 0 && identity.tenantId) {
             const [directTenantRows]: any = await pool.query(
                 `SELECT tenant_id as id, company_name as name, client_id,
@@ -154,7 +157,9 @@ export async function GET(request: NextRequest) {
                 // El tenant sólo se expone si el usuario quedó admitido. Sin `oid` no se puede provisionar (antes se usaba
                 // el email como id, que no es inmutable), y ante un error de base no se concede visibilidad.
                 const oid = identity.claims.oid;
-                if (oid) {
+                if (!oid) {
+                    acceso = { motivo: 'SIN_ACCESO' };
+                } else {
                     try {
                         const alta = await altaDeMiembroTransaccional(
                             pool,
@@ -162,10 +167,15 @@ export async function GET(request: NextRequest) {
                             { modo: 'login' }
                         );
                         if (alta.resultado === 'creado' || alta.resultado === 'existente') tenantRows = directTenantRows;
+                        else if (alta.resultado === 'sin-cupo') acceso = { motivo: 'SIN_CUPO', tier: alta.tier, limite: alta.limite };
+                        else acceso = { motivo: 'SIN_ACCESO' };
                     } catch (userErr) {
+                        // Un error de base no es una negativa: no se informa un motivo que no se verificó.
                         console.warn(`[tenants] Alta de miembro para tenant verificado falló:`, errorMessage(userErr));
                     }
                 }
+            } else {
+                acceso = { motivo: 'SIN_SUSCRIPCION' };
             }
         }
 
@@ -188,6 +198,7 @@ export async function GET(request: NextRequest) {
             tenants: allTenants,
             isRegistered: allTenants.length > 0,
             isSuperAdmin,
+            ...(allTenants.length === 0 && acceso ? { acceso } : {}),
         });
     } catch (error: unknown) {
         if (error instanceof AuthError) {
