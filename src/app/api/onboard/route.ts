@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import pool, { initializeDatabase } from "@/modules/storage/db";
 import { requireRequestIdentity } from "@/lib/requestAuth";
 import { sendEmailAsync, getWelcomeEmailHtml, getInternalSignupAlertEmailHtml } from "@/lib/emailHelper";
-import { getUserLimit } from "@/lib/tierLogic";
+import { altaDeMiembro } from "@/services/tenantMembership.service";
 import { SUPERADMIN_BOOTSTRAP_TENANT_ID } from "@/lib/superAdminBootstrap";
 import { atribuirReferido } from "@/services/affiliates.service";
 import rateLimiter from "@/lib/rateLimiter";
@@ -200,66 +200,26 @@ export async function POST(request: NextRequest) {
                 ]);
             }
 
-            // Determine role for this user.
-            // El PRIMER usuario del tenant es su creador -> Owner (dueño del
-            // tenant: acceso completo, incluye cambio de plan y facturación —
-            // ver jerarquía Reader < Colaborador < Admin < Owner en el manual
-            // de usuario y docs/roles-y-permisos.md). Los usuarios siguientes
-            // entran como Reader (solo lectura) y un Admin/Owner los promueve
-            // desde /admin/users. (Antes el creador quedaba Admin y nadie
-            // recibía nunca Owner, aunque medio código ya lo chequeaba.)
-            const [existingUsers] = await connection.query(
-                'SELECT COUNT(*) as cnt FROM Users WHERE tenant_id = ? AND (entra_oid IS NULL OR entra_oid <> ?)',
-                [tenantId, entraOid]
-            );
-            const existingCount = Array.isArray(existingUsers) && existingUsers.length > 0
-                ? Number((existingUsers[0] as { cnt: number }).cnt)
-                : 0;
-            const userRole = existingCount === 0 ? 'Owner' : 'Reader';
+            // Alta del usuario: misma regla de admisión que usa el guard (`altaDeMiembro`): el primer usuario del
+            // tenant queda Owner, los siguientes Reader (ver docs/roles-y-permisos.md), con el límite de usuarios del
+            // plan sólo para altas NUEVAS y sin escalar el rol de quien ya existe.
             let systemRole = 'USER';
-
             // Auto-promote CSCloudSolutions master tenant admins to SUPERADMIN
             if (email.toLowerCase().endsWith('@cscloudsolutions.com.ar') && tenantId === SUPERADMIN_BOOTSTRAP_TENANT_ID) {
                 systemRole = 'SUPERADMIN';
             }
-
-            // Límite de usuarios por plan (Professional=5,
-            // Business=20, Enterprise=sin límite). Solo bloquea altas
-            // NUEVAS — un usuario ya provisionado (mismo entra_oid) siempre
-            // puede seguir logueándose aunque el tenant esté hoy en o sobre
-            // el límite (p. ej. después de un downgrade).
-            const [isNewUserRows] = await connection.query(
-                'SELECT 1 FROM Users WHERE tenant_id = ? AND entra_oid = ? LIMIT 1',
-                [tenantId, entraOid]
-            );
-            const isNewUser = !Array.isArray(isNewUserRows) || isNewUserRows.length === 0;
-
-            if (isNewUser && systemRole !== 'SUPERADMIN') {
-                const [tenantTierRows] = await connection.query(
-                    'SELECT tier FROM Tenants WHERE tenant_id = ? LIMIT 1',
-                    [tenantId]
-                );
-                const currentTier = (Array.isArray(tenantTierRows) && tenantTierRows.length > 0)
-                    ? String((tenantTierRows[0] as { tier?: string }).tier || 'Professional')
-                    : 'Professional';
-                const userLimit = getUserLimit(currentTier);
-                // existingCount ya excluye a este usuario (entra_oid <> ?), así que
-                // agregarlo llevaría el total a existingCount + 1.
-                if (Number.isFinite(userLimit) && existingCount + 1 > userLimit) {
-                    await connection.rollback();
-                    return NextResponse.json({
-                        error: `Tu organización alcanzó el límite de usuarios del plan ${currentTier} (${userLimit}). Pedile a un administrador que libere un usuario o actualice el plan para agregar más.`,
-                    }, { status: 403 });
-                }
+            const alta = await altaDeMiembro(connection, { tenantId, entraOid, email }, { modo: 'login', systemRole });
+            if (alta.resultado === 'sin-cupo') {
+                await connection.rollback();
+                return NextResponse.json({
+                    error: `Tu organización alcanzó el límite de usuarios del plan ${alta.tier} (${alta.limite}). Pedile a un administrador que libere un usuario o actualice el plan para agregar más.`,
+                }, { status: 403 });
             }
-
-            // UPSERT User. Never escalate role on duplicate: preserve existing role.
-            const insertUserQuery = `
-                INSERT INTO Users (entra_oid, tenant_id, email, role, system_role)
-                VALUES (?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE email = VALUES(email)
-            `;
-            await connection.query(insertUserQuery, [entraOid, tenantId, email, userRole, systemRole]);
+            if (alta.resultado !== 'creado' && alta.resultado !== 'existente') {
+                // En modo login el tenant ya existe (se creó o se verificó arriba) y el primer usuario es Owner.
+                throw new Error(`Alta de miembro imposible: ${alta.resultado}`);
+            }
+            const isNewUser = alta.esNuevo;
 
             // Atribucion del programa de afiliados. El codigo llega en la cookie
             // `affiliate_ref` que puso AffiliateTracker cuando el visitante entro

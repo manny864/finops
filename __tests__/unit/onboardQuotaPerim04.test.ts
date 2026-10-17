@@ -76,6 +76,9 @@ function connection() {
         release: vi.fn(),
         query: vi.fn(async (sql: string, params: unknown[] = []) => {
             queries.push({ sql: String(sql), params });
+            // El alta de miembros (`altaDeMiembro`) bloquea la fila del tenant: en la base real existe, porque el
+            // `INSERT IGNORE INTO Tenants` de arriba corre antes en la misma transacción.
+            if (/FROM Tenants/.test(String(sql))) return [[{ tier: "Professional" }], []];
             return [[], []];
         }),
     };

@@ -14,12 +14,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
  * plan lo permite; nunca crea Owner ni SuperAdmin (el primero de un tenant sigue pasando por /api/onboard); INVITED no
  * entra ni se activa sola; sin suscripción o sin cupo responde 403 MEMBERSHIP_REQUIRED.
  *
- * Estas pruebas se escribieron ANTES de tocar el guard:
- *  - los grupos «vigente» y «orden login → API» describen lo que ya se cumple y NO debe romperse;
- *  - el grupo «STRIDE-03» describe el comportamiento nuevo y hoy FALLA a propósito. Se marca con `it.fails` para que el
- *    CI siga verde: cuando el guard se implemente esas pruebas pasarán de verdad, `it.fails` fallará con «Expect test to
- *    fail» y habrá que cambiarlas a `it`. Con `STRIDE03_ACTIVO=1` corren como pruebas normales (rojas hoy) para ver el
- *    motivo exacto de cada fallo.
+ * Se escribieron ANTES de tocar el guard (rojas por el motivo correcto) y pasan con la implementación de
+ * `admitirMiembroDelDirectorio` + `altaDeMiembro`. Los grupos «vigente» y «orden login → API» fijan lo que no debe romperse.
  *
  * Sólo usa un MySQL local descartable (MYSQL_SECURITY_PORT); nunca credenciales ni datos de la aplicación.
  */
@@ -52,8 +48,6 @@ const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", { modulusLen
 const key = { ...publicKey.export({ format: "jwk" }), kid: "membership-test", kty: "RSA" };
 const CRON = "cron-secret-sintetico-de-32-caracteres!";
 
-/** Pruebas del comportamiento nuevo: esperadas en rojo hasta implementar el guard (ver cabecera). */
-const nuevo = process.env.STRIDE03_ACTIVO === "1" ? it : it.fails;
 
 type Who = { tid: string; oid: string; email: string };
 const quien = (tid: string, n: string, dominio = "example.test"): Who => ({ tid, oid: `oid-${n}`, email: `${n}@${dominio}` });
@@ -242,15 +236,15 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("membresía de aplicación con
         });
     });
 
-    describe("STRIDE-03: fila ACTIVE en cada petición; el guard la crea como Reader si el plan lo permite (rojas hasta implementarlo)", () => {
-        nuevo("un miembro del directorio sin fila entra y queda ACTIVE como Reader si el plan lo permite", async () => {
+    describe("STRIDE-03: fila ACTIVE en cada petición; el guard la crea como Reader si el plan lo permite ", () => {
+        it("un miembro del directorio sin fila entra y queda ACTIVE como Reader si el plan lo permite", async () => {
             const nadie = quien(ALPHA, "nadie");
             await tenant(ALPHA); await fila(quien(ALPHA, "dueno"), { role: "Owner" });
             expect(await acceso(ALPHA, nadie)).toBe("ok");
             expect(await filaDe(nadie)).toEqual({ role: "Reader", account_status: "ACTIVE" });
         });
 
-        nuevo("el guard nunca crea Owner ni SuperAdmin, aunque el correo sea corporativo", async () => {
+        it("el guard nunca crea Owner ni SuperAdmin, aunque el correo sea corporativo", async () => {
             const corp = quien(ALPHA, "ops", "cscloudsolutions.com.ar");
             await tenant(ALPHA); await fila(quien(ALPHA, "dueno"), { role: "Owner" });
             expect(await acceso(ALPHA, corp)).toBe("ok");
@@ -259,7 +253,7 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("membresía de aplicación con
             expect(rows[0]).toEqual({ role: "Reader", system_role: "USER" });
         });
 
-        nuevo("un tenant sin ningún usuario no admite por petición: el primero pasa por onboard y queda Owner", async () => {
+        it("un tenant sin ningún usuario no admite por petición: el primero pasa por onboard y queda Owner", async () => {
             const primero = quien(ALPHA, "primero");
             await tenant(ALPHA);
             expect(await acceso(ALPHA, primero)).toEqual({ status: 403, code: "MEMBERSHIP_REQUIRED" });
@@ -268,20 +262,20 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("membresía de aplicación con
             expect(await filaDe(primero)).toEqual({ role: "Owner", account_status: "ACTIVE" });
         });
 
-        nuevo("una fila INVITED del mismo tenant no entra ni se activa sola", async () => {
+        it("una fila INVITED del mismo tenant no entra ni se activa sola", async () => {
             const ines = quien(ALPHA, "ines");
             await tenant(ALPHA); await fila(ines, { status: "INVITED" });
             expect(await acceso(ALPHA, ines)).toEqual({ status: 403, code: "MEMBERSHIP_REQUIRED" });
             expect(await filaDe(ines)).toMatchObject({ account_status: "INVITED" });
         });
 
-        nuevo("una fila INVITED en otro tenant tampoco entra", async () => {
+        it("una fila INVITED en otro tenant tampoco entra", async () => {
             const luis = quien(BETA, "luis");
             await tenant(ALPHA); await fila(luis, { tenant: ALPHA, status: "INVITED" });
             expect(await acceso(ALPHA, luis)).toMatchObject({ status: 403 });
         });
 
-        nuevo("quien supera el límite del plan no entra llamando directo a la API y no queda con fila", async () => {
+        it("quien supera el límite del plan no entra llamando directo a la API y no queda con fila", async () => {
             await tenant(ALPHA, "Professional");
             for (const n of ["u1", "u2", "u3"]) await fila(quien(ALPHA, n));
             const cuarto = quien(ALPHA, "u4");
@@ -290,13 +284,13 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("membresía de aplicación con
             expect(await filaDe(cuarto)).toBeUndefined();
         });
 
-        nuevo("sin fila en la base de tenants (sin suscripción) no entra ni se crea fila", async () => {
+        it("sin fila en la base de tenants (sin suscripción) no entra ni se crea fila", async () => {
             const eva = quien(ALPHA, "eva");
             expect(await acceso(ALPHA, eva)).toEqual({ status: 403, code: "MEMBERSHIP_REQUIRED" });
             expect(await filaDe(eva)).toBeUndefined();
         });
 
-        nuevo("cinco primeras peticiones simultáneas del mismo usuario crean una sola fila", async () => {
+        it("cinco primeras peticiones simultáneas del mismo usuario crean una sola fila", async () => {
             const ana = quien(ALPHA, "ana");
             await tenant(ALPHA); await fila(quien(ALPHA, "dueno"), { role: "Owner" });
             const r = await Promise.all([1, 2, 3, 4, 5].map(() => acceso(ALPHA, ana)));
@@ -306,7 +300,7 @@ describe.skipIf(!process.env.MYSQL_SECURITY_PORT)("membresía de aplicación con
             expect(rows[0].n).toBe(1);
         });
 
-        nuevo("altas simultáneas de usuarios distintos no superan el límite del plan", async () => {
+        it("altas simultáneas de usuarios distintos no superan el límite del plan", async () => {
             await tenant(ALPHA, "Professional");
             await fila(quien(ALPHA, "u1"), { role: "Owner" }); await fila(quien(ALPHA, "u2"));
             const r = await Promise.all(["n1", "n2", "n3", "n4"].map((n) => acceso(ALPHA, quien(ALPHA, n))));
